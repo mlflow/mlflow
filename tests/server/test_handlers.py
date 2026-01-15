@@ -24,6 +24,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1629,6 +1630,53 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     assert response_data == {}
 
 
+def test_get_online_scoring_configs_batch(mock_tracking_store):
+    mock_configs = [
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-1",
+            scorer_id="scorer-1",
+            sample_rate=0.5,
+            filter_string="status = 'OK'",
+            experiment_id="exp1",
+        ),
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-2",
+            scorer_id="scorer-2",
+            sample_rate=0.8,
+            experiment_id="exp1",
+        ),
+    ]
+    mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
+
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+            query_string=[("scorer_ids", "scorer-1"), ("scorer_ids", "scorer-2")],
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
+        assert len(data["configs"]) == 2
+        configs_by_id = {c["scorer_id"]: c for c in data["configs"]}
+        assert configs_by_id["scorer-1"]["sample_rate"] == 0.5
+        assert configs_by_id["scorer-1"]["filter_string"] == "status = 'OK'"
+        assert configs_by_id["scorer-2"]["sample_rate"] == 0.8
+        assert configs_by_id["scorer-2"].get("filter_string") is None
+
+    mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
+
+
+def test_get_online_scoring_configs_missing_param(mock_tracking_store):
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "scorer_ids" in data["message"]
+
+
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["123", "456"]
     filter_string1 = "span.type = 'LLM'"
@@ -2559,6 +2607,62 @@ def test_litellm_not_available():
             assert "LiteLLM is not installed" in data["message"]
 
 
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+        "invalid#name",  # hash
+        "invalid@name",  # at sign
+        "invalid:name",  # colon
+        "日本語",  # unicode (Japanese)
+        "naïve",  # unicode (accented)
+    ],
+)
+def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+    ],
+)
+def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
+    from mlflow.server.handlers import _update_gateway_endpoint
+
+    request_msg = UpdateGatewayEndpoint()
+    request_msg.endpoint_id = "test-endpoint-id"
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _update_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["exp1", "exp2"]
     metric_name = "latency"
@@ -2703,7 +2807,7 @@ def test_invoke_scorer_missing_trace_ids():
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "trace_ids" in data["message"]
+        assert "Please select at least one trace to evaluate" in data["message"]
 
 
 def test_invoke_scorer_submits_jobs(mock_tracking_store):

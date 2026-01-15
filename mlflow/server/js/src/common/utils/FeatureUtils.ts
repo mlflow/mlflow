@@ -40,20 +40,19 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
-export const shouldRerunExperimentUISeeding = () => false;
 
 /**
  * Feature flag to enable Scorers UI tab in experiment page
  */
 export const enableScorersUI = () => {
-  return false;
+  return true;
 };
 
 /**
  * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
  */
 export const isRunningScorersEnabled = () => {
-  return false;
+  return true;
 };
 
 /**
@@ -63,13 +62,8 @@ export const isEvaluatingSessionsInScorersEnabled = () => {
   if (!enableScorersUI() || !isRunningScorersEnabled()) {
     return false;
   }
-  return false;
+  return true;
 };
-
-/**
- * Determines if experiment kind inference is enabled.
- */
-export const shouldEnableExperimentKindInference = () => true;
 
 /**
  * Determines if the new prompts tab on DB platform is enabled.
@@ -101,10 +95,6 @@ export const shouldUseGetLoggedModelsBatchAPI = () => {
  * A flag determining if we should display the new models UI.
  */
 export const shouldShowModelsNextUI = () => {
-  return true;
-};
-
-export const shouldEnableTracesV3View = () => {
   return true;
 };
 
@@ -152,15 +142,6 @@ export const shouldEnableArtifactsOnRunDetailsPage = () => {
   return false;
 };
 
-/**
- * Determines if the assessments pane should be disabled when trace info fetch fails.
- * In OSS, we keep the pane enabled to avoid confusing users (showing stale data is better than nothing).
- * In Databricks, we disable it because playground creates fake traces that can't have assessments.
- */
-export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
-  return false;
-};
-
 export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
@@ -169,5 +150,5 @@ export const shouldEnableExperimentPageSideTabs = () => {
  * Determines if the Overview tab is enabled on the experiment page
  */
 export const shouldEnableExperimentOverviewTab = () => {
-  return false;
+  return true;
 };

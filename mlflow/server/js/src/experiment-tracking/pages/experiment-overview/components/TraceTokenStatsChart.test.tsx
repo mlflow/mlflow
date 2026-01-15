@@ -13,33 +13,9 @@ import {
   P99,
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
-
-// Helper to chain mock API responses (for percentiles + AVG calls)
-const mockApiResponses = (percentileDataPoints: any[], avgDataPoints: any[]) => {
-  mockFetchOrFail
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: percentileDataPoints }),
-    } as Response)
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: avgDataPoints }),
-    } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a token stats percentile data point
 const createTokenStatsDataPoint = (timeBucket: string, p50: number, p90: number, p99: number) => ({
@@ -73,14 +49,16 @@ describe('TraceTokenStatsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
     timeBuckets,
   };
+
+  const server = setupServer();
 
   const createQueryClient = () =>
     new QueryClient({
@@ -91,37 +69,65 @@ describe('TraceTokenStatsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceTokenStatsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceTokenStatsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
   };
 
+  // Helper to setup MSW handler for trace metrics endpoint with routing based on aggregations
+  const setupTraceMetricsHandler = (percentileDataPoints: any[], avgDataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        // Check if this is a percentile request or AVG request
+        const hasPercentileAggregation = body.aggregations?.some(
+          (a: any) => a.aggregation_type === AggregationType.PERCENTILE,
+        );
+        if (hasPercentileAggregation) {
+          return res(ctx.json({ data_points: percentileDataPoints }));
+        }
+        return res(ctx.json({ data_points: avgDataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([], []);
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
-      // Create a promise that never resolves to keep the component in loading state
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+    it('should render loading skeleton while data is being fetched', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
-      // Check for spinner (loading state)
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Tokens per Trace')).not.toBeInTheDocument();
     });
   });
 
   describe('error state', () => {
     it('should render error message when time series API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -133,7 +139,7 @@ describe('TraceTokenStatsChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponses([], []);
+      setupTraceMetricsHandler([], []);
 
       renderComponent();
 
@@ -143,7 +149,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should render empty state when time range is not provided', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([], []);
 
       renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
@@ -162,7 +168,7 @@ describe('TraceTokenStatsChart', () => {
     const mockAvgDataPoints = [createAvgTokenStatsDataPoint(2500)];
 
     it('should render chart with all time buckets', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -175,7 +181,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should display all three percentile lines', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -187,7 +193,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should display the average tokens in header', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -198,7 +204,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should display the "Tokens per Trace" title', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -207,18 +213,8 @@ describe('TraceTokenStatsChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should display "avg per trace" subtitle', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -228,7 +224,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should format token count in millions for values >= 1,000,000', async () => {
-      mockApiResponses(mockPercentileDataPoints, [createAvgTokenStatsDataPoint(1500000)]);
+      setupTraceMetricsHandler(mockPercentileDataPoints, [createAvgTokenStatsDataPoint(1500000)]);
 
       renderComponent();
 
@@ -239,7 +235,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should format token count in thousands for values >= 1,000', async () => {
-      mockApiResponses(mockPercentileDataPoints, [createAvgTokenStatsDataPoint(5000)]);
+      setupTraceMetricsHandler(mockPercentileDataPoints, [createAvgTokenStatsDataPoint(5000)]);
 
       renderComponent();
 
@@ -250,7 +246,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should render reference line with AVG label', async () => {
-      mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
+      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
 
@@ -263,7 +259,10 @@ describe('TraceTokenStatsChart', () => {
 
     it('should fill missing time buckets with zeros', async () => {
       // Only provide data for one time bucket
-      mockApiResponses([createTokenStatsDataPoint('2025-12-22T10:00:00Z', 1500, 3500, 8000)], mockAvgDataPoints);
+      setupTraceMetricsHandler(
+        [createTokenStatsDataPoint('2025-12-22T10:00:00Z', 1500, 3500, 8000)],
+        mockAvgDataPoints,
+      );
 
       renderComponent();
 
@@ -275,12 +274,26 @@ describe('TraceTokenStatsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail for percentiles with correct parameters', async () => {
+    it('should call API for percentiles with correct parameters', async () => {
+      let capturedPercentileRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          const hasPercentileAggregation = body.aggregations?.some(
+            (a: any) => a.aggregation_type === AggregationType.PERCENTILE,
+          );
+          if (hasPercentileAggregation) {
+            capturedPercentileRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedPercentileRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -293,13 +306,24 @@ describe('TraceTokenStatsChart', () => {
       });
     });
 
-    it('should call fetchOrFail for AVG with correct parameters', async () => {
+    it('should call API for AVG with correct parameters', async () => {
+      let capturedAvgRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          const hasAvgAggregation = body.aggregations?.some((a: any) => a.aggregation_type === AggregationType.AVG);
+          if (hasAvgAggregation) {
+            capturedAvgRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        // Second call is for AVG
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[1]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedAvgRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -309,36 +333,72 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should use provided time interval', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // Capture request with time_interval_seconds (percentile request)
+          if (body.time_interval_seconds !== undefined) {
+            capturedRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedRequest?.time_interval_seconds).toBe(60);
       });
     });
 
     it('should use provided time interval for hourly grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // Capture request with time_interval_seconds (percentile request)
+          if (body.time_interval_seconds !== undefined) {
+            capturedRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 3600 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(3600);
+        expect(capturedRequest?.time_interval_seconds).toBe(3600);
       });
     });
 
     it('should use provided time interval for daily grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // Capture request with time_interval_seconds (percentile request)
+          if (body.time_interval_seconds !== undefined) {
+            capturedRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 86400 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(86400);
+        expect(capturedRequest?.time_interval_seconds).toBe(86400);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing percentile values gracefully', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -358,7 +418,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should handle missing AVG data gracefully', async () => {
-      mockApiResponses([createTokenStatsDataPoint('2025-12-22T10:00:00Z', 1500, 3500, 8000)], []);
+      setupTraceMetricsHandler([createTokenStatsDataPoint('2025-12-22T10:00:00Z', 1500, 3500, 8000)], []);
 
       renderComponent();
 
@@ -372,7 +432,7 @@ describe('TraceTokenStatsChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.TOTAL_TOKENS,

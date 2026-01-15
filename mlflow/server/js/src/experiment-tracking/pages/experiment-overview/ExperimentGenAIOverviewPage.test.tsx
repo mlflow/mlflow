@@ -28,14 +28,17 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview`) => {
+  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview/usage`) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
           <MemoryRouter initialEntries={[initialUrl]}>
             <Routes>
-              <Route path="/experiments/:experimentId/overview" element={<ExperimentGenAIOverviewPage />} />
+              <Route
+                path="/experiments/:experimentId/overview/:overviewTab?"
+                element={<ExperimentGenAIOverviewPage />}
+              />
             </Routes>
           </MemoryRouter>
         </DesignSystemProvider>
@@ -52,11 +55,13 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('page rendering', () => {
-    it('should render the Usage tab', async () => {
+    it('should render all tabs', async () => {
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByRole('tab', { name: 'Usage' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
       });
     });
 
@@ -77,12 +82,10 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should render the control bar with search and time range selector', async () => {
+    it('should render the control bar with time range selector', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Search input
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
         // Time range selector
         expect(screen.getByRole('combobox')).toBeInTheDocument();
       });
@@ -97,45 +100,37 @@ describe('ExperimentGenAIOverviewPage', () => {
         expect(screen.getByRole('tabpanel')).toBeInTheDocument();
       });
     });
-  });
 
-  describe('search input handling', () => {
-    it('should render the search input with placeholder', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Search charts');
-        expect(searchInput).toBeInTheDocument();
-      });
-    });
-
-    it('should allow typing in the search input', async () => {
+    it('should switch to Quality tab when clicked', async () => {
       const user = userEvent.setup();
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.type(searchInput, 'test query');
+      await user.click(screen.getByRole('tab', { name: 'Quality' }));
 
-      expect(searchInput).toHaveValue('test query');
+      await waitFor(() => {
+        const qualityTab = screen.getByRole('tab', { name: 'Quality' });
+        expect(qualityTab).toHaveAttribute('aria-selected', 'true');
+      });
     });
 
-    it('should update search query state when typing', async () => {
+    it('should switch to Tool calls tab when clicked', async () => {
       const user = userEvent.setup();
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.clear(searchInput);
-      await user.type(searchInput, 'my search');
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
 
-      expect(searchInput).toHaveValue('my search');
+      await waitFor(() => {
+        const toolCallsTab = screen.getByRole('tab', { name: 'Tool calls' });
+        expect(toolCallsTab).toHaveAttribute('aria-selected', 'true');
+      });
     });
   });
 
@@ -196,7 +191,7 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should handle custom time range from URL parameters', async () => {
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
+      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 

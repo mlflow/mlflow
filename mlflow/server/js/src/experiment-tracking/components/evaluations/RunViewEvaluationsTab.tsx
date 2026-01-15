@@ -1,9 +1,12 @@
+import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { FormattedMessage } from 'react-intl';
+import { RunColorPill } from '../experiment-page/components/RunColorPill';
 import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
 import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
@@ -35,11 +38,12 @@ import {
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
+import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
 import { useCallback, useMemo, useState } from 'react';
-import { useDeleteTracesMutation } from './hooks/useDeleteTraces';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -52,8 +56,8 @@ import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-share
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
 import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
-// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
-import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+import { useIntl } from 'react-intl';
+import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 
 const ContextProviders = ({
@@ -77,15 +81,20 @@ const RunViewEvaluationsTabInner = ({
   runUuid,
   runDisplayName,
   setCurrentRunUuid,
+  showCompareSelector = false,
+  showRefreshButton = false,
 }: {
   experimentId: string;
   runUuid: string;
   runDisplayName: string;
   setCurrentRunUuid?: (runUuid: string) => void;
+  showCompareSelector?: boolean;
+  compareToRunUuid?: string;
+  showRefreshButton?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
@@ -107,9 +116,14 @@ const RunViewEvaluationsTabInner = ({
     runUuid,
     otherRunUuid: compareToRunUuid,
     disabled: isQueryDisabled,
+    filterByAssessmentSourceRun: true,
   });
 
   // Setup table states
+  // Row selection state - lifted to provide shared state via context
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedTraceIds', rowSelection);
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filters, setFilters] = useFilters();
   const getRunColor = useGetExperimentRunColor();
@@ -159,6 +173,7 @@ const RunViewEvaluationsTabInner = ({
     runUuid,
     tableSort,
     disabled: isQueryDisabled,
+    filterByAssessmentSourceRun: true,
   });
 
   const {
@@ -189,37 +204,26 @@ const RunViewEvaluationsTabInner = ({
   });
 
   const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations: traceLocations });
-  // TODO: Unify export action between managed and OSS
-  const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
-    useExportTracesToDatasetModal({
-      experimentId,
-    });
+  const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
   const traceActions: TraceActions = useMemo(() => {
     return {
       deleteTracesAction,
-      exportToEvals: {
-        showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
-        setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
-        renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
-      },
+      exportToEvals: true,
       // Enable unified tags modal if V4 APIs is enabled
       editTags: {
         showEditTagsModalForTrace,
         EditTagsModal,
       },
     };
-  }, [
-    deleteTracesAction,
-    showExportTracesToDatasetsModal,
-    setShowExportTracesToDatasetsModal,
-    renderExportTracesToDatasetsModal,
-    showEditTagsModalForTrace,
-    EditTagsModal,
-  ]);
+  }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
   const displayLoadingOverlay = false;
+
+  const selectedRunColor = getRunColor(runUuid);
+  const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
 
   if (isTableMetadataLoading) {
     return <LoadingSkeleton />;
@@ -241,48 +245,85 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
-      <div
-        css={{
-          width: '100%',
-          padding: `${theme.spacing.xs}px 0`,
-        }}
-      >
-        <EvaluationRunCompareSelector
-          experimentId={experimentId}
-          currentRunUuid={runUuid}
-          compareToRunUuid={compareToRunUuid}
-          setCompareToRunUuid={setCompareToRunUuid}
-          setCurrentRunUuid={setCurrentRunUuid}
-        />
-      </div>
-      <GenAITracesTableProvider>
+      {!showCompareSelector && (
         <div
           css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
+            width: '100%',
+            padding: `${theme.spacing.xs}px 0`,
           }}
         >
-          <GenAITracesTableToolbar
+          <EvaluationRunCompareSelector
             experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            setSelectedColumns={setSelectedColumns}
-            toggleColumns={toggleColumns}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
+            currentRunUuid={runUuid}
+            compareToRunUuid={compareToRunUuid}
+            setCompareToRunUuid={setCompareToRunUuid}
+            setCurrentRunUuid={setCurrentRunUuid}
           />
-          {isTableLoading ? (
+        </div>
+      )}
+      {showCompareSelector && compareToRunUuid && (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            paddingBottom: theme.spacing.sm,
+            gap: theme.spacing.sm,
+          }}
+        >
+          <Typography.Text>
+            <FormattedMessage defaultMessage="Comparing" description="Comparing" />
+          </Typography.Text>
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            {selectedRunColor && <RunColorPill color={selectedRunColor} />}
+            <Typography.Text bold>{runDisplayName}</Typography.Text>
+          </span>
+          <Typography.Text>
+            <FormattedMessage defaultMessage="to" description="to" />
+          </Typography.Text>
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            {compareToRunColor && <RunColorPill color={compareToRunColor} />}
+            <Typography.Text bold>{compareToRunDisplayName}</Typography.Text>
+          </span>
+        </div>
+      )}
+      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+        <GenAITracesTableProvider
+          experimentId={experimentId}
+          getTrace={getTrace}
+          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        >
+          <div
+            css={{
+              overflowY: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <GenAITracesTableToolbar
+              experimentId={experimentId}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilters={setFilters}
+              assessmentInfos={assessmentInfos}
+              countInfo={countInfo}
+              traceActions={traceActions}
+              tableSort={tableSort}
+              setTableSort={setTableSort}
+              allColumns={allColumns}
+              selectedColumns={selectedColumns}
+              setSelectedColumns={setSelectedColumns}
+              toggleColumns={toggleColumns}
+              traceInfos={traceInfos}
+              tableFilterOptions={tableFilterOptions}
+              onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
+              isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
+            />
+            {
+              // prettier-ignore
+              isTableLoading ? (
             <LoadingSkeleton />
           ) : traceInfosError ? (
             <div>
@@ -309,10 +350,12 @@ const RunViewEvaluationsTabInner = ({
                 displayLoadingOverlay={displayLoadingOverlay}
               />
             </ContextProviders>
-          )}
-          {EditTagsModal}
-        </div>
-      </GenAITracesTableProvider>
+          )
+            }
+            {EditTagsModal}
+          </div>
+        </GenAITracesTableProvider>
+      </GenAiTraceTableRowSelectionProvider>
     </div>
   );
 };
@@ -324,6 +367,8 @@ export const RunViewEvaluationsTab = ({
   runTags,
   runDisplayName,
   setCurrentRunUuid,
+  showCompareSelector = false,
+  showRefreshButton = false,
 }: {
   experimentId: string;
   experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
@@ -332,6 +377,8 @@ export const RunViewEvaluationsTab = ({
   runDisplayName: string;
   // used in evaluation runs tab
   setCurrentRunUuid?: (runUuid: string) => void;
+  showCompareSelector?: boolean;
+  showRefreshButton?: boolean;
 }) => {
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -367,6 +414,8 @@ export const RunViewEvaluationsTab = ({
       runUuid={runUuid}
       runDisplayName={runDisplayName}
       setCurrentRunUuid={setCurrentRunUuid}
+      showCompareSelector={showCompareSelector}
+      showRefreshButton={showRefreshButton}
     />
   );
 };
@@ -398,6 +447,7 @@ const useGetCompareToData = (params: {
     currentRunDisplayName: undefined,
     runUuid: compareToRunUuid,
     disabled: isNil(compareToRunUuid) || isQueryDisabled,
+    filterByAssessmentSourceRun: true,
   });
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({

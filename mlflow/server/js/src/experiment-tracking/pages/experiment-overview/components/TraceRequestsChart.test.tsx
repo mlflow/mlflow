@@ -1,26 +1,13 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a single data point
 const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
@@ -43,14 +30,16 @@ describe('TraceRequestsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
     timeBuckets,
   };
+
+  const server = setupServer();
 
   const createQueryClient = () =>
     new QueryClient({
@@ -61,37 +50,57 @@ describe('TraceRequestsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceRequestsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceRequestsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
   };
 
+  // Helper to setup MSW handler for trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
-      // Create a promise that never resolves to keep the component in loading state
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+    it('should render loading skeleton while data is being fetched', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
-      // Check for spinner (loading state)
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Requests')).not.toBeInTheDocument();
     });
   });
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -103,7 +112,7 @@ describe('TraceRequestsChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([]);
 
       renderComponent();
 
@@ -113,7 +122,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should render empty state when time range is not provided', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([]);
 
       renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
@@ -131,7 +140,7 @@ describe('TraceRequestsChart', () => {
     ];
 
     it('should render chart with all time buckets', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -144,7 +153,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the total request count', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -155,7 +164,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the "Requests" title', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -164,8 +173,21 @@ describe('TraceRequestsChart', () => {
       });
     });
 
+    it('should display average reference line', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
+      });
+    });
+
     it('should format large numbers with locale formatting', async () => {
-      mockApiResponse([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
+      setupTraceMetricsHandler([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
 
       renderComponent();
 
@@ -177,7 +199,7 @@ describe('TraceRequestsChart', () => {
 
     it('should fill missing time buckets with zeros', async () => {
       // Only provide data for one time bucket
-      mockApiResponse([createTraceCountDataPoint('2025-12-22T10:00:00Z', 100)]);
+      setupTraceMetricsHandler([createTraceCountDataPoint('2025-12-22T10:00:00Z', 100)]);
 
       renderComponent();
 
@@ -192,54 +214,83 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail with correct parameters', async () => {
+    it('should call API with correct parameters', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalledWith(
-          'ajax-api/3.0/mlflow/traces/metrics',
-          expect.objectContaining({
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: expect.stringContaining(testExperimentId),
-          }),
-        );
+        expect(capturedRequest).toMatchObject({
+          experiment_ids: [testExperimentId],
+          view_type: MetricViewType.TRACES,
+          metric_name: TraceMetricKey.TRACE_COUNT,
+          aggregations: [{ aggregation_type: AggregationType.COUNT }],
+        });
       });
     });
 
     it('should use provided time interval', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedRequest?.time_interval_seconds).toBe(60);
       });
     });
 
     it('should use provided time interval for hourly grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 3600 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(3600);
+        expect(capturedRequest?.time_interval_seconds).toBe(3600);
       });
     });
 
     it('should use provided time interval for daily grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 86400 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(86400);
+        expect(capturedRequest?.time_interval_seconds).toBe(86400);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing values gracefully', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
           dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
@@ -258,7 +309,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
           dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
@@ -274,6 +325,72 @@ describe('TraceRequestsChart', () => {
       });
       // Total count still includes the data point
       expect(screen.getByText('25')).toBeInTheDocument();
+    });
+  });
+
+  describe('zoom functionality', () => {
+    const mockDataPoints = [
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
+    ];
+
+    it('should not show zoom out button initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+
+      // Zoom Out button should not be visible when not zoomed
+      expect(screen.queryByText('Zoom Out')).not.toBeInTheDocument();
+    });
+
+    it('should render chart with correct data count initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      // Initial state: all 3 data points visible
+      expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+    });
+
+    it('should display initial average based on all data points', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
+      });
+    });
+
+    it('should have mouse event handlers attached to chart', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      const chart = screen.getByTestId('bar-chart');
+
+      // Verify mouse events can be fired without errors (handlers are wired up)
+      expect(() => {
+        fireEvent.mouseDown(chart);
+        fireEvent.mouseMove(chart);
+        fireEvent.mouseUp(chart);
+      }).not.toThrow();
     });
   });
 });

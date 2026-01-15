@@ -62,11 +62,9 @@ class LiteLLMProvider(BaseProvider):
     def _build_litellm_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
         kwargs = {**payload}
 
-        if self.litellm_config.litellm_api_key:
-            kwargs["api_key"] = self.litellm_config.litellm_api_key
+        if self.litellm_config.litellm_auth_config:
+            kwargs.update(self.litellm_config.litellm_auth_config)
 
-        if self.litellm_config.litellm_api_base:
-            kwargs["api_base"] = self.litellm_config.litellm_api_base
         return kwargs
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
