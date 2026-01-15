@@ -1326,9 +1326,6 @@ def test_load_exported_model_check_device_mismatch(sequential_model, model_path)
 
     with pytest.raises(
         MlflowException,
-        match=(
-            "The saved model is exported by `torch.export` API, it doesn't support "
-            "moving model parameters and buffers to different devices."
-        ),
+        match="it can't be loaded on 'cuda' device.",
     ):
         mlflow.pytorch.load_model(model_path, device="cuda")

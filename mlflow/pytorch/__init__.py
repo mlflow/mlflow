@@ -696,8 +696,8 @@ def _load_model(path, device=None, **kwargs):
                 if tensor.device.type != target_device_type:
                     raise MlflowException(
                         "The saved model is exported by `torch.export` API, the original model "
-                        f"contains weights / buffers on device {tensor.device.type}, it can't be "
-                        f"loaded on another device {target_device_type}. To address this issue, "
+                        f"contains weights / buffers on '{tensor.device.type}' device, it can't "
+                        f"be loaded on '{target_device_type}' device. To address this issue, "
                         f"You should save the model in the following way: "
                         f"`mlflow.pytorch.save_model("
                         f"model.to('{target_device_type}'), path=..., export_model=True)`."
