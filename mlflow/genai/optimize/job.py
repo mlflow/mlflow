@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import get_dataset
@@ -109,7 +109,7 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
                 scorer = scorer_class()
                 scorers.append(scorer)
                 continue
-            except (TypeError, Exception) as e:
+            except Exception as e:
                 _logger.debug(f"Failed to instantiate built-in scorer {name}: {e}")
 
         # Load from the registered scorer store if not a built-in scorer
@@ -126,7 +126,7 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
     return scorers
 
 
-def _build_predict_fn(prompt_uri: str):
+def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     """
     Build a predict function for single-prompt optimization.
 
@@ -147,11 +147,11 @@ def _build_predict_fn(prompt_uri: str):
         model_config = prompt.model_config
         provider = model_config["provider"]
         model_name = model_config["model_name"]
-    except Exception:
+    except (KeyError, TypeError, AttributeError) as e:
         raise MlflowException(
             f"Prompt {prompt_uri} doesn't have a model configuration that sets provider and "
             "model_name, which are required for optimization."
-        )
+        ) from e
 
     litellm_model = f"{provider}/{model_name}"
 
