@@ -11,6 +11,8 @@ from mlflow.tracing.distributed import (
     set_tracing_context_from_http_request_headers,
 )
 
+REQUEST_TIMEOUT = 10
+
 app = Flask(__name__)
 
 
@@ -45,7 +47,9 @@ def handle1():
                 return jsonify({"error": "second_server_url parameter required"}), 400
 
             headers2 = get_tracing_context_headers_for_http_request()
-            resp2 = requests.post(f"{second_server_url}/handle2", headers=headers2, timeout=5)
+            resp2 = requests.post(
+                f"{second_server_url}/handle2", headers=headers2, timeout=REQUEST_TIMEOUT
+            )
             if not resp2.ok:
                 return jsonify({"error": f"Nested call failed: {resp2.status_code}"}), 502
 
