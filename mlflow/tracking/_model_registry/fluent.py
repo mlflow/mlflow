@@ -224,6 +224,7 @@ def _register_model(
             local_model_path=local_model_path,
             model_id=model_id,
         )
+
     # If env_pack is supported and indicates Databricks Model Serving,
     # pack env locally and directly register the resulting artifacts.
     # This avoids storing artifacts prior to the final registered model version.

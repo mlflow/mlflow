@@ -111,6 +111,7 @@ def _get_source_artifacts(
     if not local_model_path:
         shutil.rmtree(source_dir)
 
+
 # TODO: Check pip requirements using uv instead.
 @contextmanager
 def pack_env_for_databricks_model_serving(
@@ -125,7 +126,8 @@ def pack_env_for_databricks_model_serving(
     Args:
         model_uri: The URI of the model to package.
         enforce_pip_requirements: Whether to enforce pip requirements installation.
-        local_model_path: Optional local path to model artifacts. If provided, pack the local artifacts instead of downloading.
+        local_model_path: Optional local path to model artifacts. If provided, pack
+            the local artifacts instead of downloading.
 
     Yields:
         str: The path to the local artifacts directory containing the model artifacts and
@@ -170,7 +172,8 @@ def pack_env_for_databricks_model_serving(
         # Check that _databricks directory does not exist in source
         if (source_artifacts_dir / _ARTIFACT_PATH).exists():
             raise MlflowException(
-                f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not eligible for use with env_pack.",
+                f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not "
+                "eligible for use with env_pack.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -199,7 +202,9 @@ def pack_env_for_databricks_model_serving(
         with tempfile.TemporaryDirectory() as temp_dir:
             # Copy source artifacts to packaged_model_dir
             packaged_model_dir = Path(temp_dir) / "model"
-            shutil.copytree(source_artifacts_dir, packaged_model_dir, dirs_exist_ok=False, symlinks=False)
+            shutil.copytree(
+                source_artifacts_dir, packaged_model_dir, dirs_exist_ok=False, symlinks=False
+            )
 
             # Package model artifacts and env into packaged_model_dir/_databricks
             packaged_artifacts_dir = packaged_model_dir / _ARTIFACT_PATH
