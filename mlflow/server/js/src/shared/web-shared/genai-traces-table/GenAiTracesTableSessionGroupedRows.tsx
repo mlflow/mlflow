@@ -31,7 +31,10 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerMeasureElement,
   selectedColumns,
 }: GenAiTracesTableSessionGroupedRowsProps) {
-  // Create a map from evaluation data to its row (for selection state)
+  // Create a map from eval data (contained in `groupedRows`) to the
+  // actual table row from the tanstack data model. When grouping by
+  // sessions, the rows shuffle around so we need to make sure that things
+  // like selection state are updated correctly.
   const evaluationToRowMap = useMemo(() => {
     const map = new Map<EvalTraceComparisonEntry, Row<EvalTraceComparisonEntry>>();
     rows.forEach((row) => {
@@ -55,7 +58,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
           return null;
         }
 
-        // Render session header
+        // Render header using a custom renderer for session data
         if (groupedRow.type === 'sessionHeader') {
           return (
             <div
@@ -74,7 +77,8 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
           );
         }
 
-        // Render trace row
+        // Render trace row using the existing renderer, providing it
+        // with a reference to the actual tanstack table row.
         const row = evaluationToRowMap.get(groupedRow.data);
         if (!row) {
           return null;
