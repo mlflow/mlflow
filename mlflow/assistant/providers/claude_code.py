@@ -9,10 +9,16 @@ import asyncio
 import json
 import logging
 import shutil
+import subprocess
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Callable
 
-from mlflow.assistant.providers.base import MLFLOW_ASSISTANT_HOME, AssistantProvider, ProviderConfig
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    load_config,
+)
 from mlflow.assistant.types import (
     ContentBlock,
     Event,
@@ -24,11 +30,6 @@ from mlflow.assistant.types import (
 )
 
 _logger = logging.getLogger(__name__)
-
-
-class ClaudeCodeAssistantConfig(ProviderConfig):
-    model: str = "default"
-    project_path: str | None = None
 
 
 # TODO: to be updated
@@ -45,19 +46,106 @@ class ClaudeCodeProvider(AssistantProvider):
         return "claude_code"
 
     @property
-    def config_path(self) -> Path:
-        return MLFLOW_ASSISTANT_HOME / "claude-config.json"
+    def display_name(self) -> str:
+        return "Claude Code"
+
+    @property
+    def description(self) -> str:
+        return "AI-powered assistant using Claude Code CLI"
 
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
 
-    def load_config(self) -> ProviderConfig:
-        # Use default config if no config file exists
-        if not self.config_path.exists():
-            return ClaudeCodeAssistantConfig()
+    def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
+        """
+        Check if Claude CLI is installed and authenticated.
 
-        with open(self.config_path) as f:
-            return ClaudeCodeAssistantConfig.model_validate_json(f.read())
+        Args:
+            echo: Optional function to print status messages.
+
+        Raises:
+            ProviderNotConfiguredError: If CLI is not installed or not authenticated.
+        """
+        claude_path = shutil.which("claude")
+        if not claude_path:
+            if echo:
+                echo("Claude CLI not found")
+            raise CLINotInstalledError(
+                "Claude Code CLI is not installed. "
+                "Install it with: npm install -g @anthropic-ai/claude-code"
+            )
+
+        if echo:
+            echo(f"Claude CLI found: {claude_path}")
+            echo("Checking connection... (this may take a few seconds)")
+
+        # Check authentication by running a minimal test prompt
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                if echo:
+                    echo("Authentication verified")
+                return
+
+            # Check for common auth errors in stderr
+            stderr = result.stderr.lower()
+            if "auth" in stderr or "login" in stderr or "unauthorized" in stderr:
+                error_msg = "Not authenticated. Please run: claude login"
+            else:
+                error_msg = result.stderr.strip() or f"Process exited with code {result.returncode}"
+
+            if echo:
+                echo(f"Authentication failed: {error_msg}")
+            raise NotAuthenticatedError(error_msg)
+
+        except subprocess.TimeoutExpired:
+            if echo:
+                echo("Authentication check timed out")
+            raise NotAuthenticatedError("Authentication check timed out")
+        except subprocess.SubprocessError as e:
+            if echo:
+                echo(f"Error checking authentication: {e}")
+            raise NotAuthenticatedError(str(e))
+
+    def install_skills(self, skill_path: Path) -> list[str]:
+        """Install MLflow-specific Claude skills.
+
+        Args:
+            skill_path: Directory where skills should be installed.
+        """
+        # Get the skills directory from this package
+        skills_source = Path(__file__).parent.parent / "skills"
+
+        if not skills_source.exists():
+            raise RuntimeError("Skills directory not found")
+
+        # Create destination directory
+        skill_path.mkdir(parents=True, exist_ok=True)
+
+        # Find all skill directories in the skills directory
+        skill_dirs = [d for d in skills_source.iterdir() if d.is_dir()]
+        if not skill_dirs:
+            raise RuntimeError("No skills to install")
+
+        installed_skills = []
+        for skill_dir in skill_dirs:
+            dest_skill_dir = skill_path / skill_dir.name
+            dest_skill_dir.mkdir(parents=True, exist_ok=True)
+
+            # Only copy files, not subdirectories, to avoid overwriting user customizations
+            for file in skill_dir.iterdir():
+                if file.is_file():
+                    shutil.copy2(file, dest_skill_dir / file.name)
+
+            installed_skills.append(skill_dir.name)
+
+        return installed_skills
 
     async def astream(
         self,
@@ -98,7 +186,7 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
-        config = self.load_config()
+        config = load_config(self.name)
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 
