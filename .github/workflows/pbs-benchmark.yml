@@ -19,10 +19,14 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      build_time: ${{ steps.build.outputs.build_time }}
+      image_size: ${{ steps.size.outputs.image_size }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Build PBS image
+        id: build
         working-directory: pbs
         run: |
           echo "::group::Building PBS image"
@@ -30,13 +34,17 @@ jobs:
           docker build --no-cache -f Dockerfile.pbs -t benchmark-pbs .
           END=$(date +%s)
           echo "::endgroup::"
-          echo "PBS build time: $((END-START)) seconds"
+          BUILD_TIME=$((END-START))
+          echo "PBS build time: ${BUILD_TIME} seconds"
+          echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
 
       - name: Get PBS image size
+        id: size
         run: |
           SIZE=$(docker image inspect benchmark-pbs --format='{{.Size}}')
           SIZE_MB=$(echo "scale=1; $SIZE / 1024 / 1024" | bc)
           echo "PBS image size: ${SIZE_MB} MB"
+          echo "image_size=${SIZE_MB}" >> "$GITHUB_OUTPUT"
 
       - name: Run PBS test
         run: docker run --rm benchmark-pbs
@@ -46,10 +54,14 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      build_time: ${{ steps.build.outputs.build_time }}
+      image_size: ${{ steps.size.outputs.image_size }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Build pyenv image
+        id: build
         working-directory: pbs
         run: |
           echo "::group::Building pyenv image"
@@ -57,13 +69,47 @@ jobs:
           docker build --no-cache -f Dockerfile.pyenv -t benchmark-pyenv .
           END=$(date +%s)
           echo "::endgroup::"
-          echo "pyenv build time: $((END-START)) seconds"
+          BUILD_TIME=$((END-START))
+          echo "pyenv build time: ${BUILD_TIME} seconds"
+          echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
 
       - name: Get pyenv image size
+        id: size
         run: |
           SIZE=$(docker image inspect benchmark-pyenv --format='{{.Size}}')
           SIZE_MB=$(echo "scale=1; $SIZE / 1024 / 1024" | bc)
           echo "pyenv image size: ${SIZE_MB} MB"
+          echo "image_size=${SIZE_MB}" >> "$GITHUB_OUTPUT"
 
       - name: Run pyenv test
         run: docker run --rm benchmark-pyenv
+
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    needs: [benchmark-pbs, benchmark-pyenv]
+    steps:
+      - name: Generate summary
+        run: |
+          PBS_TIME=${{ needs.benchmark-pbs.outputs.build_time }}
+          PBS_SIZE=${{ needs.benchmark-pbs.outputs.image_size }}
+          PYENV_TIME=${{ needs.benchmark-pyenv.outputs.build_time }}
+          PYENV_SIZE=${{ needs.benchmark-pyenv.outputs.image_size }}
+
+          SPEEDUP=$(echo "scale=1; $PYENV_TIME / $PBS_TIME" | bc)
+          SIZE_REDUCTION=$(echo "scale=1; $PYENV_SIZE - $PBS_SIZE" | bc)
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## PBS vs pyenv Benchmark Results
+
+          | Approach | Build Time | Image Size |
+          |----------|------------|------------|
+          | **PBS** | **${PBS_TIME}s** | **${PBS_SIZE} MB** |
+          | pyenv | ${PYENV_TIME}s | ${PYENV_SIZE} MB |
+
+          ### Summary
+          - **Speedup**: PBS is **${SPEEDUP}x faster**
+          - **Size reduction**: **${SIZE_REDUCTION} MB smaller**
+          EOF
