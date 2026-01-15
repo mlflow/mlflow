@@ -11,11 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import {
-  spanTimeFormatter,
-  TOKEN_USAGE_METADATA_KEY,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
+import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
