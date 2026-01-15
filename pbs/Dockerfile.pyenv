@@ -6,6 +6,9 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies required by pyenv
+# Note: --no-install-recommends is intentionally omitted here because
+# pyenv compilation requires the full set of build tools and their
+# recommended packages for reliable builds across different Python versions.
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -31,13 +34,15 @@ RUN apt-get update && apt-get install -y \
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
-RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
+# Pin to v2.5.0 for reproducibility
+RUN git clone --depth 1 --branch v2.5.0 https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
-# Install Python 3.10 via pyenv (compiles from source)
+# Install Python 3.10.16 via pyenv (compiles from source)
+# Using the same version as PBS for fair comparison
 RUN echo "=== pyenv Python Install ===" && \
     echo "START_TIME=$(date +%s)" && \
-    pyenv install 3.10.13 && \
-    pyenv global 3.10.13 && \
+    pyenv install 3.10.16 && \
+    pyenv global 3.10.16 && \
     echo "END_TIME=$(date +%s)"
 
 RUN pip install --upgrade pip virtualenv

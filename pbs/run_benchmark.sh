@@ -29,5 +29,5 @@ echo ""
 echo "=== Results ==="
 echo "PBS:   ${PBS_TIME}s, ${PBS_SIZE} MB"
 echo "pyenv: ${PYENV_TIME}s, ${PYENV_SIZE} MB"
-SPEEDUP=$(echo "scale=1; $PYENV_TIME / $PBS_TIME" | bc)
+SPEEDUP=$(awk "BEGIN {printf \"%.1f\", $PYENV_TIME / $PBS_TIME}")
 echo "Speedup: ${SPEEDUP}x"

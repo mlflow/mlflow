@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Python version configuration
-ARG PYTHON_VERSION=3.10.19
+# Using the same version as pyenv Dockerfile for fair comparison
+ARG PYTHON_VERSION=3.10.16
 ARG PBS_RELEASE=20260113
 
 # Download and extract pre-built Python from python-build-standalone

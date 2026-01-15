@@ -16,6 +16,14 @@ Comparing Python installation approaches:
 
 ## Run Locally
 
+Use the benchmark script to run both benchmarks and compare results:
+
+```bash
+./run_benchmark.sh
+```
+
+Or run individually:
+
 ```bash
 # PBS benchmark (fast)
 docker build -f Dockerfile.pbs -t benchmark-pbs .

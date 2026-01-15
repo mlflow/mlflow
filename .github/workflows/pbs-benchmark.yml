@@ -42,7 +42,7 @@ jobs:
         id: size
         run: |
           SIZE=$(docker image inspect benchmark-pbs --format='{{.Size}}')
-          SIZE_MB=$(echo "scale=1; $SIZE / 1024 / 1024" | bc)
+          SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $SIZE / 1024 / 1024}")
           echo "PBS image size: ${SIZE_MB} MB"
           echo "image_size=${SIZE_MB}" >> "$GITHUB_OUTPUT"
 
@@ -77,7 +77,7 @@ jobs:
         id: size
         run: |
           SIZE=$(docker image inspect benchmark-pyenv --format='{{.Size}}')
-          SIZE_MB=$(echo "scale=1; $SIZE / 1024 / 1024" | bc)
+          SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $SIZE / 1024 / 1024}")
           echo "pyenv image size: ${SIZE_MB} MB"
           echo "image_size=${SIZE_MB}" >> "$GITHUB_OUTPUT"
 
@@ -98,8 +98,8 @@ jobs:
           PYENV_TIME=${{ needs.benchmark-pyenv.outputs.build_time }}
           PYENV_SIZE=${{ needs.benchmark-pyenv.outputs.image_size }}
 
-          SPEEDUP=$(echo "scale=1; $PYENV_TIME / $PBS_TIME" | bc)
-          SIZE_REDUCTION=$(echo "scale=1; $PYENV_SIZE - $PBS_SIZE" | bc)
+          SPEEDUP=$(awk "BEGIN {printf \"%.1f\", $PYENV_TIME / $PBS_TIME}")
+          SIZE_REDUCTION=$(awk "BEGIN {printf \"%.1f\", $PYENV_SIZE - $PBS_SIZE}")
 
           cat >> "$GITHUB_STEP_SUMMARY" << EOF
           ## PBS vs pyenv Benchmark Results
