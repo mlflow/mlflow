@@ -918,3 +918,35 @@ async def test_chat_proxy_blocks_path_traversal_attempts(path):
         assert response.status_code == 404
         assert response.text == "Not found"
         mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("exact_paths_env", "prefixes_env", "test_path"),
+    [
+        ("/custom", "", "/custom"),
+        ("", "/custom/", "/custom/file.js"),
+        ("/a,/b", "/c/,/d/", "/a"),
+        ("/a,/b", "/c/,/d/", "/d/nested"),
+    ],
+)
+async def test_chat_proxy_forwards_additional_paths_from_env_vars(
+    exact_paths_env, prefixes_env, test_path, monkeypatch
+):
+    if exact_paths_env:
+        monkeypatch.setenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", exact_paths_env)
+    if prefixes_env:
+        monkeypatch.setenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", prefixes_env)
+
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"response"
+    mock_response.status_code = 200
+    mock_response.headers = {}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get(test_path)
+        assert response.status_code == 200
+        mock_request.assert_called_once()

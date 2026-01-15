@@ -97,6 +97,14 @@ class AgentServer:
         (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
         variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
 
+        The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
+        default. Additional paths can be configured via environment variables:
+
+        - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
+          to allow (e.g., ``/custom,/another``).
+        - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
+          to allow (e.g., ``/custom/,/another/``).
+
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
@@ -127,6 +135,19 @@ class AgentServer:
         # Only proxy static assets to prevent SSRF vulnerabilities
         allowed_exact_paths = ("/", "/favicon.ico")
         allowed_path_prefixes = ("/assets/", "/api/")
+
+        # Add additional paths from environment variables
+        additional_exact_paths = os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", "")
+        if additional_exact_paths:
+            allowed_exact_paths = allowed_exact_paths + tuple(
+                p.strip() for p in additional_exact_paths.split(",") if p.strip()
+            )
+
+        additional_path_prefixes = os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", "")
+        if additional_path_prefixes:
+            allowed_path_prefixes = allowed_path_prefixes + tuple(
+                p.strip() for p in additional_path_prefixes.split(",") if p.strip()
+            )
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
