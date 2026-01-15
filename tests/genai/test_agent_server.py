@@ -871,24 +871,7 @@ def test_responses_not_available_for_non_responses_agent():
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_forwards_root_path():
-    server = AgentServer(enable_chat_proxy=True)
-    client = TestClient(server.app)
-
-    mock_response = Mock()
-    mock_response.content = b"<html>index</html>"
-    mock_response.status_code = 200
-    mock_response.headers = {"content-type": "text/html"}
-
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.get("/")
-        assert response.status_code == 200
-        mock_request.assert_called_once()
-        assert mock_request.call_args.kwargs["url"] == "http://localhost:3000/"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session"])
+@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session", "/favicon.ico"])
 async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
@@ -903,23 +886,6 @@ async def test_chat_proxy_forwards_allowlisted_paths(path):
         assert response.status_code == 200
         mock_request.assert_called_once()
         assert mock_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
-
-
-@pytest.mark.asyncio
-async def test_chat_proxy_forwards_favicon():
-    server = AgentServer(enable_chat_proxy=True)
-    client = TestClient(server.app)
-
-    mock_response = Mock()
-    mock_response.content = b"favicon data"
-    mock_response.status_code = 200
-    mock_response.headers = {"content-type": "image/x-icon"}
-
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.get("/favicon.ico")
-        assert response.status_code == 200
-        mock_request.assert_called_once()
-        assert mock_request.call_args.kwargs["url"] == "http://localhost:3000/favicon.ico"
 
 
 @pytest.mark.asyncio
