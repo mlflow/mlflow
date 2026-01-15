@@ -47,7 +47,7 @@ from mlflow.store.tracking.gateway.entities import (
     RoutingStrategy,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.telemetry.events import GatewayInvocationEvent
+from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
 from mlflow.tracking._tracking_service.utils import _get_store
 
@@ -56,7 +56,7 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
-def record_gateway_invocation(invocation_type: str) -> Callable[..., Any]:
+def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
     Decorator to record telemetry for gateway invocation endpoints.
 
@@ -64,7 +64,7 @@ def record_gateway_invocation(invocation_type: str) -> Callable[..., Any]:
     (determined by checking if the response is a StreamingResponse).
 
     Args:
-        invocation_type: The type of invocation (e.g., "mlflow_chat_completions")
+        invocation_type: The type of invocation endpoint.
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -351,7 +351,7 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
-@record_gateway_invocation("mlflow_invocations")
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
 async def invocations(endpoint_name: str, request: Request):
     """
     Unified invocations endpoint handler that supports both chat and embeddings.
@@ -406,7 +406,7 @@ async def invocations(endpoint_name: str, request: Request):
 
 @gateway_router.post("/mlflow/v1/chat/completions", response_model=None)
 @translate_http_exception
-@record_gateway_invocation("mlflow_chat_completions")
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_CHAT_COMPLETIONS)
 async def chat_completions(request: Request):
     """
     OpenAI-compatible chat completions endpoint.
@@ -450,7 +450,7 @@ async def chat_completions(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
-@record_gateway_invocation("openai_passthrough_chat")
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_CHAT)
 async def openai_passthrough_chat(request: Request):
     """
     OpenAI passthrough endpoint for chat completions.
@@ -491,7 +491,7 @@ async def openai_passthrough_chat(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
 @translate_http_exception
-@record_gateway_invocation("openai_passthrough_embeddings")
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_EMBEDDINGS)
 async def openai_passthrough_embeddings(request: Request):
     """
     OpenAI passthrough endpoint for embeddings.
@@ -526,7 +526,7 @@ async def openai_passthrough_embeddings(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
-@record_gateway_invocation("openai_passthrough_responses")
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
 async def openai_passthrough_responses(request: Request):
     """
     OpenAI passthrough endpoint for the Responses API.
@@ -567,7 +567,7 @@ async def openai_passthrough_responses(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
 @translate_http_exception
-@record_gateway_invocation("anthropic_passthrough_messages")
+@_record_gateway_invocation(GatewayInvocationType.ANTHROPIC_PASSTHROUGH_MESSAGES)
 async def anthropic_passthrough_messages(request: Request):
     """
     Anthropic passthrough endpoint for the Messages API.
@@ -610,7 +610,7 @@ async def anthropic_passthrough_messages(request: Request):
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
-@record_gateway_invocation("gemini_passthrough_generate_content")
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_GENERATE_CONTENT)
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for generateContent API (non-streaming).
@@ -647,7 +647,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
-@record_gateway_invocation("gemini_passthrough_stream_generate_content")
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT)
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for streamGenerateContent API (streaming).

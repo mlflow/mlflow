@@ -18,7 +18,6 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
-    GatewayInvocationEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
@@ -379,31 +378,6 @@ def test_gateway_update_endpoint_parse_params(arguments, expected_params):
 )
 def test_gateway_list_endpoints_parse_params(arguments, expected_params):
     assert GatewayListEndpointsEvent.parse(arguments) == expected_params
-
-
-@pytest.mark.parametrize(
-    ("arguments", "expected_params"),
-    [
-        (
-            {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
-            {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
-        ),
-        (
-            {"is_streaming": False, "invocation_type": "openai_passthrough_embeddings"},
-            {"is_streaming": False, "invocation_type": "openai_passthrough_embeddings"},
-        ),
-        (
-            {"is_streaming": False, "invocation_type": None},
-            {"is_streaming": False, "invocation_type": None},
-        ),
-        (
-            {},
-            {"is_streaming": False, "invocation_type": None},
-        ),
-    ],
-)
-def test_gateway_invocation_parse_params(arguments, expected_params):
-    assert GatewayInvocationEvent.parse(arguments) == expected_params
 
 
 @pytest.mark.parametrize(

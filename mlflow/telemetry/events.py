@@ -425,7 +425,7 @@ class GatewayUpdateEndpointEvent(Event):
             "routing_strategy": str(arguments.get("routing_strategy"))
             if arguments.get("routing_strategy")
             else None,
-            "num_model_configs": len(arguments.get("model_configs") or [])
+            "num_model_configs": len(arguments.get("model_configs"))
             if arguments.get("model_configs") is not None
             else None,
         }
@@ -479,15 +479,21 @@ class GatewayListSecretsEvent(Event):
 
 
 # Gateway Invocation Events
+class GatewayInvocationType(str, Enum):
+    """Type of gateway invocation endpoint."""
+
+    MLFLOW_INVOCATIONS = "mlflow_invocations"
+    MLFLOW_CHAT_COMPLETIONS = "mlflow_chat_completions"
+    OPENAI_PASSTHROUGH_CHAT = "openai_passthrough_chat"
+    OPENAI_PASSTHROUGH_EMBEDDINGS = "openai_passthrough_embeddings"
+    OPENAI_PASSTHROUGH_RESPONSES = "openai_passthrough_responses"
+    ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
+    GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
+    GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+
+
 class GatewayInvocationEvent(Event):
     name: str = "gateway_invocation"
-
-    @classmethod
-    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        return {
-            "is_streaming": arguments.get("is_streaming", False),
-            "invocation_type": arguments.get("invocation_type"),
-        }
 
 
 class AiCommandRunEvent(Event):
