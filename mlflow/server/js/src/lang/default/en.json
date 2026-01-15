@@ -503,10 +503,6 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
-  "2290EW": {
-    "defaultMessage": "Configure rate limits to control endpoint access.",
-    "description": "Rate limiting description"
-  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -721,10 +717,6 @@
   "4+RPaz": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
-  },
-  "4+xiAO": {
-    "defaultMessage": "Rate limiting features are currently under development. Stay tuned for updates!",
-    "description": "Coming soon message for rate limiting"
   },
   "40u/J+": {
     "defaultMessage": "Custom code",
@@ -5071,10 +5063,6 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
-  "dDyOtz": {
-    "defaultMessage": "Usage tracking features are currently under development. Stay tuned for updates!",
-    "description": "Coming soon message for usage tracking"
-  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -6490,10 +6478,6 @@
   "o21MFS": {
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
-  },
-  "o3Do3p": {
-    "defaultMessage": "Monitor endpoint usage metrics and analytics.",
-    "description": "Usage tracking description"
   },
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
