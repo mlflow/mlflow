@@ -220,26 +220,6 @@ export const EditEndpointFormRenderer = ({
             </div>
           </div>
 
-          {trafficSplitModels.length > 0 && fallbackModels.length > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: theme.spacing.lg,
-                position: 'relative',
-              }}
-            >
-              <div
-                css={{
-                  width: 3,
-                  height: '100%',
-                  backgroundColor: theme.colors.actionDefaultBorderDefault,
-                }}
-              />
-            </div>
-          )}
-
           <div
             css={{
               padding: theme.spacing.md,
