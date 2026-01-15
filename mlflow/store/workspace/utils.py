@@ -9,9 +9,10 @@ _INVALID_PARAMETER_VALUE_CODE = databricks_pb2.INVALID_PARAMETER_VALUE
 _INVALID_PARAMETER_VALUE_NAME = databricks_pb2.ErrorCode.Name(_INVALID_PARAMETER_VALUE_CODE)
 
 
-def get_default_workspace_optional(
-    workspace_store, logger: logging.Logger | None = None
-) -> tuple[Workspace | None, bool]:
+_logger = logging.getLogger(__name__)
+
+
+def get_default_workspace_optional(workspace_store) -> tuple[Workspace | None, bool]:
     """
     Attempt to resolve a default workspace from the provider without bubbling opt-out errors.
 
@@ -21,7 +22,6 @@ def get_default_workspace_optional(
 
     Args:
         workspace_store: Workspace store exposing ``get_default_workspace``.
-        logger: Optional logger used for debug messaging.
 
     Returns:
         Tuple of (workspace or None, supports_default_workspace flag).
@@ -34,11 +34,10 @@ def get_default_workspace_optional(
     try:
         workspace = workspace_store.get_default_workspace()
     except NotImplementedError:
-        if logger:
-            logger.debug(
-                "Workspace provider %s does not implement default workspace resolution",
-                provider_name,
-            )
+        _logger.debug(
+            "Workspace provider %s does not implement default workspace resolution",
+            provider_name,
+        )
         return None, False
 
     return workspace, True
