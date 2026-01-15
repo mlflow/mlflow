@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -87,26 +88,13 @@ class MemoryAugmentedJudge(Judge):
         reflection_lm: str | None = None,
         retrieval_k: int = 5,
         embedding_model: str | None = None,
-        embedding_dim: int = 512,
-        episodic_memory: list["dspy.Example"] | None = None,
-        semantic_memory: list[Guideline] | None = None,
+        embedding_dim: int = 512
     ):
         import dspy
 
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
-
-        # Determine if we should skip distillation during initialization
-        # Skip if user explicitly provides semantic_memory (they want to use those exact guidelines)
-        skip_initial_distillation = semantic_memory is not None
-
-        if semantic_memory is not None:
-            initial_guidelines = list(semantic_memory)
-        elif isinstance(base_judge, MemoryAugmentedJudge):
-            initial_guidelines = list(base_judge._semantic_memory)
-        else:
-            initial_guidelines = []
 
         super().__init__(
             name=effective_base_judge.name,
@@ -117,8 +105,15 @@ class MemoryAugmentedJudge(Judge):
         self._base_judge = effective_base_judge
         self._base_signature = create_dspy_signature(effective_base_judge)
         self._retrieval_k = retrieval_k
-        self._episodic_memory: list["dspy.Example"] = []
-        self._semantic_memory: list[Guideline] = initial_guidelines
+
+        # inherit both memory modules if base_judge is MemoryAugmentedJudge
+        if isinstance(base_judge, MemoryAugmentedJudge):
+            self._semantic_memory = copy.deepcopy(list(base_judge._semantic_memory))
+            self._episodic_memory = copy.deepcopy(list(base_judge._episodic_memory))
+            self._build_episodic_memory()
+        else:
+            self._episodic_memory: list["dspy.Example"] = []
+            self._semantic_memory: list[Guideline] = []
 
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
 
@@ -142,15 +137,6 @@ class MemoryAugmentedJudge(Judge):
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
-
-        if episodic_memory:
-            if skip_initial_distillation:
-                # User provided explicit guidelines, just add examples without distilling
-                self._episodic_memory.extend(episodic_memory)
-                self._build_episodic_memory()
-            else:
-                # Normal flow: add examples and distill guidelines
-                self._add_examples_to_memory(episodic_memory)
 
     def __call__(
         self,
