@@ -25,7 +25,10 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
@@ -38,7 +41,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
-from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.docstring_utils import (
+    LOG_MODEL_PARAM_DOCS,
+    format_docstring,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -501,10 +508,14 @@ def save_model(
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
         torch.export.save(exported_prog, model_path)
     else:
-        _logger.warning(
-            "Saving pytorch model by Pickle or CloudPickle is unsafe, we recommend to set "
-            "'export_model' to True to save the pytorch model using the safe graph model format."
-        )
+        if not is_in_databricks_runtime():
+            _logger.warning(
+                "Saving pytorch model by Pickle or CloudPickle format requires exercising "
+                "caution because these formats rely on Python's object serialization mechanism, "
+                "which can execute arbitrary code during deserialization."
+                "The recommended safe alternative is to set 'export_model' to True to save the "
+                "pytorch model using the safe graph model format."
+            )
         # Persist the pickle module name as a file in the model's `data` directory. This is
         # necessary
         # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
@@ -596,6 +607,16 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+def _load_by_pickle_check():
+    if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. To address this issue, you need to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
+            "'export_model=True' like `mlflow.pytorch.save_model(model, path, export_model=True)`."
+        )
+
+
 def _load_model(path, device=None, **kwargs):
     """
     Args:
@@ -650,10 +671,12 @@ def _load_model(path, device=None, **kwargs):
                 )
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
+            _load_by_pickle_check()
             pytorch_model = torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
+            _load_by_pickle_check()
             pytorch_model = torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
