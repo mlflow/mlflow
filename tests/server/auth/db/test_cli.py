@@ -17,16 +17,19 @@ def test_upgrade(tmp_path: Path) -> None:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
 
-    assert tables == [
-        ("alembic_version_auth",),
-        ("users",),
-        ("experiment_permissions",),
-        ("registered_model_permissions",),
-        ("scorer_permissions",),
-        ("gateway_secret_permissions",),
-        ("gateway_endpoint_permissions",),
-        ("gateway_model_definition_permissions",),
-    ]
+    assert sorted(tables) == sorted(
+        [
+            ("alembic_version_auth",),
+            ("users",),
+            ("experiment_permissions",),
+            ("registered_model_permissions",),
+            ("scorer_permissions",),
+            ("gateway_secret_permissions",),
+            ("gateway_endpoint_permissions",),
+            ("gateway_model_definition_permissions",),
+            ("workspace_permissions",),
+        ]
+    )
 
 
 def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
@@ -56,6 +59,7 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
     assert "gateway_secret_permissions" in tables
     assert "gateway_endpoint_permissions" in tables
     assert "gateway_model_definition_permissions" in tables
+    assert "workspace_permissions" in tables
     assert "experiments" in tables
     assert "runs" in tables
 
@@ -119,6 +123,8 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "alembic_version_auth" in tables
     assert "users" in tables
     assert "experiment_permissions" in tables
+    assert "scorer_permissions" in tables
     assert "registered_model_permissions" in tables
-    assert version[0] == "8606fa83a998"
+    assert "workspace_permissions" in tables
+    assert version[0] == "2ed73881770d"
     assert user == ("testuser", 1)
