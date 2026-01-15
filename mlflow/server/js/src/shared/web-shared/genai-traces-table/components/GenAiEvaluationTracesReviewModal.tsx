@@ -7,7 +7,6 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Drawer,
   GenericSkeleton,
   Modal,
   PlusIcon,
@@ -26,6 +25,7 @@ import {
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
+import { AssistantAwareDrawer } from '../../../../common/components/AssistantAwareDrawer';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
@@ -483,7 +483,7 @@ const DrawerWrapper = ({
   }, [handleKeyDown]);
 
   return (
-    <Drawer.Root
+    <AssistantAwareDrawer.Root
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -491,7 +491,7 @@ const DrawerWrapper = ({
         }
       }}
     >
-      <Drawer.Content
+      <AssistantAwareDrawer.Content
         componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
@@ -547,8 +547,8 @@ const DrawerWrapper = ({
         <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
           {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
         </ApplyDesignSystemContextOverrides>
-      </Drawer.Content>
-    </Drawer.Root>
+      </AssistantAwareDrawer.Content>
+    </AssistantAwareDrawer.Root>
   );
 };
 
