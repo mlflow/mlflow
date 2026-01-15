@@ -4056,7 +4056,7 @@ requires-dist = [
     { name = "huey", specifier = ">=2.5.0,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.9,<=1.1.0" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.10,<=1.1.0" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },
