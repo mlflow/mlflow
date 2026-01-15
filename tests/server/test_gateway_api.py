@@ -336,12 +336,21 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
-def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    "input_url",
+    [
+        "https://my-workspace.databricks.com",
+        "https://my-workspace.databricks.com/serving-endpoints",
+    ],
+)
+def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
+    store: SqlAlchemyStore, input_url: str
+):
     secret = store.create_gateway_secret(
         secret_name="databricks-key",
         secret_value={"api_key": "databricks-token-123"},
         provider="databricks",
-        auth_config={"api_base": "https://my-workspace.databricks.com"},
+        auth_config={"api_base": input_url},
     )
     model_def = store.create_gateway_model_definition(
         name="databricks-model",

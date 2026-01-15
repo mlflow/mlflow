@@ -19,7 +19,7 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import (
-    _normalize_databricks_base_url,
+    normalize_databricks_base_url,
     check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
     is_valid_ai21labs_model,
@@ -255,7 +255,7 @@ class LiteLLMConfig(ConfigModel):
         # Normalize Databricks base URL to include /serving-endpoints
         provider = values.get("litellm_provider")
         if provider == Provider.DATABRICKS and "api_base" in auth_config:
-            auth_config["api_base"] = _normalize_databricks_base_url(auth_config["api_base"])
+            auth_config["api_base"] = normalize_databricks_base_url(auth_config["api_base"])
 
         values["litellm_auth_config"] = auth_config
         return values

@@ -21,7 +21,7 @@ _gateway_uri: str | None = None
 DATABRICKS_SERVING_ENDPOINTS_PATH = "/serving-endpoints"
 
 
-def _normalize_databricks_base_url(base_url: str | None) -> str | None:
+def normalize_databricks_base_url(base_url: str | None) -> str | None:
     """
     Normalize Databricks base URL to include /serving-endpoints if not present.
 
@@ -34,14 +34,10 @@ def _normalize_databricks_base_url(base_url: str | None) -> str | None:
     if not base_url:
         return base_url
 
-    # Remove trailing slash for consistent handling
     base_url = base_url.rstrip("/")
-
-    # Check if the URL already contains /serving-endpoints
-    if DATABRICKS_SERVING_ENDPOINTS_PATH in base_url:
+    if base_url.endswith(DATABRICKS_SERVING_ENDPOINTS_PATH):
         return base_url
 
-    # Append /serving-endpoints to the base URL
     return f"{base_url}{DATABRICKS_SERVING_ENDPOINTS_PATH}"
 
 
