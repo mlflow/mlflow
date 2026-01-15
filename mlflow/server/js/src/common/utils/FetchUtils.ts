@@ -10,8 +10,8 @@ import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
 import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
-import { matchPredefinedError } from '@databricks/web-shared/errors';
-import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
+import { matchPredefinedError, matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
+import { getWorkspaceOrDefault } from './WorkspaceUtils';
 
 export const HTTPMethods = {
   GET: 'GET',
@@ -48,13 +48,25 @@ export const getDefaultHeadersFromCookies = (cookieStr: any) => {
 
 export const getDefaultHeaders = (cookieStr: any) => {
   const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+
+  // Forward Authorization header for OAuth/Kubernetes integration
+  const authHeader = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('mlflow-auth-header') : null;
+
+  const workspace = getWorkspaceOrDefault();
+
   return {
     ...cookieHeaders,
+    ...(authHeader ? { Authorization: authHeader } : {}),
+    ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/')) {
+  if (
+    process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' &&
+    typeof relativeUrl === 'string' &&
+    !relativeUrl.startsWith('/')
+  ) {
     return '/' + relativeUrl;
   }
   return relativeUrl;
@@ -453,19 +465,32 @@ function serializeRequestBody(payload: any | FormData | Blob) {
     : JSON.stringify(payload);
 }
 
+export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
+  body?: any;
+};
+
 // Helper method to make a request to the backend.
-export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET', body?: any) => {
-  // eslint-disable-next-line no-restricted-globals
-  const fetchFn = fetch;
-  const headers = {
-    ...(body ? { 'Content-Type': 'application/json' } : {}),
-    ...getDefaultHeaders(document.cookie),
+export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
+  const { method, headers, body, ...restOptions } = options;
+
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const fetchOptions: RequestInit = {
+    ...restOptions,
+    method: method || HTTPMethods.GET,
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
+    ...(body && { body: serializeRequestBody(body) }),
   };
-  const response = await fetchFn(url, {
-    method,
-    body: serializeRequestBody(body),
-    headers,
-  });
+
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  const response = await fetch(url, fetchOptions);
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
     if (predefinedError) {
