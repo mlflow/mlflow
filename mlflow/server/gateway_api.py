@@ -6,8 +6,10 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
+import functools
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -52,6 +54,47 @@ from mlflow.tracking._tracking_service.utils import _get_store
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+
+
+def record_gateway_invocation(invocation_type: str) -> Callable[..., Any]:
+    """
+    Decorator to record telemetry for gateway invocation endpoints.
+
+    Automatically tracks success/failure status, duration, and streaming mode
+    (determined by checking if the response is a StreamingResponse).
+
+    Args:
+        invocation_type: The type of invocation (e.g., "mlflow_chat_completions")
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            success = True
+            result = None
+
+            try:
+                result = await func(*args, **kwargs)
+                return result  # noqa: RET504
+            except Exception:
+                success = False
+                raise
+            finally:
+                duration_ms = int((time.time() - start_time) * 1000)
+                _record_event(
+                    GatewayInvocationEvent,
+                    params={
+                        "is_streaming": isinstance(result, StreamingResponse),
+                        "invocation_type": invocation_type,
+                    },
+                    success=success,
+                    duration_ms=duration_ms,
+                )
+
+        return wrapper
+
+    return decorator
 
 
 def _build_endpoint_config(
@@ -308,6 +351,7 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
+@record_gateway_invocation("mlflow_invocations")
 async def invocations(endpoint_name: str, request: Request):
     """
     Unified invocations endpoint handler that supports both chat and embeddings.
@@ -316,70 +360,53 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "messages" field -> chat endpoint
     - If payload has "input" field -> embeddings endpoint
     """
-    start_time = time.time()
-    endpoint_type = None
-    is_streaming = False
-    success = True
-
     try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    store = _get_store()
+
+    _validate_store(store)
+
+    # Detect request type based on payload structure
+    if "messages" in body:
+        # Chat request
+        endpoint_type = EndpointType.LLM_V1_CHAT
         try:
-            body = await request.json()
+            payload = chat.RequestPayload(**body)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+            raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        store = _get_store()
+        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
 
-        _validate_store(store)
-
-        # Detect request type based on payload structure
-        if "messages" in body:
-            # Chat request
-            endpoint_type = EndpointType.LLM_V1_CHAT
-            try:
-                payload = chat.RequestPayload(**body)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
-
-            provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
-            is_streaming = bool(payload.stream)
-
-            if payload.stream:
-                return await make_streaming_response(provider.chat_stream(payload))
-            else:
-                return await provider.chat(payload)
-
-        elif "input" in body:
-            # Embeddings request
-            endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
-            try:
-                payload = embeddings.RequestPayload(**body)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
-
-            provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
-
-            return await provider.embeddings(payload)
-
+        if payload.stream:
+            return await make_streaming_response(provider.chat_stream(payload))
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid request: payload format must be either chat or embeddings",
-            )
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={"is_streaming": is_streaming, "invocation_type": "mlflow_invocations"},
-            success=success,
-            duration_ms=duration_ms,
+            return await provider.chat(payload)
+
+    elif "input" in body:
+        # Embeddings request
+        endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
+        try:
+            payload = embeddings.RequestPayload(**body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
+
+        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+
+        return await provider.embeddings(payload)
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid request: payload format must be either chat or embeddings",
         )
 
 
 @gateway_router.post("/mlflow/v1/chat/completions", response_model=None)
 @translate_http_exception
+@record_gateway_invocation("mlflow_chat_completions")
 async def chat_completions(request: Request):
     """
     OpenAI-compatible chat completions endpoint.
@@ -395,52 +422,35 @@ async def chat_completions(request: Request):
             "messages": [{"role": "user", "content": "Hello"}]
         }
     """
-    start_time = time.time()
-    endpoint_type = EndpointType.LLM_V1_CHAT
-    is_streaming = False
-    success = True
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    # Extract endpoint name from "model" parameter
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+
+    store = _get_store()
+
+    _validate_store(store)
 
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        payload = chat.RequestPayload(**body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        # Extract endpoint name from "model" parameter
-        endpoint_name = _extract_endpoint_name_from_model(body)
-        body.pop("model")
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
 
-        store = _get_store()
-
-        _validate_store(store)
-
-        try:
-            payload = chat.RequestPayload(**body)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
-
-        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
-        is_streaming = bool(payload.stream)
-
-        if payload.stream:
-            return await make_streaming_response(provider.chat_stream(payload))
-        else:
-            return await provider.chat(payload)
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={"is_streaming": is_streaming, "invocation_type": "mlflow_chat_completions"},
-            success=success,
-            duration_ms=duration_ms,
-        )
+    if payload.stream:
+        return await make_streaming_response(provider.chat_stream(payload))
+    else:
+        return await provider.chat(payload)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
+@record_gateway_invocation("openai_passthrough_chat")
 async def openai_passthrough_chat(request: Request):
     """
     OpenAI passthrough endpoint for chat completions.
@@ -460,46 +470,28 @@ async def openai_passthrough_chat(request: Request):
             "stream": true
         }
     """
-    start_time = time.time()
-    is_streaming = False
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        endpoint_name = _extract_endpoint_name_from_model(body)
-        body.pop("model")
-        store = _get_store()
-        _validate_store(store)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_CHAT
-        )
-        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
-        is_streaming = bool(body.get("stream"))
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
-        if body.get("stream"):
-            return StreamingResponse(response, media_type="text/event-stream")
-        return response
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={"is_streaming": is_streaming, "invocation_type": "openai_passthrough_chat"},
-            success=success,
-            duration_ms=duration_ms,
-        )
+    if body.get("stream"):
+        return StreamingResponse(response, media_type="text/event-stream")
+    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
 @translate_http_exception
+@record_gateway_invocation("openai_passthrough_embeddings")
 async def openai_passthrough_embeddings(request: Request):
     """
     OpenAI passthrough endpoint for embeddings.
@@ -515,40 +507,26 @@ async def openai_passthrough_embeddings(request: Request):
             "input": "The food was delicious and the waiter..."
         }
     """
-    start_time = time.time()
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        endpoint_name = _extract_endpoint_name_from_model(body)
-        body.pop("model")
-        store = _get_store()
-        _validate_store(store)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
-        )
-        return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={"is_streaming": False, "invocation_type": "openai_passthrough_embeddings"},
-            success=success,
-            duration_ms=duration_ms,
-        )
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
+    )
+    return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
+@record_gateway_invocation("openai_passthrough_responses")
 async def openai_passthrough_responses(request: Request):
     """
     OpenAI passthrough endpoint for the Responses API.
@@ -568,49 +546,28 @@ async def openai_passthrough_responses(request: Request):
             "stream": true
         }
     """
-    start_time = time.time()
-    is_streaming = False
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        endpoint_name = _extract_endpoint_name_from_model(body)
-        body.pop("model")
-        store = _get_store()
-        _validate_store(store)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_CHAT
-        )
-        response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
-        is_streaming = bool(body.get("stream"))
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
-        if body.get("stream"):
-            return StreamingResponse(response, media_type="text/event-stream")
-        return response
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={
-                "is_streaming": is_streaming,
-                "invocation_type": "openai_passthrough_responses",
-            },
-            success=success,
-            duration_ms=duration_ms,
-        )
+    if body.get("stream"):
+        return StreamingResponse(response, media_type="text/event-stream")
+    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
 @translate_http_exception
+@record_gateway_invocation("anthropic_passthrough_messages")
 async def anthropic_passthrough_messages(request: Request):
     """
     Anthropic passthrough endpoint for the Messages API.
@@ -630,51 +587,30 @@ async def anthropic_passthrough_messages(request: Request):
             "stream": true
         }
     """
-    start_time = time.time()
-    is_streaming = False
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        endpoint_name = _extract_endpoint_name_from_model(body)
-        body.pop("model")
-        store = _get_store()
-        _validate_store(store)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_CHAT
-        )
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
-        is_streaming = bool(body.get("stream"))
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
-        if body.get("stream"):
-            return StreamingResponse(response, media_type="text/event-stream")
-        return response
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={
-                "is_streaming": is_streaming,
-                "invocation_type": "anthropic_passthrough_messages",
-            },
-            success=success,
-            duration_ms=duration_ms,
-        )
+    if body.get("stream"):
+        return StreamingResponse(response, media_type="text/event-stream")
+    return response
 
 
 @gateway_router.post(
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
+@record_gateway_invocation("gemini_passthrough_generate_content")
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for generateContent API (non-streaming).
@@ -694,43 +630,24 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
             ]
         }
     """
-    start_time = time.time()
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        store = _get_store()
-        _validate_store(store)
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_CHAT
-        )
-        return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={
-                "is_streaming": False,
-                "invocation_type": "gemini_passthrough_generate_content",
-            },
-            success=success,
-            duration_ms=duration_ms,
-        )
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
 @gateway_router.post(
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
+@record_gateway_invocation("gemini_passthrough_stream_generate_content")
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for streamGenerateContent API (streaming).
@@ -750,37 +667,17 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
             ]
         }
     """
-    start_time = time.time()
-    success = True
-
     try:
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-        store = _get_store()
-        _validate_store(store)
+    store = _get_store()
+    _validate_store(store)
 
-        headers = dict(request.headers)
-        provider = _create_provider_from_endpoint_name(
-            store, endpoint_name, EndpointType.LLM_V1_CHAT
-        )
-        response = await provider.passthrough(
-            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
-        )
-        return StreamingResponse(response, media_type="text/event-stream")
-    except Exception:
-        success = False
-        raise
-    finally:
-        duration_ms = int((time.time() - start_time) * 1000)
-        _record_event(
-            GatewayInvocationEvent,
-            params={
-                "is_streaming": True,
-                "invocation_type": "gemini_passthrough_stream_generate_content",
-            },
-            success=success,
-            duration_ms=duration_ms,
-        )
+    headers = dict(request.headers)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
+    )
+    return StreamingResponse(response, media_type="text/event-stream")

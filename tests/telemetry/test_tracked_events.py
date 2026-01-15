@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from click.testing import CliRunner
+from fastapi.responses import StreamingResponse
 
 import mlflow
 from mlflow import MlflowClient
@@ -1987,7 +1988,9 @@ async def test_gateway_invocation_telemetry(
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_create_provider.return_value = mock_provider
-        mock_streaming.return_value = MagicMock()
+        mock_streaming.return_value = StreamingResponse(
+            mock_stream(), media_type="text/event-stream"
+        )
 
         await chat_completions(mock_request)
 
