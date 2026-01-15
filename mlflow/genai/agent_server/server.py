@@ -137,14 +137,12 @@ class AgentServer:
         allowed_path_prefixes = ("/assets/", "/api/")
 
         # Add additional paths from environment variables
-        additional_exact_paths = os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", "")
-        if additional_exact_paths:
+        if additional_exact_paths := os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
             allowed_exact_paths = allowed_exact_paths + tuple(
                 p.strip() for p in additional_exact_paths.split(",") if p.strip()
             )
 
-        additional_path_prefixes = os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", "")
-        if additional_path_prefixes:
+        if additional_path_prefixes := os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
             allowed_path_prefixes = allowed_path_prefixes + tuple(
                 p.strip() for p in additional_path_prefixes.split(",") if p.strip()
             )
