@@ -1238,10 +1238,14 @@ mlflow.server.auth.client.AuthServiceClient.delete_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.delete_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.delete_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.delete_user
+mlflow.server.auth.client.AuthServiceClient.delete_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.get_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.get_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.get_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.get_user
+mlflow.server.auth.client.AuthServiceClient.list_user_workspace_permissions
+mlflow.server.auth.client.AuthServiceClient.list_workspace_permissions
+mlflow.server.auth.client.AuthServiceClient.set_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.update_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.update_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.update_scorer_permission
@@ -1259,6 +1263,9 @@ mlflow.server.auth.entities.ScorerPermission.to_json
 mlflow.server.auth.entities.User
 mlflow.server.auth.entities.User.from_json
 mlflow.server.auth.entities.User.to_json
+mlflow.server.auth.entities.WorkspacePermission
+mlflow.server.auth.entities.WorkspacePermission.from_json
+mlflow.server.auth.entities.WorkspacePermission.to_json
 mlflow.server.get_app_client
 mlflow.set_active_model
 mlflow.set_experiment

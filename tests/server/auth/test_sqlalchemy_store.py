@@ -13,13 +13,9 @@ from mlflow.server.auth.entities import (
     ScorerPermission,
     User,
 )
-from mlflow.server.auth.permissions import (
-    ALL_PERMISSIONS,
-    EDIT,
-    MANAGE,
-    READ,
-)
+from mlflow.server.auth.permissions import ALL_PERMISSIONS, EDIT, MANAGE, READ
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -318,11 +314,17 @@ def test_create_registered_model_permission(store):
     assert rmp1.name == name1
     assert rmp1.user_id == user_id1
     assert rmp1.permission == permission1
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
 
     # error on duplicate
+    duplicate_permission_pattern = (
+        rf"(?s)Registered model permission "
+        rf"with workspace={DEFAULT_WORKSPACE_NAME}, name={name1} "
+        rf"and username={username1} already exists"
+    )
     with pytest.raises(
         MlflowException,
-        match=rf"Registered model permission \(name={name1}, username={username1}\) already exists",
+        match=duplicate_permission_pattern,
     ) as exception_context:
         _rmp_maker(store, name1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -333,6 +335,7 @@ def test_create_registered_model_permission(store):
     assert rmp2.name == name2
     assert rmp2.user_id == user_id1
     assert rmp2.permission == permission1
+    assert rmp2.workspace == DEFAULT_WORKSPACE_NAME
 
     # all permissions are ok
     for perm in ALL_PERMISSIONS:
@@ -341,6 +344,7 @@ def test_create_registered_model_permission(store):
         assert rmp3.name == name3
         assert rmp3.user_id == user_id1
         assert rmp3.permission == perm
+        assert rmp3.workspace == DEFAULT_WORKSPACE_NAME
 
     # invalid permission will fail
     name4 = random_str()
@@ -363,12 +367,18 @@ def test_get_registered_model_permission(store):
     assert rmp1.name == name1
     assert rmp1.user_id == user_id1
     assert rmp1.permission == permission1
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
 
     # error on non-existent row
     name2 = random_str()
+    missing_permission_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={name2} "
+        f"and username={username1} not found"
+    )
     with pytest.raises(
         MlflowException,
-        match=rf"Registered model permission with name={name2} and username={username1} not found",
+        match=missing_permission_message,
     ) as exception_context:
         store.get_registered_model_permission(name2, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -394,8 +404,11 @@ def test_list_registered_model_permission(store):
     assert len(rmps) == 3
     assert isinstance(rmps[0], RegisteredModelPermission)
     assert rmps[0].name == name1
+    assert rmps[0].workspace == DEFAULT_WORKSPACE_NAME
     assert rmps[1].name == name2
+    assert rmps[1].workspace == DEFAULT_WORKSPACE_NAME
     assert rmps[2].name == name3
+    assert rmps[2].workspace == DEFAULT_WORKSPACE_NAME
 
 
 def test_update_registered_model_permission(store):
@@ -411,6 +424,7 @@ def test_update_registered_model_permission(store):
     store.update_registered_model_permission(name1, username1, permission2)
     rmp1 = store.get_registered_model_permission(name1, username1)
     assert rmp1.permission == permission2
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
 
     # invalid permission will fail
     with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
@@ -428,9 +442,14 @@ def test_delete_registered_model_permission(store):
     _rmp_maker(store, name1, username1, permission1)
 
     store.delete_registered_model_permission(name1, username1)
+    missing_permission_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={name1} "
+        f"and username={username1} not found"
+    )
     with pytest.raises(
         MlflowException,
-        match=rf"Registered model permission with name={name1} and username={username1} not found",
+        match=missing_permission_message,
     ) as exception_context:
         store.get_registered_model_permission(name1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -462,7 +481,9 @@ def test_rename_registered_model_permission(store):
     assert perm_user_2.name == new_name
 
     assert perm_user_1.permission == MANAGE.name
+    assert perm_user_1.workspace == DEFAULT_WORKSPACE_NAME
     assert perm_user_2.permission == READ.name
+    assert perm_user_2.workspace == DEFAULT_WORKSPACE_NAME
 
 
 def test_create_scorer_permission(store):
