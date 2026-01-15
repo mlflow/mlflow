@@ -21,7 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
 )
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.fluent import _get_trace_exporter
 
@@ -428,6 +428,31 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
             messages.append({"role": "assistant", "content": text_content})
 
 
+def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
+    """Set token usage on a span using the standardized CHAT_USAGE attribute.
+
+    This ensures token usage is tracked consistently with other LLM providers and
+    can be aggregated in the trace info.
+
+    Args:
+        span: The MLflow span to set token usage on
+        usage: Dictionary containing token usage info from Claude Code transcript
+    """
+    if not usage:
+        return
+
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
+    usage_dict = {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+    }
+
+    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+
 def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
@@ -470,10 +495,11 @@ def _create_llm_and_tool_spans(
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
-                    "input_tokens": usage.get("input_tokens", 0),
-                    "output_tokens": usage.get("output_tokens", 0),
                 },
             )
+
+            # Set token usage using the standardized CHAT_USAGE attribute
+            _set_token_usage_attribute(llm_span, usage)
 
             llm_span.set_outputs({"response": text_content})
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
