@@ -746,6 +746,10 @@ const config: Config = {
             ],
           },
           {
+            to: '/genai/governance/ai-gateway/quickstart',
+            from: ['/genai/governance/ai-gateway/setup'],
+          },
+          {
             to: '/genai/governance/ai-gateway/legacy/usage',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
