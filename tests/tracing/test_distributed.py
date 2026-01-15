@@ -28,25 +28,24 @@ def flask_server(
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
     """Context manager to run a Flask server in a subprocess."""
-    proc = subprocess.Popen([sys.executable, str(server_script_path), str(port)])
-    base_url = f"http://127.0.0.1:{port}"
+    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+        base_url = f"http://127.0.0.1:{port}"
 
-    try:
-        # Wait for server to be ready
-        for _ in range(wait_timeout):
-            try:
-                response = requests.get(f"{base_url}{health_endpoint}", timeout=1.0)
-                if response.ok:
-                    break
-            except requests.exceptions.RequestException:
-                time.sleep(0.2)
-        else:
-            raise RuntimeError(f"Flask server failed to start within {wait_timeout} seconds")
+        try:
+            # Wait for server to be ready
+            for _ in range(wait_timeout):
+                try:
+                    response = requests.get(f"{base_url}{health_endpoint}", timeout=1.0)
+                    if response.ok:
+                        break
+                except requests.exceptions.RequestException:
+                    time.sleep(0.2)
+            else:
+                raise RuntimeError(f"Flask server failed to start within {wait_timeout} seconds")
 
-        yield base_url
-    finally:
-        proc.terminate()
-        proc.wait()
+            yield base_url
+        finally:
+            proc.terminate()
 
 
 def _parse_traceparent(header_value: str) -> tuple[int, int]:
