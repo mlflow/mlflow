@@ -32,11 +32,13 @@ def _is_localhost_uri(uri: str) -> bool | None:
 
     Returns:
         True if the URI points to localhost, False if it points to a remote host,
-        or None if the URI cannot be parsed.
+        or None if the URI cannot be parsed or has no hostname.
     """
     try:
         parsed = urllib.parse.urlparse(uri)
-        hostname = parsed.hostname or ""
+        hostname = parsed.hostname
+        if not hostname:
+            return None
         return (
             hostname in (".", "::1")
             or hostname.startswith("localhost")
@@ -44,6 +46,31 @@ def _is_localhost_uri(uri: str) -> bool | None:
         )
     except Exception:
         return None
+
+
+def _get_tracking_uri_info() -> tuple[str | None, bool | None]:
+    """
+    Get tracking URI information including scheme and localhost status.
+
+    Returns:
+        A tuple of (scheme, is_localhost). is_localhost is only set for http/https schemes.
+    """
+    # import here to avoid circular import
+    from mlflow.tracking._tracking_service.utils import (
+        _get_tracking_scheme_with_resolved_uri,
+        get_tracking_uri,
+    )
+
+    try:
+        tracking_uri = get_tracking_uri()
+        scheme = _get_tracking_scheme_with_resolved_uri(tracking_uri)
+
+        # Check if http/https points to localhost
+        is_localhost = _is_localhost_uri(tracking_uri) if scheme in ("http", "https") else None
+
+        return scheme, is_localhost
+    except Exception:
+        return None, None
 
 
 class TelemetryClient:
@@ -368,18 +395,11 @@ class TelemetryClient:
         method to update the backend store info at sending telemetry step.
         """
         try:
-            # import here to avoid circular import
-            from mlflow.tracking._tracking_service.utils import (
-                _get_tracking_scheme,
-                get_tracking_uri,
-            )
-
-            scheme = _get_tracking_scheme()
-            self.info["tracking_uri_scheme"] = scheme
-
-            # Check if http/https points to localhost
-            if scheme in ("http", "https"):
-                self.info["is_localhost"] = _is_localhost_uri(get_tracking_uri())
+            scheme, is_localhost = _get_tracking_uri_info()
+            if scheme is not None:
+                self.info["tracking_uri_scheme"] = scheme
+            if is_localhost is not None:
+                self.info["is_localhost"] = is_localhost
         except Exception as e:
             _log_error(f"Failed to update backend store: {e}")
 

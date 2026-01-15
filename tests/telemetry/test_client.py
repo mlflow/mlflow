@@ -14,6 +14,7 @@ from mlflow.telemetry.client import (
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
     TelemetryClient,
+    _is_localhost_uri,
     get_telemetry_client,
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
@@ -981,9 +982,7 @@ def test_fetch_config_after_first_record():
     ],
 )
 def test_is_localhost_uri_returns_true_for_localhost(uri):
-    from mlflow.telemetry.client import _is_localhost_uri
-
-    assert _is_localhost_uri(uri) is True
+    assert _is_localhost_uri(uri)
 
 
 @pytest.mark.parametrize(
@@ -999,20 +998,14 @@ def test_is_localhost_uri_returns_true_for_localhost(uri):
     ],
 )
 def test_is_localhost_uri_returns_false_for_remote(uri):
-    from mlflow.telemetry.client import _is_localhost_uri
-
     assert _is_localhost_uri(uri) is False
 
 
-def test_is_localhost_uri_returns_false_for_empty_hostname():
-    from mlflow.telemetry.client import _is_localhost_uri
-
-    assert _is_localhost_uri("file:///tmp/mlruns") is False
+def test_is_localhost_uri_returns_none_for_empty_hostname():
+    assert _is_localhost_uri("file:///tmp/mlruns") is None
 
 
 def test_is_localhost_uri_returns_none_on_parse_error():
-    from mlflow.telemetry.client import _is_localhost_uri
-
     # urlparse doesn't raise on most inputs, but we test the fallback behavior
     # by mocking urlparse to raise
     with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
