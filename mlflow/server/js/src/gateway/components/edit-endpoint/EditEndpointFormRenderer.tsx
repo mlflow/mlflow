@@ -221,6 +221,98 @@ export const EditEndpointFormRenderer = ({
               />
             </div>
           </div>
+
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Monitor endpoint usage metrics and analytics."
+                description="Usage tracking description"
+              />
+            </Typography.Text>
+
+            <div
+              css={{
+                marginTop: theme.spacing.lg,
+                padding: theme.spacing.lg,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.colors.backgroundPrimary,
+                borderRadius: theme.borders.borderRadiusMd,
+                border: `1px dashed ${theme.colors.border}`,
+              }}
+            >
+              <Typography.Title level={4} color="secondary">
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Title>
+              <Typography.Text
+                color="secondary"
+                css={{ textAlign: 'center', marginTop: theme.spacing.xs, maxWidth: 400 }}
+              >
+                <FormattedMessage
+                  defaultMessage="Usage tracking features are currently under development. Stay tuned for updates!"
+                  description="Coming soon message for usage tracking"
+                />
+              </Typography.Text>
+            </div>
+          </div>
+
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Configure rate limits to control endpoint access."
+                description="Rate limiting description"
+              />
+            </Typography.Text>
+
+            <div
+              css={{
+                marginTop: theme.spacing.lg,
+                padding: theme.spacing.lg,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.colors.backgroundPrimary,
+                borderRadius: theme.borders.borderRadiusMd,
+                border: `1px dashed ${theme.colors.border}`,
+              }}
+            >
+              <Typography.Title level={4} color="secondary">
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Title>
+              <Typography.Text
+                color="secondary"
+                css={{ textAlign: 'center', marginTop: theme.spacing.xs, maxWidth: 400 }}
+              >
+                <FormattedMessage
+                  defaultMessage="Rate limiting features are currently under development. Stay tuned for updates!"
+                  description="Coming soon message for rate limiting"
+                />
+              </Typography.Text>
+            </div>
+          </div>
         </div>
 
         <div

@@ -503,6 +503,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "2290EW": {
+    "defaultMessage": "Configure rate limits to control endpoint access.",
+    "description": "Rate limiting description"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -717,6 +721,10 @@
   "4+RPaz": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
+  },
+  "4+xiAO": {
+    "defaultMessage": "Rate limiting features are currently under development. Stay tuned for updates!",
+    "description": "Coming soon message for rate limiting"
   },
   "40u/J+": {
     "defaultMessage": "Custom code",
@@ -5063,6 +5071,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "dDyOtz": {
+    "defaultMessage": "Usage tracking features are currently under development. Stay tuned for updates!",
+    "description": "Coming soon message for usage tracking"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -5863,6 +5875,10 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
+  "jLHxac": {
+    "defaultMessage": "Coming Soon",
+    "description": "Coming soon label"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -6475,6 +6491,10 @@
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
   },
+  "o3Do3p": {
+    "defaultMessage": "Monitor endpoint usage metrics and analytics.",
+    "description": "Usage tracking description"
+  },
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
@@ -6587,6 +6607,10 @@
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
   },
+  "oxHklW": {
+    "defaultMessage": "Rate Limiting",
+    "description": "Section title for rate limiting"
+  },
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
@@ -6598,6 +6622,10 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p8KS2c": {
+    "defaultMessage": "Usage Tracking",
+    "description": "Section title for usage tracking"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
