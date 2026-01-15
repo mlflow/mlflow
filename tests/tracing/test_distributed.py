@@ -1,9 +1,10 @@
 import re
+import subprocess
 import sys
-import textwrap
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from subprocess import Popen
+from typing import Iterator
 
 import requests
 from opentelemetry import trace as otel_trace
@@ -16,6 +17,35 @@ from mlflow.tracing.distributed import (
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
+
+
+@contextmanager
+def flask_server(
+    server_script_path: Path,
+    port: int,
+    *,
+    wait_timeout: int = 30,
+    health_endpoint: str = "/health",
+) -> Iterator[str]:
+    """Context manager to run a Flask server in a subprocess."""
+    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+        base_url = f"http://127.0.0.1:{port}"
+
+        try:
+            # Wait for server to be ready
+            for _ in range(wait_timeout):
+                try:
+                    response = requests.get(f"{base_url}{health_endpoint}", timeout=1.0)
+                    if response.ok:
+                        break
+                except requests.exceptions.RequestException:
+                    time.sleep(0.2)
+            else:
+                raise RuntimeError(f"Flask server failed to start within {wait_timeout} seconds")
+
+            yield base_url
+        finally:
+            proc.terminate()
 
 
 def _parse_traceparent(header_value: str) -> tuple[int, int]:
@@ -85,59 +115,12 @@ def test_set_tracing_context_from_http_request_headers():
 
 @skip_when_testing_trace_sdk
 def test_distributed_tracing_e2e(tmp_path):
-    # Prepare a minimal Flask server script that extracts headers and starts a child span
-    server_code = textwrap.dedent(
-        """
-        import sys
-        import json
-        from flask import Flask, request, jsonify
-        import mlflow
-        from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
-
-        app = Flask(__name__)
-
-        @app.get("/health")
-        def health():
-            return "ok", 200
-
-        @app.post("/handle")
-        def handle():
-            # Forward all headers for extraction
-            headers = dict(request.headers)
-            with set_tracing_context_from_http_request_headers(headers):
-                with mlflow.start_span("server-handler") as span:
-                    return jsonify({
-                        "trace_id": span.trace_id,
-                        "span_id": span.span_id,
-                        "parent_id": span.parent_id,
-                    })
-
-        if __name__ == "__main__":
-            port = int(sys.argv[1])
-            app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
-        """
-    )
-
-    server_path = Path(tmp_path) / "flask_server.py"
-    server_path.write_text(server_code)
-
+    # Path to the Flask server script
+    server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
     port = get_safe_port()
 
-    # Start server in a separate process
-    proc = Popen([sys.executable, str(server_path), str(port)])
-    try:
-        base_url = f"http://127.0.0.1:{port}"
-        # Wait until server is ready
-        for _ in range(30):
-            try:
-                r = requests.get(f"{base_url}/health", timeout=1.0)
-                if r.ok:
-                    break
-            except requests.exceptions.RequestException:
-                time.sleep(0.2)
-        else:
-            raise RuntimeError("Flask server failed to start")
-
+    # Start Flask server using the context manager
+    with flask_server(server_path, port) as base_url:
         # Client side: create a span and send headers to server
         with mlflow.start_span("client-root") as client_span:
             headers = get_tracing_context_headers_for_http_request()
@@ -148,9 +131,6 @@ def test_distributed_tracing_e2e(tmp_path):
             # Validate server span is a child in the same trace
             assert payload["trace_id"] == client_span.trace_id
             assert payload["parent_id"] == client_span.span_id
-    finally:
-        proc.terminate()
-        proc.wait()
 
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(client_span.trace_id)
@@ -172,85 +152,22 @@ def test_distributed_tracing_e2e(tmp_path):
 def test_distributed_tracing_e2e_nested_call(tmp_path):
     port = get_safe_port()
     port2 = get_safe_port()
-    base_url = f"http://127.0.0.1:{port}"
-    base_url2 = f"http://127.0.0.1:{port2}"
 
-    server_code = textwrap.dedent(
-        f"""
-        import sys
-        import json
-        import requests
-        from flask import Flask, request, jsonify
-        import mlflow
-        from mlflow.tracing.distributed import (
-            set_tracing_context_from_http_request_headers,
-            get_tracing_context_headers_for_http_request,
-        )
+    # Path to the Flask server script
+    server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
 
-        app = Flask(__name__)
-
-        @app.get("/health")
-        def health():
-            return "ok", 200
-
-        @app.post("/handle1")
-        def handle1():
-            # Forward all headers for extraction
-            headers = dict(request.headers)
-            with set_tracing_context_from_http_request_headers(headers):
-                with mlflow.start_span("server-handler1") as span:
-                    headers2 = get_tracing_context_headers_for_http_request()
-                    resp2 = requests.post("{base_url2}/handle2", headers=headers2, timeout=5)
-                    assert resp2.ok
-                    payload2 = resp2.json()
-                    return jsonify({{
-                        "trace_id": span.trace_id,
-                        "span_id": span.span_id,
-                        "parent_id": span.parent_id,
-                        "nested_call_resp": payload2,
-                    }})
-
-        @app.post("/handle2")
-        def handle2():
-            # Forward all headers for extraction
-            headers = dict(request.headers)
-            with set_tracing_context_from_http_request_headers(headers):
-                with mlflow.start_span("server-handler2") as span:
-                    return jsonify({{
-                        "trace_id": span.trace_id,
-                        "span_id": span.span_id,
-                        "parent_id": span.parent_id,
-                    }})
-
-        if __name__ == "__main__":
-            port = int(sys.argv[1])
-            app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
-        """
-    )
-
-    server_path = Path(tmp_path) / "flask_server.py"
-    server_path.write_text(server_code)
-
-    # Start server in a separate process
-    proc = Popen([sys.executable, str(server_path), str(port)])
-    proc2 = Popen([sys.executable, str(server_path), str(port2)])
-    try:
-        # Wait until server is ready
-        for _ in range(30):
-            try:
-                r = requests.get(f"{base_url}/health", timeout=1.0)
-                r2 = requests.get(f"{base_url2}/health", timeout=1.0)
-                if r.ok and r2.ok:
-                    break
-            except requests.exceptions.RequestException:
-                time.sleep(0.2)
-        else:
-            raise RuntimeError("Flask server failed to start")
-
+    # Start both Flask servers using the context manager
+    with flask_server(server_path, port) as base_url, flask_server(server_path, port2) as base_url2:
         # Client side: create a span and send headers to server
         with mlflow.start_span("client-root") as client_span:
             headers = get_tracing_context_headers_for_http_request()
-            resp = requests.post(f"{base_url}/handle1", headers=headers, timeout=5)
+            # Pass the second server URL as a query parameter
+            resp = requests.post(
+                f"{base_url}/handle1",
+                headers=headers,
+                params={"second_server_url": base_url2},
+                timeout=5,
+            )
             assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
             payload = resp.json()
 
@@ -261,11 +178,6 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
             assert payload["nested_call_resp"]["trace_id"] == client_span.trace_id
             assert payload["nested_call_resp"]["parent_id"] == child_span1_id
             child_span2_id = payload["nested_call_resp"]["span_id"]
-    finally:
-        proc.terminate()
-        proc2.terminate()
-        proc.wait()
-        proc2.wait()
 
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(client_span.trace_id)
