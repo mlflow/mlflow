@@ -21,16 +21,10 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
-import { NumericAverageDisplay, PassFailBar, StringValuesDisplay } from './SessionAssessmentRenderers';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
-import {
-  aggregateNumericAssessments,
-  aggregatePassFailAssessments,
-  aggregateStringAssessments,
-} from '../utils/SessionAggregationUtils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -52,6 +46,8 @@ import { compact } from 'lodash';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
 import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
+import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggregatedCell';
+import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -256,16 +252,11 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     const { dtype } = assessmentInfo;
 
     if (dtype === 'pass-fail' || dtype === 'boolean') {
-      const { passCount, totalCount } = aggregatePassFailAssessments(traces, assessmentInfo);
-      cellContent = totalCount > 0 ? <PassFailBar passCount={passCount} totalCount={totalCount} /> : <NullCell />;
+      cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
     } else if (dtype === 'numeric') {
-      const { average, count } = aggregateNumericAssessments(traces, assessmentInfo.name);
-      cellContent =
-        count > 0 && average !== null ? <NumericAverageDisplay average={average} count={count} /> : <NullCell />;
+      cellContent = <SessionHeaderNumericAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
     } else if (dtype === 'string' || dtype === 'unknown') {
-      const { valueCounts, totalCount } = aggregateStringAssessments(traces, assessmentInfo.name);
-      cellContent =
-        totalCount > 0 && valueCounts.size > 0 ? <StringValuesDisplay valueCounts={valueCounts} /> : <NullCell />;
+      cellContent = <SessionHeaderStringAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
     } else {
       cellContent = <NullCell />;
     }
