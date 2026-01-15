@@ -103,22 +103,19 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
 
     scorers = []
     for name in scorer_names:
-        # First, try to load as a built-in scorer by class name
         scorer_class = getattr(builtin_scorers, name, None)
         if scorer_class is not None:
             try:
                 scorer = scorer_class()
                 scorers.append(scorer)
-                _logger.info(f"Loaded built-in scorer: {name}")
                 continue
             except (TypeError, Exception) as e:
                 _logger.debug(f"Failed to instantiate built-in scorer {name}: {e}")
 
-        # Fall back to loading from the registered scorer store
+        # Load from the registered scorer store if not a built-in scorer
         try:
             scorer = get_scorer(name=name, experiment_id=experiment_id)
             scorers.append(scorer)
-            _logger.info(f"Loaded registered scorer: {name}")
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Scorer '{name}' not found. It is neither a built-in scorer "
@@ -183,7 +180,7 @@ def optimize_prompts_job(
 
     This function is executed as a background job by the MLflow server.
     It resumes an existing MLflow run (created by the handler) and calls
-    mlflow.genai.optimize_prompts() which reuses the active run.
+    `mlflow.genai.optimize_prompts()` which reuses the active run.
 
     Note: This job only supports single-prompt optimization. The predict_fn
     is automatically built using the prompt's model_config (provider/model_name)
@@ -191,7 +188,7 @@ def optimize_prompts_job(
     to serialize their own predict function.
 
     Args:
-        run_id: The MLflow run ID to resume (created by the handler upfront).
+        run_id: The MLflow run ID to track the optimization configs and metrics.
         experiment_id: The experiment ID to track the optimization in.
         prompt_uri: The URI of the prompt to optimize.
         dataset_id: The ID of the EvaluationDataset containing training data.
@@ -202,13 +199,7 @@ def optimize_prompts_job(
             the experiment's scorer registry.
 
     Returns:
-        Dict containing optimization results:
-        - run_id: The MLflow run ID
-        - source_prompt_uri: URI of the source prompt
-        - optimized_prompt_uri: URI of the optimized prompt
-        - optimizer_name: Name of the optimizer used
-        - initial_eval_score: Initial evaluation score (if available)
-        - final_eval_score: Final evaluation score (if available)
+        Dict containing optimization results and metadata.
     """
     # Record telemetry event for job execution
     _record_event(
@@ -222,30 +213,18 @@ def optimize_prompts_job(
     set_experiment(experiment_id=experiment_id)
 
     dataset = get_dataset(dataset_id=dataset_id)
-    # Convert to DataFrame since optimize_prompts expects a len()-able object
     train_data = dataset.to_df()
-    _logger.info(f"Loaded dataset {dataset_id} with {len(train_data)} samples")
-
     predict_fn = _build_predict_fn(prompt_uri)
-    _logger.info(f"Built predict_fn from prompt {prompt_uri}")
-
     optimizer = _create_optimizer(optimizer_type, optimizer_config_json)
-    _logger.info(f"Created optimizer {optimizer_type}")
-
     loaded_scorers = _load_scorers(scorers, experiment_id)
-    _logger.info(f"Loaded {len(loaded_scorers)} scorers: {scorers}")
-
     source_prompt = load_prompt(prompt_uri)
-    _logger.info(f"Loaded source prompt: {prompt_uri}")
 
     # Resume the given run ID. Params have already been logged by the handler
     with start_run(run_id=run_id):
         # Link source prompt to run for lineage
         client = MlflowClient()
         client.link_prompt_version_to_run(run_id=run_id, prompt=source_prompt)
-        _logger.info(f"Linked source prompt {prompt_uri} to run {run_id}")
 
-        # Run optimization - reuses this active run
         result = optimize_prompts(
             predict_fn=predict_fn,
             train_data=train_data,

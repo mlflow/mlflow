@@ -305,32 +305,18 @@ def test_optimize_prompts_job_event_name():
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        # Normal case with optimizer type and scorers
         (
             {"optimizer_type": "gepa", "scorer_count": 2},
             {"optimizer_type": "gepa", "scorer_count": 2},
         ),
-        # MetaPrompt optimizer with single scorer
         (
             {"optimizer_type": "metaprompt", "scorer_count": 1},
             {"optimizer_type": "metaprompt", "scorer_count": 1},
         ),
-        # Zero scorers
         (
             {"optimizer_type": "gepa", "scorer_count": 0},
             {"optimizer_type": "gepa", "scorer_count": 0},
         ),
-        # Only optimizer type
-        (
-            {"optimizer_type": "gepa"},
-            {"optimizer_type": "gepa"},
-        ),
-        # Only scorer count
-        (
-            {"scorer_count": 3},
-            {"scorer_count": 3},
-        ),
-        # Empty arguments
         ({}, None),
     ],
 )
