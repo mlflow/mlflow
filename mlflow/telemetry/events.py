@@ -500,6 +500,14 @@ class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 
 
+class GetTracingContextHeadersEvent(Event):
+    name: str = "get_tracing_context_headers_for_http_request"
+
+
+class SetTracingContextFromHeadersEvent(Event):
+    name: str = "set_tracing_context_from_http_request_headers"
+
+
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
 
