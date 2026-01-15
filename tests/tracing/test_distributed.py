@@ -17,6 +17,9 @@ from mlflow.tracing.distributed import (
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
+# Use longer timeout on Windows due to slower CI runners
+REQUEST_TIMEOUT = 15 if sys.platform == "win32" else 5
+
 
 @contextmanager
 def flask_server(
@@ -114,7 +117,7 @@ def test_distributed_tracing_e2e(tmp_path):
         # Client side: create a span and send headers to server
         with mlflow.start_span("client-root") as client_span:
             headers = get_tracing_context_headers_for_http_request()
-            resp = requests.post(f"{base_url}/handle", headers=headers, timeout=5)
+            resp = requests.post(f"{base_url}/handle", headers=headers, timeout=REQUEST_TIMEOUT)
             assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
             payload = resp.json()
 
@@ -156,7 +159,7 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
                 f"{base_url}/handle1",
                 headers=headers,
                 params={"second_server_url": base_url2},
-                timeout=5,
+                timeout=REQUEST_TIMEOUT,
             )
             assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
             payload = resp.json()
