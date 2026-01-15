@@ -108,7 +108,8 @@ describe('tracedAnthropic', () => {
       ),
     );
 
-    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    // Disable retries to avoid timeout during error handling test
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
     const wrappedAnthropic = tracedAnthropic(anthropic);
 
     await expect(
@@ -172,6 +173,129 @@ describe('tracedAnthropic', () => {
     expect(childSpan.outputs).toBeDefined();
 
     const messageFormat = childSpan.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+    expect(messageFormat).toBe('anthropic');
+  });
+
+  it('should trace messages.stream() with async iteration', async () => {
+    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const events: any[] = [];
+    const stream = wrappedAnthropic.messages.stream({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello streaming!' }]
+    });
+
+    for await (const event of stream) {
+      events.push(event);
+    }
+
+    expect(events.length).toBeGreaterThan(0);
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('OK');
+
+    const span = trace.data.spans[0];
+    expect(span.name).toBe('Messages');
+    expect(span.spanType).toBe(mlflow.SpanType.LLM);
+    expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+    expect(span.inputs).toMatchObject({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello streaming!' }]
+    });
+
+    // Verify outputs contain actual message content, not a stream object
+    expect(span.outputs).toBeDefined();
+    expect(span.outputs).toHaveProperty('id');
+    expect(span.outputs).toHaveProperty('type', 'message');
+    expect(span.outputs).toHaveProperty('content');
+    expect(span.outputs.content[0]).toHaveProperty('type', 'text');
+
+    // Verify token usage is captured for streaming
+    const spanTokenUsage = span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+    expect(spanTokenUsage).toBeDefined();
+    expect(typeof spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe('number');
+    expect(typeof spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe('number');
+
+    const messageFormat = span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+    expect(messageFormat).toBe('anthropic');
+  });
+
+  it('should trace messages.stream() with finalMessage()', async () => {
+    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const stream = wrappedAnthropic.messages.stream({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello finalMessage!' }]
+    });
+
+    const finalMessage = await stream.finalMessage();
+
+    expect(finalMessage).toBeDefined();
+    expect(finalMessage.content).toBeDefined();
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('OK');
+
+    const span = trace.data.spans[0];
+    expect(span.name).toBe('Messages');
+    expect(span.spanType).toBe(mlflow.SpanType.LLM);
+    expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+    expect(span.inputs).toEqual({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello finalMessage!' }]
+    });
+    expect(span.outputs).toEqual(finalMessage);
+
+    const messageFormat = span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+    expect(messageFormat).toBe('anthropic');
+  });
+
+  it('should trace streaming request wrapped in a parent span', async () => {
+    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const result = await mlflow.withSpan(
+      async (_span) => {
+        const stream = wrappedAnthropic.messages.stream({
+          model: 'claude-3-7-sonnet-20250219',
+          max_tokens: 128,
+          messages: [{ role: 'user', content: 'Hello streaming parent!' }]
+        });
+
+        const message = await stream.finalMessage();
+        return message.content[0];
+      },
+      {
+        name: 'streaming-predict',
+        spanType: mlflow.SpanType.CHAIN,
+        inputs: 'Hello streaming parent!'
+      }
+    );
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('OK');
+    // At least 2 spans: parent chain span and child LLM span
+    expect(trace.data.spans.length).toBeGreaterThanOrEqual(2);
+
+    const parentSpan = trace.data.spans[0];
+    expect(parentSpan.name).toBe('streaming-predict');
+    expect(parentSpan.spanType).toBe(mlflow.SpanType.CHAIN);
+    expect(parentSpan.outputs).toEqual(result);
+
+    // Find child spans with LLM type
+    const llmSpans = trace.data.spans.filter((s) => s.spanType === mlflow.SpanType.LLM);
+    expect(llmSpans.length).toBeGreaterThanOrEqual(1);
+
+    const llmSpan = llmSpans[0];
+    expect(llmSpan.outputs).toBeDefined();
+
+    const messageFormat = llmSpan.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
     expect(messageFormat).toBe('anthropic');
   });
 });
