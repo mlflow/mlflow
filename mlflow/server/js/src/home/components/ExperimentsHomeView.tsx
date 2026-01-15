@@ -1,5 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Alert,
+  BeakerIcon,
+  Button,
+  Empty,
+  PlusIcon,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentListTable } from '../../experiment-tracking/components/ExperimentListTable';
@@ -21,28 +30,32 @@ const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () 
   return (
     <div
       css={{
-        padding: theme.spacing.lg,
-        textAlign: 'center',
         display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.lg,
       }}
     >
-      <Typography.Title level={4} css={{ margin: 0 }}>
-        <FormattedMessage
-          defaultMessage="Create your first experiment"
-          description="Home page experiments empty state title"
-        />
-      </Typography.Title>
-      <Typography.Text css={{ color: theme.colors.textSecondary }}>
-        <FormattedMessage
-          defaultMessage="Create your first experiment to start tracking ML workflows."
-          description="Home page experiments empty state description"
-        />
-      </Typography.Text>
-      <Button componentId="mlflow.home.experiments.create" onClick={onCreateExperiment}>
-        <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
-      </Button>
+      <Empty
+        image={<BeakerIcon />}
+        title={
+          <FormattedMessage
+            defaultMessage="Create your first experiment"
+            description="Home page experiments empty state title"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Create your first experiment to start tracking ML workflows."
+            description="Home page experiments empty state description"
+          />
+        }
+        button={
+          <Button componentId="mlflow.home.experiments.create" onClick={onCreateExperiment} type="primary" icon={<PlusIcon />}>
+            <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
+          </Button>
+        }
+      />
     </div>
   );
 };
@@ -80,7 +93,8 @@ export const ExperimentsHomeView = ({
       </div>
       <div
         css={{
-          border: `1px solid ${theme.colors.border}`,
+          border: `1px solid ${theme.colors.borderDecorative}`,
+          borderRadius: theme.general.borderRadiusBase,
           overflow: 'hidden',
           backgroundColor: theme.colors.backgroundPrimary,
         }}

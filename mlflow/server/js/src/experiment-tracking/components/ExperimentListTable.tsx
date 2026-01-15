@@ -2,10 +2,13 @@ import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databrick
 import { useMemo } from 'react';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import {
+  BeakerIcon,
+  Button,
   Checkbox,
   useDesignSystemTheme,
   Empty,
   NoIcon,
+  PlusIcon,
   Table,
   CursorPagination,
   TableRow,
@@ -106,6 +109,7 @@ export const ExperimentListTable = ({
   cursorPaginationProps,
   sortingProps: { sorting, setSorting },
   onEditTags,
+  onCreateExperiment,
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
@@ -115,6 +119,7 @@ export const ExperimentListTable = ({
   cursorPaginationProps?: Omit<CursorPaginationProps, 'componentId'>;
   sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
   onEditTags: (editedEntity: ExperimentEntity) => void;
+  onCreateExperiment?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
@@ -136,34 +141,65 @@ export const ExperimentListTable = ({
     const isEmptyList = !isLoading && isEmpty(experiments);
     if (isEmptyList && isFiltered) {
       return (
-        <Empty
-          image={<NoIcon />}
-          title={
-            <FormattedMessage
-              defaultMessage="No experiments found"
-              description="Label for the empty state in the experiments table when no experiments are found"
-            />
-          }
-          description={null}
-        />
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<NoIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="No experiments found"
+                description="Label for the empty state in the experiments table when no experiments are found"
+              />
+            }
+            description={null}
+          />
+        </div>
       );
     }
     if (isEmptyList) {
       return (
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="No experiments created"
-              description="A header for the empty state in the experiments table"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage='Use "Create experiment" button in order to create a new experiment'
-              description="Guidelines for the user on how to create a new experiment in the experiments list page"
-            />
-          }
-        />
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<BeakerIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="Create your first experiment"
+                description="Home page experiments empty state title"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Create your first experiment to start tracking ML workflows."
+                description="Home page experiments empty state description"
+              />
+            }
+            button={
+              onCreateExperiment ? (
+                <Button
+                  componentId="mlflow.experiment_list_table.create_experiment"
+                  onClick={onCreateExperiment}
+                  type="primary"
+                  icon={<PlusIcon />}
+                >
+                  <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       );
     }
 

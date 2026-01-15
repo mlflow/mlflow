@@ -30,18 +30,22 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName, experimentId)),
   });
 
+  const isEmptyState = !isLoading && !error && !data?.length && !searchFilter;
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
-          <Button componentId="mlflow.prompts.list.create" type="primary" onClick={openCreateVersionModal}>
-            <FormattedMessage
-              defaultMessage="Create prompt"
-              description="Label for the create prompt button on the registered prompts page"
-            />
-          </Button>
+          !isEmptyState && (
+            <Button componentId="mlflow.prompts.list.create" type="primary" onClick={openCreateVersionModal}>
+              <FormattedMessage
+                defaultMessage="Create prompt"
+                description="Label for the create prompt button on the registered prompts page"
+              />
+            </Button>
+          )
         }
       />
       <Spacer shrinks={false} />
@@ -64,6 +68,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
           onPreviousPage={onPreviousPage}
           onEditTags={showEditPromptTagsModal}
           experimentId={experimentId}
+          onCreatePrompt={openCreateVersionModal}
         />
       </div>
       {EditTagsModal}
