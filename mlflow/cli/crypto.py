@@ -184,11 +184,11 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
 
                     except Exception as e:
                         click.echo(
-                            f"\n✗ Failed to rotate encryption key {secret.secret_id}: {e}", err=True
+                            f"\n✗ Failed to rotate secret '{secret.secret_name}': {e}", err=True
                         )
                         session.rollback()
                         raise MlflowException(
-                            f"KEK rotation failed at encrypted entry {secret.secret_id}. "
+                            f"KEK rotation failed at secret '{secret.secret_name}'. "
                             "No changes were made. Fix the issue and re-run the command."
                         ) from e
 
