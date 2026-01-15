@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import re
 from typing import Any
 
 from pydantic import PrivateAttr
@@ -41,6 +42,7 @@ from mlflow.genai.scorers.ragas.models import (
 from mlflow.genai.scorers.ragas.registry import (
     get_metric_class,
     is_agentic_metric,
+    requires_args_from_placeholders,
     requires_embeddings,
     requires_llm_at_score_time,
     requires_llm_in_constructor,
@@ -232,14 +234,16 @@ class RagasScorer(Scorer):
         if hasattr(self._metric, "single_turn_score"):
             return self._metric.single_turn_score(sample)
         elif hasattr(self._metric, "ascore"):
-            # DiscreteMetric requires llm passed into score method
+            kwargs = {}
+
             if requires_llm_at_score_time(self.name):
-                sync_score = _wrap_async_predict_fn(self._metric.ascore)
-                return sync_score(response=sample.response, llm=self._llm)
+                kwargs["llm"] = self._llm
+
+            if requires_args_from_placeholders(self.name):
+                kwargs.update(self._extract_prompt_params_from_sample(sample))
 
             # need to inspect the signature as each metric has a different one for the ascore method
             sig = inspect.signature(self._metric.ascore)
-            kwargs = {}
             for param_name in sig.parameters:
                 if param_name == "self":
                     continue
@@ -252,6 +256,32 @@ class RagasScorer(Scorer):
             return sync_score(**kwargs)
         else:
             raise MlflowException(f"RAGAS metric {self.name} is not currently supported")
+
+    def _extract_prompt_params_from_sample(
+        self, sample: SingleTurnSample | MultiTurnSample
+    ) -> dict[str, Any]:
+        """
+        Extract parameters from the metric's prompt template and get values from sample.
+
+        For metrics like DiscreteMetric where the prompt contains placeholders like
+        {response}, {user_input}, etc., this extracts those placeholder names and fetches
+        the corresponding values from the sample.
+        """
+        kwargs = {}
+        prompt = getattr(self._metric, "prompt", None)
+        if prompt is None:
+            return kwargs
+
+        prompt_str = str(prompt)
+        placeholders = re.findall(r"\{(\w+)\}", prompt_str)
+
+        for param_name in placeholders:
+            if hasattr(sample, param_name):
+                value = getattr(sample, param_name)
+                if value is not None:
+                    kwargs[param_name] = value
+
+        return kwargs
 
     def _validate_kwargs(self, **metric_kwargs):
         if not requires_llm_in_constructor(self.metric_name) and "model" in metric_kwargs:

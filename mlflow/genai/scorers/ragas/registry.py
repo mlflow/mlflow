@@ -12,6 +12,7 @@ class MetricConfig:
     requires_embeddings: bool = False
     requires_llm_in_constructor: bool = True
     requires_llm_at_score_time: bool = False
+    requires_args_from_placeholders: bool = False
 
 
 _METRIC_REGISTRY: dict[str, MetricConfig] = {
@@ -86,6 +87,7 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
         "ragas.metrics.DiscreteMetric",
         requires_llm_in_constructor=False,
         requires_llm_at_score_time=True,
+        requires_args_from_placeholders=True,
     ),
     "RubricsScore": MetricConfig("ragas.metrics.RubricsScore"),
     "InstanceSpecificRubrics": MetricConfig("ragas.metrics.collections.InstanceSpecificRubrics"),
@@ -133,6 +135,10 @@ def requires_embeddings(metric_name: str) -> bool:
 
 def requires_llm_at_score_time(metric_name: str) -> bool:
     return _get_config(metric_name).requires_llm_at_score_time
+
+
+def requires_args_from_placeholders(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_args_from_placeholders
 
 
 def _get_config(metric_name: str) -> MetricConfig:
