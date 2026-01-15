@@ -364,3 +364,32 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           uv run --no-sync pytest tests/tracing/test_fluent.py::test_set_destination_in_threads -v
+
+  windows-wal:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install python dependencies
+        run: |
+          uv sync --extra extras --extra genai --extra mcp
+          uv pip install -r requirements/test-requirements.txt
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run python tests
+        env:
+          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+          MLFLOW_SQLALCHEMYSTORE_WAL_MODE: "true"
+        run: |
+          uv run --no-sync pytest tests/tracing/test_fluent.py::test_set_destination_in_threads -v
