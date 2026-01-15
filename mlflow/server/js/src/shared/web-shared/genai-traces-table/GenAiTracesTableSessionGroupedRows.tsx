@@ -18,6 +18,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   virtualizerTotalSize: number;
   virtualizerMeasureElement: (node: HTMLDivElement | null) => void;
   selectedColumns: TracesTableColumn[];
+  toggleSessionExpanded: (sessionId: string) => void;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({

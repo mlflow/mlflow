@@ -111,6 +111,20 @@ export const GenAiTracesTableBody = React.memo(
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
+    // Track which sessions are expanded (collapsed by default)
+    const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+
+    const toggleSessionExpanded = React.useCallback((sessionId: string) => {
+      setExpandedSessions((prev) => {
+        const next = new Set(prev);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    }, []);
 
     const isComparing = !isNil(compareToRunUuid);
 
@@ -272,8 +286,8 @@ export const GenAiTracesTableBody = React.memo(
 
     // Compute grouped rows when session grouping is enabled
     const groupedRows = useMemo(
-      () => (isGroupedBySession ? groupTracesBySessionForTable(evaluations) : []),
-      [isGroupedBySession, evaluations],
+      () => (isGroupedBySession ? groupTracesBySessionForTable(evaluations, expandedSessions) : []),
+      [isGroupedBySession, evaluations, expandedSessions],
     );
 
     // The virtualizer needs to know the scrollable container element
@@ -414,6 +428,7 @@ export const GenAiTracesTableBody = React.memo(
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
+                toggleSessionExpanded={toggleSessionExpanded}
               />
             ) : (
               <MemoizedGenAiTracesTableBodyRows
