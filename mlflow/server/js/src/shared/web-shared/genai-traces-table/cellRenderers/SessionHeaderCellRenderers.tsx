@@ -13,6 +13,7 @@ import {
 import { useIntl } from '@databricks/i18n';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
+  FeedbackAssessment,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   type ModelTraceInfoV3,
@@ -35,7 +36,13 @@ import {
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
-import { getTraceInfoInputs, getTraceInfoOutputs } from '../utils/TraceUtils';
+import {
+  convertFeedbackAssessmentToRunEvalAssessment,
+  getTraceInfoInputs,
+  getTraceInfoOutputs,
+} from '../utils/TraceUtils';
+import { compact } from 'lodash';
+import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
 
 interface SessionHeaderCellProps {
@@ -184,57 +191,58 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
     column.assessmentInfo?.isSessionLevelAssessment &&
     traces.length > 0
   ) {
     // Session-level assessment column - find the assessment with session metadata
-    const assessmentName = column.assessmentInfo.name;
+    const assessmentInfo = column.assessmentInfo;
+    const assessmentName = assessmentInfo.name;
+    const allFeedback = traces.flatMap((trace) =>
+      compact(
+        trace.assessments?.filter(
+          (a): a is FeedbackAssessment =>
+            a.assessment_name === assessmentName &&
+            Boolean(a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) &&
+            'feedback' in a,
+        ),
+      ),
+    );
 
-    // Search through all traces to find the assessment with session metadata
-    for (const trace of traces) {
-      const assessment = trace.assessments?.find(
-        (a) => a.assessment_name === assessmentName && a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY],
-      );
-      if (assessment && 'feedback' in assessment) {
-        const feedbackValue = assessment.feedback.value;
-        // Map source_type to AssessmentType
-        const sourceType =
-          assessment.source.source_type === 'LLM_JUDGE'
-            ? 'AI_JUDGE'
-            : assessment.source.source_type === 'CODE'
-              ? 'CODE'
-              : 'HUMAN';
-        cellContent = (
-          <EvaluationsReviewAssessmentTag
-            showRationaleInTooltip
-            disableJudgeTypeIcon
-            hideAssessmentName
-            assessment={{
-              name: assessment.assessment_name,
-              stringValue: typeof feedbackValue === 'string' ? feedbackValue : null,
-              booleanValue: typeof feedbackValue === 'boolean' ? feedbackValue : null,
-              numericValue: typeof feedbackValue === 'number' ? feedbackValue : null,
-              rationale: assessment.rationale ?? null,
-              source: {
-                sourceId: assessment.source.source_id,
-                sourceType,
-                metadata: {},
-              },
-              rootCauseAssessment: null,
-              timestamp: assessment.create_time ? new Date(assessment.create_time).getTime() : null,
-              metadata: assessment.metadata ?? {},
-            }}
-            assessmentInfo={column.assessmentInfo}
-            type="value"
-          />
-        );
-        break;
-      }
-    }
+    const entries = allFeedback.map(convertFeedbackAssessmentToRunEvalAssessment);
+    const uniqueValueCounts = getUniqueValueCountsBySourceId(assessmentInfo, entries);
 
-    if (!cellContent) {
-      cellContent = <NullCell />;
-    }
+    cellContent = (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        {uniqueValueCounts.map((uniqueValueCount) => {
+          const assessment = uniqueValueCount.latestAssessment;
+          const count = uniqueValueCount.count;
+          return (
+            <EvaluationsReviewAssessmentTag
+              key={`tag_${uniqueValueCount.latestAssessment.name}_${uniqueValueCount.value}`}
+              showRationaleInTooltip
+              disableJudgeTypeIcon
+              hideAssessmentName
+              assessment={assessment}
+              isRootCauseAssessment={false}
+              assessmentInfo={assessmentInfo}
+              type="value"
+              count={count}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (!cellContent) {
+    cellContent = <NullCell />;
   }
 
   return (
