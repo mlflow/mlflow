@@ -120,6 +120,43 @@ client.chat.completions.create({
 ```
 
 </TabItem>
+
+<TabItem value="otel" label="OpenTelemetry">
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
+
+The following example shows how to collect traces from a FastAPI application using OpenTelemetry FastAPI instrumentation.
+
+```python
+import os
+import uvicorn
+from fastapi import FastAPI
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+# Set the endpoint and header
+MLFLOW_TRACKING_URI = "http://localhost:5000"
+MLFLOW_EXPERIMENT_ID = "123"
+
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
+os.environ[
+    "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
+] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
+
+app = FastAPI()
+FastAPIInstrumentor.instrument_app(app)
+
+
+@app.get("/")
+async def root():
+    return {"message": "Hello, World!"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTelemetry guide](/genai/tracing/opentelemetry).
+
+</TabItem>
 </Tabs>
 </TabsWrapper>
 
@@ -130,6 +167,63 @@ After running the code above, go to the MLflow UI and select the "My Application
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-list.png" alt="Single Trace" />
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace" />
+
+## Track Multi-Turn Conversations with Sessions
+
+Many GenAI applications maintain multi-turn conversations with users. MLflow provides built-in support for tracking user sessions by using standard metadata fields. This allows you to group related traces together and analyze conversation flows.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    Here's how to add user and session tracking to your application:
+
+    ```python
+    import mlflow
+
+
+    @mlflow.trace
+    def chat_completion(message: list[dict], user_id: str, session_id: str):
+        """Process a chat message with user and session tracking."""
+
+        # Add user and session context to the current trace
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.trace.user": user_id,  # Links trace to specific user
+                "mlflow.trace.session": session_id,  # Groups trace with conversation
+            }
+        )
+
+        # Your chat logic here
+        return generate_response(message)
+    ```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    const chatCompletion = mlflow.trace(
+        (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
+            // Add user and session context to the current trace
+            mlflow.updateCurrentTrace({
+                metadata: {
+                    "mlflow.trace.user": userId,
+                    "mlflow.trace.session": sessionId,
+                },
+            });
+
+            // Your chat logic here
+            return generateResponse(message);
+        },
+        { name: "chat_completion" }
+    );
+    ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+For more details on tracking users and sessions, see the [Track Users & Sessions guide](/genai/tracing/track-users-sessions).
 
 ## Next Step
 

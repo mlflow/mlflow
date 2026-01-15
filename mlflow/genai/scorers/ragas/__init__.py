@@ -18,10 +18,12 @@ Example usage:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any
 
 from pydantic import PrivateAttr
+from ragas.dataset_schema import SingleTurnSample
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -29,13 +31,18 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas.models import create_ragas_model
-from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
+from mlflow.genai.scorers.ragas.registry import (
+    get_metric_class,
+    is_deterministic_metric,
+)
 from mlflow.genai.scorers.ragas.utils import (
     create_mlflow_error_message_from_ragas_param,
     map_scorer_inputs_to_ragas_sample,
 )
+from mlflow.genai.utils.trace_utils import _wrap_async_predict_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -60,10 +67,13 @@ class RagasScorer(Scorer):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str | None = None,
         **metric_kwargs,
     ):
+        if metric_name is None:
+            metric_name = self.metric_name
+
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
@@ -75,6 +85,35 @@ class RagasScorer(Scorer):
         else:
             ragas_llm = create_ragas_model(model)
             self._metric = metric_class(llm=ragas_llm, **metric_kwargs)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
+
+    def _raise_registration_not_supported(self, method_name: str):
+        raise MlflowException.invalid_parameter_value(
+            f"'{method_name}()' is not supported for third-party scorers like RAGAS. "
+            f"Third-party scorers cannot be registered, started, updated, or stopped. "
+            f"Use them directly in mlflow.genai.evaluate() instead."
+        )
+
+    def register(self, **kwargs):
+        self._raise_registration_not_supported("register")
+
+    def start(self, **kwargs):
+        self._raise_registration_not_supported("start")
+
+    def update(self, **kwargs):
+        self._raise_registration_not_supported("update")
+
+    def stop(self, **kwargs):
+        self._raise_registration_not_supported("stop")
+
+    def align(self, **kwargs):
+        raise MlflowException.invalid_parameter_value(
+            "'align()' is not supported for third-party scorers like RAGAS. "
+            "Alignment is only available for MLflow's built-in judges."
+        )
 
     def __call__(
         self,
@@ -115,12 +154,7 @@ class RagasScorer(Scorer):
                 trace=trace,
             )
 
-            if hasattr(self._metric, "single_turn_score"):
-                result = self._metric.single_turn_score(sample)
-            elif hasattr(self._metric, "score"):
-                result = self._metric.score(sample)
-            else:
-                raise MlflowException(f"RAGAS metric {self.name} is currently not supported")
+            result = self._evaluate(sample)
 
             score = float(result)
 
@@ -128,7 +162,7 @@ class RagasScorer(Scorer):
 
             # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
-            metadata = {"library": "ragas"}
+            metadata = {FRAMEWORK_METADATA_KEY: "ragas"}
 
             if threshold is not None:
                 metadata["threshold"] = threshold
@@ -145,8 +179,8 @@ class RagasScorer(Scorer):
                 trace_id=None,
                 metadata=metadata,
             )
-        except (KeyError, IndexError) as e:
-            # RAGAS raises KeyError/IndexError when required parameters are missing
+        except (KeyError, IndexError, ValueError) as e:
+            # RAGAS raises KeyError/IndexError/ValueError when required parameters are missing
             error_msg = str(e).strip("'\"")
             mlflow_error_message = create_mlflow_error_message_from_ragas_param(
                 error_msg, self.name
@@ -168,6 +202,33 @@ class RagasScorer(Scorer):
                 error=e,
                 source=assessment_source,
             )
+
+    def _evaluate(self, sample: SingleTurnSample):
+        if hasattr(self._metric, "single_turn_score"):
+            return self._metric.single_turn_score(sample)
+        elif hasattr(self._metric, "ascore"):
+            # need to inspect the signature as each metric has a different one for the ascore method
+            sig = inspect.signature(self._metric.ascore)
+            kwargs = {}
+            for param_name in sig.parameters:
+                if param_name == "self":
+                    continue
+
+                if hasattr(sample, param_name):
+                    value = getattr(sample, param_name)
+                    kwargs[param_name] = value
+
+            sync_score = _wrap_async_predict_fn(self._metric.ascore)
+            return sync_score(**kwargs)
+        else:
+            raise MlflowException(f"RAGAS metric {self.name} is not currently supported")
+
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
 
 
 @experimental(version="3.8.0")
@@ -212,7 +273,51 @@ def get_scorer(
     )
 
 
+from mlflow.genai.scorers.ragas.scorers import (
+    AspectCritic,
+    BleuScore,
+    ChrfScore,
+    ContextEntityRecall,
+    ContextPrecision,
+    ContextRecall,
+    ExactMatch,
+    FactualCorrectness,
+    Faithfulness,
+    InstanceRubrics,
+    NoiseSensitivity,
+    NonLLMContextPrecisionWithReference,
+    NonLLMContextRecall,
+    NonLLMStringSimilarity,
+    RougeScore,
+    RubricsScore,
+    StringPresence,
+    SummarizationScore,
+)
+
 __all__ = [
+    # Core classes
     "RagasScorer",
     "get_scorer",
+    # RAG metrics
+    "ContextPrecision",
+    "NonLLMContextPrecisionWithReference",
+    "ContextRecall",
+    "NonLLMContextRecall",
+    "ContextEntityRecall",
+    "NoiseSensitivity",
+    "Faithfulness",
+    # Comparison metrics
+    "FactualCorrectness",
+    "NonLLMStringSimilarity",
+    "BleuScore",
+    "ChrfScore",
+    "RougeScore",
+    "StringPresence",
+    "ExactMatch",
+    # General purpose metrics
+    "AspectCritic",
+    "RubricsScore",
+    "InstanceRubrics",
+    # Other tasks
+    "SummarizationScore",
 ]

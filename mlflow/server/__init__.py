@@ -45,6 +45,8 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
+    get_ui_telemetry_handler,
+    post_ui_telemetry_handler,
     upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
@@ -144,6 +146,7 @@ def serve_upload_artifact():
 # and render them in the Trace UI. The request body should contain the request_id
 # of the trace.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/get-trace-artifact"), methods=["GET"])
 def serve_get_trace_artifact():
     return get_trace_artifact_handler()
 
@@ -154,6 +157,16 @@ def serve_get_trace_artifact():
 )
 def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
+
+
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["GET"])
+def serve_get_ui_telemetry():
+    return get_ui_telemetry_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["POST"])
+def serve_post_ui_telemetry():
+    return post_ui_telemetry_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -269,7 +282,9 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file=None):
+def _build_uvicorn_command(
+    uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
+):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
     cmd = [
@@ -286,6 +301,8 @@ def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file
     ]
     if env_file:
         cmd.extend(["--env-file", env_file])
+    if is_factory:
+        cmd.append("--factory")
     cmd.append(app_name)
     return cmd
 
@@ -377,7 +394,9 @@ def _run_server(
     # Determine which server to use
     if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
-        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app, env_file)
+        full_command = _build_uvicorn_command(
+            uvicorn_opts, host, port, workers or 4, app, env_file, is_factory
+        )
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(
@@ -407,7 +426,22 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    # Check if job execution can be enabled (requirements met)
+    job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.utils import _check_requirements
+
+        try:
+            _check_requirements(file_store_path)
+            job_execution_enabled = True
+        except Exception as e:
+            _logger.warning(
+                f"MLflow job execution requirements not met ({e!s}). "
+                "Server will start without job execution support. "
+                "Errors will be surfaced at job invocation time."
+            )
+
+    if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
         env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
@@ -416,34 +450,27 @@ def _run_server(
             else tempfile.mkdtemp()
         )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.utils import _check_requirements
-
-        try:
-            _check_requirements(file_store_path)
-        except Exception as e:
-            raise MlflowException(
-                f"MLflow job runner requirements checking failed (root error: {e!s}). "
-                "If you don't need MLflow job runner, you can disable it by setting "
-                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
-            )
-
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.environment_variables import MLFLOW_TRACKING_URI
+    if job_execution_enabled:
+        from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_runner
 
-        _launch_job_runner(
-            {
-                **env_map,
-                # Set tracking URI environment variable for job runner
-                # so that all job processes inherits it.
-                MLFLOW_TRACKING_URI.name: f"http://{host}:{port}",
-            },
-            server_proc.pid,
-        )
+        server_uri = f"http://{host}:{port}"
+        job_env = {
+            **env_map,
+            # Set tracking URI environment variable for job runner
+            # so that all job processes inherit it.
+            MLFLOW_TRACKING_URI.name: server_uri,
+        }
+        # Set gateway URI for job workers if not already set. Jobs may call
+        # _get_tracking_store() which overwrites MLFLOW_TRACKING_URI with the backend
+        # store URI (e.g., sqlite://). MLFLOW_GATEWAY_URI preserves the HTTP URI for
+        # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
+        if not MLFLOW_GATEWAY_URI.is_set():
+            job_env[MLFLOW_GATEWAY_URI.name] = server_uri
+        _launch_job_runner(job_env, server_proc.pid)
 
     server_proc.wait()

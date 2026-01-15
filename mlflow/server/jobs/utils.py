@@ -1,4 +1,5 @@
 import errno
+import hashlib
 import importlib
 import inspect
 import json
@@ -24,11 +25,21 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.import_hooks import register_post_import_hook
+from mlflow.utils.process import _exec_cmd
 
 if TYPE_CHECKING:
     import huey
 
+    from mlflow.store.jobs.abstract_store import AbstractJobStore
+
 _logger = logging.getLogger(__name__)
+
+# Reserved Huey instance key for periodic tasks
+HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
+
+# Number of worker threads for the periodic tasks consumer
+PERIODIC_TASKS_WORKER_COUNT = 5
 
 
 def _exponential_backoff_retry(retry_count: int) -> None:
@@ -126,6 +137,9 @@ def _start_huey_consumer_proc(
 _JOB_ENTRY_MODULE = "mlflow.server.jobs._job_subproc_entry"
 
 
+_JOB_STATUS_POLL_INTERVAL = 1
+
+
 def _exec_job_in_subproc(
     function_fullname: str,
     params: dict[str, Any],
@@ -133,6 +147,8 @@ def _exec_job_in_subproc(
     transient_error_classes: list[type[Exception]] | None,
     timeout: float | None,
     tmpdir: str,
+    job_store: "AbstractJobStore",
+    job_id: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -149,6 +165,12 @@ def _exec_job_in_subproc(
     )
 
     if python_env is not None:
+        if shutil.which("uv") is None:
+            raise MlflowException(
+                "The job requires 'uv' to create an isolated Python environment, "
+                "but 'uv' is not installed."
+            )
+
         # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         env_name = _get_virtualenv_name(python_env, None)
@@ -195,11 +217,21 @@ def _exec_job_in_subproc(
             "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
         },
     ) as popen:
-        try:
-            popen.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            popen.kill()
-            return None
+        beg_time = time.time()
+        while popen.poll() is None:
+            time.sleep(_JOB_STATUS_POLL_INTERVAL)
+
+            job_status = job_store.get_job(job_id).status
+            if job_status == JobStatus.CANCELED:
+                popen.kill()
+                return None
+
+            if timeout is not None:
+                if beg_time + timeout <= time.time():
+                    # timeout
+                    popen.kill()
+                    job_store.mark_job_timed_out(job_id)
+                    return None
 
         if popen.returncode == 0:
             return JobResult.load(result_file)
@@ -212,46 +244,105 @@ def _exec_job_in_subproc(
         )
 
 
+def _compute_exclusive_lock_key(job_name: str, params: dict[str, Any]) -> str:
+    """
+    Compute a lock key based on job name and params hash.
+
+    Args:
+        job_name: Name of the job.
+        params: Parameter dictionary to use for the lock key.
+
+    Returns:
+        Lock key string.
+    """
+    params_json = json.dumps(params, sort_keys=True)
+    params_hash = hashlib.sha256(params_json.encode()).hexdigest()[:16]
+    return f"{job_name}:{params_hash}"
+
+
 def _exec_job(
     job_id: str,
-    fn_fullname: str,
+    job_name: str,
     params: dict[str, Any],
     timeout: float | None,
+    exclusive: bool | list[str] = False,
 ) -> None:
+    """
+    Execute a job in a subprocess.
+
+    Args:
+        job_id: Unique identifier for the job.
+        job_name: Name of the job function to execute.
+        params: Parameters to pass to the job function.
+        timeout: Maximum execution time in seconds, or None for no timeout.
+        exclusive: If True, only one instance of this job with the same params can run
+            at a time. If a list of parameter names, only those parameters are considered
+            for exclusivity.
+    """
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
-    job_store.start_job(job_id)
 
-    function = _load_function(fn_fullname)
-    fn_metadata = function._job_fn_metadata
+    # If exclusive, acquire lock based on job_name + hash(params)
+    # If lock is already held, TaskLockedException is raised and job is skipped
+    if exclusive:
+        from huey.exceptions import TaskLockedException
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        job_result = _exec_job_in_subproc(
-            fn_metadata.fn_fullname,
-            params,
-            fn_metadata.python_env,
-            fn_metadata.transient_error_classes,
-            timeout,
-            tmpdir,
+        huey_instance = _get_or_init_huey_instance(job_name).instance
+        # If exclusive is a list, filter params to only those specified
+        lock_params = (
+            {k: v for k, v in params.items() if k in exclusive}
+            if isinstance(exclusive, list)
+            else params
         )
-
-    if job_result is None:
-        job_store.mark_job_timed_out(job_id)
-        return
-
-    if job_result.succeeded:
-        job_store.finish_job(job_id, job_result.result)
-        return
-
-    if job_result.is_transient_error:
-        # For transient errors, if the retry count is less than max allowed count,
-        # trigger task retry by raising `RetryTask` exception.
-        retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
-        if retry_count is not None:
-            _exponential_backoff_retry(retry_count)
+        lock_key = _compute_exclusive_lock_key(job_name, lock_params)
+        lock = huey_instance.lock_task(lock_key)
+        try:
+            lock.acquire()
+        except TaskLockedException:
+            _logger.info(f"Skipping job {job_id} - exclusive lock {lock_key} already held")
+            job_store.cancel_job(job_id)
+            return
     else:
-        job_store.fail_job(job_id, job_result.error)
+        lock = None
+
+    try:
+        job_store.start_job(job_id)
+
+        fn_fullname = get_job_fn_fullname(job_name)
+        function = _load_function(fn_fullname)
+        fn_metadata = function._job_fn_metadata
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job_result = _exec_job_in_subproc(
+                fn_metadata.fn_fullname,
+                params,
+                fn_metadata.python_env,
+                fn_metadata.transient_error_classes,
+                timeout,
+                tmpdir,
+                job_store,
+                job_id,
+            )
+
+        if job_result is None:
+            return
+
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+            return
+
+        if job_result.is_transient_error:
+            # For transient errors, if the retry count is less than max allowed count,
+            # trigger task retry by raising `RetryTask` exception.
+            retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+            if retry_count is not None:
+                _exponential_backoff_retry(retry_count)
+        else:
+            job_store.fail_job(job_id, job_result.error)
+    finally:
+        if lock is not None:
+            lock.release()
 
 
 @dataclass
@@ -288,12 +379,24 @@ def _get_or_init_huey_instance(instance_key: str):
 
     class JsonSerializer(Serializer):
         def serialize(self, data):
-            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
+            # Huey passes two types of data through the serializer:
+            # 1. Message objects (task data) - have ._asdict() method
+            # 2. Plain data (e.g., lock values like '1') - no ._asdict() method
+            # We need to handle both cases for exclusive job locks to work.
+            data_dict = data._asdict() if hasattr(data, "_asdict") else data
+            return json.dumps(data_dict, cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
             from huey.registry import Message
 
-            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
+            decoded = json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook)
+            # Message objects have specific structure: {"id": ..., "name": ..., ...}
+            # Only reconstruct as Message when that structure exists.
+            # Plain data (like lock values) should be returned as-is.
+            if isinstance(decoded, dict) and "id" in decoded and "name" in decoded:
+                return Message(**decoded)
+            else:
+                return decoded
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
@@ -314,14 +417,15 @@ def _get_or_init_huey_instance(instance_key: str):
         return _huey_instance_map[instance_key]
 
 
-def _launch_huey_consumer(job_fn_fullname: str) -> None:
-    _logger.info(f"Starting huey consumer for job function {job_fn_fullname}")
-    job_fn = _load_function(job_fn_fullname)
+def _launch_huey_consumer(job_name: str) -> None:
+    _logger.info(f"Starting huey consumer for job function {job_name}")
+
+    fn_fullname = get_job_fn_fullname(job_name)
+    job_fn = _load_function(fn_fullname)
 
     if not hasattr(job_fn, "_job_fn_metadata"):
         raise MlflowException.invalid_parameter_value(
-            f"The job function {job_fn_fullname} is not decorated by "
-            "'mlflow.server.jobs.job_function'."
+            f"The job function {job_name} is not decorated by 'mlflow.server.jobs.job_function'."
         )
 
     max_job_parallelism = job_fn._job_fn_metadata.max_workers
@@ -331,7 +435,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
             # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
             job_runner_proc = _start_huey_consumer_proc(
-                job_fn_fullname,
+                job_name,
                 max_job_parallelism,
             )
             job_runner_proc.wait()
@@ -340,9 +444,43 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     # start job runner.
     threading.Thread(
         target=_huey_consumer_thread,
-        name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
+        name=f"MLflow-huey-consumer-{job_name}-watcher",
         daemon=False,
     ).start()
+
+
+def _launch_periodic_tasks_consumer() -> None:
+    """
+    Launch a dedicated Huey consumer for periodic tasks.
+    This consumer runs scheduled tasks like the online scoring scheduler.
+    """
+    _logger.info("Starting dedicated Huey consumer for periodic tasks")
+
+    def _huey_consumer_thread() -> None:
+        while True:
+            job_runner_proc = _start_periodic_tasks_consumer_proc()
+            job_runner_proc.wait()
+            time.sleep(1)
+
+    threading.Thread(
+        target=_huey_consumer_thread,
+        name="MLflow-huey-consumer-periodic-tasks-watcher",
+        daemon=False,
+    ).start()
+
+
+def _start_periodic_tasks_consumer_proc():
+    return _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+            "-w",
+            str(PERIODIC_TASKS_WORKER_COUNT),
+        ],
+        capture_output=False,
+        synchronous=False,
+    )
 
 
 def _launch_job_runner(env_map, server_proc_pid):
@@ -409,9 +547,11 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
 
         params = json.loads(job.params)
         timeout = job.timeout
-        # enqueue job
-        _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, job.function_fullname, params, timeout
+        # Look up exclusive flag from function metadata
+        fn_fullname = get_job_fn_fullname(job.job_name)
+        fn_metadata = _load_function(fn_fullname)._job_fn_metadata
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id, job.job_name, params, timeout, fn_metadata.exclusive
         )
 
 
@@ -451,9 +591,6 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
     if os.name == "nt":
         raise MlflowException("MLflow job backend does not support Windows system.")
 
-    if shutil.which("uv") is None:
-        raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")
-
     backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
     if not backend_store_uri:
         raise MlflowException(
@@ -466,3 +603,59 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
         raise MlflowException(
             f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"
         )
+
+
+# The map from job name to the job function's fullname.
+_job_name_to_fn_fullname_map = {}
+
+
+def get_job_fn_fullname(job_name: str):
+    if job_name not in _job_name_to_fn_fullname_map:
+        raise MlflowException.invalid_parameter_value(f"Invalid job name: {job_name}")
+    return _job_name_to_fn_fullname_map[job_name]
+
+
+def _build_job_name_to_fn_fullname_map():
+    from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST
+
+    for fn_fullname in set(_SUPPORTED_JOB_FUNCTION_LIST):
+        try:
+            fn_meta = _load_function(fn_fullname)._job_fn_metadata
+            if exist_fullname := _job_name_to_fn_fullname_map.get(fn_meta.name):
+                if exist_fullname != fn_fullname:
+                    _logger.warning(
+                        f"The 2 job functions {fn_fullname} and {exist_fullname} have the same "
+                        f"job name {fn_meta.name}, this is not allowed, skip loading function "
+                        f"{fn_fullname}."
+                    )
+            else:
+                _job_name_to_fn_fullname_map[fn_meta.name] = fn_fullname
+        except Exception as e:
+            _logger.warning(f"loading job function {fn_fullname} failed: {e!r}", exc_info=True)
+
+
+register_post_import_hook(lambda m: _build_job_name_to_fn_fullname_map(), __name__)
+
+
+def register_periodic_tasks(huey_instance) -> None:
+    """
+    Register all periodic tasks with the given huey instance.
+
+    Args:
+        huey_instance: The huey instance to register tasks with.
+    """
+    from huey import crontab
+
+    @huey_instance.periodic_task(crontab(minute="*/1"))
+    # Prevent concurrent execution if scheduler takes longer than 1 minute.
+    @huey_instance.lock_task("online-scoring-scheduler-lock")
+    def online_scoring_scheduler():
+        """Runs every minute to fetch active scorer configs and submit scoring jobs."""
+        from mlflow.genai.scorers.job import run_online_scoring_scheduler
+
+        try:
+            run_online_scoring_scheduler()
+        except Exception as e:
+            _logger.exception(f"Online scoring scheduler failed: {e!r}")
+
+    _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")

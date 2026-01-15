@@ -32,6 +32,12 @@ jest.mock('../experiment-traces/ExperimentTracesPage', () => ({
   default: () => <div>Experiment traces page</div>,
 }));
 
+jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
 describe('ExperimentLoggedModelListPage', () => {
   const { history } = setupTestRouter();
   const createTestExperiment = (
@@ -82,6 +88,13 @@ describe('ExperimentLoggedModelListPage', () => {
                       pageId: PageId.experimentPage,
                       element: createLazyRouteElement(() => import('./ExperimentPageTabs')),
                       children: [
+                        {
+                          path: RoutePaths.experimentPageTabOverview,
+                          pageId: PageId.experimentPageTabOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIOverviewPage'),
+                          ),
+                        },
                         {
                           path: RoutePaths.experimentPageTabTraces,
                           pageId: PageId.experimentPageTabTraces,
@@ -165,8 +178,8 @@ describe('ExperimentLoggedModelListPage', () => {
       ),
     ).toBeInTheDocument();
 
-    // Check we've been redirected to the Traces tab
-    expect(await screen.findByText('Experiment traces page')).toBeInTheDocument();
+    // Since we started on the /models tab, we should remain on the models tab (no redirect)
+    expect(await screen.findByText('ExperimentLoggedModelListPage')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
@@ -210,7 +223,7 @@ describe('ExperimentLoggedModelListPage', () => {
 
     const modal = screen.getByRole('dialog');
 
-    await userEvent.click(within(modal).getByRole('radio', { name: 'GenAI apps & agents' }));
+    // GenAI apps & agents is selected by default, just click Confirm
     await userEvent.click(within(modal).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {

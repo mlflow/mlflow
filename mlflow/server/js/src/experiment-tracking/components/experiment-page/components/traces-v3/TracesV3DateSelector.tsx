@@ -31,7 +31,25 @@ export interface DateRange {
   endDate: string;
 }
 
-export const TracesV3DateSelector = React.memo(() => {
+type TracesV3DateSelectorRefreshButtonComponentId =
+  | 'mlflow.experiment-evaluation-monitoring.refresh-date-button'
+  | 'mlflow.experiment.overview.refresh-button';
+
+interface TracesV3DateSelectorProps {
+  /** Optional list of time label keys to exclude from the dropdown */
+  excludeOptions?: string[];
+  /** Optional custom componentId for the refresh button */
+  refreshButtonComponentId?: TracesV3DateSelectorRefreshButtonComponentId;
+}
+
+const DEFAULT_REFRESH_BUTTON_COMPONENT_ID: TracesV3DateSelectorRefreshButtonComponentId =
+  'mlflow.experiment-evaluation-monitoring.refresh-date-button';
+
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
+export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
+  excludeOptions,
+  refreshButtonComponentId = DEFAULT_REFRESH_BUTTON_COMPONENT_ID,
+}: TracesV3DateSelectorProps) {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
@@ -39,7 +57,13 @@ export const TracesV3DateSelector = React.memo(() => {
 
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
 
-  const namedDateFilters = useMemo(() => getNamedDateFilters(intl), [intl]);
+  const namedDateFilters = useMemo(() => {
+    const filters = getNamedDateFilters(intl);
+    if (excludeOptions?.length) {
+      return filters.filter((f) => !excludeOptions.includes(f.key));
+    }
+    return filters;
+  }, [intl, excludeOptions]);
 
   // List of labels for "start time" filter
   const currentStartTimeFilterLabel = intl.formatMessage({
@@ -154,7 +178,7 @@ export const TracesV3DateSelector = React.memo(() => {
       >
         <Button
           type="link"
-          componentId="mlflow.experiment-evaluation-monitoring.refresh-date-button"
+          componentId={refreshButtonComponentId}
           disabled={Boolean(isFetching)}
           onClick={() => {
             monitoringConfig.refresh();

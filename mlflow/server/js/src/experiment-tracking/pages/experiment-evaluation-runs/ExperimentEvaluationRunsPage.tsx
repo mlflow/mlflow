@@ -22,6 +22,7 @@ import {
 } from './ExperimentEvaluationRunsTable.constants';
 import { FormattedMessage } from 'react-intl';
 import { useSelectedRunUuid } from '../../components/evaluations/hooks/useSelectedRunUuid';
+import { useCompareToRunUuid } from '../../components/evaluations/hooks/useCompareToRunUuid';
 import { RunEvaluationButton } from './RunEvaluationButton';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
@@ -33,6 +34,8 @@ import {
 } from './hooks/useExperimentEvaluationRunsPageMode';
 import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluationRunsPageCharts';
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
@@ -55,10 +58,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
+  const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedRunIds', rowSelection);
 
   const {
     data: runs,
@@ -134,6 +139,33 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
 
+  const handleCompare = useCallback(
+    (runUuid1: string, runUuid2: string) => {
+      setSelectedRunUuid(runUuid1);
+      setCompareToRunUuid(runUuid2);
+    },
+    [setSelectedRunUuid, setCompareToRunUuid],
+  );
+
+  useEffect(() => {
+    const selectedRunUuids = Object.entries(rowSelection)
+      .filter(([_, value]) => value)
+      .map(([key]) => key);
+
+    if (selectedRunUuid && compareToRunUuid) {
+      const isSelectedRunStillSelected = selectedRunUuids.includes(selectedRunUuid);
+      const isCompareToRunStillSelected = selectedRunUuids.includes(compareToRunUuid);
+
+      if (!isSelectedRunStillSelected || !isCompareToRunStillSelected) {
+        setCompareToRunUuid(undefined);
+
+        if (selectedRunUuids.length > 0) {
+          setSelectedRunUuid(selectedRunUuids[0]);
+        }
+      }
+    }
+  }, [rowSelection, selectedRunUuid, compareToRunUuid, setSelectedRunUuid, setCompareToRunUuid]);
+
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
       return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
@@ -148,6 +180,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
           selectedRunUuid,
         )}
         setCurrentRunUuid={setSelectedRunUuid}
+        showCompareSelector
+        showRefreshButton
       />
     );
   };
@@ -226,6 +260,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
               setGroupByConfig={setGroupBy}
               viewMode={viewMode}
               setViewMode={setViewMode}
+              onCompare={handleCompare}
+              selectedRunUuid={selectedRunUuid}
+              compareToRunUuid={compareToRunUuid}
             />
             <ExperimentEvaluationRunsTable
               data={runsAndGroupValues}
@@ -234,6 +271,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
               selectedRunUuid={viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined}
               setSelectedRunUuid={(runUuid: string) => {
                 setSelectedRunUuid(runUuid);
+                setCompareToRunUuid(undefined);
               }}
               isLoading={isLoading}
               hasNextPage={hasNextPage ?? false}

@@ -58,6 +58,7 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. All spans (root and non-root) are exported.
         """
+
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
 
@@ -132,6 +133,14 @@ class MlflowV3SpanExporter(SpanExporter):
             manager_trace = manager.pop_trace(span.context.trace_id)
             if manager_trace is None:
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+                continue
+
+            if manager_trace.is_remote_trace and not self._should_export_spans_incrementally:
+                _logger.warning(
+                    f"Current MLflow server does not support ingesting the span {span.name} "
+                    "that is created in a remote process. Please upgrade the server version and "
+                    "use SQL backend to do distributed tracing."
+                )
                 continue
 
             trace = manager_trace.trace

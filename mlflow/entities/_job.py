@@ -14,7 +14,7 @@ class Job(_MlflowObject):
         self,
         job_id: str,
         creation_time: int,
-        function_fullname: str,
+        job_name: str,
         params: str,
         timeout: float | None,
         status: JobStatus,
@@ -25,7 +25,7 @@ class Job(_MlflowObject):
         super().__init__()
         self._job_id = job_id
         self._creation_time = creation_time
-        self._function_fullname = function_fullname
+        self._job_name = job_name
         self._params = params
         self._timeout = timeout
         self._status = status
@@ -44,12 +44,11 @@ class Job(_MlflowObject):
         return self._creation_time
 
     @property
-    def function_fullname(self) -> str:
+    def job_name(self) -> str:
         """
-        String containing the fully-qualified function name,
-        in the form of `<module_name>.<function_name>`
+        String containing the static job name that uniquely identifies the decorated job function.
         """
-        return self._function_fullname
+        return self._job_name
 
     @property
     def params(self) -> str:
@@ -104,4 +103,4 @@ class Job(_MlflowObject):
         return self._last_update_time
 
     def __repr__(self) -> str:
-        return f"<Job(job_id={self.job_id}, function_fullname={self.function_fullname})>"
+        return f"<Job(job_id={self.job_id}, job_name={self.job_name})>"

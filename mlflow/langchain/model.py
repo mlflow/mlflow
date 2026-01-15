@@ -248,9 +248,9 @@ def save_model(
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        import langchain
+    import langchain
 
+    with tempfile.TemporaryDirectory() as temp_dir:
         from mlflow.langchain._compat import import_base_retriever
 
         BaseRetriever = import_base_retriever()
@@ -335,6 +335,15 @@ def save_model(
     model_data_kwargs = {}
     flavor_conf = {}
     if not isinstance(model_code_path, str):
+        if Version(langchain.__version__).major >= 1:
+            raise MlflowException.invalid_parameter_value(
+                "LangChain v1 onward only supports models-from-code, i.e., the 'lc_model' "
+                "argument value must be a path containing the `LangChain` model code. "
+                "You can refer to documentation at "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
+                "for example code."
+            )
+
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,

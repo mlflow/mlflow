@@ -7,6 +7,8 @@ Usage
     mlflow server --app-name basic-auth
 """
 
+from __future__ import annotations
+
 import functools
 import importlib
 import logging
@@ -30,7 +32,11 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -61,25 +67,39 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    AttachModelToGatewayEndpoint,
     CreateExperiment,
-    # Routes for logged models
+    CreateGatewayEndpoint,
+    CreateGatewayEndpointBinding,
+    CreateGatewayModelDefinition,
+    CreateGatewaySecret,
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayEndpoint,
+    DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
+    DeleteGatewayModelDefinition,
+    DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
+    DetachModelFromGatewayEndpoint,
     FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetGatewayEndpoint,
+    GetGatewayModelDefinition,
+    GetGatewaySecretInfo,
     GetLoggedModel,
     GetMetricHistory,
     GetRun,
     GetScorer,
     ListArtifacts,
+    ListGatewayEndpointBindings,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -93,10 +113,23 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
+    UpdateGatewayEndpoint,
+    UpdateGatewayModelDefinition,
+    UpdateGatewaySecret,
     UpdateRun,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayEndpoints as ListGatewayEndpoints,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayModelDefinitions as ListGatewayModelDefinitions,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewaySecretInfos as ListGatewaySecretInfos,
 )
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
@@ -104,18 +137,31 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
+    CREATE_GATEWAY_ENDPOINT_PERMISSION,
+    CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
+    DELETE_GATEWAY_ENDPOINT_PERMISSION,
+    DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    DELETE_GATEWAY_SECRET_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_SCORER_PERMISSION,
     DELETE_USER,
+    GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
+    GATEWAY_SECRETS_CONFIG,
+    GATEWAY_SUPPORTED_MODELS,
+    GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
     GET_EXPERIMENT_PERMISSION,
+    GET_GATEWAY_ENDPOINT_PERMISSION,
+    GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    GET_GATEWAY_SECRET_PERMISSION,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
@@ -124,9 +170,13 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
+    INVOKE_SCORER,
     SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
+    UPDATE_GATEWAY_ENDPOINT_PERMISSION,
+    UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    UPDATE_GATEWAY_SECRET_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -313,6 +363,32 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
+def _get_permission_from_gateway_secret_id() -> Permission:
+    secret_id = _get_request_param("secret_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+    )
+
+
+def _get_permission_from_gateway_endpoint_id() -> Permission:
+    endpoint_id = _get_request_param("endpoint_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission
+    )
+
+
+def _get_permission_from_gateway_model_definition_id() -> Permission:
+    model_definition_id = _get_request_param("model_definition_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_gateway_model_definition_permission(
+            model_definition_id, username
+        ).permission
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -479,6 +555,142 @@ def validate_can_update_user_admin():
 def validate_can_delete_user():
     # only admins can delete, but admins won't reach this validator
     return False
+
+
+def validate_can_read_gateway_secret():
+    return _get_permission_from_gateway_secret_id().can_read
+
+
+def validate_can_update_gateway_secret():
+    return _get_permission_from_gateway_secret_id().can_update
+
+
+def validate_can_delete_gateway_secret():
+    return _get_permission_from_gateway_secret_id().can_delete
+
+
+def validate_can_manage_gateway_secret():
+    return _get_permission_from_gateway_secret_id().can_manage
+
+
+def validate_can_read_gateway_endpoint():
+    return _get_permission_from_gateway_endpoint_id().can_read
+
+
+def validate_can_delete_gateway_endpoint():
+    return _get_permission_from_gateway_endpoint_id().can_delete
+
+
+def validate_can_manage_gateway_endpoint():
+    return _get_permission_from_gateway_endpoint_id().can_manage
+
+
+def validate_can_read_gateway_model_definition():
+    return _get_permission_from_gateway_model_definition_id().can_read
+
+
+def validate_can_delete_gateway_model_definition():
+    return _get_permission_from_gateway_model_definition_id().can_delete
+
+
+def validate_can_manage_gateway_model_definition():
+    return _get_permission_from_gateway_model_definition_id().can_manage
+
+
+def validate_can_create_gateway_model_definition():
+    """
+    Validate that the user can create a gateway model definition.
+    This requires USE permission on the referenced secret.
+    """
+    body = request.json or {}
+    secret_id = body.get("secret_id")
+    if not secret_id:
+        # If no secret is provided, allow creation (will fail in handler)
+        return True
+
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+    )
+    return permission.can_use
+
+
+def validate_can_update_gateway_model_definition():
+    """
+    Validate that the user can update a gateway model definition.
+    This requires UPDATE permission on the model definition AND
+    USE permission on any new secret being referenced.
+    """
+    # First check update permission on the model definition
+    if not _get_permission_from_gateway_model_definition_id().can_update:
+        return False
+
+    # If updating the secret, check USE permission on the new secret
+    body = request.json or {}
+    secret_id = body.get("secret_id")
+    if not secret_id:
+        # No secret being changed, just return True
+        return True
+
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+    )
+    return permission.can_use
+
+
+def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
+    """
+    Helper to validate USE permission on all model definitions in model_configs.
+    Returns True if all model definitions have USE permission, False otherwise.
+    """
+    if not model_configs:
+        return True
+
+    model_def_ids = [
+        config.get("model_definition_id")
+        for config in model_configs
+        if config.get("model_definition_id")
+    ]
+
+    if not model_def_ids:
+        return True
+
+    username = authenticate_request().username
+    for model_def_id in model_def_ids:
+        permission = _get_permission_from_store_or_default(
+            lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
+                md_id, username
+            ).permission
+        )
+        if not permission.can_use:
+            return False
+
+    return True
+
+
+def validate_can_create_gateway_endpoint():
+    """
+    Validate that the user can create a gateway endpoint.
+    This requires USE permission on all referenced model definitions.
+    """
+    body = request.json or {}
+    model_configs = body.get("model_configs", [])
+    return _validate_can_use_model_definitions(model_configs)
+
+
+def validate_can_update_gateway_endpoint():
+    """
+    Validate that the user can update a gateway endpoint.
+    This requires UPDATE permission on the endpoint AND
+    USE permission on any new model definitions being referenced.
+    """
+    if not _get_permission_from_gateway_endpoint_id().can_update:
+        return False
+
+    body = request.json or {}
+    model_configs = body.get("model_configs", [])
+    return _validate_can_use_model_definitions(model_configs)
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
@@ -697,6 +909,30 @@ BEFORE_REQUEST_HANDLERS = {
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
+    # Routes for gateway secrets
+    GetGatewaySecretInfo: validate_can_read_gateway_secret,
+    UpdateGatewaySecret: validate_can_update_gateway_secret,
+    DeleteGatewaySecret: validate_can_delete_gateway_secret,
+    # Routes for gateway endpoints
+    CreateGatewayEndpoint: validate_can_create_gateway_endpoint,
+    GetGatewayEndpoint: validate_can_read_gateway_endpoint,
+    UpdateGatewayEndpoint: validate_can_update_gateway_endpoint,
+    DeleteGatewayEndpoint: validate_can_delete_gateway_endpoint,
+    # Routes for gateway model definitions
+    CreateGatewayModelDefinition: validate_can_create_gateway_model_definition,
+    GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
+    UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
+    DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
+    # Routes for gateway endpoint-model mappings
+    AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
+    DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
+    # Routes for gateway endpoint bindings
+    CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
+    DeleteGatewayEndpointBinding: validate_can_update_gateway_endpoint,
+    ListGatewayEndpointBindings: validate_can_read_gateway_endpoint,
+    # Routes for gateway endpoint tags
+    SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
 }
 
 
@@ -739,6 +975,33 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
         (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
         (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+        # Gateway secret permissions
+        (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
+        (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
+        (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
+        (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
+        # Gateway endpoint permissions
+        (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
+        (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
+        (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
+        (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
+        # Gateway model definition permissions
+        (
+            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "GET",
+        ): validate_can_manage_gateway_model_definition,
+        (
+            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "POST",
+        ): validate_can_manage_gateway_model_definition,
+        (
+            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "PATCH",
+        ): validate_can_manage_gateway_model_definition,
+        (
+            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "DELETE",
+        ): validate_can_manage_gateway_model_definition,
     }
 )
 
@@ -755,6 +1018,7 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
         (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
         (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
+        (INVOKE_SCORER, "POST"): validate_gateway_proxy,
     }
 )
 
@@ -847,8 +1111,65 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
+    elif req.path.startswith("/gateway/"):
+        return _validate_gateway_use_permission
     else:
         return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
+
+
+@catch_mlflow_exception
+def _validate_gateway_use_permission() -> bool:
+    """
+    Validate use permission for AI Gateway invocation routes.
+
+    Returns:
+        True if permission is granted, False otherwise.
+    """
+    path = request.path
+    endpoint_name = None
+
+    # Extract endpoint name from route
+    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
+    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
+        endpoint_name = match.group(1)
+    # Pattern 2-6: Passthrough routes (endpoint in request body)
+    elif path in (
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/openai/v1/chat/completions",
+        "/gateway/openai/v1/embeddings",
+        "/gateway/openai/v1/responses",
+        "/gateway/anthropic/v1/messages",
+    ):
+        try:
+            if request.is_json and request.json:
+                endpoint_name = request.json.get("model")
+        except Exception:
+            pass
+    # Pattern 7-8: Gemini routes (endpoint in URL path)
+    elif (match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path)) or (
+        match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path)
+    ):
+        endpoint_name = match.group(1)
+
+    # If we couldn't extract endpoint name, let it through and let handler return 400
+    if not endpoint_name:
+        return True
+
+    username = authenticate_request().username
+    try:
+        # TODO: we need to query endpoint ID by name from the database.
+        # Revisit the mutability of the endpoint name if it causes latency issues.
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
+        endpoint_id = endpoint.endpoint_id
+
+        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
+        permission = get_permission(permission_str)
+        return permission.can_use
+    except MlflowException:
+        return False
 
 
 @catch_mlflow_exception
@@ -1118,6 +1439,48 @@ def delete_scorer_permissions_cascade(resp: Response):
         store.delete_scorer_permissions_for_scorer(experiment_id, name)
 
 
+def set_can_manage_gateway_secret_permission(resp: Response):
+    response_message = CreateGatewaySecret.Response()
+    parse_dict(resp.json, response_message)
+    secret_id = response_message.secret.secret_id
+    username = authenticate_request().username
+    store.create_gateway_secret_permission(secret_id, username, MANAGE.name)
+
+
+def delete_gateway_secret_permissions_cascade(resp: Response):
+    data = request.get_json(force=True, silent=True)
+    if secret_id := data.get("secret_id"):
+        store.delete_gateway_secret_permissions_for_secret(secret_id)
+
+
+def set_can_manage_gateway_endpoint_permission(resp: Response):
+    response_message = CreateGatewayEndpoint.Response()
+    parse_dict(resp.json, response_message)
+    endpoint_id = response_message.endpoint.endpoint_id
+    username = authenticate_request().username
+    store.create_gateway_endpoint_permission(endpoint_id, username, MANAGE.name)
+
+
+def delete_gateway_endpoint_permissions_cascade(resp: Response):
+    data = request.get_json(force=True, silent=True)
+    if endpoint_id := data.get("endpoint_id"):
+        store.delete_gateway_endpoint_permissions_for_endpoint(endpoint_id)
+
+
+def set_can_manage_gateway_model_definition_permission(resp: Response):
+    response_message = CreateGatewayModelDefinition.Response()
+    parse_dict(resp.json, response_message)
+    model_definition_id = response_message.model_definition.model_definition_id
+    username = authenticate_request().username
+    store.create_gateway_model_definition_permission(model_definition_id, username, MANAGE.name)
+
+
+def delete_gateway_model_definition_permissions_cascade(resp: Response):
+    data = request.get_json(force=True, silent=True)
+    if model_definition_id := data.get("model_definition_id"):
+        store.delete_gateway_model_definition_permissions_for_model_definition(model_definition_id)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -1128,6 +1491,12 @@ AFTER_REQUEST_PATH_HANDLERS = {
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     DeleteScorer: delete_scorer_permissions_cascade,
+    CreateGatewaySecret: set_can_manage_gateway_secret_permission,
+    DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
+    CreateGatewayEndpoint: set_can_manage_gateway_endpoint_permission,
+    DeleteGatewayEndpoint: delete_gateway_endpoint_permissions_cascade,
+    CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
+    DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
 }
 
 
@@ -1135,11 +1504,21 @@ def get_after_request_handler(request_class):
     return AFTER_REQUEST_PATH_HANDLERS.get(request_class)
 
 
+_AJAX_GATEWAY_PATHS = frozenset(
+    [
+        GATEWAY_SUPPORTED_PROVIDERS,
+        GATEWAY_SUPPORTED_MODELS,
+        GATEWAY_PROVIDER_CONFIG,
+        GATEWAY_SECRETS_CONFIG,
+        INVOKE_SCORER,
+    ]
+)
+
 AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_after_request_handler)
     for method in methods
-    if handler is not None and "/graphql" not in http_path
+    if handler is not None and "/graphql" not in http_path and http_path not in _AJAX_GATEWAY_PATHS
 }
 
 
@@ -1443,6 +1822,279 @@ def delete_scorer_permission():
     return make_response({})
 
 
+# =============================================================================
+# Gateway Permission API Endpoints
+# =============================================================================
+
+
+@catch_mlflow_exception
+def create_gateway_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    perm = store.create_gateway_secret_permission(secret_id, username, permission)
+    return jsonify({"gateway_secret_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def get_gateway_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    perm = store.get_gateway_secret_permission(secret_id, username)
+    return make_response({"gateway_secret_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def update_gateway_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_gateway_secret_permission(secret_id, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_gateway_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    store.delete_gateway_secret_permission(secret_id, username)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def create_gateway_endpoint_permission():
+    endpoint_id = _get_request_param("endpoint_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    perm = store.create_gateway_endpoint_permission(endpoint_id, username, permission)
+    return jsonify({"gateway_endpoint_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def get_gateway_endpoint_permission():
+    endpoint_id = _get_request_param("endpoint_id")
+    username = _get_request_param("username")
+    perm = store.get_gateway_endpoint_permission(endpoint_id, username)
+    return make_response({"gateway_endpoint_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def update_gateway_endpoint_permission():
+    endpoint_id = _get_request_param("endpoint_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_gateway_endpoint_permission(endpoint_id, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_gateway_endpoint_permission():
+    endpoint_id = _get_request_param("endpoint_id")
+    username = _get_request_param("username")
+    store.delete_gateway_endpoint_permission(endpoint_id, username)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def create_gateway_model_definition_permission():
+    model_definition_id = _get_request_param("model_definition_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    perm = store.create_gateway_model_definition_permission(
+        model_definition_id, username, permission
+    )
+    return jsonify({"gateway_model_definition_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def get_gateway_model_definition_permission():
+    model_definition_id = _get_request_param("model_definition_id")
+    username = _get_request_param("username")
+    perm = store.get_gateway_model_definition_permission(model_definition_id, username)
+    return make_response({"gateway_model_definition_permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def update_gateway_model_definition_permission():
+    model_definition_id = _get_request_param("model_definition_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_gateway_model_definition_permission(model_definition_id, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_gateway_model_definition_permission():
+    model_definition_id = _get_request_param("model_definition_id")
+    username = _get_request_param("username")
+    store.delete_gateway_model_definition_permission(model_definition_id, username)
+    return make_response({})
+
+
+# =============================================================================
+# GraphQL Authorization
+# =============================================================================
+
+_auth_initialized = False
+
+
+def is_auth_enabled() -> bool:
+    return _auth_initialized
+
+
+def _graphql_get_permission_for_experiment(experiment_id: str, username: str) -> Permission:
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
+    run = _get_tracking_store().get_run(run_id)
+    experiment_id = run.info.experiment_id
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
+    return _get_permission_from_store_or_default(
+        lambda: store.get_registered_model_permission(model_name, username).permission
+    )
+
+
+def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
+    return _graphql_get_permission_for_experiment(experiment_id, username).can_read
+
+
+def _graphql_can_read_run(run_id: str, username: str) -> bool:
+    return _graphql_get_permission_for_run(run_id, username).can_read
+
+
+def _graphql_can_read_model(model_name: str, username: str) -> bool:
+    return _graphql_get_permission_for_model(model_name, username).can_read
+
+
+class GraphQLAuthorizationMiddleware:
+    """
+    Graphene middleware that enforces per-object authorization for GraphQL queries.
+
+    This middleware checks user permissions before resolving protected fields.
+    It integrates with MLflow's basic-auth permission system.
+    """
+
+    PROTECTED_FIELDS = {
+        "mlflowGetExperiment",
+        "mlflowGetRun",
+        "mlflowListArtifacts",
+        "mlflowGetMetricHistoryBulkInterval",
+        "mlflowSearchRuns",
+        "mlflowSearchDatasets",
+    }
+
+    def resolve(self, next, root, info, **args):
+        """
+        Middleware resolve function called for every field resolution.
+
+        Args:
+            next: The next resolver in the chain
+            root: The root value object
+            info: GraphQL resolve info containing field name and context
+            args: Field arguments as keyword arguments
+
+        Returns:
+            The resolved value or an error response
+        """
+        field_name = info.field_name
+
+        if field_name not in self.PROTECTED_FIELDS:
+            return next(root, info, **args)
+
+        try:
+            authorization = authenticate_request()
+            if isinstance(authorization, Response):
+                return None
+            username = authorization.username
+
+            if store.get_user(username).is_admin:
+                return next(root, info, **args)
+        except Exception:
+            _logger.warning("GraphQL authorization failed: auth system error", exc_info=True)
+            return None
+
+        try:
+            if not self._check_authorization(field_name, args, username):
+                _logger.debug(f"GraphQL authorization denied for {field_name} by user {username}")
+                return None
+        except MlflowException:
+            return None
+        except Exception:
+            _logger.warning(f"GraphQL authorization error for {field_name}", exc_info=True)
+            return None
+
+        return next(root, info, **args)
+
+    def _check_authorization(self, field_name: str, args: dict[str, Any], username: str) -> bool:
+        """
+        Check if the user is authorized to access the requested field.
+
+        Args:
+            field_name: The GraphQL field being resolved
+            args: The field arguments
+            username: The authenticated username
+
+        Returns:
+            True if authorized, False otherwise
+        """
+        input_obj = args.get("input")
+        if input_obj is None:
+            # No input means no specific resource to check
+            return True
+
+        if field_name == "mlflowGetExperiment":
+            if experiment_id := getattr(input_obj, "experiment_id", None):
+                return _graphql_can_read_experiment(experiment_id, username)
+
+        elif field_name in ("mlflowGetRun", "mlflowListArtifacts"):
+            if run_id := (
+                getattr(input_obj, "run_id", None) or getattr(input_obj, "run_uuid", None)
+            ):
+                return _graphql_can_read_run(run_id, username)
+
+        elif field_name == "mlflowGetMetricHistoryBulkInterval":
+            run_ids = getattr(input_obj, "run_ids", None) or []
+            for run_id in run_ids:
+                if not _graphql_can_read_run(run_id, username):
+                    return False
+
+        elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
+            if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
+                readable_ids = [
+                    exp_id
+                    for exp_id in experiment_ids
+                    if _graphql_can_read_experiment(exp_id, username)
+                ]
+                if not readable_ids:
+                    return False
+                input_obj.experiment_ids = readable_ids
+
+        return True
+
+
+def get_graphql_authorization_middleware():
+    """
+    Get the GraphQL authorization middleware instance if auth is enabled.
+
+    Returns:
+        A list containing the middleware instance if auth is enabled,
+        empty list otherwise. Suitable for passing to schema.execute(middleware=...).
+    """
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
+        return []
+    if not is_auth_enabled():
+        return []
+    return [GraphQLAuthorizationMiddleware()]
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1453,6 +2105,8 @@ def create_app(app: Flask = app):
     Returns:
         The app with authentication and authorization enabled.
     """
+    global _auth_initialized
+
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
@@ -1481,6 +2135,8 @@ def create_app(app: Flask = app):
 
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
+
+    _auth_initialized = True
 
     app.add_url_rule(
         rule=SIGNUP,
@@ -1575,6 +2231,69 @@ def create_app(app: Flask = app):
     app.add_url_rule(
         rule=DELETE_SCORER_PERMISSION,
         view_func=delete_scorer_permission,
+        methods=["DELETE"],
+    )
+    # Gateway secret permission routes
+    app.add_url_rule(
+        rule=CREATE_GATEWAY_SECRET_PERMISSION,
+        view_func=create_gateway_secret_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_GATEWAY_SECRET_PERMISSION,
+        view_func=get_gateway_secret_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_GATEWAY_SECRET_PERMISSION,
+        view_func=update_gateway_secret_permission,
+        methods=["PATCH"],
+    )
+    app.add_url_rule(
+        rule=DELETE_GATEWAY_SECRET_PERMISSION,
+        view_func=delete_gateway_secret_permission,
+        methods=["DELETE"],
+    )
+    # Gateway endpoint permission routes
+    app.add_url_rule(
+        rule=CREATE_GATEWAY_ENDPOINT_PERMISSION,
+        view_func=create_gateway_endpoint_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_GATEWAY_ENDPOINT_PERMISSION,
+        view_func=get_gateway_endpoint_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_GATEWAY_ENDPOINT_PERMISSION,
+        view_func=update_gateway_endpoint_permission,
+        methods=["PATCH"],
+    )
+    app.add_url_rule(
+        rule=DELETE_GATEWAY_ENDPOINT_PERMISSION,
+        view_func=delete_gateway_endpoint_permission,
+        methods=["DELETE"],
+    )
+    # Gateway model definition permission routes
+    app.add_url_rule(
+        rule=CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        view_func=create_gateway_model_definition_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        view_func=get_gateway_model_definition_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        view_func=update_gateway_model_definition_permission,
+        methods=["PATCH"],
+    )
+    app.add_url_rule(
+        rule=DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        view_func=delete_gateway_model_definition_permission,
         methods=["DELETE"],
     )
 

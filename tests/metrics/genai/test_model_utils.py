@@ -112,7 +112,7 @@ def test_score_model_openai(set_envs):
         assert resp == "\n\nThis is a test!"
         mock_post.assert_called_once_with(
             endpoint="https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": "Bearer test"},
+            headers={"authorization": "Bearer test"},
             payload={
                 "messages": [{"role": "user", "content": "my prompt"}],
                 "model": "gpt-4o-mini",
@@ -136,7 +136,7 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
         assert resp == "\n\nThis is a test!"
         mock_post.assert_called_once_with(
             endpoint="https://my-proxy.com/chat",
-            headers={"Authorization": "Bearer test", "foo": "bar"},
+            headers={"authorization": "Bearer test", "foo": "bar"},
             payload={
                 "messages": [{"role": "user", "content": "my prompt"}],
                 "model": "gpt-4o-mini",
@@ -265,8 +265,8 @@ def test_score_model_bedrock(monkeypatch):
         # and requires "anthropic_version" put within the body not headers.
         body=json.dumps(
             {
-                "temperature": 0,
                 "max_tokens": 1000,
+                "temperature": 0,
                 "messages": [{"role": "user", "content": "input prompt"}],
                 "anthropic_version": "2023-06-01",
             }

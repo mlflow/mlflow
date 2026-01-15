@@ -14,6 +14,7 @@ from mlflow.telemetry.client import (
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
     TelemetryClient,
+    _is_localhost_uri,
     get_telemetry_client,
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
@@ -65,6 +66,53 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     data = received_record["data"]
     assert data["event_name"] == "test_event"
     assert data["status"] == "success"
+
+
+def test_add_records_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
+    # Pre-populate pending_records with 200 records
+    initial_records = [
+        Record(
+            event_name=f"initial_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(200)
+    ]
+    mock_telemetry_client.add_records(initial_records)
+
+    # We haven't hit the batch size limit yet, so expect no records to be sent
+    assert len(mock_telemetry_client._pending_records) == 200
+    assert len(mock_requests) == 0
+
+    # Add 1000 more records
+    # Expected behavior:
+    # - First 300 records fill to 500 -> send batch (200 + 300) to queue
+    # - Next 500 records -> send batch to queue
+    # - Last 200 records remain in pending (200 < 500)
+    additional_records = [
+        Record(
+            event_name=f"additional_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(1000)
+    ]
+    mock_telemetry_client.add_records(additional_records)
+
+    # Verify batching logic:
+    # - 2 batches should be in the queue
+    # - 200 records should remain in pending
+    assert mock_telemetry_client._queue.qsize() == 2
+    assert len(mock_telemetry_client._pending_records) == 200
+
+    # Flush to process queue and send the remaining partial batch
+    mock_telemetry_client.flush()
+
+    # Verify all 1200 records were sent
+    assert len(mock_requests) == 1200
+    event_names = {req["data"]["event_name"] for req in mock_requests}
+    assert all(f"initial_{i}" in event_names for i in range(200))
+    assert all(f"additional_{i}" in event_names for i in range(1000))
 
 
 def test_record_with_session_and_installation_id(
@@ -921,3 +969,44 @@ def test_fetch_config_after_first_record():
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
         mock_requests_get.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://localhost",
+        "http://localhost:5000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5000/api/2.0/mlflow",
+        "http://[::1]",
+    ],
+)
+def test_is_localhost_uri_returns_true_for_localhost(uri):
+    assert _is_localhost_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://example.com",
+        "http://example.com:5000",
+        "https://mlflow.example.com",
+        "http://192.168.1.1",
+        "http://192.168.1.1:5000",
+        "http://10.0.0.1:5000",
+        "https://my-tracking-server.com/api/2.0/mlflow",
+    ],
+)
+def test_is_localhost_uri_returns_false_for_remote(uri):
+    assert _is_localhost_uri(uri) is False
+
+
+def test_is_localhost_uri_returns_none_for_empty_hostname():
+    assert _is_localhost_uri("file:///tmp/mlruns") is None
+
+
+def test_is_localhost_uri_returns_none_on_parse_error():
+    # urlparse doesn't raise on most inputs, but we test the fallback behavior
+    # by mocking urlparse to raise
+    with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
+        assert _is_localhost_uri("http://localhost") is None

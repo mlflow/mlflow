@@ -3,6 +3,8 @@ import { useExperimentContainsTraces } from '../../traces/hooks/useExperimentCon
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useExperimentContainsTrainingRuns } from '../../traces/hooks/useExperimentContainsTrainingRuns';
 import { isEditableExperimentKind } from '../../../utils/ExperimentKindUtils';
+import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
+import { RoutePaths } from '../../../routes';
 
 export const useInferExperimentKind = ({
   experimentId,
@@ -51,15 +53,24 @@ export const useInferExperimentKind = ({
     containsRuns,
   ]);
 
+  // Check if the user landed on the experiment page without a specific tab in the URL.
+  // If the URL already contains a tab name (e.g. /experiments/1/traces), we should not
+  // redirect them.
+  const { pathname } = useLocation();
+  const isOnExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
+
   const inferredExperimentPageTab = useMemo(() => {
+    if (!isOnExperimentPageWithoutTab) {
+      return undefined;
+    }
     if (inferredExperimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED) {
-      return ExperimentPageTabName.Traces;
+      return ExperimentPageTabName.Overview;
     }
     if (inferredExperimentKind === ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED) {
       return ExperimentPageTabName.Runs;
     }
     return undefined;
-  }, [inferredExperimentKind]);
+  }, [inferredExperimentKind, isOnExperimentPageWithoutTab]);
 
   // automatically update the experiment type if it's not user-editable
   useEffect(() => {

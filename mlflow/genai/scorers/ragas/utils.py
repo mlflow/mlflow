@@ -45,8 +45,15 @@ def map_scorer_inputs_to_ragas_sample(
     retrieved_contexts = [str(ctx) for contexts in span_id_to_context.values() for ctx in contexts]
 
     reference = None
+    rubrics = None
     if expectations:
-        reference = ", ".join(expectations.values())
+        # Extract rubrics if present (for InstanceRubrics metric)
+        rubrics = expectations.get("rubrics")
+        non_rubric_expectations = {
+            key: value for key, value in expectations.items() if key != "rubrics"
+        }
+        if non_rubric_expectations:
+            reference = ", ".join(str(value) for value in non_rubric_expectations.values())
 
     return SingleTurnSample(
         user_input=user_input,
@@ -54,15 +61,16 @@ def map_scorer_inputs_to_ragas_sample(
         retrieved_contexts=retrieved_contexts or None,
         reference=reference,
         reference_contexts=retrieved_contexts or None,
+        rubrics=rubrics,
     )
 
 
-def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: str) -> str:
+def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:
     """
     Create an mlflow error message for missing RAGAS parameters.
 
     Args:
-        ragas_param: The RAGAS parameter name that is missing
+        error_msg: The error message from RAGAS
         metric_name: The name of the RAGAS metric
 
     Returns:
@@ -71,11 +79,19 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
     ragas_to_mlflow_param_mapping = {
         "user_input": "inputs",
         "response": "outputs",
+        "reference_contexts": "trace with retrieval spans",
         "reference": "expectations['expected_output']",
         "retrieved_contexts": "trace with retrieval spans",
-        "reference_contexts": "trace with retrieval spans",
+        "rubrics": "expectations['rubrics']",
     }
-    mlflow_param = ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
+    mlflow_param = error_msg
+    for (
+        ragas_param,
+        corresponding_mlflow_param,
+    ) in ragas_to_mlflow_param_mapping.items():
+        if ragas_param in error_msg:
+            mlflow_param = corresponding_mlflow_param
+            break
 
     message_parts = [
         f"RAGAS metric '{metric_name}' requires '{mlflow_param}' parameter, which is missing."
@@ -91,10 +107,15 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
             "expectations={'expected_output': ...}) or log an expectation to the trace: "
             "mlflow.log_expectation(trace_id, name='expected_output', value=..., source=...)"
         )
-    elif ragas_param in ["retrieved_contexts", "reference_contexts"]:
+    elif ragas_param in {"retrieved_contexts", "reference_contexts"}:
         message_parts.append(
             "\nMake sure your trace includes retrieval spans. "
             "Example: use @mlflow.trace(span_type=SpanType.RETRIEVER) decorator"
+        )
+    elif ragas_param == "rubrics":
+        message_parts.append(
+            "\nExample: judge(inputs='...', outputs='...', "
+            "expectations={'rubrics': {'0': 'rubric for score 0', '1': 'rubric for score 1'}})"
         )
 
     return " ".join(message_parts)

@@ -363,15 +363,15 @@ def test_create_and_delete_registered_model(client, monkeypatch):
     assert rm.name == "test_model"
 
 
-def _wait(url: str):
+def _wait(url: str, timeout: int = 10) -> None:
     t = time.time()
-    while time.time() - t < 5:
+    while time.time() - t < timeout:
         try:
             if requests.get(f"{url}/health").ok:
-                yield
+                return
         except requests.exceptions.ConnectionError:
             pass
-        time.sleep(1)
+        time.sleep(0.5)
 
     pytest.fail("Server did not start")
 
@@ -410,8 +410,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
     ) as prc:
         try:
             url = f"http://{host}:{port}"
-            for _ in _wait(url):
-                break
+            _wait(url)
 
             mlflow.set_tracking_uri(url)
             client = MlflowClient(url)
@@ -805,6 +804,327 @@ def test_scorer_read_permission(client, monkeypatch):
             response.raise_for_status()
 
 
+def _graphql_query(tracking_uri, query, variables=None, auth=None):
+    return requests.post(
+        f"{tracking_uri}/graphql",
+        json={"query": query, "variables": variables or {}},
+        auth=auth,
+    )
+
+
+def test_graphql_requires_authentication(client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    query = """
+    query {
+        mlflowGetExperiment(input: {experimentId: "0"}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+    response = _graphql_query(client.tracking_uri, query)
+    assert response.status_code == 401
+
+
+def test_graphql_get_experiment_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_test_exp")
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to read the experiment
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    experiment_data = data["data"]["mlflowGetExperiment"]["experiment"]
+    assert experiment_data["experimentId"] == experiment_id
+    assert experiment_data["name"] == "graphql_test_exp"
+
+    # user2 (NO_PERMISSIONS) should NOT be able to read the experiment
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # With authorization denied, the result should be null
+    assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+def test_graphql_get_run_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_run_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.set_terminated(run_id)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($runId: String!) {
+        mlflowGetRun(input: {runId: $runId}) {
+            run {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to read the run
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    run_data = data["data"]["mlflowGetRun"]["run"]
+    assert run_data["info"]["runId"] == run_id
+    assert run_data["info"]["experimentId"] == experiment_id
+
+    # user2 (NO_PERMISSIONS) should NOT be able to read the run
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetRun") is None
+
+
+def test_graphql_search_runs_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp1_id = client.create_experiment("graphql_search_exp1")
+        exp2_id = client.create_experiment("graphql_search_exp2")
+
+        run1 = client.create_run(exp1_id)
+        client.set_terminated(run1.info.run_id)
+
+        run2 = client.create_run(exp2_id)
+        client.set_terminated(run2.info.run_id)
+
+        # Grant READ on exp1 to user2, NO_PERMISSIONS on exp2
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp1_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp2_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($expIds: [String]!) {
+        mlflowSearchRuns(input: {experimentIds: $expIds}) {
+            runs {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    # user1 should see both runs
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expIds": [exp1_id, exp2_id]},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    runs = data.get("data", {}).get("mlflowSearchRuns", {}).get("runs", [])
+    assert len(runs) == 2
+
+    # user2 should only see run from exp1 (exp2 is filtered out)
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expIds": [exp1_id, exp2_id]},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    runs = data.get("data", {}).get("mlflowSearchRuns", {}).get("runs", [])
+    assert len(runs) == 1
+    assert runs[0]["info"]["experimentId"] == exp1_id
+
+
+def test_graphql_list_artifacts_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_artifacts_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.set_terminated(run_id)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($runId: String!) {
+        mlflowListArtifacts(input: {runId: $runId}) {
+            rootUri
+            files {
+                path
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to list artifacts
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowListArtifacts") is not None
+
+    # user2 (NO_PERMISSIONS) should NOT be able to list artifacts
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowListArtifacts") is None
+
+
+def test_graphql_nonexistent_experiment(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": "999999999"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+def test_graphql_nonexistent_run(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($runId: String!) {
+        mlflowGetRun(input: {runId: $runId}) {
+            run {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": "00000000000000000000000000000000"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetRun") is None
+
+
 def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -841,3 +1161,1045 @@ def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch
         data = response.json()
         assert "metrics" in data
         assert len(data["metrics"]) == 2
+
+
+def test_gateway_secrets_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        user1_secret_id = response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
+            params={"secret_id": user1_secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
+            json={
+                "secret_id": user1_secret_id,
+                "secret_value": {"api_key": "updated-key"},
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # User2 can read secrets by default (READ permission is default)
+    with User(user2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
+            params={"secret_id": user1_secret_id},
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+
+    # User2 cannot update secrets without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
+            json={
+                "secret_id": user1_secret_id,
+                "secret_value": {"api_key": "hacked-key"},
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # User2 cannot delete secrets without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": user1_secret_id},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/list",
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        assert "secrets_available" in response.json()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": user1_secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+
+def test_gateway_endpoints_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret_for_endpoint",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "user1_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "user1_endpoint",
+                "model_configs": [
+                    {
+                        "model_definition_id": model_definition_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/list",
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/get",
+            params={"endpoint_id": endpoint_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "name": "updated_endpoint",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # User2 can read endpoints by default (READ permission is default)
+    with User(user2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/get",
+            params={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+
+    # User2 cannot update endpoints without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "name": "hacked_endpoint",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # User2 cannot delete endpoints without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+
+def test_gateway_model_definitions_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret_for_model_def",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "user1_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/list",
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/get",
+            params={"model_definition_id": model_definition_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={
+                "model_definition_id": model_definition_id,
+                "name": "updated_model_def",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # User2 can read model definitions by default (READ permission is default)
+    with User(user2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/get",
+            params={"model_definition_id": model_definition_id},
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+
+    # User2 cannot update model definitions without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={
+                "model_definition_id": model_definition_id,
+                "name": "hacked_model_def",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # User2 cannot delete model definitions without explicit permission
+    with User(user2, password2, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+
+def test_gateway_ajax_routes_permissions(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
+            auth=(username, password),
+        )
+        response.raise_for_status()
+        assert "providers" in response.json()
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-models",
+            auth=(username, password),
+        )
+        response.raise_for_status()
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/provider-config",
+            params={"provider": "openai"},
+            auth=(username, password),
+        )
+        response.raise_for_status()
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(username, password),
+        )
+        response.raise_for_status()
+        assert "secrets_available" in response.json()
+
+
+def test_gateway_unauthenticated_access_denied(client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
+    )
+    assert response.status_code == 401
+
+
+def test_gateway_endpoint_use_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # User1 creates a secret, model definition, and endpoint
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "test_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "test_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "test_endpoint",
+                "model_configs": [
+                    {
+                        "model_definition_id": model_definition_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+        endpoint_name = response.json()["endpoint"]["name"]
+
+    # User2 without permission cannot invoke the endpoint
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "test"}]},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/endpoints/permissions/create",
+            json_payload={
+                "endpoint_id": endpoint_id,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 with USE permission can invoke
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "test"}]},
+            auth=(user2, password2),
+        )
+        # Will fail because we don't have real LLM credentials, but should pass auth (not 403)
+        assert response.status_code != 403
+
+    # Cleanup
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
+def test_gateway_model_definition_requires_secret_use_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # User1 creates a secret
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+    # User2 cannot create a model definition using user1's secret (no permission)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "model_def_1",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/secrets/permissions/create",
+            json_payload={"secret_id": secret_id, "username": user2, "permission": "USE"},
+            auth=(user1, password1),
+        )
+
+    # User2 can now create a model definition using user1's secret
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "model_def_1",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+    # User1 creates another secret
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret_2",
+                "secret_value": {"api_key": "test-key-2"},
+                "provider": "anthropic",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id_2 = response.json()["secret"]["secret_id"]
+
+    # User2 cannot update the model definition to use secret_id_2 (no permission on that secret)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={
+                "model_definition_id": model_def_id,
+                "secret_id": secret_id_2,
+                "provider": "anthropic",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2 on secret_id_2
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/secrets/permissions/create",
+            json_payload={"secret_id": secret_id_2, "username": user2, "permission": "USE"},
+            auth=(user1, password1),
+        )
+
+    # User2 can now update the model definition to use secret_id_2
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={
+                "model_definition_id": model_def_id,
+                "secret_id": secret_id_2,
+                "provider": "anthropic",
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id_2},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
+def test_gateway_endpoint_requires_model_definition_use_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # User1 creates a secret and model definition
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "model_def_1",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+    # User2 cannot create an endpoint using user1's model definition (no permission)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "endpoint_1",
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2 on the model definition
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/model-definitions/permissions/create",
+            json_payload={
+                "model_definition_id": model_def_id,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 can now create an endpoint using user1's model definition
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "endpoint_1",
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    # User1 creates another model definition
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "model_def_2",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-3.5-turbo",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_def_id_2 = response.json()["model_definition"]["model_definition_id"]
+
+    # User2 cannot update the endpoint to use model_def_id_2 (no permission on that model def)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id_2,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2 on model_def_id_2
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/model-definitions/permissions/create",
+            json_payload={
+                "model_definition_id": model_def_id_2,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 can now update the endpoint to use model_def_id_2
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id_2,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id_2},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
+def test_gateway_endpoint_requires_fallback_model_definition_use_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # User1 creates secrets and model definitions
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+        # Create primary model definition
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "primary_model",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        primary_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+        # Create fallback model definition
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "fallback_model",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-3.5-turbo",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        fallback_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+    # Grant USE permission to user2 on primary model but not fallback
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/model-definitions/permissions/create",
+            json_payload={
+                "model_definition_id": primary_model_def_id,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 cannot create an endpoint with fallback model (no permission on fallback)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "endpoint_with_fallback",
+                "model_configs": [
+                    {
+                        "model_definition_id": primary_model_def_id,
+                        "linkage_type": "PRIMARY",
+                    },
+                    {
+                        "model_definition_id": fallback_model_def_id,
+                        "linkage_type": "FALLBACK",
+                        "fallback_order": 1,
+                    },
+                ],
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant USE permission to user2 on fallback model
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/model-definitions/permissions/create",
+            json_payload={
+                "model_definition_id": fallback_model_def_id,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 can now create an endpoint with both primary and fallback models
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "endpoint_with_fallback",
+                "model_configs": [
+                    {
+                        "model_definition_id": primary_model_def_id,
+                        "linkage_type": "PRIMARY",
+                    },
+                    {
+                        "model_definition_id": fallback_model_def_id,
+                        "linkage_type": "FALLBACK",
+                        "fallback_order": 1,
+                    },
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": primary_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": fallback_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
+def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # User1 creates a secret, model definition, and endpoint
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "user1_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "test_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "test_endpoint",
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    # User2 cannot invoke the endpoint (no permission)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "Hello"}]},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Grant READ permission to user2 (not enough for invocation)
+    with User(user1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/gateway/endpoints/permissions/create",
+            json_payload={
+                "endpoint_id": endpoint_id,
+                "username": user2,
+                "permission": "READ",
+            },
+            auth=(user1, password1),
+        )
+
+    # User2 still cannot invoke (READ is not sufficient)
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "Hello"}]},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+    # Upgrade to USE permission
+    with User(user1, password1, monkeypatch):
+        response = requests.patch(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/permissions/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "username": user2,
+                "permission": "USE",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # User2 can now invoke the endpoint (though it will fail due to invalid API key)
+    # We just check that we get past the permission check (403) to a different error
+    with User(user2, password2, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "Hello"}]},
+            auth=(user2, password2),
+        )
+        # Should not be 403 anymore (permission granted)
+        # Will likely be 400 or 500 due to invalid API key, but that's fine
+        assert response.status_code != 403
+
+    # Cleanup
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()

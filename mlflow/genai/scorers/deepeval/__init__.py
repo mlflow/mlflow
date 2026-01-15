@@ -24,12 +24,20 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
-from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
-from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
-from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
+from mlflow.genai.scorers.deepeval.registry import (
+    get_metric_class,
+    is_deterministic_metric,
+)
+from mlflow.genai.scorers.deepeval.utils import (
+    map_scorer_inputs_to_deepeval_test_case,
+    map_session_to_deepeval_conversational_test_case,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -54,8 +62,8 @@ class DeepEvalScorer(Scorer):
     def __init__(
         self,
         metric_name: str | None = None,
-        model: str = "databricks",
-        **metric_kwargs,
+        model: str | None = None,
+        **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
         if metric_name is None:
@@ -65,10 +73,15 @@ class DeepEvalScorer(Scorer):
 
         metric_class = get_metric_class(metric_name)
 
-        if is_deterministic_metric(metric_name):
+        self._is_deterministic = is_deterministic_metric(metric_name)
+
+        if self._is_deterministic:
             # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
+            self._model_uri = None
         else:
+            model = model or get_default_model()
+            self._model_uri = model
             deepeval_model = create_deepeval_model(model)
             self._metric = metric_class(
                 model=deepeval_model,
@@ -77,6 +90,41 @@ class DeepEvalScorer(Scorer):
                 **metric_kwargs,
             )
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
+
+    def _raise_registration_not_supported(self, method_name: str):
+        raise MlflowException.invalid_parameter_value(
+            f"'{method_name}()' is not supported for third-party scorers like DeepEval. "
+            f"Third-party scorers cannot be registered, started, updated, or stopped. "
+            f"Use them directly in mlflow.genai.evaluate() instead."
+        )
+
+    def register(self, **kwargs):
+        self._raise_registration_not_supported("register")
+
+    def start(self, **kwargs):
+        self._raise_registration_not_supported("start")
+
+    def update(self, **kwargs):
+        self._raise_registration_not_supported("update")
+
+    def stop(self, **kwargs):
+        self._raise_registration_not_supported("stop")
+
+    def align(self, **kwargs):
+        raise MlflowException.invalid_parameter_value(
+            "'align()' is not supported for third-party scorers like DeepEval. "
+            "Alignment is only available for MLflow's built-in judges."
+        )
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        from deepeval.metrics.base_metric import BaseConversationalMetric
+
+        return isinstance(self._metric, BaseConversationalMetric)
+
     def __call__(
         self,
         *,
@@ -84,6 +132,7 @@ class DeepEvalScorer(Scorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate using the wrapped DeepEval metric.
@@ -93,23 +142,42 @@ class DeepEvalScorer(Scorer):
             outputs: The output to evaluate
             expectations: Expected values and context for evaluation
             trace: MLflow trace for evaluation
+            session: List of MLflow traces for multi-turn evaluation
 
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
+        if self._is_deterministic:
+            source_type = AssessmentSourceType.CODE
+            source_id = None
+        else:
+            source_type = AssessmentSourceType.LLM_JUDGE
+            source_id = self._model_uri
+
         assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=f"deepeval/{self.name}",
+            source_type=source_type,
+            source_id=source_id,
         )
 
         try:
-            test_case = map_scorer_inputs_to_deepeval_test_case(
-                metric_name=self.name,
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
+            if self.is_session_level_scorer:
+                if session is None:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Multi-turn scorer '{self.name}' requires 'session' parameter "
+                        f"containing a list of traces from the conversation."
+                    )
+                test_case = map_session_to_deepeval_conversational_test_case(
+                    session=session,
+                    expectations=expectations,
+                )
+            else:
+                test_case = map_scorer_inputs_to_deepeval_test_case(
+                    metric_name=self.name,
+                    inputs=inputs,
+                    outputs=outputs,
+                    expectations=expectations,
+                    trace=trace,
+                )
 
             self._metric.measure(test_case, _show_indicator=False)
 
@@ -125,6 +193,7 @@ class DeepEvalScorer(Scorer):
                 metadata={
                     "score": score,
                     "threshold": self._metric.threshold,
+                    FRAMEWORK_METADATA_KEY: "deepeval",
                 },
             )
         except Exception as e:
@@ -134,13 +203,20 @@ class DeepEvalScorer(Scorer):
                 source=assessment_source,
             )
 
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
-    model: str = "databricks",
-    **metric_kwargs,
+    model: str | None = None,
+    **metric_kwargs: Any,
 ) -> DeepEvalScorer:
     """
     Get a DeepEval metric as an MLflow scorer.

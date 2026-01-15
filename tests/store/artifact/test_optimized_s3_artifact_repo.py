@@ -284,10 +284,8 @@ def test_refresh_credentials():
             session_token="my-session-1",
             credential_refresh_def=credential_refresh_def,
         )
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("file_1.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         mock_get_s3_client.assert_any_call(
             addressing_style=None,

@@ -9,13 +9,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
+    FallbackConfig,
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -38,6 +42,18 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
+from mlflow.telemetry.events import (
+    GatewayCreateEndpointEvent,
+    GatewayCreateSecretEvent,
+    GatewayDeleteEndpointEvent,
+    GatewayDeleteSecretEvent,
+    GatewayGetEndpointEvent,
+    GatewayListEndpointsEvent,
+    GatewayListSecretsEvent,
+    GatewayUpdateEndpointEvent,
+    GatewayUpdateSecretEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -89,6 +105,7 @@ class SqlAlchemyGatewayStoreMixin:
         if self._secret_cache is not None:
             self._secret_cache.clear()
 
+    @record_usage_event(GatewayCreateSecretEvent)
     def create_gateway_secret(
         self,
         secret_name: str,
@@ -119,15 +136,7 @@ class SqlAlchemyGatewayStoreMixin:
             current_time = get_current_time_millis()
 
             value_to_encrypt = json.dumps(secret_value)
-
-            # For dict secrets with multiple keys, show keys with masked values
-            # so users can see what fields are stored
-            if len(secret_value) == 1:
-                first_value = next(iter(secret_value.values()), "")
-                masked_value = _mask_secret_value(first_value)
-            else:
-                masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()]
-                masked_value = "{" + ", ".join(masked_parts) + "}"
+            masked_value = _mask_secret_value(secret_value)
 
             kek_manager = KEKManager()
 
@@ -143,7 +152,7 @@ class SqlAlchemyGatewayStoreMixin:
                 secret_name=secret_name,
                 encrypted_value=encrypted.encrypted_value,
                 wrapped_dek=encrypted.wrapped_dek,
-                masked_value=masked_value,
+                masked_value=json.dumps(masked_value),
                 kek_version=encrypted.kek_version,
                 provider=provider,
                 auth_config=json.dumps(auth_config) if auth_config else None,
@@ -192,6 +201,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateSecretEvent)
     def update_gateway_secret(
         self,
         secret_id: str,
@@ -223,17 +233,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             if secret_value is not None:
                 value_to_encrypt = json.dumps(secret_value)
-
-                # For dict secrets with multiple keys, show keys with masked values
-                # so users can see what fields are stored
-                if len(secret_value) == 1:
-                    first_value = next(iter(secret_value.values()), "")
-                    masked_value = _mask_secret_value(first_value)
-                else:
-                    masked_parts = [
-                        f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()
-                    ]
-                    masked_value = "{" + ", ".join(masked_parts) + "}"
+                masked_value = _mask_secret_value(secret_value)
 
                 kek_manager = KEKManager()
 
@@ -247,7 +247,7 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_secret.encrypted_value = encrypted.encrypted_value
                 sql_secret.wrapped_dek = encrypted.wrapped_dek
                 sql_secret.kek_version = encrypted.kek_version
-                sql_secret.masked_value = masked_value
+                sql_secret.masked_value = json.dumps(masked_value)
 
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it
@@ -262,6 +262,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteSecretEvent)
     def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
@@ -281,6 +282,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_secret)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListSecretsEvent)
     def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
         List all secret metadata with optional filtering.
@@ -519,42 +521,50 @@ class SqlAlchemyGatewayStoreMixin:
                     error_code=INVALID_STATE,
                 ) from e
 
+    @record_usage_event(GatewayCreateEndpointEvent)
     def create_gateway_endpoint(
         self,
         name: str,
-        model_definition_ids: list[str],
+        model_configs: list[GatewayEndpointModelConfig],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
-            model_definition_ids: List of model definition IDs to attach to the endpoint.
-                                  At least one model definition is required.
+            model_configs: List of model configurations for each model.
+                          At least one model configuration with PRIMARY linkage type is required.
             created_by: Username of the creator.
+            routing_strategy: Routing strategy for the endpoint.
+            fallback_config: Fallback configuration (includes strategy and max_attempts).
 
         Returns:
             Endpoint entity with model_mappings populated.
 
         Raises:
-            MlflowException: If model_definition_ids list is empty (INVALID_PARAMETER_VALUE),
+            MlflowException: If model_configs list is empty (INVALID_PARAMETER_VALUE),
                 or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST).
         """
-        if not model_definition_ids:
+        if not model_configs:
             raise MlflowException(
-                "Endpoint must have at least one model definition",
+                "Endpoint must have at least one model configuration",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         with self.ManagedSessionMaker() as session:
+            # Validate all model definitions exist
+            all_model_def_ids = {config.model_definition_id for config in model_configs}
+
             existing_model_defs = (
                 session.query(SqlGatewayModelDefinition.model_definition_id)
-                .filter(SqlGatewayModelDefinition.model_definition_id.in_(model_definition_ids))
+                .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
             existing_ids = {m.model_definition_id for m in existing_model_defs}
-            if missing := set(model_definition_ids) - existing_ids:
+            if missing := all_model_def_ids - existing_ids:
                 raise MlflowException(
                     f"Model definitions not found: {', '.join(missing)}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
@@ -563,6 +573,24 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Build fallback_config_json if fallback_config provided or fallback models exist
+            fallback_model_def_ids = [
+                config.model_definition_id
+                for config in model_configs
+                if config.linkage_type == GatewayModelLinkageType.FALLBACK
+            ]
+            fallback_config_json = None
+            if fallback_config or fallback_model_def_ids:
+                fallback_config_json = json.dumps(
+                    {
+                        "strategy": fallback_config.strategy.value
+                        if fallback_config and fallback_config.strategy
+                        else None,
+                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                        "model_definition_ids": fallback_model_def_ids,
+                    }
+                )
+
             sql_endpoint = SqlGatewayEndpoint(
                 endpoint_id=endpoint_id,
                 name=name,
@@ -570,16 +598,21 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_at=current_time,
                 created_by=created_by,
                 last_updated_by=created_by,
+                routing_strategy=routing_strategy.value if routing_strategy else None,
+                fallback_config_json=fallback_config_json,
             )
             session.add(sql_endpoint)
 
-            for model_def_id in model_definition_ids:
+            # Create mappings for all model configs
+            for config in model_configs:
                 mapping_id = f"m-{uuid.uuid4().hex}"
                 sql_mapping = SqlGatewayEndpointModelMapping(
                     mapping_id=mapping_id,
                     endpoint_id=endpoint_id,
-                    model_definition_id=model_def_id,
-                    weight=1,
+                    model_definition_id=config.model_definition_id,
+                    weight=config.weight,
+                    linkage_type=config.linkage_type.value,
+                    fallback_order=config.fallback_order,
                     created_at=current_time,
                     created_by=created_by,
                 )
@@ -590,6 +623,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayGetEndpointEvent)
     def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
@@ -622,19 +656,26 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateEndpointEvent)
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
-        name: str,
+        name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        model_configs: list[GatewayEndpointModelConfig] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's name.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: ID of the endpoint to update.
-            name: New name for the endpoint.
-            updated_by: Username of the updater.
+            name: Optional new name for the endpoint.
+            updated_by: Optional username of the updater.
+            routing_strategy: Optional new routing strategy.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            model_configs: Optional new list of model configurations (replaces all linkages).
 
         Returns:
             Updated Endpoint entity.
@@ -644,7 +685,77 @@ class SqlAlchemyGatewayStoreMixin:
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
 
-            sql_endpoint.name = name
+            if name is not None:
+                sql_endpoint.name = name
+
+            if routing_strategy is not None:
+                sql_endpoint.routing_strategy = routing_strategy.value
+
+            # Replace model linkages if model_configs provided
+            if model_configs is not None:
+                # Validate all model definitions exist
+                all_model_def_ids = {config.model_definition_id for config in model_configs}
+                for model_def_id in all_model_def_ids:
+                    self._get_entity_or_raise(
+                        session,
+                        SqlGatewayModelDefinition,
+                        {"model_definition_id": model_def_id},
+                        "GatewayModelDefinition",
+                    )
+
+                # Delete all existing linkages
+                session.query(SqlGatewayEndpointModelMapping).filter(
+                    SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
+                ).delete()
+
+                # Create new linkages from model_configs
+                for config in model_configs:
+                    sql_mapping = SqlGatewayEndpointModelMapping(
+                        mapping_id=f"m-{uuid.uuid4().hex}",
+                        endpoint_id=endpoint_id,
+                        model_definition_id=config.model_definition_id,
+                        weight=config.weight,
+                        linkage_type=config.linkage_type.value,
+                        fallback_order=config.fallback_order,
+                        created_at=get_current_time_millis(),
+                        created_by=updated_by,
+                    )
+                    session.add(sql_mapping)
+
+                # Update fallback_config_json with new fallback model IDs
+                fallback_model_def_ids = [
+                    config.model_definition_id
+                    for config in model_configs
+                    if config.linkage_type == GatewayModelLinkageType.FALLBACK
+                ]
+                sql_endpoint.fallback_config_json = json.dumps(
+                    {
+                        "strategy": fallback_config.strategy.value
+                        if fallback_config and fallback_config.strategy
+                        else None,
+                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                        "model_definition_ids": fallback_model_def_ids,
+                    }
+                )
+
+            # Update fallback_config_json if only fallback_config provided (without model_configs)
+            elif fallback_config is not None:
+                # Keep existing model definition IDs from current config
+                existing_config = (
+                    json.loads(sql_endpoint.fallback_config_json)
+                    if sql_endpoint.fallback_config_json
+                    else {}
+                )
+                sql_endpoint.fallback_config_json = json.dumps(
+                    {
+                        "strategy": fallback_config.strategy.value
+                        if fallback_config.strategy
+                        else None,
+                        "max_attempts": fallback_config.max_attempts,
+                        "model_definition_ids": existing_config.get("model_definition_ids", []),
+                    }
+                )
+
             sql_endpoint.last_updated_at = get_current_time_millis()
             if updated_by:
                 sql_endpoint.last_updated_by = updated_by
@@ -655,6 +766,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteEndpointEvent)
     def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
@@ -670,6 +782,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_endpoint)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListEndpointsEvent)
     def list_gateway_endpoints(
         self,
         provider: str | None = None,
@@ -708,8 +821,7 @@ class SqlAlchemyGatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -717,8 +829,7 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
-            model_definition_id: ID of the model definition to attach.
-            weight: Routing weight for traffic distribution (default 1.0).
+            model_config: Configuration for the model to attach.
             created_by: Username of the creator.
 
         Returns:
@@ -727,7 +838,7 @@ class SqlAlchemyGatewayStoreMixin:
         Raises:
             MlflowException: If the endpoint or model definition is not found
                 (RESOURCE_DOES_NOT_EXIST), or if the model definition is already
-                attached to this endpoint (RESOURCE_ALREADY_EXISTS).
+                attached to this endpoint with the same linkage_type (RESOURCE_ALREADY_EXISTS).
         """
         with self.ManagedSessionMaker() as session:
             sql_endpoint = self._get_entity_or_raise(
@@ -736,7 +847,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._get_entity_or_raise(
                 session,
                 SqlGatewayModelDefinition,
-                {"model_definition_id": model_definition_id},
+                {"model_definition_id": model_config.model_definition_id},
                 "GatewayModelDefinition",
             )
 
@@ -746,8 +857,10 @@ class SqlAlchemyGatewayStoreMixin:
             sql_mapping = SqlGatewayEndpointModelMapping(
                 mapping_id=mapping_id,
                 endpoint_id=endpoint_id,
-                model_definition_id=model_definition_id,
-                weight=weight,
+                model_definition_id=model_config.model_definition_id,
+                weight=model_config.weight,
+                linkage_type=model_config.linkage_type.value,
+                fallback_order=model_config.fallback_order,
                 created_at=current_time,
                 created_by=created_by,
             )
@@ -761,7 +874,7 @@ class SqlAlchemyGatewayStoreMixin:
                 session.flush()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Model definition '{model_definition_id}' is already attached to "
+                    f"Model definition '{model_config.model_definition_id}' is already attached to "
                     f"endpoint '{endpoint_id}'",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
@@ -775,6 +888,7 @@ class SqlAlchemyGatewayStoreMixin:
         self,
         endpoint_id: str,
         model_definition_id: str,
+        linkage_type: str | None = None,
     ) -> None:
         """
         Detach a model definition from an endpoint.
@@ -784,23 +898,26 @@ class SqlAlchemyGatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint.
             model_definition_id: ID of the model definition to detach.
+            linkage_type: Optional linkage type filter. If not provided, detaches all linkages
+                         for this endpoint-model pair.
 
         Raises:
             MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
-            sql_mapping = (
-                session.query(SqlGatewayEndpointModelMapping)
-                .filter(
-                    SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
-                    SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
-                )
-                .first()
+            query = session.query(SqlGatewayEndpointModelMapping).filter(
+                SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
+                SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
             )
+            if linkage_type:
+                query = query.filter(SqlGatewayEndpointModelMapping.linkage_type == linkage_type)
+
+            sql_mapping = query.first()
             if not sql_mapping:
+                linkage_str = f" with linkage type '{linkage_type}'" if linkage_type else ""
                 raise MlflowException(
                     f"Model definition '{model_definition_id}' is not attached to "
-                    f"endpoint '{endpoint_id}'",
+                    f"endpoint '{endpoint_id}'{linkage_str}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
