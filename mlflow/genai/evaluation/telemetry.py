@@ -1,4 +1,5 @@
 import hashlib
+import json
 import threading
 import uuid
 
@@ -29,6 +30,8 @@ def emit_custom_metric_event(
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
 
+    print(f"emit_custom_metric_event called: {scorers}")  # noqa: T201
+
     custom_metrics = list(filter(_is_custom_scorer, scorers))
     metric_name_to_hash = {m.name: _hash_metric_name(m.name) for m in custom_metrics}
 
@@ -55,6 +58,9 @@ def emit_custom_metric_event(
         "eval_count": eval_count,
         "metrics": metric_stats,
     }
+
+    print(f"emit sevent_payload: {json.dumps(event_payload, indent=2)}")  # noqa: T201
+
     http_request(
         host_creds=get_databricks_host_creds(),
         endpoint=_EVAL_TELEMETRY_ENDPOINT,
