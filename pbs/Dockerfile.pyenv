@@ -37,12 +37,12 @@ ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 # Pin to v2.5.0 for reproducibility
 RUN git clone --depth 1 --branch v2.5.0 https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
-# Install Python 3.10.16 via pyenv (compiles from source)
+# Install Python 3.10.14 via pyenv (compiles from source)
 # Using the same version as PBS for fair comparison
 RUN echo "=== pyenv Python Install ===" && \
     echo "START_TIME=$(date +%s)" && \
-    pyenv install 3.10.16 && \
-    pyenv global 3.10.16 && \
+    pyenv install 3.10.14 && \
+    pyenv global 3.10.14 && \
     echo "END_TIME=$(date +%s)"
 
 RUN pip install --upgrade pip virtualenv

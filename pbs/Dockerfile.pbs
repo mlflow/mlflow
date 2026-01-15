@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python version configuration
 # Using the same version as pyenv Dockerfile for fair comparison
-ARG PYTHON_VERSION=3.10.16
-ARG PBS_RELEASE=20260113
+ARG PYTHON_VERSION=3.10.14
+ARG PBS_RELEASE=20240713
 
 # Download and extract pre-built Python from python-build-standalone
 RUN ARCH=$(uname -m) && \
