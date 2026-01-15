@@ -1,9 +1,4 @@
-"""
-Flask server for distributed tracing tests.
-
-This server is used to test distributed tracing functionality by accepting
-HTTP requests with tracing headers and creating child spans.
-"""
+"""Flask server for distributed tracing tests."""
 
 import sys
 
@@ -21,18 +16,11 @@ app = Flask(__name__)
 
 @app.get("/health")
 def health():
-    """Health check endpoint."""
     return "ok", 200
 
 
 @app.post("/handle")
 def handle():
-    """
-    Handle a request with distributed tracing context.
-
-    Extracts tracing headers from the request and creates a child span
-    within the distributed trace context.
-    """
     headers = dict(request.headers)
     with set_tracing_context_from_http_request_headers(headers):
         with mlflow.start_span("server-handler") as span:
@@ -47,13 +35,6 @@ def handle():
 
 @app.post("/handle1")
 def handle1():
-    """
-    Handle a request and make a nested call to another server.
-
-    This endpoint demonstrates distributed tracing across multiple services.
-    It receives a request with tracing headers, creates a span, makes a nested
-    call to another service (/handle2), and returns combined results.
-    """
     headers = dict(request.headers)
     with set_tracing_context_from_http_request_headers(headers):
         with mlflow.start_span("server-handler1") as span:
@@ -81,12 +62,6 @@ def handle1():
 
 @app.post("/handle2")
 def handle2():
-    """
-    Handle a nested request in a distributed trace.
-
-    This is the second level handler that receives requests from /handle1
-    and creates its own span in the distributed trace.
-    """
     headers = dict(request.headers)
     with set_tracing_context_from_http_request_headers(headers):
         with mlflow.start_span("server-handler2") as span:
