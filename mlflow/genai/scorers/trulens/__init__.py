@@ -261,13 +261,29 @@ class Coherence(TruLensScorer):
     metric_name: ClassVar[str] = "Coherence"
 
 
+from mlflow.genai.scorers.trulens.agent_trace import (
+    ExecutionEfficiencyScorer,
+    LogicalConsistencyScorer,
+    PlanAdherenceScorer,
+    PlanQualityScorer,
+    ToolCallingScorer,
+    ToolSelectionScorer,
+)
+
 __all__ = [
     # Core classes
     "TruLensScorer",
     "get_scorer",
-    # Metric scorers
+    # RAG metric scorers
     "Groundedness",
     "ContextRelevance",
     "AnswerRelevance",
     "Coherence",
+    # Agent trace scorers
+    "LogicalConsistencyScorer",
+    "ExecutionEfficiencyScorer",
+    "PlanAdherenceScorer",
+    "PlanQualityScorer",
+    "ToolSelectionScorer",
+    "ToolCallingScorer",
 ]
