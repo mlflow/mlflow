@@ -126,7 +126,7 @@ class AgentServer:
 
         # Only proxy static assets to prevent SSRF vulnerabilities
         allowed_exact_paths = ("/", "/favicon.ico")
-        allowed_path_prefixes = ("/assets/",)
+        allowed_path_prefixes = ("/assets/", "/api/")
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
