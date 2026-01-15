@@ -1,13 +1,12 @@
 import logging
 from contextlib import contextmanager
 
-from opentelemetry import context as context_api
-from opentelemetry import trace as trace_api
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import mlflow
 from mlflow import MlflowException
 from mlflow.entities.trace_info import TraceInfo, TraceState
+from mlflow.tracing.provider import get_context_api, get_current_context, get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
@@ -65,7 +64,7 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
             "No active span found for fetching the trace context from. Returning an empty header."
         )
     headers = {}
-    TraceContextTextMapPropagator().inject(headers)
+    TraceContextTextMapPropagator().inject(carrier=headers, context=get_current_context())
     return headers
 
 
@@ -136,9 +135,9 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
                 "API."
             )
         ctx = TraceContextTextMapPropagator().extract(headers)
-        token = context_api.attach(ctx)
+        token = get_context_api().attach(ctx)
 
-        extracted_span = trace_api.get_current_span(ctx)
+        extracted_span = get_current_otel_span()
         span_context = extracted_span.get_span_context()
         otel_trace_id = span_context.trace_id
 
@@ -155,6 +154,6 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
         yield
     finally:
         if token is not None:
-            context_api.detach(token)
+            get_context_api().detach(token)
         if otel_trace_id is not None:
             trace_manager.pop_trace(otel_trace_id)
