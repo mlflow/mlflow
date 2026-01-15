@@ -54,7 +54,7 @@ def test_list_workspaces_endpoint(app, mock_workspace_store):
         Workspace(name="team-a", description=None),
     ]
     with app.test_client() as client:
-        response = client.get("/api/2.0/mlflow/workspaces")
+        response = client.get("/api/3.0/mlflow/workspaces")
 
     assert response.status_code == 200
     payload = _workspace_to_json(response.get_data(True))
@@ -68,7 +68,7 @@ def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_stor
     mock_workspace_store.create_workspace.return_value = created
     with app.test_client() as client:
         response = client.post(
-            "/api/2.0/mlflow/workspaces",
+            "/api/3.0/mlflow/workspaces",
             json={"name": "team-b", "description": "Team B"},
         )
 
@@ -81,7 +81,7 @@ def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_stor
 def test_get_workspace_endpoint(app, mock_workspace_store):
     mock_workspace_store.get_workspace.return_value = Workspace(name="team-c", description="Team C")
     with app.test_client() as client:
-        response = client.get("/api/2.0/mlflow/workspaces/team-c")
+        response = client.get("/api/3.0/mlflow/workspaces/team-c")
 
     assert response.status_code == 200
     payload = _workspace_to_json(response.get_data(True))
@@ -94,7 +94,7 @@ def test_update_workspace_endpoint(app, mock_workspace_store):
     mock_workspace_store.update_workspace.return_value = updated
     with app.test_client() as client:
         response = client.patch(
-            "/api/2.0/mlflow/workspaces/team-d",
+            "/api/3.0/mlflow/workspaces/team-d",
             json={"description": "Updated"},
         )
 
@@ -110,7 +110,7 @@ def test_update_default_workspace_allows_reserved_name(app, mock_workspace_store
 
     with app.test_client() as client:
         response = client.patch(
-            "/api/2.0/mlflow/workspaces/default",
+            "/api/3.0/mlflow/workspaces/default",
             json={"default_artifact_root": "s3://bucket/root"},
         )
 
@@ -131,7 +131,7 @@ def test_update_workspace_can_clear_default_artifact_root(
     mock_workspace_store.update_workspace.return_value = cleared
     with app.test_client() as client:
         response = client.patch(
-            "/api/2.0/mlflow/workspaces/team-clear",
+            "/api/3.0/mlflow/workspaces/team-clear",
             json={"default_artifact_root": " "},
         )
 
@@ -147,7 +147,7 @@ def test_update_workspace_can_clear_default_artifact_root(
 
 def test_delete_workspace_endpoint(app, mock_workspace_store):
     with app.test_client() as client:
-        response = client.delete("/api/2.0/mlflow/workspaces/team-e")
+        response = client.delete("/api/3.0/mlflow/workspaces/team-e")
 
     assert response.status_code == 204
     mock_workspace_store.delete_workspace.assert_called_once_with("team-e")
@@ -155,7 +155,7 @@ def test_delete_workspace_endpoint(app, mock_workspace_store):
 
 def test_delete_default_workspace_rejected_by_validation(app, mock_workspace_store):
     with app.test_client() as client:
-        response = client.delete("/api/2.0/mlflow/workspaces/default")
+        response = client.delete("/api/3.0/mlflow/workspaces/default")
 
     assert response.status_code == 400
     payload = _workspace_to_json(response.get_data(True))
@@ -172,7 +172,7 @@ def test_create_workspace_fails_without_artifact_root(app, mock_workspace_store,
     )
     with app.test_client() as client:
         response = client.post(
-            "/api/2.0/mlflow/workspaces",
+            "/api/3.0/mlflow/workspaces",
             json={"name": "team-no-root"},
         )
 
@@ -194,7 +194,7 @@ def test_create_workspace_with_artifact_root_succeeds_without_server_default(
     mock_workspace_store.create_workspace.return_value = created
     with app.test_client() as client:
         response = client.post(
-            "/api/2.0/mlflow/workspaces",
+            "/api/3.0/mlflow/workspaces",
             json={"name": "team-with-root", "default_artifact_root": "s3://bucket/path"},
         )
 
@@ -204,7 +204,7 @@ def test_create_workspace_with_artifact_root_succeeds_without_server_default(
 def test_create_default_workspace_rejected(app, mock_workspace_store, mock_tracking_store):
     with app.test_client() as client:
         response = client.post(
-            "/api/2.0/mlflow/workspaces",
+            "/api/3.0/mlflow/workspaces",
             json={"name": "default"},
         )
 
@@ -225,7 +225,7 @@ def test_update_workspace_clear_artifact_root_fails_without_server_default(
     )
     with app.test_client() as client:
         response = client.patch(
-            "/api/2.0/mlflow/workspaces/team-clear",
+            "/api/3.0/mlflow/workspaces/team-clear",
             json={"default_artifact_root": ""},
         )
 
