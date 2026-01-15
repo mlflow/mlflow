@@ -32,12 +32,7 @@ export interface StringAggregationResult {
  * Filters assessments from a trace by name, excluding session-level and invalid assessments.
  */
 function getValidAssessments(trace: ModelTraceInfoV3, assessmentName: string) {
-  return (
-    trace.assessments?.filter(
-      (a) =>
-        a.assessment_name === assessmentName && !a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY] && a.valid !== false,
-    ) ?? []
-  );
+  return trace.assessments?.filter((a) => a.assessment_name === assessmentName && a.valid !== false) ?? [];
 }
 
 /**
