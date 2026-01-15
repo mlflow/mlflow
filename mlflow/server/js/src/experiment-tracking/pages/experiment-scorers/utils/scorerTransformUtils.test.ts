@@ -10,6 +10,7 @@ import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+import { ScorerEvaluationScope } from '../constants';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   isEvaluatingSessionsInScorersEnabled: () => true,
@@ -146,6 +147,92 @@ describe('transformScorerConfig', () => {
         disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
+      });
+    });
+  });
+
+  describe('ConversationalGuidelines LLM scorer', () => {
+    it('should transform ConversationalGuidelines scorer with array guidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        sample_rate: 0.75,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: ['Be professional', 'Stay on topic'],
+          },
+          is_session_level_scorer: true,
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        sampleRate: 75,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic'],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        isSessionLevelScorer: true,
+        model: undefined,
+        version: undefined,
+      });
+    });
+
+    it('should transform ConversationalGuidelines scorer with string guideline to array', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: 'Single guideline',
+          },
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Single guideline'],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        model: undefined,
+        sampleRate: undefined,
+        version: undefined,
+      });
+    });
+
+    it('should handle missing guidelines in ConversationalGuidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {},
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: [],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        model: undefined,
+        sampleRate: undefined,
+        version: undefined,
       });
     });
   });
@@ -367,6 +454,41 @@ describe('transformScheduledScorer', () => {
         }),
         builtin: {
           name: 'Test Guidelines Scorer',
+        },
+      });
+    });
+
+    it('should transform ConversationalGuidelines LLM scorer', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic'],
+        isSessionLevelScorer: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        sample_rate: 0.8,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          mlflow_version: '3.3.2+ui',
+          serialization_version: 1,
+          is_session_level_scorer: true,
+          name: 'Test Conversational Guidelines Scorer',
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            name: 'Test Conversational Guidelines Scorer',
+            required_columns: ['outputs', 'inputs'],
+            guidelines: ['Be professional', 'Stay on topic'],
+          },
+        }),
+        builtin: {
+          name: 'Test Conversational Guidelines Scorer',
         },
       });
     });
@@ -712,6 +834,32 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Guidelines',
         guidelines: ['Line 1', 'Line 2', 'Line 3'],
         isSessionLevelScorer: false,
+      });
+    });
+
+    it('should create new ConversationalGuidelines scorer with parsed guidelines', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm'; evaluationScope: ScorerEvaluationScope } = {
+        name: 'New Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: '',
+        scorerType: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: 'Be professional\nStay on topic\nBe helpful',
+        model: 'openai:/gpt-4o-mini',
+        evaluationScope: ScorerEvaluationScope.SESSIONS,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic', 'Be helpful'],
+        model: 'openai:/gpt-4o-mini',
+        isSessionLevelScorer: true,
       });
     });
 
