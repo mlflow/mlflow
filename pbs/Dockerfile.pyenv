@@ -1,0 +1,51 @@
+# Dockerfile.pyenv - Baseline using pyenv (compile from source)
+# This demonstrates the current MLflow approach
+
+FROM ubuntu:22.04
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies required by pyenv
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    make \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    wget \
+    llvm \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pyenv
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+
+RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
+
+# Install Python 3.10 via pyenv (compiles from source)
+RUN pyenv install 3.10.13 && \
+    pyenv global 3.10.13
+
+# Install virtualenv
+RUN pip install --upgrade pip virtualenv
+
+# Create virtual environment and install sklearn
+RUN python -m virtualenv /opt/venv && \
+    /opt/venv/bin/pip install scikit-learn numpy
+
+# Copy and run test script
+COPY test_sklearn.py /app/test_sklearn.py
+
+CMD ["/opt/venv/bin/python", "/app/test_sklearn.py"]
