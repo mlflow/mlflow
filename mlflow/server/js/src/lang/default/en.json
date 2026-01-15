@@ -2334,6 +2334,10 @@
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
   },
+  "GdJ7wg": {
+    "defaultMessage": "TRUE",
+    "description": "True label for aggregated boolean assessment in session header"
+  },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
@@ -6454,6 +6458,10 @@
   "mv6CY3": {
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
+  },
+  "mvidM6": {
+    "defaultMessage": "PASS",
+    "description": "Pass label for aggregated assessment in session header"
   },
   "mz/gog": {
     "defaultMessage": "Traffic Split",

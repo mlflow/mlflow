@@ -10,7 +10,7 @@ import {
   UserIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
   FeedbackAssessment,
@@ -25,6 +25,7 @@ import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { aggregateAssessmentsFromTraces } from '../utils/SessionAggregationUtils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -238,15 +239,87 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         })}
       </div>
     );
-  }
+  } else if (
+    column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
+    !column.assessmentInfo?.isSessionLevelAssessment &&
+    traces.length > 0
+  ) {
+    // Non-session-level assessment column - aggregate values from all traces
+    const assessmentInfo = column.assessmentInfo;
+    const { passCount, totalCount } = aggregateAssessmentsFromTraces(traces, assessmentInfo);
 
-  if (!cellContent) {
-    cellContent = <NullCell />;
+    if (totalCount > 0) {
+      // Bar colors
+      const passBarColor = theme.isDarkMode ? theme.colors.green400 : theme.colors.green500;
+      const failBarColor = theme.isDarkMode ? theme.colors.red400 : theme.colors.red500;
+
+      cellContent = (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            minWidth: 0,
+            width: '100%',
+          }}
+        >
+          <div
+            css={{
+              display: 'flex',
+              flex: 1,
+              minWidth: 0,
+              height: theme.spacing.sm,
+              borderRadius: theme.borders.borderRadiusMd,
+              overflow: 'hidden',
+            }}
+          >
+            {passCount > 0 && (
+              <div
+                css={{
+                  flex: passCount,
+                  backgroundColor: passBarColor,
+                }}
+              />
+            )}
+            {passCount < totalCount && (
+              <div
+                css={{
+                  flex: totalCount - passCount,
+                  backgroundColor: failBarColor,
+                }}
+              />
+            )}
+          </div>
+          <span
+            css={{
+              flexShrink: 0,
+              fontSize: theme.typography.fontSizeSm,
+              color: theme.colors.textPrimary,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+              {passCount}/{totalCount}
+            </span>{' '}
+            <span css={{ color: theme.colors.textSecondary }}>
+              <FormattedMessage
+                defaultMessage="PASS"
+                description="Label for an aggregate display showing how many assessments have passed or failed"
+              />
+            </span>
+          </span>
+        </div>
+      );
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (
     <TableCell
       key={column.id}
+      wrapContent={false}
       style={{
         flex: `1 1 var(--col-${escapeCssSpecialCharacters(column.id)}-size)`,
       }}
@@ -256,7 +329,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         alignItems: 'center',
       }}
     >
-      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0 }}>{cellContent}</div>
+      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0, flex: 1 }}>{cellContent}</div>
     </TableCell>
   );
 };
