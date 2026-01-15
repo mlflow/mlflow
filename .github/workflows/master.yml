@@ -347,8 +347,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2, 3]
-        include:
-          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -358,37 +356,11 @@ jobs:
       - name: Install python dependencies
         run: |
           uv sync --extra extras --extra genai --extra mcp
-          uv pip install \
-            -r requirements/test-requirements.txt \
-            pyspark datasets tensorflow torch transformers tf-keras openai \
-            tests/resources/mlflow-test-plugin
+          uv pip install -r requirements/test-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - name: Download Hadoop winutils for Spark
-        run: |
-          git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run python tests
         env:
-          # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
-          # when creating an `Engine`. `QueuePool` prevents the removal of temporary database
-          # files created during tests on Windows as it keeps the DB connection open until
-          # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
         run: |
-          export PATH=$PATH:$HADOOP_HOME/bin
-          uv run --no-sync pytest tests \
-            --splits=${{ matrix.splits }} \
-            --group=${{ matrix.group }} \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py
+          uv run --no-sync pytest tests/tracing/test_fluent.py::test_set_destination_in_threads -v

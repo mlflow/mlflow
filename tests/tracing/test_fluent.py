@@ -2245,6 +2245,7 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
     assert os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] == "warehouse456"
 
 
+@pytest.mark.repeat(100)  # clint: disable=pytest-mark-repeat
 @skip_when_testing_trace_sdk
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
