@@ -11,8 +11,7 @@ from mlflow.tracing.distributed import (
     set_tracing_context_from_http_request_headers,
 )
 
-# Use longer timeout on Windows due to slower CI runners
-REQUEST_TIMEOUT = 15 if sys.platform == "win32" else 5
+REQUEST_TIMEOUT = 10
 
 app = Flask(__name__)
 
