@@ -13,6 +13,7 @@ import yaml
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
 from mlflow.utils.logging_utils import eprint
@@ -168,8 +169,9 @@ def pack_env_for_databricks_model_serving(
 
         # Check that _databricks directory does not exist in source
         if (source_artifacts_dir / _ARTIFACT_PATH).exists():
-            raise ValueError(
-                f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not eligible for use with env_pack."
+            raise MlflowException(
+                f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not eligible for use with env_pack.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if enforce_pip_requirements:
@@ -195,14 +197,13 @@ def pack_env_for_databricks_model_serving(
                 raise
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            packaged_model_dir = Path(temp_dir)
-            
             # Copy source artifacts to packaged_model_dir
-            shutil.copytree(source_artifacts_dir, packaged_model_dir)
+            packaged_model_dir = Path(temp_dir) / "model"
+            shutil.copytree(source_artifacts_dir, packaged_model_dir, dirs_exist_ok=False, symlinks=False)
 
             # Package model artifacts and env into packaged_model_dir/_databricks
             packaged_artifacts_dir = packaged_model_dir / _ARTIFACT_PATH
-            packaged_artifacts_dir.mkdir(exist_ok=True)
+            packaged_artifacts_dir.mkdir(exist_ok=False)
             _tar(source_artifacts_dir, packaged_artifacts_dir / _MODEL_VERSION_TAR)
             _tar(Path(sys.prefix), packaged_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
 

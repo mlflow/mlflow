@@ -335,7 +335,7 @@ def test_pack_env_for_databricks_model_serving_rejects_existing_databricks_dir(
         ),
     ):
         # This should raise an error because _databricks directory exists in source
-        with pytest.raises(ValueError, match="Source artifacts contain a '_databricks' directory"):
+        with pytest.raises(MlflowException, match="Source artifacts contain a '_databricks' directory"):
             with env_pack.pack_env_for_databricks_model_serving(
                 "models:/test-model/1", enforce_pip_requirements=False
             ):

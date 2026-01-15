@@ -215,7 +215,7 @@ def _register_model(
 
     # Helper to avoid parameter drift below.
     def _create_model_version(local_model_path: str | None) -> ModelVersion:
-         return client._create_model_version(
+        return client._create_model_version(
             name=name,
             source=source,
             run_id=run_id,
@@ -224,7 +224,6 @@ def _register_model(
             local_model_path=local_model_path,
             model_id=model_id,
         )
-    
     # If env_pack is supported and indicates Databricks Model Serving,
     # pack env locally and directly register the resulting artifacts.
     # This avoids storing artifacts prior to the final registered model version.
