@@ -19,7 +19,6 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
-    AuthConfigKey,
     EndpointConfig,
     EndpointType,
     GeminiConfig,
@@ -28,6 +27,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    _AuthConfigKey,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -125,19 +125,19 @@ def _build_endpoint_config(
     if model_config.provider == Provider.OPENAI:
         auth_config = model_config.auth_config or {}
         openai_config = {
-            "openai_api_key": model_config.secret_value.get(AuthConfigKey.API_KEY),
+            "openai_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
 
         # Check if this is Azure OpenAI (requires api_type, deployment_name, api_base, api_version)
         if "api_type" in auth_config and auth_config["api_type"] in ("azure", "azuread"):
             openai_config["openai_api_type"] = auth_config["api_type"]
-            openai_config["openai_api_base"] = auth_config.get(AuthConfigKey.API_BASE)
+            openai_config["openai_api_base"] = auth_config.get(_AuthConfigKey.API_BASE)
             openai_config["openai_deployment_name"] = auth_config.get("deployment_name")
             openai_config["openai_api_version"] = auth_config.get("api_version")
         else:
             # Standard OpenAI
-            if AuthConfigKey.API_BASE in auth_config:
-                openai_config["openai_api_base"] = auth_config[AuthConfigKey.API_BASE]
+            if _AuthConfigKey.API_BASE in auth_config:
+                openai_config["openai_api_base"] = auth_config[_AuthConfigKey.API_BASE]
             if "organization" in auth_config:
                 openai_config["openai_organization"] = auth_config["organization"]
 
@@ -147,25 +147,25 @@ def _build_endpoint_config(
         model_config.provider = Provider.OPENAI
         provider_config = OpenAIConfig(
             openai_api_type=OpenAIAPIType.AZURE,
-            openai_api_key=model_config.secret_value.get(AuthConfigKey.API_KEY),
-            openai_api_base=auth_config.get(AuthConfigKey.API_BASE),
+            openai_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+            openai_api_base=auth_config.get(_AuthConfigKey.API_BASE),
             openai_deployment_name=model_config.model_name,
             openai_api_version=auth_config.get("api_version"),
         )
     elif model_config.provider == Provider.ANTHROPIC:
         anthropic_config = {
-            "anthropic_api_key": model_config.secret_value.get(AuthConfigKey.API_KEY),
+            "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
-            mistral_api_key=model_config.secret_value.get(AuthConfigKey.API_KEY),
+            mistral_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
-            gemini_api_key=model_config.secret_value.get(AuthConfigKey.API_KEY),
+            gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     else:
         # Use LiteLLM as fallback for unsupported providers

@@ -232,7 +232,7 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class AuthConfigKey(str, Enum):
+class _AuthConfigKey:
     """Keys used in auth configuration."""
 
     AUTH_MODE = "auth_mode"
@@ -255,20 +255,20 @@ class LiteLLMConfig(ConfigModel):
 
         auth_config = dict(auth_config)
 
-        # Remove auth_mode as it's MLflow-specific and not used by LiteLLM
-        auth_config.pop(AuthConfigKey.AUTH_MODE, None)
+        # Remove MLflow-specific auth_mode as it's not supported by LiteLLM
+        auth_config.pop(_AuthConfigKey.AUTH_MODE, None)
 
         # Resolve API key from environment variable or file
-        api_key = auth_config.get(AuthConfigKey.API_KEY)
+        api_key = auth_config.get(_AuthConfigKey.API_KEY)
         if isinstance(api_key, str):
-            auth_config[AuthConfigKey.API_KEY] = _resolve_api_key_from_input(api_key)
+            auth_config[_AuthConfigKey.API_KEY] = _resolve_api_key_from_input(api_key)
 
         # Normalize Databricks base URL to include /serving-endpoints
         provider = values.get("litellm_provider")
         if provider == Provider.DATABRICKS and (
-            api_base := auth_config.get(AuthConfigKey.API_BASE)
+            api_base := auth_config.get(_AuthConfigKey.API_BASE)
         ):
-            auth_config[AuthConfigKey.API_BASE] = normalize_databricks_base_url(api_base)
+            auth_config[_AuthConfigKey.API_BASE] = normalize_databricks_base_url(api_base)
 
         values["litellm_auth_config"] = auth_config
         return values
