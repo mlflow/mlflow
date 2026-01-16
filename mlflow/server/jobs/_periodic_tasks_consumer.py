@@ -8,20 +8,16 @@ It is launched by the job runner and runs in a separate process from job executi
 import logging
 import threading
 
+from mlflow.server.jobs._log_filters import SuppressOnlineScoringFilter
 
-class SuppressInfoFilter(logging.Filter):
-    """Filter that suppresses all INFO level logs."""
+# Suppress online scoring logs from huey - use filter since setLevel gets overridden by huey
+_filter = SuppressOnlineScoringFilter()
+logging.getLogger("huey").addFilter(_filter)
+logging.getLogger("huey.consumer").addFilter(_filter)
+logging.getLogger("huey.consumer.Scheduler").addFilter(_filter)
 
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.levelno != logging.INFO
-
-
-# Quiet down noisy loggers - use filter since setLevel gets overridden by huey
-_suppress_filter = SuppressInfoFilter()
-logging.getLogger("huey").addFilter(_suppress_filter)
-logging.getLogger("huey.consumer").addFilter(_suppress_filter)
-logging.getLogger("huey.consumer.Scheduler").addFilter(_suppress_filter)
-logging.getLogger("alembic.runtime.migration").addFilter(_suppress_filter)
+# Suppress alembic INFO logs
+logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
 
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,

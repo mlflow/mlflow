@@ -19,29 +19,14 @@ import os
 import threading
 
 from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
+from mlflow.server.jobs._log_filters import SuppressOnlineScoringFilter
 
-# Filter to suppress huey logs for online scoring jobs only
-ONLINE_SCORING_JOB_NAMES = ("run_online_trace_scorer", "run_online_session_scorer")
-
-# Check if this consumer is for an online scoring job based on the instance key
-_is_online_scoring_consumer = os.environ.get(MLFLOW_HUEY_INSTANCE_KEY) in ONLINE_SCORING_JOB_NAMES
-
-
-class OnlineScoringLogFilter(logging.Filter):
-    """Filter that suppresses INFO logs for online scoring job consumers."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        # Only filter if this is an online scoring consumer
-        if not _is_online_scoring_consumer:
-            return True
-        # Only filter INFO level logs
-        return record.levelno != logging.INFO
-
-
-# Add filter to huey and alembic loggers to suppress online scoring job logs
-_filter = OnlineScoringLogFilter()
+# Suppress online scoring logs from huey - use filter since setLevel gets overridden by huey
+_filter = SuppressOnlineScoringFilter()
 logging.getLogger("huey").addFilter(_filter)
-logging.getLogger("alembic.runtime.migration").addFilter(_filter)
+
+# Suppress alembic INFO logs for ALL jobs
+logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
 from mlflow.server.jobs.utils import (
     _exit_when_orphaned,
     _get_or_init_huey_instance,
