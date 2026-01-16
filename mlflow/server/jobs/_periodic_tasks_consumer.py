@@ -8,8 +8,20 @@ It is launched by the job runner and runs in a separate process from job executi
 import logging
 import threading
 
-# Quiet down noisy huey loggers that run on every periodic task
-logging.getLogger("huey").setLevel(logging.WARNING)
+
+class SuppressInfoFilter(logging.Filter):
+    """Filter that suppresses all INFO level logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno != logging.INFO
+
+
+# Quiet down noisy loggers - use filter since setLevel gets overridden by huey
+_suppress_filter = SuppressInfoFilter()
+logging.getLogger("huey").addFilter(_suppress_filter)
+logging.getLogger("huey.consumer").addFilter(_suppress_filter)
+logging.getLogger("huey.consumer.Scheduler").addFilter(_suppress_filter)
+logging.getLogger("alembic.runtime.migration").addFilter(_suppress_filter)
 
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,
