@@ -113,15 +113,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
             gap: theme.spacing.sm,
           }}
         >
-          {/*
-           * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
-           * TODO: remove this once this is supported in backend
-           */}
-          <TracesV3DateSelector
-            excludeOptions={['ALL']}
-            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
-          />
-
           {/* Time unit selector for chart grouping */}
           <TimeUnitSelector
             value={effectiveTimeUnit}
@@ -130,6 +121,15 @@ const ExperimentGenAIOverviewPageImpl = () => {
             endTimeMs={endTimeMs}
             allowClear={selectedTimeUnit !== null && selectedTimeUnit !== defaultTimeUnit}
             onClear={() => setSelectedTimeUnit(null)}
+          />
+
+          {/*
+           * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
+           * TODO: remove this once this is supported in backend
+           */}
+          <TracesV3DateSelector
+            excludeOptions={['ALL']}
+            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
           />
         </div>
 
