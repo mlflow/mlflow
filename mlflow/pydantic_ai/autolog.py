@@ -5,12 +5,11 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
-from opentelemetry import trace
-
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.provider import with_active_span
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -213,7 +212,7 @@ class _StreamedRunResultSyncWrapper:
         self._finalized = False
 
     def _use_span_context(self):
-        return trace.use_span(self._span._span, end_on_exit=False)
+        return with_active_span(self._span)
 
     def _finalize(self):
         if self._finalized:
@@ -312,7 +311,7 @@ def patched_sync_stream_call(original, self, *args, **kwargs):
         # pydantic_ai's async generator implementation).
         token = _in_sync_stream_context.set(True)
         try:
-            with trace.use_span(span._span, end_on_exit=False):
+            with with_active_span(span):
                 result = original(self, *args, **kwargs)
         finally:
             _in_sync_stream_context.reset(token)

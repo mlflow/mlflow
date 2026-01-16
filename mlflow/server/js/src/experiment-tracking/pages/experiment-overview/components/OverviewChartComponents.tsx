@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 
 export const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
@@ -46,19 +47,6 @@ export const OverviewChartHeader: React.FC<OverviewChartHeaderProps> = ({ icon, 
         </Typography.Title>
       )}
     </div>
-  );
-};
-
-/**
- * "Over time" label shown above time-series charts in overview
- */
-export const OverviewChartTimeLabel: React.FC = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
-    </Typography.Text>
   );
 };
 
@@ -357,13 +345,18 @@ export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
  */
 interface OverviewChartContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
+  /** Component ID for telemetry tracking (e.g., "mlflow.charts.trace_requests") */
+  componentId?: string;
 }
 
 /**
- * Common container styling for overview chart cards
+ * Common container styling for overview chart cards.
+ * When componentId is provided, tracks user interactions for telemetry.
  */
-export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, ...rest }) => {
+export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, componentId, ...rest }) => {
   const { theme } = useDesignSystemTheme();
+  const interactionProps = useChartInteractionTelemetry(componentId);
+
   return (
     <div
       css={{
@@ -372,6 +365,7 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
         padding: theme.spacing.lg,
         backgroundColor: theme.colors.backgroundPrimary,
       }}
+      {...interactionProps}
       {...rest}
     >
       {children}

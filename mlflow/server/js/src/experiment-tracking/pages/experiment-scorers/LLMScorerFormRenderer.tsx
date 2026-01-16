@@ -11,8 +11,6 @@ import {
   ChevronDownIcon,
   DialogCombobox,
   DialogComboboxContent,
-  DialogComboboxAddButton,
-  DialogComboboxFooter,
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   DialogComboboxHintRow,
@@ -20,11 +18,12 @@ import {
   DialogComboboxTrigger,
   PlusIcon,
 } from '@databricks/design-system';
+import { HighlightedTextArea } from './HighlightedTextArea';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import { LLM_TEMPLATE } from './types';
+import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
@@ -86,13 +85,13 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label aria-required={!isReadOnly} htmlFor="mlflow-experiment-scorers-built-in-scorer">
-        <FormattedMessage defaultMessage="LLM template" description="Section header for LLM template selection" />
+        <FormattedMessage defaultMessage="LLM judge" description="Section header for LLM judge selection" />
       </FormUI.Label>
       {!isReadOnly && (
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Start with a built-in LLM judge template or create your own."
-            description="Hint text for LLM template selection with documentation link"
+            defaultMessage="Select a built-in judge or create a custom one."
+            description="Hint text for LLM judge selection"
           />
         </FormUI.Hint>
       )}
@@ -111,8 +110,8 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
                 allowClear={false}
                 disabled={isReadOnly}
                 placeholder={intl.formatMessage({
-                  defaultMessage: 'Select an LLM template',
-                  description: 'Placeholder for LLM template selection',
+                  defaultMessage: 'Select an LLM judge',
+                  description: 'Placeholder for LLM judge selection',
                 })}
                 renderDisplayedValue={(value) => (
                   <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -124,6 +123,25 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
               {!isReadOnly && (
                 <DialogComboboxContent maxHeight={350}>
                   <DialogComboboxOptionList>
+                    {/* Custom template option first with PlusIcon */}
+                    {templateOptions
+                      .filter((option) => option.value === LLM_TEMPLATE.CUSTOM)
+                      .map((option) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={option.value}
+                          value={option.value}
+                          onChange={() => {
+                            field.onChange(option.value);
+                            handleTemplateChange(option.value);
+                          }}
+                          checked={field.value === option.value}
+                          icon={<PlusIcon />}
+                        >
+                          {option.label}
+                          <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    {/* Built-in templates */}
                     {templateOptions
                       .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
                       .map((option) => (
@@ -142,16 +160,6 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
                         </DialogComboboxOptionListSelectItem>
                       ))}
                   </DialogComboboxOptionList>
-                  <DialogComboboxFooter>
-                    <DialogComboboxAddButton
-                      onClick={() => {
-                        field.onChange(LLM_TEMPLATE.CUSTOM);
-                        handleTemplateChange(LLM_TEMPLATE.CUSTOM);
-                      }}
-                    >
-                      {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
-                    </DialogComboboxAddButton>
-                  </DialogComboboxFooter>
                 </DialogComboboxContent>
               )}
             </DialogCombobox>
@@ -262,21 +270,6 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
-        onClick={(e) => {
-          e.stopPropagation();
-          appendVariable('{{ expectations }}');
-        }}
-      >
-        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
-        <DropdownMenu.HintRow>
-          <FormattedMessage
-            defaultMessage="Expectations added for a trace"
-            description="Description for expectations variable"
-          />
-        </DropdownMenu.HintRow>
-      </DropdownMenu.Item>
-      <DropdownMenu.Item
         componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
         onClick={(e) => {
           e.stopPropagation();
@@ -288,6 +281,21 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           <FormattedMessage
             defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
             description="Description for trace variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
           />
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
@@ -379,32 +387,34 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           }}
           render={({ field, fieldState }) => {
             const textArea = (
-              <Input.TextArea
-                {...field}
-                componentId={`${COMPONENT_ID_PREFIX}.instructions-text-area`}
-                id="mlflow-experiment-scorers-instructions"
-                readOnly={isReadOnly}
-                rows={7}
-                placeholder={
-                  isSessionLevelScorer
-                    ? intl.formatMessage(
-                        {
-                          defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
-                          description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
-                        },
-                        {
-                          br: '\n',
-                        },
-                      )
-                    : intl.formatMessage({
-                        defaultMessage:
-                          "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
-                        description: 'Example placeholder text for instructions textarea',
-                      })
-                }
-                css={{ resize: 'vertical', cursor: isReadOnly ? 'auto' : 'text' }}
-                onClick={stopPropagationClick}
-              />
+              <div onClick={stopPropagationClick}>
+                <HighlightedTextArea
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  id="mlflow-experiment-scorers-instructions"
+                  readOnly={isReadOnly}
+                  rows={7}
+                  placeholder={
+                    isSessionLevelScorer
+                      ? intl.formatMessage(
+                          {
+                            defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
+                            description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
+                          },
+                          {
+                            br: '\n',
+                          },
+                        )
+                      : intl.formatMessage({
+                          defaultMessage:
+                            "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
+                          description: 'Example placeholder text for instructions textarea',
+                        })
+                  }
+                />
+              </div>
             );
 
             return (
@@ -425,15 +435,12 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
 interface GuidelinesSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
-  selectedTemplate: string;
 }
 
-const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, selectedTemplate }) => {
+const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) => {
   const intl = useIntl();
-
-  if (selectedTemplate !== 'Guidelines') {
-    return null;
-  }
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const evaluationScope = watch('evaluationScope');
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -443,48 +450,71 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
     return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
   };
 
+  const isSessionLevel = evaluationScope === ScorerEvaluationScope.SESSIONS;
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" required>
         <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
       </FormUI.Label>
       <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}"
-          description="Hint text for Guidelines section with documentation link"
-          values={{
-            learnMore: (
-              <Typography.Link
-                componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
-                href={getLlmJudgeDocUrl()}
-                openInNewTab
-              >
-                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-              </Typography.Link>
-            ),
-          }}
-        />
+        {isSessionLevel ? (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the conversation. {learnMore}"
+            description="Hint text for session-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the response. {learnMore}"
+            description="Hint text for trace-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        )}
       </FormUI.Hint>
       <Controller
         name="guidelines"
         control={control}
         rules={{
-          required: selectedTemplate === 'Guidelines',
+          required: true,
         }}
-        render={({ field }) => (
-          <Input.TextArea
-            {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
-            id="mlflow-experiment-scorers-guidelines"
-            readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-            rows={3}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'The response must be in English',
-              description: 'Placeholder text for guidelines textarea',
-            })}
-            css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
-            onClick={stopPropagationClick}
-          />
+        render={({ field, fieldState }) => (
+          <>
+            <Input.TextArea
+              {...field}
+              componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
+              id="mlflow-experiment-scorers-guidelines"
+              readOnly={mode === SCORER_FORM_MODE.DISPLAY}
+              rows={3}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'The response must be concise, professional, and friendly.',
+                description: 'Placeholder text for guidelines textarea',
+              })}
+              css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+              onClick={stopPropagationClick}
+            />
+            {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+          </>
         )}
       />
     </div>
@@ -513,8 +543,10 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     >
       <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       <NameSection mode={mode} control={control} />
-      <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
-      <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      {isGuidelinesTemplate(selectedTemplate) && <GuidelinesSection mode={mode} control={control} />}
+      {!isGuidelinesTemplate(selectedTemplate) && (
+        <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      )}
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>

@@ -400,8 +400,108 @@ class GatewayStartEvent(Event):
     name: str = "gateway_start"
 
 
+# Gateway Resource CRUD Events
+class GatewayCreateEndpointEvent(Event):
+    name: str = "gateway_create_endpoint"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "has_fallback_config": arguments.get("fallback_config") is not None,
+            "routing_strategy": str(arguments.get("routing_strategy"))
+            if arguments.get("routing_strategy")
+            else None,
+            "num_model_configs": len(arguments.get("model_configs") or []),
+        }
+
+
+class GatewayUpdateEndpointEvent(Event):
+    name: str = "gateway_update_endpoint"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "has_fallback_config": arguments.get("fallback_config") is not None,
+            "routing_strategy": str(arguments.get("routing_strategy"))
+            if arguments.get("routing_strategy")
+            else None,
+            "num_model_configs": len(arguments.get("model_configs"))
+            if arguments.get("model_configs") is not None
+            else None,
+        }
+
+
+class GatewayDeleteEndpointEvent(Event):
+    name: str = "gateway_delete_endpoint"
+
+
+class GatewayGetEndpointEvent(Event):
+    name: str = "gateway_get_endpoint"
+
+
+class GatewayListEndpointsEvent(Event):
+    name: str = "gateway_list_endpoints"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "filter_by_provider": arguments.get("provider") is not None,
+        }
+
+
+# Gateway Secret CRUD Events
+class GatewayCreateSecretEvent(Event):
+    name: str = "gateway_create_secret"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "provider": arguments.get("provider"),
+        }
+
+
+class GatewayUpdateSecretEvent(Event):
+    name: str = "gateway_update_secret"
+
+
+class GatewayDeleteSecretEvent(Event):
+    name: str = "gateway_delete_secret"
+
+
+class GatewayListSecretsEvent(Event):
+    name: str = "gateway_list_secrets"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "filter_by_provider": arguments.get("provider") is not None,
+        }
+
+
+# Gateway Invocation Events
+class GatewayInvocationType(str, Enum):
+    """Type of gateway invocation endpoint."""
+
+    MLFLOW_INVOCATIONS = "mlflow_invocations"
+    MLFLOW_CHAT_COMPLETIONS = "mlflow_chat_completions"
+    OPENAI_PASSTHROUGH_CHAT = "openai_passthrough_chat"
+    OPENAI_PASSTHROUGH_EMBEDDINGS = "openai_passthrough_embeddings"
+    OPENAI_PASSTHROUGH_RESPONSES = "openai_passthrough_responses"
+    ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
+    GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
+    GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+
+
+class GatewayInvocationEvent(Event):
+    name: str = "gateway_invocation"
+
+
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class TracingContextPropagation(Event):
+    name: str = "tracing_context_propagation"
 
 
 class GitModelVersioningEvent(Event):
