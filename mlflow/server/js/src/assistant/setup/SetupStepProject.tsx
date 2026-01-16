@@ -3,9 +3,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Button, Typography, useDesignSystemTheme, Input, Spinner, Checkbox } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, Input, Checkbox } from '@databricks/design-system';
 
 import { updateConfig } from '../AssistantService';
+import { WizardFooter } from './WizardFooter';
 
 const COMPONENT_ID = 'mlflow.assistant.setup.project';
 
@@ -150,23 +151,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
         </div>
       </div>
 
-      <div
-        css={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginTop: theme.spacing.lg,
-          paddingTop: theme.spacing.md,
-          borderTop: `1px solid ${theme.colors.border}`,
-        }}
-      >
-        <Button componentId={`${COMPONENT_ID}.back`} onClick={onBack} disabled={isSaving}>
-          Back
-        </Button>
-
-        <Button componentId={`${COMPONENT_ID}.save`} type="primary" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? <Spinner size="small" /> : 'Finish'}
-        </Button>
-      </div>
+      <WizardFooter onBack={onBack} onNext={handleSave} nextLabel="Finish" isLoading={isSaving} />
     </div>
   );
 };

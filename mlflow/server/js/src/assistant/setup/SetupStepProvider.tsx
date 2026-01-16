@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Button, Card, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
+import { toRGBA } from '@mlflow/mlflow/src/common/utils/toRGBA';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
@@ -59,7 +60,8 @@ export const SetupStepProvider = ({ selectedProvider, onContinue }: SetupStepPro
           selected === provider.id
             ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`
             : `1px solid ${theme.colors.border}`,
-        backgroundColor: selected === provider.id ? theme.colors.actionPrimaryBackgroundDefault + '10' : 'transparent',
+        backgroundColor:
+          selected === provider.id ? toRGBA(theme.colors.actionPrimaryBackgroundDefault, 0.1) : 'transparent',
         transition: 'all 0.2s ease',
         width: '100%',
         '&:hover': provider.available

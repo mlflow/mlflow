@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { Typography, useDesignSystemTheme, CheckCircleIcon } from '@databricks/design-system';
 
-import type { SetupStep } from '../types';
+import type { SetupStep, AuthState } from '../types';
 import { SetupStepProvider } from './SetupStepProvider';
 import { SetupStepAuth } from './SetupStepAuth';
 import { SetupStepProject } from './SetupStepProject';
@@ -89,8 +89,6 @@ const StepIndicator = ({ currentStep, completedSteps }: StepIndicatorProps) => {
     </div>
   );
 };
-
-type AuthState = 'checking' | 'cli_not_installed' | 'not_authenticated' | 'authenticated';
 
 interface AssistantSetupWizardProps {
   experimentId?: string;

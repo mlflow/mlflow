@@ -301,6 +301,9 @@ const ChatPanelContent = ({ disabled = false }: ChatPanelContentProps) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const isInputDisabled = isStreaming || disabled;
+  const isSendDisabled = !inputValue.trim() || isStreaming || disabled;
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -391,7 +394,7 @@ const ChatPanelContent = ({ disabled = false }: ChatPanelContentProps) => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isStreaming || disabled}
+              disabled={isInputDisabled}
               css={{
                 flex: 1,
                 border: 'none',
@@ -415,7 +418,7 @@ const ChatPanelContent = ({ disabled = false }: ChatPanelContentProps) => {
             />
             <button
               onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming || disabled}
+              disabled={isSendDisabled}
               css={{
                 display: 'flex',
                 alignItems: 'center',
@@ -423,10 +426,10 @@ const ChatPanelContent = ({ disabled = false }: ChatPanelContentProps) => {
                 padding: theme.spacing.xs,
                 border: 'none',
                 background: 'transparent',
-                cursor: !inputValue.trim() || isStreaming || disabled ? 'not-allowed' : 'pointer',
+                cursor: isSendDisabled ? 'not-allowed' : 'pointer',
                 borderRadius: theme.borders.borderRadiusSm,
                 color: theme.colors.actionPrimaryBackgroundDefault,
-                opacity: !inputValue.trim() || isStreaming || disabled ? 0.3 : 1,
+                opacity: isSendDisabled ? 0.3 : 1,
                 '&:hover:not(:disabled)': {
                   backgroundColor: theme.colors.actionDefaultBackgroundHover,
                 },

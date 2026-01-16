@@ -2,7 +2,7 @@
  * Step 2: Connection check for MLflow Assistant setup.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Typography,
@@ -10,15 +10,13 @@ import {
   Spinner,
   CheckCircleIcon,
   WarningIcon,
-  CopyIcon,
-  Tooltip,
 } from '@databricks/design-system';
 
+import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { checkProviderHealth } from '../AssistantService';
+import type { AuthState } from '../types';
 
 const COMPONENT_ID = 'mlflow.assistant.setup.connection';
-
-type AuthState = 'checking' | 'cli_not_installed' | 'not_authenticated' | 'authenticated';
 
 interface SetupStepAuthProps {
   provider: string;
@@ -39,7 +37,6 @@ export const SetupStepAuth = ({
 
   const [authState, setAuthState] = useState<AuthState>(cachedAuthStatus ?? 'checking');
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const runHealthCheck = useCallback(async () => {
     setAuthState('checking');
@@ -76,12 +73,6 @@ export const SetupStepAuth = ({
     }
   }, [cachedAuthStatus, runHealthCheck]);
 
-  const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, []);
-
   const renderCodeBlock = (code: string) => (
     <div
       css={{
@@ -98,14 +89,7 @@ export const SetupStepAuth = ({
       }}
     >
       <code>{code}</code>
-      <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copied ? 'Copied!' : 'Copy'}>
-        <Button
-          componentId={`${COMPONENT_ID}.copy`}
-          size="small"
-          icon={<CopyIcon />}
-          onClick={() => handleCopy(code)}
-        />
-      </Tooltip>
+      <CopyButton copyText={code} showLabel={false} size="small" componentId={`${COMPONENT_ID}.copy`} />
     </div>
   );
 

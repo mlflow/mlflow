@@ -103,11 +103,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, [refreshConfig]);
 
   // Actions
-  const openPanel = useCallback(async () => {
+  const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
 
-    // Refresh config when panel opens
+    // Refresh config when panel opens (intentionally not awaited)
     refreshConfig();
   }, [refreshConfig]);
 
