@@ -1,5 +1,3 @@
-"""Demo generator for evaluation runs and datasets."""
-
 from __future__ import annotations
 
 import contextlib
@@ -154,7 +152,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 1
+    version = 2
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
