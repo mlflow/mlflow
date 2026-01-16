@@ -211,10 +211,9 @@ MLflow automatically tracks the token usage for each LLM call within Claude Code
 
 ```python
 import mlflow
-from mlflow.claude_code.tracing import process_transcript
 
-# Process a Claude Code transcript
-trace = process_transcript("/path/to/transcript.jsonl", "session-id")
+# Get a Claude Code trace by its trace ID
+trace = mlflow.get_trace("<your-trace-id>")
 
 # Print the total token usage
 total_usage = trace.info.token_usage
