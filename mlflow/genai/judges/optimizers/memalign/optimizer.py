@@ -15,6 +15,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
 )
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
+    _mlflow_to_litellm_embedding_model,
     create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
@@ -51,9 +52,9 @@ Default model depends on the tracking URI setup:
 * Otherwise: `openai:/gpt-4o-mini`.
 """,
     "embedding_model": """Model to use for generating embeddings for
-example retrieval. Must be a form of `<provider>/<model-name>`, such as
-`"openai/text-embedding-3-small"`. Supported providers include OpenAI and
-others via LiteLLM. Default: `"openai/text-embedding-3-small"`.
+example retrieval. Must be a form of `<provider>:/<model-name>`, such as
+`"openai:/text-embedding-3-small"`. Supported providers include OpenAI and
+others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 """,
 }
 
@@ -120,18 +121,9 @@ class MemoryAugmentedJudge(Judge):
         self._embedding_model = (
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
-
-        # TODO: Add support for Databricks embedding models with DSPy embedder
-        if self._embedding_model.startswith("databricks:/"):
-            raise MlflowException(
-                "Databricks embedding models are not currently supported for MemAlign. "
-                f"Please use a different embedding model (e.g., 'openai/text-embedding-3-small'). "
-                f"Got: {self._embedding_model}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         self._embedding_dim = embedding_dim
-        self._embedder = dspy.Embedder(self._embedding_model, dimensions=self._embedding_dim)
+        litellm_embedding_model = _mlflow_to_litellm_embedding_model(self._embedding_model)
+        self._embedder = dspy.Embedder(litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True)
         self._retriever = None
 
         extended_signature = create_extended_signature(self._base_signature)
@@ -366,7 +358,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
             optimizer = MemAlignOptimizer(
                 reflection_lm="openai:/gpt-4o-mini",
                 retrieval_k=3,
-                embedding_model="openai/text-embedding-3-small",
+                embedding_model="openai:/text-embedding-3-small",
             )
 
             # Assuming `traces` contains human feedback for the judge

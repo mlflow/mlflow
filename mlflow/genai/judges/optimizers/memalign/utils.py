@@ -35,7 +35,7 @@ def _get_model_max_tokens(model: str) -> int:
     """Get the maximum token limit for a model.
 
     Args:
-        model: Model identifier (e.g., "openai/text-embedding-3-small")
+        model: Model identifier (e.g., "openai:/text-embedding-3-small")
 
     Returns:
         Maximum token limit for the model
@@ -43,8 +43,9 @@ def _get_model_max_tokens(model: str) -> int:
     if not _LITELLM_AVAILABLE:
         return _MAX_MODEL_TOKENS
 
+    litellm_model = _mlflow_to_litellm_embedding_model(model)
     try:
-        max_tokens = get_max_tokens(model)
+        max_tokens = get_max_tokens(litellm_model)
         if max_tokens is not None:
             return max_tokens
     except Exception as e:
@@ -58,7 +59,7 @@ def truncate_to_token_limit(text: str, model: str) -> str:
 
     Args:
         text: Text to truncate
-        model: Model identifier (e.g., "openai/text-embedding-3-small")
+        model: Model identifier (e.g., "openai:/text-embedding-3-small")
 
     Returns:
         Truncated text that fits within token limit
@@ -77,7 +78,8 @@ def truncate_to_token_limit(text: str, model: str) -> str:
     if len(text) <= max_tokens:
         return text
 
-    token_count = token_counter(model=model, text=text)
+    litellm_model = _mlflow_to_litellm_embedding_model(model)
+    token_count = token_counter(model=litellm_model, text=text)
     if token_count <= max_tokens:
         return text
 
@@ -85,7 +87,7 @@ def truncate_to_token_limit(text: str, model: str) -> str:
     ratio = max_tokens / token_count
     truncated = text[: int(len(text) * ratio)]
 
-    while token_counter(model=model, text=truncated) > max_tokens:
+    while token_counter(model=litellm_model, text=truncated) > max_tokens:
         truncated = truncated[: int(len(truncated) * 0.95)]
 
     _logger.debug(f"Truncated text from {original_token_count} to ~{max_tokens} tokens")
@@ -102,7 +104,19 @@ class Guidelines(BaseModel):
 
 
 def get_default_embedding_model() -> str:
-    return "openai/text-embedding-3-small"
+    return "openai:/text-embedding-3-small"
+
+
+def _mlflow_to_litellm_embedding_model(model: str) -> str:
+    """Convert MLflow embedding model format to LiteLLM format.
+
+    Args:
+        model: Model in MLflow format (e.g., "openai:/text-embedding-3-small")
+
+    Returns:
+        Model in LiteLLM format (e.g., "openai/text-embedding-3-small")
+    """
+    return model.replace(":/", "/")
 
 
 def _find_optimal_batch_size(

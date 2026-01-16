@@ -12,7 +12,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 
 
 def test_get_default_embedding_model():
-    assert get_default_embedding_model() == "openai/text-embedding-3-small"
+    assert get_default_embedding_model() == "openai:/text-embedding-3-small"
 
 
 def test_distill_guidelines_empty_examples():
