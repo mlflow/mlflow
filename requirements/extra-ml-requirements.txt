@@ -25,7 +25,7 @@ onnxruntime
 onnxscript
 tf2onnx
 # Required by mlflow.spark and using Delta with MLflow Tracking datasets
-pyspark
+pyspark<4.1.0
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
