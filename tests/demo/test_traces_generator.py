@@ -151,4 +151,4 @@ def test_is_generated_checks_version(tracking_uri):
     TracesDemoGenerator.version = 99
     assert generator.is_generated() is False
 
-    TracesDemoGenerator.version = 1
+    TracesDemoGenerator.version = 2
