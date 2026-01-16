@@ -18,10 +18,6 @@ fi
 
 cd mlflow/server/js
 
-if [ ! -d node_modules ]; then
-  yarn install --immutable --silent
-fi
-
 # Convert paths from repo root to relative paths
 files=()
 for f in "$@"; do
@@ -30,7 +26,8 @@ done
 
 case "$cmd" in
   fmt)
-    [ ${#files[@]} -gt 0 ] && yarn prettier --write "${files[@]}"
+    # Use npx to avoid slow `yarn install --immutable`
+    [ ${#files[@]} -gt 0 ] && npx "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write "${files[@]}"
     ;;
   # TODO: Add eslint, i18n, type-check commands if needed
   *)
