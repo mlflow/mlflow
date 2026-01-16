@@ -12,7 +12,7 @@ We're excited to announce MLflow 3.9.0rc0, a pre-release including several notab
 - 🔎 **Online Monitoring with LLM Judges**: Configure LLM judges to automatically run on your traces, without having to write a line of code! You can either use one of our [pre-defined judges](https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/predefined/), or provide your own prompt and instructions to create custom metrics. Head to the new "Judges" tab within the GenAI Experiment UI to get started.
 - 🤖 **Judge Builder UI**: Define and iterate on custom LLM judge prompts directly from the UI! Within the new "Judges" tab, you can create your own prompt for an LLM judge, and test-run it on your traces to see what the output would be. Once you're happy with it, you can either use it for online monitoring (as mentioned above), or use it via the Python SDK for your evals.
 - 🔗 **Distributed Tracing**: Trace context can now be propagated across different services and processes, allowing you to truly track request lifecycles from end to end. The related APIs are defined in the `mlflow.tracing.distributed` module (with more documentation to come soon).
-- **MemAlign Judge Optimizer**:
+- **MemAlign - a new judge optimizer algorithm**: We're excited to introduce `MemAlignOptimizer`, a new algorithm that makes your judges smarter over time. It learns general guidelines from past feedback while dynamically retrieving relevant examples at runtime, giving you more accurate evaluations.
 
 Stay tuned for the full release, which will be packed with even more features and bugfixes.
 
