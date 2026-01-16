@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   mssql:
     image: mcr.microsoft.com/mssql/server
@@ -16,7 +14,7 @@ services:
     build:
       context: ../..
       dockerfile: docker/Dockerfile.full.dev
-    command: "mlflow server --backend-store-uri=mssql+pymssql://sa:StrongPassword!@mssql:1433/master --host=0.0.0.0 --port=5000"
+    command: mlflow server --backend-store-uri='mssql+pymssql://sa:StrongPassword!@mssql:1433/master' --host=0.0.0.0 --port=5000
     ports:
       - "5000:5000"
     depends_on:

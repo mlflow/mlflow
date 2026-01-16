@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: "postgres"
@@ -16,7 +14,7 @@ services:
     build:
       context: ../..
       dockerfile: docker/Dockerfile.full.dev
-    command: "mlflow server --backend-store-uri=postgresql:// --host=0.0.0.0 --port=5000"
+    command: mlflow server --backend-store-uri=postgresql:// --host=0.0.0.0 --port=5000
     environment:
       PGHOST: postgres
       PGPORT: 5432

@@ -3,5 +3,5 @@ FROM python:3.10-slim-bullseye
 WORKDIR /app
 ADD . /app
 
-# Install MLflow in editable mode with extras
-RUN pip install --upgrade pip && pip install --no-cache-dir -e .[extras,db,databricks,gateway,genai]
+# Install MLflow from the current directory with extras
+RUN pip install --no-cache-dir .[extras,db,databricks,gateway,genai]

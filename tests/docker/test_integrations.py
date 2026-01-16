@@ -31,9 +31,7 @@ def test_backend_and_artifact_store_integration(compose_file):
     )
 
     with compose:
-        host = compose.get_service_host("mlflow", 5000)
-        port = compose.get_service_port("mlflow", 5000)
-        base_url = f"http://{host}:{port}"
+        base_url = "http://localhost:5000"
 
         mlflow.set_tracking_uri(base_url)
         mlflow.set_experiment("integration-test")

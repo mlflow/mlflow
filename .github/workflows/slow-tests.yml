@@ -71,8 +71,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run docker integration tests
         run: |
-          source .venv/bin/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker
       - name: Run pyfunc docker tests
         run: |
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/pyfunc/docker
