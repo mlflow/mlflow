@@ -83,7 +83,7 @@ export const AssistantButton = () => {
               </div>
             }
             css={{
-              backgroundColor: '#ffffff !important',
+              backgroundColor: `${theme.colors.backgroundPrimary} !important`,
               border: 'none !important',
               borderRadius: 24 - 2,
               height: 'auto',
@@ -92,8 +92,9 @@ export const AssistantButton = () => {
               display: 'flex',
               alignItems: 'center',
               gap: theme.spacing.xs,
+              color: theme.colors.textPrimary,
               '&:hover': {
-                backgroundColor: '#fafafa !important',
+                backgroundColor: `${theme.colors.backgroundSecondary} !important`,
               },
             }}
           >
