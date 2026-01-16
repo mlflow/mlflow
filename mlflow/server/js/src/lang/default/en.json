@@ -942,6 +942,10 @@
     "defaultMessage": "Delete",
     "description": "Delete button text"
   },
+  "5umyLP": {
+    "defaultMessage": "Edit endpoint name",
+    "description": "Aria label for edit endpoint name button"
+  },
   "5vzPok": {
     "defaultMessage": "AI Gateway",
     "description": "Sidebar link for gateway configuration"
@@ -1306,6 +1310,10 @@
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
   },
+  "8DoNdT": {
+    "defaultMessage": "Save",
+    "description": "Save button text for edit endpoint name modal"
+  },
   "8EK+SZ": {
     "defaultMessage": "Use",
     "description": "A label for a button to display the modal with the usage example of the prompt"
@@ -1617,6 +1625,10 @@
   "AanBxl": {
     "defaultMessage": "my-endpoint",
     "description": "Placeholder for endpoint name input"
+  },
+  "AawxF/": {
+    "defaultMessage": "Edit Endpoint Name",
+    "description": "Title for edit endpoint name modal"
   },
   "AdlJNW": {
     "defaultMessage": "Assessment Name",
@@ -2169,6 +2181,10 @@
   "FFe+Ug": {
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
+  },
+  "FHJ1NN": {
+    "defaultMessage": "Endpoint Name",
+    "description": "Label for endpoint name input"
   },
   "FKoHx5": {
     "defaultMessage": "Security Notice: Default Passphrase in Use",
@@ -4264,10 +4280,6 @@
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
-  "Wt644B": {
-    "defaultMessage": "Endpoint Name",
-    "description": "Section title for endpoint name"
-  },
   "WtTgz+": {
     "defaultMessage": "Tool",
     "description": "Column header for tool name"
@@ -4418,6 +4430,10 @@
   "Y6gWro": {
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
+  },
+  "Y73UT6": {
+    "defaultMessage": "Endpoint name is required",
+    "description": "Error message when endpoint name is empty"
   },
   "Y7AIKR": {
     "defaultMessage": "MLflow Invocations API",
@@ -5203,6 +5219,10 @@
     "defaultMessage": "Are you sure you want to navigate away? Your pending text changes will be lost.",
     "description": "Prompt text for navigating away before saving changes in editable note in MLflow"
   },
+  "dzIz7c": {
+    "defaultMessage": "Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.",
+    "description": "Error message for invalid endpoint name format"
+  },
   "dzoxyA": {
     "defaultMessage": "Reject pending request",
     "description": "Title for a model version stage transition modal when rejecting a pending request"
@@ -5571,6 +5591,10 @@
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
   },
+  "gVz/1j": {
+    "defaultMessage": "An endpoint with this name already exists",
+    "description": "Error message when endpoint name already exists"
+  },
   "gYOuKs": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an expectation assessment"
@@ -5822,6 +5846,10 @@
   "iRNZkJ": {
     "defaultMessage": "Failed to delete assessment. Error: {error}",
     "description": "Error message when deleting an assessment fails."
+  },
+  "iT2I8i": {
+    "defaultMessage": "The name is used in the endpoint URL. Only letters, numbers, underscores, hyphens, and dots are allowed.",
+    "description": "Help text for endpoint name input"
   },
   "iT8ODo": {
     "defaultMessage": "Minimum",
@@ -6435,6 +6463,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "nBKx6U": {
+    "defaultMessage": "Edit endpoint name",
+    "description": "Tooltip for edit endpoint name button"
+  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -6578,10 +6610,6 @@
   "o8YPlv": {
     "defaultMessage": "Dataset tracking",
     "description": "Home page news card title four"
-  },
-  "o9x0Pq": {
-    "defaultMessage": "The name is used in the endpoint URL. Only letters, numbers, underscores, hyphens, and dots are allowed.",
-    "description": "Endpoint name description"
   },
   "oBJ8xc": {
     "defaultMessage": "Cost",
