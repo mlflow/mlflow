@@ -7,7 +7,11 @@ import type {
   GetTraceFunction,
   TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
-import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
+import {
+  shouldUseTracesV4API,
+  useUnifiedTraceTagsModal,
+  ModelTraceExplorerContextProvider,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -342,11 +346,8 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     return (
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={getTrace}
-        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      >
+      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+        <GenAITracesTableProvider experimentId={experimentId}>
         <div
           css={{
             overflowY: 'hidden',
@@ -379,7 +380,8 @@ const TracesV3LogsImpl = React.memo(
           />
           {renderMainContent()}
         </div>
-      </GenAITracesTableProvider>
+        </GenAITracesTableProvider>
+      </ModelTraceExplorerContextProvider>
     );
   },
 );

@@ -49,7 +49,11 @@ import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
-import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  isV3ModelTraceInfo,
+  ModelTraceExplorerContextProvider,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
 import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
@@ -280,11 +284,8 @@ const RunViewEvaluationsTabInner = ({
           </span>
         </div>
       )}
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={getTrace}
-        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      >
+      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+        <GenAITracesTableProvider experimentId={experimentId}>
         <div
           css={{
             overflowY: 'hidden',
@@ -346,7 +347,8 @@ const RunViewEvaluationsTabInner = ({
           }
           {EditTagsModal}
         </div>
-      </GenAITracesTableProvider>
+        </GenAITracesTableProvider>
+      </ModelTraceExplorerContextProvider>
     </div>
   );
 };

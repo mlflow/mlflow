@@ -59,3 +59,10 @@ export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessme
 export { getTraceTokenUsage, createTraceV4LongIdentifier, isSessionLevelAssessment } from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from './hooks/useGetTracesById';
+export {
+  ModelTraceExplorerContextProvider,
+  useModelTraceExplorerContext,
+  type ModelTraceExplorerContextValue,
+  type RenderExportTracesToDatasetsModalParams,
+} from './ModelTraceExplorerContext';
+export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
