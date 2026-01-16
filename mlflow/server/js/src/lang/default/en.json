@@ -571,6 +571,10 @@
     "defaultMessage": "API Keys",
     "description": "API Keys page title"
   },
+  "2RX4hx": {
+    "defaultMessage": "Total",
+    "description": "Label for the total tokens in the tooltip for the tokens cell."
+  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
