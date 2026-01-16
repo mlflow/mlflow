@@ -282,7 +282,7 @@ def test_wrong_old_passphrase_fails(runner, old_passphrase_env, mock_store, db_w
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
         )
         assert result.exit_code != 0
-        assert "Failed to rotate encryption key" in result.output
+        assert "Failed to rotate secret" in result.output
 
 
 def test_rotation_failure_rolls_back(runner, old_passphrase_env, mock_store, db_with_secret):
