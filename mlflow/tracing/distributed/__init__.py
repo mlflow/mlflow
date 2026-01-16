@@ -27,7 +27,7 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     .. code-block:: python
 
         import mlflow
-        from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
+        from mlflow.tracing import get_tracing_context_headers_for_http_request
 
         with mlflow.start_span("client-root") as client_span:
             # Get the headers that hold information of the tracing context,
@@ -41,7 +41,7 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
 
         import mlflow
         from flask import Flask, request
-        from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+        from mlflow.tracing import set_tracing_context_from_http_request_headers
 
         app = Flask(__name__)
 
@@ -72,7 +72,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     scope of this context manager.
     The trace context must be serialized as the 'traceparent' header which is defined
     in the W3C TraceContext specification, please see
-    :py:func:`mlflow.tracing.distributed.get_tracing_context_headers_for_http_request`
+    :py:func:`mlflow.tracing.get_tracing_context_headers_for_http_request`
     for how to get the http request headers.
 
     Args:
@@ -83,7 +83,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     .. code-block:: python
 
         import mlflow
-        from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
+        from mlflow.tracing import get_tracing_context_headers_for_http_request
 
         with mlflow.start_span("client-root") as client_span:
             # Get the headers that hold information of the tracing context,
@@ -97,7 +97,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
 
         import mlflow
         from flask import Flask, request
-        from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+        from mlflow.tracing import set_tracing_context_from_http_request_headers
 
         app = Flask(__name__)
 
