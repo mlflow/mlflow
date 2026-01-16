@@ -317,7 +317,7 @@ class MemoryAugmentedJudge(Judge):
         )
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
-    def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
+    def add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples by updating both episodic memory and semantic memory.
 
         Args:
@@ -410,10 +410,6 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
-            existing_examples = (
-                list(judge._episodic_memory) if isinstance(judge, MemoryAugmentedJudge) else []
-            )
-
             new_examples = []
             for trace in traces:
                 example = trace_to_dspy_example(trace, judge)
@@ -432,19 +428,24 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 f"Created {len(new_examples)} new feedback records from {len(traces)} traces"
             )
 
-            all_examples = existing_examples + new_examples
+            if isinstance(judge, MemoryAugmentedJudge):
+                _logger.debug("Base judge is already a MemoryAugmentedJudge. New feedback will be added to existing memory."
+                )
+                memory_judge = judge
+            else:
+                _logger.debug("Base judge is a standard Judge. Creating a new MemoryAugmentedJudge.")
+                memory_judge = MemoryAugmentedJudge(
+                    base_judge=judge,
+                    reflection_lm=self._reflection_lm,
+                    retrieval_k=self._retrieval_k,
+                    embedding_model=self._embedding_model,
+                    embedding_dim=self._embedding_dim
+                )
 
-            memory_judge = MemoryAugmentedJudge(
-                base_judge=judge,
-                reflection_lm=self._reflection_lm,
-                retrieval_k=self._retrieval_k,
-                embedding_model=self._embedding_model,
-                embedding_dim=self._embedding_dim,
-                episodic_memory=all_examples,
-            )
+            memory_judge.add_examples_to_memory(new_examples)
 
             _logger.debug(
-                f"MemAlign alignment completed successfully. Aligned {len(new_examples)} examples."
+                f"MemAlign alignment completed successfully on {len(traces)} examples. "
             )
             return memory_judge
 
