@@ -10,6 +10,7 @@ import {
   WarningIcon,
   Button,
   RefreshIcon,
+  ToggleButton,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -188,27 +189,20 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                 description: 'Tooltip for the group by session button in the traces table toolbar',
               })}
             >
-              <Button
+              <ToggleButton
                 componentId="mlflow.traces-table.group-by-session-button"
-                onClick={onToggleSessionGrouping}
-                type={isGroupedBySession ? 'primary' : undefined}
+                onPressedChange={onToggleSessionGrouping}
+                pressed={isGroupedBySession}
                 aria-label={intl.formatMessage({
                   defaultMessage: 'Toggle session grouping',
                   description: 'Aria label for the group by session button in the traces table toolbar',
                 })}
               >
-                {isGroupedBySession ? (
-                  <FormattedMessage
-                    defaultMessage="Ungroup sessions"
-                    description="Label for the ungroup sessions button in the traces table toolbar"
-                  />
-                ) : (
-                  <FormattedMessage
-                    defaultMessage="Group by session"
-                    description="Label for the group by session button in the traces table toolbar"
-                  />
-                )}
-              </Button>
+                <FormattedMessage
+                  defaultMessage="Group by session"
+                  description="Label for the group by session button in the traces table toolbar"
+                />
+              </ToggleButton>
             </Tooltip>
           )}
           {onRefresh && (

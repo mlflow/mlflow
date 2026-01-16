@@ -3980,10 +3980,6 @@
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
   },
-  "Untjzg": {
-    "defaultMessage": "Ungroup sessions",
-    "description": "Label for the ungroup sessions button in the traces table toolbar"
-  },
   "UqGOOx": {
     "defaultMessage": "No API keys created",
     "description": "Empty state title for API keys list"
