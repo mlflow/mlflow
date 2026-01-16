@@ -5,6 +5,7 @@ These tests focus on the helper functions and job function logic without
 requiring a full job execution infrastructure.
 """
 
+import sys
 from unittest import mock
 
 import pytest
@@ -157,8 +158,6 @@ def test_build_predict_fn_missing_provider():
 
 
 def test_build_predict_fn_missing_litellm():
-    import sys
-
     # Simulate litellm not being installed
     with mock.patch.dict(sys.modules, {"litellm": None}):
         with pytest.raises(

@@ -230,7 +230,6 @@ def optimize_prompts_job(
         # Link source prompt to run for lineage
         client = MlflowClient()
         client.link_prompt_version_to_run(run_id=run_id, prompt=source_prompt)
-
         result = optimize_prompts(
             predict_fn=predict_fn,
             train_data=dataset,
