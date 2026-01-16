@@ -89,7 +89,7 @@ class MemoryAugmentedJudge(Judge):
         reflection_lm: str | None = None,
         retrieval_k: int = 5,
         embedding_model: str | None = None,
-        embedding_dim: int = 512
+        embedding_dim: int = 512,
     ):
         import dspy
 
@@ -123,7 +123,9 @@ class MemoryAugmentedJudge(Judge):
         )
         self._embedding_dim = embedding_dim
         litellm_embedding_model = _mlflow_to_litellm_embedding_model(self._embedding_model)
-        self._embedder = dspy.Embedder(litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True)
+        self._embedder = dspy.Embedder(
+            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
+        )
         self._retriever = None
 
         extended_signature = create_extended_signature(self._base_signature)
@@ -232,7 +234,7 @@ class MemoryAugmentedJudge(Judge):
                 aligned_judge.unalign(traces=bad_traces)
                 # The judge now only retains feedback from `set(all_traces) - set(bad_traces)`
         """
-        trace_ids_to_remove = {trace.info.trace_id for trace in traces}        
+        trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
         # Filter examples to retain based on trace ids
         examples_to_retain = [
@@ -265,7 +267,7 @@ class MemoryAugmentedJudge(Judge):
             f"Semantic memory size: {len(self._semantic_memory)} guidelines."
         )
         return
-    
+
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
         Distill new guidelines from newly added examples and add to semantic memory.
@@ -282,7 +284,8 @@ class MemoryAugmentedJudge(Judge):
         )
         self._semantic_memory.extend(new_guidelines)
         _logger.debug(
-            f"Distilled {len(new_guidelines)} new guidelines from {len(new_examples)} new examples. Semantic memory now has {len(self._semantic_memory)} guidelines."
+            f"Distilled {len(new_guidelines)} new guidelines from {len(new_examples)} new "
+            f"examples. Semantic memory now has {len(self._semantic_memory)} guidelines."
         )
 
     def _build_episodic_memory(self) -> None:
@@ -319,6 +322,7 @@ class MemoryAugmentedJudge(Judge):
 
         # Update semantic memory
         self._distill_new_guidelines(examples)
+
 
 @experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
@@ -419,24 +423,26 @@ class MemAlignOptimizer(AlignmentOptimizer):
             )
 
             if isinstance(judge, MemoryAugmentedJudge):
-                _logger.debug("Base judge is already a MemoryAugmentedJudge. New feedback will be added to existing memory."
+                _logger.debug(
+                    "Base judge is already a MemoryAugmentedJudge. "
+                    "New feedback will be added to existing memory."
                 )
                 memory_judge = judge
             else:
-                _logger.debug("Base judge is a standard Judge. Creating a new MemoryAugmentedJudge.")
+                _logger.debug(
+                    "Base judge is a standard Judge. Creating a new MemoryAugmentedJudge."
+                )
                 memory_judge = MemoryAugmentedJudge(
                     base_judge=judge,
                     reflection_lm=self._reflection_lm,
                     retrieval_k=self._retrieval_k,
                     embedding_model=self._embedding_model,
-                    embedding_dim=self._embedding_dim
+                    embedding_dim=self._embedding_dim,
                 )
 
             memory_judge.add_examples_to_memory(new_examples)
 
-            _logger.debug(
-                f"MemAlign alignment completed successfully on {len(traces)} examples. "
-            )
+            _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples. ")
             return memory_judge
 
         except Exception as e:

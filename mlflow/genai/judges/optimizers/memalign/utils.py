@@ -120,7 +120,7 @@ def _mlflow_to_litellm_embedding_model(model: str) -> str:
 
 
 def _find_optimal_batch_size(
-    examples_data: list[dict],
+    examples_data: list[dict[str, Any]],
     indices: list[int],
     judge_instructions: str,
     existing_guidelines: list[str],
@@ -141,7 +141,7 @@ def _find_optimal_batch_size(
         reflection_lm: Model to use for distillation
         distillation_lm: DSPy LM instance for distillation
         max_input_tokens: Maximum input tokens for the model
-    
+
     Returns:
         Optimal number of records per batch that fits within token limits
     """
@@ -169,7 +169,7 @@ def _find_optimal_batch_size(
             # Use litellm to estimate token count
             prompt_tokens_estimate = token_counter(model=reflection_lm, text=prompt)
 
-        if prompt_tokens_estimate <= prompt_tokens_limit: # Found potentially acceptable batch size
+        if prompt_tokens_estimate <= prompt_tokens_limit:  # Found potentially acceptable batch size
             # Do a trial LM call to verify if prompt can fit into LM context window
             try:
                 trial_response = distillation_lm(
@@ -179,11 +179,9 @@ def _find_optimal_batch_size(
                 Guidelines.model_validate_json(trial_response)
                 return records_per_group
             except Exception:
-                _logger.debug(
-                    f"Trial LM call failed with batch size {records_per_group}, reducing"
-                )
+                _logger.debug(f"Trial LM call failed with batch size {records_per_group}, reducing")
                 records_per_group //= 2
-        else: # Prompt still too large, reduce batch size
+        else:  # Prompt still too large, reduce batch size
             records_per_group //= 2
     return 0
 
@@ -194,7 +192,7 @@ def _process_batch_response(
     existing_guideline_texts: set[str],
 ) -> list[Guideline]:
     """Parse LM response and convert to Guideline objects, filtering duplicates.
-    
+
     Args:
         response: LM response in JSON format
         index_to_trace_id: Mapping from example indices to trace IDs
@@ -211,31 +209,27 @@ def _process_batch_response(
         guideline_text = guideline_data.get("guideline_text")
         if not guideline_text or guideline_text in existing_guideline_texts:
             continue
-        
+
         # Skip guidelines without valid source trace IDs
         source_trace_ids_raw = guideline_data.get("source_trace_ids")
         if source_trace_ids_raw is None:
             continue
-      
+
         # Map indices back to trace IDs, ignoring invalid indices
         trace_ids = [
             trace_id
             for idx in source_trace_ids_raw
-            if (
-                trace_id := index_to_trace_id.get(
-                    int(idx) if isinstance(idx, (int, str)) else idx
-                )
-            )
+            if (trace_id := index_to_trace_id.get(int(idx) if isinstance(idx, (int, str)) else idx))
             is not None
         ]
         # Only add guideline if there is at least one valid trace ID
         if trace_ids:
-          guidelines.append(
-              Guideline(
-                  guideline_text=guideline_text,
-                  source_trace_ids=trace_ids,
-              )
-          )
+            guidelines.append(
+                Guideline(
+                    guideline_text=guideline_text,
+                    source_trace_ids=trace_ids,
+                )
+            )
 
     return guidelines
 
