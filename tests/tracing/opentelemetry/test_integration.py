@@ -1,6 +1,8 @@
 import pytest
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import mlflow
 from mlflow.entities.span import SpanStatusCode, encode_span_id
@@ -144,14 +146,25 @@ def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
 
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
+    # Set up otel tracer
+    tracer_provider = TracerProvider(resource=None)
+    exporter = InMemorySpanExporter()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    otel_trace.set_tracer_provider(tracer_provider)
     otel_tracer = otel_trace.get_tracer(__name__)
 
-    with otel_tracer.start_as_current_span("parent_span") as root_span:
+    with otel_tracer.start_as_current_span("otel_root") as root_span:
         root_span.set_attribute("key1", "value1")
 
-    with mlflow.start_span("mlflow_span") as mlflow_span:
-        mlflow_span.set_inputs({"text": "hello"})
-        mlflow_span.set_outputs({"text": "world"})
+        with mlflow.start_span("mlflow_root") as mlflow_span:
+            mlflow_span.set_inputs({"text": "hello"})
+            mlflow_span.set_outputs({"text": "world"})
+
+            with otel_tracer.start_as_current_span("otel_child") as child_span:
+                child_span.set_attribute("key2", "value2")
+
+                with mlflow.start_span("mlflow_child") as mlflow_child_span:
+                    mlflow_child_span.set_attribute("key3", "value3")
 
     traces = get_traces()
     assert len(traces) == 1
@@ -169,11 +182,24 @@ def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
     assert trace.info.response_preview == '{"text": "world"}'
 
     spans = trace.data.spans
-    assert len(spans) == 1
-    assert spans[0].name == "mlflow_span"
+    assert len(spans) == 2
+    assert spans[0].name == "mlflow_root"
     assert spans[0].inputs == {"text": "hello"}
     assert spans[0].outputs == {"text": "world"}
     assert spans[0].status.status_code == SpanStatusCode.OK
+    assert spans[1].name == "mlflow_child"
+    assert spans[1].attributes["key3"] == "value3"
+    assert spans[1].status.status_code == SpanStatusCode.OK
+    assert spans[1].parent_id == spans[0].span_id
+
+    # Otel span should be exported independently of MLflow span
+    otel_spans = exporter.get_finished_spans()
+    assert len(otel_spans) == 2
+    assert otel_spans[0].name == "otel_child"
+    assert otel_spans[0].attributes["key2"] == "value2"
+    assert otel_spans[0].parent.span_id == otel_spans[1].context.span_id
+    assert otel_spans[1].name == "otel_root"
+    assert otel_spans[1].attributes["key1"] == "value1"
 
 
 def test_mlflow_adds_processors_to_existing_tracer_provider(monkeypatch):

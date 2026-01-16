@@ -1,7 +1,164 @@
 import { type CausableError, ErrorName, PredefinedError } from '@databricks/web-shared/errors';
 import { ErrorLogType } from '@databricks/web-shared/errors';
-import type { ScheduledScorer, LLMScorer, CustomCodeScorer, ScorerConfig, LLMTemplate } from '../types';
-import { LLM_TEMPLATE } from '../types';
+import type {
+  ScheduledScorer,
+  LLMScorer,
+  CustomCodeScorer,
+  ScorerConfig,
+  LLMTemplate,
+  JudgeOutputTypeSpec,
+  JudgePrimitiveOutputType,
+} from '../types';
+import { LLM_TEMPLATE, isGuidelinesTemplate } from '../types';
+
+const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
+  bool: 'boolean',
+  int: 'integer',
+  float: 'number',
+  str: 'string',
+};
+
+const JSON_SCHEMA_TO_PRIMITIVE: Record<string, JudgePrimitiveOutputType> = {
+  boolean: 'bool',
+  integer: 'int',
+  number: 'float',
+  string: 'str',
+};
+
+/**
+ * Convert JudgeOutputTypeSpec to JSON Schema format for API serialization.
+ * Matches the format expected by InstructionsJudge._deserialize_feedback_value_type
+ * in mlflow/genai/judges/instructions_judge/__init__.py
+ */
+function outputTypeSpecToJsonSchema(spec: JudgeOutputTypeSpec | undefined): Record<string, unknown> | undefined {
+  if (!spec) {
+    return undefined;
+  }
+
+  switch (spec.kind) {
+    case 'bool':
+    case 'int':
+    case 'float':
+    case 'str':
+      return { type: PRIMITIVE_TO_JSON_SCHEMA[spec.kind] };
+
+    case 'categorical':
+      if (!spec.categoricalOptions || spec.categoricalOptions.length === 0) {
+        return undefined;
+      }
+      return {
+        type: 'string',
+        enum: spec.categoricalOptions,
+      };
+
+    case 'dict':
+      return {
+        type: 'object',
+        additionalProperties: {
+          type: PRIMITIVE_TO_JSON_SCHEMA[spec.dictValueType || 'int'],
+        },
+      };
+
+    case 'list':
+      return {
+        type: 'array',
+        items: {
+          type: PRIMITIVE_TO_JSON_SCHEMA[spec.listElementType || 'str'],
+        },
+      };
+
+    default:
+      return undefined;
+  }
+}
+
+function formDataToOutputTypeSpec(formData: LLMScorerFormData): JudgeOutputTypeSpec | undefined {
+  const kind = formData.outputTypeKind;
+  if (!kind || kind === 'default') {
+    return undefined;
+  }
+
+  return {
+    kind,
+    categoricalOptions: formData.categoricalOptions
+      ?.split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean),
+    dictValueType: formData.dictValueType,
+    listElementType: formData.listElementType,
+  };
+}
+
+export function outputTypeSpecToFormData(
+  spec: JudgeOutputTypeSpec | undefined,
+): Pick<LLMScorerFormData, 'outputTypeKind' | 'categoricalOptions' | 'dictValueType' | 'listElementType'> {
+  if (!spec) {
+    return { outputTypeKind: 'default' };
+  }
+
+  return {
+    outputTypeKind: spec.kind,
+    categoricalOptions: spec.categoricalOptions?.join('\n'),
+    dictValueType: spec.dictValueType,
+    listElementType: spec.listElementType,
+  };
+}
+
+/**
+ * Convert JSON Schema format back to JudgeOutputTypeSpec for loading from API.
+ * Reverse of outputTypeSpecToJsonSchema.
+ */
+function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined): JudgeOutputTypeSpec | undefined {
+  if (!schema) {
+    return undefined;
+  }
+
+  // Check for enum (Literal/categorical type)
+  if (Array.isArray(schema['enum'])) {
+    return {
+      kind: 'categorical',
+      categoricalOptions: schema['enum'] as string[],
+    };
+  }
+
+  const schemaType = schema['type'];
+  if (typeof schemaType !== 'string') {
+    return undefined;
+  }
+
+  // Check for primitive types
+  if (schemaType in JSON_SCHEMA_TO_PRIMITIVE) {
+    return {
+      kind: JSON_SCHEMA_TO_PRIMITIVE[schemaType],
+    };
+  }
+
+  // Check for object (dict) type
+  if (schemaType === 'object') {
+    const additionalProps = schema['additionalProperties'] as Record<string, unknown> | undefined;
+    if (additionalProps && typeof additionalProps['type'] === 'string') {
+      return {
+        kind: 'dict',
+        dictValueType: JSON_SCHEMA_TO_PRIMITIVE[additionalProps['type']] || 'int',
+      };
+    }
+    return { kind: 'dict', dictValueType: 'int' };
+  }
+
+  // Check for array (list) type
+  if (schemaType === 'array') {
+    const items = schema['items'] as Record<string, unknown> | undefined;
+    if (items && typeof items['type'] === 'string') {
+      return {
+        kind: 'list',
+        listElementType: JSON_SCHEMA_TO_PRIMITIVE[items['type']] || 'str',
+      };
+    }
+    return { kind: 'list', listElementType: 'str' };
+  }
+
+  return undefined;
+}
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
 import { ScorerEvaluationScope, type ScorerType } from '../constants';
@@ -57,6 +214,9 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       // Instructions-based LLM scorer
       const instructions = serializedData.instructions_judge_pydantic_data.instructions || '';
       const model = serializedData.instructions_judge_pydantic_data.model;
+      const outputType = jsonSchemaToOutputTypeSpec(
+        serializedData.instructions_judge_pydantic_data.feedback_value_type,
+      );
       const result = {
         ...baseFields,
         type: 'llm',
@@ -64,9 +224,10 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         instructions,
         model,
         is_instructions_judge: true,
+        outputType,
       } as LLMScorer;
       return result;
-    } else if (serializedData.builtin_scorer_class === LLM_TEMPLATE.GUIDELINES) {
+    } else if (isGuidelinesTemplate(serializedData.builtin_scorer_class)) {
       const rawGuidelines = serializedData.builtin_scorer_pydantic_data?.guidelines || [];
       // Ensure guidelines is always an array - if it's a string, put it in an array
       const guidelines = Array.isArray(rawGuidelines) ? rawGuidelines : [rawGuidelines].filter(Boolean);
@@ -74,7 +235,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       return {
         ...baseFields,
         type: 'llm',
-        llmTemplate: LLM_TEMPLATE.GUIDELINES,
+        llmTemplate: serializedData.builtin_scorer_class,
         guidelines,
         model,
         is_instructions_judge: false,
@@ -158,6 +319,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
       if (!llmScorer.instructions) {
         throw new ScorerTransformationError('Instructions are required for instructions-based LLM scorers');
       }
+      const feedbackValueType = outputTypeSpecToJsonSchema(llmScorer.outputType);
       config.serialized_scorer = JSON.stringify({
         ...baseSerializedScorer,
         name: llmScorer.name,
@@ -170,6 +332,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         instructions_judge_pydantic_data: {
           instructions: llmScorer.instructions || '',
           ...(llmScorer.model && { model: llmScorer.model }),
+          ...(feedbackValueType && { feedback_value_type: feedbackValueType }),
         },
       });
       config.custom = {};
@@ -180,8 +343,8 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         required_columns: ['outputs', 'inputs'],
       };
 
-      // Add guidelines if this is a Guidelines scorer
-      if (llmScorer.llmTemplate === LLM_TEMPLATE.GUIDELINES && llmScorer.guidelines) {
+      // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+      if (isGuidelinesTemplate(llmScorer.llmTemplate) && llmScorer.guidelines) {
         pydanticData.guidelines = llmScorer.guidelines;
       }
 
@@ -291,19 +454,19 @@ export function convertFormDataToScheduledScorer(
         ...newScorer,
         type: 'llm' as const,
         llmTemplate: llmFormData.llmTemplate as LLMTemplate,
-        // Add guidelines if this is a Guidelines scorer
-        guidelines:
-          llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES
-            ? (llmFormData.guidelines || '')
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean)
-            : undefined,
+        // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+        guidelines: isGuidelinesTemplate(llmFormData.llmTemplate)
+          ? (llmFormData.guidelines || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+          : undefined,
         // Add instructions for instructions judges (Custom, Safety, RelevanceToQuery)
         instructions: llmFormData.isInstructionsJudge ? llmFormData.instructions : undefined,
         // Add model for all LLM scorers
         model: llmFormData.model || undefined,
         is_instructions_judge: llmFormData.isInstructionsJudge,
+        outputType: llmFormData.isInstructionsJudge ? formDataToOutputTypeSpec(llmFormData) : undefined,
       };
       return result;
     }
@@ -338,8 +501,8 @@ export function convertFormDataToScheduledScorer(
     const llmFormData = formData as LLMScorerFormData;
     (updatedScorer as LLMScorer).llmTemplate = llmFormData.llmTemplate as LLMTemplate;
 
-    // Add guidelines if this is a Guidelines scorer
-    if (llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES) {
+    // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+    if (isGuidelinesTemplate(llmFormData.llmTemplate)) {
       (updatedScorer as LLMScorer).guidelines = (llmFormData.guidelines || '')
         .split('\n')
         .map((line) => line.trim())
@@ -349,6 +512,7 @@ export function convertFormDataToScheduledScorer(
     // Add instructions for instructions judges (Custom, Safety, RelevanceToQuery)
     if (llmFormData.isInstructionsJudge) {
       (updatedScorer as LLMScorer).instructions = llmFormData.instructions;
+      (updatedScorer as LLMScorer).outputType = formDataToOutputTypeSpec(llmFormData);
     }
     (updatedScorer as LLMScorer).is_instructions_judge = llmFormData.isInstructionsJudge;
 
