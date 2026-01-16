@@ -52,7 +52,6 @@
   "mlflow.system_metrics": "api_reference/python_api/mlflow.system_metrics.html",
   "mlflow.tensorflow": "api_reference/python_api/mlflow.tensorflow.html",
   "mlflow.tracing": "api_reference/python_api/mlflow.tracing.html",
-  "mlflow.tracing.distributed": "api_reference/python_api/mlflow.tracing.distributed.html",
   "mlflow.transformers": "api_reference/python_api/mlflow.transformers.html",
   "mlflow.types": "api_reference/python_api/mlflow.types.html",
   "mlflow.utils": "api_reference/python_api/mlflow.utils.html",
