@@ -6,10 +6,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 import mlflow
 from mlflow import MlflowException
 from mlflow.entities.trace_info import TraceInfo, TraceState
-from mlflow.telemetry.events import (
-    GetTracingContextHeadersEvent,
-    SetTracingContextFromHeadersEvent,
-)
+from mlflow.telemetry.events import TracingContextPropagation
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.provider import get_context_api, get_current_context, get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -18,7 +15,7 @@ from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 _logger = logging.getLogger(__name__)
 
 
-@record_usage_event(GetTracingContextHeadersEvent)
+@record_usage_event(TracingContextPropagation)
 def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     """
     Get the http request headers that hold information of the tracing context.
@@ -74,7 +71,7 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     return headers
 
 
-@record_usage_event(SetTracingContextFromHeadersEvent)
+@record_usage_event(TracingContextPropagation)
 @contextmanager
 def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     """
