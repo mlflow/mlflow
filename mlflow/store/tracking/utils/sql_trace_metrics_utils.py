@@ -113,7 +113,9 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 TIME_BUCKET_LABEL = "time_bucket"
 
 
-def get_percentile_aggregation(db_type: str, percentile_value: float, column):
+def get_percentile_aggregation(
+    db_type: str, percentile_value: float, column, partition_by_columns: list[Column] | None = None
+):
     """
     Get percentile aggregation function based on database type.
 
@@ -121,24 +123,37 @@ def get_percentile_aggregation(db_type: str, percentile_value: float, column):
         db_type: Database type (e.g., "postgresql", "mssql", "mysql", "sqlite")
         percentile_value: Percentile value between 0 and 100 (e.g., 50 for median)
         column: SQLAlchemy column to compute percentile on
+        partition_by_columns: For MSSQL, columns to partition by in the OVER clause.
+            MSSQL requires PERCENTILE_CONT to have an OVER clause since it's a window
+            function, not a true aggregate. Pass the GROUP BY columns here.
 
     Returns:
         SQLAlchemy aggregation function for percentile
-
-    Note:
-        - PostgreSQL and MSSQL use native PERCENTILE_CONT functions
-        - MySQL/SQLite uses an approximation with MAX/MIN weighted calculation
     """
-    percentile_value = percentile_value / 100
+    percentile_fraction = percentile_value / 100  # Convert to 0-1 range
+
     match db_type:
         case "postgresql":
-            return func.percentile_cont(percentile_value).within_group(column)
-        # MSSQL contains PERCENTILE_CONT function, but it's easier to use the
-        # approximation formula since the function requires a window function.
-        case "mssql" | "mysql" | "sqlite":
-            # MySQL and SQLite don't have PERCENTILE_CONT, so we use an approximation
-            # For grouped data, we use a weighted average of min and max
-            # This is a rough approximation: P = min + percentile * (max - min)
+            # PostgreSQL PERCENTILE_CONT: ordered-set aggregate for exact percentile
+            return func.percentile_cont(percentile_fraction).within_group(column)
+        case "mssql":
+            # MSSQL PERCENTILE_CONT: window function that REQUIRES an OVER clause.
+            # Unlike PostgreSQL, MSSQL's PERCENTILE_CONT is not a true aggregate function.
+            # We use OVER (PARTITION BY group_columns) to compute percentile per group.
+            # The result is a value for each row; the caller must handle deduplication
+            # (typically by wrapping in MAX/MIN in a subquery approach).
+            partition_by = partition_by_columns or []
+            return (
+                func.percentile_cont(percentile_fraction)
+                .within_group(column)
+                .over(partition_by=partition_by)
+            )
+        case "sqlite":
+            # SQLite percentile extension function (expects percentile as 0-100)
+            # Note: Requires the percentile extension to be loaded
+            # See: https://sqlite.org/percentile.html
+            return func.percentile(column, percentile_value)
+        case "mysql":
             return func.min(column) + percentile_value * (func.max(column) - func.min(column))
 
 
@@ -186,7 +201,12 @@ def get_time_bucket_expression(
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
 
-def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, column) -> Column:
+def _get_aggregation_expression(
+    aggregation: MetricAggregation,
+    db_type: str,
+    column,
+    partition_by_columns: list[Column] | None = None,
+) -> Column:
     """
     Get the SQL aggregation expression for the given aggregation type and column.
 
@@ -194,6 +214,7 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
         aggregation: The aggregation of the metric
         db_type: Database type (for percentile calculations)
         column: The column to aggregate
+        partition_by_columns: For MSSQL percentile, columns to partition by in OVER clause
 
     Returns:
         SQLAlchemy column expression for the aggregation
@@ -206,7 +227,9 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
         case AggregationType.AVG:
             return func.avg(column)
         case AggregationType.PERCENTILE:
-            return get_percentile_aggregation(db_type, aggregation.percentile_value, column)
+            return get_percentile_aggregation(
+                db_type, aggregation.percentile_value, column, partition_by_columns
+            )
         case _:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported aggregation type: {aggregation.aggregation_type}",
@@ -447,6 +470,86 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
     return query
 
 
+def _has_percentile_aggregation(aggregations: list[MetricAggregation]) -> bool:
+    return any(agg.aggregation_type == AggregationType.PERCENTILE for agg in aggregations)
+
+
+def _build_mssql_query_with_percentiles(
+    query: Query,
+    aggregations: list[MetricAggregation],
+    dimension_columns: list[Column],
+    agg_column: Column,
+) -> tuple[Query, list[Column]]:
+    """
+    Build MSSQL query with percentile window functions using a subquery approach.
+
+    MSSQL's PERCENTILE_CONT is a window function that requires an OVER clause.
+    We use a two-level query:
+    - Inner: compute percentile values using OVER (PARTITION BY dimensions)
+    - Outer: GROUP BY dimensions and use MAX to pick the percentile values
+
+    Example: To query "AVG and P50 of assessment values grouped by assessment name",
+    this generates the following SQL:
+        SELECT assessment_name, AVG(_agg_value), MAX(_p50)
+        FROM (
+            SELECT name AS assessment_name, value AS _agg_value,
+                   PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY value)
+                       OVER (PARTITION BY name) AS _p50
+            FROM trace_info JOIN assessments ...
+        ) subq
+        GROUP BY assessment_name
+        ORDER BY assessment_name
+
+    Args:
+        query: Base SQLAlchemy query with joins and filters applied
+        aggregations: List of aggregations to compute
+        dimension_columns: Labeled dimension columns for grouping
+        agg_column: Column to aggregate on
+
+    Returns:
+        Tuple of (outer_query, select_columns)
+    """
+    db_type = "mssql"
+    partition_by_columns = [col.element for col in dimension_columns] if dimension_columns else []
+
+    # Build inner subquery: dimensions + value + percentile window functions
+    inner_columns = list(dimension_columns)
+    inner_columns.append(agg_column.label("_agg_value"))
+
+    # Add percentile window functions and track their labels
+    percentile_labels = {}
+    for agg in aggregations:
+        if agg.aggregation_type == AggregationType.PERCENTILE:
+            label = f"_p{int(agg.percentile_value)}"
+            expr = get_percentile_aggregation(
+                db_type, agg.percentile_value, agg_column, partition_by_columns
+            )
+            inner_columns.append(expr.label(label))
+            percentile_labels[str(agg)] = label
+
+    subquery = query.with_entities(*inner_columns).subquery()
+
+    # Build outer query columns: dimensions + aggregations
+    def _outer_agg_column(agg):
+        agg_label = str(agg)
+        if agg_label in percentile_labels:
+            # MAX picks the pre-computed percentile (same value for all rows in partition)
+            return func.max(subquery.c[percentile_labels[agg_label]]).label(agg_label)
+        return _get_aggregation_expression(agg, db_type, subquery.c["_agg_value"]).label(agg_label)
+
+    select_columns = [subquery.c[col.name].label(col.name) for col in dimension_columns]
+    select_columns.extend(_outer_agg_column(agg) for agg in aggregations)
+
+    # Use ORM query with select_from to query from subquery
+    outer_query = query.session.query(*select_columns).select_from(subquery)
+
+    if dimension_columns:
+        group_by_cols = [subquery.c[col.name] for col in dimension_columns]
+        outer_query = outer_query.group_by(*group_by_cols).order_by(*group_by_cols)
+
+    return outer_query, select_columns
+
+
 def query_metrics(
     view_type: MetricViewType,
     db_type: str,
@@ -490,28 +593,30 @@ def query_metrics(
         query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
         dimension_columns.append(dimension_column)
 
-    # Apply metric-specific joins
+    # Apply metric-specific joins and get aggregation column
     query = _apply_metric_specific_joins(query, metric_name, view_type)
-
-    # Build aggregation expressions
     agg_column = _get_column_to_aggregate(view_type, metric_name)
-    aggregation_results = {
-        str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
-        for aggregation in aggregations
-    }
 
-    # select columns: dimensions first, then aggregations
-    select_columns = dimension_columns.copy()
-    for agg_label, agg_func in aggregation_results.items():
-        select_columns.append(agg_func.label(agg_label))
-    query = query.with_entities(*select_columns)
+    # MSSQL with percentile needs special handling (window function requires subquery)
+    if db_type == "mssql" and _has_percentile_aggregation(aggregations):
+        query, select_columns = _build_mssql_query_with_percentiles(
+            query, aggregations, dimension_columns, agg_column
+        )
+    else:
+        # Standard path for PostgreSQL, SQLite, MySQL
+        select_columns = list(dimension_columns)
+        for agg in aggregations:
+            expr = _get_aggregation_expression(agg, db_type, agg_column)
+            select_columns.append(expr.label(str(agg)))
 
-    # Extract underlying column expressions from labeled columns for GROUP BY/ORDER BY
-    if dimension_columns:
-        group_by_columns = [col.element for col in dimension_columns]
-        query = query.group_by(*group_by_columns)
-        # order by time bucket first, then by other dimensions
-        query = query.order_by(*group_by_columns)
+        query = query.with_entities(*select_columns)
+
+        # Extract underlying column expressions from labeled columns for GROUP BY/ORDER BY
+        if dimension_columns:
+            group_by_columns = [col.element for col in dimension_columns]
+            query = query.group_by(*group_by_columns)
+            # order by time bucket first, then by other dimensions
+            query = query.order_by(*group_by_columns)
 
     results = query.limit(max_results).all()
 
