@@ -86,7 +86,7 @@ jobs:
       - name: Check whitespace-only changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run --no-project dev/check_whitespace_only.py \
             --repo ${{ github.repository }} \
