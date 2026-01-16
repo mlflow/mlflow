@@ -182,6 +182,8 @@ def _invoke_model_without_tracing(
         if inference_params:
             kwargs.update(inference_params)
 
+        # Drop unsupported params (e.g., temperature=0 for gpt-5)
+        litellm.drop_params = True
         response = litellm.completion(**kwargs)
         return response.choices[0].message.content
 
