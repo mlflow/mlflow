@@ -38,9 +38,9 @@ module.exports = async () => {
       env: {
         ...process.env,
         // Disable job execution to avoid timing issues in tests
-        MLFLOW_SERVER_ENABLE_JOB_EXECUTION: 'false'
-      }
-    }
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION: 'false',
+      },
+    },
   );
 
   try {
