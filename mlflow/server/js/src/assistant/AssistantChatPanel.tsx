@@ -282,147 +282,83 @@ const StatusIndicator = () => {
   );
 };
 
-/**
- * Format tool input arguments for display with truncation.
- */
-const formatToolInput = (input?: Record<string, any>, maxLength: number = 80): string => {
+const formatToolInput = (input?: Record<string, any>, maxLength = 80): string => {
   if (!input) return '';
 
-  // Create a simplified display of the input arguments
-  const entries = Object.entries(input)
-    .filter(([key]) => key !== 'description') // Exclude description since we show it separately
-    .map(([key, value]) => {
-      if (typeof value === 'string') {
-        return `${key}="${value}"`;
-      }
-      return `${key}=${JSON.stringify(value)}`;
-    });
+  const fullText = Object.entries(input)
+    .filter(([key]) => key !== 'description')
+    .map(([key, value]) => (typeof value === 'string' ? `${key}="${value}"` : `${key}=${JSON.stringify(value)}`))
+    .join(', ');
 
-  if (entries.length === 0) return '';
-
-  const fullText = entries.join(', ');
-  if (fullText.length <= maxLength) {
-    return fullText;
-  }
-
+  if (!fullText || fullText.length <= maxLength) return fullText;
   return fullText.substring(0, maxLength - 3) + '...';
 };
 
-/**
- * Tool usage message showing active tools inline in chat history.
- */
 const ToolUsageMessage = ({ tools }: { tools: ToolUseInfo[] }) => {
   const { theme } = useDesignSystemTheme();
   const [expandedToolId, setExpandedToolId] = useState<string | null>(null);
 
   return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        marginBottom: 0,
-      }}
-    >
-      <div
-        css={{
-          maxWidth: '100%',
-          padding: `${theme.spacing.md}px ${theme.spacing.md}px 0px ${theme.spacing.md}px`,
-          color: theme.colors.textSecondary,
-        }}
-      >
-        {tools.map((tool) => {
-          const inputStr = formatToolInput(tool.input);
-          const isExpanded = expandedToolId === tool.id;
-          const displayText = tool.description || `Running tool ${tool.name}`;
+    <div css={{ padding: `${theme.spacing.md}px ${theme.spacing.md}px 0`, color: theme.colors.textSecondary }}>
+      {tools.map((tool) => {
+        const isExpanded = expandedToolId === tool.id;
+        const inputStr = formatToolInput(tool.input);
 
-          return (
+        return (
+          <div
+            key={tool.id}
+            css={{
+              marginBottom: theme.spacing.sm,
+              animation: 'blink 1.5s ease-in-out infinite',
+              '@keyframes blink': BLINK_ANIMATION,
+            }}
+          >
+            {/* Header row */}
             <div
-              key={tool.id}
               css={{
-                marginBottom: theme.spacing.sm,
-                animation: 'blink 1.5s ease-in-out infinite',
-                '@keyframes blink': BLINK_ANIMATION,
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.sm,
+                fontSize: theme.typography.fontSizeBase,
               }}
             >
-              {/* First line: description with expand icon */}
-              <div
+              <span
+                onClick={() => setExpandedToolId(isExpanded ? null : tool.id)}
+                css={{ cursor: 'pointer', padding: theme.spacing.xs, '&:hover': { opacity: 0.7 } }}
+              >
+                {isExpanded ? '▼' : '▶'}
+              </span>
+              <FunctionIcon css={{ fontSize: 18 }} />
+              <span
                 css={{
-                  display: 'grid',
-                  gridTemplateColumns: 'auto auto 1fr',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  fontSize: theme.typography.fontSizeBase,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  '&::after': {
+                    content: '"..."',
+                    animation: 'dots 1.5s steps(3, end) infinite',
+                    width: '1.2em',
+                    display: 'inline-block',
+                  },
+                  '@keyframes dots': DOTS_ANIMATION,
                 }}
               >
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedToolId(isExpanded ? null : tool.id);
-                  }}
-                  css={{
-                    cursor: 'pointer',
-                    padding: theme.spacing.xs,
-                    display: 'flex',
-                    alignItems: 'center',
-                    '&:hover': {
-                      opacity: 0.7,
-                    },
-                  }}
-                >
-                  {isExpanded ? '▼' : '▶'}
-                </span>
-                <FunctionIcon
-                  css={{
-                    fontSize: 18,
-                  }}
-                />
-                <span
-                  css={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    '&::after': {
-                      content: '"..."',
-                      animation: 'dots 1.5s steps(3, end) infinite',
-                      display: 'inline-block',
-                      width: '1.2em',
-                    },
-                    '@keyframes dots': DOTS_ANIMATION,
-                  }}
-                >
-                  {displayText}
-                </span>
-              </div>
-
-              {/* Second line: tool name and inputs (when expanded) */}
-              {isExpanded && (
-                <div
-                  css={{
-                    marginTop: theme.spacing.xs,
-                    fontSize: theme.typography.fontSizeSm,
-                    color: theme.colors.textSecondary,
-                    opacity: 0.8,
-                  }}
-                >
-                  <Typography.Text
-                    code
-                    css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm }}
-                  >
-                    {tool.name}
-                  </Typography.Text>
-                  {inputStr && (
-                    <>
-                      {' '}
-                      <span css={{ fontStyle: 'italic' }}>({inputStr})</span>
-                    </>
-                  )}
-                </div>
-              )}
+                {tool.description || `Running tool ${tool.name}`}
+              </span>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Expanded details */}
+            {isExpanded && (
+              <div css={{ marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm, opacity: 0.8 }}>
+                <Typography.Text code css={{ color: theme.colors.textSecondary, fontSize: 'inherit' }}>
+                  {tool.name}
+                </Typography.Text>
+                {inputStr && <span css={{ fontStyle: 'italic' }}> ({inputStr})</span>}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
