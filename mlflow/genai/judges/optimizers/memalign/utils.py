@@ -105,27 +105,145 @@ def get_default_embedding_model() -> str:
     return "openai/text-embedding-3-small"
 
 
+def _find_optimal_batch_size(
+    examples_data: list[dict],
+    indices: list[int],
+    judge_instructions: str,
+    existing_guidelines: list[str],
+    reflection_lm: str,
+    distillation_lm: "dspy.LM",
+    max_input_tokens: int,
+) -> int:
+    """Find the optimal batch size for distillation based on token limits.
+
+    Starts with a maximum of 50 records and reduces the batch size using binary search until
+    the prompt fits within token limits and the LM call succeeds.
+
+    Args:
+        examples_data: List of feedback example data dicts
+        indices: List of indices corresponding to examples_data
+        judge_instructions: Original judge instructions
+        existing_guidelines: Previously distilled guidelines
+        reflection_lm: Model to use for distillation
+        distillation_lm: DSPy LM instance for distillation
+        max_input_tokens: Maximum input tokens for the model
+    
+    Returns:
+        Optimal number of records per batch that fits within token limits
+    """
+    # Reserve tokens for response and account for variance in prompt length
+    flex_tokens = 5000
+    prompt_tokens_limit = max_input_tokens - flex_tokens
+
+    template = Template(DISTILLATION_PROMPT_TEMPLATE)
+    records_per_group = min(len(examples_data), 50)
+
+    while records_per_group > 0:
+        prompt = template.render(
+            judge_instructions=judge_instructions,
+            feedback_records=examples_data[:records_per_group],
+            ids=indices[:records_per_group],
+            existing_guidelines=existing_guidelines,
+            zip=zip,
+            len=len,
+        )
+
+        if not _LITELLM_AVAILABLE:
+            # Without litellm, use naive white-space-based estimation
+            prompt_tokens_estimate = len(prompt.split())
+        else:
+            # Use litellm to estimate token count
+            prompt_tokens_estimate = token_counter(model=reflection_lm, text=prompt)
+
+        if prompt_tokens_estimate <= prompt_tokens_limit: # Found potentially acceptable batch size
+            # Do a trial LM call to verify if prompt can fit into LM context window
+            try:
+                trial_response = distillation_lm(
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format=Guidelines,
+                )[0]
+                Guidelines.model_validate_json(trial_response)
+                return records_per_group
+            except Exception:
+                _logger.debug(
+                    f"Trial LM call failed with batch size {records_per_group}, reducing"
+                )
+                records_per_group //= 2
+        else: # Prompt still too large, reduce batch size
+            records_per_group //= 2
+    return 0
+
+
+def _process_batch_response(
+    response: str,
+    index_to_trace_id: dict[int, str],
+    existing_guideline_texts: set[str],
+) -> list[Guideline]:
+    """Parse LM response and convert to Guideline objects, filtering duplicates.
+    
+    Args:
+        response: LM response in JSON format
+        index_to_trace_id: Mapping from example indices to trace IDs
+        existing_guideline_texts: Set of already existing guideline texts to avoid duplicates
+
+    Returns:
+        List of Guideline objects parsed from the response, excluding duplicates
+    """
+    response_data = json.loads(response)
+    guidelines = []
+
+    for guideline_data in response_data.get("guidelines", []):
+        # Skip empty or duplicate guidelines
+        guideline_text = guideline_data.get("guideline_text")
+        if not guideline_text or guideline_text in existing_guideline_texts:
+            continue
+        
+        # Skip guidelines without valid source trace IDs
+        source_trace_ids_raw = guideline_data.get("source_trace_ids")
+        if source_trace_ids_raw is None:
+            continue
+      
+        # Map indices back to trace IDs, ignoring invalid indices
+        trace_ids = [
+            trace_id
+            for idx in source_trace_ids_raw
+            if (
+                trace_id := index_to_trace_id.get(
+                    int(idx) if isinstance(idx, (int, str)) else idx
+                )
+            )
+            is not None
+        ]
+        # Only add guideline if there is at least one valid trace ID
+        if trace_ids:
+          guidelines.append(
+              Guideline(
+                  guideline_text=guideline_text,
+                  source_trace_ids=trace_ids,
+              )
+          )
+
+    return guidelines
+
+
 def distill_guidelines(
     examples: list["dspy.Example"],
-    signature: "dspy.Signature",
     judge_instructions: str,
     reflection_lm: str,
     existing_guidelines: list[str],
 ) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
 
+    Handles large batches by splitting them into smaller groups based on token limits.
+
     Args:
         examples: List of DSPy examples containing feedback (with _trace_id attribute)
-        signature: DSPy signature defining input/output fields
         judge_instructions: Original judge instructions
         reflection_lm: Model to use for distillation
         existing_guidelines: Previously distilled guidelines
 
     Returns:
         List of newly distilled Guideline objects (not including existing ones)
-
-    TODO: Add batching logic when number of examples exceeds threshold (e.g., 50-100)
-          to prevent context explosion during distillation.
     """
     if not examples:
         return []
@@ -138,51 +256,79 @@ def distill_guidelines(
         for i, example in enumerate(examples)
     }
 
-    template = Template(DISTILLATION_PROMPT_TEMPLATE)
-    prompt = template.render(
+    distillation_lm = construct_dspy_lm(reflection_lm)
+    max_input_tokens = _get_model_max_tokens(reflection_lm)
+
+    # Find optimal batch size based on token limits
+    records_per_group = _find_optimal_batch_size(
+        examples_data=examples_data,
+        indices=indices,
         judge_instructions=judge_instructions,
-        feedback_records=examples_data,
-        ids=indices,
         existing_guidelines=existing_guidelines,
-        # Pass zip and len as globals for Jinja2 template to iterate over examples with indices
-        zip=zip,
-        len=len,
+        reflection_lm=reflection_lm,
+        distillation_lm=distillation_lm,
+        max_input_tokens=max_input_tokens,
     )
 
-    # Truncate prompt to fit within model's token limit
-    prompt = truncate_to_token_limit(prompt, reflection_lm)
+    if records_per_group == 0:
+        _logger.warning(
+            "Not a single trace can fit in the guideline distillation prompt. "
+            "Please reduce the trace length."
+        )
+        return []
 
-    distillation_lm = construct_dspy_lm(reflection_lm)
-    response = distillation_lm(
-        messages=[{"role": "user", "content": prompt}],
-        response_format=Guidelines,
-    )[0]
+    # Distill guidelines from each batch of feedback records
+    template = Template(DISTILLATION_PROMPT_TEMPLATE)
+    all_guidelines = []
+    existing_guideline_texts = set(existing_guidelines)
 
-    # Parse JSON manually to convert integer indices to trace IDs before Pydantic validation
-    response_data = json.loads(response)
+    try:
+        from tqdm.auto import tqdm
 
-    guidelines = []
-    for guideline_data in response_data.get("guidelines", []):
-        guideline_text = guideline_data.get("guideline_text")
+        num_batches = (len(examples_data) + records_per_group - 1) // records_per_group
+        batch_iter = tqdm(
+            range(0, len(examples_data), records_per_group),
+            total=num_batches,
+            desc="Distilling guidelines",
+        )
+    except ImportError:
+        batch_iter = range(0, len(examples_data), records_per_group)
 
-        if guideline_text and guideline_text not in existing_guidelines:
-            source_trace_ids_raw = guideline_data.get("source_trace_ids")
+    for i in batch_iter:
+        batch_examples = examples_data[i : i + records_per_group]
+        batch_indices = indices[i : i + records_per_group]
 
-            if source_trace_ids_raw is not None:
-                # Convert integers (indices) to actual trace IDs
-                trace_ids = [
-                    index_to_trace_id.get(
-                        int(idx) if isinstance(idx, (int, str)) else idx, f"unknown_{idx}"
-                    )
-                    for idx in source_trace_ids_raw
-                ]
-                guidelines.append(
-                    Guideline(guideline_text=guideline_text, source_trace_ids=trace_ids)
-                )
-            else:
-                guidelines.append(Guideline(guideline_text=guideline_text, source_trace_ids=None))
+        prompt = template.render(
+            judge_instructions=judge_instructions,
+            feedback_records=batch_examples,
+            ids=batch_indices,
+            existing_guidelines=list(existing_guideline_texts),
+            zip=zip,
+            len=len,
+        )
 
-    return guidelines
+        try:
+            response = distillation_lm(
+                messages=[{"role": "user", "content": prompt}],
+                response_format=Guidelines,
+            )[0]
+
+            batch_guidelines = _process_batch_response(
+                response=response,
+                index_to_trace_id=index_to_trace_id,
+                existing_guideline_texts=existing_guideline_texts,
+            )
+
+            # Add new guidelines and update existing set to avoid duplicates across batches
+            for guideline in batch_guidelines:
+                all_guidelines.append(guideline)
+                existing_guideline_texts.add(guideline.guideline_text)
+
+        except Exception as e:
+            _logger.error(f"Failed to generate/validate distilled guidelines for batch {i}: {e}")
+            continue
+
+    return all_guidelines
 
 
 def retrieve_relevant_examples(
