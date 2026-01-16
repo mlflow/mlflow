@@ -6567,6 +6567,10 @@
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
   },
+  "oR2bdi": {
+    "defaultMessage": "Cannot add trace to multiturn dataset",
+    "description": "Error message when trying to export traces to a multiturn dataset"
+  },
   "oSSfZ6": {
     "defaultMessage": "enter model manually",
     "description": "Link text to switch to manual model input"
