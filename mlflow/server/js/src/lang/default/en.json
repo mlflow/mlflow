@@ -1330,6 +1330,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8Pb2Gx": {
+    "defaultMessage": "PASS",
+    "description": "Label for an aggregate display showing how many assessments have passed or failed"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -2333,10 +2337,6 @@
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
-  },
-  "GdJ7wg": {
-    "defaultMessage": "TRUE",
-    "description": "True label for aggregated boolean assessment in session header"
   },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
@@ -6458,10 +6458,6 @@
   "mv6CY3": {
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
-  },
-  "mvidM6": {
-    "defaultMessage": "PASS",
-    "description": "Pass label for aggregated assessment in session header"
   },
   "mz/gog": {
     "defaultMessage": "Traffic Split",
