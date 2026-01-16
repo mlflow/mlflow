@@ -500,6 +500,10 @@ class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 
 
+class TracingContextPropagation(Event):
+    name: str = "tracing_context_propagation"
+
+
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
 
