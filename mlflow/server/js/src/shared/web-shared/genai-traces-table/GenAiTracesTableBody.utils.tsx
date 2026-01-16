@@ -211,8 +211,6 @@ export const getColumnConfig = (
           };
           return (
             <AssessmentCell
-              theme={theme}
-              intl={intl}
               isComparing={isComparing}
               assessmentInfo={assessmentInfo}
               comparisonEntry={comparisonEntry}
