@@ -206,7 +206,7 @@ class MemoryAugmentedJudge(Judge):
         return self._base_judge.get_input_fields()
 
     @experimental(version="3.9.0")
-    def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
+    def unalign(self, traces: list[Trace]) -> None:
         """
         Remove specific traces from memory of the judge.
 
@@ -226,7 +226,7 @@ class MemoryAugmentedJudge(Judge):
                 feedback matching this judge's name will be removed.
 
         Returns:
-            MemoryAugmentedJudge with the specified traces removed from memory.
+            None - The judge is updated in place.
 
         Example:
             .. code-block:: python
@@ -237,7 +237,7 @@ class MemoryAugmentedJudge(Judge):
 
                 # Assuming `all_traces` contains human feedback for the judge
                 aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
-                aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
+                aligned_judge.unalign(traces=bad_traces)
                 # The judge now only retains feedback from `set(all_traces) - set(bad_traces)`
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}        
@@ -250,7 +250,7 @@ class MemoryAugmentedJudge(Judge):
         ]
         if len(examples_to_retain) == len(self._episodic_memory):
             _logger.warning("No feedback records found for the provided traces")
-            return self
+            return
 
         # Update episodic memory
         self._episodic_memory = examples_to_retain
@@ -272,9 +272,8 @@ class MemoryAugmentedJudge(Judge):
             f"Episodic memory size: {len(self._episodic_memory)} examples, "
             f"Semantic memory size: {len(self._semantic_memory)} guidelines."
         )
-        
-        return self
-
+        return
+    
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
         Distill new guidelines from newly added examples and add to semantic memory.
@@ -285,7 +284,6 @@ class MemoryAugmentedJudge(Judge):
         existing_guideline_texts = [g.guideline_text for g in self._semantic_memory]
         new_guidelines = distill_guidelines(
             examples=new_examples,
-            signature=self._base_signature,
             judge_instructions=self._base_judge.instructions,
             reflection_lm=self._reflection_lm,
             existing_guidelines=existing_guideline_texts,
