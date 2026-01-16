@@ -4,7 +4,6 @@ import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
 import { Button, MenuIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { MlflowLogo } from './MlflowLogo';
-import { AssistantButton } from '../../assistant/AssistantButton';
 
 export const MlflowHeader = ({
   isDarkTheme = false,
@@ -67,7 +66,6 @@ export const MlflowHeader = ({
       </div>
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: theme.spacing.lg, alignItems: 'center' }}>
-        <AssistantButton />
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>
