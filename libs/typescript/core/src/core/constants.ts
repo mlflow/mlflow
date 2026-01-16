@@ -16,7 +16,7 @@ export enum SpanType {
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
-  UNKNOWN = 'UNKNOWN'
+  UNKNOWN = 'UNKNOWN',
 }
 
 /**
@@ -33,7 +33,7 @@ export const SpanAttributeKey = {
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',
   // This attribute indicates which flavor/format generated the LLM span. This is
   // used by downstream (e.g., UI) to determine the message format for parsing.
-  MESSAGE_FORMAT: 'mlflow.message.format'
+  MESSAGE_FORMAT: 'mlflow.message.format',
 };
 
 /**
@@ -50,14 +50,14 @@ export const TraceMetadataKey = {
   // response_preview fields in the trace info.
   // TODO: Remove this once the new trace table UI is available that is based on MLflow V3 trace.
   INPUTS: 'mlflow.traceInputs',
-  OUTPUTS: 'mlflow.traceOutputs'
+  OUTPUTS: 'mlflow.traceOutputs',
 };
 
 /**
  * Constants for MLflow trace tag keys
  */
 export const TraceTagKey = {
-  MLFLOW_ARTIFACT_LOCATION: 'mlflow.artifactLocation'
+  MLFLOW_ARTIFACT_LOCATION: 'mlflow.artifactLocation',
 };
 
 /**
@@ -86,7 +86,7 @@ export const NO_OP_SPAN_TRACE_ID = 'no-op-span-trace-id';
 export const TokenUsageKey = {
   INPUT_TOKENS: 'input_tokens',
   OUTPUT_TOKENS: 'output_tokens',
-  TOTAL_TOKENS: 'total_tokens'
+  TOTAL_TOKENS: 'total_tokens',
 };
 
 /**

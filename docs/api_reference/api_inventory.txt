@@ -856,6 +856,8 @@ mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.GepaPromptOptimizer
 mlflow.genai.optimize.GepaPromptOptimizer.optimize
 mlflow.genai.optimize.LLMParams
+mlflow.genai.optimize.MetaPromptOptimizer
+mlflow.genai.optimize.MetaPromptOptimizer.optimize
 mlflow.genai.optimize.OptimizerConfig
 mlflow.genai.optimize.PromptOptimizationResult
 mlflow.genai.optimize.PromptOptimizerOutput
@@ -863,6 +865,7 @@ mlflow.genai.optimize.optimize_prompt
 mlflow.genai.optimize.optimize_prompts
 mlflow.genai.optimize.optimizers.base.BasePromptOptimizer
 mlflow.genai.optimize.optimizers.gepa_optimizer.GepaPromptOptimizer
+mlflow.genai.optimize.optimizers.metaprompt_optimizer.MetaPromptOptimizer
 mlflow.genai.optimize.types.LLMParams
 mlflow.genai.optimize.types.OptimizerConfig
 mlflow.genai.optimize.types.PromptOptimizationResult

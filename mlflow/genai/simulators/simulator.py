@@ -182,6 +182,8 @@ def _invoke_model_without_tracing(
         if inference_params:
             kwargs.update(inference_params)
 
+        # Drop unsupported params (e.g., temperature=0 for gpt-5)
+        litellm.drop_params = True
         response = litellm.completion(**kwargs)
         return response.choices[0].message.content
 
@@ -344,11 +346,16 @@ class ConversationSimulator:
         user_model: str | None = None,
         **user_llm_params,
     ):
-        self.test_cases = self._normalize_test_cases(test_cases)
-        self._validate_test_cases()
+        self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
         self.user_llm_params = user_llm_params
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "test_cases":
+            value = self._normalize_test_cases(value)
+            self._validate_test_cases(value)
+        super().__setattr__(name, value)
 
     def _normalize_test_cases(
         self, test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset
@@ -369,19 +376,19 @@ class ConversationSimulator:
 
         return test_cases
 
-    def _validate_test_cases(self) -> None:
-        if not self.test_cases:
+    def _validate_test_cases(self, test_cases: list[dict[str, Any]]) -> None:
+        if not test_cases:
             raise ValueError("test_cases cannot be empty")
 
         missing_goal_indices = [
-            i for i, test_case in enumerate(self.test_cases) if not test_case.get("goal")
+            i for i, test_case in enumerate(test_cases) if not test_case.get("goal")
         ]
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
 
         indices_with_extra_keys = [
             i
-            for i, test_case in enumerate(self.test_cases)
+            for i, test_case in enumerate(test_cases)
             if set(test_case.keys()) - _EXPECTED_TEST_CASE_KEYS
         ]
         if indices_with_extra_keys:
