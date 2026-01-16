@@ -1,15 +1,9 @@
 from unittest.mock import Mock, patch
 
+import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.exceptions import MlflowException
-
-# Import phoenix.evals - skip tests if not available or incompatible version
-try:
-    import phoenix.evals as phoenix_evals
-except (ImportError, SyntaxError):
-    pytest.skip("phoenix.evals not available or incompatible version", allow_module_level=True)
-
 from mlflow.genai.scorers.phoenix.models import (
     DatabricksPhoenixModel,
     create_phoenix_model,
@@ -47,9 +41,7 @@ def test_create_phoenix_model_databricks():
     assert model.get_model_name() == "databricks"
 
 
-def test_create_phoenix_model_databricks_endpoint(monkeypatch):
-    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
-    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+def test_create_phoenix_model_databricks_endpoint():
     model = create_phoenix_model("databricks:/my-endpoint")
     assert isinstance(model, phoenix_evals.LiteLLMModel)
     assert model.model == "databricks/my-endpoint"

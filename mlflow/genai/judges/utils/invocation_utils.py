@@ -226,11 +226,11 @@ def get_chat_completions_with_structured_output(
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    # TODO: The cost measurement is discarded here from the parsing of the
-    # tool handling response. We should eventually pass this cost estimation through
-    # so that the total cost of the usage of the scorer incorporates tool call usage.
-    # Deferring for initial implementation due to complexity.
-    response, _ = _invoke_litellm_and_handle_tools(
+    # TODO: The cost measurement and telemetry data are discarded here from the
+    # parsing of the tool handling response. We should eventually pass this cost
+    # estimation through so that the total cost of the usage of the scorer incorporates
+    # tool call usage. Deferring for initial implementation due to complexity.
+    response, _, _, _, _ = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,

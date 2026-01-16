@@ -443,6 +443,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
     with (
         mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.builtin.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.instructions_judge.invoke_judge_model"),
     ):
         # Test with all scorer kinds and scopes, without predict_fn
         mlflow.genai.evaluate(
@@ -1188,7 +1190,7 @@ def test_invoke_custom_judge_model(
         else:
             with mock.patch(
                 "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
-                return_value=(mock_response, 10),
+                return_value=(mock_response, 10, "req-123", 5, 3),
             ):
                 invoke_judge_model(
                     model_uri=model_uri,

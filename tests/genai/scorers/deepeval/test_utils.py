@@ -21,21 +21,19 @@ def test_create_deepeval_model_databricks():
 def test_create_deepeval_model_databricks_serving_endpoint():
     model = create_deepeval_model("databricks:/my-endpoint")
     assert model.__class__.__name__ == "LiteLLMModel"
-    assert "my-endpoint" in model.get_model_name()
+    assert model.name == "databricks/my-endpoint"
 
 
 def test_create_deepeval_model_openai():
     model = create_deepeval_model("openai:/gpt-4")
     assert model.__class__.__name__ == "LiteLLMModel"
-    # DeepEval strips the provider prefix, so we only check for the model name
-    assert "gpt-4" in model.get_model_name()
+    assert model.name == "openai/gpt-4"
 
 
 def test_create_deepeval_model_with_provider_no_slash():
     model = create_deepeval_model("openai:gpt-4")
     assert model.__class__.__name__ == "LiteLLMModel"
-    # DeepEval strips the provider prefix, so we only check for the model name
-    assert "gpt-4" in model.get_model_name()
+    assert model.name == "openai/gpt-4"
 
 
 def test_create_deepeval_model_rejects_model_name_only():
