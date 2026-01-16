@@ -47,7 +47,7 @@ _logger = logging.getLogger(__name__)
 def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],
-    train_data: "EvaluationDatasetTypes",
+    train_data: "EvaluationDatasetTypes" | None,
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
@@ -81,6 +81,8 @@ def optimize_prompts(
               Each input should contain keys matching the variables in the prompt template.
             - outputs: A column containing an output for each input
               that the predict_fn should produce.
+
+            If None, the optimization will be performed in zero-shot mode.
         prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
         optimizer: a prompt optimizer object that optimizes a set of prompts with
@@ -182,7 +184,7 @@ def optimize_prompts(
     if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
         train_data = train_data.to_df()
 
-    if len(train_data) == 0:
+    if train_data is None or len(train_data) == 0:
         # Zero-shot mode: no training data provided
         train_data_df = None
         converted_train_data = []
