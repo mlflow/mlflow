@@ -308,6 +308,7 @@ export const GenAiTracesTableBody = React.memo(
     });
 
     const virtualItems = rowVirtualizer.getVirtualItems();
+    const virtualizerTotalSize = rowVirtualizer.getTotalSize();
     const tableHeaderGroups = table.getHeaderGroups();
 
     /**
@@ -424,7 +425,7 @@ export const GenAiTracesTableBody = React.memo(
                 isComparing={isComparing}
                 enableRowSelection={enableRowSelection}
                 virtualItems={virtualItems}
-                virtualizerTotalSize={rowVirtualizer.getTotalSize()}
+                virtualizerTotalSize={virtualizerTotalSize}
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
@@ -436,7 +437,7 @@ export const GenAiTracesTableBody = React.memo(
                 isComparing={isComparing}
                 enableRowSelection={enableRowSelection}
                 virtualItems={virtualItems}
-                virtualizerTotalSize={rowVirtualizer.getTotalSize()}
+                virtualizerTotalSize={virtualizerTotalSize}
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
