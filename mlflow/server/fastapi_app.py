@@ -29,8 +29,8 @@ from mlflow.utils.workspace_context import (
 )
 from mlflow.version import VERSION
 
-# FastAPI routes that do not go through the Flask WSGI bridge (currently jobs + OTLP).
-FASTAPI_NATIVE_PREFIXES = (job_api_router.prefix, OTLP_TRACES_PATH)
+# FastAPI routes that do not go through the Flask WSGI bridge (jobs, OTLP, gateway).
+FASTAPI_NATIVE_PREFIXES = (job_api_router.prefix, OTLP_TRACES_PATH, gateway_router.prefix)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:

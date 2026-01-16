@@ -587,7 +587,7 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
             raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
         try:
             extract_db_type_from_uri(store_uri)
-        except MlflowException:
+        except (MlflowException, ValueError):
             # Require a database backend URI for the job store
             # Raise MlflowException so the CLI/REST layer returns a structured 400
             # instead of surfacing a generic 500 from ValueError

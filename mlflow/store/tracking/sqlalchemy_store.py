@@ -599,6 +599,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         return query
 
+    def _filter_endpoint_binding_query(self, session, query):
+        """
+        Hook for subclasses to add additional filters to endpoint binding queries.
+        Returns the query with any additional filters applied.
+        """
+        return query
+
     def _validate_run_accessible(self, session, run_id: str) -> None:
         """
         Hook for subclasses to validate run access. No-op by default.
@@ -1886,6 +1893,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # if the dataset already exists, use the existing dataset uuid
             existing_datasets = (
                 session.query(SqlDataset)
+                .filter(SqlDataset.experiment_id == experiment_id)
                 .filter(SqlDataset.name.in_(dataset_names_to_check))
                 .filter(SqlDataset.digest.in_(dataset_digests_to_check))
                 .all()
@@ -2596,7 +2604,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             results = (
-                session.query(SqlOnlineScoringConfig)
+                self._get_query(session, SqlOnlineScoringConfig)
                 .filter(SqlOnlineScoringConfig.scorer_id.in_(scorer_ids))
                 .all()
             )
@@ -2711,11 +2719,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Get all online configs with sample_rate > 0, joined with their latest version
             results = (
-                session.query(
-                    SqlOnlineScoringConfig,
-                    SqlScorer,
-                    SqlScorerVersion,
-                )
+                self._get_query(session, SqlOnlineScoringConfig)
                 .filter(SqlOnlineScoringConfig.sample_rate > 0)
                 .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
                 .join(
@@ -2729,6 +2733,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         SqlScorerVersion.scorer_version == max_version_subquery.c.max_version,
                     ),
                 )
+                .with_entities(SqlOnlineScoringConfig, SqlScorer, SqlScorerVersion)
                 .all()
             )
 
@@ -3070,7 +3075,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # We cannot set the tag in TraceInfo directly because this may be invoked by
                 # older mlflow clients that log spans to artifact repository.
                 db_sql_trace_info = (
-                    session.query(SqlTraceInfo)
+                    self._trace_query(session)
                     .filter(SqlTraceInfo.request_id == trace_id)
                     .one_or_none()
                 )
@@ -3297,6 +3302,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
+            try:
+                experiment_id_int = int(experiment_id)
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid "
+                    "integer.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
+            if not experiment_ids:
+                return []
+            experiment_id_int = experiment_ids[0]
+
             # Example: Given min=200, max=400
             #   Session A (traces at [100, 200, 300]): last=300, no traces >400 → INCLUDED
             #   Session B (traces at [100, 200, 500]): has trace >400 → EXCLUDED (ongoing)
@@ -3306,14 +3325,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Example: Sessions A, B pass (have traces >=200); Session C excluded
             candidate_sessions = self._build_candidate_sessions_subquery(
                 session=session,
-                experiment_id=experiment_id,
+                experiment_id=experiment_id_int,
                 min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
             )
 
             # Step 2: Optional filter on first trace (e.g., tags.myTag = "value")
             filtered_sessions = self._build_first_trace_filter_subquery(
                 session=session,
-                experiment_id=experiment_id,
+                experiment_id=experiment_id_int,
                 filter_string=filter_string,
                 candidate_sessions=candidate_sessions,
             )
@@ -3322,7 +3341,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Example: Session A → {first: 100, last: 300}, Session B → {first: 100, last: 500}
             sessions_with_stats = self._build_session_stats_subquery(
                 session=session,
-                experiment_id=experiment_id,
+                experiment_id=experiment_id_int,
                 sessions=filtered_sessions,
             )
 
@@ -3557,7 +3576,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlTraceInfo)
+            query = self._trace_query(session)
 
             # Filter by experiment IDs
             if experiment_ids:
@@ -4549,7 +4568,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         with self.ManagedSessionMaker() as session:
             sql_trace_infos = (
-                session.query(SqlTraceInfo)
+                self._trace_query(session)
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
                 .all()
@@ -5647,9 +5666,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             resource_type: Type of resource (e.g., "scorer", "experiment").
             resource_id: ID of the resource being deleted.
         """
-        session.query(SqlGatewayEndpointBinding).filter_by(
-            resource_type=resource_type, resource_id=resource_id
-        ).delete()
+        self._filter_endpoint_binding_query(
+            session,
+            session.query(SqlGatewayEndpointBinding).filter_by(
+                resource_type=resource_type, resource_id=resource_id
+            ),
+        ).delete(synchronize_session=False)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

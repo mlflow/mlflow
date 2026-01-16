@@ -211,7 +211,9 @@ def test_server_initializes_backend_store_when_tracking_enabled():
         ):
             result = runner.invoke(server)
     assert result.exit_code == 0
-    init_backend_mock.assert_called_once_with(mock.ANY, mock.ANY, mock.ANY)
+    init_backend_mock.assert_called_once_with(
+        mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None
+    )
     run_server_mock.assert_called_once()
 
 

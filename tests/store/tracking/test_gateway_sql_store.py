@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 import pytest
@@ -26,18 +27,24 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
+    SqlExperimentTag,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
     SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlOnlineScoringConfig,
+    SqlScorer,
+    SqlScorerVersion,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -62,8 +69,17 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
             SqlGatewaySecret,
+            SqlOnlineScoringConfig,
+            SqlScorerVersion,
+            SqlScorer,
+            SqlExperimentTag,
+            SqlExperiment,
         ):
             session.query(model).delete()
+
+        # Ensure the default experiment exists in the default workspace (ID 0).
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            store._create_default_experiment(session)
 
 
 @pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
@@ -71,7 +87,9 @@ def workspaces_enabled(request, monkeypatch):
     enabled = request.param
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
     if enabled:
-        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        # Use a unique workspace per test to avoid name collisions on shared DBs.
+        workspace_name = f"gateway-test-{uuid.uuid4().hex}"
+        with WorkspaceContext(workspace_name):
             yield enabled
     else:
         yield enabled
@@ -81,13 +99,15 @@ def workspaces_enabled(request, monkeypatch):
 def store(tmp_path: Path, db_uri: str, workspaces_enabled):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        s = store_cls(db_uri_env, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
     else:
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        s = store_cls(db_uri, artifact_uri.as_uri())
         yield s
+        _cleanup_database(s)
 
 
 # =============================================================================
@@ -1635,7 +1655,7 @@ def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoi
 
 
 def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("scorer-endpoint-test")
+    experiment_id = store.create_experiment(f"scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "test-endpoint")
 
     serialized_scorer = json.dumps(
@@ -1656,7 +1676,7 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
 
 
 def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("scorer-nonexistent-endpoint-test")
+    experiment_id = store.create_experiment(f"scorer-nonexistent-endpoint-test-{uuid.uuid4().hex}")
 
     serialized_scorer = json.dumps(
         {
@@ -1672,7 +1692,7 @@ def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore
 
 
 def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("get-scorer-endpoint-test")
+    experiment_id = store.create_experiment(f"get-scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
 
     serialized_scorer = json.dumps(
@@ -1694,7 +1714,7 @@ def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
 
 
 def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("deleted-endpoint-scorer-test")
+    experiment_id = store.create_experiment(f"deleted-endpoint-scorer-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
 
     serialized_scorer = json.dumps(
@@ -1718,7 +1738,7 @@ def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemySt
 
 
 def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("list-scorers-endpoint-test")
+    experiment_id = store.create_experiment(f"list-scorers-endpoint-test-{uuid.uuid4().hex}")
     endpoint1 = _create_gateway_endpoint(store, "list-endpoint-1")
     endpoint2 = _create_gateway_endpoint(store, "list-endpoint-2")
 

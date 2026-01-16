@@ -93,6 +93,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -136,7 +138,7 @@ from mlflow.utils.validation import (
     MAX_INPUT_TAG_VALUE_SIZE,
     MAX_TAG_VAL_LENGTH,
 )
-from mlflow.utils.workspace_context import WorkspaceContext, set_workspace
+from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
@@ -402,6 +404,9 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlEntityAssociation,
             SqlEvaluationDataset,
             SqlExperimentTag,
+            SqlOnlineScoringConfig,
+            SqlScorerVersion,
+            SqlScorer,
             SqlExperiment,
         ):
             session.query(model).delete()
@@ -449,7 +454,7 @@ def _run_factory(store: SqlAlchemyStore, config=None):
 
 
 def _clear_in_memory_engine():
-    engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop("sqlite:///:memory:", None)
+    engine = SqlAlchemyStore._engine_map.pop("sqlite:///:memory:", None)
     if engine is not None:
         engine.dispose()
 
@@ -570,8 +575,6 @@ def test_single_tenant_store_detects_workspace_scoped_experiments(tmp_path, work
 
 
 def test_artifact_path_segments_for_local():
-    import mlflow.store.tracking.sqlalchemy_store as sa_store
-
     if is_windows():
         uri = "file:///C:/mlruns/workspaces/default"
         native_path = r"C:\mlruns\workspaces\default"
@@ -581,10 +584,10 @@ def test_artifact_path_segments_for_local():
         native_path = "/mlruns/workspaces/default"
         expected = ["mlruns", "workspaces", "default"]
 
-    segments = sa_store.SqlAlchemyStore._artifact_path_segments(uri)
+    segments = SqlAlchemyStore._artifact_path_segments(uri)
     assert segments == expected
 
-    segments_native = sa_store.SqlAlchemyStore._artifact_path_segments(native_path)
+    segments_native = SqlAlchemyStore._artifact_path_segments(native_path)
     assert segments_native == expected
 
 
@@ -12514,9 +12517,6 @@ def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_concurrent_log_spans")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
-    # Simulate client-side workspace selection and ensure it propagates to worker threads.
-    set_workspace(DEFAULT_WORKSPACE_NAME)
-
     def log_span_worker(span_id):
         span = create_test_span(
             trace_id=trace_id,
@@ -12531,27 +12531,29 @@ def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
         store.log_spans(experiment_id, [span])
         return span_id
 
-    # Launch multiple concurrent log_spans calls
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
+    # Simulate client-side workspace selection and ensure it propagates to worker threads.
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        # Launch multiple concurrent log_spans calls
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
 
-        # Wait for all to complete
-        results = [future.result() for future in futures]
+            # Wait for all to complete
+            results = [future.result() for future in futures]
 
-    # All workers should complete successfully
-    assert len(results) == 5
-    assert set(results) == {111, 112, 113, 114, 115}
+        # All workers should complete successfully
+        assert len(results) == 5
+        assert set(results) == {111, 112, 113, 114, 115}
 
-    # Verify the SPANS_LOCATION tag was created correctly
-    trace_info = store.get_trace_info(trace_id)
-    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+        # Verify the SPANS_LOCATION tag was created correctly
+        trace_info = store.get_trace_info(trace_id)
+        assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
-    # Verify all spans were logged
-    trace = store.get_trace(trace_id)
-    assert len(trace.data.spans) == 5
-    span_names = {span.name for span in trace.data.spans}
-    expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
-    assert span_names == expected_names
+        # Verify all spans were logged
+        trace = store.get_trace(trace_id)
+        assert len(trace.data.spans) == 5
+        span_names = {span.name for span in trace.data.spans}
+        expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
+        assert span_names == expected_names
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])

@@ -1,4 +1,5 @@
 from mlflow.exceptions import MlflowException
+from mlflow.server.auth.permissions import get_permission
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
@@ -358,7 +359,7 @@ class GatewayModelDefinitionPermission:
 
 class WorkspacePermission:
     def __init__(self, workspace, user_id, permission):
-        if not all([workspace, user_id, permission]):
+        if workspace is None or user_id is None or permission is None:
             raise MlflowException.invalid_parameter_value(
                 "workspace, user_id, and permission are required."
             )
@@ -378,11 +379,16 @@ class WorkspacePermission:
     def permission(self):
         return self._permission
 
+    @property
+    def can_use(self):
+        return get_permission(self.permission).can_use
+
     def to_json(self):
         return {
             "workspace": self.workspace,
             "user_id": self.user_id,
             "permission": self.permission,
+            "can_use": self.can_use,
         }
 
     @classmethod

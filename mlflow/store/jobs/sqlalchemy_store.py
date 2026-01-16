@@ -380,7 +380,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         ]
 
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlJob).filter(SqlJob.status.in_(finalized_statuses))
+            query = self._get_query(session, SqlJob).filter(SqlJob.status.in_(finalized_statuses))
 
             if job_ids:
                 query = query.filter(SqlJob.id.in_(job_ids))
@@ -391,7 +391,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             ids_to_delete = [job.id for job in query.all()]
 
             if ids_to_delete:
-                session.query(SqlJob).filter(SqlJob.id.in_(ids_to_delete)).delete(
+                self._get_query(session, SqlJob).filter(SqlJob.id.in_(ids_to_delete)).delete(
                     synchronize_session=False
                 )
 
