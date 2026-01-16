@@ -1,6 +1,9 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+
+_logger = logging.getLogger(__name__)
 
 DEMO_EXPERIMENT_NAME = "MLflow Demo"
 DEMO_PROMPT_PREFIX = "mlflow-demo"
@@ -112,16 +115,18 @@ class BaseDemoGenerator(ABC):
             version_tag = experiment.tags.get(f"mlflow.demo.version.{self.name}")
             return int(version_tag) if version_tag else None
         except Exception:
+            _logger.debug("Failed to get stored version for %s", self.name, exc_info=True)
             return None
 
     def store_version(self) -> None:
         """Store the current version in experiment tags. Called after successful generation."""
+        from mlflow.entities import ExperimentTag
         from mlflow.tracking._tracking_service.utils import _get_store
 
         store = _get_store()
         if experiment := store.get_experiment_by_name(DEMO_EXPERIMENT_NAME):
-            store.set_experiment_tag(
-                experiment.experiment_id,
-                f"mlflow.demo.version.{self.name}",
-                str(self.version),
+            tag = ExperimentTag(
+                key=f"mlflow.demo.version.{self.name}",
+                value=str(self.version),
             )
+            store.set_experiment_tag(experiment.experiment_id, tag)

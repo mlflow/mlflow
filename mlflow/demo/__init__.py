@@ -1,5 +1,6 @@
 import logging
 
+import mlflow.demo.generators  # noqa: F401
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX, BaseDemoGenerator, DemoResult
 from mlflow.demo.registry import demo_registry
 

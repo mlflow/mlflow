@@ -78,39 +78,24 @@ Bump the version when making changes to demo data that require regeneration:
 
 ## Creating a New Generator
 
-Create a new file in `mlflow/demo/generators/` that inherits from `BaseDemoGenerator`:
+See `mlflow/demo/generators/traces.py` for a complete example. The key components are:
 
 ```python
-from mlflow.demo.base import (
-    BaseDemoGenerator,
-    DemoFeature,
-    DemoResult,
-    DEMO_EXPERIMENT_NAME,
-)
+from mlflow.demo.base import BaseDemoGenerator, DemoFeature, DemoResult
 
+# Each generator must:
+# 1. Inherit from BaseDemoGenerator
+# 2. Define a unique `name` using DemoFeature enum
+# 3. Implement `generate()` to create demo data
+# 4. Implement `_data_exists()` to check if data exists
+# 5. Optionally implement `delete_demo()` for cleanup
 
-class MyFeatureDemoGenerator(BaseDemoGenerator):
-    name = DemoFeature.TRACES
-    version = 1  # Bump when demo format changes
-
-    def generate(self) -> DemoResult:
-        # Create demo data using MLflow APIs
-        return DemoResult(
-            feature=self.name,
-            entity_ids=["trace-id-1", "trace-id-2"],
-            navigation_url="/path/to/view",
-        )
-
-    def _data_exists(self) -> bool:
-        # Check if demo data already exists
-        return False
-
-    def delete_demo(self) -> None:
-        # Cleanup for version upgrades
-        pass
+generator = TracesDemoGenerator()
+generator.name  # DemoFeature.TRACES
+generator.version  # 1
 ```
 
-Register new generators in `mlflow/demo/generators/__init__.py`.
+Register new generators in `mlflow/demo/generators/__init__.py`. See that file for the registration pattern.
 
 ## Naming Conventions
 
