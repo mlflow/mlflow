@@ -29,6 +29,7 @@ import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
+import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 
 type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
@@ -170,12 +171,7 @@ const ChatMessageBubble = ({
  */
 const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void }) => {
   const { theme } = useDesignSystemTheme();
-
-  const suggestions = [
-    'What does this trace show?',
-    'Debug the error in this trace.',
-    'What is the performance bottleneck in this trace?',
-  ];
+  const suggestions = useAssistantPrompts();
 
   return (
     <div

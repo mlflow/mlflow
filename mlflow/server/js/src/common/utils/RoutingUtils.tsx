@@ -96,6 +96,18 @@ export interface DocumentTitleHandle {
   getPageTitle: (params: Params<string>) => string;
 }
 
+/**
+ * Handle for route definitions that provides context-aware assistant prompts.
+ */
+export interface AssistantPromptsHandle {
+  getAssistantPrompts?: () => string[];
+}
+
+/**
+ * Combined route handle interface for routes that support both page titles and assistant prompts.
+ */
+export type RouteHandle = DocumentTitleHandle & AssistantPromptsHandle;
+
 export const usePageTitle = () => {
   const matches = useMatches();
   if (matches.length === 0) {
@@ -107,6 +119,30 @@ export const usePageTitle = () => {
   const title = handle?.getPageTitle(lastMatch.params);
 
   return title;
+};
+
+const DEFAULT_ASSISTANT_PROMPTS = [
+  'What can you help me with?',
+  'How do I get started with MLflow?',
+  'Explain how experiment tracking works.',
+];
+
+/**
+ * Hook to get context-aware assistant prompts based on the current route.
+ * Falls back to default prompts if the route doesn't define any.
+ */
+export const useAssistantPrompts = (): string[] => {
+  const matches = useMatches();
+
+  // Find the most specific route that defines assistant prompts (search from end)
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const handle = matches[i].handle as AssistantPromptsHandle | undefined;
+    if (handle?.getAssistantPrompts) {
+      return handle.getAssistantPrompts();
+    }
+  }
+
+  return DEFAULT_ASSISTANT_PROMPTS;
 };
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };
