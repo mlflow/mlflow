@@ -76,6 +76,26 @@ export type LLMTemplate =
   | 'UserFrustration'
   | 'ConversationalGuidelines';
 
+// Primitive types that can be used as dict values or list elements
+export type JudgePrimitiveOutputType = 'bool' | 'int' | 'float' | 'str';
+
+// Output type for LLM judges - maps to feedback_value_type in Python SDK
+// Primitive types: bool, int, float, str
+// Complex types: categorical (Literal), dict, list
+// 'default' means no explicit type - let the judge determine automatically
+export type JudgeOutputTypeKind = 'default' | JudgePrimitiveOutputType | 'categorical' | 'dict' | 'list';
+
+// Full output type specification
+export interface JudgeOutputTypeSpec {
+  kind: JudgeOutputTypeKind;
+  // For categorical (Literal) type - the list of allowed values
+  categoricalOptions?: string[];
+  // For dict type - the value type (keys are always strings)
+  dictValueType?: JudgePrimitiveOutputType;
+  // For list type - the element type
+  listElementType?: JudgePrimitiveOutputType;
+}
+
 export interface LLMScorer extends ScheduledScorerBase {
   type: 'llm';
   llmTemplate?: LLMTemplate;
@@ -85,6 +105,7 @@ export interface LLMScorer extends ScheduledScorerBase {
   // True if the scorer is an instructions-based LLM scorer that uses instructions_judge_pydantic_data
   // rather than builtin_scorer_pydantic_data.
   is_instructions_judge?: boolean;
+  outputType?: JudgeOutputTypeSpec;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {

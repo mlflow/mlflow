@@ -10,8 +10,9 @@ import {
   WarningIcon,
   Button,
   RefreshIcon,
+  ToggleButton,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
@@ -26,7 +27,7 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from './types';
-import { shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 interface CountInfo {
@@ -82,6 +83,10 @@ interface GenAITracesTableToolbarProps {
 
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
+
+  // Session grouping
+  isGroupedBySession?: boolean;
+  onToggleSessionGrouping?: () => void;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
@@ -110,6 +115,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       onRefresh,
       isRefreshing,
       addons,
+      isGroupedBySession,
+      onToggleSessionGrouping,
     } = props;
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -173,6 +180,30 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
               traceInfos={traceInfos}
               // prettier-ignore
             />
+          )}
+          {shouldEnableSessionGrouping() && onToggleSessionGrouping && (
+            <Tooltip
+              componentId="mlflow.traces-table.group-by-session-button.tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Toggle session grouping',
+                description: 'Tooltip for the group by session button in the traces table toolbar',
+              })}
+            >
+              <ToggleButton
+                componentId="mlflow.traces-table.group-by-session-button"
+                onPressedChange={onToggleSessionGrouping}
+                pressed={isGroupedBySession}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Toggle session grouping',
+                  description: 'Aria label for the group by session button in the traces table toolbar',
+                })}
+              >
+                <FormattedMessage
+                  defaultMessage="Group by session"
+                  description="Label for the group by session button in the traces table toolbar"
+                />
+              </ToggleButton>
+            </Tooltip>
           )}
           {onRefresh && (
             <Tooltip

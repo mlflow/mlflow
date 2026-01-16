@@ -57,6 +57,11 @@ interface GenAITracesTableBodyContainerProps {
    * Whether to display a loading overlay over the table
    */
   displayLoadingOverlay?: boolean;
+
+  /**
+   * Whether to group traces by session
+   */
+  isGroupedBySession: boolean;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -81,6 +86,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       getRunColor,
       enableRowSelection = true,
       displayLoadingOverlay = false,
+      isGroupedBySession,
     } = props;
     const { theme } = useDesignSystemTheme();
 

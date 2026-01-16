@@ -31,7 +31,7 @@ window.translations = {
   kind_1048576: 'Set Signature',
   kind_2097152: 'Type Alias',
   kind_4194304: 'Reference',
-  kind_8388608: 'Document'
+  kind_8388608: 'Document',
 };
 ('use strict');
 (() => {
@@ -125,7 +125,7 @@ window.translations = {
           },
           contains: function () {
             return !0;
-          }
+          },
         }),
         (t.Set.empty = {
           intersect: function () {
@@ -136,7 +136,7 @@ window.translations = {
           },
           contains: function () {
             return !1;
-          }
+          },
         }),
         (t.Set.prototype.contains = function (e) {
           return !!this.elements[e];
@@ -224,7 +224,7 @@ window.translations = {
             t.utils.warn(
               `Function is not registered with pipeline. This may cause problems when serialising the index.
 `,
-              e
+              e,
             );
         }),
         (t.Pipeline.load = function (e) {
@@ -384,7 +384,7 @@ window.translations = {
             aliti: 'al',
             iviti: 'ive',
             biliti: 'ble',
-            logi: 'log'
+            logi: 'log',
           },
           n = { icate: 'ic', ative: '', alize: 'al', iciti: 'ic', ical: 'ic', ful: '', ness: '' },
           r = '[^aeiou]',
@@ -613,7 +613,7 @@ window.translations = {
           'would',
           'yet',
           'you',
-          'your'
+          'your',
         ])),
         t.Pipeline.registerFunction(t.stopWordFilter, 'stopWordFilter'));
       ((t.trimmer = function (e) {
@@ -663,7 +663,7 @@ window.translations = {
                   i.push({
                     node: s.node,
                     editsRemaining: s.editsRemaining - 1,
-                    str: s.str.slice(1)
+                    str: s.str.slice(1),
                   }),
                 s.str.length == 1 && (s.node.final = !0),
                 s.str.length >= 1)
@@ -687,7 +687,7 @@ window.translations = {
                   i.push({
                     node: p,
                     editsRemaining: s.editsRemaining - 1,
-                    str: d + s.str.slice(2)
+                    str: d + s.str.slice(2),
                   }));
               }
             }
@@ -939,7 +939,7 @@ window.translations = {
             fields: this.fields,
             fieldVectors: n,
             invertedIndex: e,
-            pipeline: this.pipeline.toJSON()
+            pipeline: this.pipeline.toJSON(),
           };
         }),
         (t.Index.load = function (e) {
@@ -956,7 +956,7 @@ window.translations = {
                 t.version +
                 "' does not match serialized index '" +
                 e.version +
-                "'"
+                "'",
             );
           for (var l = 0; l < i.length; l++) {
             var d = i[l],
@@ -1118,7 +1118,7 @@ window.translations = {
               fieldVectors: this.fieldVectors,
               tokenSet: this.tokenSet,
               fields: Object.keys(this._fields),
-              pipeline: this.searchPipeline
+              pipeline: this.searchPipeline,
             })
           );
         }),
@@ -1242,7 +1242,7 @@ window.translations = {
             type: e,
             str: this.sliceString(),
             start: this.start,
-            end: this.pos
+            end: this.pos,
           }),
             (this.start = this.pos));
         }),
@@ -1528,7 +1528,7 @@ window.translations = {
       getItem() {
         return null;
       },
-      setItem() {}
+      setItem() {},
     },
     K;
   try {
@@ -1547,7 +1547,7 @@ window.translations = {
     },
     enable() {
       M = K;
-    }
+    },
   };
   window.TypeDoc ||= {
     disableWritingLocalStorage() {
@@ -1558,7 +1558,7 @@ window.translations = {
     },
     enableLocalStorage: () => {
       S.enable();
-    }
+    },
   };
   window.translations ||= {
     copy: 'Copy',
@@ -1592,7 +1592,7 @@ window.translations = {
     kind_1048576: 'Set Signature',
     kind_2097152: 'Type Alias',
     kind_4194304: 'Reference',
-    kind_8388608: 'Document'
+    kind_8388608: 'Document',
   };
   var pe = [];
   function X(t, e) {
@@ -1651,7 +1651,7 @@ window.translations = {
         document.querySelectorAll('.tsd-index-section').forEach((r) => {
           r.style.display = 'block';
           let i = Array.from(r.querySelectorAll('.tsd-index-link')).every(
-            (s) => s.offsetParent == null
+            (s) => s.offsetParent == null,
           );
           r.style.display = i ? 'none' : 'block';
         }),
@@ -1745,7 +1745,7 @@ window.translations = {
           (n) => {
             t.open && !t.contains(n.target) && ve(t);
           },
-          !0
+          !0,
         ));
   }
   function Ee(t) {
@@ -1838,7 +1838,7 @@ window.translations = {
         'input',
         fe(() => {
           at(r, n, s, e);
-        }, 200)
+        }, 200),
       ),
       n.addEventListener('keydown', (l) => {
         if (r.childElementCount === 0 || l.ctrlKey || l.metaKey || l.altKey) return;
@@ -1905,7 +1905,7 @@ window.translations = {
     if (s.length === 0 && i) {
       let a = window.translations.search_no_results_found_for_0.replace(
         '{0}',
-        ` "<strong>${te(i)}</strong>" `
+        ` "<strong>${te(i)}</strong>" `,
       );
       Pe(n, a);
       return;

@@ -206,3 +206,11 @@ repos:
         entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
         stages: [pre-commit]
+
+      - id: js-fmt
+        name: js-fmt
+        entry: dev/js.sh fmt
+        language: system
+        files: ^mlflow/server/js/
+        stages: [pre-commit]
+        require_serial: true
