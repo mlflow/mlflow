@@ -20,7 +20,7 @@ export const OTelIntegrationCard: React.FC<OTelIntegrationCardProps> = ({ name, 
   >
     <img src={useBaseUrl(logoPath)} alt={`${name} Logo`} style={{ height: '36px' }} />
     <div>
-      <h4>Integration via OpenTelemetry</h4>
+      <h4 style={{ margin: 0, marginBottom: '0.5rem' }}>Integration via OpenTelemetry</h4>
       <p style={{ margin: 0 }}>
         {name} can be integrated with MLflow via OpenTelemetry. Configure {name}'s OpenTelemetry exporter to send traces
         to MLflow's OTLP endpoint.
