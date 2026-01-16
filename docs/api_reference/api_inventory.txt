@@ -1560,6 +1560,8 @@ mlflow.trace
 mlflow.tracing.configure
 mlflow.tracing.disable
 mlflow.tracing.disable_notebook_display
+mlflow.tracing.distributed.get_tracing_context_headers_for_http_request
+mlflow.tracing.distributed.set_tracing_context_from_http_request_headers
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
 mlflow.tracing.reset
