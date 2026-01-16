@@ -682,10 +682,6 @@
     "defaultMessage": "Traffic split percentages must total 100%",
     "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
   },
-  "3Z6K+n": {
-    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace.",
-    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example."
-  },
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
@@ -2538,6 +2534,10 @@
     "defaultMessage": "Tokens per Trace",
     "description": "Title for the token stats chart"
   },
+  "ImBtKi": {
+    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
+    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -4167,10 +4167,6 @@
   "WM5IeI": {
     "defaultMessage": "Use \"Create prompt\" button in order to create a new prompt",
     "description": "Guidelines for the user on how to create a new prompt in the prompts list page"
-  },
-  "WNz02j": {
-    "defaultMessage": "For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing.",
-    "description": "Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
   },
   "WP1pyQ": {
     "defaultMessage": "Created by",
