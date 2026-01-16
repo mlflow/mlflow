@@ -599,6 +599,25 @@ class SimulateConversationEvent(Event):
         }
 
 
+class OptimizePromptsJobEvent(Event):
+    name: str = "optimize_prompts_job"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        if optimizer_type := arguments.get("optimizer_type"):
+            result["optimizer_type"] = optimizer_type
+
+        if "scorer_names" in arguments:
+            scorer_names = arguments["scorer_names"]
+            # `scorer_count` is useful for indicating zero-shot vs few-shot optimization, and to
+            # track the pattern of how users use prompt optimization.
+            result["scorer_count"] = len(scorer_names)
+
+        return result or None
+
+
 class ScorerCallEvent(Event):
     name: str = "scorer_call"
 
