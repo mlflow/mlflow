@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
 
@@ -30,6 +31,18 @@ class OptimizerType(str, Enum):
 
     GEPA = "gepa"
     METAPROMPT = "metaprompt"
+
+
+@dataclass
+class PromptOptimizationJobResult:
+    run_id: str
+    source_prompt_uri: str
+    optimized_prompt_uri: str | None
+    optimizer_name: str
+    initial_eval_score: float | None
+    final_eval_score: float | None
+    dataset_id: str
+    scorer_names: list[str]
 
 
 def _create_optimizer(
@@ -188,7 +201,7 @@ def optimize_prompts_job(
     optimizer_type: str,
     optimizer_config: dict[str, Any] | None,
     scorer_names: list[str],
-) -> dict[str, Any]:
+) -> PromptOptimizationJobResult:
     """
     Job function for async single-prompt optimization.
 
@@ -215,7 +228,7 @@ def optimize_prompts_job(
             and pass the registered scorer name here.
 
     Returns:
-        Dict containing optimization results and metadata.
+        PromptOptimizationJobResult containing optimization results and metadata.
     """
     set_experiment(experiment_id=experiment_id)
 
@@ -239,15 +252,13 @@ def optimize_prompts_job(
             enable_tracking=True,
         )
 
-    return {
-        "run_id": run_id,
-        "source_prompt_uri": prompt_uri,
-        "optimized_prompt_uri": result.optimized_prompts[0].uri
-        if result.optimized_prompts
-        else None,
-        "optimizer_name": result.optimizer_name,
-        "initial_eval_score": result.initial_eval_score,
-        "final_eval_score": result.final_eval_score,
-        "dataset_id": dataset_id,
-        "scorer_names": scorer_names,
-    }
+    return PromptOptimizationJobResult(
+        run_id=run_id,
+        source_prompt_uri=prompt_uri,
+        optimized_prompt_uri=result.optimized_prompts[0].uri if result.optimized_prompts else None,
+        optimizer_name=result.optimizer_name,
+        initial_eval_score=result.initial_eval_score,
+        final_eval_score=result.final_eval_score,
+        dataset_id=dataset_id,
+        scorer_names=scorer_names,
+    )

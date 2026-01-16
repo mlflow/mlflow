@@ -279,11 +279,11 @@ def test_optimize_prompts_job_result_structure():
         )
 
         # Verify result structure
-        assert result["run_id"] == "run-123"
-        assert result["source_prompt_uri"] == "prompts:/test/1"
-        assert result["optimized_prompt_uri"] == "prompts:/test/2"
-        assert result["optimizer_name"] == "GepaPromptOptimizer"
-        assert result["initial_eval_score"] == 0.5
-        assert result["final_eval_score"] == 0.9
-        assert result["dataset_id"] == "dataset-123"
-        assert result["scorer_names"] == ["Correctness", "Safety"]
+        assert result.run_id == "run-123"
+        assert result.source_prompt_uri == "prompts:/test/1"
+        assert result.optimized_prompt_uri == "prompts:/test/2"
+        assert result.optimizer_name == "GepaPromptOptimizer"
+        assert result.initial_eval_score == 0.5
+        assert result.final_eval_score == 0.9
+        assert result.dataset_id == "dataset-123"
+        assert result.scorer_names == ["Correctness", "Safety"]
