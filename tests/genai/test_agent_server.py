@@ -544,7 +544,7 @@ def test_chat_proxy_custom_timeout(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_forwards_unmatched_requests():
+async def test_chat_proxy_forwards_allowed_paths():
     @invoke()
     def test_invoke(request):
         return {
@@ -568,7 +568,7 @@ async def test_chat_proxy_forwards_unmatched_requests():
     mock_response.headers = {"content-type": "application/json"}
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.get("/unmatched/path")
+        response = client.get("/assets/index.js")
         assert response.status_code == 200
         assert response.content == b'{"chat": "response"}'
         mock_request.assert_called_once()
@@ -608,7 +608,7 @@ async def test_chat_proxy_handles_connect_error():
     with patch.object(
         server.proxy_client, "request", side_effect=httpx.ConnectError("Connection failed")
     ):
-        response = client.get("/unmatched/path")
+        response = client.get("/")
         assert response.status_code == 503
         assert response.text == "Service unavailable"
 
@@ -619,7 +619,7 @@ async def test_chat_proxy_handles_general_error():
     client = TestClient(server.app)
 
     with patch.object(server.proxy_client, "request", side_effect=Exception("Unexpected error")):
-        response = client.get("/unmatched/path")
+        response = client.get("/")
         assert response.status_code == 502
         assert "Proxy error: Unexpected error" in response.text
 
@@ -634,8 +634,9 @@ async def test_chat_proxy_forwards_post_requests_with_body():
     mock_response.status_code = 200
     mock_response.headers = {"content-type": "application/json"}
 
+    # POST to root path (allowed) to test body forwarding
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.post("/chat/api", json={"message": "hello"})
+        response = client.post("/", json={"message": "hello"})
         assert response.status_code == 200
         assert response.content == b'{"result": "success"}'
 
@@ -656,7 +657,296 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
     mock_response.headers = {}
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        client.get("/test")
+        client.get("/assets/test.js")
         mock_request.assert_called_once()
         call_args = mock_request.call_args
-        assert call_args.kwargs["url"] == "http://localhost:8080/test"
+        assert call_args.kwargs["url"] == "http://localhost:8080/assets/test.js"
+
+
+def test_responses_create_endpoint_invoke():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+        response = client.post("/responses", json=request_data)
+        assert response.status_code == 200
+        assert "output" in response.json()
+
+
+def test_responses_create_endpoint_stream():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @stream()
+        def test_stream(request):
+            yield ResponsesAgentStreamEvent(
+                type="response.output_item.done",
+                item={
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                },
+            )
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ],
+            "stream": True,
+        }
+
+        response = client.post("/responses", json=request_data)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+
+def test_responses_create_with_custom_inputs_and_context():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            assert request.custom_inputs == {"key": "value"}
+            assert request.context.user_id == "test-user"
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [{"role": "user", "content": "Hello"}],
+            "custom_inputs": {"key": "value"},
+            "context": {"user_id": "test-user", "conversation_id": "conv-123"},
+        }
+
+        response = client.post("/responses", json=request_data)
+        assert response.status_code == 200
+
+
+def test_responses_create_validation_error():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    invalid_data = {"invalid": "structure"}
+    response = client.post("/responses", json=invalid_data)
+    assert response.status_code == 400
+    assert "Invalid parameters for ResponsesAgent" in response.json()["detail"]
+
+
+def test_responses_create_malformed_json():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.post("/responses", data="malformed json")
+    assert response.status_code == 400
+    assert "Invalid JSON in request body" in response.json()["detail"]
+
+
+def test_agent_info_endpoint_responses_agent():
+    import mlflow
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+
+
+def test_agent_info_endpoint_no_agent_type():
+    import mlflow
+
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert "agent_api" not in data
+
+
+def test_agent_info_endpoint_custom_app_name(monkeypatch):
+    import mlflow
+
+    monkeypatch.setenv("DATABRICKS_APP_NAME", "custom_agent")
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "custom_agent"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+
+
+def test_agent_server_routes_registration_responses_agent():
+    server = AgentServer("ResponsesAgent")
+    routes = [route.path for route in server.app.routes]
+    assert "/invocations" in routes
+    assert "/responses" in routes
+    assert "/agent/info" in routes
+    assert "/health" in routes
+
+
+def test_agent_server_routes_registration_no_responses_route():
+    server = AgentServer()  # No agent_type
+    routes = [route.path for route in server.app.routes]
+    assert "/invocations" in routes
+    assert "/responses" not in routes  # Should NOT be present
+    assert "/agent/info" in routes
+    assert "/health" in routes
+
+
+def test_responses_not_available_for_non_responses_agent():
+    server = AgentServer()  # No agent_type
+    client = TestClient(server.app)
+
+    request_data = {"input": [{"role": "user", "content": "Hello"}]}
+
+    response = client.post("/responses", json=request_data)
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session", "/favicon.ico"])
+async def test_chat_proxy_forwards_allowlisted_paths(path):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"response"
+    mock_response.status_code = 200
+    mock_response.headers = {}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get(path)
+        assert response.status_code == 200
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    ["/some/random/path", "/admin", "/.env"],
+)
+async def test_chat_proxy_blocks_arbitrary_paths(path):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.text == "Not found"
+        mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    ["/assets/../.env", "/assets/../../etc/passwd", "/assets/../admin"],
+)
+async def test_chat_proxy_blocks_path_traversal_attempts(path):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.text == "Not found"
+        mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("exact_paths_env", "prefixes_env", "test_path"),
+    [
+        ("/custom", "", "/custom"),
+        ("", "/custom/", "/custom/file.js"),
+        ("/a,/b", "/c/,/d/", "/a"),
+        ("/a,/b", "/c/,/d/", "/d/nested"),
+    ],
+)
+async def test_chat_proxy_forwards_additional_paths_from_env_vars(
+    exact_paths_env, prefixes_env, test_path, monkeypatch
+):
+    if exact_paths_env:
+        monkeypatch.setenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", exact_paths_env)
+    if prefixes_env:
+        monkeypatch.setenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", prefixes_env)
+
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"response"
+    mock_response.status_code = 200
+    mock_response.headers = {}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get(test_path)
+        assert response.status_code == 200
+        mock_request.assert_called_once()

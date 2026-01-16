@@ -23,6 +23,7 @@ type Category =
   | 'OpenTelemetry'
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
+  | 'Agent Frameworks (Java)'
   | 'Model Providers'
   | 'Tools';
 
@@ -30,6 +31,7 @@ const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
+  'Agent Frameworks (Java)',
   'Model Providers',
   'Tools',
 ];
@@ -157,6 +159,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/haystack-logo.png',
     link: '/genai/tracing/integrations/listing/haystack',
     category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'spring-ai',
+    name: 'Spring AI',
+    logoPath: '/images/logos/spring-ai-logo.png',
+    link: '/genai/tracing/integrations/listing/spring-ai',
+    category: 'Agent Frameworks (Java)',
   },
   {
     id: 'txtai',

@@ -167,16 +167,6 @@ describe('ToolErrorRateChart', () => {
         expect(screen.getByTestId('line-Error Rate')).toBeInTheDocument();
       });
     });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler([createDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100)]);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
   });
 
   describe('API call parameters', () => {

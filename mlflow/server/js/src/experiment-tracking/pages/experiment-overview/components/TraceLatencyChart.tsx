@@ -9,23 +9,13 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useLegendHighlight } from '../utils/chartUtils';
-
-/**
- * Format latency value in human-readable format
- */
-function formatLatency(ms: number): string {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(2)} sec`;
-  }
-  return `${ms.toFixed(0)} ms`;
-}
+import { formatLatency, useLegendHighlight } from '../utils/chartUtils';
 
 export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -58,17 +48,15 @@ export const TraceLatencyChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_latency">
       <OverviewChartHeader
         icon={<ClockIcon />}
         title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
         value={avgLatency !== undefined ? formatLatency(avgLatency) : undefined}
       />
 
-      <OverviewChartTimeLabel />
-
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>

@@ -346,3 +346,37 @@ def test_conversation_simulator_evaluation_dataset_invalid(inputs):
     mock_dataset = create_mock_evaluation_dataset(inputs)
     with pytest.raises(ValueError, match="conversational test cases with a 'goal' field"):
         ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+
+
+def test_reassignment_with_valid_test_cases(simple_test_case):
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=2)
+    new_test_cases = [
+        {"goal": "New goal"},
+    ]
+    simulator.test_cases = new_test_cases
+    assert simulator.test_cases == new_test_cases
+    assert len(simulator.test_cases) == 1
+
+
+def test_reassignment_with_dataframe(simple_test_case):
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=2)
+    df = pd.DataFrame([{"goal": "Goal from DataFrame", "persona": "Analyst"}])
+    simulator.test_cases = df
+    assert simulator.test_cases == [{"goal": "Goal from DataFrame", "persona": "Analyst"}]
+
+
+@pytest.mark.parametrize(
+    ("invalid_test_cases", "expected_error"),
+    [
+        ([], "test_cases cannot be empty"),
+        ([{"persona": "no goal here"}], r"indices \[0\].*'goal' field"),
+    ],
+)
+def test_reassignment_with_invalid_test_cases_raises_error(
+    simple_test_case, invalid_test_cases, expected_error
+):
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=2)
+    original_test_cases = simulator.test_cases
+    with pytest.raises(ValueError, match=expected_error):
+        simulator.test_cases = invalid_test_cases
+    assert simulator.test_cases == original_test_cases
