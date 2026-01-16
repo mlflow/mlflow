@@ -35,6 +35,7 @@ describe('scorerCardUtils', () => {
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,
           evaluationScope: ScorerEvaluationScope.TRACES,
+          outputTypeKind: 'default',
         });
       });
 
@@ -90,6 +91,9 @@ describe('scorerCardUtils', () => {
           filterString: '',
           model: '',
           evaluationScope: ScorerEvaluationScope.TRACES,
+          disableMonitoring: undefined,
+          isInstructionsJudge: undefined,
+          outputTypeKind: 'default',
         });
       });
 
