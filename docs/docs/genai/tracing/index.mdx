@@ -1,3 +1,4 @@
+import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import TabsWrapper from "@site/src/components/TabsWrapper";
@@ -222,9 +223,9 @@ When your application spans multiple services, propagate the active trace contex
 
 If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
 
-- Use <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> on the client to inject headers.
+- Use the <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> API on the client to inject headers.
 
-- Use <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> on the server to extract and set the current context for the duration of the request.
+- Use the <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> API on the server to extract and set the current context for the duration of the request.
 
 Client example:
 
