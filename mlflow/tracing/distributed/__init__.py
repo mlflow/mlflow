@@ -74,8 +74,8 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     return headers
 
 
-@contextmanager
 @record_usage_event(SetTracingContextFromHeadersEvent)
+@contextmanager
 def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     """
     Context manager to extract the trace context from the http request headers
