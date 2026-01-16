@@ -1,5 +1,3 @@
-"""Demo generator for evaluation runs and datasets."""
-
 from __future__ import annotations
 
 import hashlib
@@ -16,7 +14,10 @@ from mlflow.demo.base import (
     DemoResult,
 )
 from mlflow.demo.data import get_expected_answers
-from mlflow.demo.generators.traces import DEMO_VERSION_TAG, TracesDemoGenerator
+from mlflow.demo.generators.traces import (
+    DEMO_VERSION_TAG,
+    TracesDemoGenerator,
+)
 from mlflow.entities.assessment import AssessmentSource, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
@@ -111,12 +112,20 @@ IMPROVED_PROFILE = {
 
 
 class EvaluationDemoGenerator(BaseDemoGenerator):
-    """Generates demo evaluation data comparing v1 and v2 agent outputs.
+    """Generates demo evaluation data comparing baseline (v1) and improved (v2) traces.
 
     Creates:
     - Ground truth expectations on all demo traces
-    - Two datasets: one for v1 (baseline) traces, one for v2 (improved) traces
-    - Two evaluation runs: baseline evaluation on v1, improved evaluation on v2
+    - Two datasets: baseline (v1) and improved (v2) - both include all trace types
+    - Two evaluation runs comparing the same inputs with different outputs
+
+    The baseline and improved evaluations include matching trace types:
+    - 2 RAG traces
+    - 2 agent traces
+    - 6 prompt traces (2 per prompt type)
+    - Session traces
+
+    This allows direct comparison between v1 and v2 performance.
     """
 
     name = DemoFeature.EVALUATION
@@ -231,6 +240,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         self._delete_demo_dataset(experiment.experiment_id, DEMO_DATASET_V2_NAME)
 
     def _fetch_demo_traces(self, experiment_id: str, version: Literal["v1", "v2"]) -> list[Trace]:
+        """Fetch all demo traces for a given version (includes all trace types)."""
         client = mlflow.MlflowClient()
         all_traces = client.search_traces(
             locations=[experiment_id],

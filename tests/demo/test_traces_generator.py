@@ -18,19 +18,10 @@ def tracking_uri(tmp_path):
     set_tracking_uri(None)
 
 
-@pytest.fixture
-def tracking_uri(tmp_path):
-    uri = tmp_path / "mlruns"
-    uri.mkdir()
-    set_tracking_uri(uri.as_uri())
-    yield uri.as_uri()
-    set_tracking_uri(None)
-
-
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
-    assert generator.version == 2
+    assert generator.version == 1
 
 
 def test_data_exists_false_when_no_experiment(tracking_uri):
@@ -160,4 +151,4 @@ def test_is_generated_checks_version(tracking_uri):
     TracesDemoGenerator.version = 99
     assert generator.is_generated() is False
 
-    TracesDemoGenerator.version = 2
+    TracesDemoGenerator.version = 1
