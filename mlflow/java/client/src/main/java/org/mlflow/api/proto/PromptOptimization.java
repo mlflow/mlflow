@@ -16,63 +16,104 @@ public final class PromptOptimization {
   }
   /**
    * <pre>
-   * Status of an optimization job.
+   * Generic status enum for MLflow jobs.
+   * Can be used across different job types (optimization, evaluation, etc.).
    * </pre>
    *
-   * Protobuf enum {@code mlflow.OptimizationJobStatus}
+   * Protobuf enum {@code mlflow.JobStatus}
    */
-  public enum OptimizationJobStatus
+  public enum JobStatus
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_UNSPECIFIED = 0;</code>
+     * <code>JOB_STATUS_UNSPECIFIED = 0;</code>
      */
-    OPTIMIZATION_JOB_STATUS_UNSPECIFIED(0),
+    JOB_STATUS_UNSPECIFIED(0),
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_PENDING = 1;</code>
+     * <pre>
+     * Job is queued, waiting to start.
+     * </pre>
+     *
+     * <code>JOB_STATUS_PENDING = 1;</code>
      */
-    OPTIMIZATION_JOB_STATUS_PENDING(1),
+    JOB_STATUS_PENDING(1),
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_IN_PROGRESS = 2;</code>
+     * <pre>
+     * Job is currently running.
+     * </pre>
+     *
+     * <code>JOB_STATUS_IN_PROGRESS = 2;</code>
      */
-    OPTIMIZATION_JOB_STATUS_IN_PROGRESS(2),
+    JOB_STATUS_IN_PROGRESS(2),
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_COMPLETED = 3;</code>
+     * <pre>
+     * Job completed successfully.
+     * </pre>
+     *
+     * <code>JOB_STATUS_COMPLETED = 3;</code>
      */
-    OPTIMIZATION_JOB_STATUS_COMPLETED(3),
+    JOB_STATUS_COMPLETED(3),
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_FAILED = 4;</code>
+     * <pre>
+     * Job failed with an error.
+     * </pre>
+     *
+     * <code>JOB_STATUS_FAILED = 4;</code>
      */
-    OPTIMIZATION_JOB_STATUS_FAILED(4),
+    JOB_STATUS_FAILED(4),
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_CANCELED = 5;</code>
+     * <pre>
+     * Job was canceled by user.
+     * </pre>
+     *
+     * <code>JOB_STATUS_CANCELED = 5;</code>
      */
-    OPTIMIZATION_JOB_STATUS_CANCELED(5),
+    JOB_STATUS_CANCELED(5),
     ;
 
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_UNSPECIFIED = 0;</code>
+     * <code>JOB_STATUS_UNSPECIFIED = 0;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_UNSPECIFIED_VALUE = 0;
+    public static final int JOB_STATUS_UNSPECIFIED_VALUE = 0;
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_PENDING = 1;</code>
+     * <pre>
+     * Job is queued, waiting to start.
+     * </pre>
+     *
+     * <code>JOB_STATUS_PENDING = 1;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_PENDING_VALUE = 1;
+    public static final int JOB_STATUS_PENDING_VALUE = 1;
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_IN_PROGRESS = 2;</code>
+     * <pre>
+     * Job is currently running.
+     * </pre>
+     *
+     * <code>JOB_STATUS_IN_PROGRESS = 2;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_IN_PROGRESS_VALUE = 2;
+    public static final int JOB_STATUS_IN_PROGRESS_VALUE = 2;
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_COMPLETED = 3;</code>
+     * <pre>
+     * Job completed successfully.
+     * </pre>
+     *
+     * <code>JOB_STATUS_COMPLETED = 3;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_COMPLETED_VALUE = 3;
+    public static final int JOB_STATUS_COMPLETED_VALUE = 3;
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_FAILED = 4;</code>
+     * <pre>
+     * Job failed with an error.
+     * </pre>
+     *
+     * <code>JOB_STATUS_FAILED = 4;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_FAILED_VALUE = 4;
+    public static final int JOB_STATUS_FAILED_VALUE = 4;
     /**
-     * <code>OPTIMIZATION_JOB_STATUS_CANCELED = 5;</code>
+     * <pre>
+     * Job was canceled by user.
+     * </pre>
+     *
+     * <code>JOB_STATUS_CANCELED = 5;</code>
      */
-    public static final int OPTIMIZATION_JOB_STATUS_CANCELED_VALUE = 5;
+    public static final int JOB_STATUS_CANCELED_VALUE = 5;
 
 
     public final int getNumber() {
@@ -85,7 +126,7 @@ public final class PromptOptimization {
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
-    public static OptimizationJobStatus valueOf(int value) {
+    public static JobStatus valueOf(int value) {
       return forNumber(value);
     }
 
@@ -93,27 +134,27 @@ public final class PromptOptimization {
      * @param value The numeric wire value of the corresponding enum entry.
      * @return The enum associated with the given numeric wire value.
      */
-    public static OptimizationJobStatus forNumber(int value) {
+    public static JobStatus forNumber(int value) {
       switch (value) {
-        case 0: return OPTIMIZATION_JOB_STATUS_UNSPECIFIED;
-        case 1: return OPTIMIZATION_JOB_STATUS_PENDING;
-        case 2: return OPTIMIZATION_JOB_STATUS_IN_PROGRESS;
-        case 3: return OPTIMIZATION_JOB_STATUS_COMPLETED;
-        case 4: return OPTIMIZATION_JOB_STATUS_FAILED;
-        case 5: return OPTIMIZATION_JOB_STATUS_CANCELED;
+        case 0: return JOB_STATUS_UNSPECIFIED;
+        case 1: return JOB_STATUS_PENDING;
+        case 2: return JOB_STATUS_IN_PROGRESS;
+        case 3: return JOB_STATUS_COMPLETED;
+        case 4: return JOB_STATUS_FAILED;
+        case 5: return JOB_STATUS_CANCELED;
         default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<OptimizationJobStatus>
+    public static com.google.protobuf.Internal.EnumLiteMap<JobStatus>
         internalGetValueMap() {
       return internalValueMap;
     }
     private static final com.google.protobuf.Internal.EnumLiteMap<
-        OptimizationJobStatus> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<OptimizationJobStatus>() {
-            public OptimizationJobStatus findValueByNumber(int number) {
-              return OptimizationJobStatus.forNumber(number);
+        JobStatus> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<JobStatus>() {
+            public JobStatus findValueByNumber(int number) {
+              return JobStatus.forNumber(number);
             }
           };
 
@@ -130,9 +171,9 @@ public final class PromptOptimization {
       return org.mlflow.api.proto.PromptOptimization.getDescriptor().getEnumTypes().get(0);
     }
 
-    private static final OptimizationJobStatus[] VALUES = values();
+    private static final JobStatus[] VALUES = values();
 
-    public static OptimizationJobStatus valueOf(
+    public static JobStatus valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
         throw new java.lang.IllegalArgumentException(
@@ -143,11 +184,11 @@ public final class PromptOptimization {
 
     private final int value;
 
-    private OptimizationJobStatus(int value) {
+    private JobStatus(int value) {
       this.value = value;
     }
 
-    // @@protoc_insertion_point(enum_scope:mlflow.OptimizationJobStatus)
+    // @@protoc_insertion_point(enum_scope:mlflow.JobStatus)
   }
 
   /**
@@ -275,8 +316,1226 @@ public final class PromptOptimization {
     // @@protoc_insertion_point(enum_scope:mlflow.OptimizerType)
   }
 
-  public interface OptimizationJobTagOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.OptimizationJobTag)
+  public interface JobStateOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.JobState)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Current status of the job.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobStatus status = 1;</code>
+     * @return Whether the status field is set.
+     */
+    boolean hasStatus();
+    /**
+     * <pre>
+     * Current status of the job.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobStatus status = 1;</code>
+     * @return The status.
+     */
+    org.mlflow.api.proto.PromptOptimization.JobStatus getStatus();
+
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return Whether the errorMessage field is set.
+     */
+    boolean hasErrorMessage();
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return The errorMessage.
+     */
+    java.lang.String getErrorMessage();
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return The bytes for errorMessage.
+     */
+    com.google.protobuf.ByteString
+        getErrorMessageBytes();
+
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    int getMetadataCount();
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    boolean containsMetadata(
+        java.lang.String key);
+    /**
+     * Use {@link #getMetadataMap()} instead.
+     */
+    @java.lang.Deprecated
+    java.util.Map<java.lang.String, java.lang.String>
+    getMetadata();
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    java.util.Map<java.lang.String, java.lang.String>
+    getMetadataMap();
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+
+    java.lang.String getMetadataOrDefault(
+        java.lang.String key,
+        java.lang.String defaultValue);
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+
+    java.lang.String getMetadataOrThrow(
+        java.lang.String key);
+  }
+  /**
+   * <pre>
+   * Generic job state message combining status with metadata.
+   * Provides a unified way to represent job state across different job types.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.JobState}
+   */
+  public static final class JobState extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.JobState)
+      JobStateOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use JobState.newBuilder() to construct.
+    private JobState(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private JobState() {
+      status_ = 0;
+      errorMessage_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new JobState();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private JobState(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.PromptOptimization.JobStatus value = org.mlflow.api.proto.PromptOptimization.JobStatus.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(1, rawValue);
+              } else {
+                bitField0_ |= 0x00000001;
+                status_ = rawValue;
+              }
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              errorMessage_ = bs;
+              break;
+            }
+            case 26: {
+              if (!((mutable_bitField0_ & 0x00000004) != 0)) {
+                metadata_ = com.google.protobuf.MapField.newMapField(
+                    MetadataDefaultEntryHolder.defaultEntry);
+                mutable_bitField0_ |= 0x00000004;
+              }
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+              metadata__ = input.readMessage(
+                  MetadataDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              metadata_.getMutableMap().put(
+                  metadata__.getKey(), metadata__.getValue());
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_descriptor;
+    }
+
+    @SuppressWarnings({"rawtypes"})
+    @java.lang.Override
+    protected com.google.protobuf.MapField internalGetMapField(
+        int number) {
+      switch (number) {
+        case 3:
+          return internalGetMetadata();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.PromptOptimization.JobState.class, org.mlflow.api.proto.PromptOptimization.JobState.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int STATUS_FIELD_NUMBER = 1;
+    private int status_;
+    /**
+     * <pre>
+     * Current status of the job.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobStatus status = 1;</code>
+     * @return Whether the status field is set.
+     */
+    @java.lang.Override public boolean hasStatus() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Current status of the job.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobStatus status = 1;</code>
+     * @return The status.
+     */
+    @java.lang.Override public org.mlflow.api.proto.PromptOptimization.JobStatus getStatus() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.PromptOptimization.JobStatus result = org.mlflow.api.proto.PromptOptimization.JobStatus.valueOf(status_);
+      return result == null ? org.mlflow.api.proto.PromptOptimization.JobStatus.JOB_STATUS_UNSPECIFIED : result;
+    }
+
+    public static final int ERROR_MESSAGE_FIELD_NUMBER = 2;
+    private volatile java.lang.Object errorMessage_;
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return Whether the errorMessage field is set.
+     */
+    @java.lang.Override
+    public boolean hasErrorMessage() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return The errorMessage.
+     */
+    @java.lang.Override
+    public java.lang.String getErrorMessage() {
+      java.lang.Object ref = errorMessage_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          errorMessage_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Error message if the job failed.
+     * Only set when status is JOB_STATUS_FAILED.
+     * </pre>
+     *
+     * <code>optional string error_message = 2;</code>
+     * @return The bytes for errorMessage.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getErrorMessageBytes() {
+      java.lang.Object ref = errorMessage_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        errorMessage_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int METADATA_FIELD_NUMBER = 3;
+    private static final class MetadataDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, java.lang.String> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, java.lang.String>newDefaultInstance(
+                  org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_MetadataEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "");
+    }
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.String> metadata_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+    internalGetMetadata() {
+      if (metadata_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            MetadataDefaultEntryHolder.defaultEntry);
+      }
+      return metadata_;
+    }
+
+    public int getMetadataCount() {
+      return internalGetMetadata().getMap().size();
+    }
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+
+    @java.lang.Override
+    public boolean containsMetadata(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetMetadata().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getMetadataMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.String> getMetadata() {
+      return getMetadataMap();
+    }
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.util.Map<java.lang.String, java.lang.String> getMetadataMap() {
+      return internalGetMetadata().getMap();
+    }
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.lang.String getMetadataOrDefault(
+        java.lang.String key,
+        java.lang.String defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetMetadata().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <pre>
+     * Additional metadata as key-value pairs.
+     * Can be used to store job-specific state information.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     */
+    @java.lang.Override
+
+    public java.lang.String getMetadataOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetMetadata().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeEnum(1, status_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, errorMessage_);
+      }
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetMetadata(),
+          MetadataDefaultEntryHolder.defaultEntry,
+          3);
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, status_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, errorMessage_);
+      }
+      for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
+           : internalGetMetadata().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+        metadata__ = MetadataDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
+        size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(3, metadata__);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.JobState)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.PromptOptimization.JobState other = (org.mlflow.api.proto.PromptOptimization.JobState) obj;
+
+      if (hasStatus() != other.hasStatus()) return false;
+      if (hasStatus()) {
+        if (status_ != other.status_) return false;
+      }
+      if (hasErrorMessage() != other.hasErrorMessage()) return false;
+      if (hasErrorMessage()) {
+        if (!getErrorMessage()
+            .equals(other.getErrorMessage())) return false;
+      }
+      if (!internalGetMetadata().equals(
+          other.internalGetMetadata())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasStatus()) {
+        hash = (37 * hash) + STATUS_FIELD_NUMBER;
+        hash = (53 * hash) + status_;
+      }
+      if (hasErrorMessage()) {
+        hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
+        hash = (53 * hash) + getErrorMessage().hashCode();
+      }
+      if (!internalGetMetadata().getMap().isEmpty()) {
+        hash = (37 * hash) + METADATA_FIELD_NUMBER;
+        hash = (53 * hash) + internalGetMetadata().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.PromptOptimization.JobState parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.JobState prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Generic job state message combining status with metadata.
+     * Provides a unified way to represent job state across different job types.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.JobState}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.JobState)
+        org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_descriptor;
+      }
+
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMapField(
+          int number) {
+        switch (number) {
+          case 3:
+            return internalGetMetadata();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMutableMapField(
+          int number) {
+        switch (number) {
+          case 3:
+            return internalGetMutableMetadata();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.PromptOptimization.JobState.class, org.mlflow.api.proto.PromptOptimization.JobState.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.PromptOptimization.JobState.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        status_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        errorMessage_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        internalGetMutableMetadata().clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_JobState_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.PromptOptimization.JobState getDefaultInstanceForType() {
+        return org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.PromptOptimization.JobState build() {
+        org.mlflow.api.proto.PromptOptimization.JobState result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.PromptOptimization.JobState buildPartial() {
+        org.mlflow.api.proto.PromptOptimization.JobState result = new org.mlflow.api.proto.PromptOptimization.JobState(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.status_ = status_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.errorMessage_ = errorMessage_;
+        result.metadata_ = internalGetMetadata();
+        result.metadata_.makeImmutable();
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.PromptOptimization.JobState) {
+          return mergeFrom((org.mlflow.api.proto.PromptOptimization.JobState)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.JobState other) {
+        if (other == org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance()) return this;
+        if (other.hasStatus()) {
+          setStatus(other.getStatus());
+        }
+        if (other.hasErrorMessage()) {
+          bitField0_ |= 0x00000002;
+          errorMessage_ = other.errorMessage_;
+          onChanged();
+        }
+        internalGetMutableMetadata().mergeFrom(
+            other.internalGetMetadata());
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.PromptOptimization.JobState parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.PromptOptimization.JobState) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private int status_ = 0;
+      /**
+       * <pre>
+       * Current status of the job.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobStatus status = 1;</code>
+       * @return Whether the status field is set.
+       */
+      @java.lang.Override public boolean hasStatus() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Current status of the job.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobStatus status = 1;</code>
+       * @return The status.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.PromptOptimization.JobStatus getStatus() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.PromptOptimization.JobStatus result = org.mlflow.api.proto.PromptOptimization.JobStatus.valueOf(status_);
+        return result == null ? org.mlflow.api.proto.PromptOptimization.JobStatus.JOB_STATUS_UNSPECIFIED : result;
+      }
+      /**
+       * <pre>
+       * Current status of the job.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobStatus status = 1;</code>
+       * @param value The status to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStatus(org.mlflow.api.proto.PromptOptimization.JobStatus value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000001;
+        status_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Current status of the job.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobStatus status = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearStatus() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        status_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object errorMessage_ = "";
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @return Whether the errorMessage field is set.
+       */
+      public boolean hasErrorMessage() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @return The errorMessage.
+       */
+      public java.lang.String getErrorMessage() {
+        java.lang.Object ref = errorMessage_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            errorMessage_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @return The bytes for errorMessage.
+       */
+      public com.google.protobuf.ByteString
+          getErrorMessageBytes() {
+        java.lang.Object ref = errorMessage_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          errorMessage_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @param value The errorMessage to set.
+       * @return This builder for chaining.
+       */
+      public Builder setErrorMessage(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        errorMessage_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearErrorMessage() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        errorMessage_ = getDefaultInstance().getErrorMessage();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Error message if the job failed.
+       * Only set when status is JOB_STATUS_FAILED.
+       * </pre>
+       *
+       * <code>optional string error_message = 2;</code>
+       * @param value The bytes for errorMessage to set.
+       * @return This builder for chaining.
+       */
+      public Builder setErrorMessageBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        errorMessage_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.MapField<
+          java.lang.String, java.lang.String> metadata_;
+      private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+      internalGetMetadata() {
+        if (metadata_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              MetadataDefaultEntryHolder.defaultEntry);
+        }
+        return metadata_;
+      }
+      private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+      internalGetMutableMetadata() {
+        onChanged();;
+        if (metadata_ == null) {
+          metadata_ = com.google.protobuf.MapField.newMapField(
+              MetadataDefaultEntryHolder.defaultEntry);
+        }
+        if (!metadata_.isMutable()) {
+          metadata_ = metadata_.copy();
+        }
+        return metadata_;
+      }
+
+      public int getMetadataCount() {
+        return internalGetMetadata().getMap().size();
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+
+      @java.lang.Override
+      public boolean containsMetadata(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        return internalGetMetadata().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getMetadataMap()} instead.
+       */
+      @java.lang.Override
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.String> getMetadata() {
+        return getMetadataMap();
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, java.lang.String> getMetadataMap() {
+        return internalGetMetadata().getMap();
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+      @java.lang.Override
+
+      public java.lang.String getMetadataOrDefault(
+          java.lang.String key,
+          java.lang.String defaultValue) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetMetadata().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+      @java.lang.Override
+
+      public java.lang.String getMetadataOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetMetadata().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public Builder clearMetadata() {
+        internalGetMutableMetadata().getMutableMap()
+            .clear();
+        return this;
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+
+      public Builder removeMetadata(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        internalGetMutableMetadata().getMutableMap()
+            .remove(key);
+        return this;
+      }
+      /**
+       * Use alternate mutation accessors instead.
+       */
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.String>
+      getMutableMetadata() {
+        return internalGetMutableMetadata().getMutableMap();
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+      public Builder putMetadata(
+          java.lang.String key,
+          java.lang.String value) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        if (value == null) {
+  throw new NullPointerException("map value");
+}
+
+        internalGetMutableMetadata().getMutableMap()
+            .put(key, value);
+        return this;
+      }
+      /**
+       * <pre>
+       * Additional metadata as key-value pairs.
+       * Can be used to store job-specific state information.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       */
+
+      public Builder putAllMetadata(
+          java.util.Map<java.lang.String, java.lang.String> values) {
+        internalGetMutableMetadata().getMutableMap()
+            .putAll(values);
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.JobState)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.JobState)
+    private static final org.mlflow.api.proto.PromptOptimization.JobState DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.JobState();
+    }
+
+    public static org.mlflow.api.proto.PromptOptimization.JobState getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<JobState>
+        PARSER = new com.google.protobuf.AbstractParser<JobState>() {
+      @java.lang.Override
+      public JobState parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new JobState(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<JobState> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<JobState> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.PromptOptimization.JobState getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface PromptOptimizationJobTagOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.PromptOptimizationJobTag)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -315,21 +1574,21 @@ public final class PromptOptimization {
   }
   /**
    * <pre>
-   * Tag for an optimization job.
+   * Tag for a prompt optimization job.
    * </pre>
    *
-   * Protobuf type {@code mlflow.OptimizationJobTag}
+   * Protobuf type {@code mlflow.PromptOptimizationJobTag}
    */
-  public static final class OptimizationJobTag extends
+  public static final class PromptOptimizationJobTag extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.OptimizationJobTag)
-      OptimizationJobTagOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.PromptOptimizationJobTag)
+      PromptOptimizationJobTagOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use OptimizationJobTag.newBuilder() to construct.
-    private OptimizationJobTag(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use PromptOptimizationJobTag.newBuilder() to construct.
+    private PromptOptimizationJobTag(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private OptimizationJobTag() {
+    private PromptOptimizationJobTag() {
       key_ = "";
       value_ = "";
     }
@@ -338,7 +1597,7 @@ public final class PromptOptimization {
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new OptimizationJobTag();
+      return new PromptOptimizationJobTag();
     }
 
     @java.lang.Override
@@ -346,7 +1605,7 @@ public final class PromptOptimization {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private OptimizationJobTag(
+    private PromptOptimizationJobTag(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -398,15 +1657,15 @@ public final class PromptOptimization {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobTag_descriptor;
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobTag_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobTag_fieldAccessorTable
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobTag_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.class, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder.class);
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder.class);
     }
 
     private int bitField0_;
@@ -551,10 +1810,10 @@ public final class PromptOptimization {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJobTag)) {
+      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.PromptOptimization.OptimizationJobTag other = (org.mlflow.api.proto.PromptOptimization.OptimizationJobTag) obj;
+      org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag other = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag) obj;
 
       if (hasKey() != other.hasKey()) return false;
       if (hasKey()) {
@@ -590,69 +1849,69 @@ public final class PromptOptimization {
       return hash;
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(byte[] data)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseDelimitedFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -665,7 +1924,7 @@ public final class PromptOptimization {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.OptimizationJobTag prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -682,29 +1941,29 @@ public final class PromptOptimization {
     }
     /**
      * <pre>
-     * Tag for an optimization job.
+     * Tag for a prompt optimization job.
      * </pre>
      *
-     * Protobuf type {@code mlflow.OptimizationJobTag}
+     * Protobuf type {@code mlflow.PromptOptimizationJobTag}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.OptimizationJobTag)
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.PromptOptimizationJobTag)
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobTag_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobTag_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobTag_fieldAccessorTable
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobTag_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.class, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder.class);
+                org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.newBuilder()
+      // Construct using org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -732,17 +1991,17 @@ public final class PromptOptimization {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobTag_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobTag_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getDefaultInstanceForType() {
-        return org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.getDefaultInstance();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getDefaultInstanceForType() {
+        return org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag build() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobTag result = buildPartial();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag build() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -750,8 +2009,8 @@ public final class PromptOptimization {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag buildPartial() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobTag result = new org.mlflow.api.proto.PromptOptimization.OptimizationJobTag(this);
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag buildPartial() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag result = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -801,16 +2060,16 @@ public final class PromptOptimization {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJobTag) {
-          return mergeFrom((org.mlflow.api.proto.PromptOptimization.OptimizationJobTag)other);
+        if (other instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag) {
+          return mergeFrom((org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.OptimizationJobTag other) {
-        if (other == org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag other) {
+        if (other == org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.getDefaultInstance()) return this;
         if (other.hasKey()) {
           bitField0_ |= 0x00000001;
           key_ = other.key_;
@@ -836,11 +2095,11 @@ public final class PromptOptimization {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobTag parsedMessage = null;
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.PromptOptimization.OptimizationJobTag) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -1031,48 +2290,48 @@ public final class PromptOptimization {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.OptimizationJobTag)
+      // @@protoc_insertion_point(builder_scope:mlflow.PromptOptimizationJobTag)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.OptimizationJobTag)
-    private static final org.mlflow.api.proto.PromptOptimization.OptimizationJobTag DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.PromptOptimizationJobTag)
+    private static final org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.OptimizationJobTag();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag();
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getDefaultInstance() {
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<OptimizationJobTag>
-        PARSER = new com.google.protobuf.AbstractParser<OptimizationJobTag>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<PromptOptimizationJobTag>
+        PARSER = new com.google.protobuf.AbstractParser<PromptOptimizationJobTag>() {
       @java.lang.Override
-      public OptimizationJobTag parsePartialFrom(
+      public PromptOptimizationJobTag parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new OptimizationJobTag(input, extensionRegistry);
+        return new PromptOptimizationJobTag(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<OptimizationJobTag> parser() {
+    public static com.google.protobuf.Parser<PromptOptimizationJobTag> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<OptimizationJobTag> getParserForType() {
+    public com.google.protobuf.Parser<PromptOptimizationJobTag> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getDefaultInstanceForType() {
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
-  public interface OptimizationJobConfigOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.OptimizationJobConfig)
+  public interface PromptOptimizationJobConfigOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.PromptOptimizationJobConfig)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -1125,13 +2384,87 @@ public final class PromptOptimization {
 
     /**
      * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return Whether the datasetId field is set.
+     */
+    boolean hasDatasetId();
+    /**
+     * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return The datasetId.
+     */
+    java.lang.String getDatasetId();
+    /**
+     * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return The bytes for datasetId.
+     */
+    com.google.protobuf.ByteString
+        getDatasetIdBytes();
+
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @return A list containing the scorers.
+     */
+    java.util.List<java.lang.String>
+        getScorersList();
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @return The count of scorers.
+     */
+    int getScorersCount();
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @param index The index of the element to return.
+     * @return The scorers at the given index.
+     */
+    java.lang.String getScorers(int index);
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the scorers at the given index.
+     */
+    com.google.protobuf.ByteString
+        getScorersBytes(int index);
+
+    /**
+     * <pre>
      * JSON-serialized optimizer-specific configuration.
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return Whether the optimizerConfigJson field is set.
      */
     boolean hasOptimizerConfigJson();
@@ -1143,7 +2476,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return The optimizerConfigJson.
      */
     java.lang.String getOptimizerConfigJson();
@@ -1155,7 +2488,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return The bytes for optimizerConfigJson.
      */
     com.google.protobuf.ByteString
@@ -1167,20 +2500,22 @@ public final class PromptOptimization {
    * Stored as run parameters in the underlying MLflow run.
    * </pre>
    *
-   * Protobuf type {@code mlflow.OptimizationJobConfig}
+   * Protobuf type {@code mlflow.PromptOptimizationJobConfig}
    */
-  public static final class OptimizationJobConfig extends
+  public static final class PromptOptimizationJobConfig extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.OptimizationJobConfig)
-      OptimizationJobConfigOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.PromptOptimizationJobConfig)
+      PromptOptimizationJobConfigOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use OptimizationJobConfig.newBuilder() to construct.
-    private OptimizationJobConfig(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use PromptOptimizationJobConfig.newBuilder() to construct.
+    private PromptOptimizationJobConfig(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private OptimizationJobConfig() {
+    private PromptOptimizationJobConfig() {
       targetPromptUri_ = "";
       optimizerType_ = 0;
+      datasetId_ = "";
+      scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       optimizerConfigJson_ = "";
     }
 
@@ -1188,7 +2523,7 @@ public final class PromptOptimization {
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new OptimizationJobConfig();
+      return new PromptOptimizationJobConfig();
     }
 
     @java.lang.Override
@@ -1196,7 +2531,7 @@ public final class PromptOptimization {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private OptimizationJobConfig(
+    private PromptOptimizationJobConfig(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1236,6 +2571,21 @@ public final class PromptOptimization {
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
+              datasetId_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+                scorers_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000008;
+              }
+              scorers_.add(bs);
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
               optimizerConfigJson_ = bs;
               break;
             }
@@ -1254,21 +2604,24 @@ public final class PromptOptimization {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+          scorers_ = scorers_.getUnmodifiableView();
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobConfig_descriptor;
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobConfig_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobConfig_fieldAccessorTable
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.class, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder.class);
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder.class);
     }
 
     private int bitField0_;
@@ -1359,7 +2712,122 @@ public final class PromptOptimization {
       return result == null ? org.mlflow.api.proto.PromptOptimization.OptimizerType.OPTIMIZER_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int OPTIMIZER_CONFIG_JSON_FIELD_NUMBER = 3;
+    public static final int DATASET_ID_FIELD_NUMBER = 3;
+    private volatile java.lang.Object datasetId_;
+    /**
+     * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return Whether the datasetId field is set.
+     */
+    @java.lang.Override
+    public boolean hasDatasetId() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return The datasetId.
+     */
+    @java.lang.Override
+    public java.lang.String getDatasetId() {
+      java.lang.Object ref = datasetId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          datasetId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the EvaluationDataset containing training data.
+     * </pre>
+     *
+     * <code>optional string dataset_id = 3;</code>
+     * @return The bytes for datasetId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDatasetIdBytes() {
+      java.lang.Object ref = datasetId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        datasetId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int SCORERS_FIELD_NUMBER = 4;
+    private com.google.protobuf.LazyStringList scorers_;
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @return A list containing the scorers.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getScorersList() {
+      return scorers_;
+    }
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @return The count of scorers.
+     */
+    public int getScorersCount() {
+      return scorers_.size();
+    }
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @param index The index of the element to return.
+     * @return The scorers at the given index.
+     */
+    public java.lang.String getScorers(int index) {
+      return scorers_.get(index);
+    }
+    /**
+     * <pre>
+     * List of scorer names. Can be built-in scorer class names
+     * (e.g., "Correctness", "Safety") or registered scorer names.
+     * </pre>
+     *
+     * <code>repeated string scorers = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the scorers at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getScorersBytes(int index) {
+      return scorers_.getByteString(index);
+    }
+
+    public static final int OPTIMIZER_CONFIG_JSON_FIELD_NUMBER = 5;
     private volatile java.lang.Object optimizerConfigJson_;
     /**
      * <pre>
@@ -1369,12 +2837,12 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return Whether the optimizerConfigJson field is set.
      */
     @java.lang.Override
     public boolean hasOptimizerConfigJson() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
@@ -1384,7 +2852,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return The optimizerConfigJson.
      */
     @java.lang.Override
@@ -1410,7 +2878,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 3;</code>
+     * <code>optional string optimizer_config_json = 5;</code>
      * @return The bytes for optimizerConfigJson.
      */
     @java.lang.Override
@@ -1449,7 +2917,13 @@ public final class PromptOptimization {
         output.writeEnum(2, optimizerType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, optimizerConfigJson_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, datasetId_);
+      }
+      for (int i = 0; i < scorers_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, scorers_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, optimizerConfigJson_);
       }
       unknownFields.writeTo(output);
     }
@@ -1468,7 +2942,18 @@ public final class PromptOptimization {
           .computeEnumSize(2, optimizerType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, optimizerConfigJson_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, datasetId_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < scorers_.size(); i++) {
+          dataSize += computeStringSizeNoTag(scorers_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getScorersList().size();
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, optimizerConfigJson_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1480,10 +2965,10 @@ public final class PromptOptimization {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig)) {
+      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig other = (org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig) obj;
+      org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig other = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig) obj;
 
       if (hasTargetPromptUri() != other.hasTargetPromptUri()) return false;
       if (hasTargetPromptUri()) {
@@ -1494,6 +2979,13 @@ public final class PromptOptimization {
       if (hasOptimizerType()) {
         if (optimizerType_ != other.optimizerType_) return false;
       }
+      if (hasDatasetId() != other.hasDatasetId()) return false;
+      if (hasDatasetId()) {
+        if (!getDatasetId()
+            .equals(other.getDatasetId())) return false;
+      }
+      if (!getScorersList()
+          .equals(other.getScorersList())) return false;
       if (hasOptimizerConfigJson() != other.hasOptimizerConfigJson()) return false;
       if (hasOptimizerConfigJson()) {
         if (!getOptimizerConfigJson()
@@ -1518,6 +3010,14 @@ public final class PromptOptimization {
         hash = (37 * hash) + OPTIMIZER_TYPE_FIELD_NUMBER;
         hash = (53 * hash) + optimizerType_;
       }
+      if (hasDatasetId()) {
+        hash = (37 * hash) + DATASET_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getDatasetId().hashCode();
+      }
+      if (getScorersCount() > 0) {
+        hash = (37 * hash) + SCORERS_FIELD_NUMBER;
+        hash = (53 * hash) + getScorersList().hashCode();
+      }
       if (hasOptimizerConfigJson()) {
         hash = (37 * hash) + OPTIMIZER_CONFIG_JSON_FIELD_NUMBER;
         hash = (53 * hash) + getOptimizerConfigJson().hashCode();
@@ -1527,69 +3027,69 @@ public final class PromptOptimization {
       return hash;
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(byte[] data)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseDelimitedFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -1602,7 +3102,7 @@ public final class PromptOptimization {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -1623,26 +3123,26 @@ public final class PromptOptimization {
      * Stored as run parameters in the underlying MLflow run.
      * </pre>
      *
-     * Protobuf type {@code mlflow.OptimizationJobConfig}
+     * Protobuf type {@code mlflow.PromptOptimizationJobConfig}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.OptimizationJobConfig)
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.PromptOptimizationJobConfig)
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobConfig_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobConfig_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobConfig_fieldAccessorTable
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.class, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder.class);
+                org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.newBuilder()
+      // Construct using org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -1664,25 +3164,29 @@ public final class PromptOptimization {
         bitField0_ = (bitField0_ & ~0x00000001);
         optimizerType_ = 0;
         bitField0_ = (bitField0_ & ~0x00000002);
-        optimizerConfigJson_ = "";
+        datasetId_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        optimizerConfigJson_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJobConfig_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJobConfig_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getDefaultInstanceForType() {
-        return org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getDefaultInstanceForType() {
+        return org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig build() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig result = buildPartial();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig build() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -1690,8 +3194,8 @@ public final class PromptOptimization {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig buildPartial() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig result = new org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig(this);
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig buildPartial() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig result = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -1704,6 +3208,15 @@ public final class PromptOptimization {
         result.optimizerType_ = optimizerType_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
+        }
+        result.datasetId_ = datasetId_;
+        if (((bitField0_ & 0x00000008) != 0)) {
+          scorers_ = scorers_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000008);
+        }
+        result.scorers_ = scorers_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000008;
         }
         result.optimizerConfigJson_ = optimizerConfigJson_;
         result.bitField0_ = to_bitField0_;
@@ -1745,16 +3258,16 @@ public final class PromptOptimization {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig) {
-          return mergeFrom((org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig)other);
+        if (other instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig) {
+          return mergeFrom((org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig other) {
-        if (other == org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig other) {
+        if (other == org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance()) return this;
         if (other.hasTargetPromptUri()) {
           bitField0_ |= 0x00000001;
           targetPromptUri_ = other.targetPromptUri_;
@@ -1763,8 +3276,23 @@ public final class PromptOptimization {
         if (other.hasOptimizerType()) {
           setOptimizerType(other.getOptimizerType());
         }
-        if (other.hasOptimizerConfigJson()) {
+        if (other.hasDatasetId()) {
           bitField0_ |= 0x00000004;
+          datasetId_ = other.datasetId_;
+          onChanged();
+        }
+        if (!other.scorers_.isEmpty()) {
+          if (scorers_.isEmpty()) {
+            scorers_ = other.scorers_;
+            bitField0_ = (bitField0_ & ~0x00000008);
+          } else {
+            ensureScorersIsMutable();
+            scorers_.addAll(other.scorers_);
+          }
+          onChanged();
+        }
+        if (other.hasOptimizerConfigJson()) {
+          bitField0_ |= 0x00000010;
           optimizerConfigJson_ = other.optimizerConfigJson_;
           onChanged();
         }
@@ -1783,11 +3311,11 @@ public final class PromptOptimization {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig parsedMessage = null;
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -1965,6 +3493,268 @@ public final class PromptOptimization {
         return this;
       }
 
+      private java.lang.Object datasetId_ = "";
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @return Whether the datasetId field is set.
+       */
+      public boolean hasDatasetId() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @return The datasetId.
+       */
+      public java.lang.String getDatasetId() {
+        java.lang.Object ref = datasetId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            datasetId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @return The bytes for datasetId.
+       */
+      public com.google.protobuf.ByteString
+          getDatasetIdBytes() {
+        java.lang.Object ref = datasetId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          datasetId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @param value The datasetId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        datasetId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDatasetId() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        datasetId_ = getDefaultInstance().getDatasetId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the EvaluationDataset containing training data.
+       * </pre>
+       *
+       * <code>optional string dataset_id = 3;</code>
+       * @param value The bytes for datasetId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDatasetIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        datasetId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureScorersIsMutable() {
+        if (!((bitField0_ & 0x00000008) != 0)) {
+          scorers_ = new com.google.protobuf.LazyStringArrayList(scorers_);
+          bitField0_ |= 0x00000008;
+         }
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @return A list containing the scorers.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getScorersList() {
+        return scorers_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @return The count of scorers.
+       */
+      public int getScorersCount() {
+        return scorers_.size();
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param index The index of the element to return.
+       * @return The scorers at the given index.
+       */
+      public java.lang.String getScorers(int index) {
+        return scorers_.get(index);
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the scorers at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getScorersBytes(int index) {
+        return scorers_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param index The index to set the value at.
+       * @param value The scorers to set.
+       * @return This builder for chaining.
+       */
+      public Builder setScorers(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureScorersIsMutable();
+        scorers_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param value The scorers to add.
+       * @return This builder for chaining.
+       */
+      public Builder addScorers(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureScorersIsMutable();
+        scorers_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param values The scorers to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllScorers(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureScorersIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, scorers_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearScorers() {
+        scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of scorer names. Can be built-in scorer class names
+       * (e.g., "Correctness", "Safety") or registered scorer names.
+       * </pre>
+       *
+       * <code>repeated string scorers = 4;</code>
+       * @param value The bytes of the scorers to add.
+       * @return This builder for chaining.
+       */
+      public Builder addScorersBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureScorersIsMutable();
+        scorers_.add(value);
+        onChanged();
+        return this;
+      }
+
       private java.lang.Object optimizerConfigJson_ = "";
       /**
        * <pre>
@@ -1974,11 +3764,11 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @return Whether the optimizerConfigJson field is set.
        */
       public boolean hasOptimizerConfigJson() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -1988,7 +3778,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @return The optimizerConfigJson.
        */
       public java.lang.String getOptimizerConfigJson() {
@@ -2013,7 +3803,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @return The bytes for optimizerConfigJson.
        */
       public com.google.protobuf.ByteString
@@ -2037,7 +3827,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @param value The optimizerConfigJson to set.
        * @return This builder for chaining.
        */
@@ -2046,7 +3836,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000010;
         optimizerConfigJson_ = value;
         onChanged();
         return this;
@@ -2059,11 +3849,11 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @return This builder for chaining.
        */
       public Builder clearOptimizerConfigJson() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000010);
         optimizerConfigJson_ = getDefaultInstance().getOptimizerConfigJson();
         onChanged();
         return this;
@@ -2076,7 +3866,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 3;</code>
+       * <code>optional string optimizer_config_json = 5;</code>
        * @param value The bytes for optimizerConfigJson to set.
        * @return This builder for chaining.
        */
@@ -2085,7 +3875,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000010;
         optimizerConfigJson_ = value;
         onChanged();
         return this;
@@ -2103,48 +3893,48 @@ public final class PromptOptimization {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.OptimizationJobConfig)
+      // @@protoc_insertion_point(builder_scope:mlflow.PromptOptimizationJobConfig)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.OptimizationJobConfig)
-    private static final org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.PromptOptimizationJobConfig)
+    private static final org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig();
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getDefaultInstance() {
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<OptimizationJobConfig>
-        PARSER = new com.google.protobuf.AbstractParser<OptimizationJobConfig>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<PromptOptimizationJobConfig>
+        PARSER = new com.google.protobuf.AbstractParser<PromptOptimizationJobConfig>() {
       @java.lang.Override
-      public OptimizationJobConfig parsePartialFrom(
+      public PromptOptimizationJobConfig parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new OptimizationJobConfig(input, extensionRegistry);
+        return new PromptOptimizationJobConfig(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<OptimizationJobConfig> parser() {
+    public static com.google.protobuf.Parser<PromptOptimizationJobConfig> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<OptimizationJobConfig> getParserForType() {
+    public com.google.protobuf.Parser<PromptOptimizationJobConfig> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getDefaultInstanceForType() {
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
-  public interface OptimizationJobOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.OptimizationJob)
+  public interface PromptOptimizationJobOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.PromptOptimizationJob)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -2213,22 +4003,30 @@ public final class PromptOptimization {
 
     /**
      * <pre>
-     * Current status of the job.
+     * Current state of the job (status + error message + metadata).
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-     * @return Whether the status field is set.
+     * <code>optional .mlflow.JobState state = 3;</code>
+     * @return Whether the state field is set.
      */
-    boolean hasStatus();
+    boolean hasState();
     /**
      * <pre>
-     * Current status of the job.
+     * Current state of the job (status + error message + metadata).
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-     * @return The status.
+     * <code>optional .mlflow.JobState state = 3;</code>
+     * @return The state.
      */
-    org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus getStatus();
+    org.mlflow.api.proto.PromptOptimization.JobState getState();
+    /**
+     * <pre>
+     * Current state of the job (status + error message + metadata).
+     * </pre>
+     *
+     * <code>optional .mlflow.JobState state = 3;</code>
+     */
+    org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder getStateOrBuilder();
 
     /**
      * <pre>
@@ -2325,7 +4123,7 @@ public final class PromptOptimization {
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      * @return Whether the config field is set.
      */
     boolean hasConfig();
@@ -2334,18 +4132,18 @@ public final class PromptOptimization {
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      * @return The config.
      */
-    org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getConfig();
+    org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getConfig();
     /**
      * <pre>
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      */
-    org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder getConfigOrBuilder();
+    org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder getConfigOrBuilder();
 
     /**
      * <pre>
@@ -2389,56 +4187,27 @@ public final class PromptOptimization {
 
     /**
      * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return Whether the errorMessage field is set.
-     */
-    boolean hasErrorMessage();
-    /**
-     * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return The errorMessage.
-     */
-    java.lang.String getErrorMessage();
-    /**
-     * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return The bytes for errorMessage.
-     */
-    com.google.protobuf.ByteString
-        getErrorMessageBytes();
-
-    /**
-     * <pre>
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
-    java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> 
+    java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> 
         getTagsList();
     /**
      * <pre>
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
-    org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getTags(int index);
+    org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getTags(int index);
     /**
      * <pre>
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     int getTagsCount();
     /**
@@ -2446,82 +4215,160 @@ public final class PromptOptimization {
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
-    java.util.List<? extends org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder> 
+    java.util.List<? extends org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder> 
         getTagsOrBuilderList();
     /**
      * <pre>
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
-    org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder getTagsOrBuilder(
+    org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder getTagsOrBuilder(
         int index);
 
     /**
      * <pre>
-     * Initial evaluation score before optimization (from MLflow run metrics).
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
      * </pre>
      *
-     * <code>optional double initial_eval_score = 12;</code>
-     * @return Whether the initialEvalScore field is set.
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
      */
-    boolean hasInitialEvalScore();
+    int getInitialEvalScoresCount();
     /**
      * <pre>
-     * Initial evaluation score before optimization (from MLflow run metrics).
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
      * </pre>
      *
-     * <code>optional double initial_eval_score = 12;</code>
-     * @return The initialEvalScore.
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
      */
-    double getInitialEvalScore();
+    boolean containsInitialEvalScores(
+        java.lang.String key);
+    /**
+     * Use {@link #getInitialEvalScoresMap()} instead.
+     */
+    @java.lang.Deprecated
+    java.util.Map<java.lang.String, java.lang.Double>
+    getInitialEvalScores();
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+    java.util.Map<java.lang.String, java.lang.Double>
+    getInitialEvalScoresMap();
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+
+    double getInitialEvalScoresOrDefault(
+        java.lang.String key,
+        double defaultValue);
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+
+    double getInitialEvalScoresOrThrow(
+        java.lang.String key);
 
     /**
      * <pre>
-     * Final evaluation score after optimization (from MLflow run metrics).
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
      * </pre>
      *
-     * <code>optional double final_eval_score = 13;</code>
-     * @return Whether the finalEvalScore field is set.
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
      */
-    boolean hasFinalEvalScore();
+    int getFinalEvalScoresCount();
     /**
      * <pre>
-     * Final evaluation score after optimization (from MLflow run metrics).
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
      * </pre>
      *
-     * <code>optional double final_eval_score = 13;</code>
-     * @return The finalEvalScore.
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
      */
-    double getFinalEvalScore();
+    boolean containsFinalEvalScores(
+        java.lang.String key);
+    /**
+     * Use {@link #getFinalEvalScoresMap()} instead.
+     */
+    @java.lang.Deprecated
+    java.util.Map<java.lang.String, java.lang.Double>
+    getFinalEvalScores();
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+    java.util.Map<java.lang.String, java.lang.Double>
+    getFinalEvalScoresMap();
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+
+    double getFinalEvalScoresOrDefault(
+        java.lang.String key,
+        double defaultValue);
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+
+    double getFinalEvalScoresOrThrow(
+        java.lang.String key);
   }
   /**
    * <pre>
    * Represents a prompt optimization job entity.
    * </pre>
    *
-   * Protobuf type {@code mlflow.OptimizationJob}
+   * Protobuf type {@code mlflow.PromptOptimizationJob}
    */
-  public static final class OptimizationJob extends
+  public static final class PromptOptimizationJob extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.OptimizationJob)
-      OptimizationJobOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.PromptOptimizationJob)
+      PromptOptimizationJobOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use OptimizationJob.newBuilder() to construct.
-    private OptimizationJob(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use PromptOptimizationJob.newBuilder() to construct.
+    private PromptOptimizationJob(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private OptimizationJob() {
+    private PromptOptimizationJob() {
       jobId_ = "";
       runId_ = "";
-      status_ = 0;
       experimentId_ = "";
       sourcePromptUri_ = "";
       optimizedPromptUri_ = "";
-      errorMessage_ = "";
       tags_ = java.util.Collections.emptyList();
     }
 
@@ -2529,7 +4376,7 @@ public final class PromptOptimization {
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new OptimizationJob();
+      return new PromptOptimizationJob();
     }
 
     @java.lang.Override
@@ -2537,7 +4384,7 @@ public final class PromptOptimization {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private OptimizationJob(
+    private PromptOptimizationJob(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -2568,16 +4415,17 @@ public final class PromptOptimization {
               runId_ = bs;
               break;
             }
-            case 24: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus value = org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(3, rawValue);
-              } else {
-                bitField0_ |= 0x00000004;
-                status_ = rawValue;
+            case 26: {
+              org.mlflow.api.proto.PromptOptimization.JobState.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000004) != 0)) {
+                subBuilder = state_.toBuilder();
               }
+              state_ = input.readMessage(org.mlflow.api.proto.PromptOptimization.JobState.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(state_);
+                state_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000004;
               break;
             }
             case 34: {
@@ -2599,11 +4447,11 @@ public final class PromptOptimization {
               break;
             }
             case 58: {
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder subBuilder = null;
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder subBuilder = null;
               if (((bitField0_ & 0x00000040) != 0)) {
                 subBuilder = config_.toBuilder();
               }
-              config_ = input.readMessage(org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.PARSER, extensionRegistry);
+              config_ = input.readMessage(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.PARSER, extensionRegistry);
               if (subBuilder != null) {
                 subBuilder.mergeFrom(config_);
                 config_ = subBuilder.buildPartial();
@@ -2622,28 +4470,38 @@ public final class PromptOptimization {
               break;
             }
             case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000200;
-              errorMessage_ = bs;
+              if (!((mutable_bitField0_ & 0x00000200) != 0)) {
+                tags_ = new java.util.ArrayList<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag>();
+                mutable_bitField0_ |= 0x00000200;
+              }
+              tags_.add(
+                  input.readMessage(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.PARSER, extensionRegistry));
               break;
             }
             case 90: {
               if (!((mutable_bitField0_ & 0x00000400) != 0)) {
-                tags_ = new java.util.ArrayList<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag>();
+                initialEvalScores_ = com.google.protobuf.MapField.newMapField(
+                    InitialEvalScoresDefaultEntryHolder.defaultEntry);
                 mutable_bitField0_ |= 0x00000400;
               }
-              tags_.add(
-                  input.readMessage(org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.PARSER, extensionRegistry));
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.Double>
+              initialEvalScores__ = input.readMessage(
+                  InitialEvalScoresDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              initialEvalScores_.getMutableMap().put(
+                  initialEvalScores__.getKey(), initialEvalScores__.getValue());
               break;
             }
-            case 97: {
-              bitField0_ |= 0x00000400;
-              initialEvalScore_ = input.readDouble();
-              break;
-            }
-            case 105: {
-              bitField0_ |= 0x00000800;
-              finalEvalScore_ = input.readDouble();
+            case 98: {
+              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
+                finalEvalScores_ = com.google.protobuf.MapField.newMapField(
+                    FinalEvalScoresDefaultEntryHolder.defaultEntry);
+                mutable_bitField0_ |= 0x00000800;
+              }
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.Double>
+              finalEvalScores__ = input.readMessage(
+                  FinalEvalScoresDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              finalEvalScores_.getMutableMap().put(
+                  finalEvalScores__.getKey(), finalEvalScores__.getValue());
               break;
             }
             default: {
@@ -2661,7 +4519,7 @@ public final class PromptOptimization {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000400) != 0)) {
+        if (((mutable_bitField0_ & 0x00000200) != 0)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
         }
         this.unknownFields = unknownFields.build();
@@ -2670,15 +4528,29 @@ public final class PromptOptimization {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJob_descriptor;
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_descriptor;
     }
 
+    @SuppressWarnings({"rawtypes"})
+    @java.lang.Override
+    protected com.google.protobuf.MapField internalGetMapField(
+        int number) {
+      switch (number) {
+        case 11:
+          return internalGetInitialEvalScores();
+        case 12:
+          return internalGetFinalEvalScores();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJob_fieldAccessorTable
+      return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.PromptOptimization.OptimizationJob.class, org.mlflow.api.proto.PromptOptimization.OptimizationJob.Builder.class);
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.Builder.class);
     }
 
     private int bitField0_;
@@ -2808,31 +4680,42 @@ public final class PromptOptimization {
       }
     }
 
-    public static final int STATUS_FIELD_NUMBER = 3;
-    private int status_;
+    public static final int STATE_FIELD_NUMBER = 3;
+    private org.mlflow.api.proto.PromptOptimization.JobState state_;
     /**
      * <pre>
-     * Current status of the job.
+     * Current state of the job (status + error message + metadata).
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-     * @return Whether the status field is set.
+     * <code>optional .mlflow.JobState state = 3;</code>
+     * @return Whether the state field is set.
      */
-    @java.lang.Override public boolean hasStatus() {
+    @java.lang.Override
+    public boolean hasState() {
       return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
-     * Current status of the job.
+     * Current state of the job (status + error message + metadata).
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-     * @return The status.
+     * <code>optional .mlflow.JobState state = 3;</code>
+     * @return The state.
      */
-    @java.lang.Override public org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus getStatus() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus result = org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus.valueOf(status_);
-      return result == null ? org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_UNSPECIFIED : result;
+    @java.lang.Override
+    public org.mlflow.api.proto.PromptOptimization.JobState getState() {
+      return state_ == null ? org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance() : state_;
+    }
+    /**
+     * <pre>
+     * Current state of the job (status + error message + metadata).
+     * </pre>
+     *
+     * <code>optional .mlflow.JobState state = 3;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder getStateOrBuilder() {
+      return state_ == null ? org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance() : state_;
     }
 
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 4;
@@ -3019,13 +4902,13 @@ public final class PromptOptimization {
     }
 
     public static final int CONFIG_FIELD_NUMBER = 7;
-    private org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig config_;
+    private org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig config_;
     /**
      * <pre>
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      * @return Whether the config field is set.
      */
     @java.lang.Override
@@ -3037,23 +4920,23 @@ public final class PromptOptimization {
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      * @return The config.
      */
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getConfig() {
-      return config_ == null ? org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance() : config_;
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getConfig() {
+      return config_ == null ? org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance() : config_;
     }
     /**
      * <pre>
      * Configuration for the optimization job.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+     * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
      */
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder getConfigOrBuilder() {
-      return config_ == null ? org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance() : config_;
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder getConfigOrBuilder() {
+      return config_ == null ? org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance() : config_;
     }
 
     public static final int CREATION_TIMESTAMP_MS_FIELD_NUMBER = 8;
@@ -3112,77 +4995,17 @@ public final class PromptOptimization {
       return completionTimestampMs_;
     }
 
-    public static final int ERROR_MESSAGE_FIELD_NUMBER = 10;
-    private volatile java.lang.Object errorMessage_;
-    /**
-     * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return Whether the errorMessage field is set.
-     */
-    @java.lang.Override
-    public boolean hasErrorMessage() {
-      return ((bitField0_ & 0x00000200) != 0);
-    }
-    /**
-     * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return The errorMessage.
-     */
-    @java.lang.Override
-    public java.lang.String getErrorMessage() {
-      java.lang.Object ref = errorMessage_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          errorMessage_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Error message if the job failed.
-     * </pre>
-     *
-     * <code>optional string error_message = 10;</code>
-     * @return The bytes for errorMessage.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getErrorMessageBytes() {
-      java.lang.Object ref = errorMessage_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        errorMessage_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int TAGS_FIELD_NUMBER = 11;
-    private java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> tags_;
+    public static final int TAGS_FIELD_NUMBER = 10;
+    private java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> tags_;
     /**
      * <pre>
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     @java.lang.Override
-    public java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> getTagsList() {
+    public java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> getTagsList() {
       return tags_;
     }
     /**
@@ -3190,10 +5013,10 @@ public final class PromptOptimization {
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder> 
+    public java.util.List<? extends org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder> 
         getTagsOrBuilderList() {
       return tags_;
     }
@@ -3202,7 +5025,7 @@ public final class PromptOptimization {
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     @java.lang.Override
     public int getTagsCount() {
@@ -3213,10 +5036,10 @@ public final class PromptOptimization {
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getTags(int index) {
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getTags(int index) {
       return tags_.get(index);
     }
     /**
@@ -3224,66 +5047,214 @@ public final class PromptOptimization {
      * Tags associated with this job.
      * </pre>
      *
-     * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+     * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
      */
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder getTagsOrBuilder(
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder getTagsOrBuilder(
         int index) {
       return tags_.get(index);
     }
 
-    public static final int INITIAL_EVAL_SCORE_FIELD_NUMBER = 12;
-    private double initialEvalScore_;
-    /**
-     * <pre>
-     * Initial evaluation score before optimization (from MLflow run metrics).
-     * </pre>
-     *
-     * <code>optional double initial_eval_score = 12;</code>
-     * @return Whether the initialEvalScore field is set.
-     */
-    @java.lang.Override
-    public boolean hasInitialEvalScore() {
-      return ((bitField0_ & 0x00000400) != 0);
+    public static final int INITIAL_EVAL_SCORES_FIELD_NUMBER = 11;
+    private static final class InitialEvalScoresDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, java.lang.Double> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, java.lang.Double>newDefaultInstance(
+                  org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.DOUBLE,
+                  0D);
     }
-    /**
-     * <pre>
-     * Initial evaluation score before optimization (from MLflow run metrics).
-     * </pre>
-     *
-     * <code>optional double initial_eval_score = 12;</code>
-     * @return The initialEvalScore.
-     */
-    @java.lang.Override
-    public double getInitialEvalScore() {
-      return initialEvalScore_;
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.Double> initialEvalScores_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+    internalGetInitialEvalScores() {
+      if (initialEvalScores_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            InitialEvalScoresDefaultEntryHolder.defaultEntry);
+      }
+      return initialEvalScores_;
     }
 
-    public static final int FINAL_EVAL_SCORE_FIELD_NUMBER = 13;
-    private double finalEvalScore_;
-    /**
-     * <pre>
-     * Final evaluation score after optimization (from MLflow run metrics).
-     * </pre>
-     *
-     * <code>optional double final_eval_score = 13;</code>
-     * @return Whether the finalEvalScore field is set.
-     */
-    @java.lang.Override
-    public boolean hasFinalEvalScore() {
-      return ((bitField0_ & 0x00000800) != 0);
+    public int getInitialEvalScoresCount() {
+      return internalGetInitialEvalScores().getMap().size();
     }
     /**
      * <pre>
-     * Final evaluation score after optimization (from MLflow run metrics).
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
      * </pre>
      *
-     * <code>optional double final_eval_score = 13;</code>
-     * @return The finalEvalScore.
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+
+    @java.lang.Override
+    public boolean containsInitialEvalScores(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetInitialEvalScores().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getInitialEvalScoresMap()} instead.
      */
     @java.lang.Override
-    public double getFinalEvalScore() {
-      return finalEvalScore_;
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.Double> getInitialEvalScores() {
+      return getInitialEvalScoresMap();
+    }
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+    @java.lang.Override
+
+    public java.util.Map<java.lang.String, java.lang.Double> getInitialEvalScoresMap() {
+      return internalGetInitialEvalScores().getMap();
+    }
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+    @java.lang.Override
+
+    public double getInitialEvalScoresOrDefault(
+        java.lang.String key,
+        double defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Double> map =
+          internalGetInitialEvalScores().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <pre>
+     * Initial evaluation scores before optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.65, "Safety": 0.80}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+     */
+    @java.lang.Override
+
+    public double getInitialEvalScoresOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Double> map =
+          internalGetInitialEvalScores().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
+    }
+
+    public static final int FINAL_EVAL_SCORES_FIELD_NUMBER = 12;
+    private static final class FinalEvalScoresDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, java.lang.Double> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, java.lang.Double>newDefaultInstance(
+                  org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.DOUBLE,
+                  0D);
+    }
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.Double> finalEvalScores_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+    internalGetFinalEvalScores() {
+      if (finalEvalScores_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            FinalEvalScoresDefaultEntryHolder.defaultEntry);
+      }
+      return finalEvalScores_;
+    }
+
+    public int getFinalEvalScoresCount() {
+      return internalGetFinalEvalScores().getMap().size();
+    }
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+
+    @java.lang.Override
+    public boolean containsFinalEvalScores(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetFinalEvalScores().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getFinalEvalScoresMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.Double> getFinalEvalScores() {
+      return getFinalEvalScoresMap();
+    }
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+    @java.lang.Override
+
+    public java.util.Map<java.lang.String, java.lang.Double> getFinalEvalScoresMap() {
+      return internalGetFinalEvalScores().getMap();
+    }
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+    @java.lang.Override
+
+    public double getFinalEvalScoresOrDefault(
+        java.lang.String key,
+        double defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Double> map =
+          internalGetFinalEvalScores().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <pre>
+     * Final evaluation scores after optimization, keyed by scorer name.
+     * Example: {"Correctness": 0.89, "Safety": 0.95}
+     * </pre>
+     *
+     * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+     */
+    @java.lang.Override
+
+    public double getFinalEvalScoresOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.Double> map =
+          internalGetFinalEvalScores().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
     }
 
     private byte memoizedIsInitialized = -1;
@@ -3307,7 +5278,7 @@ public final class PromptOptimization {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        output.writeEnum(3, status_);
+        output.writeMessage(3, getState());
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, experimentId_);
@@ -3327,18 +5298,21 @@ public final class PromptOptimization {
       if (((bitField0_ & 0x00000100) != 0)) {
         output.writeInt64(9, completionTimestampMs_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, errorMessage_);
-      }
       for (int i = 0; i < tags_.size(); i++) {
-        output.writeMessage(11, tags_.get(i));
+        output.writeMessage(10, tags_.get(i));
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        output.writeDouble(12, initialEvalScore_);
-      }
-      if (((bitField0_ & 0x00000800) != 0)) {
-        output.writeDouble(13, finalEvalScore_);
-      }
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetInitialEvalScores(),
+          InitialEvalScoresDefaultEntryHolder.defaultEntry,
+          11);
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetFinalEvalScores(),
+          FinalEvalScoresDefaultEntryHolder.defaultEntry,
+          12);
       unknownFields.writeTo(output);
     }
 
@@ -3356,7 +5330,7 @@ public final class PromptOptimization {
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(3, status_);
+          .computeMessageSize(3, getState());
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, experimentId_);
@@ -3379,20 +5353,29 @@ public final class PromptOptimization {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(9, completionTimestampMs_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, errorMessage_);
-      }
       for (int i = 0; i < tags_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(11, tags_.get(i));
+          .computeMessageSize(10, tags_.get(i));
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      for (java.util.Map.Entry<java.lang.String, java.lang.Double> entry
+           : internalGetInitialEvalScores().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, java.lang.Double>
+        initialEvalScores__ = InitialEvalScoresDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
         size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(12, initialEvalScore_);
+            .computeMessageSize(11, initialEvalScores__);
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      for (java.util.Map.Entry<java.lang.String, java.lang.Double> entry
+           : internalGetFinalEvalScores().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, java.lang.Double>
+        finalEvalScores__ = FinalEvalScoresDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
         size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(13, finalEvalScore_);
+            .computeMessageSize(12, finalEvalScores__);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -3404,10 +5387,10 @@ public final class PromptOptimization {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJob)) {
+      if (!(obj instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.PromptOptimization.OptimizationJob other = (org.mlflow.api.proto.PromptOptimization.OptimizationJob) obj;
+      org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob other = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob) obj;
 
       if (hasJobId() != other.hasJobId()) return false;
       if (hasJobId()) {
@@ -3419,9 +5402,10 @@ public final class PromptOptimization {
         if (!getRunId()
             .equals(other.getRunId())) return false;
       }
-      if (hasStatus() != other.hasStatus()) return false;
-      if (hasStatus()) {
-        if (status_ != other.status_) return false;
+      if (hasState() != other.hasState()) return false;
+      if (hasState()) {
+        if (!getState()
+            .equals(other.getState())) return false;
       }
       if (hasExperimentId() != other.hasExperimentId()) return false;
       if (hasExperimentId()) {
@@ -3453,25 +5437,12 @@ public final class PromptOptimization {
         if (getCompletionTimestampMs()
             != other.getCompletionTimestampMs()) return false;
       }
-      if (hasErrorMessage() != other.hasErrorMessage()) return false;
-      if (hasErrorMessage()) {
-        if (!getErrorMessage()
-            .equals(other.getErrorMessage())) return false;
-      }
       if (!getTagsList()
           .equals(other.getTagsList())) return false;
-      if (hasInitialEvalScore() != other.hasInitialEvalScore()) return false;
-      if (hasInitialEvalScore()) {
-        if (java.lang.Double.doubleToLongBits(getInitialEvalScore())
-            != java.lang.Double.doubleToLongBits(
-                other.getInitialEvalScore())) return false;
-      }
-      if (hasFinalEvalScore() != other.hasFinalEvalScore()) return false;
-      if (hasFinalEvalScore()) {
-        if (java.lang.Double.doubleToLongBits(getFinalEvalScore())
-            != java.lang.Double.doubleToLongBits(
-                other.getFinalEvalScore())) return false;
-      }
+      if (!internalGetInitialEvalScores().equals(
+          other.internalGetInitialEvalScores())) return false;
+      if (!internalGetFinalEvalScores().equals(
+          other.internalGetFinalEvalScores())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -3491,9 +5462,9 @@ public final class PromptOptimization {
         hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
         hash = (53 * hash) + getRunId().hashCode();
       }
-      if (hasStatus()) {
-        hash = (37 * hash) + STATUS_FIELD_NUMBER;
-        hash = (53 * hash) + status_;
+      if (hasState()) {
+        hash = (37 * hash) + STATE_FIELD_NUMBER;
+        hash = (53 * hash) + getState().hashCode();
       }
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
@@ -3521,92 +5492,86 @@ public final class PromptOptimization {
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getCompletionTimestampMs());
       }
-      if (hasErrorMessage()) {
-        hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
-        hash = (53 * hash) + getErrorMessage().hashCode();
-      }
       if (getTagsCount() > 0) {
         hash = (37 * hash) + TAGS_FIELD_NUMBER;
         hash = (53 * hash) + getTagsList().hashCode();
       }
-      if (hasInitialEvalScore()) {
-        hash = (37 * hash) + INITIAL_EVAL_SCORE_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            java.lang.Double.doubleToLongBits(getInitialEvalScore()));
+      if (!internalGetInitialEvalScores().getMap().isEmpty()) {
+        hash = (37 * hash) + INITIAL_EVAL_SCORES_FIELD_NUMBER;
+        hash = (53 * hash) + internalGetInitialEvalScores().hashCode();
       }
-      if (hasFinalEvalScore()) {
-        hash = (37 * hash) + FINAL_EVAL_SCORE_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            java.lang.Double.doubleToLongBits(getFinalEvalScore()));
+      if (!internalGetFinalEvalScores().getMap().isEmpty()) {
+        hash = (37 * hash) + FINAL_EVAL_SCORES_FIELD_NUMBER;
+        hash = (53 * hash) + internalGetFinalEvalScores().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(byte[] data)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseDelimitedFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob parseFrom(
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -3619,7 +5584,7 @@ public final class PromptOptimization {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.OptimizationJob prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -3639,26 +5604,52 @@ public final class PromptOptimization {
      * Represents a prompt optimization job entity.
      * </pre>
      *
-     * Protobuf type {@code mlflow.OptimizationJob}
+     * Protobuf type {@code mlflow.PromptOptimizationJob}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.OptimizationJob)
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.PromptOptimizationJob)
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJob_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_descriptor;
       }
 
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMapField(
+          int number) {
+        switch (number) {
+          case 11:
+            return internalGetInitialEvalScores();
+          case 12:
+            return internalGetFinalEvalScores();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMutableMapField(
+          int number) {
+        switch (number) {
+          case 11:
+            return internalGetMutableInitialEvalScores();
+          case 12:
+            return internalGetMutableFinalEvalScores();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJob_fieldAccessorTable
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.PromptOptimization.OptimizationJob.class, org.mlflow.api.proto.PromptOptimization.OptimizationJob.Builder.class);
+                org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.class, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.PromptOptimization.OptimizationJob.newBuilder()
+      // Construct using org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -3671,6 +5662,7 @@ public final class PromptOptimization {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getStateFieldBuilder();
           getConfigFieldBuilder();
           getTagsFieldBuilder();
         }
@@ -3682,7 +5674,11 @@ public final class PromptOptimization {
         bitField0_ = (bitField0_ & ~0x00000001);
         runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        status_ = 0;
+        if (stateBuilder_ == null) {
+          state_ = null;
+        } else {
+          stateBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000004);
         experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
@@ -3700,35 +5696,31 @@ public final class PromptOptimization {
         bitField0_ = (bitField0_ & ~0x00000080);
         completionTimestampMs_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000100);
-        errorMessage_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000400);
+          bitField0_ = (bitField0_ & ~0x00000200);
         } else {
           tagsBuilder_.clear();
         }
-        initialEvalScore_ = 0D;
-        bitField0_ = (bitField0_ & ~0x00000800);
-        finalEvalScore_ = 0D;
-        bitField0_ = (bitField0_ & ~0x00001000);
+        internalGetMutableInitialEvalScores().clear();
+        internalGetMutableFinalEvalScores().clear();
         return this;
       }
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_OptimizationJob_descriptor;
+        return org.mlflow.api.proto.PromptOptimization.internal_static_mlflow_PromptOptimizationJob_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJob getDefaultInstanceForType() {
-        return org.mlflow.api.proto.PromptOptimization.OptimizationJob.getDefaultInstance();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob getDefaultInstanceForType() {
+        return org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJob build() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJob result = buildPartial();
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob build() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -3736,8 +5728,8 @@ public final class PromptOptimization {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJob buildPartial() {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJob result = new org.mlflow.api.proto.PromptOptimization.OptimizationJob(this);
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob buildPartial() {
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob result = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -3749,9 +5741,13 @@ public final class PromptOptimization {
         }
         result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
+          if (stateBuilder_ == null) {
+            result.state_ = state_;
+          } else {
+            result.state_ = stateBuilder_.build();
+          }
           to_bitField0_ |= 0x00000004;
         }
-        result.status_ = status_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
@@ -3780,27 +5776,19 @@ public final class PromptOptimization {
           result.completionTimestampMs_ = completionTimestampMs_;
           to_bitField0_ |= 0x00000100;
         }
-        if (((from_bitField0_ & 0x00000200) != 0)) {
-          to_bitField0_ |= 0x00000200;
-        }
-        result.errorMessage_ = errorMessage_;
         if (tagsBuilder_ == null) {
-          if (((bitField0_ & 0x00000400) != 0)) {
+          if (((bitField0_ & 0x00000200) != 0)) {
             tags_ = java.util.Collections.unmodifiableList(tags_);
-            bitField0_ = (bitField0_ & ~0x00000400);
+            bitField0_ = (bitField0_ & ~0x00000200);
           }
           result.tags_ = tags_;
         } else {
           result.tags_ = tagsBuilder_.build();
         }
-        if (((from_bitField0_ & 0x00000800) != 0)) {
-          result.initialEvalScore_ = initialEvalScore_;
-          to_bitField0_ |= 0x00000400;
-        }
-        if (((from_bitField0_ & 0x00001000) != 0)) {
-          result.finalEvalScore_ = finalEvalScore_;
-          to_bitField0_ |= 0x00000800;
-        }
+        result.initialEvalScores_ = internalGetInitialEvalScores();
+        result.initialEvalScores_.makeImmutable();
+        result.finalEvalScores_ = internalGetFinalEvalScores();
+        result.finalEvalScores_.makeImmutable();
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -3840,16 +5828,16 @@ public final class PromptOptimization {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.PromptOptimization.OptimizationJob) {
-          return mergeFrom((org.mlflow.api.proto.PromptOptimization.OptimizationJob)other);
+        if (other instanceof org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob) {
+          return mergeFrom((org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.OptimizationJob other) {
-        if (other == org.mlflow.api.proto.PromptOptimization.OptimizationJob.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob other) {
+        if (other == org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob.getDefaultInstance()) return this;
         if (other.hasJobId()) {
           bitField0_ |= 0x00000001;
           jobId_ = other.jobId_;
@@ -3860,8 +5848,8 @@ public final class PromptOptimization {
           runId_ = other.runId_;
           onChanged();
         }
-        if (other.hasStatus()) {
-          setStatus(other.getStatus());
+        if (other.hasState()) {
+          mergeState(other.getState());
         }
         if (other.hasExperimentId()) {
           bitField0_ |= 0x00000008;
@@ -3887,16 +5875,11 @@ public final class PromptOptimization {
         if (other.hasCompletionTimestampMs()) {
           setCompletionTimestampMs(other.getCompletionTimestampMs());
         }
-        if (other.hasErrorMessage()) {
-          bitField0_ |= 0x00000200;
-          errorMessage_ = other.errorMessage_;
-          onChanged();
-        }
         if (tagsBuilder_ == null) {
           if (!other.tags_.isEmpty()) {
             if (tags_.isEmpty()) {
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000400);
+              bitField0_ = (bitField0_ & ~0x00000200);
             } else {
               ensureTagsIsMutable();
               tags_.addAll(other.tags_);
@@ -3909,7 +5892,7 @@ public final class PromptOptimization {
               tagsBuilder_.dispose();
               tagsBuilder_ = null;
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000400);
+              bitField0_ = (bitField0_ & ~0x00000200);
               tagsBuilder_ = 
                 com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getTagsFieldBuilder() : null;
@@ -3918,12 +5901,10 @@ public final class PromptOptimization {
             }
           }
         }
-        if (other.hasInitialEvalScore()) {
-          setInitialEvalScore(other.getInitialEvalScore());
-        }
-        if (other.hasFinalEvalScore()) {
-          setFinalEvalScore(other.getFinalEvalScore());
-        }
+        internalGetMutableInitialEvalScores().mergeFrom(
+            other.internalGetInitialEvalScores());
+        internalGetMutableFinalEvalScores().mergeFrom(
+            other.internalGetFinalEvalScores());
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -3939,11 +5920,11 @@ public final class PromptOptimization {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.PromptOptimization.OptimizationJob parsedMessage = null;
+        org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.PromptOptimization.OptimizationJob) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -4182,63 +6163,160 @@ public final class PromptOptimization {
         return this;
       }
 
-      private int status_ = 0;
+      private org.mlflow.api.proto.PromptOptimization.JobState state_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.PromptOptimization.JobState, org.mlflow.api.proto.PromptOptimization.JobState.Builder, org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder> stateBuilder_;
       /**
        * <pre>
-       * Current status of the job.
+       * Current state of the job (status + error message + metadata).
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-       * @return Whether the status field is set.
+       * <code>optional .mlflow.JobState state = 3;</code>
+       * @return Whether the state field is set.
        */
-      @java.lang.Override public boolean hasStatus() {
+      public boolean hasState() {
         return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
-       * Current status of the job.
+       * Current state of the job (status + error message + metadata).
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-       * @return The status.
+       * <code>optional .mlflow.JobState state = 3;</code>
+       * @return The state.
        */
-      @java.lang.Override
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus getStatus() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus result = org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus.valueOf(status_);
-        return result == null ? org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_UNSPECIFIED : result;
+      public org.mlflow.api.proto.PromptOptimization.JobState getState() {
+        if (stateBuilder_ == null) {
+          return state_ == null ? org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance() : state_;
+        } else {
+          return stateBuilder_.getMessage();
+        }
       }
       /**
        * <pre>
-       * Current status of the job.
+       * Current state of the job (status + error message + metadata).
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-       * @param value The status to set.
-       * @return This builder for chaining.
+       * <code>optional .mlflow.JobState state = 3;</code>
        */
-      public Builder setStatus(org.mlflow.api.proto.PromptOptimization.OptimizationJobStatus value) {
-        if (value == null) {
-          throw new NullPointerException();
+      public Builder setState(org.mlflow.api.proto.PromptOptimization.JobState value) {
+        if (stateBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          state_ = value;
+          onChanged();
+        } else {
+          stateBuilder_.setMessage(value);
         }
         bitField0_ |= 0x00000004;
-        status_ = value.getNumber();
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * Current status of the job.
+       * Current state of the job (status + error message + metadata).
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobStatus status = 3;</code>
-       * @return This builder for chaining.
+       * <code>optional .mlflow.JobState state = 3;</code>
        */
-      public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        status_ = 0;
-        onChanged();
+      public Builder setState(
+          org.mlflow.api.proto.PromptOptimization.JobState.Builder builderForValue) {
+        if (stateBuilder_ == null) {
+          state_ = builderForValue.build();
+          onChanged();
+        } else {
+          stateBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000004;
         return this;
+      }
+      /**
+       * <pre>
+       * Current state of the job (status + error message + metadata).
+       * </pre>
+       *
+       * <code>optional .mlflow.JobState state = 3;</code>
+       */
+      public Builder mergeState(org.mlflow.api.proto.PromptOptimization.JobState value) {
+        if (stateBuilder_ == null) {
+          if (((bitField0_ & 0x00000004) != 0) &&
+              state_ != null &&
+              state_ != org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance()) {
+            state_ =
+              org.mlflow.api.proto.PromptOptimization.JobState.newBuilder(state_).mergeFrom(value).buildPartial();
+          } else {
+            state_ = value;
+          }
+          onChanged();
+        } else {
+          stateBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000004;
+        return this;
+      }
+      /**
+       * <pre>
+       * Current state of the job (status + error message + metadata).
+       * </pre>
+       *
+       * <code>optional .mlflow.JobState state = 3;</code>
+       */
+      public Builder clearState() {
+        if (stateBuilder_ == null) {
+          state_ = null;
+          onChanged();
+        } else {
+          stateBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+      /**
+       * <pre>
+       * Current state of the job (status + error message + metadata).
+       * </pre>
+       *
+       * <code>optional .mlflow.JobState state = 3;</code>
+       */
+      public org.mlflow.api.proto.PromptOptimization.JobState.Builder getStateBuilder() {
+        bitField0_ |= 0x00000004;
+        onChanged();
+        return getStateFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * Current state of the job (status + error message + metadata).
+       * </pre>
+       *
+       * <code>optional .mlflow.JobState state = 3;</code>
+       */
+      public org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder getStateOrBuilder() {
+        if (stateBuilder_ != null) {
+          return stateBuilder_.getMessageOrBuilder();
+        } else {
+          return state_ == null ?
+              org.mlflow.api.proto.PromptOptimization.JobState.getDefaultInstance() : state_;
+        }
+      }
+      /**
+       * <pre>
+       * Current state of the job (status + error message + metadata).
+       * </pre>
+       *
+       * <code>optional .mlflow.JobState state = 3;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.PromptOptimization.JobState, org.mlflow.api.proto.PromptOptimization.JobState.Builder, org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder> 
+          getStateFieldBuilder() {
+        if (stateBuilder_ == null) {
+          stateBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.PromptOptimization.JobState, org.mlflow.api.proto.PromptOptimization.JobState.Builder, org.mlflow.api.proto.PromptOptimization.JobStateOrBuilder>(
+                  getState(),
+                  getParentForChildren(),
+                  isClean());
+          state_ = null;
+        }
+        return stateBuilder_;
       }
 
       private java.lang.Object experimentId_ = "";
@@ -4571,15 +6649,15 @@ public final class PromptOptimization {
         return this;
       }
 
-      private org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig config_;
+      private org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig config_;
       private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder> configBuilder_;
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder> configBuilder_;
       /**
        * <pre>
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        * @return Whether the config field is set.
        */
       public boolean hasConfig() {
@@ -4590,12 +6668,12 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        * @return The config.
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig getConfig() {
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig getConfig() {
         if (configBuilder_ == null) {
-          return config_ == null ? org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance() : config_;
+          return config_ == null ? org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance() : config_;
         } else {
           return configBuilder_.getMessage();
         }
@@ -4605,9 +6683,9 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
-      public Builder setConfig(org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig value) {
+      public Builder setConfig(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig value) {
         if (configBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -4625,10 +6703,10 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
       public Builder setConfig(
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder builderForValue) {
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder builderForValue) {
         if (configBuilder_ == null) {
           config_ = builderForValue.build();
           onChanged();
@@ -4643,15 +6721,15 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
-      public Builder mergeConfig(org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig value) {
+      public Builder mergeConfig(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig value) {
         if (configBuilder_ == null) {
           if (((bitField0_ & 0x00000040) != 0) &&
               config_ != null &&
-              config_ != org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance()) {
+              config_ != org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance()) {
             config_ =
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.newBuilder(config_).mergeFrom(value).buildPartial();
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.newBuilder(config_).mergeFrom(value).buildPartial();
           } else {
             config_ = value;
           }
@@ -4667,7 +6745,7 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
       public Builder clearConfig() {
         if (configBuilder_ == null) {
@@ -4684,9 +6762,9 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder getConfigBuilder() {
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder getConfigBuilder() {
         bitField0_ |= 0x00000040;
         onChanged();
         return getConfigFieldBuilder().getBuilder();
@@ -4696,14 +6774,14 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder getConfigOrBuilder() {
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder getConfigOrBuilder() {
         if (configBuilder_ != null) {
           return configBuilder_.getMessageOrBuilder();
         } else {
           return config_ == null ?
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.getDefaultInstance() : config_;
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance() : config_;
         }
       }
       /**
@@ -4711,14 +6789,14 @@ public final class PromptOptimization {
        * Configuration for the optimization job.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizationJobConfig config = 7;</code>
+       * <code>optional .mlflow.PromptOptimizationJobConfig config = 7;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder> 
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder> 
           getConfigFieldBuilder() {
         if (configBuilder_ == null) {
           configBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobConfigOrBuilder>(
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfigOrBuilder>(
                   getConfig(),
                   getParentForChildren(),
                   isClean());
@@ -4841,134 +6919,26 @@ public final class PromptOptimization {
         return this;
       }
 
-      private java.lang.Object errorMessage_ = "";
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @return Whether the errorMessage field is set.
-       */
-      public boolean hasErrorMessage() {
-        return ((bitField0_ & 0x00000200) != 0);
-      }
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @return The errorMessage.
-       */
-      public java.lang.String getErrorMessage() {
-        java.lang.Object ref = errorMessage_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            errorMessage_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @return The bytes for errorMessage.
-       */
-      public com.google.protobuf.ByteString
-          getErrorMessageBytes() {
-        java.lang.Object ref = errorMessage_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          errorMessage_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @param value The errorMessage to set.
-       * @return This builder for chaining.
-       */
-      public Builder setErrorMessage(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        errorMessage_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearErrorMessage() {
-        bitField0_ = (bitField0_ & ~0x00000200);
-        errorMessage_ = getDefaultInstance().getErrorMessage();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Error message if the job failed.
-       * </pre>
-       *
-       * <code>optional string error_message = 10;</code>
-       * @param value The bytes for errorMessage to set.
-       * @return This builder for chaining.
-       */
-      public Builder setErrorMessageBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        errorMessage_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> tags_ =
+      private java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> tags_ =
         java.util.Collections.emptyList();
       private void ensureTagsIsMutable() {
-        if (!((bitField0_ & 0x00000400) != 0)) {
-          tags_ = new java.util.ArrayList<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag>(tags_);
-          bitField0_ |= 0x00000400;
+        if (!((bitField0_ & 0x00000200) != 0)) {
+          tags_ = new java.util.ArrayList<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag>(tags_);
+          bitField0_ |= 0x00000200;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobTag, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder> tagsBuilder_;
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder> tagsBuilder_;
 
       /**
        * <pre>
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> getTagsList() {
+      public java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> getTagsList() {
         if (tagsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(tags_);
         } else {
@@ -4980,7 +6950,7 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public int getTagsCount() {
         if (tagsBuilder_ == null) {
@@ -4994,9 +6964,9 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag getTags(int index) {
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag getTags(int index) {
         if (tagsBuilder_ == null) {
           return tags_.get(index);
         } else {
@@ -5008,10 +6978,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder setTags(
-          int index, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag value) {
+          int index, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag value) {
         if (tagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5029,10 +6999,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder setTags(
-          int index, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder builderForValue) {
+          int index, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder builderForValue) {
         if (tagsBuilder_ == null) {
           ensureTagsIsMutable();
           tags_.set(index, builderForValue.build());
@@ -5047,9 +7017,9 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public Builder addTags(org.mlflow.api.proto.PromptOptimization.OptimizationJobTag value) {
+      public Builder addTags(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag value) {
         if (tagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5067,10 +7037,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder addTags(
-          int index, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag value) {
+          int index, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag value) {
         if (tagsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5088,10 +7058,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder addTags(
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder builderForValue) {
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder builderForValue) {
         if (tagsBuilder_ == null) {
           ensureTagsIsMutable();
           tags_.add(builderForValue.build());
@@ -5106,10 +7076,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder addTags(
-          int index, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder builderForValue) {
+          int index, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder builderForValue) {
         if (tagsBuilder_ == null) {
           ensureTagsIsMutable();
           tags_.add(index, builderForValue.build());
@@ -5124,10 +7094,10 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder addAllTags(
-          java.lang.Iterable<? extends org.mlflow.api.proto.PromptOptimization.OptimizationJobTag> values) {
+          java.lang.Iterable<? extends org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag> values) {
         if (tagsBuilder_ == null) {
           ensureTagsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -5143,12 +7113,12 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder clearTags() {
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000400);
+          bitField0_ = (bitField0_ & ~0x00000200);
           onChanged();
         } else {
           tagsBuilder_.clear();
@@ -5160,7 +7130,7 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
       public Builder removeTags(int index) {
         if (tagsBuilder_ == null) {
@@ -5177,9 +7147,9 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder getTagsBuilder(
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder getTagsBuilder(
           int index) {
         return getTagsFieldBuilder().getBuilder(index);
       }
@@ -5188,9 +7158,9 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder getTagsOrBuilder(
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder getTagsOrBuilder(
           int index) {
         if (tagsBuilder_ == null) {
           return tags_.get(index);  } else {
@@ -5202,9 +7172,9 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public java.util.List<? extends org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder> 
+      public java.util.List<? extends org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder> 
            getTagsOrBuilderList() {
         if (tagsBuilder_ != null) {
           return tagsBuilder_.getMessageOrBuilderList();
@@ -5217,43 +7187,43 @@ public final class PromptOptimization {
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder addTagsBuilder() {
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder addTagsBuilder() {
         return getTagsFieldBuilder().addBuilder(
-            org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.getDefaultInstance());
+            org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.getDefaultInstance());
       }
       /**
        * <pre>
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder addTagsBuilder(
+      public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder addTagsBuilder(
           int index) {
         return getTagsFieldBuilder().addBuilder(
-            index, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.getDefaultInstance());
+            index, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.getDefaultInstance());
       }
       /**
        * <pre>
        * Tags associated with this job.
        * </pre>
        *
-       * <code>repeated .mlflow.OptimizationJobTag tags = 11;</code>
+       * <code>repeated .mlflow.PromptOptimizationJobTag tags = 10;</code>
        */
-      public java.util.List<org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder> 
+      public java.util.List<org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder> 
            getTagsBuilderList() {
         return getTagsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.PromptOptimization.OptimizationJobTag, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder> 
+          org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder> 
           getTagsFieldBuilder() {
         if (tagsBuilder_ == null) {
           tagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              org.mlflow.api.proto.PromptOptimization.OptimizationJobTag, org.mlflow.api.proto.PromptOptimization.OptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.OptimizationJobTagOrBuilder>(
+              org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTag.Builder, org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobTagOrBuilder>(
                   tags_,
-                  ((bitField0_ & 0x00000400) != 0),
+                  ((bitField0_ & 0x00000200) != 0),
                   getParentForChildren(),
                   isClean());
           tags_ = null;
@@ -5261,113 +7231,329 @@ public final class PromptOptimization {
         return tagsBuilder_;
       }
 
-      private double initialEvalScore_ ;
-      /**
-       * <pre>
-       * Initial evaluation score before optimization (from MLflow run metrics).
-       * </pre>
-       *
-       * <code>optional double initial_eval_score = 12;</code>
-       * @return Whether the initialEvalScore field is set.
-       */
-      @java.lang.Override
-      public boolean hasInitialEvalScore() {
-        return ((bitField0_ & 0x00000800) != 0);
+      private com.google.protobuf.MapField<
+          java.lang.String, java.lang.Double> initialEvalScores_;
+      private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+      internalGetInitialEvalScores() {
+        if (initialEvalScores_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              InitialEvalScoresDefaultEntryHolder.defaultEntry);
+        }
+        return initialEvalScores_;
+      }
+      private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+      internalGetMutableInitialEvalScores() {
+        onChanged();;
+        if (initialEvalScores_ == null) {
+          initialEvalScores_ = com.google.protobuf.MapField.newMapField(
+              InitialEvalScoresDefaultEntryHolder.defaultEntry);
+        }
+        if (!initialEvalScores_.isMutable()) {
+          initialEvalScores_ = initialEvalScores_.copy();
+        }
+        return initialEvalScores_;
+      }
+
+      public int getInitialEvalScoresCount() {
+        return internalGetInitialEvalScores().getMap().size();
       }
       /**
        * <pre>
-       * Initial evaluation score before optimization (from MLflow run metrics).
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
        * </pre>
        *
-       * <code>optional double initial_eval_score = 12;</code>
-       * @return The initialEvalScore.
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+       */
+
+      @java.lang.Override
+      public boolean containsInitialEvalScores(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        return internalGetInitialEvalScores().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getInitialEvalScoresMap()} instead.
        */
       @java.lang.Override
-      public double getInitialEvalScore() {
-        return initialEvalScore_;
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.Double> getInitialEvalScores() {
+        return getInitialEvalScoresMap();
       }
       /**
        * <pre>
-       * Initial evaluation score before optimization (from MLflow run metrics).
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
        * </pre>
        *
-       * <code>optional double initial_eval_score = 12;</code>
-       * @param value The initialEvalScore to set.
-       * @return This builder for chaining.
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
        */
-      public Builder setInitialEvalScore(double value) {
-        bitField0_ |= 0x00000800;
-        initialEvalScore_ = value;
-        onChanged();
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, java.lang.Double> getInitialEvalScoresMap() {
+        return internalGetInitialEvalScores().getMap();
+      }
+      /**
+       * <pre>
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+       */
+      @java.lang.Override
+
+      public double getInitialEvalScoresOrDefault(
+          java.lang.String key,
+          double defaultValue) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.Double> map =
+            internalGetInitialEvalScores().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <pre>
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+       */
+      @java.lang.Override
+
+      public double getInitialEvalScoresOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.Double> map =
+            internalGetInitialEvalScores().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public Builder clearInitialEvalScores() {
+        internalGetMutableInitialEvalScores().getMutableMap()
+            .clear();
         return this;
       }
       /**
        * <pre>
-       * Initial evaluation score before optimization (from MLflow run metrics).
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
        * </pre>
        *
-       * <code>optional double initial_eval_score = 12;</code>
-       * @return This builder for chaining.
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
        */
-      public Builder clearInitialEvalScore() {
-        bitField0_ = (bitField0_ & ~0x00000800);
-        initialEvalScore_ = 0D;
-        onChanged();
+
+      public Builder removeInitialEvalScores(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        internalGetMutableInitialEvalScores().getMutableMap()
+            .remove(key);
+        return this;
+      }
+      /**
+       * Use alternate mutation accessors instead.
+       */
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.Double>
+      getMutableInitialEvalScores() {
+        return internalGetMutableInitialEvalScores().getMutableMap();
+      }
+      /**
+       * <pre>
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+       */
+      public Builder putInitialEvalScores(
+          java.lang.String key,
+          double value) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        
+        internalGetMutableInitialEvalScores().getMutableMap()
+            .put(key, value);
+        return this;
+      }
+      /**
+       * <pre>
+       * Initial evaluation scores before optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.65, "Safety": 0.80}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; initial_eval_scores = 11;</code>
+       */
+
+      public Builder putAllInitialEvalScores(
+          java.util.Map<java.lang.String, java.lang.Double> values) {
+        internalGetMutableInitialEvalScores().getMutableMap()
+            .putAll(values);
         return this;
       }
 
-      private double finalEvalScore_ ;
-      /**
-       * <pre>
-       * Final evaluation score after optimization (from MLflow run metrics).
-       * </pre>
-       *
-       * <code>optional double final_eval_score = 13;</code>
-       * @return Whether the finalEvalScore field is set.
-       */
-      @java.lang.Override
-      public boolean hasFinalEvalScore() {
-        return ((bitField0_ & 0x00001000) != 0);
+      private com.google.protobuf.MapField<
+          java.lang.String, java.lang.Double> finalEvalScores_;
+      private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+      internalGetFinalEvalScores() {
+        if (finalEvalScores_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              FinalEvalScoresDefaultEntryHolder.defaultEntry);
+        }
+        return finalEvalScores_;
+      }
+      private com.google.protobuf.MapField<java.lang.String, java.lang.Double>
+      internalGetMutableFinalEvalScores() {
+        onChanged();;
+        if (finalEvalScores_ == null) {
+          finalEvalScores_ = com.google.protobuf.MapField.newMapField(
+              FinalEvalScoresDefaultEntryHolder.defaultEntry);
+        }
+        if (!finalEvalScores_.isMutable()) {
+          finalEvalScores_ = finalEvalScores_.copy();
+        }
+        return finalEvalScores_;
+      }
+
+      public int getFinalEvalScoresCount() {
+        return internalGetFinalEvalScores().getMap().size();
       }
       /**
        * <pre>
-       * Final evaluation score after optimization (from MLflow run metrics).
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
        * </pre>
        *
-       * <code>optional double final_eval_score = 13;</code>
-       * @return The finalEvalScore.
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+       */
+
+      @java.lang.Override
+      public boolean containsFinalEvalScores(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        return internalGetFinalEvalScores().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getFinalEvalScoresMap()} instead.
        */
       @java.lang.Override
-      public double getFinalEvalScore() {
-        return finalEvalScore_;
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.Double> getFinalEvalScores() {
+        return getFinalEvalScoresMap();
       }
       /**
        * <pre>
-       * Final evaluation score after optimization (from MLflow run metrics).
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
        * </pre>
        *
-       * <code>optional double final_eval_score = 13;</code>
-       * @param value The finalEvalScore to set.
-       * @return This builder for chaining.
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
        */
-      public Builder setFinalEvalScore(double value) {
-        bitField0_ |= 0x00001000;
-        finalEvalScore_ = value;
-        onChanged();
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, java.lang.Double> getFinalEvalScoresMap() {
+        return internalGetFinalEvalScores().getMap();
+      }
+      /**
+       * <pre>
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+       */
+      @java.lang.Override
+
+      public double getFinalEvalScoresOrDefault(
+          java.lang.String key,
+          double defaultValue) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.Double> map =
+            internalGetFinalEvalScores().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <pre>
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+       */
+      @java.lang.Override
+
+      public double getFinalEvalScoresOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.Double> map =
+            internalGetFinalEvalScores().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public Builder clearFinalEvalScores() {
+        internalGetMutableFinalEvalScores().getMutableMap()
+            .clear();
         return this;
       }
       /**
        * <pre>
-       * Final evaluation score after optimization (from MLflow run metrics).
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
        * </pre>
        *
-       * <code>optional double final_eval_score = 13;</code>
-       * @return This builder for chaining.
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
        */
-      public Builder clearFinalEvalScore() {
-        bitField0_ = (bitField0_ & ~0x00001000);
-        finalEvalScore_ = 0D;
-        onChanged();
+
+      public Builder removeFinalEvalScores(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        internalGetMutableFinalEvalScores().getMutableMap()
+            .remove(key);
+        return this;
+      }
+      /**
+       * Use alternate mutation accessors instead.
+       */
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.Double>
+      getMutableFinalEvalScores() {
+        return internalGetMutableFinalEvalScores().getMutableMap();
+      }
+      /**
+       * <pre>
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+       */
+      public Builder putFinalEvalScores(
+          java.lang.String key,
+          double value) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        
+        internalGetMutableFinalEvalScores().getMutableMap()
+            .put(key, value);
+        return this;
+      }
+      /**
+       * <pre>
+       * Final evaluation scores after optimization, keyed by scorer name.
+       * Example: {"Correctness": 0.89, "Safety": 0.95}
+       * </pre>
+       *
+       * <code>map&lt;string, double&gt; final_eval_scores = 12;</code>
+       */
+
+      public Builder putAllFinalEvalScores(
+          java.util.Map<java.lang.String, java.lang.Double> values) {
+        internalGetMutableFinalEvalScores().getMutableMap()
+            .putAll(values);
         return this;
       }
       @java.lang.Override
@@ -5383,61 +7569,81 @@ public final class PromptOptimization {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.OptimizationJob)
+      // @@protoc_insertion_point(builder_scope:mlflow.PromptOptimizationJob)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.OptimizationJob)
-    private static final org.mlflow.api.proto.PromptOptimization.OptimizationJob DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.PromptOptimizationJob)
+    private static final org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.OptimizationJob();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob();
     }
 
-    public static org.mlflow.api.proto.PromptOptimization.OptimizationJob getDefaultInstance() {
+    public static org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<OptimizationJob>
-        PARSER = new com.google.protobuf.AbstractParser<OptimizationJob>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<PromptOptimizationJob>
+        PARSER = new com.google.protobuf.AbstractParser<PromptOptimizationJob>() {
       @java.lang.Override
-      public OptimizationJob parsePartialFrom(
+      public PromptOptimizationJob parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new OptimizationJob(input, extensionRegistry);
+        return new PromptOptimizationJob(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<OptimizationJob> parser() {
+    public static com.google.protobuf.Parser<PromptOptimizationJob> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<OptimizationJob> getParserForType() {
+    public com.google.protobuf.Parser<PromptOptimizationJob> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.PromptOptimization.OptimizationJob getDefaultInstanceForType() {
+    public org.mlflow.api.proto.PromptOptimization.PromptOptimizationJob getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_OptimizationJobTag_descriptor;
+    internal_static_mlflow_JobState_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_OptimizationJobTag_fieldAccessorTable;
+      internal_static_mlflow_JobState_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_OptimizationJobConfig_descriptor;
+    internal_static_mlflow_JobState_MetadataEntry_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_OptimizationJobConfig_fieldAccessorTable;
+      internal_static_mlflow_JobState_MetadataEntry_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_OptimizationJob_descriptor;
+    internal_static_mlflow_PromptOptimizationJobTag_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_OptimizationJob_fieldAccessorTable;
+      internal_static_mlflow_PromptOptimizationJobTag_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_PromptOptimizationJobConfig_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_PromptOptimizationJob_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -5448,56 +7654,88 @@ public final class PromptOptimization {
   static {
     java.lang.String[] descriptorData = {
       "\n\031prompt_optimization.proto\022\006mlflow\032\025sca" +
-      "lapb/scalapb.proto\"0\n\022OptimizationJobTag" +
-      "\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\200\001\n\025Optimiz" +
-      "ationJobConfig\022\031\n\021target_prompt_uri\030\001 \001(" +
-      "\t\022-\n\016optimizer_type\030\002 \001(\0162\025.mlflow.Optim" +
-      "izerType\022\035\n\025optimizer_config_json\030\003 \001(\t\"" +
-      "\226\003\n\017OptimizationJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006r" +
-      "un_id\030\002 \001(\t\022-\n\006status\030\003 \001(\0162\035.mlflow.Opt" +
-      "imizationJobStatus\022\025\n\rexperiment_id\030\004 \001(" +
-      "\t\022\031\n\021source_prompt_uri\030\005 \001(\t\022\034\n\024optimize" +
-      "d_prompt_uri\030\006 \001(\t\022-\n\006config\030\007 \001(\0132\035.mlf" +
-      "low.OptimizationJobConfig\022\035\n\025creation_ti" +
-      "mestamp_ms\030\010 \001(\003\022\037\n\027completion_timestamp" +
-      "_ms\030\t \001(\003\022\025\n\rerror_message\030\n \001(\t\022(\n\004tags" +
-      "\030\013 \003(\0132\032.mlflow.OptimizationJobTag\022\032\n\022in" +
-      "itial_eval_score\030\014 \001(\001\022\030\n\020final_eval_sco" +
-      "re\030\r \001(\001*\377\001\n\025OptimizationJobStatus\022\'\n#OP" +
-      "TIMIZATION_JOB_STATUS_UNSPECIFIED\020\000\022#\n\037O" +
-      "PTIMIZATION_JOB_STATUS_PENDING\020\001\022\'\n#OPTI" +
-      "MIZATION_JOB_STATUS_IN_PROGRESS\020\002\022%\n!OPT" +
-      "IMIZATION_JOB_STATUS_COMPLETED\020\003\022\"\n\036OPTI" +
-      "MIZATION_JOB_STATUS_FAILED\020\004\022$\n OPTIMIZA" +
-      "TION_JOB_STATUS_CANCELED\020\005*g\n\rOptimizerT" +
-      "ype\022\036\n\032OPTIMIZER_TYPE_UNSPECIFIED\020\000\022\027\n\023O" +
-      "PTIMIZER_TYPE_GEPA\020\001\022\035\n\031OPTIMIZER_TYPE_M" +
-      "ETAPROMPT\020\002B\036\n\024org.mlflow.api.proto\220\001\001\342?" +
-      "\002\020\001"
+      "lapb/scalapb.proto\"\247\001\n\010JobState\022!\n\006statu" +
+      "s\030\001 \001(\0162\021.mlflow.JobStatus\022\025\n\rerror_mess" +
+      "age\030\002 \001(\t\0220\n\010metadata\030\003 \003(\0132\036.mlflow.Job" +
+      "State.MetadataEntry\032/\n\rMetadataEntry\022\013\n\003" +
+      "key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"6\n\030PromptOp" +
+      "timizationJobTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002" +
+      " \001(\t\"\253\001\n\033PromptOptimizationJobConfig\022\031\n\021" +
+      "target_prompt_uri\030\001 \001(\t\022-\n\016optimizer_typ" +
+      "e\030\002 \001(\0162\025.mlflow.OptimizerType\022\022\n\ndatase" +
+      "t_id\030\003 \001(\t\022\017\n\007scorers\030\004 \003(\t\022\035\n\025optimizer" +
+      "_config_json\030\005 \001(\t\"\341\004\n\025PromptOptimizatio" +
+      "nJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006run_id\030\002 \001(\t\022\037\n\005" +
+      "state\030\003 \001(\0132\020.mlflow.JobState\022\025\n\rexperim" +
+      "ent_id\030\004 \001(\t\022\031\n\021source_prompt_uri\030\005 \001(\t\022" +
+      "\034\n\024optimized_prompt_uri\030\006 \001(\t\0223\n\006config\030" +
+      "\007 \001(\0132#.mlflow.PromptOptimizationJobConf" +
+      "ig\022\035\n\025creation_timestamp_ms\030\010 \001(\003\022\037\n\027com" +
+      "pletion_timestamp_ms\030\t \001(\003\022.\n\004tags\030\n \003(\013" +
+      "2 .mlflow.PromptOptimizationJobTag\022Q\n\023in" +
+      "itial_eval_scores\030\013 \003(\01324.mlflow.PromptO" +
+      "ptimizationJob.InitialEvalScoresEntry\022M\n" +
+      "\021final_eval_scores\030\014 \003(\01322.mlflow.Prompt" +
+      "OptimizationJob.FinalEvalScoresEntry\0328\n\026" +
+      "InitialEvalScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005v" +
+      "alue\030\002 \001(\001:\0028\001\0326\n\024FinalEvalScoresEntry\022\013" +
+      "\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001*\245\001\n\tJobSt" +
+      "atus\022\032\n\026JOB_STATUS_UNSPECIFIED\020\000\022\026\n\022JOB_" +
+      "STATUS_PENDING\020\001\022\032\n\026JOB_STATUS_IN_PROGRE" +
+      "SS\020\002\022\030\n\024JOB_STATUS_COMPLETED\020\003\022\025\n\021JOB_ST" +
+      "ATUS_FAILED\020\004\022\027\n\023JOB_STATUS_CANCELED\020\005*g" +
+      "\n\rOptimizerType\022\036\n\032OPTIMIZER_TYPE_UNSPEC" +
+      "IFIED\020\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022\035\n\031OPTI" +
+      "MIZER_TYPE_METAPROMPT\020\002B\036\n\024org.mlflow.ap" +
+      "i.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
-    internal_static_mlflow_OptimizationJobTag_descriptor =
+    internal_static_mlflow_JobState_descriptor =
       getDescriptor().getMessageTypes().get(0);
-    internal_static_mlflow_OptimizationJobTag_fieldAccessorTable = new
+    internal_static_mlflow_JobState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_OptimizationJobTag_descriptor,
+        internal_static_mlflow_JobState_descriptor,
+        new java.lang.String[] { "Status", "ErrorMessage", "Metadata", });
+    internal_static_mlflow_JobState_MetadataEntry_descriptor =
+      internal_static_mlflow_JobState_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_JobState_MetadataEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_JobState_MetadataEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
-    internal_static_mlflow_OptimizationJobConfig_descriptor =
+    internal_static_mlflow_PromptOptimizationJobTag_descriptor =
       getDescriptor().getMessageTypes().get(1);
-    internal_static_mlflow_OptimizationJobConfig_fieldAccessorTable = new
+    internal_static_mlflow_PromptOptimizationJobTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_OptimizationJobConfig_descriptor,
-        new java.lang.String[] { "TargetPromptUri", "OptimizerType", "OptimizerConfigJson", });
-    internal_static_mlflow_OptimizationJob_descriptor =
+        internal_static_mlflow_PromptOptimizationJobTag_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_mlflow_PromptOptimizationJobConfig_descriptor =
       getDescriptor().getMessageTypes().get(2);
-    internal_static_mlflow_OptimizationJob_fieldAccessorTable = new
+    internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_OptimizationJob_descriptor,
-        new java.lang.String[] { "JobId", "RunId", "Status", "ExperimentId", "SourcePromptUri", "OptimizedPromptUri", "Config", "CreationTimestampMs", "CompletionTimestampMs", "ErrorMessage", "Tags", "InitialEvalScore", "FinalEvalScore", });
+        internal_static_mlflow_PromptOptimizationJobConfig_descriptor,
+        new java.lang.String[] { "TargetPromptUri", "OptimizerType", "DatasetId", "Scorers", "OptimizerConfigJson", });
+    internal_static_mlflow_PromptOptimizationJob_descriptor =
+      getDescriptor().getMessageTypes().get(3);
+    internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_PromptOptimizationJob_descriptor,
+        new java.lang.String[] { "JobId", "RunId", "State", "ExperimentId", "SourcePromptUri", "OptimizedPromptUri", "Config", "CreationTimestampMs", "CompletionTimestampMs", "Tags", "InitialEvalScores", "FinalEvalScores", });
+    internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_descriptor =
+      internal_static_mlflow_PromptOptimizationJob_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_descriptor =
+      internal_static_mlflow_PromptOptimizationJob_descriptor.getNestedTypes().get(1);
+    internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_PromptOptimizationJob_FinalEvalScoresEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);

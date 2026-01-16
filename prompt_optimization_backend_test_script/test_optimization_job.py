@@ -4,7 +4,7 @@
 """
 Test script to invoke prompt optimization job creation.
 
-This script demonstrates how to call the createOptimizationJob API.
+This script demonstrates how to call the createPromptOptimizationJob API.
 
 Prerequisites:
 1. Start the MLflow server with job execution enabled:
@@ -36,7 +36,7 @@ MLFLOW_SERVER_URL = "http://127.0.0.1:5000"
 API_VERSION = 3  # API version from proto (prompt optimization APIs are v3)
 
 
-def create_optimization_job(
+def create_prompt_optimization_job(
     experiment_id: str,
     prompt_uri: str,
     dataset_id: str,
@@ -63,11 +63,8 @@ def create_optimization_job(
     """
     url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs"
 
-    # Build optimizer config JSON - include dataset_id and scorers
-    full_optimizer_config = optimizer_config or {}
-    full_optimizer_config["dataset_id"] = dataset_id
-    full_optimizer_config["scorers"] = scorers
-    config_json = json.dumps(full_optimizer_config)
+    # Build optimizer config JSON (optimizer-specific only, not dataset_id/scorers)
+    config_json = json.dumps(optimizer_config) if optimizer_config else None
 
     # Convert string optimizer_type to proto enum value
     optimizer_type_to_enum = {
@@ -81,12 +78,14 @@ def create_optimization_job(
         "config": {
             "target_prompt_uri": prompt_uri,
             "optimizer_type": optimizer_type_enum,
+            "dataset_id": dataset_id,
+            "scorers": scorers,
             "optimizer_config_json": config_json,
         },
         "tags": tags or [],
     }
 
-    print("Creating optimization job...")
+    print("Creating prompt optimization job...")
     print(f"URL: {url}")
     print(f"Payload: {json.dumps(payload, indent=2)}")
 
@@ -102,7 +101,7 @@ def create_optimization_job(
     return result
 
 
-def get_optimization_job(job_id: str) -> dict:
+def get_prompt_optimization_job(job_id: str) -> dict:
     """
     Get the status of an optimization job.
 
@@ -128,23 +127,21 @@ def get_optimization_job(job_id: str) -> dict:
     return result
 
 
-def search_optimization_jobs(experiment_id: str = None) -> dict:
+def search_prompt_optimization_jobs(experiment_id: str) -> dict:
     """
     Search for optimization jobs.
 
     Args:
-        experiment_id: Optional experiment ID to filter by.
+        experiment_id: Experiment ID to filter by (required).
 
     Returns:
         List of matching jobs.
     """
     url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs/search"
 
-    payload = {}
-    if experiment_id:
-        payload["experiment_id"] = experiment_id
+    payload = {"experiment_id": experiment_id}
 
-    print("Searching optimization jobs...")
+    print("Searching prompt optimization jobs...")
 
     response = requests.post(url, json=payload)
 
@@ -158,7 +155,7 @@ def search_optimization_jobs(experiment_id: str = None) -> dict:
     return result
 
 
-def cancel_optimization_job(job_id: str) -> dict:
+def cancel_prompt_optimization_job(job_id: str) -> dict:
     """
     Cancel an optimization job.
 
@@ -184,7 +181,7 @@ def cancel_optimization_job(job_id: str) -> dict:
     return result
 
 
-def delete_optimization_job(job_id: str) -> dict:
+def delete_prompt_optimization_job(job_id: str) -> dict:
     """
     Delete an optimization job.
 
@@ -232,7 +229,7 @@ def main():
     experiment = mlflow.get_experiment_by_name("optimization_backend")
     experiment_id = experiment.experiment_id
 
-    result = create_optimization_job(
+    result = create_prompt_optimization_job(
         experiment_id=experiment_id,
         prompt_uri=prompt_uri,
         dataset_id=dataset_id,
@@ -252,21 +249,21 @@ def main():
         # Wait a moment and check status
         print("\n4. Checking job status...")
         time.sleep(1)
-        get_optimization_job(job_id)
+        get_prompt_optimization_job(job_id)
 
         # Search for jobs
         print("\n5. Searching for jobs...")
-        search_optimization_jobs(experiment_id)
+        search_prompt_optimization_jobs(experiment_id)
 
         # Optionally cancel the job
         print("\n6. Cancelling the job...")
-        cancel_optimization_job(job_id)
+        cancel_prompt_optimization_job(job_id)
 
         # Optionally delete the job
         # print("\n7. Deleting the job...")
-        # delete_optimization_job(job_id)
+        # delete_prompt_optimization_job(job_id)
     else:
-        print("Failed to create optimization job")
+        print("Failed to create prompt optimization job")
 
     print("\n" + "=" * 60)
     print("Test complete!")

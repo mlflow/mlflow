@@ -2005,8 +2005,8 @@ service MlflowService {
 
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
-  // The optimization process runs asynchronously and can be monitored via getOptimizationJob.
-  rpc createOptimizationJob(CreateOptimizationJob) returns (CreateOptimizationJob.Response) {
+  // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
+  rpc createPromptOptimizationJob(CreatePromptOptimizationJob) returns (CreatePromptOptimizationJob.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -2031,7 +2031,7 @@ service MlflowService {
   // Get the details and status of a prompt optimization job.
   // Returns the job configuration, current status, progress statistics,
   // and the best prompt if the optimization has completed.
-  rpc getOptimizationJob(GetOptimizationJob) returns (GetOptimizationJob.Response) {
+  rpc getPromptOptimizationJob(GetPromptOptimizationJob) returns (GetPromptOptimizationJob.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -2055,7 +2055,7 @@ service MlflowService {
 
   // Search for prompt optimization jobs.
   // Returns a list of optimization jobs matching the specified filters.
-  rpc searchOptimizationJobs(SearchOptimizationJobs) returns (SearchOptimizationJobs.Response) {
+  rpc searchPromptOptimizationJobs(SearchPromptOptimizationJobs) returns (SearchPromptOptimizationJobs.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -2086,7 +2086,7 @@ service MlflowService {
 
   // Cancel an in-progress prompt optimization job.
   // If the job is already completed or cancelled, this operation has no effect.
-  rpc cancelOptimizationJob(CancelOptimizationJob) returns (CancelOptimizationJob.Response) {
+  rpc cancelPromptOptimizationJob(CancelPromptOptimizationJob) returns (CancelPromptOptimizationJob.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -2111,7 +2111,7 @@ service MlflowService {
 
   // Delete a prompt optimization job and its associated data.
   // This permanently removes the job and all related information.
-  rpc deleteOptimizationJob(DeleteOptimizationJob) returns (DeleteOptimizationJob.Response) {
+  rpc deletePromptOptimizationJob(DeletePromptOptimizationJob) returns (DeletePromptOptimizationJob.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -4747,54 +4747,54 @@ message GetSecretsConfig {
   }
 }
 
-message CreateOptimizationJob {
+message CreatePromptOptimizationJob {
   // ID of the MLflow experiment to track the optimization job in.
   optional string experiment_id = 1;
 
   // Configuration for the optimization job.
   // Must include target_prompt specifying the prompt to optimize.
-  optional OptimizationJobConfig config = 2;
+  optional PromptOptimizationJobConfig config = 2;
 
   // Optional tags for the optimization job.
-  repeated OptimizationJobTag tags = 3;
+  repeated PromptOptimizationJobTag tags = 3;
 
   message Response {
     // The created optimization job.
-    optional OptimizationJob job = 1;
+    optional PromptOptimizationJob job = 1;
   }
 }
 
-message GetOptimizationJob {
+message GetPromptOptimizationJob {
   // The unique identifier of the optimization job (same as run_id).
   optional string job_id = 1;
 
   message Response {
     // The optimization job details.
-    optional OptimizationJob job = 1;
+    optional PromptOptimizationJob job = 1;
   }
 }
 
-message SearchOptimizationJobs {
+message SearchPromptOptimizationJobs {
   // ID of the MLflow experiment to search optimization jobs in.
   optional string experiment_id = 1;
 
   message Response {
     // List of optimization jobs.
-    repeated OptimizationJob jobs = 1;
+    repeated PromptOptimizationJob jobs = 1;
   }
 }
 
-message CancelOptimizationJob {
+message CancelPromptOptimizationJob {
   // The unique identifier of the optimization job to cancel.
   optional string job_id = 1;
 
   message Response {
     // The cancelled optimization job.
-    optional OptimizationJob job = 1;
+    optional PromptOptimizationJob job = 1;
   }
 }
 
-message DeleteOptimizationJob {
+message DeletePromptOptimizationJob {
   // The unique identifier of the optimization job to delete.
   optional string job_id = 1;
 

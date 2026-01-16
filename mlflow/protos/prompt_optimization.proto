@@ -8,19 +8,40 @@ option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
 option (scalapb.options) = {flat_package: true};
 
-// Status of an optimization job.
-enum OptimizationJobStatus {
-  OPTIMIZATION_JOB_STATUS_UNSPECIFIED = 0;
+// Generic status enum for MLflow jobs.
+// Can be used across different job types (optimization, evaluation, etc.).
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
 
-  OPTIMIZATION_JOB_STATUS_PENDING = 1;
+  // Job is queued, waiting to start.
+  JOB_STATUS_PENDING = 1;
 
-  OPTIMIZATION_JOB_STATUS_IN_PROGRESS = 2;
+  // Job is currently running.
+  JOB_STATUS_IN_PROGRESS = 2;
 
-  OPTIMIZATION_JOB_STATUS_COMPLETED = 3;
+  // Job completed successfully.
+  JOB_STATUS_COMPLETED = 3;
 
-  OPTIMIZATION_JOB_STATUS_FAILED = 4;
+  // Job failed with an error.
+  JOB_STATUS_FAILED = 4;
 
-  OPTIMIZATION_JOB_STATUS_CANCELED = 5;
+  // Job was canceled by user.
+  JOB_STATUS_CANCELED = 5;
+}
+
+// Generic job state message combining status with metadata.
+// Provides a unified way to represent job state across different job types.
+message JobState {
+  // Current status of the job.
+  optional JobStatus status = 1;
+
+  // Error message if the job failed.
+  // Only set when status is JOB_STATUS_FAILED.
+  optional string error_message = 2;
+
+  // Additional metadata as key-value pairs.
+  // Can be used to store job-specific state information.
+  map<string, string> metadata = 3;
 }
 
 // Type of optimizer algorithm to use.
@@ -34,8 +55,8 @@ enum OptimizerType {
   OPTIMIZER_TYPE_METAPROMPT = 2;
 }
 
-// Tag for an optimization job.
-message OptimizationJobTag {
+// Tag for a prompt optimization job.
+message PromptOptimizationJobTag {
   optional string key = 1;
 
   optional string value = 2;
@@ -43,22 +64,29 @@ message OptimizationJobTag {
 
 // Configuration for a prompt optimization job.
 // Stored as run parameters in the underlying MLflow run.
-message OptimizationJobConfig {
+message PromptOptimizationJobConfig {
   // URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
   optional string target_prompt_uri = 1;
 
   // The optimizer type to use.
   optional OptimizerType optimizer_type = 2;
 
+  // ID of the EvaluationDataset containing training data.
+  optional string dataset_id = 3;
+
+  // List of scorer names. Can be built-in scorer class names
+  // (e.g., "Correctness", "Safety") or registered scorer names.
+  repeated string scorers = 4;
+
   // JSON-serialized optimizer-specific configuration.
   // Different optimizers accept different parameters:
   // - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
   // - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
-  optional string optimizer_config_json = 3;
+  optional string optimizer_config_json = 5;
 }
 
 // Represents a prompt optimization job entity.
-message OptimizationJob {
+message PromptOptimizationJob {
   // Unique identifier for the optimization job.
   // Used to poll job execution status (pending/running/completed/failed).
   optional string job_id = 1;
@@ -67,8 +95,8 @@ message OptimizationJob {
   // Use this to view results in MLflow UI. Only available after job starts running.
   optional string run_id = 2;
 
-  // Current status of the job.
-  optional OptimizationJobStatus status = 3;
+  // Current state of the job (status + error message + metadata).
+  optional JobState state = 3;
 
   // ID of the MLflow experiment where this optimization job is tracked.
   optional string experiment_id = 4;
@@ -81,7 +109,7 @@ message OptimizationJob {
   optional string optimized_prompt_uri = 6;
 
   // Configuration for the optimization job.
-  optional OptimizationJobConfig config = 7;
+  optional PromptOptimizationJobConfig config = 7;
 
   // Timestamp when the job was created (milliseconds since epoch).
   optional int64 creation_timestamp_ms = 8;
@@ -90,15 +118,14 @@ message OptimizationJob {
   // Only set if status is COMPLETED, FAILED, or CANCELED.
   optional int64 completion_timestamp_ms = 9;
 
-  // Error message if the job failed.
-  optional string error_message = 10;
-
   // Tags associated with this job.
-  repeated OptimizationJobTag tags = 11;
+  repeated PromptOptimizationJobTag tags = 10;
 
-  // Initial evaluation score before optimization (from MLflow run metrics).
-  optional double initial_eval_score = 12;
+  // Initial evaluation scores before optimization, keyed by scorer name.
+  // Example: {"Correctness": 0.65, "Safety": 0.80}
+  map<string, double> initial_eval_scores = 11;
 
-  // Final evaluation score after optimization (from MLflow run metrics).
-  optional double final_eval_score = 13;
+  // Final evaluation scores after optimization, keyed by scorer name.
+  // Example: {"Correctness": 0.89, "Safety": 0.95}
+  map<string, double> final_eval_scores = 12;
 }
