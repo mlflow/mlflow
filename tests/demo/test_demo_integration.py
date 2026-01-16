@@ -118,7 +118,6 @@ def test_traces_creates_on_server(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     assert len(traces) == len(result.entity_ids)
-    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version = 34 total
     assert len(traces) == 34
 
 
@@ -149,11 +148,9 @@ def test_traces_session_metadata(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     session_traces = [t for t in traces if t.info.trace_metadata.get("mlflow.trace.session")]
-    # 7 session traces per version = 14 total
     assert len(session_traces) == 14
 
     session_ids = {t.info.trace_metadata.get("mlflow.trace.session") for t in session_traces}
-    # 3 sessions x 2 versions = 6 unique session IDs
     assert len(session_ids) == 6
 
 
@@ -167,7 +164,6 @@ def test_traces_version_metadata(tracking_server, traces_generator):
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
-    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version
     assert len(v1_traces) == 17
     assert len(v2_traces) == 17
 
@@ -188,10 +184,6 @@ def test_traces_type_metadata(tracking_server, traces_generator):
         t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
     ]
 
-    # 2 RAG per version = 4 total
-    # 2 agent per version = 4 total
-    # 6 prompt per version = 12 total
-    # 7 session per version = 14 total
     assert len(rag_traces) == 4
     assert len(agent_traces) == 4
     assert len(prompt_traces) == 12
