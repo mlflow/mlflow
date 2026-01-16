@@ -231,7 +231,7 @@ class OnlineTraceScoringProcessor:
         except Exception as log_error:
             _logger.warning(
                 f"Failed to log error assessments for trace {trace.info.trace_id}: {log_error}",
-                exc_info=_logger.isEnabledFor(logging.INFO),
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
     def _execute_scoring(
@@ -272,6 +272,6 @@ class OnlineTraceScoringProcessor:
                 except Exception as e:
                     _logger.warning(
                         f"Failed to score trace {task.trace.info.trace_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.INFO),
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
                     self._log_error_assessments(e, task.scorers, task.trace)

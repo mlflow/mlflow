@@ -340,5 +340,5 @@ class OnlineSessionScoringProcessor:
                     _logger.warning(
                         f"Failed to log assessments for trace {trace_id} "
                         f"in session {session.session_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.INFO),
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
