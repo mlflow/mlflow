@@ -279,6 +279,10 @@
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
   },
+  "/yjgDc": {
+    "defaultMessage": "{formattedAverage} (AVG)",
+    "description": "Label showing the average value of numeric assessments"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -2093,10 +2097,6 @@
   "EI7moF": {
     "defaultMessage": "Last year",
     "description": "Option for the start select dropdown to filter runs since the last 1 year"
-  },
-  "EJl4ye": {
-    "defaultMessage": "AVG {average}",
-    "description": "Label showing the average value of numeric assessments"
   },
   "EK5JxG": {
     "defaultMessage": "Parameters",
