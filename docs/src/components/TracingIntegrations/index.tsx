@@ -245,13 +245,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/quarkus-langchain4j',
     category: 'Agent Frameworks (Java)',
   },
-  {
-    id: 'spring-ai',
-    name: 'Spring AI',
-    logoPath: '/images/logos/spring.png',
-    link: '/genai/tracing/integrations/listing/spring-ai',
-    category: 'Agent Frameworks (Java)',
-  },
   // Model Providers
   {
     id: 'openai',
