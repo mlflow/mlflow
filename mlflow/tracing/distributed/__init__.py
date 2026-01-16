@@ -5,8 +5,6 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 import mlflow
 from mlflow.tracing.provider import get_context_api, get_current_context, get_current_otel_span
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
 _logger = logging.getLogger(__name__)
 
@@ -114,6 +112,8 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     """
     from mlflow import MlflowException
     from mlflow.entities.trace_info import TraceInfo, TraceState
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
     token = None
     otel_trace_id = None
