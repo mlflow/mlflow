@@ -19,7 +19,7 @@ def github_api_request(url: str, accept: str) -> str:
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
-    if github_token := os.environ.get("GITHUB_TOKEN"):
+    if github_token := os.environ.get("GH_TOKEN"):
         headers["Authorization"] = f"Bearer {github_token}"
 
     request = urllib.request.Request(url, headers=headers)

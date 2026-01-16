@@ -26,7 +26,7 @@ def main():
     changed_files = []
     per_page = 100
     page = 1
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GH_TOKEN")
     headers = {"Authorization": f"token {token}"} if token else {}
     # Ref: https://docs.github.com/en/rest/reference/pulls#list-pull-requests-files
     url = f"https://api.github.com/repos/{args.repository}/pulls/{args.pr_num}/files"
