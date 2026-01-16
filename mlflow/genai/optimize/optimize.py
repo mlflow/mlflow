@@ -47,7 +47,7 @@ _logger = logging.getLogger(__name__)
 def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],
-    train_data: "EvaluationDatasetTypes" | None,
+    train_data: "EvaluationDatasetTypes",
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
