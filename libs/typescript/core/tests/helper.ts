@@ -20,7 +20,7 @@ export class MockOtelSpan {
   constructor(
     name: string = 'test-span',
     spanId: string = 'test-span-id',
-    traceId: string = 'test-trace-id'
+    traceId: string = 'test-trace-id',
   ) {
     this.name = name;
     this.spanId = spanId;
@@ -39,7 +39,7 @@ export class MockOtelSpan {
   spanContext() {
     return {
       spanId: this.spanId,
-      traceId: this.traceId
+      traceId: this.traceId,
     };
   }
 }
@@ -50,7 +50,7 @@ export class MockOtelSpan {
 export function createMockOtelSpan(
   name: string = 'test-span',
   spanId: string = 'test-span-id',
-  traceId: string = 'test-trace-id'
+  traceId: string = 'test-trace-id',
 ): MockOtelSpan {
   return new MockOtelSpan(name, spanId, traceId);
 }
@@ -62,7 +62,7 @@ export function createTestSpan(
   name: string = 'test-span',
   traceId: string = 'test-trace-id',
   spanId: string = 'test-span-id',
-  spanType: SpanType = SpanType.UNKNOWN
+  spanType: SpanType = SpanType.UNKNOWN,
 ): LiveSpan {
   const mockOtelSpan = createMockOtelSpan(name, spanId, traceId);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

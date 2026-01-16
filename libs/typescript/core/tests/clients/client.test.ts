@@ -36,8 +36,8 @@ describe('MlflowClient', () => {
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
           mlflowExperiment: {
-            experimentId: experimentId
-          }
+            experimentId: experimentId,
+          },
         },
         state: TraceState.OK,
         requestTime: 1000,
@@ -47,7 +47,7 @@ describe('MlflowClient', () => {
         clientRequestId: 'client-request-id',
         traceMetadata: { 'meta-key': 'meta-value' },
         tags: { 'tag-key': 'tag-value' },
-        assessments: []
+        assessments: [],
       });
 
       const createdTraceInfo = await client.createTrace(traceInfo);
@@ -65,7 +65,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
-        'mlflow.artifactLocation': expect.any(String)
+        'mlflow.artifactLocation': expect.any(String),
       });
       expect(createdTraceInfo.assessments).toEqual([]);
     });
@@ -77,11 +77,11 @@ describe('MlflowClient', () => {
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
           mlflowExperiment: {
-            experimentId: experimentId
-          }
+            experimentId: experimentId,
+          },
         },
         state: TraceState.ERROR,
-        requestTime: 1000
+        requestTime: 1000,
       });
 
       const createdTraceInfo = await client.createTrace(traceInfo);
@@ -103,11 +103,11 @@ describe('MlflowClient', () => {
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
           mlflowExperiment: {
-            experimentId: experimentId
-          }
+            experimentId: experimentId,
+          },
         },
         state: TraceState.OK,
-        requestTime: 1000
+        requestTime: 1000,
       });
       await client.createTrace(traceInfo);
 

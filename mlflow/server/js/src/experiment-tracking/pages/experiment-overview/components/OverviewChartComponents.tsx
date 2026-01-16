@@ -50,19 +50,6 @@ export const OverviewChartHeader: React.FC<OverviewChartHeaderProps> = ({ icon, 
   );
 };
 
-/**
- * "Over time" label shown above time-series charts in overview
- */
-export const OverviewChartTimeLabel: React.FC = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
-    </Typography.Text>
-  );
-};
-
 interface OverviewChartCardProps {
   children: React.ReactNode;
   height?: number;
