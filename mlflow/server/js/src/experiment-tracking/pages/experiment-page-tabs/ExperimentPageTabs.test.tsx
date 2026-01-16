@@ -178,8 +178,8 @@ describe('ExperimentLoggedModelListPage', () => {
       ),
     ).toBeInTheDocument();
 
-    // Check we've been redirected to the Overview tab
-    expect(await screen.findByText('Experiment overview page')).toBeInTheDocument();
+    // Since we started on the /models tab, we should remain on the models tab (no redirect)
+    expect(await screen.findByText('ExperimentLoggedModelListPage')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 

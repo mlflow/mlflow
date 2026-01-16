@@ -63,6 +63,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
@@ -4095,15 +4096,24 @@ def _upsert_online_scoring_config():
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
             "sample_rate": [_assert_required],
-            "filter_string": [_assert_string],
+            "filter_string": [],
         },
     )
+
+    filter_string = request_json.get("filter_string")
+    if filter_string is not None and not isinstance(filter_string, str):
+        raise MlflowException(
+            f"Invalid value {filter_string!r} for parameter 'filter_string' supplied: "
+            f"Value was of type '{type(filter_string).__name__}'. "
+            "Expected type 'str' or None.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     config = _get_tracking_store().upsert_online_scoring_config(
         experiment_id=request_json["experiment_id"],
         scorer_name=request_json["name"],
         sample_rate=float(request_json["sample_rate"]),
-        filter_string=request_json.get("filter_string"),
+        filter_string=filter_string,
     )
 
     response = Response(mimetype="application/json")
@@ -4233,6 +4243,11 @@ def _create_gateway_endpoint():
             "routing_strategy": [_assert_string],
         },
     )
+    if request_message.name and not is_valid_endpoint_name(request_message.name):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid endpoint name '{request_message.name}'. "
+            "Name can only contain letters, numbers, underscores, hyphens, and dots."
+        )
     # Convert proto fallback_config to entity FallbackConfig
     fallback_config = None
     if request_message.HasField("fallback_config"):
@@ -4290,6 +4305,11 @@ def _update_gateway_endpoint():
             "routing_strategy": [_assert_string],
         },
     )
+    if request_message.name and not is_valid_endpoint_name(request_message.name):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid endpoint name '{request_message.name}'. "
+            "Name can only contain letters, numbers, underscores, hyphens, and dots."
+        )
     # Convert proto fallback_config to entity FallbackConfig
     fallback_config = None
     if request_message.HasField("fallback_config"):
@@ -4696,7 +4716,7 @@ def _invoke_scorer_handler():
         )
     if not trace_ids:
         raise MlflowException(
-            "Missing required parameter: trace_ids",
+            "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

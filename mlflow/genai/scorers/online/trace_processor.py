@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -250,7 +250,7 @@ class OnlineTraceScoringProcessor:
         from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
 
         with ThreadPoolExecutor(
-            max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+            max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
             thread_name_prefix="OnlineScoring",
         ) as executor:
             futures = {}

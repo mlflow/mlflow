@@ -9,11 +9,11 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
@@ -46,16 +46,14 @@ export const ToolUsageChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.tool_usage">
       <OverviewChartHeader
         icon={<ChartLineIcon />}
         title={<FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />}
       />
 
-      <OverviewChartTimeLabel />
-
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
