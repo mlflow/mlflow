@@ -1926,6 +1926,10 @@
     "defaultMessage": "Tools",
     "description": "Section header in the chat tab that displays all tools that were available for the chat model to call during execution"
   },
+  "Ck9OnH": {
+    "defaultMessage": "Toggle session grouping",
+    "description": "Aria label for the group by session button in the traces table toolbar"
+  },
   "ClYb2e": {
     "defaultMessage": "Count",
     "description": "Label for the count in the tooltip for the numeric aggregate chart."
@@ -5103,6 +5107,10 @@
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
   },
+  "d72zLS": {
+    "defaultMessage": "Toggle session grouping",
+    "description": "Tooltip for the group by session button in the traces table toolbar"
+  },
   "d8I3cy": {
     "defaultMessage": "Show only visible",
     "description": "Experiment page > compare runs tab > chart header > move down option"
@@ -7622,6 +7630,10 @@
   "wtpLvY": {
     "defaultMessage": "Load more",
     "description": "Run page > Overview > Child runs load more"
+  },
+  "wuqL/Y": {
+    "defaultMessage": "Group by session",
+    "description": "Label for the group by session button in the traces table toolbar"
   },
   "wusz4l": {
     "defaultMessage": "Input",
