@@ -183,8 +183,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
-                    if os.environ.get("MLFLOW_SQLALCHEMYSTORE_WAL_MODE", "").lower() == "true":
-                        session.execute(sql.text("PRAGMA journal_mode = WAL;"))
+                    session.execute(sql.text("PRAGMA journal_mode = WAL;"))
                 yield session
                 session.commit()
             except MlflowException:
