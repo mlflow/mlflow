@@ -247,6 +247,9 @@ class LiteLLMConfig(ConfigModel):
 
         auth_config = dict(auth_config)
 
+        # Remove auth_mode as it's MLflow-specific and not used by LiteLLM
+        auth_config.pop("auth_mode", None)
+
         # Resolve API key from environment variable or file
         api_key = auth_config.get("api_key")
         if isinstance(api_key, str):
