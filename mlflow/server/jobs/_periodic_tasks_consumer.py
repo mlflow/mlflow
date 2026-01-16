@@ -5,7 +5,11 @@ This is a dedicated consumer that only runs periodic tasks (like the online scor
 It is launched by the job runner and runs in a separate process from job execution consumers.
 """
 
+import logging
 import threading
+
+# Quiet down noisy huey loggers that run on every periodic task
+logging.getLogger("huey").setLevel(logging.WARNING)
 
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,
