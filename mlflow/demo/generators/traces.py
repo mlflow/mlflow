@@ -94,7 +94,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 2  # Bumped for timestamp and token count changes
+    version = 1
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()

@@ -1,3 +1,5 @@
+"""Demo generator for evaluation runs and datasets."""
+
 from __future__ import annotations
 
 import contextlib
