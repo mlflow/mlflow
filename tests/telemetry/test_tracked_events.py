@@ -88,6 +88,7 @@ from mlflow.telemetry.events import (
     ScorerCallEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    TracingContextPropagation,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
 from mlflow.utils.os import is_windows
@@ -1999,4 +2000,46 @@ async def test_gateway_invocation_telemetry(
         mock_requests,
         GatewayInvocationEvent.name,
         {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
+    )
+
+
+def test_tracing_context_propagation_get_and_set_success(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    from mlflow.tracing.distributed import (
+        get_tracing_context_headers_for_http_request,
+        set_tracing_context_from_http_request_headers,
+    )
+
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        with mlflow.start_span("client span"):
+            headers = get_tracing_context_headers_for_http_request()
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        TracingContextPropagation.name,
+        params=None,
+        status="success",
+        search_index=True,
+        check_params=True,
+    )
+
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        with set_tracing_context_from_http_request_headers(headers):
+            with mlflow.start_span("server span"):
+                pass
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        TracingContextPropagation.name,
+        params=None,
+        status="success",
+        search_index=True,
+        check_params=True,
     )
