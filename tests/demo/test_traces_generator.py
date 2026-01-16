@@ -18,6 +18,15 @@ def tracking_uri(tmp_path):
     set_tracking_uri(None)
 
 
+@pytest.fixture
+def tracking_uri(tmp_path):
+    uri = tmp_path / "mlruns"
+    uri.mkdir()
+    set_tracking_uri(uri.as_uri())
+    yield uri.as_uri()
+    set_tracking_uri(None)
+
+
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
