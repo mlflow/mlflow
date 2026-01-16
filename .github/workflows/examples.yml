@@ -64,11 +64,10 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           FORCE_RUN_EXAMPLES: ${{ contains(github.event.pull_request.labels.*.name, 'examples.yml') }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          REPO="${{ github.repository }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
-          BASE_REF="${{ github.base_ref }}"
-          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "tests/examples\|examples" || true);
           if [ "$FORCE_RUN_EXAMPLES" = "true" ]; then
             EXAMPLES_CHANGED="true"
           else
@@ -120,10 +119,11 @@ jobs:
       - name: Check diff
         id: check-diff
         if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          REPO="${{ github.repository }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
-          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "Dockerfile\|\.dockerignore" || true);
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "Dockerfile\|\.dockerignore" || true);
           DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
           echo -e "CHANGED_FILES:\nCHANGED_FILES"
           echo "DOCKER_CHANGED: $DOCKER_CHANGED"
