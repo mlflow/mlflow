@@ -4,8 +4,8 @@ import React, { useContext } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import { type IntlShape } from '@databricks/i18n';
+import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import { useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
 
@@ -269,12 +269,12 @@ export const assessmentCellRenderer = (
  * Hides session-level assessments in regular rows when grouped by session.
  */
 export const AssessmentCell: React.FC<{
-  theme: ThemeType;
-  intl: IntlShape;
   isComparing: boolean;
   assessmentInfo: AssessmentInfo;
   comparisonEntry: EvalTraceComparisonEntry;
-}> = ({ theme, intl, isComparing, assessmentInfo, comparisonEntry }) => {
+}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const { isGroupedBySession } = useContext(GenAITracesTableContext);
 
   // Hide session-level assessments in regular rows when grouped by session
