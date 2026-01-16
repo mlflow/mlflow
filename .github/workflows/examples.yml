@@ -120,7 +120,7 @@ jobs:
         id: check-diff
         if: github.event_name == 'pull_request'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "Dockerfile\|\.dockerignore" || true);
