@@ -19,10 +19,8 @@ def test_distill_guidelines_empty_examples():
     with patch(
         "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
     ) as mock_construct_lm:
-        signature = MagicMock()
         result = distill_guidelines(
             examples=[],
-            signature=signature,
             judge_instructions="Test instructions",
             reflection_lm="openai:/gpt-4",
             existing_guidelines=[],
@@ -52,7 +50,6 @@ def test_distill_guidelines_with_examples():
 
         result = distill_guidelines(
             examples=[example1, example2],
-            signature=signature,
             judge_instructions="Evaluate quality",
             reflection_lm="openai:/gpt-4",
             existing_guidelines=[],
@@ -82,7 +79,6 @@ def test_distill_guidelines_filters_existing():
 
         result = distill_guidelines(
             examples=[example1],
-            signature=signature,
             judge_instructions="Evaluate quality",
             reflection_lm="openai:/gpt-4",
             existing_guidelines=["Be concise"],
@@ -108,7 +104,6 @@ def test_distill_guidelines_raises_on_error():
         with pytest.raises(Exception, match="API Error"):
             distill_guidelines(
                 examples=[example1],
-                signature=signature,
                 judge_instructions="Evaluate quality",
                 reflection_lm="openai:/gpt-4",
                 existing_guidelines=[],
