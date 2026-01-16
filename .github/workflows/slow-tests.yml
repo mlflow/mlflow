@@ -69,6 +69,10 @@ jobs:
             langchain_experimental tf-keras "pyarrow<18"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - name: Run tests
+      - name: Run docker integration tests
+        run: |
+          source .venv/bin/activate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker
+      - name: Run pyfunc docker tests
         run: |
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/pyfunc/docker

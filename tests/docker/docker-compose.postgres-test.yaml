@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: "postgres"
+    container_name: mlflow-pg-test-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    expose:
+      - 5432
+
+  mlflow:
+    container_name: mlflow-pg-test
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
+    command: "mlflow server --backend-store-uri=postgresql:// --host=0.0.0.0 --port=5000"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
