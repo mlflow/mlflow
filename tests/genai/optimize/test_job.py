@@ -5,7 +5,6 @@ These tests focus on the helper functions and job function logic without
 requiring a full job execution infrastructure.
 """
 
-import json
 from unittest import mock
 
 import pytest
@@ -25,7 +24,7 @@ from mlflow.genai.scorers.builtin_scorers import Correctness, Safety
 
 def test_create_gepa_optimizer_success():
     config = {"reflection_model": "openai:/gpt-4o", "max_metric_calls": 50}
-    optimizer = _create_optimizer("gepa", json.dumps(config))
+    optimizer = _create_optimizer("gepa", config)
     assert isinstance(optimizer, GepaPromptOptimizer)
     assert optimizer.reflection_model == "openai:/gpt-4o"
     assert optimizer.max_metric_calls == 50
@@ -33,26 +32,26 @@ def test_create_gepa_optimizer_success():
 
 def test_create_gepa_optimizer_case_insensitive():
     config = {"reflection_model": "openai:/gpt-4o"}
-    optimizer = _create_optimizer("GEPA", json.dumps(config))
+    optimizer = _create_optimizer("GEPA", config)
     assert isinstance(optimizer, GepaPromptOptimizer)
 
 
 def test_create_gepa_optimizer_missing_reflection_model():
     config = {"max_metric_calls": 50}
     with pytest.raises(MlflowException, match="'reflection_model' must be specified"):
-        _create_optimizer("gepa", json.dumps(config))
+        _create_optimizer("gepa", config)
 
 
 def test_create_metaprompt_optimizer_success():
     config = {"reflection_model": "openai:/gpt-4o", "guidelines": "Be concise"}
-    optimizer = _create_optimizer("metaprompt", json.dumps(config))
+    optimizer = _create_optimizer("metaprompt", config)
     assert isinstance(optimizer, MetaPromptOptimizer)
 
 
 def test_create_metaprompt_optimizer_missing_reflection_model():
     config = {"guidelines": "Be concise"}
     with pytest.raises(MlflowException, match="'reflection_model' must be specified"):
-        _create_optimizer("metaprompt", json.dumps(config))
+        _create_optimizer("metaprompt", config)
 
 
 def test_create_optimizer_unsupported_type():
@@ -157,6 +156,17 @@ def test_build_predict_fn_missing_provider():
             _build_predict_fn("prompts:/test/1")
 
 
+def test_build_predict_fn_missing_litellm():
+    import sys
+
+    # Simulate litellm not being installed
+    with mock.patch.dict(sys.modules, {"litellm": None}):
+        with pytest.raises(
+            MlflowException, match="'litellm' package is required for prompt optimization"
+        ):
+            _build_predict_fn("prompts:/test/1")
+
+
 def test_optimize_prompts_job_has_metadata():
     assert hasattr(optimize_prompts_job, "_job_fn_metadata")
     metadata = optimize_prompts_job._job_fn_metadata
@@ -166,9 +176,6 @@ def test_optimize_prompts_job_has_metadata():
 
 def test_optimize_prompts_job_calls():
     mock_dataset = mock.MagicMock()
-    mock_df = mock.MagicMock()
-    mock_df.__len__ = mock.MagicMock(return_value=10)
-    mock_dataset.to_df.return_value = mock_df
 
     mock_prompt = mock.MagicMock()
     mock_prompt.model_config = {"provider": "openai", "model_name": "gpt-4o"}
@@ -184,8 +191,9 @@ def test_optimize_prompts_job_calls():
     mock_result.initial_eval_score = 0.5
     mock_result.final_eval_score = 0.9
 
+    optimizer_config = {"reflection_model": "openai:/gpt-4o"}
+
     with (
-        mock.patch("mlflow.genai.optimize.job._record_event"),
         mock.patch("mlflow.genai.optimize.job.get_dataset", return_value=mock_dataset),
         mock.patch("mlflow.genai.optimize.job.load_prompt", return_value=mock_prompt),
         mock.patch(
@@ -210,14 +218,12 @@ def test_optimize_prompts_job_calls():
             prompt_uri="prompts:/test/1",
             dataset_id="dataset-123",
             optimizer_type="gepa",
-            optimizer_config_json='{"reflection_model": "openai:/gpt-4o"}',
-            scorers=["Correctness", "Safety"],
+            optimizer_config=optimizer_config,
+            scorer_names=["Correctness", "Safety"],
         )
 
         # Verify _create_optimizer was called with correct args
-        mock_create_optimizer.assert_called_once_with(
-            "gepa", '{"reflection_model": "openai:/gpt-4o"}'
-        )
+        mock_create_optimizer.assert_called_once_with("gepa", optimizer_config)
 
         # Verify _load_scorers was called with correct args
         mock_load_scorers.assert_called_once_with(["Correctness", "Safety"], "exp-123")
@@ -228,7 +234,7 @@ def test_optimize_prompts_job_calls():
         # Verify optimize_prompts was called with correct args
         mock_optimize_prompts.assert_called_once_with(
             predict_fn=mock_predict_fn,
-            train_data=mock_df,
+            train_data=mock_dataset,
             prompt_uris=["prompts:/test/1"],
             optimizer=mock_optimizer,
             scorers=mock_loaded_scorers,
@@ -236,11 +242,8 @@ def test_optimize_prompts_job_calls():
         )
 
 
-def test_optimize_prompts_job_records_telemetry_event():
+def test_optimize_prompts_job_result_structure():
     mock_dataset = mock.MagicMock()
-    mock_df = mock.MagicMock()
-    mock_df.__len__ = mock.MagicMock(return_value=10)
-    mock_dataset.to_df.return_value = mock_df
 
     mock_prompt = mock.MagicMock()
     mock_prompt.model_config = {"provider": "openai", "model_name": "gpt-4o"}
@@ -253,8 +256,9 @@ def test_optimize_prompts_job_records_telemetry_event():
     mock_result.initial_eval_score = 0.5
     mock_result.final_eval_score = 0.9
 
+    optimizer_config = {"reflection_model": "openai:/gpt-4o"}
+
     with (
-        mock.patch("mlflow.genai.optimize.job._record_event") as mock_record_event,
         mock.patch("mlflow.genai.optimize.job.get_dataset", return_value=mock_dataset),
         mock.patch("mlflow.genai.optimize.job.load_prompt", return_value=mock_prompt),
         mock.patch("mlflow.genai.optimize.job._create_optimizer", return_value=mock_optimizer),
@@ -271,18 +275,9 @@ def test_optimize_prompts_job_records_telemetry_event():
             prompt_uri="prompts:/test/1",
             dataset_id="dataset-123",
             optimizer_type="gepa",
-            optimizer_config_json='{"reflection_model": "openai:/gpt-4o"}',
-            scorers=["Correctness", "Safety"],
+            optimizer_config=optimizer_config,
+            scorer_names=["Correctness", "Safety"],
         )
-
-        # Verify telemetry event was recorded
-        mock_record_event.assert_called_once()
-        call_args = mock_record_event.call_args
-        from mlflow.telemetry.events import OptimizePromptsJobEvent
-
-        assert call_args[0][0] == OptimizePromptsJobEvent
-        assert call_args[0][1]["optimizer_type"] == "gepa"
-        assert call_args[0][1]["scorer_count"] == 2
 
         # Verify result structure
         assert result["run_id"] == "run-123"
@@ -292,4 +287,4 @@ def test_optimize_prompts_job_records_telemetry_event():
         assert result["initial_eval_score"] == 0.5
         assert result["final_eval_score"] == 0.9
         assert result["dataset_id"] == "dataset-123"
-        assert result["scorers"] == ["Correctness", "Safety"]
+        assert result["scorer_names"] == ["Correctness", "Safety"]

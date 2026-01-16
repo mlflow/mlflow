@@ -1,5 +1,5 @@
-import json
 import logging
+from enum import Enum
 from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
@@ -16,26 +16,32 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.registry import get_scorer
 from mlflow.server.jobs import job
 from mlflow.telemetry.events import OptimizePromptsJobEvent
-from mlflow.telemetry.track import _record_event
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import set_experiment, start_run
 
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_OPTIMIZATION_JOB_MAX_WORKERS = 2
-SUPPORTED_OPTIMIZER_TYPES = {"gepa", "metaprompt"}
+
+
+class OptimizerType(str, Enum):
+    """Supported prompt optimizer types."""
+
+    GEPA = "gepa"
+    METAPROMPT = "metaprompt"
 
 
 def _create_optimizer(
     optimizer_type: str,
-    optimizer_config_json: str | None,
+    optimizer_config: dict[str, Any] | None,
 ) -> BasePromptOptimizer:
     """
-    Create an optimizer instance from type string and config JSON.
+    Create an optimizer instance from type string and configuration dict.
 
     Args:
         optimizer_type: The optimizer type string (e.g., "gepa", "metaprompt").
-        optimizer_config_json: JSON string of optimizer-specific configuration.
+        optimizer_config: Optimizer-specific configuration dictionary.
 
     Returns:
         An instantiated optimizer.
@@ -43,15 +49,15 @@ def _create_optimizer(
     Raises:
         MlflowException: If optimizer type is not supported.
     """
-    config = json.loads(optimizer_config_json) if optimizer_config_json else {}
-    optimizer_type = optimizer_type.lower() if optimizer_type else ""
+    config = optimizer_config or {}
+    optimizer_type_lower = optimizer_type.lower() if optimizer_type else ""
 
-    if optimizer_type == "gepa":
+    if optimizer_type_lower == OptimizerType.GEPA:
         reflection_model = config.get("reflection_model")
         if not reflection_model:
             raise MlflowException.invalid_parameter_value(
                 "Missing required optimizer configuration: 'reflection_model' must be specified "
-                "in optimizer_config_json for the GEPA optimizer (e.g., 'openai:/gpt-4o')."
+                "in optimizer_config for the GEPA optimizer (e.g., 'openai:/gpt-4o')."
             )
         return GepaPromptOptimizer(
             reflection_model=reflection_model,
@@ -59,12 +65,12 @@ def _create_optimizer(
             display_progress_bar=config.get("display_progress_bar", False),
             gepa_kwargs=config.get("gepa_kwargs"),
         )
-    elif optimizer_type == "metaprompt":
+    elif optimizer_type_lower == OptimizerType.METAPROMPT:
         reflection_model = config.get("reflection_model")
         if not reflection_model:
             raise MlflowException.invalid_parameter_value(
                 "Missing required optimizer configuration: 'reflection_model' must be specified "
-                "in optimizer_config_json for the MetaPrompt optimizer (e.g., 'openai:/gpt-4o')."
+                "in optimizer_config for the MetaPrompt optimizer (e.g., 'openai:/gpt-4o')."
             )
         return MetaPromptOptimizer(
             reflection_model=reflection_model,
@@ -72,13 +78,14 @@ def _create_optimizer(
             guidelines=config.get("guidelines"),
         )
     elif not optimizer_type:
+        supported_types = [t.value for t in OptimizerType]
         raise MlflowException.invalid_parameter_value(
-            f"Optimizer type must be specified. Supported types: {SUPPORTED_OPTIMIZER_TYPES}"
+            f"Optimizer type must be specified. Supported types: {supported_types}"
         )
     else:
+        supported_types = [t.value for t in OptimizerType]
         raise MlflowException.invalid_parameter_value(
-            f"Unsupported optimizer type: '{optimizer_type}'. "
-            f"Supported types: {SUPPORTED_OPTIMIZER_TYPES}"
+            f"Unsupported optimizer type: '{optimizer_type}'. Supported types: {supported_types}"
         )
 
 
@@ -140,7 +147,13 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     Returns:
         A callable that takes inputs dict and returns the LLM response.
     """
-    import litellm
+    try:
+        import litellm
+    except ImportError as e:
+        raise MlflowException(
+            "The 'litellm' package is required for prompt optimization but is not installed. "
+            "Please install it using: pip install litellm"
+        ) from e
 
     prompt = load_prompt(prompt_uri)
     try:
@@ -165,6 +178,7 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     return predict_fn
 
 
+@record_usage_event(OptimizePromptsJobEvent)
 @job(name="optimize_prompts", max_workers=_DEFAULT_OPTIMIZATION_JOB_MAX_WORKERS)
 def optimize_prompts_job(
     run_id: str,
@@ -172,8 +186,8 @@ def optimize_prompts_job(
     prompt_uri: str,
     dataset_id: str,
     optimizer_type: str,
-    optimizer_config_json: str | None,
-    scorers: list[str],
+    optimizer_config: dict[str, Any] | None,
+    scorer_names: list[str],
 ) -> dict[str, Any]:
     """
     Job function for async single-prompt optimization.
@@ -193,30 +207,22 @@ def optimize_prompts_job(
         prompt_uri: The URI of the prompt to optimize.
         dataset_id: The ID of the EvaluationDataset containing training data.
         optimizer_type: The optimizer type string (e.g., "gepa", "metaprompt").
-        optimizer_config_json: JSON string of optimizer-specific configuration.
-        scorers: List of scorer names. Can be built-in scorer class names
-            (e.g., "Correctness", "Safety") or registered scorer names from
-            the experiment's scorer registry.
+        optimizer_config: Optimizer-specific configuration dictionary.
+        scorer_names: List of scorer names. Can be built-in scorer class names
+            (e.g., "Correctness", "Safety") or registered scorer names.
+            For custom scorers, use mlflow.genai.make_judge() to create a judge,
+            then register it using scorer.register(experiment_id=experiment_id),
+            and pass the registered scorer name here.
 
     Returns:
         Dict containing optimization results and metadata.
     """
-    # Record telemetry event for job execution
-    _record_event(
-        OptimizePromptsJobEvent,
-        {
-            "optimizer_type": optimizer_type,
-            "scorer_count": len(scorers),
-        },
-    )
-
     set_experiment(experiment_id=experiment_id)
 
     dataset = get_dataset(dataset_id=dataset_id)
-    train_data = dataset.to_df()
     predict_fn = _build_predict_fn(prompt_uri)
-    optimizer = _create_optimizer(optimizer_type, optimizer_config_json)
-    loaded_scorers = _load_scorers(scorers, experiment_id)
+    optimizer = _create_optimizer(optimizer_type, optimizer_config)
+    loaded_scorers = _load_scorers(scorer_names, experiment_id)
     source_prompt = load_prompt(prompt_uri)
 
     # Resume the given run ID. Params have already been logged by the handler
@@ -227,7 +233,7 @@ def optimize_prompts_job(
 
         result = optimize_prompts(
             predict_fn=predict_fn,
-            train_data=train_data,
+            train_data=dataset,
             prompt_uris=[prompt_uri],
             optimizer=optimizer,
             scorers=loaded_scorers,
@@ -244,5 +250,5 @@ def optimize_prompts_job(
         "initial_eval_score": result.initial_eval_score,
         "final_eval_score": result.final_eval_score,
         "dataset_id": dataset_id,
-        "scorers": scorers,
+        "scorer_names": scorer_names,
     }

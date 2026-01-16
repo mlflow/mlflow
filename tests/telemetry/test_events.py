@@ -306,15 +306,15 @@ def test_optimize_prompts_job_event_name():
     ("arguments", "expected_params"),
     [
         (
-            {"optimizer_type": "gepa", "scorer_count": 2},
+            {"optimizer_type": "gepa", "scorer_names": ["Correctness", "Safety"]},
             {"optimizer_type": "gepa", "scorer_count": 2},
         ),
         (
-            {"optimizer_type": "metaprompt", "scorer_count": 1},
+            {"optimizer_type": "metaprompt", "scorer_names": ["Correctness"]},
             {"optimizer_type": "metaprompt", "scorer_count": 1},
         ),
         (
-            {"optimizer_type": "gepa", "scorer_count": 0},
+            {"optimizer_type": "gepa", "scorer_names": []},
             {"optimizer_type": "gepa", "scorer_count": 0},
         ),
         ({}, None),
