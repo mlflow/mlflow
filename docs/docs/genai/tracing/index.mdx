@@ -222,16 +222,17 @@ When your application spans multiple services, propagate the active trace contex
 
 If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
 
-- Use `mlflow.tracing.distributed.get_tracing_context_headers_for_http_request()` on the client to inject headers.
-- Use `mlflow.tracing.distributed.set_tracing_context_from_http_request_headers(headers)` on the server to extract and set the current context for the duration of the request.
-- See full API reference: [/api_reference/python_api/mlflow.tracing.distributed](/api_reference/python_api/mlflow.tracing.distributed)
+- Use `mlflow.tracing.get_tracing_context_headers_for_http_request()` on the client to inject headers, see full API reference: [mlflow.tracing.get_tracing_context_headers_for_http_request](/api_reference/python_api/mlflow.tracing.html#mlflow.tracing.get_tracing_context_headers_for_http_request)
+
+- Use `mlflow.tracing.set_tracing_context_from_http_request_headers(headers)` on the server to extract and set the current context for the duration of the request, See full API reference: [mlflow.tracing.set_tracing_context_from_http_request_headers](/api_reference/python_api/mlflow.tracing.html#mlflow.tracing.set_tracing_context_from_http_request_headers)
+
 
 Client example:
 
 ```python
 import requests
 import mlflow
-from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
+from mlflow.tracing import get_tracing_context_headers_for_http_request
 
 with mlflow.start_span("client-root"):
     headers = get_tracing_context_headers_for_http_request()
@@ -245,7 +246,7 @@ Server handler example:
 ```python
 import mlflow
 from flask import Flask, request
-from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+from mlflow.tracing import set_tracing_context_from_http_request_headers
 
 app = Flask(__name__)
 
