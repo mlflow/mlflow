@@ -97,6 +97,7 @@ def optimize_prompts(
             - Links to the optimized prompt versions
             - The optimizer name and parameters
             - Optimization progress
+            - Traces with detailed assessments from the scorers
             If False, no MLflow run is created and no tracking occurs.
 
     Returns:
