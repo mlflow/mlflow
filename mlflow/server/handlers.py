@@ -206,6 +206,7 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpdateRun,
     UpsertDatasetRecords,
+    DeleteDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import (
@@ -5075,7 +5076,33 @@ def _get_dataset_records_handler(dataset_id):
 
     return _wrap_response(response_message)
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset_records_handler(dataset_id):
+    """
+    Handler for DELETE /api/3.0/mlflow/datasets/{dataset_id}/records
+    Deletes dataset records by their dataset_record_ids.
+    """
+    request_message = _get_request_message(
+        DeleteDatasetRecords(),
+        schema={
+            "dataset_record_ids": [_assert_required, _assert_array, _assert_item_type_string],
+        },
+    )
 
+    dataset_record_ids = list(request_message.dataset_record_ids)
+    deleted_by = request_message.deleted_by or None
+
+    deleted_count = _get_tracking_store().delete_dataset_records(
+        dataset_id=dataset_id,
+        dataset_record_ids=dataset_record_ids,
+        deleted_by=deleted_by,
+    )
+
+    response_message = DeleteDatasetRecords.Response()
+    response_message.deleted_count = deleted_count
+
+    return _wrap_response(response_message)
 # Cache for telemetry config with 3 hour TTL
 _telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
 
@@ -5199,6 +5226,7 @@ HANDLERS = {
     SetDatasetTags: _set_dataset_tags_handler,
     DeleteDatasetTag: _delete_dataset_tag_handler,
     UpsertDatasetRecords: _upsert_dataset_records_handler,
+    DeleteDatasetRecords: _delete_dataset_records_handler,
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
     AddDatasetToExperiments: _add_dataset_to_experiments_handler,

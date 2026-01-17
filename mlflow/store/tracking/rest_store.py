@@ -122,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
     UpsertDatasetRecords,
+    DeleteDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -1833,6 +1834,37 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
             next_page_token = response_proto.next_page_token or None
             return records, next_page_token
+
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+        deleted_by: str | None = None,
+    ) -> int:
+        """
+        Delete evaluation dataset records.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+            deleted_by: Optional user who is performing the deletion.
+
+        Returns:
+            Number of records deleted.
+        """
+        req = DeleteDatasetRecords()
+        req.dataset_record_ids.extend(dataset_record_ids)
+        if deleted_by:
+            req.deleted_by = deleted_by
+
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(
+            DeleteDatasetRecords,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+            method="DELETE",
+        )
+        return response_proto.deleted_count
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
