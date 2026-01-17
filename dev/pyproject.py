@@ -232,7 +232,9 @@ def build(package_type: PackageType) -> None:
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     )
     if version_match is None:
-        raise ValueError("Could not find VERSION in mlflow/version.py")
+        raise ValueError(
+            'Could not find VERSION in mlflow/version.py. Expected format: VERSION = "x.y.z"'
+        )
     package_version = version_match.group(1)
     python_version = Path(".python-version").read_text().strip()
     versions_yaml = read_package_versions_yml()
