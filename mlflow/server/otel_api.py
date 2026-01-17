@@ -25,6 +25,7 @@ from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
+    MLFLOW_MODEL_ID_HEADER,
     OTLP_TRACES_PATH,
     decompress_otlp_body,
 )
@@ -41,6 +42,7 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 async def export_traces(
     request: Request,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    x_mlflow_model_id: str | None = Header(None, alias=MLFLOW_MODEL_ID_HEADER),
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
@@ -54,6 +56,7 @@ async def export_traces(
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID
+        x_mlflow_model_id: Optional header containing the model ID to link traces to
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
@@ -123,7 +126,7 @@ async def export_traces(
         completed_trace_ids = set()
         for trace_id, trace_spans in spans_by_trace_id.items():
             try:
-                store.log_spans(x_mlflow_experiment_id, trace_spans)
+                store.log_spans(x_mlflow_experiment_id, trace_spans, model_id=x_mlflow_model_id)
                 for span in trace_spans:
                     if span.parent_id is None:
                         # Only count traces with a root span as completed
