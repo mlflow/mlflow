@@ -60,7 +60,6 @@ repos:
             dev/show_package_release_dates\.py|
             dev/update_changelog\.py|
             dev/update_ml_package_versions\.py|
-            dev/update_requirements\.py|
             dev/xtest_viz\.py|
             dev/proto_to_graphql/.*\.py|
             dev/tests/.*\.py
