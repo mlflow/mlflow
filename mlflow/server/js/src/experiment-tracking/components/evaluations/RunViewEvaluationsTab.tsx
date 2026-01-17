@@ -52,7 +52,11 @@ import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
-import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  isV3ModelTraceInfo,
+  ModelTraceExplorerContextProvider,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
 import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
@@ -292,45 +296,42 @@ const RunViewEvaluationsTabInner = ({
           </span>
         </div>
       )}
-      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <GenAITracesTableProvider
-          experimentId={experimentId}
-          getTrace={getTrace}
-          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        >
-          <div
-            css={{
-              overflowY: 'hidden',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <GenAITracesTableToolbar
-              experimentId={experimentId}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              filters={filters}
-              setFilters={setFilters}
-              assessmentInfos={assessmentInfos}
-              countInfo={countInfo}
-              traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
-              allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              toggleColumns={toggleColumns}
-              traceInfos={traceInfos}
-              tableFilterOptions={tableFilterOptions}
-              onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
-              isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
-              isGroupedBySession={isGroupedBySession}
-              onToggleSessionGrouping={onToggleSessionGrouping}
-            />
-            {
-              // prettier-ignore
-              isTableLoading ? (
+      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <GenAITracesTableProvider experimentId={experimentId}>
+            <div
+              css={{
+                overflowY: 'hidden',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <GenAITracesTableToolbar
+                experimentId={experimentId}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filters={filters}
+                setFilters={setFilters}
+                assessmentInfos={assessmentInfos}
+                countInfo={countInfo}
+                traceActions={traceActions}
+                tableSort={tableSort}
+                setTableSort={setTableSort}
+                allColumns={allColumns}
+                selectedColumns={selectedColumns}
+                setSelectedColumns={setSelectedColumns}
+                toggleColumns={toggleColumns}
+                traceInfos={traceInfos}
+                tableFilterOptions={tableFilterOptions}
+                onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
+                isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
+                isGroupedBySession={isGroupedBySession}
+                onToggleSessionGrouping={onToggleSessionGrouping}
+              />
+              {
+                // prettier-ignore
+                isTableLoading ? (
             <LoadingSkeleton />
           ) : traceInfosError ? (
             <div>
@@ -359,11 +360,12 @@ const RunViewEvaluationsTabInner = ({
               />
             </ContextProviders>
           )
-            }
-            {EditTagsModal}
-          </div>
-        </GenAITracesTableProvider>
-      </GenAiTraceTableRowSelectionProvider>
+              }
+              {EditTagsModal}
+            </div>
+          </GenAITracesTableProvider>
+        </GenAiTraceTableRowSelectionProvider>
+      </ModelTraceExplorerContextProvider>
     </div>
   );
 };

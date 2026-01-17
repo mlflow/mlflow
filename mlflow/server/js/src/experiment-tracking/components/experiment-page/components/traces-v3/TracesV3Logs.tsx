@@ -8,7 +8,11 @@ import type {
   GetTraceFunction,
   TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
-import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
+import {
+  shouldUseTracesV4API,
+  useUnifiedTraceTagsModal,
+  ModelTraceExplorerContextProvider,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -356,48 +360,46 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     return (
-      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <GenAITracesTableProvider
-          experimentId={experimentId}
-          getTrace={getTrace}
-          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        >
-          <div
-            css={{
-              overflowY: 'hidden',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <GenAITracesTableToolbar
-              experimentId={experimentId}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              filters={filters}
-              setFilters={setFilters}
-              assessmentInfos={assessmentInfos}
-              traceInfos={traceInfos}
-              tableFilterOptions={tableFilterOptions}
-              countInfo={countInfo}
-              traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
-              allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              toggleColumns={toggleColumns}
-              setSelectedColumns={setSelectedColumns}
-              isMetadataLoading={isMetadataLoading}
-              metadataError={metadataError}
-              usesV4APIs={usesV4APIs}
-              addons={toolbarAddons}
-              isGroupedBySession={isGroupedBySession}
-              onToggleSessionGrouping={onToggleSessionGrouping}
-            />
-            {renderMainContent()}
-          </div>
-        </GenAITracesTableProvider>
-      </GenAiTraceTableRowSelectionProvider>
+      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <GenAITracesTableProvider experimentId={experimentId}>
+            <div
+              css={{
+                overflowY: 'hidden',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <GenAITracesTableToolbar
+                experimentId={experimentId}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filters={filters}
+                setFilters={setFilters}
+                assessmentInfos={assessmentInfos}
+                traceInfos={traceInfos}
+                tableFilterOptions={tableFilterOptions}
+                countInfo={countInfo}
+                traceActions={traceActions}
+                tableSort={tableSort}
+                setTableSort={setTableSort}
+                allColumns={allColumns}
+                selectedColumns={selectedColumns}
+                toggleColumns={toggleColumns}
+                setSelectedColumns={setSelectedColumns}
+                isMetadataLoading={isMetadataLoading}
+                metadataError={metadataError}
+                usesV4APIs={usesV4APIs}
+                addons={toolbarAddons}
+                isGroupedBySession={isGroupedBySession}
+                onToggleSessionGrouping={onToggleSessionGrouping}
+              />
+              {renderMainContent()}
+            </div>
+          </GenAITracesTableProvider>
+        </GenAiTraceTableRowSelectionProvider>
+      </ModelTraceExplorerContextProvider>
     );
   },
 );
