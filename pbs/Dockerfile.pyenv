@@ -1,0 +1,55 @@
+# Dockerfile.pyenv - Baseline using pyenv (compile from source)
+# This demonstrates the current MLflow approach
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies required by pyenv
+# Note: --no-install-recommends is intentionally omitted here because
+# pyenv compilation requires the full set of build tools and their
+# recommended packages for reliable builds across different Python versions.
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    make \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    wget \
+    llvm \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pyenv
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+
+# Pin to v2.5.0 for reproducibility
+RUN git clone --depth 1 --branch v2.5.0 https://github.com/pyenv/pyenv.git $PYENV_ROOT
+
+# Install Python 3.10.14 via pyenv (compiles from source)
+# Using the same version as PBS for fair comparison
+RUN echo "=== pyenv Python Install ===" && \
+    echo "START_TIME=$(date +%s)" && \
+    pyenv install 3.10.14 && \
+    pyenv global 3.10.14 && \
+    echo "END_TIME=$(date +%s)"
+
+RUN pip install --upgrade pip virtualenv
+
+RUN python -m virtualenv /opt/venv && \
+    /opt/venv/bin/pip install scikit-learn numpy
+
+COPY test_sklearn.py /app/test_sklearn.py
+
+CMD ["/opt/venv/bin/python", "/app/test_sklearn.py"]
