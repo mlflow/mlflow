@@ -11,11 +11,11 @@ import requests
 from packaging.version import Version
 
 
-def get_header_for_version(version):
+def get_header_for_version(version: str) -> str:
     return "## {} ({})".format(version, datetime.now().strftime("%Y-%m-%d"))
 
 
-def extract_pr_num_from_git_log_entry(git_log_entry):
+def extract_pr_num_from_git_log_entry(git_log_entry: str) -> int | None:
     m = re.search(r"\(#(\d+)\)$", git_log_entry)
     return int(m.group(1)) if m else None
 
@@ -35,14 +35,14 @@ class PullRequest(NamedTuple):
     labels: list[str]
 
     @property
-    def url(self):
+    def url(self) -> str:
         return f"https://github.com/mlflow/mlflow/pull/{self.number}"
 
     @property
-    def release_note_labels(self):
+    def release_note_labels(self) -> list[str]:
         return [l for l in self.labels if l.startswith("rn/")]
 
-    def __str__(self):
+    def __str__(self) -> str:
         areas = " / ".join(
             sorted(
                 map(
@@ -53,7 +53,7 @@ class PullRequest(NamedTuple):
         )
         return f"[{areas}] {self.title} (#{self.number}, @{self.author})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
@@ -61,7 +61,7 @@ class Section(NamedTuple):
     title: str
     items: list[Any]
 
-    def __str__(self):
+    def __str__(self) -> str:
         if not self.items:
             return ""
         return "\n\n".join(
@@ -72,7 +72,7 @@ class Section(NamedTuple):
         )
 
 
-def is_shallow():
+def is_shallow() -> bool:
     return (
         subprocess.check_output(
             [
@@ -171,7 +171,7 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     return prs
 
 
-def main(prev_version, release_version, remote):
+def main(prev_version: str, release_version: str, remote: str) -> None:
     if is_shallow():
         print("Unshallowing repository to ensure `git log` works correctly")
         subprocess.check_call(["git", "fetch", "--unshallow"])
@@ -237,12 +237,14 @@ def main(prev_version, release_version, remote):
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))
-    small_updates = [
+    small_updates_items = [
         ", ".join([f"#{pr.number}" for pr in prs] + [f"@{author}"])
         for author, prs in author_to_prs.items()
     ]
-    small_updates = "Small bug fixes and documentation updates:\n\n" + "; ".join(small_updates)
-    sections = filter(
+    small_updates = "Small bug fixes and documentation updates:\n\n" + "; ".join(
+        small_updates_items
+    )
+    sections: filter[str] = filter(
         str.strip,
         map(
             str,
