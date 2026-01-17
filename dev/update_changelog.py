@@ -244,22 +244,20 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
     small_updates = "Small bug fixes and documentation updates:\n\n" + "; ".join(
         small_updates_items
     )
-    sections: filter[str] = filter(
-        str.strip,
-        map(
-            str,
-            [
-                get_header_for_version(release_version),
-                f"MLflow {release_version} includes several major features and improvements",
-                breaking_changes,
-                highlights,
-                features,
-                bug_fixes,
-                doc_updates,
-                small_updates,
-            ],
-        ),
-    )
+    sections = [
+        s
+        for sec in [
+            get_header_for_version(release_version),
+            f"MLflow {release_version} includes several major features and improvements",
+            breaking_changes,
+            highlights,
+            features,
+            bug_fixes,
+            doc_updates,
+            small_updates,
+        ]
+        if (s := str(sec).strip())
+    ]
     new_changelog = "\n\n".join(sections)
     changelog_header = "# CHANGELOG"
     changelog = Path("CHANGELOG.md")
