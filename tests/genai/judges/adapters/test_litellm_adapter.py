@@ -13,6 +13,8 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
+    _record_judge_model_usage_failure_databricks_telemetry,
+    _record_judge_model_usage_success_databricks_telemetry,
     _remove_oldest_tool_call_pair,
 )
 from mlflow.types.llm import ChatMessage
@@ -190,7 +192,13 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        (
+            result,
+            cost,
+            request_id,
+            prompt_tokens,
+            completion_tokens,
+        ) = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
@@ -231,7 +239,13 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        (
+            result,
+            cost,
+            request_id,
+            prompt_tokens,
+            completion_tokens,
+        ) = _invoke_litellm_and_handle_tools(
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
@@ -310,7 +324,13 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        (
+            result,
+            cost,
+            request_id,
+            prompt_tokens,
+            completion_tokens,
+        ) = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Test with trace")],
@@ -345,7 +365,13 @@ def test_gateway_provider_integration():
             _invoke_litellm_and_handle_tools,
         )
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        (
+            result,
+            cost,
+            request_id,
+            prompt_tokens,
+            completion_tokens,
+        ) = _invoke_litellm_and_handle_tools(
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Test")],
@@ -461,3 +487,116 @@ def test_remove_oldest_tool_call_pair_preserves_non_tool_messages():
     assert result[1].content == "Hello"
     assert result[2].role == "user"
     assert result[2].content == "Thanks"
+
+
+def test_record_success_telemetry_with_databricks_agents():
+    mock_telemetry_module = mock.MagicMock()
+    mock_record = mock.MagicMock()
+    mock_telemetry_module.record_judge_model_usage_success = mock_record
+
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-123",
+        ) as mock_experiment_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id",
+            return_value="ws-456",
+        ) as mock_workspace_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value="job-789",
+        ) as mock_job_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_run_id",
+            return_value="run-101",
+        ) as mock_job_run_id,
+        mock.patch.dict(
+            "sys.modules",
+            {"databricks.agents.telemetry": mock_telemetry_module},
+        ),
+    ):
+        _record_judge_model_usage_success_databricks_telemetry(
+            request_id="req-123",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+
+        mock_record.assert_called_once_with(
+            request_id="req-123",
+            experiment_id="exp-123",
+            job_id="job-789",
+            job_run_id="run-101",
+            workspace_id="ws-456",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+        mock_experiment_id.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_job_id.assert_called_once()
+        mock_job_run_id.assert_called_once()
+
+
+def test_record_success_telemetry_without_databricks_agents():
+    with mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}):
+        _record_judge_model_usage_success_databricks_telemetry(
+            request_id="req-123",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+
+
+def test_record_failure_telemetry_with_databricks_agents():
+    mock_telemetry_module = mock.MagicMock()
+    mock_record = mock.MagicMock()
+    mock_telemetry_module.record_judge_model_usage_failure = mock_record
+
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-123",
+        ) as mock_experiment_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id",
+            return_value="ws-456",
+        ) as mock_workspace_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value="job-789",
+        ) as mock_job_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_run_id",
+            return_value="run-101",
+        ) as mock_job_run_id,
+        mock.patch.dict(
+            "sys.modules",
+            {"databricks.agents.telemetry": mock_telemetry_module},
+        ),
+    ):
+        _record_judge_model_usage_failure_databricks_telemetry(
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            error_code="TIMEOUT",
+            error_message="Request timed out",
+        )
+
+        mock_record.assert_called_once_with(
+            experiment_id="exp-123",
+            job_id="job-789",
+            job_run_id="run-101",
+            workspace_id="ws-456",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            error_code="TIMEOUT",
+            error_message="Request timed out",
+        )
+        mock_experiment_id.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_job_id.assert_called_once()
+        mock_job_run_id.assert_called_once()
