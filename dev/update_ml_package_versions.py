@@ -261,6 +261,14 @@ def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = F
     return min(recent_versions, key=lambda v: v.upload_time).version
 
 
+def update_pyproject():
+    """Update pyproject.toml files based on ml-package-versions.yml."""
+    import subprocess
+
+    pyproject_script = Path(__file__).parent / "pyproject.py"
+    subprocess.check_call([sys.executable, str(pyproject_script)])
+
+
 def update(skip_yml=False):
     yml_path = "mlflow/ml-package-versions.yml"
 
@@ -318,6 +326,7 @@ def update(skip_yml=False):
         save_file(new_src, yml_path)
 
     update_ml_package_versions_py(yml_path)
+    update_pyproject()
 
 
 def main():
