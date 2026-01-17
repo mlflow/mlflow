@@ -3,6 +3,7 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
+import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
 
@@ -20,7 +21,6 @@ from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, Me
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
-from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
@@ -37,40 +37,6 @@ from mlflow.utils.time import get_current_time_millis
 from tests.store.tracking.test_sqlalchemy_store import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
-
-
-def _get_expected_percentile_value(
-    store: SqlAlchemyStore,
-    percentile_value: float,
-    min_val: float,
-    max_val: float,
-    values: list[float],
-) -> float:
-    """
-    Calculate expected percentile value based on database type.
-
-    PostgreSQL uses linear interpolation (PERCENTILE_CONT).
-    MySQL, SQLite, and MSSQL use min + (percentile_value / 100) * (max - min) approximation.
-    """
-    db_type = store._get_dialect()
-    # Convert percentile_value from 0-100 to 0-1 ratio
-    percentile_ratio = percentile_value / 100.0
-
-    if db_type == POSTGRES:
-        # Linear interpolation for PERCENTILE_CONT
-        # For a sorted list, percentile index = percentile_ratio * (n - 1)
-        sorted_values = sorted(values)
-        n = len(sorted_values)
-        index = percentile_ratio * (n - 1)
-        lower_idx = int(index)
-        upper_idx = min(lower_idx + 1, n - 1)
-        fraction = index - lower_idx
-        return sorted_values[lower_idx] + fraction * (
-            sorted_values[upper_idx] - sorted_values[lower_idx]
-        )
-    else:
-        # Approximation for MySQL, SQLite, and MSSQL
-        return min_val + percentile_ratio * (max_val - min_val)
 
 
 def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
@@ -338,11 +304,13 @@ def test_query_trace_metrics_latency_percentiles(
     )
 
     # Calculate expected values based on database type
-    expected_workflow_a = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 300.0, [100.0, 200.0, 300.0]
+    expected_workflow_a = pytest.approx(
+        np.percentile([100.0, 200.0, 300.0], percentile_value),
+        abs=0.01,
     )
-    expected_workflow_b = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 200.0, [100.0, 200.0]
+    expected_workflow_b = pytest.approx(
+        np.percentile([100.0, 200.0], percentile_value),
+        abs=0.01,
     )
 
     assert len(result) == 2
@@ -394,13 +362,17 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
 
     # Calculate expected percentile value based on database type
     values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, values)
-    expected_p99 = _get_expected_percentile_value(store, 99.0, 100.0, 500.0, values)
+    expected_p95 = pytest.approx(np.percentile(values, 95.0), abs=0.01)
+    expected_p99 = pytest.approx(np.percentile(values, 99.0), abs=0.01)
 
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
-        "values": {"AVG": 300.0, "P95": expected_p95, "P99": expected_p99},
+        "values": {
+            "AVG": pytest.approx(300.0, abs=0.01),
+            "P95": expected_p95,
+            "P99": expected_p99,
+        },
     }
 
 
@@ -893,18 +865,8 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
     workflow_a_values = [150, 225, 300]
     workflow_b_values = [375, 450]
 
-    expected_workflow_a_values = {
-        f"P{p}": _get_expected_percentile_value(
-            store, p, min(workflow_a_values), max(workflow_a_values), workflow_a_values
-        )
-        for p in percentiles
-    }
-    expected_workflow_b_values = {
-        f"P{p}": _get_expected_percentile_value(
-            store, p, min(workflow_b_values), max(workflow_b_values), workflow_b_values
-        )
-        for p in percentiles
-    }
+    expected_workflow_a_values = {f"P{p}": np.percentile(workflow_a_values, p) for p in percentiles}
+    expected_workflow_b_values = {f"P{p}": np.percentile(workflow_b_values, p) for p in percentiles}
 
     assert len(result) == 2
     assert asdict(result[0]) == {
@@ -2098,8 +2060,9 @@ def test_query_span_metrics_latency_percentiles(
 
     # Calculate expected percentile value
     latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_percentile = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 500.0, latency_values
+    expected_percentile = pytest.approx(
+        np.percentile(latency_values, percentile_value),
+        abs=0.01,
     )
 
     assert len(result) == 1
@@ -2187,12 +2150,8 @@ def test_query_span_metrics_latency_percentiles_by_span_name(store: SqlAlchemySt
     gen_resp_values = [100.0, 200.0, 300.0]
     proc_input_values = [50.0, 150.0]
 
-    expected_gen_resp = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 300.0, gen_resp_values
-    )
-    expected_proc_input = _get_expected_percentile_value(
-        store, percentile_value, 50.0, 150.0, proc_input_values
-    )
+    expected_gen_resp = np.percentile(gen_resp_values, percentile_value)
+    expected_proc_input = np.percentile(proc_input_values, percentile_value)
 
     assert len(result) == 2
     assert asdict(result[0]) == {
@@ -2277,14 +2236,14 @@ def test_query_span_metrics_latency_multiple_aggregations(store: SqlAlchemyStore
     )
 
     latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_p50 = _get_expected_percentile_value(store, 50.0, 100.0, 500.0, latency_values)
-    expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, latency_values)
+    expected_p50 = pytest.approx(np.percentile(latency_values, 50.0), abs=0.01)
+    expected_p95 = pytest.approx(np.percentile(latency_values, 95.0), abs=0.01)
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.LATENCY,
         "dimensions": {},
-        "values": {"AVG": 300.0, "P50": expected_p50, "P95": expected_p95},
+        "values": {"AVG": pytest.approx(300.0, abs=0.01), "P50": expected_p50, "P95": expected_p95},
     }
 
 
@@ -3094,15 +3053,11 @@ def test_query_assessment_value_percentiles(
     score_values = [10.0, 20.0, 30.0]
 
     expected_accuracy = pytest.approx(
-        _get_expected_percentile_value(
-            store, percentile_value, min(accuracy_values), max(accuracy_values), accuracy_values
-        ),
+        np.percentile(accuracy_values, percentile_value),
         abs=0.01,
     )
     expected_score = pytest.approx(
-        _get_expected_percentile_value(
-            store, percentile_value, min(score_values), max(score_values), score_values
-        ),
+        np.percentile(score_values, percentile_value),
         abs=0.01,
     )
 
@@ -3223,18 +3178,14 @@ def test_query_assessment_value_multiple_aggregations(store: SqlAlchemyStore):
     )
 
     values = [10.0, 20.0, 30.0, 40.0, 50.0]
-    expected_p50 = pytest.approx(
-        _get_expected_percentile_value(store, 50.0, 10.0, 50.0, values), abs=0.01
-    )
-    expected_p95 = pytest.approx(
-        _get_expected_percentile_value(store, 95.0, 10.0, 50.0, values), abs=0.01
-    )
+    expected_p50 = pytest.approx(np.percentile(values, 50.0), abs=0.01)
+    expected_p95 = pytest.approx(np.percentile(values, 95.0), abs=0.01)
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
         "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "score"},
-        "values": {"AVG": 30.0, "P50": expected_p50, "P95": expected_p95},
+        "values": {"AVG": pytest.approx(30.0, abs=0.01), "P50": expected_p50, "P95": expected_p95},
     }
 
 
