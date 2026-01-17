@@ -50,9 +50,25 @@ repos:
         language: system
         files: |
           (?x)^(
-            dev/clint/.*\.py|
-            dev/pyproject\.py|
+            dev/.*\.py|
             \.claude/skills/.*\.py
+          )$
+        exclude: |
+          (?x)^(
+            dev/build\.py|
+            dev/check_function_signatures\.py|
+            dev/check_patch_prs\.py|
+            dev/check_whitespace_only\.py|
+            dev/create_release_branch\.py|
+            dev/set_matrix\.py|
+            dev/show_package_release_dates\.py|
+            dev/update_changelog\.py|
+            dev/update_ml_package_versions\.py|
+            dev/update_mlflow_versions\.py|
+            dev/update_requirements\.py|
+            dev/xtest_viz\.py|
+            dev/proto_to_graphql/.*\.py|
+            dev/tests/.*\.py
           )$
         entry: uv run --only-group lint mypy
         require_serial: true
