@@ -18,9 +18,9 @@ _PYPROJECT_TOML_FILES = [
     Path("libs/tracing/pyproject.toml"),
 ]
 
-_JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
+_JAVA_VERSION_FILES = list(Path("mlflow", "java").rglob("*.java"))
 
-_JAVA_POM_XML_FILES = Path("mlflow", "java").rglob("*.xml")
+_JAVA_POM_XML_FILES = list(Path("mlflow", "java").rglob("*.xml"))
 
 _TS_VERSION_FILES = [
     Path(
@@ -39,7 +39,10 @@ _R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
 
 def get_current_py_version() -> str:
     text = Path("mlflow", "version.py").read_text()
-    return re.search(r'VERSION = "(.+)"', text).group(1)
+    match = re.search(r'VERSION = "(.+)"', text)
+    if match is None:
+        raise ValueError("Could not find VERSION in mlflow/version.py")
+    return match.group(1)
 
 
 def get_java_py_version_pattern(version: str) -> str:
@@ -51,13 +54,13 @@ def get_java_new_py_version(new_py_version: str) -> str:
     return replace_dev_or_rc_suffix_with(new_py_version, "-SNAPSHOT")
 
 
-def replace_dev_or_rc_suffix_with(version, repl):
+def replace_dev_or_rc_suffix_with(version: str, repl: str) -> str:
     parsed = Version(version)
     base_version = parsed.base_version
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: list[Path], pattern: str | re.Pattern, repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str | re.Pattern[str], repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:
@@ -189,7 +192,7 @@ def validate_new_version(value: str) -> str:
     return value
 
 
-def pre_release(new_version: str):
+def pre_release(new_version: str) -> None:
     """
     Update MLflow package versions BEFORE release.
 
@@ -201,7 +204,7 @@ def pre_release(new_version: str):
     update_versions(new_py_version=new_version)
 
 
-def post_release(new_version: str):
+def post_release(new_version: str) -> None:
     """
     Update MLflow package versions AFTER release.
 
@@ -217,9 +220,11 @@ def post_release(new_version: str):
         "branch."
     )
     assert current_version.is_devrelease, msg
-    new_version = Version(new_version)
+    new_version_parsed = Version(new_version)
     # Increment the patch version and append ".dev0"
-    new_py_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}.dev0"
+    new_py_version = (
+        f"{new_version_parsed.major}.{new_version_parsed.minor}.{new_version_parsed.micro + 1}.dev0"
+    )
     update_versions(new_py_version=new_py_version)
 
 
