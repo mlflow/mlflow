@@ -114,12 +114,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const tracesTableConfig = useGenAITracesTableConfig();
 
+    // Auto-polling until trace is complete if the backend supports returning partial spans
     const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
     const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
 
     const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo, shouldEnablePolling);
     const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo, shouldEnablePolling);
 
+    // In case that the selected evaluation is not provided upstream (but the list is loaded),
+    // we lazily fetch the full trace data here
     const shouldFetchTraceBySearchParamId = useMemo(
       () => Boolean(evaluations) && !evaluation && Boolean(selectedEvaluationId),
       [evaluations, evaluation, selectedEvaluationId],
@@ -130,9 +133,11 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
     );
 
+    // Prefetching the next and previous traces to optimize performance
     useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo);
     useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo);
 
+    // True if only one of the two runs has a trace (single trace view vs comparison view)
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
 
     const currentTraceQueryResult = shouldFetchTraceBySearchParamId

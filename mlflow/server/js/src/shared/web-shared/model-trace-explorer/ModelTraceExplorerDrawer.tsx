@@ -85,19 +85,19 @@ export const ModelTraceExplorerDrawer = ({
       }}
     >
       <Drawer.Content
-        componentId="mlflow.model_trace_explorer.drawer"
+        componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <Button
-              componentId="mlflow.model_trace_explorer.drawer.previous_eval"
+              componentId="mlflow.evaluations_review.modal.previous_eval"
               disabled={!isPreviousAvailable}
               onClick={() => selectPreviousEval()}
             >
               <ChevronLeftIcon />
             </Button>
             <Button
-              componentId="mlflow.model_trace_explorer.drawer.next_eval"
+              componentId="mlflow.evaluations_review.modal.next_eval"
               disabled={!isNextAvailable}
               onClick={() => selectNextEval()}
             >
@@ -106,7 +106,7 @@ export const ModelTraceExplorerDrawer = ({
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
             {showAddToDatasetButton && (
               <Button
-                componentId="mlflow.model_trace_explorer.drawer.add_to_evaluation_dataset"
+                componentId="mlflow.evaluations_review.modal.add_to_evaluation_dataset"
                 onClick={() => setShowDatasetModal(true)}
                 icon={<PlusIcon />}
               >
