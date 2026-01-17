@@ -1736,6 +1736,8 @@ def log_image(
     step: int | None = None,
     timestamp: int | None = None,
     synchronous: bool | None = False,
+    *,
+    image_options: dict[str, Any] | None = None,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1797,9 +1799,16 @@ def log_image(
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the image is logged successfully.
+        image_options: A dictionary of options to pass to `PIL.Image.save
+            <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
+            This can be used to control image quality and format. For example, to save a
+            JPEG image with 80% quality, pass `artifact_file="image.jpg",
+            image_options={"quality": 80}`. To save a time-stepped image as a JPEG,
+            pass `key="img", image_options={"format": "jpeg", "quality": 80}`.
+            Supported arguments depend on the image format.
 
     .. code-block:: python
-        :caption: Time-stepped image logging numpy example
+        :caption: Legacy artifact file image logging with quality control
 
         import mlflow
         import numpy as np
@@ -1807,56 +1816,19 @@ def log_image(
         image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
         with mlflow.start_run():
-            mlflow.log_image(image, key="dogs", step=3)
-
-    .. code-block:: python
-        :caption: Time-stepped image logging pillow example
-
-        import mlflow
-        from PIL import Image
-
-        image = Image.new("RGB", (100, 100))
-
-        with mlflow.start_run():
-            mlflow.log_image(image, key="dogs", step=3)
-
-    .. code-block:: python
-        :caption: Time-stepped image logging with mlflow.Image example
-
-        import mlflow
-        from PIL import Image
-
-        # If you have a preexisting saved image
-        Image.new("RGB", (100, 100)).save("image.png")
-
-        image = mlflow.Image("image.png")
-        with mlflow.start_run() as run:
-            mlflow.log_image(run.info.run_id, image, key="dogs", step=3)
-
-    .. code-block:: python
-        :caption: Legacy artifact file image logging numpy example
-
-        import mlflow
-        import numpy as np
-
-        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-
-        with mlflow.start_run():
-            mlflow.log_image(image, "image.png")
-
-    .. code-block:: python
-        :caption: Legacy artifact file image logging pillow example
-
-        import mlflow
-        from PIL import Image
-
-        image = Image.new("RGB", (100, 100))
-
-        with mlflow.start_run():
-            mlflow.log_image(image, "image.png")
+            mlflow.log_image(image, "image.jpg", image_options={"quality": 85})
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
+    MlflowClient().log_image(
+        run_id=run_id,
+        image=image,
+        artifact_file=artifact_file,
+        key=key,
+        step=step,
+        timestamp=timestamp,
+        synchronous=synchronous,
+        image_options=image_options,
+    )
 
 
 def log_table(
