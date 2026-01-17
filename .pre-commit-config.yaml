@@ -55,7 +55,6 @@ repos:
           )$
         exclude: |
           (?x)^(
-            dev/check_function_signatures\.py|
             dev/check_patch_prs\.py|
             dev/check_whitespace_only\.py|
             dev/create_release_branch\.py|
