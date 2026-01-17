@@ -57,7 +57,6 @@ repos:
           (?x)^(
             dev/set_matrix\.py|
             dev/update_ml_package_versions\.py|
-            dev/xtest_viz\.py|
             dev/proto_to_graphql/.*\.py|
             dev/tests/.*\.py
           )$

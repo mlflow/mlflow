@@ -37,7 +37,7 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 
@@ -102,7 +102,7 @@ class XTestViz:
         """Make an async HTTP GET request and return JSON response."""
         async with session.get(url, headers=self.headers, params=params) as response:
             response.raise_for_status()
-            return await response.json()
+            return cast(dict[str, Any], await response.json())
 
     async def get_workflow_runs(
         self, session: aiohttp.ClientSession, days_back: int = 30
@@ -218,10 +218,10 @@ class XTestViz:
             tasks = [self._fetch_run_jobs(session, run) for run in workflow_runs]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            data_rows = []
+            data_rows: list[JobResult] = []
 
             for i, result in enumerate(results, 1):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     print(f"  Error fetching jobs for run {i}: {result}", file=sys.stderr)
                 else:
                     data_rows.extend(result)
