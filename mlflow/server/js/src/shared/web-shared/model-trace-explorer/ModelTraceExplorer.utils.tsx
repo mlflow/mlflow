@@ -44,6 +44,9 @@ import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY } from '.
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
 import {
+  normalizeAgnoChatInput,
+  normalizeAgnoChatOutput,
+  synthesizeAgnoChatMessages,
   normalizeAnthropicChatInput,
   normalizeAnthropicChatOutput,
   normalizeAutogenChatInput,
@@ -386,6 +389,16 @@ const getChatMessagesFromSpan = (
   // rather than inline in the messages array
   if (messageFormat === 'voltagent' && children && children.length > 0) {
     const synthesizedMessages = synthesizeVoltAgentChatMessages(inputs, outputs, children);
+    if (synthesizedMessages && synthesizedMessages.length > 0) {
+      return synthesizedMessages;
+    }
+  }
+
+  // For Agno format, synthesize messages from child spans (tool executions and LLM calls)
+  // This is necessary because Agno Agent spans only have simple string input/output,
+  // while the full conversation with tool_calls is in child LLM spans
+  if (messageFormat === 'agno' && children && children.length > 0) {
+    const synthesizedMessages = synthesizeAgnoChatMessages(inputs, outputs, children);
     if (synthesizedMessages && synthesizedMessages.length > 0) {
       return synthesizedMessages;
     }
@@ -1060,6 +1073,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'anthropic':
         const anthropicMessages = normalizeAnthropicChatInput(input) ?? normalizeAnthropicChatOutput(input);
         if (anthropicMessages) return anthropicMessages;
+        break;
+      case 'agno':
+        const agnoMessages = normalizeAgnoChatInput(input) ?? normalizeAgnoChatOutput(input);
+        if (agnoMessages) return agnoMessages;
         break;
       case 'openai-agent':
         const openAIAgentMessages = normalizeOpenAIAgentInput(input) ?? normalizeOpenAIAgentOutput(input);
