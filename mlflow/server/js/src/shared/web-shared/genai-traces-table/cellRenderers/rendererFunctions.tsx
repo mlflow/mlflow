@@ -1,12 +1,15 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import React, { useContext } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import { type IntlShape } from '@databricks/i18n';
+import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import { useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -259,6 +262,27 @@ export const assessmentCellRenderer = (
       )}
     </div>
   );
+};
+
+/**
+ * Wrapper component for assessment cells that checks the context for session grouping.
+ * Hides session-level assessments in regular rows when grouped by session.
+ */
+export const AssessmentCell: React.FC<{
+  isComparing: boolean;
+  assessmentInfo: AssessmentInfo;
+  comparisonEntry: EvalTraceComparisonEntry;
+}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { isGroupedBySession } = useContext(GenAITracesTableContext);
+
+  // Hide session-level assessments in regular rows when grouped by session
+  if (isGroupedBySession && assessmentInfo.isSessionLevelAssessment) {
+    return <NullCell />;
+  }
+
+  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
 };
 
 export const expectationCellRenderer = (

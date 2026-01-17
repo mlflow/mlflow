@@ -7,7 +7,7 @@ import type { IntlShape } from '@databricks/i18n';
 
 import { traceInfoSortingFn } from './GenAiTracesTable.utils';
 import {
-  assessmentCellRenderer,
+  AssessmentCell,
   expectationCellRenderer,
   inputColumnCellRenderer,
   traceInfoCellRenderer,
@@ -209,7 +209,13 @@ export const getColumnConfig = (
             assessmentInfo: AssessmentInfo;
             comparisonEntry: EvalTraceComparisonEntry;
           };
-          return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+          return (
+            <AssessmentCell
+              isComparing={isComparing}
+              assessmentInfo={assessmentInfo}
+              comparisonEntry={comparisonEntry}
+            />
+          );
         },
       };
     case TracesTableColumnType.EXPECTATION:
