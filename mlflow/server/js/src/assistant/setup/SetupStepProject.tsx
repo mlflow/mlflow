@@ -20,8 +20,9 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
   const { theme } = useDesignSystemTheme();
 
   const [projectPath, setProjectPath] = useState<string>('');
-  // Permissions state (UI only for now, will be saved in a future PR)
+  // Permission settings
   const [editFiles, setEditFiles] = useState(true);
+  const [readDocs, setReadDocs] = useState(true);
   const [fullPermission, setFullPermission] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,11 +32,18 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
     setError(null);
 
     try {
-      // Build config update - always mark provider as selected (setup complete)
-      // TODO: Save permissions in a future PR
+      // Build config update with provider and nested permissions
       const configUpdate: Parameters<typeof updateConfig>[0] = {
         providers: {
-          claude_code: { model: 'default', selected: true },
+          claude_code: {
+            model: 'default',
+            selected: true,
+            permissions: {
+              allow_edit_files: editFiles,
+              allow_read_docs: readDocs,
+              full_access: fullPermission,
+            },
+          },
         },
       };
 
@@ -52,7 +60,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
       setIsSaving(false);
     }
-  }, [experimentId, projectPath, onComplete]);
+  }, [experimentId, projectPath, editFiles, readDocs, fullPermission, onComplete]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -77,6 +85,22 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
                   css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
                 >
                   Allow running MLflow commands to fetch traces, runs, and experiment data.
+                </Typography.Text>
+              </div>
+
+              <div>
+                <Checkbox
+                  componentId={`${COMPONENT_ID}.perm_read_docs`}
+                  isChecked={readDocs}
+                  onChange={(checked) => setReadDocs(checked)}
+                >
+                  <Typography.Text>Read MLflow documentation</Typography.Text>
+                </Checkbox>
+                <Typography.Text
+                  color="secondary"
+                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                >
+                  Allow fetching pages from MLflow documentation for providing accurate information.
                 </Typography.Text>
               </div>
 

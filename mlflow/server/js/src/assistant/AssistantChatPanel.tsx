@@ -9,6 +9,7 @@ import {
   Card,
   CloseIcon,
   CopyIcon,
+  GearIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
@@ -27,7 +28,7 @@ import { useAssistant } from './AssistantContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
-import { AssistantSetupWizard } from './setup';
+import { AssistantSetupWizard, SetupStepProject } from './setup';
 import { useAssistantPageContext } from './AssistantPageContext';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
@@ -519,8 +520,9 @@ export const AssistantChatPanel = () => {
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
-  // Track whether the user is in the setup wizard
+  // Track whether the user is in the setup wizard or settings
   const [isInSetupWizard, setIsInSetupWizard] = useState(false);
+  const [isInSettings, setIsInSettings] = useState(false);
 
   const handleClose = () => {
     closePanel();
@@ -539,6 +541,14 @@ export const AssistantChatPanel = () => {
     completeSetup();
   };
 
+  const handleOpenSettings = () => {
+    setIsInSettings(true);
+  };
+
+  const handleCloseSettings = () => {
+    setIsInSettings(false);
+  };
+
   // Determine if setup is needed
   const needsSetup = !setupComplete;
 
@@ -554,12 +564,31 @@ export const AssistantChatPanel = () => {
       return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
     }
 
+    // Show settings page
+    if (isInSettings) {
+      return (
+        <div
+          css={{
+            padding: theme.spacing.lg,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Typography.Title level={3} css={{ marginBottom: theme.spacing.lg }}>
+            Settings
+          </Typography.Title>
+          <SetupStepProject experimentId={experimentId} onBack={handleCloseSettings} onComplete={handleCloseSettings} />
+        </div>
+      );
+    }
+
     // Show chat panel content (with disabled input if setup incomplete)
     return <ChatPanelContent disabled={needsSetup} />;
   };
 
-  // Determine if we should show the chat controls (new chat button)
-  const showChatControls = setupComplete && !isInSetupWizard;
+  // Determine if we should show the chat controls (new chat, settings buttons)
+  const showChatControls = setupComplete && !isInSetupWizard && !isInSettings;
 
   return (
     <div
@@ -597,15 +626,26 @@ export const AssistantChatPanel = () => {
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
-            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
-              <Button
-                componentId={`${COMPONENT_ID}.reset`}
-                size="small"
-                icon={<PlusIcon />}
-                onClick={handleReset}
-                aria-label="New Chat"
-              />
-            </Tooltip>
+            <>
+              <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
+                <Button
+                  componentId={`${COMPONENT_ID}.reset`}
+                  size="small"
+                  icon={<PlusIcon />}
+                  onClick={handleReset}
+                  aria-label="New Chat"
+                />
+              </Tooltip>
+              <Tooltip componentId={`${COMPONENT_ID}.settings.tooltip`} content="Settings">
+                <Button
+                  componentId={`${COMPONENT_ID}.settings`}
+                  size="small"
+                  icon={<GearIcon />}
+                  onClick={handleOpenSettings}
+                  aria-label="Settings"
+                />
+              </Tooltip>
+            </>
           )}
           <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
             <Button

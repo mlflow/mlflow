@@ -15,8 +15,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from mlflow.assistant import get_project_path
-from mlflow.assistant.config import AssistantConfig, ProjectConfig
-from mlflow.assistant.providers.base import CLINotInstalledError, NotAuthenticatedError
+from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.providers.base import (
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    clear_config_cache,
+)
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager
@@ -231,7 +235,18 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     if request.providers:
         for name, provider_data in request.providers.items():
             model = provider_data.get("model", "default")
-            config.set_provider(name, model)
+
+            # Parse nested permissions if provided
+            permissions = None
+            if "permissions" in provider_data:
+                perm_data = provider_data["permissions"]
+                permissions = PermissionsConfig(
+                    allow_edit_files=perm_data.get("allow_edit_files", True),
+                    allow_read_docs=perm_data.get("allow_read_docs", True),
+                    full_access=perm_data.get("full_access", False),
+                )
+
+            config.set_provider(name, model, permissions=permissions)
 
     # Update projects
     if request.projects:
@@ -246,6 +261,9 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
 
     config.save()
+
+    # Clear config cache so provider picks up new settings
+    clear_config_cache()
 
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
