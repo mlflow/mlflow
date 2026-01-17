@@ -503,6 +503,83 @@ To try out this release candidate, please run:
 
 MLflow 3.4.0rc0 includes several major features and improvements
 
+Major new features:
+
+- [Tracing] Tracing: export opentelemetry metrics with span-level statistics (#17325, @dbczumar)
+- [] Introduce MLflow MCP server (#17122, @harupy)
+- [Tracking] Strands Agent Tracing (#17151, @joelrobin18)
+
+Features:
+
+- [Evaluation] Add make_judge API (#17647, @BenWilson2)
+- [Evaluation / Tracking] Add ability to pass tags via dataframe in mlflow.genai.evaluate (#17549, @smoorjani)
+- [Tracing] Add AI commands as MCP prompts (#17608, @nsthorat)
+- [] Add MLflow OSS telemetry for invoke_custom_judge_model (#17585, @dbrx-euirim)
+- [Tracing] [ML-57231] Add custom judge model support for Safety and RetrievalRelevance Builtin Scorers (#17526, @dbrx-euirim)
+- [Tracking] [2/3] Correlations backend - rest store, protos, handlers and client (#17368, @BenWilson2)
+- [Evaluation / Tracking] Add Evaluation Datasets to MLflow (#17447, @BenWilson2)
+- [Build / Prompts / Tracing] Add MLflow commands CLI for exposing prompt commands to LLMs (#17530, @nsthorat)
+- [Build / Projects / Tracing / Tracking] Add --env-file flag to all MLflow CLI commands (#17509, @nsthorat)
+- [Model Registry] Allow WMR to UC cross-workspace copying of model versions (#17458, @arpitjasa-db)
+- [Tracing] Add MLFLOW_ENABLE_OTLP_EXPORTER environment variable (#17505, @dbczumar)
+- [Scoring] Add MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT environment variable (#17252, @dbczumar)
+- [Tracing] Tracing: export opentelemetry metrics with span-level statistics (#17325, @dbczumar)
+- [Tracing / Tracking] [CLI] Add 'mlflow runs link-traces' command (#17444, @nsthorat)
+- [Tracking] Add 'mlflow runs create' CLI command for programmatic run creation (#17417, @nsthorat)
+- [Model Registry / Tracking] Add Databricks backend support to MLflow server (#17411, @nsthorat)
+- [] Add automatic Git-based model versioning for GenAI applications (#17076, @harupy)
+- [] Improve WheeledModel._download_wheels safety (#17004, @serena-ruan)
+- [Tracking] [1/3] Correlations backend - SQL Store and NPMI (#17309, @BenWilson2)
+- [Tracking] Strands Agent Tracing (#17151, @joelrobin18)
+- [Tracing] Introduce mlflow autolog claude to trace claude code interactions (#17305, @smoorjani)
+- [Tracing / UI] Add MLflow traces CLI command with comprehensive search and management capabilities (#17302, @nsthorat)
+- [Projects] Support resume run for Optuna  (#17191, @lu-wang-dl)
+- [Tracing] Introduce `mlflow autolog claude` to trace claude code interactions (#17096, @smoorjani)
+- [Tracing] Make set_destination to use ContextVar rather than ThreadLocalVariable (#17219, @B-Step62)
+- [Tracking] Backend for storing scorers in MLflow Experiment (#17090, @WeichenXu123)
+- [UI] Hiding/unhiding all finished runs in the Chart view in the UI (#17143, @joelrobin18)
+- [Tracing] Support OTel and MLflow dual export (#17187, @dbczumar)
+
+Bug fixes:
+
+- [] Adjust OSS judge prompts to emphasize outputting JSON without markdown formatting and additional lines. (#17651, @dbrx-euirim)
+- [Evaluation] Implement DSPy LM for default databricks model (#17672, @smoorjani)
+- [Scoring] Make spark_udf model serving always using stdin_serve (#17580, @WeichenXu123)
+- [Evaluation] Fix an issue with 'aggregations' being applied to a legacy scorer interface (#17596, @BenWilson2)
+- [Server-infra] Fix --env-file flag to work with --dev mode (#17615, @nsthorat)
+- [Model Registry] Extract source workspace ID from run_link if provided when migrating model version (#17600, @arpitjasa-db)
+- [Models] Reduce write authority permissions in tmp directory creation (#17544, @BenWilson2)
+- [Tracking] Openai autolog reconstructs `Response` object from when `ResponseOutputItemDoneEvent` objects if `ResponseCompletedEvent` does not exist (#17535, @WeichenXu123)
+- [] Fix custom prompt judge encoding bug with custom judge model (#17584, @dbrx-euirim)
+- [Evaluation] Add UC table source for evaluate (#17546, @BenWilson2)
+- [UI] Fix Compare experiments in UI  (#17550, @Flametaa)
+- [Tracking] Add documentation for claude code autotracing (#17521, @smoorjani)
+- [] Fix basic-auth with uvicorn by leveraging env var(#17324) (#17523, @kevin-lyn)
+- [Scoring] Fix Spark UDF `uv` env_manager (#17489, @WeichenXu123)
+- [UI] Fix compareExperimentsSearch in route-defs (#17434) (#17459, @WeichenXu123)
+- [Tracking] Fix Issue 17348: Support basic auth in TypeScript SDK (#17436, @kevin-lyn)
+- [Tracking] Fix: Update scorer endpoints to be v3.0 endpoints (#17409, @WeichenXu123)
+- [Tracking] Fix scorer status for MLflow tracking backend (#17379, @WeichenXu123)
+- [Tracking] Fix missing source-run in UI (#16682, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs] Add clarification for trace requirements in scorers docs (#17542, @BenWilson2)
+- [Tracking] Add documentation for claude code autotracing (#17521, @smoorjani)
+- [Docs] Remove experimental message about MPU/MPD in docs (#17486, @BenWilson2)
+- [Docs] Remove problematic pages from the docs (#17453, @BenWilson2)
+- [Docs] Add documentation for updating signatures on Databricks registered models (#17450, @arpitjasa-db)
+- [Docs] Update Scorers API doc (#17298, @WeichenXu123)
+- [Docs] Add comprehensive documentation for scorers (#17258, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#17655, #17657, #17597, #17545, #17547, @BenWilson2; #17671, @smoorjani; #17668, #17665, #17662, #17661, #17659, #17658, #17653, #17643, #17642, #17636, #17634, #17631, #17628, #17611, #17607, #17588, #17570, #17575, #17564, #17557, #17556, #17555, #17536, #17531, #17524, #17510, #17511, #17499, #17500, #17494, #17493, #17490, #17488, #17478, #17479, #17425, #17471, #17457, #17440, #17403, #17405, #17404, #17402, #17366, #17346, #17344, #17337, #17316, #17313, #17284, #17276, #17235, #17226, #17229, @copilot-swe-agent; #17664, #17654, #17613, #17637, #17633, #17612, #17630, #17616, #17626, #17617, #17610, #17614, #17602, #17538, #17522, #17512, #17508, #17492, #17462, #17475, #17468, #17455, #17338, #17257, #17231, #17214, #17223, #17218, #17216, @harupy; #17635, #17663, #17426, #16870, #17428, #17427, #17441, #17377, @serena-ruan; #17605, #17306, @daniellok-db; #17624, #17578, #17369, #17391, #17072, #17326, #17115, @dbczumar; #17598, #17408, #17353, @nsthorat; #17601, #17553, @dbrx-euirim; #17586, #17587, #17310, #17180, @TomeHirata; #17516, @bbqiu; #17477, #17474, @WeichenXu123; #17449, @raymondzhou-db; #17470, @jacob-danner; #17378, @arpitjasa-db; #17121, @ctaymor; #17351, #17322, @ispoljari; #17292, @dsuhinin; #17287, #17281, #17230, #17245, #17237, @B-Step62
+
+## 3.4.0rc0 (2025-09-11)
+
+MLflow 3.4.0rc0 includes several major features and improvements
+
 ### Major New Features
 
 - 📊 **OpenTelemetry Metrics Export**: MLflow now exports span-level statistics as OpenTelemetry metrics, providing enhanced observability and monitoring capabilities for traced applications. (#17325, @dbczumar)
