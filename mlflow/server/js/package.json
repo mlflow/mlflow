@@ -10,7 +10,7 @@
     "test:ci": "CI=true craco test --env=jsdom --colors --forceExit --ci --coverage",
     "lint": "eslint --ext js,jsx,ts,tsx src",
     "lint:fix": "eslint --ext js,jsx,ts,tsx src --fix",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc --noEmit -p src/shared/web-shared/tsconfig.json",
     "prettier:fix": "prettier . --write --ignore-unknown",
     "prettier:check": "prettier . --check --ignore-unknown",
     "i18n:check": "yarn i18n --lint",
