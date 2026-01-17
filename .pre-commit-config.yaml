@@ -48,7 +48,12 @@ repos:
       - id: mypy
         name: mypy
         language: system
-        files: '^(dev/clint/|\.claude/skills/).*\.py$'
+        files: |
+          (?x)^(
+            dev/clint/.*\.py|
+            dev/pyproject\.py|
+            \.claude/skills/.*\.py
+          )$
         entry: uv run --only-group lint mypy
         require_serial: true
 
