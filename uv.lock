@@ -4344,6 +4344,13 @@ lint = [
     { name = "types-requests" },
     { name = "types-toml" },
 ]
+pytest = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
+]
 test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
@@ -4528,6 +4535,13 @@ lint = [
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-toml" },
+]
+pytest = [
+    { name = "pytest", specifier = "==9.0.2" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
 ]
 test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
