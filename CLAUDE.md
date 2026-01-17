@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
-
 ## Knowledge Cutoff Note
 
 Claude's training data has a knowledge cutoff that may lag behind the current date. When reviewing documentation or code that references AI models, be aware that newer models may exist beyond the cutoff. Do not flag model names as "speculative" or "non-existent". Trust the documentation authors' knowledge of current model availability.
