@@ -1,4 +1,5 @@
 import {
+  Alert,
   Empty,
   Input,
   Modal,
@@ -26,6 +27,7 @@ import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 import { useFetchTraces } from '../hooks/useFetchTraces';
+import { useCheckMultiturnDatasets } from '../hooks/useCheckMultiturnDatasets';
 
 const columns: ColumnDef<EvaluationDataset, string>[] = [
   {
@@ -86,6 +88,10 @@ export const ExportTracesToDatasetModal = ({
   );
 
   const selectedDatasets = table.getSelectedRowModel().rows.map((row) => row.original);
+  const selectedDatasetIds = selectedDatasets.map((dataset) => dataset.dataset_id);
+  const { data: hasMultiturnDataset = false, isLoading: isCheckingMultiturn } = useCheckMultiturnDatasets({
+    datasetIds: selectedDatasetIds,
+  });
 
   const { upsertDatasetRecordsMutation, isLoading: isUpsertingDatasetRecords } = useUpsertDatasetRecordsMutation({
     onSuccess: () => {
@@ -111,7 +117,7 @@ export const ExportTracesToDatasetModal = ({
       onCancel={() => setVisible(false)}
       okText={<FormattedMessage defaultMessage="Export" description="Export traces to dataset modal action button" />}
       okButtonProps={{
-        disabled: isLoadingTraces || selectedDatasets.length === 0,
+        disabled: isLoadingTraces || selectedDatasets.length === 0 || hasMultiturnDataset || isCheckingMultiturn,
         loading: isUpsertingDatasetRecords,
       }}
       onOk={handleExport}
@@ -124,6 +130,20 @@ export const ExportTracesToDatasetModal = ({
       zIndex={theme.options.zIndexBase + 10}
     >
       <div css={{ height: '500px', overflow: 'hidden' }}>
+        {hasMultiturnDataset && (
+          <Alert
+            componentId="mlflow.export-traces-to-dataset-modal.multiturn-error"
+            type="error"
+            css={{ marginBottom: theme.spacing.sm }}
+            message={
+              <FormattedMessage
+                defaultMessage="Cannot add trace to multiturn dataset"
+                description="Error message when trying to export traces to a multiturn dataset"
+              />
+            }
+            closable={false}
+          />
+        )}
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.sm }}>
           <Input
             allowClear
