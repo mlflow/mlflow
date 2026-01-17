@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import traceback
+from typing import cast
 
 import aiohttp
 
@@ -27,14 +28,14 @@ async def get_release_date(session: aiohttp.ClientSession, package: str, version
             if not matched or not matched[0]:
                 return ""
 
-            upload_time = matched[0][0]["upload_time"]
+            upload_time = cast(str, matched[0][0]["upload_time"])
             return upload_time.replace("T", " ")  # return year-month-day hour:minute:second
     except Exception:
         traceback.print_exc()
         return ""
 
 
-def get_longest_string_length(array: list[str]) -> int:
+def get_longest_string_length(array: tuple[str, ...] | list[str]) -> int:
     return len(max(array, key=len))
 
 
