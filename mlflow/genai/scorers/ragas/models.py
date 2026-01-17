@@ -5,7 +5,9 @@ import typing as t
 
 import instructor
 import litellm
+from openai import AsyncOpenAI
 from pydantic import BaseModel
+from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import InstructorBaseRagasLLM
 from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
@@ -120,6 +122,16 @@ def create_ragas_model(model_uri: str):
             f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4') "
             f"or a Databricks serving endpoint (e.g., 'databricks:/<endpoint_name>')."
         )
+
+
+def create_default_embeddings():
+    """
+    Create default OpenAI embeddings for RAGAS metrics that require them.
+
+    Returns:
+        An OpenAIEmbeddings instance configured with a sync client.
+    """
+    return OpenAIEmbeddings(client=AsyncOpenAI())
 
 
 T = t.TypeVar("T", bound=BaseModel)

@@ -21,7 +21,7 @@ def mock_call_chat_completions():
         yield mock
 
 
-def test_databricks_ragas_llm_generate_text(mock_call_chat_completions):
+def test_databricks_ragas_llm_generate(mock_call_chat_completions):
     llm = DatabricksRagasLLM()
     result = llm.generate(prompt="Test prompt", response_model=DummyResponseModel)
 
