@@ -6,9 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Knowledge Cutoff Note
 
-Claude's training data has a knowledge cutoff that may lag behind the current date. When reviewing documentation or code that references AI models, be aware that newer models may exist beyond the cutoff. Do not flag model names as "speculative" or "non-existent". Trust the documentation authors' knowledge of current model availability.
-
-Example: If documentation references "GPT-5" or "Claude 4.5", do not suggest changing these to older model names just because they are unfamiliar.
+Claude's training data may lag behind current model releases. When reviewing docs or code, don't flag unfamiliar model names as speculative or non-existent. Assume the authors are referencing newer, valid models (e.g., GPT-5, Claude 4.5).
 
 ## Code Style Principles
 
