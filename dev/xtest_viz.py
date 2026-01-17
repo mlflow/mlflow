@@ -1,7 +1,5 @@
 # /// script
 # dependencies = [
-#     "pandas",
-#     "tabulate",
 #     "aiohttp",
 # ]
 # ///
@@ -42,7 +40,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import aiohttp
-import pandas as pd
 
 
 @dataclass
@@ -240,25 +237,56 @@ class XTestViz:
         if not data_rows:
             return "No test jobs found."
 
-        df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
-        df = pd.DataFrame(df_data)
+        # Manually pivot the data
+        # Create a dictionary: {name: {date: status}}
+        pivot_data: dict[str, dict[str, str]] = {}
+        all_dates: set[str] = set()
 
-        pivot_df = df.pivot_table(
-            index="Name",
-            columns="Date",
-            values="Status",
-            aggfunc="first",
-        )
+        for row in data_rows:
+            if row.name not in pivot_data:
+                pivot_data[row.name] = {}
+            # Use first occurrence for each name-date combination
+            if row.date not in pivot_data[row.name]:
+                pivot_data[row.name][row.date] = row.status
+            all_dates.add(row.date)
 
-        pivot_df = pivot_df[sorted(pivot_df.columns, reverse=True)]
+        # Sort dates in reverse order (newest first)
+        sorted_dates = sorted(all_dates, reverse=True)
 
-        pivot_df = pivot_df.sort_index()
+        # Sort names alphabetically
+        sorted_names = sorted(pivot_data.keys())
 
-        pivot_df = pivot_df.fillna("—")
+        # Build markdown table manually
+        headers = ["Name"] + sorted_dates
 
-        pivot_df = pivot_df.reset_index()
+        # Calculate column widths
+        col_widths = [len(h) for h in headers]
+        for name in sorted_names:
+            col_widths[0] = max(col_widths[0], len(name))
+            for i, date in enumerate(sorted_dates, 1):
+                value = pivot_data[name].get(date, "—")
+                col_widths[i] = max(col_widths[i], len(value))
 
-        return pivot_df.to_markdown(index=False, tablefmt="pipe")
+        # Build table rows
+        lines = []
+
+        # Header row
+        header_row = "| " + " | ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers)) + " |"
+        lines.append(header_row)
+
+        # Separator row
+        separator = "| " + " | ".join("-" * w for w in col_widths) + " |"
+        lines.append(separator)
+
+        # Data rows
+        for name in sorted_names:
+            row_values = [name.ljust(col_widths[0])]
+            for i, date in enumerate(sorted_dates, 1):
+                value = pivot_data[name].get(date, "—")
+                row_values.append(value.ljust(col_widths[i]))
+            lines.append("| " + " | ".join(row_values) + " |")
+
+        return "\n".join(lines)
 
     async def generate_results_table(self, days_back: int = 30) -> str:
         """Generate markdown table of cross-version test results."""
