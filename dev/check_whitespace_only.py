@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import urllib.request
+from typing import cast
 
 BYPASS_LABEL = "allow-whitespace-only"
 
@@ -24,14 +25,14 @@ def github_api_request(url: str, accept: str) -> str:
 
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8")
+        return cast(str, response.read().decode("utf-8"))
 
 
 def get_pr_diff(owner: str, repo: str, pull_number: int) -> str:
     url = f"https://github.com/{owner}/{repo}/pull/{pull_number}.diff"
     request = urllib.request.Request(url)
     with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8")
+        return cast(str, response.read().decode("utf-8"))
 
 
 def get_pr_labels(owner: str, repo: str, pull_number: int) -> list[str]:
