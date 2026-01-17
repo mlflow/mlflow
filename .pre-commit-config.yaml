@@ -56,7 +56,6 @@ repos:
         exclude: |
           (?x)^(
             dev/check_patch_prs\.py|
-            dev/create_release_branch\.py|
             dev/set_matrix\.py|
             dev/show_package_release_dates\.py|
             dev/update_changelog\.py|
