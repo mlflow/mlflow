@@ -78,9 +78,6 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
-        episodic_memory: Initial examples to add to episodic memory
-        semantic_memory: Initial guidelines to add to semantic memory. If None and base_judge
-            is a MemoryAugmentedJudge, inherits semantic memory from base_judge.
     """
 
     def __init__(
@@ -200,9 +197,9 @@ class MemoryAugmentedJudge(Judge):
         return self._base_judge.get_input_fields()
 
     @experimental(version="3.9.0")
-    def unalign(self, traces: list[Trace]) -> None:
+    def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
-        Remove specific traces from memory of the judge.
+        Remove specific traces from memory and return an updated judge.
 
         This method allows you to selectively remove feedback examples from the judge's
         memory systems. This is useful when you want to:
@@ -220,7 +217,7 @@ class MemoryAugmentedJudge(Judge):
                 feedback matching this judge's name will be removed.
 
         Returns:
-            None - The judge is updated in place.
+            Updated MemoryAugmentedJudge with specified traces removed from memory.
 
         Example:
             .. code-block:: python
@@ -231,8 +228,8 @@ class MemoryAugmentedJudge(Judge):
 
                 # Assuming `all_traces` contains human feedback for the judge
                 aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
-                aligned_judge.unalign(traces=bad_traces)
-                # The judge now only retains feedback from `set(all_traces) - set(bad_traces)`
+                aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
+                # aligned_judge_v2 now only retains feedback from `set(all_traces) - set(bad_traces)`
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
@@ -244,29 +241,37 @@ class MemoryAugmentedJudge(Judge):
         ]
         if len(examples_to_retain) == len(self._episodic_memory):
             _logger.warning("No feedback records found for the provided traces")
-            return
+            return self
 
-        # Update episodic memory
-        self._episodic_memory = examples_to_retain
-        self._build_episodic_memory()
-
-        # Update semantic memory
-        # Filter guidelines based on source_trace_ids
+        # Filter guidelines to retain based on source_trace_ids
         # - Always retain user-provided guidelines (those without source_trace_ids)
         # - Delete guideline only if ALL of its source traces were removed
-        self._semantic_memory = [
+        guidelines_to_retain = [
             guideline
             for guideline in self._semantic_memory
             if guideline.source_trace_ids is None
             or any(tid not in trace_ids_to_remove for tid in guideline.source_trace_ids)
         ]
 
+        # Reinitialize new judge
+        new_judge = MemoryAugmentedJudge(
+            base_judge=self._base_judge,
+            reflection_lm=self._reflection_lm,
+            retrieval_k=self._retrieval_k,
+            embedding_model=self._embedding_model,
+            embedding_dim=self._embedding_dim,
+        )
+
+        new_judge._semantic_memory = guidelines_to_retain
+        new_judge._episodic_memory = examples_to_retain
+        new_judge._build_episodic_memory()
+
         _logger.debug(
             f"Removed {len(traces)} traces from memory. "
-            f"Episodic memory size: {len(self._episodic_memory)} examples, "
-            f"Semantic memory size: {len(self._semantic_memory)} guidelines."
+            f"Episodic memory size: {len(new_judge._episodic_memory)} examples, "
+            f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
         )
-        return
+        return new_judge
 
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
@@ -422,23 +427,13 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 f"Created {len(new_examples)} new feedback records from {len(traces)} traces"
             )
 
-            if isinstance(judge, MemoryAugmentedJudge):
-                _logger.debug(
-                    "Base judge is already a MemoryAugmentedJudge. "
-                    "New feedback will be added to existing memory."
-                )
-                memory_judge = judge
-            else:
-                _logger.debug(
-                    "Base judge is a standard Judge. Creating a new MemoryAugmentedJudge."
-                )
-                memory_judge = MemoryAugmentedJudge(
-                    base_judge=judge,
-                    reflection_lm=self._reflection_lm,
-                    retrieval_k=self._retrieval_k,
-                    embedding_model=self._embedding_model,
-                    embedding_dim=self._embedding_dim,
-                )
+            memory_judge = MemoryAugmentedJudge(
+                base_judge=judge,
+                reflection_lm=self._reflection_lm,
+                retrieval_k=self._retrieval_k,
+                embedding_model=self._embedding_model,
+                embedding_dim=self._embedding_dim,
+            )
 
             memory_judge.add_examples_to_memory(new_examples)
 
