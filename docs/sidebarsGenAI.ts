@@ -518,9 +518,29 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',
