@@ -52,7 +52,7 @@ When evaluating new inputs, MemAlign constructs a dynamic context by gathering a
 ```python
 import mlflow
 from mlflow.genai.judges import make_judge
-from mlflow.genai.judges.optimizers import MemAlignOptimizer  # clint: disable=MLF0044
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
 
 # Create a judge
 judge = make_judge(
@@ -65,7 +65,7 @@ judge = make_judge(
 )
 
 # Create the MemAlign optimizer
-optimizer = MemAlignOptimizer(  # clint: disable=MLF0044
+optimizer = MemAlignOptimizer(
     reflection_lm="openai:/gpt-4.1",  # Model for extracting guidelines (recommend a strong model)
 )
 
