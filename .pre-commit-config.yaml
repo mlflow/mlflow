@@ -57,7 +57,6 @@ repos:
           (?x)^(
             dev/check_patch_prs\.py|
             dev/set_matrix\.py|
-            dev/show_package_release_dates\.py|
             dev/update_changelog\.py|
             dev/update_ml_package_versions\.py|
             dev/xtest_viz\.py|
