@@ -43,7 +43,7 @@ function bumpVersion(version: string): void {
   const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
   if (!semverPattern.test(version)) {
     console.error(
-      `Error: Invalid version format '${version}'. Expected format: X.Y.Z or X.Y.Z-rc.0`
+      `Error: Invalid version format '${version}'. Expected format: X.Y.Z or X.Y.Z-rc.0`,
     );
     process.exit(1);
   }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
 import type {
@@ -35,6 +36,7 @@ import {
   createTraceLocationForExperiment,
   doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
+import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
@@ -47,6 +49,8 @@ import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+
 const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
@@ -89,6 +93,15 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
+    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+
+    // Row selection state - lifted to provide shared state via context
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    useRegisterSelectedIds('selectedTraceIds', rowSelection);
+
+    const onToggleSessionGrouping = useCallback(() => {
+      setIsGroupedBySession(!isGroupedBySession);
+    }, [isGroupedBySession]);
 
     const traceSearchLocations = useMemo(
       () => {
@@ -336,6 +349,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
+                  isGroupedBySession={isGroupedBySession}
                 />
               </ContextProviders>
             )}
@@ -347,40 +361,44 @@ const TracesV3LogsImpl = React.memo(
     // Single unified layout with toolbar and content
     return (
       <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
-        <GenAITracesTableProvider experimentId={experimentId}>
-        <div
-          css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <GenAITracesTableToolbar
-            experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            toggleColumns={toggleColumns}
-            setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
-            usesV4APIs={usesV4APIs}
-            addons={toolbarAddons}
-          />
-          {renderMainContent()}
-        </div>
-        </GenAITracesTableProvider>
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <GenAITracesTableProvider experimentId={experimentId}>
+            <div
+              css={{
+                overflowY: 'hidden',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <GenAITracesTableToolbar
+                experimentId={experimentId}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filters={filters}
+                setFilters={setFilters}
+                assessmentInfos={assessmentInfos}
+                traceInfos={traceInfos}
+                tableFilterOptions={tableFilterOptions}
+                countInfo={countInfo}
+                traceActions={traceActions}
+                tableSort={tableSort}
+                setTableSort={setTableSort}
+                allColumns={allColumns}
+                selectedColumns={selectedColumns}
+                toggleColumns={toggleColumns}
+                setSelectedColumns={setSelectedColumns}
+                isMetadataLoading={isMetadataLoading}
+                metadataError={metadataError}
+                usesV4APIs={usesV4APIs}
+                addons={toolbarAddons}
+                isGroupedBySession={isGroupedBySession}
+                onToggleSessionGrouping={onToggleSessionGrouping}
+              />
+              {renderMainContent()}
+            </div>
+          </GenAITracesTableProvider>
+        </GenAiTraceTableRowSelectionProvider>
       </ModelTraceExplorerContextProvider>
     );
   },

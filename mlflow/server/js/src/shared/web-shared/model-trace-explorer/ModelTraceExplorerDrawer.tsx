@@ -5,11 +5,11 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Drawer,
   PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
@@ -76,7 +76,7 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
 
   return (
-    <Drawer.Root
+    <AssistantAwareDrawer.Root
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -84,7 +84,7 @@ export const ModelTraceExplorerDrawer = ({
         }
       }}
     >
-      <Drawer.Content
+      <AssistantAwareDrawer.Content
         componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
@@ -144,7 +144,7 @@ export const ModelTraceExplorerDrawer = ({
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}
-      </Drawer.Content>
-    </Drawer.Root>
+      </AssistantAwareDrawer.Content>
+    </AssistantAwareDrawer.Root>
   );
 };

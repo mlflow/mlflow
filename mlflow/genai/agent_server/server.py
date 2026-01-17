@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import os
+import posixpath
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -96,6 +97,14 @@ class AgentServer:
         (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
         variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
 
+        The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
+        default. Additional paths can be configured via environment variables:
+
+        - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
+          to allow (e.g., ``/custom,/another``).
+        - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
+          to allow (e.g., ``/custom/,/another/``).
+
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
@@ -114,16 +123,40 @@ class AgentServer:
         self._setup_routes()
 
     def _setup_chat_proxy_middleware(self) -> None:
-        """Set up middleware to proxy unmatched requests to the chat app."""
+        """Set up middleware to proxy static asset requests to the chat app.
+
+        Only forwards requests to allowed paths (/, /assets/*, /favicon.ico) to prevent
+        SSRF vulnerabilities.
+        """
         self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
         self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
+        # Only proxy static assets to prevent SSRF vulnerabilities
+        allowed_exact_paths = {"/", "/favicon.ico"}
+        allowed_path_prefixes = {"/assets/", "/api/"}
+
+        # Add additional paths from environment variables
+        if additional_exact_paths := os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
+            allowed_exact_paths |= {
+                p.strip() for p in additional_exact_paths.split(",") if p.strip()
+            }
+
+        if additional_path_prefixes := os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
+            allowed_path_prefixes |= {
+                p.strip() for p in additional_path_prefixes.split(",") if p.strip()
+            }
+
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
             """
-            Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT
-            environment variable (defaults to 3000).
+            Forward static asset requests to the chat app on the port specified by the
+            CHAT_APP_PORT environment variable (defaults to 3000).
+
+            Only forwards requests to:
+            - / (base path for index.html)
+            - /assets/* (Vite static assets)
+            - /favicon.ico
 
             The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
             environment variable (defaults to 300.0 seconds).
@@ -132,7 +165,17 @@ class AgentServer:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
                     return await call_next(request)
 
-            path = request.url.path.lstrip("/")
+            # Normalize path to prevent traversal attacks (e.g., /assets/../.env)
+            path = posixpath.normpath(request.url.path)
+
+            # Only allow proxying static assets
+            is_allowed = path in allowed_exact_paths or any(
+                path.startswith(p) for p in allowed_path_prefixes
+            )
+            if not is_allowed:
+                return Response("Not found", status_code=404, media_type="text/plain")
+
+            path = path.lstrip("/")
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{self.chat_app_port}/{path}"
@@ -156,42 +199,79 @@ class AgentServer:
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")
         async def invocations_endpoint(request: Request):
-            # Capture headers such as x-forwarded-access-token
-            # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
-            set_request_headers(dict(request.headers))
+            return await self._handle_invocations_request(request)
 
-            try:
-                data = await request.json()
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
+        # Only expose /responses endpoint for ResponsesAgent
+        if self.agent_type == "ResponsesAgent":
 
-            logger.debug(
-                "Request received",
-                extra={
-                    "agent_type": self.agent_type,
-                    "request_size": len(json.dumps(data)),
-                    "stream_requested": data.get(STREAM_KEY, False),
-                },
-            )
+            @self.app.post("/responses")
+            async def responses_endpoint(request: Request):
+                """
+                For compatibility with the OpenAI Client `client.responses.create(...)` method.
+                https://platform.openai.com/docs/api-reference/responses/create
+                """
+                return await self._handle_invocations_request(request)
 
-            is_streaming = data.pop(STREAM_KEY, False)
+        @self.app.get("/agent/info")
+        async def agent_info_endpoint() -> dict[str, Any]:
+            # Get app name from environment or use default
+            app_name = os.getenv("DATABRICKS_APP_NAME", "mlflow_agent_server")
 
-            try:
-                request_data = self.validator.validate_and_convert_request(data)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid parameters for {self.agent_type}: {e}",
-                )
+            # Base info payload
+            info = {
+                "name": app_name,
+                "use_case": "agent",
+                "mlflow_version": mlflow.__version__,
+            }
 
-            if is_streaming:
-                return await self._handle_stream_request(request_data)
-            else:
-                return await self._handle_invoke_request(request_data)
+            # Conditionally add agent_api field for ResponsesAgent only
+            if self.agent_type == "ResponsesAgent":
+                info["agent_api"] = "responses"
+
+            return info
 
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
             return {"status": "healthy"}
+
+    async def _handle_invocations_request(
+        self, request: Request
+    ) -> dict[str, Any] | StreamingResponse:
+        # Capture headers such as x-forwarded-access-token
+        # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
+        set_request_headers(dict(request.headers))
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
+
+        # Use actual request path for logging differentiation
+        endpoint_path = request.url.path
+        logger.debug(
+            f"Request received at {endpoint_path}",
+            extra={
+                "agent_type": self.agent_type,
+                "request_size": len(json.dumps(data)),
+                "stream_requested": data.get(STREAM_KEY, False),
+                "endpoint": endpoint_path,
+            },
+        )
+
+        is_streaming = data.pop(STREAM_KEY, False)
+
+        try:
+            request_data = self.validator.validate_and_convert_request(data)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid parameters for {self.agent_type}: {e}",
+            )
+
+        if is_streaming:
+            return await self._handle_stream_request(request_data)
+        else:
+            return await self._handle_invoke_request(request_data)
 
     async def _handle_invoke_request(self, request: dict[str, Any]) -> dict[str, Any]:
         if _invoke_function is None:

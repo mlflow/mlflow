@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -49,15 +48,13 @@ export const TraceTokenUsageChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_token_usage">
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
         value={formatCount(totalTokens)}
         subtitle={`(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`}
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>

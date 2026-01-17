@@ -186,13 +186,13 @@ export function init(config: MLflowTracingInitOptions): void {
 
   if (!trackingUri) {
     throw new Error(
-      'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
+      'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable',
     );
   }
 
   if (!experimentId) {
     throw new Error(
-      'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+      'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable',
     );
   }
 
@@ -210,7 +210,7 @@ export function init(config: MLflowTracingInitOptions): void {
   // Validate non-Databricks URIs
   if (!isDatabricksUri(trackingUri) && !isValidHttpUri(trackingUri)) {
     throw new Error(
-      `Invalid trackingUri: '${trackingUri}'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'.`
+      `Invalid trackingUri: '${trackingUri}'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'.`,
     );
   }
 
@@ -223,7 +223,7 @@ export function init(config: MLflowTracingInitOptions): void {
     databricksConfigPath,
     trackingServerUsername: config.trackingServerUsername,
     trackingServerPassword: config.trackingServerPassword,
-    trackingServerToken: config.trackingServerToken
+    trackingServerToken: config.trackingServerToken,
   });
 
   // Build effective config, populating host and databricksToken from auth provider
@@ -234,7 +234,7 @@ export function init(config: MLflowTracingInitOptions): void {
     experimentId,
     databricksConfigPath,
     host: globalAuthProvider.getHost(),
-    databricksToken: globalAuthProvider.getDatabricksToken()
+    databricksToken: globalAuthProvider.getDatabricksToken(),
   };
 
   // Store the config
@@ -251,7 +251,7 @@ export function init(config: MLflowTracingInitOptions): void {
 export function getConfig(): MLflowTracingConfig {
   if (!globalConfig) {
     throw new Error(
-      'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.'
+      'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.',
     );
   }
   return globalConfig;
@@ -264,7 +264,7 @@ export function getConfig(): MLflowTracingConfig {
 export function getAuthProvider(): AuthProvider {
   if (!globalAuthProvider) {
     throw new Error(
-      'The MLflow Tracing client is not configured. Please call init() before using tracing functions.'
+      'The MLflow Tracing client is not configured. Please call init() before using tracing functions.',
     );
   }
   return globalAuthProvider;

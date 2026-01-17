@@ -16,7 +16,12 @@ import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
-import type { AssessmentInfo, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry, SaveAssessmentsQuery } from '../types';
+import type {
+  AssessmentInfo,
+  EvalTraceComparisonEntry,
+  RunEvaluationTracesDataEntry,
+  SaveAssessmentsQuery,
+} from '../types';
 import { convertTraceInfoV3ToRunEvalEntry, getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
 
 const evalEntryMatchesEvaluationId = (evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {

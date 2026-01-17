@@ -78,6 +78,13 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            if manager_trace.is_remote_trace:
+                _logger.warning(
+                    f"Mlflow does not support exporting the span {span.name} that is created "
+                    "in a remote process to Databricks InferenceTable."
+                )
+                continue
+
             trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.trace_id)
 

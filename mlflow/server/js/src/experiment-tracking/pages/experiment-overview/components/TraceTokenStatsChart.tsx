@@ -8,7 +8,6 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
@@ -49,7 +48,7 @@ export const TraceTokenStatsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_token_stats">
       <OverviewChartHeader
         icon={<BarChartIcon />}
         title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
@@ -60,8 +59,6 @@ export const TraceTokenStatsChart: React.FC = () => {
           ) : undefined
         }
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>

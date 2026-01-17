@@ -213,16 +213,6 @@ describe('TraceTokenStatsChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should display "avg per trace" subtitle', async () => {
       setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
 

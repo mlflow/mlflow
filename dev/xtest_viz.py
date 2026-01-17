@@ -54,7 +54,7 @@ class JobResult:
 
 class XTestViz:
     def __init__(self, github_token: str | None = None, repo: str = "mlflow/dev"):
-        self.github_token = github_token or os.getenv("GITHUB_TOKEN")
+        self.github_token = github_token or os.getenv("GH_TOKEN")
         self.repo = repo
         self.per_page = 30
         self.headers: dict[str, str] = {}
@@ -278,16 +278,16 @@ async def main() -> None:
         default="mlflow/dev",
         help="GitHub repository in owner/repo format (default: mlflow/dev)",
     )
-    parser.add_argument("--token", help="GitHub token (default: use GITHUB_TOKEN env var)")
+    parser.add_argument("--token", help="GitHub token (default: use GH_TOKEN env var)")
 
     args = parser.parse_args()
 
-    token = args.token or os.getenv("GITHUB_TOKEN")
+    token = args.token or os.getenv("GH_TOKEN")
     if not token:
         print(
             "Warning: No GitHub token provided. API requests may be rate-limited.", file=sys.stderr
         )
-        print("Set GITHUB_TOKEN environment variable or use --token option.", file=sys.stderr)
+        print("Set GH_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
     output = await visualizer.generate_results_table(args.days)

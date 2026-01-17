@@ -15,7 +15,7 @@ export enum TraceLocationType {
   /**
    * Trace is stored in a Databricks inference table
    */
-  INFERENCE_TABLE = 'INFERENCE_TABLE'
+  INFERENCE_TABLE = 'INFERENCE_TABLE',
 }
 
 /**
@@ -68,7 +68,7 @@ export function createTraceLocationFromExperimentId(experimentId: string): Trace
   return {
     type: TraceLocationType.MLFLOW_EXPERIMENT,
     mlflowExperiment: {
-      experimentId: experimentId
-    }
+      experimentId: experimentId,
+    },
   };
 }
