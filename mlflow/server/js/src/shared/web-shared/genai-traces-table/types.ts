@@ -34,6 +34,9 @@ export interface AssessmentInfo {
 
   // True if if the assesment contains at least one error
   containsErrors?: boolean;
+
+  // True if any assessment in this column has session metadata
+  isSessionLevelAssessment?: boolean;
 }
 
 interface RootCauseAssessmentInfo {

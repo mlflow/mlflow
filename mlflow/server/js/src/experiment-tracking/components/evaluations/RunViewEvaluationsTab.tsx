@@ -297,6 +297,7 @@ const RunViewEvaluationsTabInner = ({
           experimentId={experimentId}
           getTrace={getTrace}
           renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+          isGroupedBySession={isGroupedBySession}
         >
           <div
             css={{
