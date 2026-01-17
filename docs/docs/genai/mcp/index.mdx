@@ -238,9 +238,46 @@ The MCP server respects standard MLflow environment variables:
 
 - `MLFLOW_TRACKING_URI`: MLflow tracking server URL
 - `MLFLOW_EXPERIMENT_ID`: Default experiment ID
+- `MLFLOW_MCP_TOOLS`: Controls which tool categories are enabled (see below)
 - Authentication variables for cloud providers (AWS, Azure, GCP)
 
 For Databricks environments, ensure you have appropriate authentication configured (personal access tokens, service principals, etc.).
+
+### Tool Categories
+
+The `MLFLOW_MCP_TOOLS` environment variable controls which tools are exposed by the MCP server. This is useful for limiting the number of tools available to your AI assistant, which can improve performance and reduce token usage.
+
+**Supported values:**
+
+| Value | Description | Tools Included |
+|-------|-------------|----------------|
+| `genai` (default) | GenAI-focused tools for tracing and evaluation | `traces`, `scorers` |
+| `ml` | Traditional ML workflow tools | `experiments`, `runs`, `artifacts`, `models`, `deployments` |
+| `all` | All available tools | All of the above |
+
+You can also specify a comma-separated list of individual tool categories:
+
+```bash
+# Enable only specific categories
+export MLFLOW_MCP_TOOLS="traces,scorers,experiments"
+```
+
+**Example configuration with tool categories:**
+
+```json
+{
+  "mcpServers": {
+    "mlflow-mcp": {
+      "command": "uv",
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>",
+        "MLFLOW_MCP_TOOLS": "all"
+      }
+    }
+  }
+}
+```
 
 ## Related Documentation
 

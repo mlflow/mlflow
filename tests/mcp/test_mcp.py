@@ -15,7 +15,10 @@ async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,
         args=[server.__file__],
-        env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+        env={
+            "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri(),
+            "MLFLOW_MCP_TOOLS": "all",  # Test all tools
+        },
     )
     async with Client(transport) as client:
         yield client
