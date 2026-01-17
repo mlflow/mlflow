@@ -71,11 +71,8 @@ function Content({
       size={size}
       css={cssProp}
       onInteractOutside={(event) => {
-        // Prevent closing when clicking on assistant chat panel
-        const target = event.detail.originalEvent.target as HTMLElement;
-        if (target?.closest?.('[data-assistant-ui="true"]')) {
-          event.preventDefault();
-        }
+        // Prevent closing when clicking outside the drawer
+        event.preventDefault();
       }}
     >
       {children}
