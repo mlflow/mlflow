@@ -1756,7 +1756,7 @@ class MlflowClient:
                 its own limit.
             filter_string: Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to
                 searching for all experiments. The following identifiers, comparators, and logical
-                operators are supported.
+                operators are supported. Note that identifiers and values are case-sensitive.
 
                 Identifiers
                   - ``name``: Experiment name
@@ -4060,7 +4060,8 @@ class MlflowClient:
         Args:
             filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key =
                 'value1'"), defaults to searching for all registered models. The following
-                identifiers, comparators, and logical operators are supported.
+                identifiers, comparators, and logical operators are supported. Note that identifiers
+                and values are case-sensitive.
 
                 Identifiers
                   - ``name``: registered model name.
@@ -4146,7 +4147,7 @@ class MlflowClient:
         """Get a registered model.
 
         Args:
-            name: Name of the registered model to get.
+            name: Name of the registered model to get. Note: ``name`` is case-sensitive.
 
         Returns:
             A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -4899,7 +4900,7 @@ class MlflowClient:
         Converts the docstring args and returns to google style.
 
         Args:
-            name: Name of the containing registered model.
+            name: Name of the containing registered model. Note: ``name`` is case-sensitive.
             version: Version number as an integer of the model version.
 
         Returns:
@@ -5028,7 +5029,8 @@ class MlflowClient:
             filter_string: Filter query string
                 (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
                 defaults to searching for all model versions. The following identifiers,
-                comparators, and logical operators are supported.
+                comparators, and logical operators are supported. Note that identifiers and values
+                are case-sensitive.
 
                 Identifiers
                   - ``name``: model name.
