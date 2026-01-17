@@ -1,0 +1,194 @@
+---
+sidebar_position: 101
+sidebar_label: Databricks
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
+
+# Tracing Databricks AI Gateway
+
+[Databricks AI Gateway](https://docs.databricks.com/en/ai-gateway/index.html) (formerly Mosaic AI Gateway) is the Databricks solution for governing and monitoring access to generative AI models and their associated model serving endpoints. It is a centralized service that brings governance, monitoring, and production readiness to model serving endpoints.
+
+:::tip Looking for Databricks Foundation Model APIs?
+This guide covers tracing LLM calls through **Databricks AI Gateway**. If you're using Databricks Foundation Model APIs directly, see the <ins>[Databricks Integration](/genai/tracing/integrations/listing/databricks)</ins> guide instead.
+:::
+
+## What is Databricks AI Gateway?
+
+Databricks AI Gateway streamlines the usage and management of generative AI models and agents within an organization. Key capabilities include:
+
+- **Governance**: Control access with permissions and rate limiting
+- **Monitoring**: Track usage and costs with system tables, audit requests with payload logging
+- **Safety**: Configure AI guardrails to prevent harmful content and detect PII
+- **Reliability**: Minimize outages with fallbacks and load balance traffic across models
+
+All data is logged into Delta tables in Unity Catalog.
+
+## Integration Options
+
+There are two ways to trace LLM calls through Databricks AI Gateway:
+
+| Approach                           | Description                                                    | Best For                                                   |
+| :--------------------------------- | :------------------------------------------------------------- | :--------------------------------------------------------- |
+| **Server-side (Inference Tables)** | Databricks automatically logs all requests to inference tables | Centralized tracing for all requests through the gateway   |
+| **Client-side Tracing**            | Use OpenAI SDK with MLflow autolog                             | Combining LLM traces with your agent or application traces |
+
+:::note
+With **server-side tracing**, all requests through the gateway are captured in inference tables, regardless of which client made them. For application-specific tracing where you want to combine LLM calls with your application logic, use **client-side tracing**.
+:::
+
+## Option 1: Server-side Tracing (Inference Tables)
+
+Databricks AI Gateway can automatically log all requests and responses to inference tables in Unity Catalog. This provides centralized monitoring without any client-side code changes.
+
+See the [Databricks Inference Tables documentation](https://docs.databricks.com/aws/en/ai-gateway/inference-tables) for setup instructions.
+
+## Option 2: Client-side Tracing
+
+If you want to trace LLM calls as part of your application traces, you can use MLflow's automatic tracing with the OpenAI SDK or other supported SDKs.
+
+<StepHeader number={1} title="Install Dependencies" />
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+```bash
+pip install 'mlflow[genai]' openai
+```
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+```bash
+npm install mlflow-openai openai
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow Server (Optional)" />
+
+If you're running outside of Databricks, start a local MLflow server:
+
+<ServerSetup />
+
+:::tip Using Databricks Managed MLflow
+If you're running on Databricks, MLflow is already integrated. Traces are automatically captured and viewable in the Databricks workspace without additional setup.
+:::
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+
+Since Databricks AI Gateway exposes an OpenAI-compatible API, enable tracing with `mlflow.openai.autolog()` and configure the OpenAI client to use your Databricks serving endpoint.
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+# Set tracking URI and experiment (skip if running on Databricks)
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Databricks AI Gateway")
+
+# Point OpenAI client to Databricks AI Gateway
+client = OpenAI(
+    base_url="https://<databricks-workspace>/serving-endpoints",
+    api_key="<DATABRICKS_TOKEN>",
+)
+
+# Make API calls - traces will be captured automatically
+response = client.chat.completions.create(
+    model="<your-endpoint-name>",  # Your Databricks serving endpoint name
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is the capital of France?"},
+    ],
+)
+print(response.choices[0].message.content)
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+
+Initialize MLflow tracing with `init()` and wrap the OpenAI client with the `tracedOpenAI` function.
+
+```typescript
+import { init } from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+
+// Initialize MLflow tracing (skip if running on Databricks)
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+// Wrap the OpenAI client pointing to Databricks AI Gateway
+const client = tracedOpenAI(
+  new OpenAI({
+    baseURL: "https://<databricks-workspace>/serving-endpoints",
+    apiKey: "<DATABRICKS_TOKEN>",
+  })
+);
+
+// Make API calls - traces will be captured automatically
+const response = await client.chat.completions.create({
+  model: "<your-endpoint-name>",
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "What is the capital of France?" },
+  ],
+});
+console.log(response.choices[0].message.content);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={4} title="View Traces" />
+
+- **On Databricks**: Navigate to the MLflow Experiments page in your workspace
+- **Local MLflow**: Open the MLflow UI at http://localhost:5000
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
