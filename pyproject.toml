@@ -190,6 +190,8 @@ lint = [
   "tiktoken",
   "claude-agent-sdk",
   "pytest",
+  "types-requests",
+  "ruamel.yaml",
 ]
 test = [
   "pytest==9.0.2",
