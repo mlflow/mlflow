@@ -68,6 +68,20 @@ const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInpu
   return false;
 };
 
+// Check if an item is a valid OpenAI Responses input item (message, function_call, function_call_output, or reasoning)
+const isOpenAIResponsesInputItem = (obj: unknown): boolean => {
+  if (isOpenAIResponsesInputMessage(obj)) {
+    return true;
+  }
+
+  // Also accept output item types that can appear in input arrays (function_call, function_call_output, reasoning)
+  if (isOpenAIResponsesOutputItem(obj)) {
+    return true;
+  }
+
+  return false;
+};
+
 export const isOpenAIResponsesInput = (obj: unknown): obj is OpenAIResponsesInput => {
   return isString(obj) || isOpenAIResponsesInputMessage(obj);
 };
@@ -141,6 +155,59 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
   }
 };
 
+// Normalize a single top-level input item (message, function_call, function_call_output, or reasoning)
+const normalizeOpenAIResponsesInputArrayItem = (
+  obj: unknown,
+): ModelTraceChatMessage | ModelTraceChatMessage[] | null => {
+  // Handle regular input messages
+  if (isOpenAIResponsesInputMessage(obj)) {
+    return normalizeOpenAIResponsesInputMessage(obj);
+  }
+
+  // Handle output item types that can appear in input arrays
+  if (isOpenAIResponsesOutputItem(obj)) {
+    return normalizeOpenAIResponsesOutputItem(obj as OpenAIResponsesOutputItem);
+  }
+
+  return null;
+};
+
+// Process input items with reasoning, attaching reasoning to following messages
+const processInputItemsWithReasoning = (items: unknown[]): ModelTraceChatMessage[] => {
+  const messages: (ModelTraceChatMessage | null)[] = [];
+  let pendingReasoning: string | null = null;
+
+  for (const item of items) {
+    if (isOpenAIResponsesOutputItem(item) && (item as any).type === 'reasoning') {
+      pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
+      continue;
+    }
+
+    const normalized = normalizeOpenAIResponsesInputArrayItem(item);
+    if (!normalized) {
+      continue;
+    }
+
+    // Handle array results from normalizeOpenAIResponsesInputMessage
+    if (isArray(normalized)) {
+      // Attach reasoning to the first message
+      if (pendingReasoning && normalized.length > 0) {
+        normalized[0] = { ...normalized[0], reasoning: pendingReasoning };
+        pendingReasoning = null;
+      }
+      messages.push(...normalized);
+    } else if (pendingReasoning) {
+      // Attach pending reasoning to this message
+      messages.push({ ...normalized, reasoning: pendingReasoning });
+      pendingReasoning = null;
+    } else {
+      messages.push(normalized);
+    }
+  }
+
+  return compact(messages);
+};
+
 export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
   // if the object does not have the 'input' key, then try using the object directly
   // (user may have passed in the response input directly to the span)
@@ -151,8 +218,10 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
     return message && [message];
   }
 
-  if (isArray(input) && input.every(isOpenAIResponsesInputMessage)) {
-    return compact(input.flatMap(normalizeOpenAIResponsesInputMessage));
+  // Handle arrays that contain a mix of input messages and output items (function_call, function_call_output, reasoning)
+  if (isArray(input) && input.length > 0 && input.every(isOpenAIResponsesInputItem)) {
+    const messages = processInputItemsWithReasoning(input);
+    return messages.length > 0 ? messages : null;
   }
 
   return null;
