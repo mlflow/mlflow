@@ -31,7 +31,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.PROMPTS
-    version = 2
+    version = 1
 
     def generate(self) -> DemoResult:
         import mlflow

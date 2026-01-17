@@ -7,7 +7,7 @@ from mlflow.genai.prompts import load_prompt, search_prompts
 def test_generator_attributes():
     generator = PromptsDemoGenerator()
     assert generator.name == DemoFeature.PROMPTS
-    assert generator.version == 2
+    assert generator.version == 1
 
 
 def test_data_exists_false_when_no_prompts(tracking_uri):

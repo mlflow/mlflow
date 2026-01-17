@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import logging
-from typing import Literal
-
-import pandas as pd
+import os
+from typing import TYPE_CHECKING, Literal
 
 import mlflow
+
+if TYPE_CHECKING:
+    from mlflow.genai.datasets import EvaluationDataset
+
 from mlflow.demo.base import (
     DEMO_EXPERIMENT_NAME,
     BaseDemoGenerator,
@@ -24,6 +29,26 @@ from mlflow.genai.datasets import create_dataset, delete_dataset, search_dataset
 from mlflow.genai.scorers import scorer
 
 _logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_evaluation_output():
+    """Suppress tqdm progress bars and evaluation completion messages."""
+    original_tqdm_disable = os.environ.get("TQDM_DISABLE")
+    os.environ["TQDM_DISABLE"] = "1"
+    try:
+        # Suppress both stdout (evaluation messages) and stderr (tqdm progress bars)
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            yield
+    finally:
+        if original_tqdm_disable is None:
+            os.environ.pop("TQDM_DISABLE", None)
+        else:
+            os.environ["TQDM_DISABLE"] = original_tqdm_disable
+
 
 DEMO_DATASET_V1_NAME = "demo-baseline-dataset"
 DEMO_DATASET_V2_NAME = "demo-improved-dataset"
@@ -129,7 +154,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 2
+    version = 1
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
@@ -153,10 +178,10 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         v1_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v1")
         v2_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v2")
 
-        v1_dataset_count = self._create_evaluation_dataset(
+        v1_dataset = self._create_evaluation_dataset(
             v1_traces_with_expectations, experiment_id, DEMO_DATASET_V1_NAME
         )
-        v2_dataset_count = self._create_evaluation_dataset(
+        v2_dataset = self._create_evaluation_dataset(
             v2_traces_with_expectations, experiment_id, DEMO_DATASET_V2_NAME
         )
 
@@ -189,8 +214,8 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             f"eval_runs:{len(run_ids)}",
             f"expectations:{expectation_count}",
             f"feedback:{total_feedback}",
-            f"v1_dataset_records:{v1_dataset_count}",
-            f"v2_dataset_records:{v2_dataset_count}",
+            f"v1_dataset_records:{len(v1_dataset.to_df())}",
+            f"v2_dataset_records:{len(v2_dataset.to_df())}",
         ]
 
         return DemoResult(
@@ -291,7 +316,9 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
     def _create_evaluation_dataset(
         self, traces: list[Trace], experiment_id: str, dataset_name: str
-    ) -> int:
+    ) -> "EvaluationDataset":
+        from mlflow.genai.datasets import get_dataset
+
         dataset = create_dataset(
             name=dataset_name,
             experiment_id=experiment_id,
@@ -300,7 +327,8 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         dataset.merge_records(traces)
 
-        return len(traces)
+        # Return the dataset object for use with evaluate()
+        return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:
         datasets = search_datasets(
@@ -323,7 +351,8 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         description: str,
         pass_rates: dict[str, float],
     ) -> tuple[str, int]:
-        trace_df = pd.DataFrame({"trace": traces})
+        # Pass traces directly to evaluate() so assessments are logged to the
+        # original traces instead of creating new minimal traces.
 
         demo_scorers = [
             _create_pass_fail_scorer(
@@ -350,10 +379,11 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         mlflow.set_experiment(experiment_id=experiment_id)
 
-        result = mlflow.genai.evaluate(
-            data=trace_df,
-            scorers=demo_scorers,
-        )
+        with _suppress_evaluation_output():
+            result = mlflow.genai.evaluate(
+                data=traces,
+                scorers=demo_scorers,
+            )
 
         client = mlflow.MlflowClient()
         client.set_tag(result.run_id, "mlflow.runName", run_name)
