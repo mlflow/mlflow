@@ -113,6 +113,10 @@ class SuppressLogFilter(logging.Filter):
 
 
 def _configure_mlflow_loggers(root_module_name):
+    log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+    # For alembic, use WARNING minimum to reduce noise, but respect higher levels
+    alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
+
     logging.config.dictConfig(
         {
             "version": 1,
@@ -135,7 +139,7 @@ def _configure_mlflow_loggers(root_module_name):
             "loggers": {
                 root_module_name: {
                     "handlers": ["mlflow_handler"],
-                    "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
+                    "level": log_level,
                     "propagate": False,
                 },
                 "sqlalchemy.engine": {
@@ -145,7 +149,12 @@ def _configure_mlflow_loggers(root_module_name):
                 },
                 "alembic": {
                     "handlers": ["mlflow_handler"],
-                    "level": "INFO",
+                    "level": alembic_level,
+                    "propagate": False,
+                },
+                "huey": {
+                    "handlers": ["mlflow_handler"],
+                    "level": alembic_level,
                     "propagate": False,
                 },
             },
