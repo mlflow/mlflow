@@ -1,0 +1,302 @@
+---
+sidebar_position: 104
+sidebar_label: OpenRouter
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import ImageBox from "@site/src/components/ImageBox";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
+
+# Tracing OpenRouter
+
+[OpenRouter](https://openrouter.ai/) is a unified API gateway that provides access to 280+ LLMs from providers like OpenAI, Anthropic, Google, Meta, and many others through a single OpenAI-compatible API. This allows developers to easily switch between models without changing their code.
+
+<ImageBox src="/images/llms/openrouter/openrouter-tracing.png" alt="OpenRouter Tracing" />
+
+Since OpenRouter exposes an OpenAI-compatible API, you can use MLflow's OpenAI autolog integration to automatically trace all your LLM calls through OpenRouter.
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+```bash
+pip install mlflow openai
+```
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+```bash
+npm install mlflow-openai openai
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+
+    Enable tracing with `mlflow.openai.autolog()` and configure the OpenAI client to use OpenRouter's base URL.
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+# Set tracking URI and experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("OpenRouter")
+
+# Create OpenAI client pointing to OpenRouter
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key="<YOUR_OPENROUTER_API_KEY>",
+)
+
+# Make API calls - traces will be captured automatically
+response = client.chat.completions.create(
+    model="anthropic/claude-sonnet-4.5",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is the capital of France?"},
+    ],
+)
+print(response.choices[0].message.content)
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+
+    Initialize MLflow tracing with `init()` and wrap the OpenAI client with the `tracedOpenAI` function.
+
+```typescript
+import { init } from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+
+// Initialize MLflow tracing
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+// Wrap the OpenAI client pointing to OpenRouter
+const client = tracedOpenAI(
+  new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: "<YOUR_OPENROUTER_API_KEY>",
+  })
+);
+
+// Make API calls - traces will be captured automatically
+const response = await client.chat.completions.create({
+  model: "anthropic/claude-sonnet-4.5",
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "What is the capital of France?" },
+  ],
+});
+console.log(response.choices[0].message.content);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Open the MLflow UI at http://localhost:5000 to see the traces from your OpenRouter API calls.
+
+## Combining with Manual Tracing
+
+You can combine auto-tracing with MLflow's manual tracing to create comprehensive traces that include your application logic:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from mlflow.entities import SpanType
+from openai import OpenAI
+
+mlflow.openai.autolog()
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key="<YOUR_OPENROUTER_API_KEY>",
+)
+
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def ask_question(question: str) -> str:
+    """A traced function that calls the LLM through OpenRouter."""
+    response = client.chat.completions.create(
+        model="openai/gpt-5", messages=[{"role": "user", "content": question}]
+    )
+    return response.choices[0].message.content
+
+
+# The entire function call and nested LLM call will be traced
+answer = ask_question("What is machine learning?")
+print(answer)
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+
+```typescript
+import { init, trace, SpanType } from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+const client = tracedOpenAI(
+  new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: "<YOUR_OPENROUTER_API_KEY>",
+  })
+);
+
+// Wrap your function with trace() to create a span
+const askQuestion = trace(
+  { name: "askQuestion", spanType: SpanType.CHAIN },
+  async (question: string): Promise<string> => {
+    const response = await client.chat.completions.create({
+      model: "openai/gpt-5",
+      messages: [{ role: "user", content: question }],
+    });
+    return response.choices[0].message.content ?? "";
+  }
+);
+
+// The entire function call and nested LLM call will be traced
+const answer = await askQuestion("What is machine learning?");
+console.log(answer);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Streaming Support
+
+MLflow supports tracing streaming responses from OpenRouter:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from openai import OpenAI
+
+mlflow.openai.autolog()
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key="<YOUR_OPENROUTER_API_KEY>",
+)
+
+stream = client.chat.completions.create(
+    model="openai/gpt-5",
+    messages=[{"role": "user", "content": "Write a haiku about machine learning."}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+
+```typescript
+import { init } from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+const client = tracedOpenAI(
+  new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: "<YOUR_OPENROUTER_API_KEY>",
+  })
+);
+
+const stream = await client.chat.completions.create({
+  model: "openai/gpt-5",
+  messages: [{ role: "user", content: "Write a haiku about machine learning." }],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  if (chunk.choices[0].delta.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+MLflow will automatically capture the complete streamed response in the trace.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
