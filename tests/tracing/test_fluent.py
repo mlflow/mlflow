@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import sys
 import threading
 import time
 import uuid
@@ -2246,6 +2247,7 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:

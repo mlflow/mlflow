@@ -74,7 +74,7 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
             theme.spacing.md
           }px`,
           borderRadius: theme.borders.borderRadiusLg,
-          backgroundColor: isUser ? theme.colors.blue100 : 'transparent',
+          backgroundColor: isUser ? theme.colors.backgroundSecondary : 'transparent',
           color: theme.colors.textPrimary,
         }}
       >

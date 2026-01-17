@@ -749,7 +749,7 @@ def _iter_pr_files() -> Iterator[str]:
     repo = pr_data["repository"]["full_name"]
     page = 1
     per_page = 100
-    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    headers = {"Authorization": token} if (token := os.environ.get("GH_TOKEN")) else None
     while True:
         resp = requests.get(
             f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",

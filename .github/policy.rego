@@ -41,6 +41,19 @@ deny_unnecessary_github_token contains msg if {
 	msg := "Unnecessary use of github-token for actions/github-script."
 }
 
+deny_github_token_env_var contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	step.env.GITHUB_TOKEN
+	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
+}
+
+deny_github_token_env_var contains msg if {
+	some job in input.jobs
+	job.env.GITHUB_TOKEN
+	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
+}
+
 deny_jobs_without_timeout contains msg if {
 	jobs := jobs_without_timeout(input.jobs)
 	count(jobs) > 0

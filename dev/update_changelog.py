@@ -135,7 +135,7 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
 
     # Headers with authentication
     headers = {"Content-Type": "application/json"}
-    if token := os.getenv("GITHUB_TOKEN"):
+    if token := os.getenv("GH_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     print(f"Batch fetching {len(pr_numbers)} PRs with GraphQL...")
     resp = requests.post(
