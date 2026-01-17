@@ -1,0 +1,145 @@
+import { APILink } from "@site/src/components/APILink"
+import FeatureHighlights from "@site/src/components/FeatureHighlights"
+import { Brain, Target, Zap, DollarSign } from "lucide-react"
+
+# MemAlign Optimizer (Experimental)
+
+:::warning[Experimental Feature]
+MemAlign is an experimental optimizer. The API may change in future releases.
+:::
+
+**MemAlign** is an experimental optimizer that uses a dual-memory system inspired by human cognition to learn from natural language feedback. It offers significant speed and cost advantages over traditional prompt optimizers.
+
+<FeatureHighlights features={[
+  {
+    icon: Zap,
+    title: "Fast Alignment",
+    description: "Alignment completes in seconds instead of minutes, enabling rapid iteration on judge quality."
+  },
+  {
+    icon: DollarSign,
+    title: "Lower Cost",
+    description: "Significantly lower cost per alignment cycle compared to traditional prompt optimizers."
+  },
+  {
+    icon: Target,
+    title: "Few-Shot Learning",
+    description: "Shows visible improvement with just a handful of examples—no need to front-load massive labeling efforts."
+  },
+  {
+    icon: Brain,
+    title: "Dual-Memory System",
+    description: "Combines generalizable guidelines (semantic memory) with concrete examples (episodic memory) for robust alignment."
+  }
+]} />
+
+## Requirements
+
+For alignment to work, each trace must have BOTH judge assessments AND human feedback **with the same assessment name**. The assessment name must exactly match the judge name.
+
+## How MemAlign Works
+
+MemAlign maintains two types of memory:
+
+- **Semantic Memory**: Stores distilled guidelines extracted from feedback. When an expert explains their decision, MemAlign extracts generalizable rules like "Always evaluate safety based on intent, not just language."
+
+- **Episodic Memory**: Holds specific examples, particularly edge cases where the judge made mistakes. These serve as concrete anchors for situations that resist easy generalization.
+
+When evaluating new inputs, MemAlign constructs a dynamic context by gathering all principles from semantic memory and retrieving the most relevant examples from episodic memory—similar to how human judges reference both a rulebook and case history.
+
+## Basic Usage
+
+```python
+import mlflow
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import MemAlignOptimizer  # clint: disable=MLF0044
+
+# Create a judge
+judge = make_judge(
+    name="politeness",
+    instructions=(
+        "Evaluate if the outputs are polite and respectful. "
+        "Consider the tone, language, and context of the {{ outputs }}."
+    ),
+    model="openai:/gpt-4.1-mini",
+)
+
+# Create the MemAlign optimizer
+optimizer = MemAlignOptimizer(  # clint: disable=MLF0044
+    reflection_lm="openai:/gpt-4.1",  # Model for extracting guidelines (recommend a strong model)
+)
+
+# Retrieve traces with human feedback
+traces = mlflow.search_traces(return_type="list")
+
+# Align the judge - completes in seconds
+aligned_judge = judge.align(traces=traces, optimizer=optimizer)
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. A strong model (e.g., `"openai:/gpt-4.1"`) is recommended. |
+| `retrieval_k` | `int` | `5` | Number of similar examples to retrieve from episodic memory during inference. |
+| `embedding_model` | `str` | `None` | Optional custom embedding model for episodic memory retrieval. Uses default embeddings if not specified. |
+
+## Inspecting Learned Knowledge
+
+After alignment, you can inspect what the judge has learned:
+
+```python
+# View the updated instructions with distilled guidelines
+print(aligned_judge.instructions)
+# Output includes appended guidelines like:
+# "Distilled Guidelines (7):
+#   - Responses must be factually accurate...
+#   - Use neutral, descriptive language..."
+
+# Access the semantic memory (guidelines)
+for guideline in aligned_judge._semantic_memory:
+    print(f"• {guideline.guideline_text}")
+
+# Check the number of stored examples
+print(f"Episodic memory size: {len(aligned_judge._episodic_memory)}")
+```
+
+## Incremental Alignment
+
+MemAlign supports incremental alignment—you can continue improving the judge as you collect more feedback:
+
+```python
+# Initial alignment with first batch
+aligned_judge = judge.align(traces=traces[:16], optimizer=optimizer)
+
+# Later, align further with new feedback
+aligned_judge_v2 = aligned_judge.align(traces=traces[16:], optimizer=optimizer)
+
+# The judge accumulates knowledge across alignment sessions
+print(f"Guidelines after v1: {len(aligned_judge._semantic_memory)}")
+print(f"Guidelines after v2: {len(aligned_judge_v2._semantic_memory)}")
+```
+
+## Removing Feedback (Unalignment)
+
+If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
+
+```python
+# Remove knowledge from specific traces
+updated_judge = aligned_judge.unalign(traces=traces[:8])
+
+# The judge forgets guidelines and examples derived from those traces
+print(f"Guidelines before: {len(aligned_judge._semantic_memory)}")
+print(f"Guidelines after unalign: {len(updated_judge._semantic_memory)}")
+```
+
+## Debugging
+
+To debug the optimization process, enable DEBUG logging:
+
+```python
+import logging
+
+logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
+aligned_judge = judge.align(traces=traces, optimizer=optimizer)
+```

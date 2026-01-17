@@ -1,0 +1,51 @@
+import { APILink } from "@site/src/components/APILink"
+
+# SIMBA Alignment Optimizer
+
+MLflow provides the **default alignment optimizer** using [DSPy's implementation of SIMBA](https://dspy.ai/api/optimizers/SIMBA/) (Simplified Multi-Bootstrap Aggregation). When you call `align()` without specifying an optimizer, the SIMBA optimizer is used automatically.
+
+## Requirements
+
+For alignment to work, each trace must have BOTH judge assessments AND human feedback **with the same assessment name**. The assessment name must exactly match the judge name.
+
+## Basic Usage
+
+```python
+# Default: Uses SIMBA optimizer automatically
+aligned_judge = initial_judge.align(traces_with_feedback)
+
+# Explicit: Same as above but with custom model specification
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+
+optimizer = SIMBAAlignmentOptimizer(
+    model="openai:/gpt-4.1"  # Model used for optimization
+)
+aligned_judge = initial_judge.align(traces_with_feedback, optimizer)
+```
+
+:::tip[Default Optimizer Behavior]
+When using `align()` without an optimizer parameter, MLflow automatically uses the SIMBA optimizer. This simplifies the alignment process while still allowing customization when needed.
+:::
+
+## Incremental Alignment
+
+SIMBA supports incremental alignment—you can continue improving the judge as you collect more feedback:
+
+```python
+# Initial alignment with first batch
+aligned_judge = judge.align(traces=traces[:20], optimizer=optimizer)
+
+# Later, align further with new feedback
+aligned_judge_v2 = aligned_judge.align(traces=traces[20:], optimizer=optimizer)
+```
+
+## Debugging
+
+To debug the optimization process, enable DEBUG logging:
+
+```python
+import logging
+
+logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+aligned_judge = initial_judge.align(traces_with_feedback, optimizer)
+```
