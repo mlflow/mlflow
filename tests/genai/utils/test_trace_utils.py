@@ -6,6 +6,7 @@ from unittest import mock
 import httpx
 import numpy as np
 import openai
+import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
@@ -21,7 +22,9 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
+    _should_keep_trace,
     _try_extract_available_tools_with_llm,
+    clean_up_extra_traces,
     convert_predict_fn,
     create_minimal_trace,
     extract_available_tools_from_trace,
@@ -1435,3 +1438,84 @@ def test_try_extract_available_tools_with_llm_returns_empty_on_error(monkeypatch
 
     result = _try_extract_available_tools_with_llm(trace, model="openai:/gpt-4")
     assert result == []
+
+
+def test_should_keep_trace_preserves_input_trace_ids():
+    trace_info = create_test_trace_info(
+        trace_id="tr-input-123",
+        request_time=2000,
+    )
+    trace = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    eval_start_time = 1000
+    input_trace_ids = {"tr-input-123"}
+
+    result = _should_keep_trace(trace, eval_start_time, input_trace_ids)
+    assert result is True
+
+
+def test_should_keep_trace_deletes_non_input_traces_after_eval_start():
+    trace_info = create_test_trace_info(
+        trace_id="tr-extra-456",
+        request_time=2000,
+    )
+    trace = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    eval_start_time = 1000
+    input_trace_ids = {"tr-input-123"}
+
+    result = _should_keep_trace(trace, eval_start_time, input_trace_ids)
+    assert result is False
+
+
+def test_clean_up_extra_traces_preserves_input_traces():
+    with mlflow.start_span(name="input_trace_1") as span1:
+        span1.set_inputs({"question": "test1"})
+        span1.set_outputs({"answer": "answer1"})
+    trace1 = mlflow.get_trace(span1.trace_id)
+
+    with mlflow.start_span(name="input_trace_2") as span2:
+        span2.set_inputs({"question": "test2"})
+        span2.set_outputs({"answer": "answer2"})
+    trace2 = mlflow.get_trace(span2.trace_id)
+
+    eval_start_time = int(trace1.info.timestamp_ms - 1000)
+
+    input_trace_ids = {trace1.info.trace_id, trace2.info.trace_id}
+    all_traces = [trace1, trace2]
+
+    clean_up_extra_traces(all_traces, eval_start_time, input_trace_ids)
+
+    remaining_traces = get_traces()
+    remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
+    assert trace1.info.trace_id in remaining_trace_ids
+    assert trace2.info.trace_id in remaining_trace_ids
+
+
+def test_evaluate_with_trace_column_preserves_traces():
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 1.0
+
+    with mlflow.start_span(name="original_trace") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an ML platform"})
+
+    original_trace = mlflow.get_trace(span.trace_id)
+    original_trace_id = original_trace.info.trace_id
+
+    eval_df = pd.DataFrame(
+        [
+            {
+                "trace": original_trace,
+                "inputs": {"question": "What is MLflow?"},
+                "outputs": {"answer": "MLflow is an ML platform"},
+            }
+        ]
+    )
+
+    mlflow.genai.evaluate(data=eval_df, scorers=[dummy_scorer])
+
+    remaining_traces = get_traces()
+    remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
+    assert original_trace_id in remaining_trace_ids
