@@ -5,7 +5,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils.dummies import DummyLM, dummy_rm
+from dspy.utils.dummies import dummy_rm
 from packaging.version import Version
 
 import mlflow
@@ -33,9 +33,17 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 
+class _DummyLM(dspy.utils.DummyLM):
+    def dump_state(self):
+        return {
+            "answers": list(self.answers),
+            "follow_examples": self.follow_examples,
+        }
+
+
 @pytest.fixture
 def dummy_model():
-    return DummyLM(
+    return _DummyLM(
         [{"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]]
     )
 
@@ -65,12 +73,20 @@ def reset_dspy_settings():
     dspy.settings.configure(lm=None, rm=None)
 
 
-def test_basic_save():
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+def test_basic_save(use_dspy_model_save):
+    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
+        pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
+
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, name="model")
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=use_dspy_model_save,
+        )
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -82,7 +98,8 @@ def test_basic_save():
     assert isinstance(loaded_model, CoT)
 
 
-def test_save_compiled_model(dummy_model):
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+def test_save_compiled_model(dummy_model, use_dspy_model_save):
     train_data = [
         "What is 2 + 2?",
         "What is 3 + 3?",
@@ -105,7 +122,9 @@ def test_save_compiled_model(dummy_model):
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
+        model_info = mlflow.dspy.log_model(
+            optimized_cot, name="model", use_dspy_model_save=use_dspy_model_save
+        )
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -116,7 +135,8 @@ def test_save_compiled_model(dummy_model):
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
-def test_dspy_save_preserves_object_state():
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+def test_dspy_save_preserves_object_state(use_dspy_model_save):
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
 
@@ -140,7 +160,9 @@ def test_dspy_save_preserves_object_state():
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    model = DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    model = _DummyLM(
+        [{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]]
+    )
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
 
@@ -161,7 +183,9 @@ def test_dspy_save_preserves_object_state():
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
+        model_info = mlflow.dspy.log_model(
+            optimized_cot, name="model", use_dspy_model_save=use_dspy_model_save
+        )
 
     original_settings = dict(dspy.settings.config)
     original_settings["traces"] = None
@@ -206,7 +230,8 @@ def test_dspy_save_preserves_object_state():
     assert original_settings == loaded_settings
 
 
-def test_load_logged_model_in_native_dspy(dummy_model):
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+def test_load_logged_model_in_native_dspy(dummy_model, use_dspy_model_save):
     dspy_model = CoT()
     # Arbitrary set the demo to test saving/loading has no data loss.
     dspy_model.prog.predictors()[0].demos = [
@@ -218,7 +243,9 @@ def test_load_logged_model_in_native_dspy(dummy_model):
     dspy.settings.configure(lm=dummy_model)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, name="model")
+        model_info = mlflow.dspy.log_model(
+            dspy_model, name="model", use_dspy_model_save=use_dspy_model_save
+        )
     loaded_dspy_model = mlflow.dspy.load_model(model_info.model_uri)
 
     assert isinstance(loaded_dspy_model, CoT)
