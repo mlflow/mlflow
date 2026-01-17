@@ -7,6 +7,16 @@ export interface ChatMessage {
 }
 
 /**
+ * Information about a tool being used by the assistant.
+ */
+export interface ToolUseInfo {
+  id: string;
+  name: string;
+  description?: string;
+  input?: Record<string, any>;
+}
+
+/**
  * Known context keys for the assistant.
  * Type-safe registration for common context values.
  */
@@ -34,6 +44,8 @@ export interface AssistantAgentState {
   error: string | null;
   /** Current tool usage status (e.g., "Reading file...", "Searching...") */
   currentStatus: string | null;
+  /** Active tools being used by the assistant */
+  activeTools: ToolUseInfo[];
 }
 
 export interface AssistantAgentActions {
