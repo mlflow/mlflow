@@ -22,13 +22,14 @@ async def get_release_date(session: aiohttp.ClientSession, package: str, version
                 return ""
 
             resp_json = await resp.json()
-            matched = [
-                dist_files for ver, dist_files in resp_json["releases"].items() if ver == version
-            ]
-            if not matched or not matched[0]:
+            dist_files = next(
+                (dist_files for ver, dist_files in resp_json["releases"].items() if ver == version),
+                None,
+            )
+            if not dist_files:
                 return ""
 
-            upload_time = cast(str, matched[0][0]["upload_time"])
+            upload_time = cast(str, dist_files[0]["upload_time"])
             return upload_time.replace("T", " ")  # return year-month-day hour:minute:second
     except Exception:
         traceback.print_exc()
