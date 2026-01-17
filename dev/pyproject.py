@@ -6,7 +6,7 @@ import sys
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import toml
 import yaml
@@ -124,7 +124,7 @@ TRACING_EXCLUDE_FILES = [
 ]
 
 
-def find_duplicates(seq):
+def find_duplicates(seq: list[str]) -> list[str]:
     counted = Counter(seq)
     return [item for item, count in counted.items() if count > 1]
 
@@ -213,9 +213,9 @@ def read_requirements_yaml(yaml_path: Path) -> list[str]:
     return generate_requirements_from_yaml(RequirementsYaml(requirements_data))
 
 
-def read_package_versions_yml():
+def read_package_versions_yml() -> dict[str, Any]:
     with open("mlflow/ml-package-versions.yml") as f:
-        return yaml.safe_load(f)
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
 def build(package_type: PackageType) -> None:
@@ -228,9 +228,12 @@ def build(package_type: PackageType) -> None:
     core_requirements = read_requirements_yaml(requirements_dir / "core-requirements.yaml")
     gateways_requirements = read_requirements_yaml(requirements_dir / "gateway-requirements.yaml")
     genai_requirements = read_requirements_yaml(requirements_dir / "genai-requirements.yaml")
-    package_version = re.search(
+    version_match = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
-    ).group(1)
+    )
+    if version_match is None:
+        raise ValueError("Could not find VERSION in mlflow/version.py")
+    package_version = version_match.group(1)
     python_version = Path(".python-version").read_text().strip()
     versions_yaml = read_package_versions_yml()
     langchain_requirements = [
