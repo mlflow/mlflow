@@ -68,7 +68,7 @@ def create_workspace(
     """Create a new workspace.
 
     Args:
-        name: The workspace name (alphanumeric, hyphens, underscores only).
+        name: The workspace name (lowercase alphanumeric with optional internal hyphens).
         description: Optional description of the workspace.
         default_artifact_root: Optional artifact root URI; falls back to server default.
 
