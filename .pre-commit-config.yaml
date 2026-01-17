@@ -147,7 +147,13 @@ repos:
 
       - id: lint-proto
         name: lint-proto
-        entry: dev/lint-proto.sh
+        entry: |
+          bash -c '
+            if grep -n "com.databricks.mlflow.api.MlflowTrackingMessage" "$@"; then
+              echo "Remove com.databricks.mlflow.api.MlflowTrackingMessage"
+              exit 1
+            fi
+          ' --
         files: '\.proto$'
         language: system
         stages: [pre-commit]
