@@ -82,7 +82,7 @@ class AbstractStore(ABC):
 class WorkspaceNameValidator:
     """Validator for workspace names based on Kubernetes naming conventions."""
 
-    _PATTERN = r"^[a-z0-9][-a-z0-9]*[a-z0-9]$"
+    _PATTERN = r"^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
     _MIN_LENGTH = 2
     _MAX_LENGTH = 63
     _RESERVED = {"workspaces", "api", "ajax-api", "static-files"}

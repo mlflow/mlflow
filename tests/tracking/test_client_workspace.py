@@ -85,8 +85,17 @@ def test_set_workspace_sets_env_and_context(monkeypatch):
 
 def test_set_workspace_clears_when_none(monkeypatch):
     env: dict[str, str | None] = {}
-    calls = {"clear_workspace": 0, "set_context_workspace": []}
+    calls = {"clear_workspace": 0, "set_context_workspace": [], "validate": []}
 
+    monkeypatch.setattr(
+        workspace_fluent,
+        "WorkspaceNameValidator",
+        type(
+            "Validator",
+            (),
+            {"validate": lambda name: calls["validate"].append(name)},
+        ),
+    )
     monkeypatch.setattr(
         workspace_fluent,
         "set_context_workspace",
@@ -100,7 +109,7 @@ def test_set_workspace_clears_when_none(monkeypatch):
     )
     # Ensure default workspace does not trigger validation but does set env
     workspace_fluent.set_workspace(DEFAULT_WORKSPACE_NAME)
-    assert "validate" not in calls
+    assert calls["validate"] == []
     assert env["value"] == DEFAULT_WORKSPACE_NAME
 
     workspace_fluent.set_workspace(None)
