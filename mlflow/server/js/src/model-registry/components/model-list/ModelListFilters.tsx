@@ -96,7 +96,7 @@ export const ModelListFilters = ({
       <TableFilterInput
         componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_118"
         placeholder={intl.formatMessage({
-          defaultMessage: 'Filter registered models by name or tags',
+          defaultMessage: 'Search registered models',
           description: 'Placeholder text inside model search bar',
         })}
         onSubmit={triggerSearch}
