@@ -193,12 +193,15 @@ lint = [
   "types-requests",
   "ruamel.yaml",
 ]
-test = [
+pytest = [
   "pytest==9.0.2",
   "pytest-asyncio",
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
+]
+test = [
+  { include-group = "pytest" },
   "psutil",
   "pyspark",
   "opentelemetry-exporter-otlp-proto-grpc",
