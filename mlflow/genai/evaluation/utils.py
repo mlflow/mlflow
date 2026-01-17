@@ -38,6 +38,7 @@ if TYPE_CHECKING:
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
             | ConversationSimulator
+            | None
         )
     except ImportError:
         EvaluationDatasetTypes = (
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
             | ConversationSimulator
+            | None
         )
 
 
