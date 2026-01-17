@@ -107,7 +107,7 @@ def sample_traces():
 def test_init_default_config():
     optimizer = MemAlignOptimizer()
     assert optimizer._retrieval_k == 5
-    assert optimizer._embedding_model == "openai/text-embedding-3-small"
+    assert optimizer._embedding_model == "openai:/text-embedding-3-small"
     assert optimizer._embedding_dim == 512
 
 
