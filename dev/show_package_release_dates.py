@@ -18,9 +18,7 @@ class PyPIResponse(BaseModel):
 
 
 def get_distributions() -> list[tuple[str, str]]:
-    res = subprocess.check_output(
-        [sys.executable, "-m", "pip", "list", "--format", "json"], text=True
-    )
+    res = subprocess.check_output([sys.executable, "-m", "pip", "list", "--format", "json"])
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
