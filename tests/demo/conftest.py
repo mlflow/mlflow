@@ -1,5 +1,6 @@
 import pytest
 
+import mlflow
 from mlflow.demo.base import BaseDemoGenerator, DemoFeature, DemoResult
 from mlflow.demo.registry import DemoRegistry
 
@@ -71,3 +72,11 @@ def another_stub_generator():
 @pytest.fixture
 def fresh_registry():
     return DemoRegistry()
+
+
+@pytest.fixture
+def tracking_uri(tmp_path):
+    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    mlflow.set_tracking_uri(uri)
+    yield uri
+    mlflow.set_tracking_uri(None)

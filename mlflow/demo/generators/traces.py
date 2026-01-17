@@ -245,8 +245,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=embed_end + 1000,
         )
         docs = [
-            {"id": f"doc_{i}", "score": round(0.7 + random.uniform(0, 0.25), 2)}
-            for i in range(3)
+            {"id": f"doc_{i}", "score": round(0.7 + random.uniform(0, 0.25), 2)} for i in range(3)
         ]
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
@@ -429,9 +428,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
 
         return root.trace_id
 
-    def _create_session_traces(
-        self, version: Literal["v1", "v2"], start_index: int
-    ) -> list[str]:
+    def _create_session_traces(self, version: Literal["v1", "v2"], start_index: int) -> list[str]:
         """Create multi-turn conversation session traces."""
         trace_ids = []
         current_session = None
