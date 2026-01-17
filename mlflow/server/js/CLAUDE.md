@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code when working with the MLflow frontend code in this directory.
 
-**For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](../../../CONTRIBUTING.md).**
-
 ## Consistency is Critical
 
 **IMPORTANT**: Always be consistent with the rest of the repository. This is extremely important!
