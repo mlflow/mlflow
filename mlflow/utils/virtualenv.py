@@ -267,7 +267,9 @@ def _create_virtualenv(
     env_creation_extra_env = {}
     if env_manager == em.VIRTUALENV:
         python_bin_path = _install_python(
-            python_env.python, pyenv_root=python_install_dir, capture_output=capture_output
+            version=python_env.python,
+            pyenv_root=python_install_dir if is_in_databricks_runtime() else None,
+            capture_output=capture_output,
         )
         _logger.info(f"Creating a new environment in {env_dir} with {python_bin_path}")
         env_creation_cmd = [
