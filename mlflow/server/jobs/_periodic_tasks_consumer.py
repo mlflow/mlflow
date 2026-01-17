@@ -5,19 +5,12 @@ This is a dedicated consumer that only runs periodic tasks (like the online scor
 It is launched by the job runner and runs in a separate process from job execution consumers.
 """
 
-import logging
 import threading
 
-from mlflow.server.jobs._log_filters import SuppressOnlineScoringFilter
+from mlflow.server.jobs.logging_utils import configure_job_consumer_logging
 
-# Suppress online scoring logs from huey - use filter since setLevel gets overridden by huey
-_filter = SuppressOnlineScoringFilter()
-logging.getLogger("huey").addFilter(_filter)
-logging.getLogger("huey.consumer").addFilter(_filter)
-logging.getLogger("huey.consumer.Scheduler").addFilter(_filter)
-
-# Suppress alembic INFO logs
-logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
+# Configure logging to suppress noisy online scoring logs
+configure_job_consumer_logging()
 
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,

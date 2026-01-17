@@ -14,19 +14,14 @@ It launches the Huey consumer that polls tasks from the huey storage file path
 and schedules the job execution continuously.
 """
 
-import logging
 import os
 import threading
 
 from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
-from mlflow.server.jobs._log_filters import SuppressOnlineScoringFilter
+from mlflow.server.jobs.logging_utils import configure_job_consumer_logging
 
-# Suppress online scoring logs from huey - use filter since setLevel gets overridden by huey
-_filter = SuppressOnlineScoringFilter()
-logging.getLogger("huey").addFilter(_filter)
-
-# Suppress alembic INFO logs for ALL jobs
-logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
+# Configure logging to suppress noisy online scoring logs
+configure_job_consumer_logging()
 from mlflow.server.jobs.utils import (
     _exit_when_orphaned,
     _get_or_init_huey_instance,

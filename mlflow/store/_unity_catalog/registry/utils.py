@@ -98,18 +98,10 @@ def proto_to_mlflow_prompt(
         raise ValueError("Prompt is missing its version field.")
     version = int(proto_version.version)
 
-    try:
-        template = json.loads(proto_version.template)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Failed to parse prompt template as JSON. "
-            f"Raw template value: {proto_version.template!r}"
-        ) from e
-
     return PromptVersion(
         name=proto_version.name,
         version=version,
-        template=template,
+        template=json.loads(proto_version.template),
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
         tags=version_tags,
