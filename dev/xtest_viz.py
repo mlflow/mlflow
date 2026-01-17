@@ -232,13 +232,20 @@ class XTestViz:
 
             return data_rows
 
-    def render_results_table(self, data_rows: list[JobResult]) -> str:
-        """Render job data as a markdown table."""
-        if not data_rows:
-            return "No test jobs found."
+    def _pivot_job_results(
+        self, data_rows: list[JobResult]
+    ) -> tuple[dict[str, dict[str, str]], list[str], list[str]]:
+        """Pivot job results data into a format suitable for table rendering.
 
-        # Manually pivot the data
-        # Create a dictionary: {name: {date: status}}
+        Args:
+            data_rows: List of job results to pivot
+
+        Returns:
+            Tuple of (pivot_data, sorted_dates, sorted_names) where:
+            - pivot_data: Dictionary mapping name -> date -> status
+            - sorted_dates: List of dates sorted in reverse chronological order
+            - sorted_names: List of test names sorted alphabetically
+        """
         pivot_data: dict[str, dict[str, str]] = {}
         all_dates: set[str] = set()
 
@@ -256,7 +263,24 @@ class XTestViz:
         # Sort names alphabetically
         sorted_names = sorted(pivot_data.keys())
 
-        # Build markdown table manually
+        return pivot_data, sorted_dates, sorted_names
+
+    def _build_markdown_table(
+        self,
+        pivot_data: dict[str, dict[str, str]],
+        sorted_dates: list[str],
+        sorted_names: list[str],
+    ) -> str:
+        """Build a markdown table from pivoted data.
+
+        Args:
+            pivot_data: Dictionary mapping name -> date -> status
+            sorted_dates: List of dates (columns) in desired order
+            sorted_names: List of test names (rows) in desired order
+
+        Returns:
+            Markdown-formatted table as a string
+        """
         headers = ["Name"] + sorted_dates
 
         # Calculate column widths
@@ -287,6 +311,14 @@ class XTestViz:
             lines.append("| " + " | ".join(row_values) + " |")
 
         return "\n".join(lines)
+
+    def render_results_table(self, data_rows: list[JobResult]) -> str:
+        """Render job data as a markdown table."""
+        if not data_rows:
+            return "No test jobs found."
+
+        pivot_data, sorted_dates, sorted_names = self._pivot_job_results(data_rows)
+        return self._build_markdown_table(pivot_data, sorted_dates, sorted_names)
 
     async def generate_results_table(self, days_back: int = 30) -> str:
         """Generate markdown table of cross-version test results."""
