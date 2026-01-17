@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import traceback
+from collections.abc import Sequence
 from typing import cast
 
 import aiohttp
@@ -39,7 +40,7 @@ async def get_release_date(session: aiohttp.ClientSession, package: str, version
         return ""
 
 
-def get_longest_string_length(array: tuple[str, ...] | list[str]) -> int:
+def get_longest_string_length(array: Sequence[str]) -> int:
     return len(max(array, key=len))
 
 
