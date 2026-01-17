@@ -241,3 +241,70 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
     return call.name
+
+
+def parse_third_party_model_uri(model_uri: str) -> tuple[str, str | None]:
+    """
+    Parse a model URI for third-party scorer integrations.
+
+    Args:
+        model_uri: Model URI in one of these formats:
+            - "databricks" - Use default Databricks managed judge
+            - "databricks:/endpoint" - Use Databricks serving endpoint
+            - "provider:/model" - Use provider-specific model (e.g., "openai:/gpt-4")
+
+    Returns:
+        Tuple of (provider, model_name). For "databricks" alone, model_name is None.
+
+    Raises:
+        MlflowException: If the model URI format is invalid.
+    """
+    if model_uri == "databricks":
+        return ("databricks", None)
+
+    if ":" not in model_uri:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid model_uri format: '{model_uri}'. "
+            f"Must be 'databricks', 'databricks:/<endpoint>', or include a provider prefix "
+            f"(e.g., 'openai:/gpt-4')."
+        )
+
+    provider, model_name = model_uri.split(":", 1)
+    model_name = model_name.removeprefix("/")
+    return (provider, model_name)
+
+
+def serialize_chat_messages_to_prompts(
+    messages: list[dict[str, Any]],
+) -> tuple[str, str | None]:
+    """
+    Serialize chat messages (as dicts) to user_prompt and system_prompt strings.
+
+    This is used by third-party integrations that receive messages as dicts
+    and need to convert them for Databricks endpoints.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content' keys.
+
+    Returns:
+        Tuple of (user_prompt, system_prompt). system_prompt may be None.
+    """
+    system_prompt = None
+    user_parts = []
+
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+
+        if role == "system":
+            system_prompt = content
+        elif role == "user":
+            user_parts.append(content)
+        elif role == "assistant":
+            if content:
+                user_parts.append(f"Assistant: {content}")
+        else:
+            user_parts.append(f"{role}: {content}")
+
+    user_prompt = "\n\n".join(user_parts)
+    return user_prompt, system_prompt
