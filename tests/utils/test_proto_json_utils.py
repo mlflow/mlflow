@@ -449,6 +449,33 @@ def test_parse_tf_serving_raises_expected_errors():
         parse_tf_serving_input(tfserving_input)
 
 
+def test_parse_tf_serving_input_with_params():
+    # Verify params key is tolerated alongside instances/inputs (for MLServer compatibility)
+    # With instances - single array
+    result = parse_tf_serving_input({"instances": [[1, 2, 3], [4, 5, 6]], "params": {"top_k": 5}})
+    expected = np.array([[1, 2, 3], [4, 5, 6]], dtype="int64")
+    assert (result == expected).all()
+
+    # With instances - list of dicts
+    result = parse_tf_serving_input(
+        {"instances": [{"a": 1, "b": 2}, {"a": 3, "b": 4}], "params": {"temperature": 0.7}}
+    )
+    assert (result["a"] == np.array([1, 3])).all()
+    assert (result["b"] == np.array([2, 4])).all()
+
+    # With inputs - dict format
+    result = parse_tf_serving_input(
+        {"inputs": {"a": [1, 2], "b": [3, 4]}, "params": {"capture": True}}
+    )
+    assert (result["a"] == np.array([1, 2])).all()
+    assert (result["b"] == np.array([3, 4])).all()
+
+    # With inputs - single array
+    result = parse_tf_serving_input({"inputs": [[1, 2], [3, 4]], "params": {"max_tokens": 100}})
+    expected = np.array([[1, 2], [3, 4]], dtype="int64")
+    assert (result == expected).all()
+
+
 def test_dataframe_from_json():
     source = pd.DataFrame(
         {
