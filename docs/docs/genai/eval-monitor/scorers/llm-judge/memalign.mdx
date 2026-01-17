@@ -35,7 +35,10 @@ MemAlign is an experimental optimizer. The API may change in future releases.
 
 ## Requirements
 
-For alignment to work, each trace must have BOTH judge assessments AND human feedback **with the same assessment name**. The assessment name must exactly match the judge name.
+For alignment to work:
+
+- Each trace must have BOTH judge assessments AND human feedback **with the same assessment name**
+- The assessment name must exactly match the judge name
 
 ## How MemAlign Works
 
@@ -64,9 +67,9 @@ judge = make_judge(
     model="openai:/gpt-4.1-mini",
 )
 
-# Create the MemAlign optimizer
+# Create the MemAlign optimizer (we recommend using a stronger model for reflection)
 optimizer = MemAlignOptimizer(
-    reflection_lm="openai:/gpt-4.1",  # Model for extracting guidelines (recommend a strong model)
+    reflection_lm="openai:/gpt-5",
 )
 
 # Retrieve traces with human feedback
@@ -80,7 +83,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. A strong model (e.g., `"openai:/gpt-4.1"`) is recommended. |
+| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. We recommend using a stronger model for better guideline extraction. |
 | `retrieval_k` | `int` | `5` | Number of similar examples to retrieve from episodic memory during inference. |
 | `embedding_model` | `str` | `None` | Optional custom embedding model for episodic memory retrieval. Uses default embeddings if not specified. |
 
@@ -104,33 +107,14 @@ for guideline in aligned_judge._semantic_memory:
 print(f"Episodic memory size: {len(aligned_judge._episodic_memory)}")
 ```
 
-## Incremental Alignment
-
-MemAlign supports incremental alignment—you can continue improving the judge as you collect more feedback:
-
-```python
-# Initial alignment with first batch
-aligned_judge = judge.align(traces=traces[:16], optimizer=optimizer)
-
-# Later, align further with new feedback
-aligned_judge_v2 = aligned_judge.align(traces=traces[16:], optimizer=optimizer)
-
-# The judge accumulates knowledge across alignment sessions
-print(f"Guidelines after v1: {len(aligned_judge._semantic_memory)}")
-print(f"Guidelines after v2: {len(aligned_judge_v2._semantic_memory)}")
-```
-
 ## Removing Feedback (Unalignment)
 
 If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
 
 ```python
-# Remove knowledge from specific traces
-updated_judge = aligned_judge.unalign(traces=traces[:8])
-
-# The judge forgets guidelines and examples derived from those traces
-print(f"Guidelines before: {len(aligned_judge._semantic_memory)}")
-print(f"Guidelines after unalign: {len(updated_judge._semantic_memory)}")
+# Remove knowledge derived from specific traces
+traces_to_forget = [...]  # traces with outdated or incorrect feedback
+updated_judge = aligned_judge.unalign(traces=traces_to_forget)
 ```
 
 ## Debugging

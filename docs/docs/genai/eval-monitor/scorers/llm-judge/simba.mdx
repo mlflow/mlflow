@@ -6,7 +6,12 @@ MLflow provides the **default alignment optimizer** using [DSPy's implementation
 
 ## Requirements
 
-For alignment to work, each trace must have BOTH judge assessments AND human feedback **with the same assessment name**. The assessment name must exactly match the judge name.
+For alignment to work:
+
+- Each trace must have BOTH judge assessments AND human feedback **with the same assessment name**
+- The assessment name must exactly match the judge name
+- Minimum of 10 traces with both judge and human assessments required
+- A mix of agreements and disagreements between judge and human is recommended
 
 ## Basic Usage
 
@@ -26,18 +31,6 @@ aligned_judge = initial_judge.align(traces_with_feedback, optimizer)
 :::tip[Default Optimizer Behavior]
 When using `align()` without an optimizer parameter, MLflow automatically uses the SIMBA optimizer. This simplifies the alignment process while still allowing customization when needed.
 :::
-
-## Incremental Alignment
-
-SIMBA supports incremental alignment—you can continue improving the judge as you collect more feedback:
-
-```python
-# Initial alignment with first batch
-aligned_judge = judge.align(traces=traces[:20], optimizer=optimizer)
-
-# Later, align further with new feedback
-aligned_judge_v2 = aligned_judge.align(traces=traces[20:], optimizer=optimizer)
-```
 
 ## Debugging
 
