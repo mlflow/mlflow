@@ -33,6 +33,7 @@ from mlflow.gateway.config import (
     TrafficRouteConfig,
     _LegacyRoute,
     _load_gateway_config,
+    save_route_config,
 )
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
@@ -50,13 +51,22 @@ from mlflow.gateway.utils import (
     SearchRoutesToken,
     make_streaming_response,
     translate_http_exception,
+    validate_git_location,
 )
 from mlflow.version import VERSION
 
 
 class GatewayAPI(FastAPI):
-    def __init__(self, config: GatewayConfig, limiter: Limiter, *args: Any, **kwargs: Any):
+    def __init__(
+        self,
+        config: GatewayConfig,
+        limiter: Limiter,
+        config_path: str | Path | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
         super().__init__(*args, **kwargs)
+        self.config_path = config_path
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
         self.dynamic_endpoints: dict[str, EndpointConfig] = {
@@ -267,7 +277,9 @@ class _LegacySearchRoutesResponse(BaseModel):
     )
 
 
-def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
+def create_app_from_config(
+    config: GatewayConfig, config_path: str | Path | None = None
+) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
     """
@@ -277,6 +289,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     app = GatewayAPI(
         config=config,
         limiter=limiter,
+        config_path=config_path,
         title="MLflow AI Gateway",
         description="The core deployments API for reverse proxy interface using remote inference "
         "endpoints within MLflow",
@@ -359,6 +372,55 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             detail=f"The route '{route_name}' is not present or active on the server. "
             f"Please verify the route name.",
         )
+
+    # TODO: Remove deployments server URLs after deprecation window elapses
+    @app.post(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
+    async def create_endpoint(endpoint: EndpointConfig) -> Endpoint:
+        if endpoint.name in app.dynamic_endpoints:
+            raise HTTPException(
+                status_code=400,
+                detail=f"The endpoint '{endpoint.name}' already exists. Please select a different "
+                "name or update the existing endpoint.",
+            )
+
+        if endpoint.model.git_location:
+            if not await validate_git_location(endpoint.model.git_location):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"The git location '{endpoint.model.git_location}' is not a valid URL "
+                    "or is not accessible.",
+                )
+
+        if not endpoint.model.name:
+            raise HTTPException(
+                status_code=400,
+                detail="The model name must be provided.",
+            )
+
+        app.dynamic_endpoints[endpoint.name] = endpoint
+        app.add_api_route(
+            path=(
+                MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + endpoint.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+            ),
+            endpoint=_get_endpoint_handler(app, endpoint.name, limiter, "deployments"),
+            methods=["POST"],
+        )
+        app.add_api_route(
+            path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{endpoint.name}{MLFLOW_QUERY_SUFFIX}",
+            endpoint=_get_endpoint_handler(app, endpoint.name, limiter, "gateway"),
+            methods=["POST"],
+            include_in_schema=False,
+        )
+        if app.config_path:
+            save_route_config(
+                GatewayConfig(
+                    endpoints=list(app.dynamic_endpoints.values()),
+                    routes=list(app.traffic_routes.values()),
+                ),
+                app.config_path,
+            )
+
+        return endpoint.to_endpoint()
 
     # TODO: Remove deployments server URLs after deprecation window elapses
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
@@ -464,7 +526,7 @@ def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     Load the path and generate the GatewayAPI app instance.
     """
     config = _load_gateway_config(config_path)
-    return create_app_from_config(config)
+    return create_app_from_config(config, config_path)
 
 
 def create_app_from_env() -> GatewayAPI:

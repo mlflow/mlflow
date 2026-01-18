@@ -262,6 +262,17 @@ def is_valid_ai21labs_model(model_name: str) -> bool:
     return model_name in {"j2-ultra", "j2-mid", "j2-light"}
 
 
+async def validate_git_location(url: str) -> bool:
+    import aiohttp
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, allow_redirects=True, timeout=10) as response:
+                return response.status == 200
+    except Exception:
+        return False
+
+
 def strip_sse_prefix(s: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return re.sub(r"^data:\s+", "", s)

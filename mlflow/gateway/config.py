@@ -323,6 +323,7 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: str | None = None
     provider: str | Provider
+    git_location: str | None = None
     config: SerializeAsAny[ConfigModel] | None = None
 
     @field_validator("provider", mode="before")
@@ -556,12 +557,16 @@ def _load_gateway_config(path: str | Path) -> GatewayConfig:
         ) from e
 
 
-def _save_route_config(config: GatewayConfig, path: str | Path) -> None:
+def save_route_config(config: GatewayConfig, path: str | Path) -> None:
     if isinstance(path, str):
         path = Path(path)
     path.write_text(
         yaml.safe_dump(json.loads(json.dumps(config.model_dump(), default=pydantic_encoder)))
     )
+
+
+# TODO: Remove this after the deprecation window for private functions
+_save_route_config = save_route_config
 
 
 def _validate_config(config_path: str) -> GatewayConfig:
