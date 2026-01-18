@@ -7,6 +7,7 @@ import pytest
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.genai.judges.optimizers.dspy_utils import (
     AgentEvalLM,
@@ -504,8 +505,6 @@ def test_create_judge_from_optimized_program_with_demos():
 
 
 def test_create_judge_from_optimized_program_preserves_feedback_value_type():
-    from mlflow.genai.judges import make_judge
-
     optimizer = ConcreteDSPyOptimizer()
     judge = make_judge(
         name="test_judge",
