@@ -402,7 +402,7 @@ def test_append_input_fields_section(instructions, field_names, should_append):
         assert result != instructions
         assert "Inputs for assessment:" in result
         for field in field_names:
-            assert field in result
+            assert f"{{{{ {field} }}}}" in result
     else:
         assert result == instructions
 

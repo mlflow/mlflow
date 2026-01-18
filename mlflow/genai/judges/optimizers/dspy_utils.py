@@ -520,7 +520,7 @@ def append_input_fields_section(instructions: str, judge: "Judge") -> str:
     if all_fields_present:
         return instructions
 
-    fields_list = ", ".join(field_names)
+    fields_list = ", ".join(f"{{{{ {name} }}}}" for name in field_names)
     return f"{instructions}\n\nInputs for assessment: {fields_list}"
 
 
