@@ -1192,7 +1192,7 @@ MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
 )
 
-#: Buffer time in seconds to wait before considering a session complete for online scoring.
+#: Default buffer time in seconds to wait before considering a session complete for online scoring.
 #: Sessions with no new traces for this duration are considered complete and ready for scoring.
 #: (default: ``300`` (5 minutes))
 MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
