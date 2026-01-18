@@ -6,10 +6,10 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.genai.scorers.online.constants import (
-    MAX_LOOKBACK_MS,
-    SESSION_COMPLETION_BUFFER_MS,
+from mlflow.environment_variables import (
+    MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS,
 )
+from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
 
@@ -94,7 +94,10 @@ class OnlineSessionCheckpointManager:
             checkpoint.timestamp_ms if checkpoint else 0, min_lookback_time_ms
         )
 
-        max_last_trace_timestamp_ms = current_time_ms - SESSION_COMPLETION_BUFFER_MS
+        buffer_seconds = max(
+            0, MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS.get()
+        )
+        max_last_trace_timestamp_ms = current_time_ms - buffer_seconds * 1000
 
         return OnlineSessionScoringTimeWindow(
             min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
