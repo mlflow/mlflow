@@ -378,9 +378,9 @@ def test_agent_eval_lm_uses_optimizer_session_name():
             [],
             False,
         ),
-        # Only some fields present - should append (need all fields)
+        # Plain field names present but not mustached - should append
         (
-            "Check the inputs carefully",
+            "Check the inputs and outputs carefully",
             ["inputs", "outputs"],
             True,
         ),

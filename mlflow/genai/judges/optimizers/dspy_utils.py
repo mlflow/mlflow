@@ -515,9 +515,12 @@ def append_input_fields_section(instructions: str, judge: "Judge") -> str:
     if not field_names:
         return instructions
 
-    # Check if all input fields are already present in the instructions
-    all_fields_present = all(field_name in instructions for field_name in field_names)
-    if all_fields_present:
+    # Check if all input fields are already present in mustached format
+    # Support both {{field}} and {{ field }} formats
+    def has_mustached_field(name: str) -> bool:
+        return f"{{{{{name}}}}}" in instructions or f"{{{{ {name} }}}}" in instructions
+
+    if all(has_mustached_field(name) for name in field_names):
         return instructions
 
     fields_list = ", ".join(f"{{{{ {name} }}}}" for name in field_names)
