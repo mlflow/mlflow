@@ -147,7 +147,7 @@ def _get_api_base_for_model(model: str) -> str | None:
         scheme, _ = _parse_model_uri(model)
         if scheme in ("endpoints", "databricks"):
             # Get Databricks host from environment or SDK
-            host = os.environ.get("DATABRICKS_API_BASE")
+            host = os.environ.get("DATABRICKS_HOST")
             if not host:
                 try:
                     from databricks.sdk import WorkspaceClient
@@ -157,7 +157,7 @@ def _get_api_base_for_model(model: str) -> str | None:
                 except ImportError:
                     _logger.warning(
                         "Could not determine Databricks host. "
-                        "Set DATABRICKS_API_BASE environment variable."
+                        "Set DATABRICKS_HOST environment variable."
                     )
                     return None
 
