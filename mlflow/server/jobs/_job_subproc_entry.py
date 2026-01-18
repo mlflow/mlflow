@@ -15,6 +15,7 @@ import threading
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
 # Suppress noisy alembic INFO logs in job subprocesses
+# (e.g., "Context impl SQLiteImpl", "Will assume non-transactional DDL")
 logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
 
 if __name__ == "__main__":
