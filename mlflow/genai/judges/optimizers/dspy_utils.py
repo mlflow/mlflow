@@ -117,7 +117,57 @@ def construct_dspy_lm(model: str):
         return AgentEvalLM()
     else:
         model_litellm = convert_mlflow_uri_to_litellm(model)
+        api_base = _get_api_base_for_model(model)
+        if api_base:
+            return dspy.LM(model=model_litellm, api_base=api_base)
         return dspy.LM(model=model_litellm)
+
+
+def _get_api_base_for_model(model: str) -> str | None:
+    """
+    Get the api_base URL for Databricks serving endpoints.
+
+    For Databricks endpoints with OpenAI-compatible API, the URL format is:
+    - api_base: https://host/serving-endpoints
+    - model: endpoint-name (passed in request body)
+
+    LiteLLM appends /chat/completions to api_base, making the final URL:
+    https://host/serving-endpoints/chat/completions with model=endpoint-name in body.
+
+    Args:
+        model: MLflow model URI (e.g., 'endpoints:/my-endpoint', 'databricks:/my-endpoint')
+
+    Returns:
+        The api_base URL (just /serving-endpoints), or None for non-Databricks models
+    """
+    try:
+        scheme, _ = _parse_model_uri(model)
+        if scheme in ("endpoints", "databricks"):
+            # Get Databricks host from environment or SDK
+            import os
+
+            host = os.environ.get("DATABRICKS_API_BASE")
+            if not host:
+                try:
+                    from databricks.sdk import WorkspaceClient
+
+                    client = WorkspaceClient()
+                    host = client.config.host
+                except ImportError:
+                    _logger.warning(
+                        "Could not determine Databricks host. "
+                        "Set DATABRICKS_API_BASE environment variable."
+                    )
+                    return None
+
+            # Remove trailing slash from host
+            host = host.rstrip("/")
+            # Return api_base with just /serving-endpoints
+            # LiteLLM will append /chat/completions and pass the endpoint name as model
+            return f"{host}/serving-endpoints"
+        return None
+    except Exception:
+        return None
 
 
 def _to_attrdict(obj):
@@ -218,15 +268,21 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     Convert MLflow model URI format to LiteLLM format.
 
     MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
+    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
 
     Args:
-        model_uri: MLflow model URI (e.g., 'openai:/gpt-4')
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
 
     Returns:
-        LiteLLM-compatible model string (e.g., 'openai/gpt-4')
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
     """
     try:
         scheme, path = _parse_model_uri(model_uri)
+        # For Databricks endpoints (endpoints:/ or databricks:/), use databricks/{endpoint-name}
+        # LiteLLM will route to: /serving-endpoints/{endpoint-name}/invocations
+        if scheme in ("endpoints", "databricks"):
+            return f"databricks/{path}"
         return f"{scheme}/{path}"
     except Exception as e:
         raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")

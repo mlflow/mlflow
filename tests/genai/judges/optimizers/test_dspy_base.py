@@ -42,12 +42,12 @@ class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
 
     def _dspy_optimize(
         self,
-        program: "dspy.Module",
+        program: "dspy.Predict",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
-    ) -> "dspy.Module":
-        mock_program = Mock()
-        mock_program.signature = Mock()
+    ) -> "dspy.Predict":
+        # Create a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
         mock_program.signature.instructions = (
             "Optimized instructions with {{inputs}} and {{outputs}}"
         )
@@ -84,6 +84,7 @@ def test_align_success(sample_traces_with_assessments):
     assert result is not None
     assert result.model == mock_judge.model
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    assert "Inputs for assessment:" in result.instructions
 
 
 def test_align_no_traces(mock_judge):
@@ -264,8 +265,8 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         suppression_state_during_call["set_verbose"] = litellm.set_verbose
         suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
 
-        mock_program = Mock()
-        mock_program.signature = Mock()
+        # Create a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
         mock_program.signature.instructions = "Optimized instructions"
         return mock_program
 
@@ -292,7 +293,10 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
 
     def check_context(*args, **kwargs):
         assert isinstance(dspy.settings["lm"], AgentEvalLM)
-        return MagicMock()
+        # Return a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
 
     with (
         patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
@@ -309,7 +313,10 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
     def check_context(*args, **kwargs):
         assert isinstance(dspy.settings["lm"], dspy.LM)
         assert dspy.settings["lm"].model == "openai/gpt-4.1"
-        return MagicMock()
+        # Return a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
 
     with (
         patch(
@@ -322,15 +329,8 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
         optimizer.align(mock_judge, sample_traces_with_assessments)
 
 
-@pytest.mark.parametrize(
-    ("lm_value", "lm_model", "expected_judge_model"),
-    [
-        (None, None, "openai:/gpt-4"),
-        ("mock_lm", "anthropic/claude-3", "anthropic:/claude-3"),
-        ("mock_lm", "databricks", "databricks"),
-    ],
-)
-def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected_judge_model):
+def test_dspy_program_forward_always_uses_original_judge_model():
+    """Test that forward() always uses the original judge's model, regardless of lm parameter."""
     original_judge_model = "openai:/gpt-4"
     mock_judge = MockJudge(name="test_judge", model=original_judge_model)
 
@@ -349,20 +349,22 @@ def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected
         mock_feedback.rationale = "Test"
         return MagicMock(return_value=mock_feedback)
 
+    # Test with no lm parameter
     with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=track_make_judge):
-        kwargs = {"inputs": "test", "outputs": "test"}
-        if lm_value == "mock_lm":
-            mock_lm = MagicMock()
-            mock_lm.model = lm_model
-            kwargs["lm"] = mock_lm
+        program.forward(inputs="test", outputs="test")
+        assert make_judge_calls[0] == original_judge_model
 
-        program.forward(**kwargs)
+    # Test with lm parameter (should still use original judge model)
+    make_judge_calls.clear()
+    with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=track_make_judge):
+        mock_lm = MagicMock()
+        mock_lm.model = "anthropic/claude-3"
+        program.forward(inputs="test", outputs="test", lm=mock_lm)
+        # Should still use the original judge model, not the lm parameter
+        assert make_judge_calls[0] == original_judge_model
 
-        assert len(make_judge_calls) == 1
-        assert make_judge_calls[0] == expected_judge_model
-        # Verify instructions from judge are passed through
-        assert captured_args["name"] == "test_judge"
-        assert captured_args["instructions"] == mock_judge.instructions
+    # Verify instructions include the input fields section
+    assert "Inputs for assessment:" in captured_args["instructions"]
 
 
 def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_with_assessments):
@@ -402,4 +404,6 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
         patch.object(TestOptimizer, "get_min_traces_required", return_value=5),
     ):
         optimizer.align(mock_judge, sample_traces_with_assessments)
-        assert captured_instructions == optimized_instructions
+        # Instructions should contain the optimized text and input fields section
+        assert optimized_instructions in captured_instructions
+        assert "Inputs for assessment:" in captured_instructions

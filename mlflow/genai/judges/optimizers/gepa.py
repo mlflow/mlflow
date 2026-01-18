@@ -39,7 +39,8 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
         model: Model to use for DSPy/GEPA optimization. If None, uses get_default_model().
         max_metric_calls: Maximum number of evaluation calls during optimization.
             Higher values may lead to better results but increase optimization time.
-            Default: 100
+            If None (default), automatically set to 4x the number of training examples.
+            This ensures sufficient budget for initial evaluation plus reflection iterations.
         gepa_kwargs: Additional keyword arguments to pass directly to dspy.GEPA().
             Useful for accessing advanced GEPA features not directly exposed
             through MLflow's GEPA interface.
@@ -78,10 +79,12 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
             print(optimized_judge.instructions)
     """
 
+    _DEFAULT_BUDGET_MULTIPLIER: int = 4
+
     def __init__(
         self,
         model: str | None = None,
-        max_metric_calls: int = 100,
+        max_metric_calls: int | None = None,
         gepa_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ):
@@ -90,7 +93,7 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
             model: Model to use for DSPy/GEPA optimization. If None, uses get_default_model().
             max_metric_calls: Maximum number of evaluation calls during optimization.
                 Higher values may lead to better results but increase optimization time.
-                Default: 100
+                If None (default), automatically set to 4x the number of training examples.
             gepa_kwargs: Additional keyword arguments to pass directly to dspy.GEPA().
             **kwargs: Additional keyword arguments passed to parent class
         """
@@ -108,9 +111,20 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
 
         reflection_lm = dspy.settings.lm
 
+        # Calculate max_metric_calls if not explicitly set
+        # GEPA needs at least num_examples calls for initial evaluation,
+        # plus additional calls for reflection iterations
+        max_metric_calls = self._max_metric_calls
+        if max_metric_calls is None:
+            max_metric_calls = len(examples) * self._DEFAULT_BUDGET_MULTIPLIER
+            self._logger.info(
+                f"max_metric_calls not specified, using {self._DEFAULT_BUDGET_MULTIPLIER}x "
+                f"number of examples: {max_metric_calls}"
+            )
+
         optimizer_kwargs = {
             "metric": gepa_metric_adapter,
-            "max_metric_calls": self._max_metric_calls,
+            "max_metric_calls": max_metric_calls,
             "reflection_lm": reflection_lm,
             **self._gepa_kwargs,  # Pass through any additional GEPA parameters
         }
@@ -119,7 +133,7 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
 
         self._logger.info(
             f"Starting GEPA optimization with {len(examples)} examples "
-            f"and max {self._max_metric_calls} metric calls"
+            f"and max {max_metric_calls} metric calls"
         )
 
         with suppress_verbose_logging("dspy.teleprompt.gepa.gepa"):

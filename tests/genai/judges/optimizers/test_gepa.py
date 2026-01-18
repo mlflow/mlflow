@@ -1,6 +1,7 @@
 from importlib import reload
 from unittest.mock import MagicMock, patch
 
+import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -25,8 +26,8 @@ def test_dspy_optimize_no_dspy():
 
 def test_alignment_results(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -45,15 +46,15 @@ def test_alignment_results(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions should be the raw optimized instructions
-    expected_instructions = "Optimized instructions with {{inputs}} and {{outputs}}"
-    assert result.instructions == expected_instructions
+    # The judge instructions should include the optimized instructions and input fields section
+    assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    assert "Inputs for assessment:" in result.instructions
 
 
 def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -86,8 +87,8 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
 
 def test_default_parameters(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -105,7 +106,8 @@ def test_default_parameters(mock_judge, sample_traces_with_assessments):
         assert "metric" in call_kwargs
         assert "max_metric_calls" in call_kwargs
         assert "reflection_lm" in call_kwargs
-        assert call_kwargs["max_metric_calls"] == 100  # Default value
+        # Default is 4x number of examples (5 traces * 4 = 20)
+        assert call_kwargs["max_metric_calls"] == 20
         assert len(call_kwargs) == 3  # metric, max_metric_calls, reflection_lm
 
 
@@ -168,6 +170,5 @@ def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
     assert result.instructions is not None
     assert len(result.instructions) > 0
 
-    # Verify template variables are preserved in the result
-    assert "{{inputs}}" in result.instructions
-    assert "{{outputs}}" in result.instructions
+    # Verify input fields section is included
+    assert "Inputs for assessment:" in result.instructions

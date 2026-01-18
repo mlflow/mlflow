@@ -1,6 +1,7 @@
 from importlib import reload
 from unittest.mock import MagicMock, patch
 
+import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -23,8 +24,8 @@ def test_dspy_optimize_no_dspy():
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -40,15 +41,15 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions should be the raw optimized instructions
-    expected_instructions = "Optimized instructions with {{inputs}} and {{outputs}}"
-    assert result.instructions == expected_instructions
+    # The judge instructions should include the optimized instructions and input fields section
+    assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    assert "Inputs for assessment:" in result.instructions
 
 
 def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -90,8 +91,8 @@ def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
 
 def test_default_parameters_not_passed(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    # Create a real dspy.Predict so it passes isinstance check
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
