@@ -631,7 +631,7 @@ class ScorerCallEvent(Event):
             return None
 
         # Check if running inside an online scoring job
-        # Import here to avoid circular import
+        # Import here to avoid circular imports
         from mlflow.genai.scorers.job import (
             ONLINE_SESSION_SCORER_JOB_NAME,
             ONLINE_TRACE_SCORER_JOB_NAME,
