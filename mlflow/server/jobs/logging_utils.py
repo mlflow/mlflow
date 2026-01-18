@@ -48,6 +48,13 @@ def configure_job_consumer_logging() -> None:
     logging.getLogger("huey.consumer").addFilter(_filter)
     logging.getLogger("huey.consumer.Scheduler").addFilter(_filter)
 
+    # Set handler levels to INFO to ensure downgraded DEBUG logs are filtered out.
+    # When using basicConfig, handlers default to NOTSET which emits all levels.
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if handler.level == logging.NOTSET:
+            handler.setLevel(logging.INFO)
+
     # Suppress alembic INFO logs
     # (e.g., "Context impl SQLiteImpl", "Will assume non-transactional DDL")
     logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
