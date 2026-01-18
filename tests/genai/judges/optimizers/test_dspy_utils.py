@@ -357,28 +357,54 @@ def test_agent_eval_lm_uses_optimizer_session_name():
         )
 
 
-def test_append_input_fields_section_preserves_original(mock_judge):
-    original = "Original instructions with {{inputs}} and {{outputs}}"
-    result = append_input_fields_section(original, mock_judge)
+@pytest.mark.parametrize(
+    ("instructions", "field_names", "should_append"),
+    [
+        # Fields already present - should NOT append
+        (
+            "Evaluate {{inputs}} and {{outputs}} for quality",
+            ["inputs", "outputs"],
+            False,
+        ),
+        # Fields NOT present - should append
+        (
+            "Evaluate the response for quality",
+            ["inputs", "outputs"],
+            True,
+        ),
+        # No fields defined - should NOT append
+        (
+            "Some instructions",
+            [],
+            False,
+        ),
+        # Only some fields present - should append (need all fields)
+        (
+            "Check the inputs carefully",
+            ["inputs", "outputs"],
+            True,
+        ),
+    ],
+)
+def test_append_input_fields_section(instructions, field_names, should_append):
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="test_judge")
+            self._fields = fields
 
-    assert original in result
-    assert "{{inputs}}" in result
-    assert "{{outputs}}" in result
-    assert "Inputs for assessment:" in result
-
-
-def test_append_input_fields_section_empty_fields():
-    class NoFieldsJudge(MockJudge):
         def get_input_fields(self):
-            return []
+            return [JudgeField(name=f, description=f"The {f}") for f in self._fields]
 
-    judge = NoFieldsJudge(name="no_fields_judge")
-    instructions = "Some instructions"
-
+    judge = TestJudge(field_names)
     result = append_input_fields_section(instructions, judge)
 
-    # Should return original instructions unchanged when no fields
-    assert result == instructions
+    if should_append:
+        assert result != instructions
+        assert "Inputs for assessment:" in result
+        for field in field_names:
+            assert field in result
+    else:
+        assert result == instructions
 
 
 def test_format_demos_empty_list(mock_judge):

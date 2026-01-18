@@ -46,9 +46,10 @@ def test_alignment_results(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions should include the optimized instructions and input fields section
+    # The judge instructions should include the optimized instructions
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
-    assert "Inputs for assessment:" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
@@ -170,5 +171,8 @@ def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
     assert result.instructions is not None
     assert len(result.instructions) > 0
 
-    # Verify input fields section is included
-    assert "Inputs for assessment:" in result.instructions
+    # Verify input fields are referenced in instructions (either as template variables
+    # or in fields section). DummyLM returns instructions with {{inputs}} and {{outputs}},
+    # so fields section is not appended.
+    assert "inputs" in result.instructions
+    assert "outputs" in result.instructions

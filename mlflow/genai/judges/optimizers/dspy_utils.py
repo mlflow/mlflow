@@ -499,19 +499,25 @@ def append_input_fields_section(instructions: str, judge: "Judge") -> str:
 
     DSPy optimizers may modify instructions during optimization. This function
     ensures that the input field names are clearly documented at the end of
-    the instructions.
+    the instructions, but only if they're not already present.
 
     Args:
         instructions: The optimized instructions
         judge: The original judge (to get field names)
 
     Returns:
-        Instructions with input fields section appended
+        Instructions with input fields section appended, or original instructions
+        if all input fields are already present
     """
     input_fields = judge.get_input_fields()
     field_names = [f.name for f in input_fields]
 
     if not field_names:
+        return instructions
+
+    # Check if all input fields are already present in the instructions
+    all_fields_present = all(field_name in instructions for field_name in field_names)
+    if all_fields_present:
         return instructions
 
     fields_list = ", ".join(field_names)

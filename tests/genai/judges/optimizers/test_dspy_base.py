@@ -84,7 +84,8 @@ def test_align_success(sample_traces_with_assessments):
     assert result is not None
     assert result.model == mock_judge.model
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
-    assert "Inputs for assessment:" in result.instructions
+    # When input fields are already in instructions, we don't append the fields section
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_align_no_traces(mock_judge):
@@ -330,7 +331,6 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
 
 
 def test_dspy_program_forward_always_uses_original_judge_model():
-    """Test that forward() always uses the original judge's model, regardless of lm parameter."""
     original_judge_model = "openai:/gpt-4"
     mock_judge = MockJudge(name="test_judge", model=original_judge_model)
 
@@ -363,8 +363,8 @@ def test_dspy_program_forward_always_uses_original_judge_model():
         # Should still use the original judge model, not the lm parameter
         assert make_judge_calls[0] == original_judge_model
 
-    # Verify instructions include the input fields section
-    assert "Inputs for assessment:" in captured_args["instructions"]
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in captured_args["instructions"]
 
 
 def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_with_assessments):
@@ -404,13 +404,13 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
         patch.object(TestOptimizer, "get_min_traces_required", return_value=5),
     ):
         optimizer.align(mock_judge, sample_traces_with_assessments)
-        # Instructions should contain the optimized text and input fields section
+        # Instructions should contain the optimized text
         assert optimized_instructions in captured_instructions
-        assert "Inputs for assessment:" in captured_instructions
+        # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+        assert "Inputs for assessment:" not in captured_instructions
 
 
 def test_align_includes_demos_in_judge_instructions(sample_traces_with_assessments):
-    """Test that optimizer demos are included in the final judge's instructions."""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
 
     class OptimizerWithDemos(ConcreteDSPyOptimizer):
@@ -468,7 +468,8 @@ def test_create_judge_from_optimized_program_uses_optimized_instructions():
     assert result.name == "test_judge"
     assert result.model == "openai:/gpt-4"
     assert "New optimized instructions" in result.instructions
-    assert "Inputs for assessment:" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_create_judge_from_optimized_program_with_empty_demos():

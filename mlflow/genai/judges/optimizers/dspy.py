@@ -116,7 +116,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         if demos:
             self._logger.info(f"Including {len(demos)} demos from optimization")
 
-        # Append input fields section to instructions
+        # Append input fields section to instructions (only if not already present)
         instructions = append_input_fields_section(optimized_instructions, original_judge)
 
         # Include demos as few-shot examples in the prompt

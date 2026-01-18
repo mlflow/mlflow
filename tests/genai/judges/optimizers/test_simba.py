@@ -41,9 +41,10 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions should include the optimized instructions and input fields section
+    # The judge instructions should include the optimized instructions
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
-    assert "Inputs for assessment:" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
