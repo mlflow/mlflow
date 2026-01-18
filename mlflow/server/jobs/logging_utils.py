@@ -57,4 +57,5 @@ def configure_job_consumer_logging() -> None:
     logging.getLogger("huey.consumer.Scheduler").addFilter(_filter)
 
     # Suppress alembic INFO logs
+    # (e.g., "Context impl SQLiteImpl", "Will assume non-transactional DDL")
     logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
