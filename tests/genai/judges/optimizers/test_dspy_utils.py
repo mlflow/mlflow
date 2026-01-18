@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, Mock, patch
 
+import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -310,8 +311,6 @@ def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
     ],
 )
 def test_construct_dspy_lm_utility_method(model, expected_type):
-    import dspy
-
     result = construct_dspy_lm(model)
 
     if expected_type == "AgentEvalLM":
@@ -347,123 +346,153 @@ def test_agent_eval_lm_uses_optimizer_session_name():
         )
 
 
-class TestAppendInputFieldsSection:
-    def test_append_input_fields_section_basic(self, mock_judge):
-        instructions = "Evaluate the response"
-        result = append_input_fields_section(instructions, mock_judge)
+def test_append_input_fields_section_basic(mock_judge):
+    instructions = "Evaluate the response"
+    result = append_input_fields_section(instructions, mock_judge)
 
-        assert "Inputs for assessment: inputs, outputs" in result
-        assert result.startswith("Evaluate the response")
-
-    def test_append_input_fields_section_preserves_original(self, mock_judge):
-        original = "Original instructions with {{inputs}} and {{outputs}}"
-        result = append_input_fields_section(original, mock_judge)
-
-        assert original in result
-        assert "Inputs for assessment:" in result
-
-    def test_append_input_fields_section_empty_fields(self):
-        class NoFieldsJudge(MockJudge):
-            def get_input_fields(self):
-                return []
-
-        judge = NoFieldsJudge(name="no_fields_judge")
-        instructions = "Some instructions"
-
-        result = append_input_fields_section(instructions, judge)
-
-        # Should return original instructions unchanged when no fields
-        assert result == instructions
-
-    def test_append_input_fields_section_single_field(self):
-        class SingleFieldJudge(MockJudge):
-            def get_input_fields(self):
-                return [JudgeField(name="query", description="The query")]
-
-        judge = SingleFieldJudge(name="single_field_judge")
-        instructions = "Evaluate the query"
-
-        result = append_input_fields_section(instructions, judge)
-
-        assert "Inputs for assessment: query" in result
-        assert ", " not in result.split("Inputs for assessment: ")[1]
+    assert "Inputs for assessment: inputs, outputs" in result
+    assert result.startswith("Evaluate the response")
 
 
-class TestFormatDemosAsExamples:
-    def test_format_demos_empty_list(self, mock_judge):
-        result = format_demos_as_examples([], mock_judge)
-        assert result == ""
+def test_append_input_fields_section_preserves_original(mock_judge):
+    original = "Original instructions with {{inputs}} and {{outputs}}"
+    result = append_input_fields_section(original, mock_judge)
 
-    def test_format_demos_single_demo(self, mock_judge):
-        import dspy
+    assert original in result
+    assert "Inputs for assessment:" in result
 
-        demo = dspy.Example(
-            inputs="What is 2+2?",
-            outputs="4",
-            result="pass",
-            rationale="Correct answer",
-        )
 
-        result = format_demos_as_examples([demo], mock_judge)
+def test_append_input_fields_section_empty_fields():
+    class NoFieldsJudge(MockJudge):
+        def get_input_fields(self):
+            return []
 
-        assert "Here are some examples of good assessments:" in result
-        assert "Example 1:" in result
-        assert "inputs: What is 2+2?" in result
-        assert "outputs: 4" in result
-        assert "result: pass" in result
-        assert "rationale: Correct answer" in result
+    judge = NoFieldsJudge(name="no_fields_judge")
+    instructions = "Some instructions"
 
-    def test_format_demos_multiple_demos(self, mock_judge):
-        import dspy
+    result = append_input_fields_section(instructions, judge)
 
-        demos = [
-            dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
-            dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
-        ]
+    # Should return original instructions unchanged when no fields
+    assert result == instructions
 
-        result = format_demos_as_examples(demos, mock_judge)
 
-        assert "Example 1:" in result
-        assert "Example 2:" in result
-        assert "inputs: Q1" in result
-        assert "inputs: Q2" in result
+def test_append_input_fields_section_single_field():
+    class SingleFieldJudge(MockJudge):
+        def get_input_fields(self):
+            return [JudgeField(name="query", description="The query")]
 
-    def test_format_demos_truncates_long_values(self, mock_judge):
-        import dspy
+    judge = SingleFieldJudge(name="single_field_judge")
+    instructions = "Evaluate the query"
 
-        long_input = "x" * 600  # Longer than 500 char limit
-        demo = dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test")
+    result = append_input_fields_section(instructions, judge)
 
-        result = format_demos_as_examples([demo], mock_judge)
+    assert "Inputs for assessment: query" in result
+    assert ", " not in result.split("Inputs for assessment: ")[1]
 
-        # Should truncate at 500 chars and add ...
-        assert "x" * 500 + "..." in result
-        assert long_input not in result
 
-    def test_format_demos_respects_judge_fields(self):
-        import dspy
+def test_format_demos_empty_list(mock_judge):
+    result = format_demos_as_examples([], mock_judge)
+    assert result == ""
 
-        class CustomFieldsJudge(MockJudge):
-            def get_input_fields(self):
-                return [
-                    JudgeField(name="query", description="The query"),
-                    JudgeField(name="context", description="The context"),
-                ]
 
-            def get_output_fields(self):
-                return [JudgeField(name="verdict", description="The verdict")]
+def test_format_demos_single_demo(mock_judge):
+    demo = dspy.Example(
+        inputs="What is 2+2?",
+        outputs="4",
+        result="pass",
+        rationale="Correct answer",
+    )
 
-        judge = CustomFieldsJudge(name="custom_judge")
-        demo = dspy.Example(
-            query="What is AI?",
-            context="AI is artificial intelligence",
-            verdict="pass",
-            extra_field="should not appear",  # Not in judge fields
-        )
+    result = format_demos_as_examples([demo], mock_judge)
 
-        result = format_demos_as_examples([demo], judge)
+    assert "Here are some examples of good assessments:" in result
+    assert "Example 1:" in result
+    assert "inputs: What is 2+2?" in result
+    assert "outputs: 4" in result
+    assert "result: pass" in result
+    assert "rationale: Correct answer" in result
 
-        assert "query: What is AI?" in result
-        assert "context: AI is artificial intelligence" in result
-        assert "verdict: pass" in result
-        assert "extra_field" not in result
+
+def test_format_demos_multiple_demos(mock_judge):
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+    ]
+
+    result = format_demos_as_examples(demos, mock_judge)
+
+    assert "Example 1:" in result
+    assert "Example 2:" in result
+    assert "inputs: Q1" in result
+    assert "inputs: Q2" in result
+
+
+def test_format_demos_truncates_long_values(mock_judge):
+    long_input = "x" * 600  # Longer than 500 char limit
+    demo = dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test")
+
+    result = format_demos_as_examples([demo], mock_judge)
+
+    # Should truncate at 500 chars and add ...
+    assert "x" * 500 + "..." in result
+    assert long_input not in result
+
+
+def test_format_demos_respects_judge_fields():
+    class CustomFieldsJudge(MockJudge):
+        def get_input_fields(self):
+            return [
+                JudgeField(name="query", description="The query"),
+                JudgeField(name="context", description="The context"),
+            ]
+
+        def get_output_fields(self):
+            return [JudgeField(name="verdict", description="The verdict")]
+
+    judge = CustomFieldsJudge(name="custom_judge")
+    demo = dspy.Example(
+        query="What is AI?",
+        context="AI is artificial intelligence",
+        verdict="pass",
+        extra_field="should not appear",  # Not in judge fields
+    )
+
+    result = format_demos_as_examples([demo], judge)
+
+    assert "query: What is AI?" in result
+    assert "context: AI is artificial intelligence" in result
+    assert "verdict: pass" in result
+    assert "extra_field" not in result
+
+
+def test_format_demos_handles_non_dict_demo(mock_judge):
+    class NonDictDemo:
+        pass
+
+    demo = NonDictDemo()
+    result = format_demos_as_examples([demo], mock_judge)
+
+    # Should return empty string when demo can't be converted to dict
+    assert result == ""
+
+
+def test_format_demos_handles_mixed_demos(mock_judge):
+    class NonDictDemo:
+        pass
+
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        NonDictDemo(),  # Invalid demo
+        dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+    ]
+
+    result = format_demos_as_examples(demos, mock_judge)
+
+    # Should include valid demos and skip invalid ones
+    assert "Example 1:" in result
+    assert "inputs: Q1" in result
+    # NonDictDemo at index 1 produces no output, so "Example 2:" is missing
+    assert "Example 2:" not in result
+    # Third demo (index 2) becomes "Example 3:"
+    assert "Example 3:" in result
+    assert "inputs: Q2" in result
