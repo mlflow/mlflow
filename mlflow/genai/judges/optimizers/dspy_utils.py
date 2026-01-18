@@ -544,7 +544,13 @@ def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
 
         # Access demo fields using dict-style access
         # (getattr conflicts with dspy.Example's built-in methods like inputs())
-        demo_dict = dict(demo) if hasattr(demo, "items") else {}
+        if not hasattr(demo, "items"):
+            raise MlflowException(
+                f"Demo at index {i} cannot be converted to dict. "
+                f"Expected dspy.Example, got {type(demo).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        demo_dict = dict(demo)
 
         # Format input fields
         for field in input_fields:

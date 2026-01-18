@@ -432,34 +432,14 @@ def test_format_demos_respects_judge_fields():
     assert "extra_field" not in result
 
 
-def test_format_demos_handles_non_dict_demo(mock_judge):
-    class NonDictDemo:
-        pass
-
-    demo = NonDictDemo()
-    result = format_demos_as_examples([demo], mock_judge)
-
-    # Should return empty string when demo can't be converted to dict
-    assert result == ""
-
-
-def test_format_demos_handles_mixed_demos(mock_judge):
+def test_format_demos_raises_on_invalid_demo(mock_judge):
     class NonDictDemo:
         pass
 
     demos = [
         dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
-        NonDictDemo(),  # Invalid demo
-        dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+        NonDictDemo(),  # Invalid demo - should raise exception
     ]
 
-    result = format_demos_as_examples(demos, mock_judge)
-
-    # Should include valid demos and skip invalid ones
-    assert "Example 1:" in result
-    assert "inputs: Q1" in result
-    # NonDictDemo at index 1 produces no output, so "Example 2:" is missing
-    assert "Example 2:" not in result
-    # Third demo (index 2) becomes "Example 3:"
-    assert "Example 3:" in result
-    assert "inputs: Q2" in result
+    with pytest.raises(MlflowException, match="Demo at index 1 cannot be converted to dict"):
+        format_demos_as_examples(demos, mock_judge)
