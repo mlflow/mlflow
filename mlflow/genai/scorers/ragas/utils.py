@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
-from ragas.messages import AIMessage, HumanMessage, ToolCall
-
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
@@ -18,6 +16,23 @@ from mlflow.genai.utils.trace_utils import (
     resolve_outputs_from_trace,
 )
 
+RAGAS_NOT_INSTALLED_ERROR_MESSAGE = (
+    "RAGAS metrics require the 'ragas' package. Please install it with: pip install ragas"
+)
+
+try:
+    from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
+    from ragas.messages import AIMessage, HumanMessage, ToolCall
+
+    _RAGAS_INSTALLED = True
+except ImportError:
+    _RAGAS_INSTALLED = False
+
+
+def _check_ragas_installed():
+    if not _RAGAS_INSTALLED:
+        raise MlflowException.invalid_parameter_value(RAGAS_NOT_INSTALLED_ERROR_MESSAGE)
+
 
 def map_scorer_inputs_to_ragas_sample(
     inputs: Any = None,
@@ -25,7 +40,7 @@ def map_scorer_inputs_to_ragas_sample(
     expectations: dict[str, Any] | None = None,
     trace: Trace | None = None,
     session: list[Trace] | None = None,
-    is_agentic: bool = False,
+    is_agentic_or_multiturn: bool = False,
 ):
     """
     Convert MLflow scorer inputs to RAGAS sample format.
@@ -39,13 +54,13 @@ def map_scorer_inputs_to_ragas_sample(
         expectations: Expected values and context for evaluation
         trace: MLflow trace for evaluation
         session: List of MLflow traces for multi-turn evaluation
-        is_agentic: Whether the metric is agentic
+        is_agentic_or_multiturn: Whether the metric is agentic or multiturn
 
     Returns:
         RAGAS SingleTurnSample or MultiTurnSample object
     """
 
-    if is_agentic:
+    if is_agentic_or_multiturn:
         return _create_multi_turn_sample(
             expectations=expectations,
             trace=trace,

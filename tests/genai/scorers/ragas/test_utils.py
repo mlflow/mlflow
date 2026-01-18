@@ -142,17 +142,19 @@ def test_create_mlflow_error_message_from_ragas_param(
 
 
 @pytest.mark.parametrize(
-    ("is_agentic", "expected_type"),
+    ("is_agentic_or_multiturn", "expected_type"),
     [
         (True, MultiTurnSample),
         (False, SingleTurnSample),
     ],
 )
-def test_map_scorer_inputs_sample_type_based_on_is_agentic(is_agentic, expected_type):
+def test_map_scorer_inputs_sample_type_based_on_is_agentic_or_multiturn(
+    is_agentic_or_multiturn, expected_type
+):
     sample = map_scorer_inputs_to_ragas_sample(
         inputs="What is the weather?",
         outputs="It's sunny today.",
-        is_agentic=is_agentic,
+        is_agentic_or_multiturn=is_agentic_or_multiturn,
     )
     assert isinstance(sample, expected_type)
 
@@ -184,7 +186,7 @@ def test_map_scorer_inputs_sample_type_based_on_is_agentic(is_agentic, expected_
 )
 def test_map_scorer_inputs_agentic_with_expectations(expectations, assertion_fn):
     sample = map_scorer_inputs_to_ragas_sample(
-        is_agentic=True,
+        is_agentic_or_multiturn=True,
         expectations=expectations,
     )
 

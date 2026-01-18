@@ -8,7 +8,7 @@ from mlflow.exceptions import MlflowException
 @dataclass(frozen=True)
 class MetricConfig:
     classpath: str
-    is_agentic: bool = False
+    is_agentic_or_multiturn: bool = False
     requires_embeddings: bool = False
     requires_llm_in_constructor: bool = True
     requires_llm_at_score_time: bool = False
@@ -38,22 +38,26 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "ContextRelevance": MetricConfig("ragas.metrics.collections.ContextRelevance"),
     "ResponseGroundedness": MetricConfig("ragas.metrics.collections.ResponseGroundedness"),
     # Agents or Tool Use Cases
-    "TopicAdherence": MetricConfig("ragas.metrics.collections.TopicAdherence", is_agentic=True),
+    "TopicAdherence": MetricConfig(
+        "ragas.metrics.collections.TopicAdherence", is_agentic_or_multiturn=True
+    ),
     "ToolCallAccuracy": MetricConfig(
         "ragas.metrics.collections.ToolCallAccuracy",
         requires_llm_in_constructor=False,
-        is_agentic=True,
+        is_agentic_or_multiturn=True,
     ),
     "ToolCallF1": MetricConfig(
         "ragas.metrics.collections.ToolCallF1",
         requires_llm_in_constructor=False,
-        is_agentic=True,
+        is_agentic_or_multiturn=True,
     ),
     "AgentGoalAccuracyWithReference": MetricConfig(
-        "ragas.metrics.collections.AgentGoalAccuracyWithReference", is_agentic=True
+        "ragas.metrics.collections.AgentGoalAccuracyWithReference",
+        is_agentic_or_multiturn=True,
     ),
     "AgentGoalAccuracyWithoutReference": MetricConfig(
-        "ragas.metrics.collections.AgentGoalAccuracyWithoutReference", is_agentic=True
+        "ragas.metrics.collections.AgentGoalAccuracyWithoutReference",
+        is_agentic_or_multiturn=True,
     ),
     # Natural Language Comparison
     "FactualCorrectness": MetricConfig("ragas.metrics.collections.FactualCorrectness"),
@@ -121,8 +125,8 @@ def get_metric_class(metric_name: str):
         ) from e
 
 
-def is_agentic_metric(metric_name: str) -> bool:
-    return _get_config(metric_name).is_agentic
+def is_agentic_or_multiturn_metric(metric_name: str) -> bool:
+    return _get_config(metric_name).is_agentic_or_multiturn
 
 
 def requires_llm_in_constructor(metric_name: str) -> bool:

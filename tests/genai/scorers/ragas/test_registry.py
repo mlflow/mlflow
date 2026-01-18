@@ -3,7 +3,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ragas.registry import (
     get_metric_class,
-    is_agentic_metric,
+    is_agentic_or_multiturn_metric,
     requires_embeddings,
     requires_llm_at_score_time,
     requires_llm_in_constructor,
@@ -33,8 +33,8 @@ def test_get_metric_class_raises_error_for_invalid_name():
         ("ContextPrecision", False),
     ],
 )
-def test_is_agentic_metric(metric_name, expected):
-    assert is_agentic_metric(metric_name) is expected
+def test_is_agentic_or_multiturn_metric(metric_name, expected):
+    assert is_agentic_or_multiturn_metric(metric_name) is expected
 
 
 @pytest.mark.parametrize(

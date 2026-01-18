@@ -41,7 +41,7 @@ from mlflow.genai.scorers.ragas.models import (
 )
 from mlflow.genai.scorers.ragas.registry import (
     get_metric_class,
-    is_agentic_metric,
+    is_agentic_or_multiturn_metric,
     requires_args_from_placeholders,
     requires_embeddings,
     requires_llm_at_score_time,
@@ -84,7 +84,7 @@ class RagasScorer(Scorer):
         if metric_name is None:
             metric_name = self.metric_name
 
-        self._validate_kwargs(metric_name, model)
+        self._validate_args(metric_name, model)
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
@@ -176,7 +176,7 @@ class RagasScorer(Scorer):
                 expectations=expectations,
                 trace=trace,
                 session=session,
-                is_agentic=is_agentic_metric(self.name),
+                is_agentic_or_multiturn=is_agentic_or_multiturn_metric(self.name),
             )
 
             result = self._evaluate(sample)
@@ -284,7 +284,7 @@ class RagasScorer(Scorer):
 
         return kwargs
 
-    def _validate_kwargs(self, metric_name: str | None, model: str | None):
+    def _validate_args(self, metric_name: str | None, model: str | None):
         metric_name = metric_name or self.metric_name
         if not requires_llm_in_constructor(metric_name) and model is not None:
             raise MlflowException.invalid_parameter_value(
