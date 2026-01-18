@@ -59,6 +59,36 @@ exclude = [
 ]
 ```
 
+## How to Add a New Rule
+
+1. **Create rule** in `dev/clint/src/clint/rules/your_rule.py`:
+
+```python
+from clint.rules.base import Rule
+
+
+class YourRule(Rule):
+    def _message(self) -> str:
+        return "Violation message"
+
+    @staticmethod
+    def check(file_content: str) -> bool:
+        return "bad_pattern" in file_content
+```
+
+2. **Call rule** in `dev/clint/src/clint/linter.py`:
+
+```python
+if rules.YourRule.check(src):
+    self._check(Range(Position(0, 0)), rules.YourRule())
+```
+
+3. **Import rule** in `dev/clint/src/clint/rules/__init__.py` and add to `__all__`.
+
+4. **Add test** in `dev/clint/tests/rules/test_your_rule.py` (see existing tests for examples).
+
+5. **Run**: `pytest dev/clint/tests/rules/test_your_rule.py`
+
 ## Testing
 
 ```bash
