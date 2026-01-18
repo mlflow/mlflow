@@ -131,11 +131,12 @@ def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, mo
 
 
 def test_calculate_time_window_with_custom_buffer(checkpoint_manager, mock_store, monkeypatch):
+    # Empty tags simulates no existing checkpoint
     experiment = MagicMock()
     experiment.tags = {}
     mock_store.get_experiment.return_value = experiment
     fixed_time = 1000000
-    custom_buffer_seconds = 60  # 1 minute
+    custom_buffer_seconds = 60
     monkeypatch.setattr(time, "time", lambda: fixed_time)
     monkeypatch.setenv(
         "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS",
@@ -153,6 +154,7 @@ def test_calculate_time_window_with_custom_buffer(checkpoint_manager, mock_store
 def test_calculate_time_window_with_negative_buffer_defaults_to_zero(
     checkpoint_manager, mock_store, monkeypatch
 ):
+    # Empty tags simulates no existing checkpoint
     experiment = MagicMock()
     experiment.tags = {}
     mock_store.get_experiment.return_value = experiment
