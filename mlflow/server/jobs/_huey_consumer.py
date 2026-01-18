@@ -24,7 +24,7 @@ from mlflow.server.jobs.utils import (
     _get_or_init_huey_instance,
 )
 
-# Configure Python logging to suppress noisy online scoring logs
+# Configure Python logging to suppress noisy job logs
 configure_job_consumer_logging()
 
 # ensure the subprocess is killed when parent process dies.

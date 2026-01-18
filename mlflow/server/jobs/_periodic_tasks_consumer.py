@@ -15,8 +15,7 @@ from mlflow.server.jobs.utils import (
     register_periodic_tasks,
 )
 
-# Configure Python logging to suppress noisy online scoring logs
-# (e.g., huey "Executing online_scoring_scheduler" logs, alembic "Context impl SQLiteImpl" logs)
+# Configure Python logging to suppress noisy job logs
 configure_job_consumer_logging()
 
 # Ensure the subprocess is killed when parent process dies.
