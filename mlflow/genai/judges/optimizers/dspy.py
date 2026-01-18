@@ -113,6 +113,9 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         optimized_instructions = optimized_program.signature.instructions
         demos = getattr(optimized_program, "demos", [])
 
+        if demos:
+            self._logger.info(f"Including {len(demos)} demos from optimization")
+
         # Append input fields section to instructions
         instructions = append_input_fields_section(optimized_instructions, original_judge)
 
@@ -144,15 +147,18 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 self._original_judge: Judge = original_judge
 
             def forward(self, *args, **kwargs):
-                # Pop DSPy-specific kwargs to prevent passing unknown arguments to the judge
-                kwargs.pop("lm", None)
+                # Extract _trace before filtering (DSPy convention for disabling trace)
                 should_trace = kwargs.pop("_trace", True)
+
+                # Filter kwargs to only include the judge's input fields
+                input_field_names = {f.name for f in self._original_judge.get_input_fields()}
+                judge_kwargs = {k: v for k, v in kwargs.items() if k in input_field_names}
 
                 created_judge: Judge = outer_self._create_judge_from_optimized_program(
                     optimized_program=self,
                     original_judge=self._original_judge,
                 )
-                feedback: Feedback = created_judge(**kwargs)
+                feedback: Feedback = created_judge(**judge_kwargs)
 
                 pred = dspy.Prediction(
                     result=feedback.value,
@@ -251,10 +257,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                         "Predict instance from _dspy_optimize().",
                         error_code=INTERNAL_ERROR,
                     )
-
-                # Create optimized judge from the optimized program
-                if demos := getattr(optimized_program, "demos", []):
-                    self._logger.info(f"Including {len(demos)} demos from optimization")
 
                 return self._create_judge_from_optimized_program(
                     optimized_program=optimized_program,
