@@ -42,12 +42,12 @@ class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
 
     def _dspy_optimize(
         self,
-        program: "dspy.Module",
+        program: "dspy.Predict",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
-    ) -> "dspy.Module":
-        mock_program = Mock()
-        mock_program.signature = Mock()
+    ) -> "dspy.Predict":
+        # Create a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
         mock_program.signature.instructions = (
             "Optimized instructions with {{inputs}} and {{outputs}}"
         )
@@ -84,6 +84,8 @@ def test_align_success(sample_traces_with_assessments):
     assert result is not None
     assert result.model == mock_judge.model
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    # When input fields are already in instructions, we don't append the fields section
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_align_no_traces(mock_judge):
@@ -264,8 +266,8 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         suppression_state_during_call["set_verbose"] = litellm.set_verbose
         suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
 
-        mock_program = Mock()
-        mock_program.signature = Mock()
+        # Create a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
         mock_program.signature.instructions = "Optimized instructions"
         return mock_program
 
@@ -292,7 +294,10 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
 
     def check_context(*args, **kwargs):
         assert isinstance(dspy.settings["lm"], AgentEvalLM)
-        return MagicMock()
+        # Return a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
 
     with (
         patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
@@ -309,7 +314,10 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
     def check_context(*args, **kwargs):
         assert isinstance(dspy.settings["lm"], dspy.LM)
         assert dspy.settings["lm"].model == "openai/gpt-4.1"
-        return MagicMock()
+        # Return a real dspy.Predict so it passes isinstance check
+        mock_program = dspy.Predict("inputs, outputs -> result, rationale")
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
 
     with (
         patch(
@@ -322,15 +330,7 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
         optimizer.align(mock_judge, sample_traces_with_assessments)
 
 
-@pytest.mark.parametrize(
-    ("lm_value", "lm_model", "expected_judge_model"),
-    [
-        (None, None, "openai:/gpt-4"),
-        ("mock_lm", "anthropic/claude-3", "anthropic:/claude-3"),
-        ("mock_lm", "databricks", "databricks"),
-    ],
-)
-def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected_judge_model):
+def test_dspy_program_forward_always_uses_original_judge_model():
     original_judge_model = "openai:/gpt-4"
     mock_judge = MockJudge(name="test_judge", model=original_judge_model)
 
@@ -349,20 +349,22 @@ def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected
         mock_feedback.rationale = "Test"
         return MagicMock(return_value=mock_feedback)
 
+    # Test with no lm parameter
     with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=track_make_judge):
-        kwargs = {"inputs": "test", "outputs": "test"}
-        if lm_value == "mock_lm":
-            mock_lm = MagicMock()
-            mock_lm.model = lm_model
-            kwargs["lm"] = mock_lm
+        program.forward(inputs="test", outputs="test")
+        assert make_judge_calls[0] == original_judge_model
 
-        program.forward(**kwargs)
+    # Test with lm parameter (should still use original judge model)
+    make_judge_calls.clear()
+    with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=track_make_judge):
+        mock_lm = MagicMock()
+        mock_lm.model = "anthropic/claude-3"
+        program.forward(inputs="test", outputs="test", lm=mock_lm)
+        # Should still use the original judge model, not the lm parameter
+        assert make_judge_calls[0] == original_judge_model
 
-        assert len(make_judge_calls) == 1
-        assert make_judge_calls[0] == expected_judge_model
-        # Verify instructions from judge are passed through
-        assert captured_args["name"] == "test_judge"
-        assert captured_args["instructions"] == mock_judge.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in captured_args["instructions"]
 
 
 def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_with_assessments):
@@ -402,4 +404,112 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
         patch.object(TestOptimizer, "get_min_traces_required", return_value=5),
     ):
         optimizer.align(mock_judge, sample_traces_with_assessments)
-        assert captured_instructions == optimized_instructions
+        # Instructions should contain the optimized text
+        assert optimized_instructions in captured_instructions
+        # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+        assert "Inputs for assessment:" not in captured_instructions
+
+
+def test_align_includes_demos_in_judge_instructions(sample_traces_with_assessments):
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+
+    class OptimizerWithDemos(ConcreteDSPyOptimizer):
+        def _dspy_optimize(self, program, examples, metric_fn):
+            # Create a program with demos (like SIMBA produces)
+            optimized = dspy.Predict("inputs, outputs -> result, rationale")
+            # Instructions must contain template variables for make_judge validation
+            optimized.signature.instructions = (
+                "Optimized instructions for evaluating {{inputs}} and {{outputs}}"
+            )
+            # SIMBA adds demos to the program
+            optimized.demos = [
+                dspy.Example(
+                    inputs="Example question",
+                    outputs="Example answer",
+                    result="pass",
+                    rationale="Good answer",
+                ),
+                dspy.Example(
+                    inputs="Another question",
+                    outputs="Another answer",
+                    result="fail",
+                    rationale="Poor answer",
+                ),
+            ]
+            return optimized
+
+    optimizer = OptimizerWithDemos()
+    with (
+        patch("dspy.LM", MagicMock()),
+        patch.object(OptimizerWithDemos, "get_min_traces_required", return_value=5),
+    ):
+        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+
+    # Verify demos are included in the judge instructions
+    assert "Here are some examples of good assessments:" in result.instructions
+    assert "Example 1:" in result.instructions
+    assert "Example question" in result.instructions
+    assert "Example answer" in result.instructions
+    assert "pass" in result.instructions
+    assert "Good answer" in result.instructions
+    assert "Example 2:" in result.instructions
+    assert "Another question" in result.instructions
+
+
+def test_create_judge_from_optimized_program_uses_optimized_instructions():
+    optimizer = ConcreteDSPyOptimizer()
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "New optimized instructions for {{inputs}} and {{outputs}}"
+
+    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+
+    assert result.name == "test_judge"
+    assert result.model == "openai:/gpt-4"
+    assert "New optimized instructions" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
+
+
+def test_create_judge_from_optimized_program_with_empty_demos():
+    optimizer = ConcreteDSPyOptimizer()
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "Instructions for {{inputs}} and {{outputs}}"
+
+    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+
+    assert "Here are some examples" not in result.instructions
+    assert "Instructions for {{inputs}}" in result.instructions
+
+
+def test_create_judge_from_optimized_program_with_demos():
+    optimizer = ConcreteDSPyOptimizer()
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "Judge the {{inputs}} and {{outputs}}"
+    program.demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+    ]
+
+    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+
+    assert "Here are some examples of good assessments:" in result.instructions
+    assert "Example 1:" in result.instructions
+    assert "inputs: Q1" in result.instructions
+
+
+def test_create_judge_from_optimized_program_preserves_feedback_value_type():
+    optimizer = ConcreteDSPyOptimizer()
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
+    mock_judge._feedback_value_type = bool
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "Check {{inputs}} vs {{outputs}}"
+
+    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+
+    assert getattr(result, "_feedback_value_type", None) == bool
