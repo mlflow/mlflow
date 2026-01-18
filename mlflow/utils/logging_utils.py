@@ -9,6 +9,7 @@ from mlflow.utils.thread_utils import ThreadLocalVariable
 
 
 def get_mlflow_log_level() -> str:
+    """Returns the configured MLflow log level, defaulting to INFO."""
     return (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
 
 
