@@ -1556,8 +1556,6 @@ def test_scorer_call_online_scoring_callsite(
         },
     )
 
-    mock_requests.clear()
-
 
 def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client: TelemetryClient):
     error_judge = make_judge(
