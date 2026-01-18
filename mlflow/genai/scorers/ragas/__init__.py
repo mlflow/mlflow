@@ -321,3 +321,18 @@ __all__ = [
     # Other tasks
     "SummarizationScore",
 ]
+
+# Healthcare Scorers
+from mlflow.genai.scorers.ragas.scorers.healthcare import (
+    ClinicalAccuracy,
+    HIPAACompliance,
+    SourceAttribution,
+    MedicalTerminologyConsistency,
+)
+
+__all__.extend([
+    "ClinicalAccuracy",
+    "HIPAACompliance",
+    "SourceAttribution",
+    "MedicalTerminologyConsistency",
+])

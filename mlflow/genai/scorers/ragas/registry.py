@@ -5,67 +5,41 @@ from mlflow.exceptions import MlflowException
 # (classpath, is_deterministic)
 _METRIC_REGISTRY = {
     # Retrieval Augmented Generation
-    "ContextPrecision": ("ragas.metrics.collections.ContextPrecision", False),
+    "ContextPrecision": ("ragas.metrics.ContextPrecision", False),
     "NonLLMContextPrecisionWithReference": (
         "ragas.metrics.NonLLMContextPrecisionWithReference",
         True,
     ),
-    "ContextRecall": ("ragas.metrics.collections.ContextRecall", False),
+    "ContextRecall": ("ragas.metrics.ContextRecall", False),
     "NonLLMContextRecall": ("ragas.metrics.NonLLMContextRecall", True),
-    "ContextEntityRecall": ("ragas.metrics.collections.ContextEntityRecall", False),
-    "NoiseSensitivity": ("ragas.metrics.collections.NoiseSensitivity", False),
+    "ContextEntityRecall": ("ragas.metrics.ContextEntityRecall", False),
+    "NoiseSensitivity": ("ragas.metrics.NoiseSensitivity", False),
     # TODO: ResponseRelevancy requires embeddings model instead of LLM
     # "ResponseRelevancy": ("ragas.metrics.ResponseRelevancy", False),
-    "Faithfulness": ("ragas.metrics.collections.Faithfulness", False),
-    # TODO: Nvidia Metrics not yet supported
-    # "AnswerAccuracy": ("ragas.metrics.AnswerAccuracy", False),
-    # "ContextRelevance": ("ragas.metrics.ContextRelevance", False),
-    # "ResponseGroundedness": ("ragas.metrics.ResponseGroundedness", False),
-    # TODO: Agents or Tool Use Cases metrics not yet supported
-    # "TopicAdherence": ("ragas.metrics.TopicAdherence", False),
-    # "ToolCallAccuracy": ("ragas.metrics.ToolCallAccuracy", False),
-    # "ToolCallF1": ("ragas.metrics.ToolCallF1", False),
-    # "AgentGoalAccuracy": ("ragas.metrics.AgentGoalAccuracy", False),
-    # Natural Language Comparison
-    "FactualCorrectness": ("ragas.metrics.collections.FactualCorrectness", False),
-    # TODO: SemanticSimilarity requires embeddings model instead of LLM
-    # "SemanticSimilarity": ("ragas.metrics.SemanticSimilarity", False),
-    "NonLLMStringSimilarity": (
-        "ragas.metrics.collections.NonLLMStringSimilarity",
-        True,
-    ),
-    "BleuScore": ("ragas.metrics.collections.BleuScore", True),
-    "CHRFScore": ("ragas.metrics.collections.CHRFScore", True),
-    "RougeScore": ("ragas.metrics.collections.RougeScore", True),
-    "StringPresence": ("ragas.metrics.collections.StringPresence", True),
-    "ExactMatch": ("ragas.metrics.collections.ExactMatch", True),
-    # TODO: SQL metrics not yet supported
-    # "DatacompyScore": ("ragas.metrics.DatacompyScore", False),
-    # "SQLSemanticEquivalence": ("ragas.metrics.SQLSemanticEquivalence", False),
-    # General Purpose
+    "Faithfulness": ("ragas.metrics.Faithfulness", False),
+    "FactualCorrectness": ("ragas.metrics.FactualCorrectness", False),
+    "NonLLMStringSimilarity": ("ragas.metrics.NonLLMStringSimilarity", True),
+    "BleuScore": ("ragas.metrics.BleuScore", True),
+    "ChrfScore": ("ragas.metrics.ChrfScore", True),
+    "RougeScore": ("ragas.metrics.RougeScore", True),
+    "StringPresence": ("ragas.metrics.StringPresence", True),
+    "ExactMatch": ("ragas.metrics.ExactMatch", True),
     "AspectCritic": ("ragas.metrics.AspectCritic", False),
-    # TODO: DiscreteMetric not yet supported
-    # "DiscreteMetric": ("ragas.metrics.DiscreteMetric", False),
     "RubricsScore": ("ragas.metrics.RubricsScore", False),
     "InstanceRubrics": ("ragas.metrics.InstanceRubrics", False),
-    # Other Tasks
     "SummarizationScore": ("ragas.metrics.SummarizationScore", False),
+    # Healthcare
+    "ClinicalAccuracy": ("mlflow.genai.scorers.ragas.healthcare_metrics.ClinicalAccuracy", False),
+    "HIPAACompliance": ("mlflow.genai.scorers.ragas.healthcare_metrics.HIPAACompliance", False),
+    "SourceAttribution": ("mlflow.genai.scorers.ragas.healthcare_metrics.SourceAttribution", False),
+    "MedicalTerminologyConsistency": (
+        "mlflow.genai.scorers.ragas.healthcare_metrics.MedicalTerminologyConsistency",
+        False,
+    ),
 }
 
 
 def get_metric_class(metric_name: str):
-    """
-    Get RAGAS metric class by name.
-
-    Args:
-        metric_name: Name of the metric (e.g., "Faithfulness", "ContextPrecision")
-
-    Returns:
-        The RAGAS metric class
-
-    Raises:
-        MlflowException: If the metric name is not recognized or ragas is not installed
-    """
     if metric_name not in _METRIC_REGISTRY:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
         raise MlflowException.invalid_parameter_value(
