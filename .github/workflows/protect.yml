@@ -26,7 +26,7 @@ jobs:
   protect:
     # Skip this job in a merge queue
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 120
     permissions:
       checks: read # to read check statuses
