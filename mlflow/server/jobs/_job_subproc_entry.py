@@ -8,15 +8,13 @@ the job is executed as a subprocess.
 
 import importlib
 import json
-import logging
 import os
 import threading
 
+from mlflow.server.jobs.logging_utils import configure_alembic_logging
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
-# Suppress noisy alembic INFO logs in job subprocesses
-# (e.g., "Context impl SQLiteImpl", "Will assume non-transactional DDL")
-logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
+configure_alembic_logging()
 
 if __name__ == "__main__":
     # ensure the subprocess is killed when parent process dies.
