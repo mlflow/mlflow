@@ -17,7 +17,7 @@ try:
     import dspy
 except ImportError:
     raise MlflowException(
-        "DSPy library is required but not installed. Please install it with: pip install dspy",
+        "DSPy library is required but not installed. Please install it with: `pip install dspy`",
         error_code=INTERNAL_ERROR,
     )
 
@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.8.0")
-class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
+class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
     GEPA (Genetic-Pareto) alignment optimizer for judges.
 
@@ -57,7 +57,7 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
 
             import mlflow
             from mlflow.genai.judges import make_judge
-            from mlflow.genai.judges.optimizers import GePaAlignmentOptimizer
+            from mlflow.genai.judges.optimizers import GEPAAlignmentOptimizer
 
             # Create a judge
             judge = make_judge(
@@ -70,7 +70,7 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
             traces = mlflow.search_traces()
 
             # Optimize the judge instructions
-            optimizer = GePaAlignmentOptimizer(
+            optimizer = GEPAAlignmentOptimizer(
                 model="openai:/gpt-4o",
                 max_metric_calls=50,
             )

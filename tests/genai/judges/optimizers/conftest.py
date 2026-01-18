@@ -40,6 +40,11 @@ class MockJudge(Judge):
         """Get the model for this judge."""
         return self._model
 
+    @property
+    def feedback_value_type(self) -> Any:
+        """Get the type of the feedback value."""
+        return str
+
     def __call__(self, inputs, outputs, expectations=None, trace=None):
         # Simple mock implementation
         return "pass" if "good" in str(outputs).lower() else "fail"

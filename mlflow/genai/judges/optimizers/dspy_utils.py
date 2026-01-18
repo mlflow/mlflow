@@ -13,7 +13,10 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.base import Judge
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL, USE_CASE_JUDGE_ALIGNMENT
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
+    USE_CASE_JUDGE_ALIGNMENT,
+)
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -235,7 +238,10 @@ class AgentEvalLM(dspy.BaseLM):
         pass
 
     def forward(
-        self, prompt: str | None = None, messages: list[dict[str, Any]] | None = None, **kwargs
+        self,
+        prompt: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        **kwargs,
     ) -> AttrDict[str, Any]:
         """Forward pass for the language model."""
         user_prompt = None
@@ -277,8 +283,9 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     """
     try:
         scheme, path = _parse_model_uri(model_uri)
-        # For Databricks endpoints (endpoints:/ or databricks:/), use databricks/{endpoint-name}
-        # LiteLLM will route to: /serving-endpoints/{endpoint-name}/invocations
+        # MLflow's "endpoints:/my-endpoint" is a Databricks serving endpoint URI.
+        # LiteLLM expects "databricks/{endpoint-name}" for Databricks endpoints,
+        # so we normalize both "endpoints" and "databricks" schemes to "databricks".
         if scheme in ("endpoints", "databricks"):
             return f"databricks/{path}"
         return f"{scheme}/{path}"

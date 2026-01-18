@@ -24,21 +24,22 @@ def test_dspy_optimize_no_dspy():
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
     mock_simba.compile.return_value = mock_compiled_program
 
-    with patch("dspy.SIMBA", MagicMock()) as mock_simba_class, patch("dspy.LM", MagicMock()):
+    with (
+        patch("dspy.SIMBA", MagicMock()) as mock_simba_class,
+        patch("dspy.LM", MagicMock()),
+    ):
         mock_simba_class.return_value = mock_simba
         optimizer = SIMBAAlignmentOptimizer()
         # Mock get_min_traces_required to work with 5 traces from fixture
         with patch.object(SIMBAAlignmentOptimizer, "get_min_traces_required", return_value=5):
             result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-    # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
     # The judge instructions should include the optimized instructions
@@ -49,7 +50,6 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
 
 def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
@@ -92,7 +92,6 @@ def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
 
 def test_default_parameters_not_passed(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"

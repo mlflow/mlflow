@@ -98,8 +98,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         import dspy
 
         with suppress_verbose_logging("dspy.teleprompt.simba"):
-            # Build SIMBA optimizer kwargs starting with required parameters
-            # If metric is in simba_kwargs, it will override the default metric_fn
             optimizer_kwargs = {
                 "metric": metric_fn,
                 "bsize": self._get_batch_size(),
@@ -113,7 +111,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
                 f"(set logging to DEBUG for detailed output)"
             )
 
-            # Compile with SIMBA-specific parameters
             result = optimizer.compile(
                 student=program,
                 trainset=examples,

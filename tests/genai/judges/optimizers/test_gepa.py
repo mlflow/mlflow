@@ -5,7 +5,7 @@ import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.optimizers import GePaAlignmentOptimizer
+from mlflow.genai.judges.optimizers import GEPAAlignmentOptimizer
 
 from tests.genai.judges.optimizers.conftest import create_mock_judge_invocator
 
@@ -26,7 +26,6 @@ def test_dspy_optimize_no_dspy():
 
 def test_alignment_results(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
@@ -38,12 +37,11 @@ def test_alignment_results(mock_judge, sample_traces_with_assessments):
         patch("dspy.LM", MagicMock()),
     ):
         mock_gepa_class.return_value = mock_gepa
-        optimizer = GePaAlignmentOptimizer()
+        optimizer = GEPAAlignmentOptimizer()
         # Mock get_min_traces_required to work with 5 traces from fixture
-        with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
             result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-    # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
     # The judge instructions should include the optimized instructions
@@ -54,7 +52,6 @@ def test_alignment_results(mock_judge, sample_traces_with_assessments):
 
 def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
@@ -64,9 +61,12 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
     def custom_metric(example, pred, trace=None):
         return True
 
-    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with (
+        patch("dspy.GEPA", create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
         mock_gepa_class.return_value = mock_gepa
-        optimizer = GePaAlignmentOptimizer(
+        optimizer = GEPAAlignmentOptimizer(
             max_metric_calls=50,
             gepa_kwargs={
                 "metric": custom_metric,
@@ -74,7 +74,7 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
                 "num_threads": 4,
             },
         )
-        with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
             optimizer.align(mock_judge, sample_traces_with_assessments)
 
         # Verify GEPA was initialized with custom parameters
@@ -88,17 +88,19 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
 
 def test_default_parameters(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
-    # Create a real dspy.Predict so it passes isinstance check
     mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
     mock_gepa.compile.return_value = mock_compiled_program
 
-    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with (
+        patch("dspy.GEPA", create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
         mock_gepa_class.return_value = mock_gepa
-        optimizer = GePaAlignmentOptimizer()
-        with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
+        optimizer = GEPAAlignmentOptimizer()
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
             optimizer.align(mock_judge, sample_traces_with_assessments)
 
         # Verify only required parameters are passed with defaults
@@ -139,7 +141,7 @@ def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
     # Create optimizer with minimal budget for fast test
     # Note: Using max_metric_calls=10 to give GEPA enough budget to actually
     # run optimization iterations and modify instructions
-    optimizer = GePaAlignmentOptimizer(
+    optimizer = GEPAAlignmentOptimizer(
         model="openai:/gpt-4o-mini",
         max_metric_calls=10,
     )
@@ -153,7 +155,7 @@ def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
             side_effect=mock_invoke_judge_model,
         ) as mock_invoke,
         patch.object(
-            GePaAlignmentOptimizer, "get_min_traces_required", return_value=5
+            GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5
         ) as mock_min_traces,
     ):
         result = optimizer.align(mock_judge, sample_traces_with_assessments)

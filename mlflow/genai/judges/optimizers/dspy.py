@@ -111,28 +111,24 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             A new Judge instance with processed instructions and demos included
         """
         optimized_instructions = optimized_program.signature.instructions
-        demos = getattr(optimized_program, "demos", [])
 
-        if demos:
-            self._logger.info(f"Including {len(demos)} demos from optimization")
-
-        # Append input fields section to instructions (only if not already present)
         instructions = append_input_fields_section(optimized_instructions, original_judge)
 
-        # Include demos as few-shot examples in the prompt
+        demos = getattr(optimized_program, "demos", [])
         if demos_text := format_demos_as_examples(demos, original_judge):
             instructions = demos_text + "\n\n" + instructions
+            self._logger.info(f"Including {len(demos)} demos from optimization")
 
         return make_judge(
             name=original_judge.name,
             instructions=instructions,
             model=original_judge.model,
-            feedback_value_type=getattr(original_judge, "_feedback_value_type", str),
+            feedback_value_type=original_judge.feedback_value_type,
         )
 
     def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
         """Convert a judge into a DSPy Predict module."""
-        outer_self = self
+        create_judge_from_optimized_program = self._create_judge_from_optimized_program
 
         class CustomPredict(dspy.Predict):
             """
@@ -154,7 +150,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 input_field_names = {f.name for f in self._original_judge.get_input_fields()}
                 judge_kwargs = {k: v for k, v in kwargs.items() if k in input_field_names}
 
-                created_judge: Judge = outer_self._create_judge_from_optimized_program(
+                created_judge: Judge = create_judge_from_optimized_program(
                     optimized_program=self,
                     original_judge=self._original_judge,
                 )
