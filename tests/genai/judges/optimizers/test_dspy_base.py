@@ -407,3 +407,50 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
         # Instructions should contain the optimized text and input fields section
         assert optimized_instructions in captured_instructions
         assert "Inputs for assessment:" in captured_instructions
+
+
+def test_align_includes_demos_in_judge_instructions(sample_traces_with_assessments):
+    """Test that optimizer demos are included in the final judge's instructions."""
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+
+    class OptimizerWithDemos(ConcreteDSPyOptimizer):
+        def _dspy_optimize(self, program, examples, metric_fn):
+            # Create a program with demos (like SIMBA produces)
+            optimized = dspy.Predict("inputs, outputs -> result, rationale")
+            # Instructions must contain template variables for make_judge validation
+            optimized.signature.instructions = (
+                "Optimized instructions for evaluating {{inputs}} and {{outputs}}"
+            )
+            # SIMBA adds demos to the program
+            optimized.demos = [
+                dspy.Example(
+                    inputs="Example question",
+                    outputs="Example answer",
+                    result="pass",
+                    rationale="Good answer",
+                ),
+                dspy.Example(
+                    inputs="Another question",
+                    outputs="Another answer",
+                    result="fail",
+                    rationale="Poor answer",
+                ),
+            ]
+            return optimized
+
+    optimizer = OptimizerWithDemos()
+    with (
+        patch("dspy.LM", MagicMock()),
+        patch.object(OptimizerWithDemos, "get_min_traces_required", return_value=5),
+    ):
+        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+
+    # Verify demos are included in the judge instructions
+    assert "Here are some examples of good assessments:" in result.instructions
+    assert "Example 1:" in result.instructions
+    assert "Example question" in result.instructions
+    assert "Example answer" in result.instructions
+    assert "pass" in result.instructions
+    assert "Good answer" in result.instructions
+    assert "Example 2:" in result.instructions
+    assert "Another question" in result.instructions

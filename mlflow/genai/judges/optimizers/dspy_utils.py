@@ -1,6 +1,7 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Optional
 
@@ -117,8 +118,7 @@ def construct_dspy_lm(model: str):
         return AgentEvalLM()
     else:
         model_litellm = convert_mlflow_uri_to_litellm(model)
-        api_base = _get_api_base_for_model(model)
-        if api_base:
+        if api_base := _get_api_base_for_model(model):
             return dspy.LM(model=model_litellm, api_base=api_base)
         return dspy.LM(model=model_litellm)
 
@@ -144,8 +144,6 @@ def _get_api_base_for_model(model: str) -> str | None:
         scheme, _ = _parse_model_uri(model)
         if scheme in ("endpoints", "databricks"):
             # Get Databricks host from environment or SDK
-            import os
-
             host = os.environ.get("DATABRICKS_API_BASE")
             if not host:
                 try:
@@ -493,3 +491,79 @@ def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = Non
     except Exception as e:
         _logger.warning(f"Error in agreement_metric: {e}")
         return False
+
+
+def append_input_fields_section(instructions: str, judge: "Judge") -> str:
+    """
+    Append a section listing the input fields for assessment to the instructions.
+
+    DSPy optimizers may modify instructions during optimization. This function
+    ensures that the input field names are clearly documented at the end of
+    the instructions.
+
+    Args:
+        instructions: The optimized instructions
+        judge: The original judge (to get field names)
+
+    Returns:
+        Instructions with input fields section appended
+    """
+    input_fields = judge.get_input_fields()
+    field_names = [f.name for f in input_fields]
+
+    if not field_names:
+        return instructions
+
+    fields_list = ", ".join(field_names)
+    return f"{instructions}\n\nInputs for assessment: {fields_list}"
+
+
+def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
+    """Format demos as few-shot examples to include in judge instructions.
+
+    SIMBA optimization adds successful examples to program.demos. This function
+    converts them to a text format suitable for inclusion in the judge prompt.
+
+    Args:
+        demos: List of dspy.Example objects containing successful judge evaluations
+        judge: The original judge (to get field names)
+
+    Returns:
+        Formatted text with examples, or empty string if no valid demos
+    """
+    if not demos:
+        return ""
+
+    # Get field names from the judge
+    input_fields = [f.name for f in judge.get_input_fields()]
+    output_fields = [f.name for f in judge.get_output_fields()]
+
+    examples_text = []
+    for i, demo in enumerate(demos):
+        example_parts = []
+
+        # Access demo fields using dict-style access
+        # (getattr conflicts with dspy.Example's built-in methods like inputs())
+        demo_dict = dict(demo) if hasattr(demo, "items") else {}
+
+        # Format input fields
+        for field in input_fields:
+            if field in demo_dict:
+                value = demo_dict[field]
+                # Truncate long values
+                if isinstance(value, str) and len(value) > 500:
+                    value = value[:500] + "..."
+                example_parts.append(f"{field}: {value}")
+
+        # Format output fields
+        for field in output_fields:
+            if field in demo_dict:
+                value = demo_dict[field]
+                example_parts.append(f"{field}: {value}")
+
+        if example_parts:
+            examples_text.append(f"Example {i + 1}:\n" + "\n".join(example_parts))
+
+    if examples_text:
+        return "Here are some examples of good assessments:\n\n" + "\n\n".join(examples_text)
+    return ""

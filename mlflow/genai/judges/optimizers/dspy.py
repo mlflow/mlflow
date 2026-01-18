@@ -12,8 +12,10 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     agreement_metric,
+    append_input_fields_section,
     construct_dspy_lm,
     create_dspy_signature,
+    format_demos_as_examples,
     trace_to_dspy_example,
 )
 from mlflow.genai.judges.utils import (
@@ -27,117 +29,6 @@ _check_dspy_installed()
 import dspy
 
 _logger = logging.getLogger(__name__)
-
-
-def _append_input_fields_section(instructions: str, judge: Judge) -> str:
-    """
-    Append a section listing the input fields for assessment to the instructions.
-
-    DSPy optimizers may modify instructions during optimization. This function
-    ensures that the input field names are clearly documented at the end of
-    the instructions.
-
-    Args:
-        instructions: The optimized instructions
-        judge: The original judge (to get field names)
-
-    Returns:
-        Instructions with input fields section appended
-    """
-    input_fields = judge.get_input_fields()
-    field_names = [f.name for f in input_fields]
-
-    if not field_names:
-        return instructions
-
-    fields_list = ", ".join(field_names)
-    return f"{instructions}\n\nInputs for assessment: {fields_list}"
-
-
-def _format_demos_as_examples(demos: list, judge: Judge) -> str:
-    """Format demos as few-shot examples to include in judge instructions.
-
-    SIMBA optimization adds successful examples to program.demos. This function
-    converts them to a text format suitable for inclusion in the judge prompt.
-
-    Args:
-        demos: List of dspy.Example objects containing successful judge evaluations
-        judge: The original judge (to get field names)
-
-    Returns:
-        Formatted text with examples, or empty string if no valid demos
-    """
-    if not demos:
-        return ""
-
-    # Get field names from the judge
-    input_fields = [f.name for f in judge.get_input_fields()]
-    output_fields = [f.name for f in judge.get_output_fields()]
-
-    examples_text = []
-    for i, demo in enumerate(demos):
-        example_parts = []
-
-        # Access demo fields using dict-style access
-        # (getattr conflicts with dspy.Example's built-in methods like inputs())
-        demo_dict = dict(demo) if hasattr(demo, "items") else {}
-
-        # Format input fields
-        for field in input_fields:
-            if field in demo_dict:
-                value = demo_dict[field]
-                # Truncate long values
-                if isinstance(value, str) and len(value) > 500:
-                    value = value[:500] + "..."
-                example_parts.append(f"{field}: {value}")
-
-        # Format output fields
-        for field in output_fields:
-            if field in demo_dict:
-                value = demo_dict[field]
-                example_parts.append(f"{field}: {value}")
-
-        if example_parts:
-            examples_text.append(f"Example {i + 1}:\n" + "\n".join(example_parts))
-
-    if examples_text:
-        return "Here are some examples of good assessments:\n\n" + "\n\n".join(examples_text)
-    return ""
-
-
-def _create_judge_from_optimized_program(
-    optimized_instructions: str,
-    demos: list,
-    judge: Judge,
-) -> Judge:
-    """
-    Create a judge from optimized instructions and demos.
-
-    This utility combines instruction post-processing (appending input fields section)
-    and demo formatting into a single operation that returns a ready-to-use judge.
-
-    Args:
-        optimized_instructions: The instructions from the optimized DSPy program
-        demos: List of dspy.Example objects (from SIMBA optimization)
-        judge: The original judge (to get name, model, field names, etc.)
-
-    Returns:
-        A new Judge instance with processed instructions and demos included
-    """
-    # Append input fields section to instructions
-    instructions = _append_input_fields_section(optimized_instructions, judge)
-
-    # Include demos as few-shot examples in the prompt
-    demos_text = _format_demos_as_examples(demos, judge)
-    if demos_text:
-        instructions = demos_text + "\n\n" + instructions
-
-    return make_judge(
-        name=judge.name,
-        instructions=instructions,
-        model=judge.model,
-        feedback_value_type=getattr(judge, "_feedback_value_type", str),
-    )
 
 
 @experimental(version="3.4.0")
@@ -201,51 +92,74 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             Optimized DSPy Predict program
         """
 
+    def _create_judge_from_optimized_program(
+        self,
+        optimized_program: "dspy.Predict",
+        original_judge: Judge,
+    ) -> Judge:
+        """
+        Create a judge from an optimized DSPy program.
+
+        This method combines instruction post-processing (appending input fields section)
+        and demo formatting into a single operation that returns a ready-to-use judge.
+
+        Args:
+            optimized_program: The optimized DSPy Predict program
+            original_judge: The original judge (to get name, model, field names, etc.)
+
+        Returns:
+            A new Judge instance with processed instructions and demos included
+        """
+        optimized_instructions = optimized_program.signature.instructions
+        demos = getattr(optimized_program, "demos", [])
+
+        # Append input fields section to instructions
+        instructions = append_input_fields_section(optimized_instructions, original_judge)
+
+        # Include demos as few-shot examples in the prompt
+        if demos_text := format_demos_as_examples(demos, original_judge):
+            instructions = demos_text + "\n\n" + instructions
+
+        return make_judge(
+            name=original_judge.name,
+            instructions=instructions,
+            model=original_judge.model,
+            feedback_value_type=getattr(original_judge, "_feedback_value_type", str),
+        )
+
     def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
         """Convert a judge into a DSPy Predict module."""
+        outer_self = self
 
         class CustomPredict(dspy.Predict):
             """
-            Custom DSPy Predict class that allows passing an LM to the forward method.
-            This is necessary to ensure that the optimized dspy program uses the judge's model,
-            while we allow for the optimizer itself to use a different model.
+            Custom DSPy Predict class that uses the judge's model for evaluations.
+
+            This ensures the optimized DSPy program uses the judge's model,
+            while allowing the optimizer itself to use a different model.
             """
 
-            def __init__(self, judge):
-                super().__init__(create_dspy_signature(judge))
-                self._judge_model: str = judge.model
-                self._judge_name: str = judge.name
-                self._judge_feedback_value_type: Any = getattr(judge, "_feedback_value_type", str)
-                # Store original judge for template variable restoration and demo formatting
-                self._original_judge: Judge = judge
+            def __init__(self, original_judge: Judge):
+                super().__init__(create_dspy_signature(original_judge))
+                self._original_judge: Judge = original_judge
 
             def forward(self, *args, **kwargs):
-                # Pop DSPy kwargs that we don't use
+                # Pop DSPy-specific kwargs to prevent passing unknown arguments to the judge
                 kwargs.pop("lm", None)
-
-                # Pop _trace kwarg to follow DSPy convention (allows disabling trace recording)
                 should_trace = kwargs.pop("_trace", True)
 
-                # Create a judge from the optimized instructions and demos
-                # The optimizer's model is used by GEPA internally for reflection,
-                # but the judge evaluations should always use the judge's own model
-                judge: Judge = _create_judge_from_optimized_program(
-                    optimized_instructions=self.signature.instructions,
-                    demos=self.demos,
-                    judge=self._original_judge,
+                created_judge: Judge = outer_self._create_judge_from_optimized_program(
+                    optimized_program=self,
+                    original_judge=self._original_judge,
                 )
-                feedback: Feedback = judge(**kwargs)
+                feedback: Feedback = created_judge(**kwargs)
 
-                # Create the prediction with the judge's result
                 pred = dspy.Prediction(
                     result=feedback.value,
                     rationale=feedback.rationale,
                 )
 
-                # Manually record the trace for GEPA reflection
-                # This ensures the trace is consistent with the actual judge result
-                # Format: (module, inputs_dict, prediction) - matches DSPy's
-                # Predict._forward_postprocess()
+                # Manually record a consistent trace for optimizers that depend on it (e.g., GEPA)
                 if should_trace and dspy.settings.trace is not None:
                     trace = dspy.settings.trace
                     max_trace_size = getattr(dspy.settings, "max_trace_size", float("inf"))
@@ -330,9 +244,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 self._logger.debug("DSPy optimization completed")
 
-                # Verify the optimized program is a Predict instance.
-                # This ensures we can access .demos and .signature.instructions directly
-                # without worrying about nested predictors in a generic Module.
                 if not isinstance(optimized_program, dspy.Predict):
                     raise MlflowException(
                         f"Optimizer returned {type(optimized_program).__name__}, "
@@ -342,14 +253,12 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     )
 
                 # Create optimized judge from the optimized program
-                demos = getattr(optimized_program, "demos", [])
-                if demos:
+                if demos := getattr(optimized_program, "demos", []):
                     self._logger.info(f"Including {len(demos)} demos from optimization")
 
-                return _create_judge_from_optimized_program(
-                    optimized_instructions=optimized_program.signature.instructions,
-                    demos=demos,
-                    judge=judge,
+                return self._create_judge_from_optimized_program(
+                    optimized_program=optimized_program,
+                    original_judge=judge,
                 )
 
         except Exception as e:
