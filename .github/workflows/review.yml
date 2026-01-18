@@ -16,7 +16,7 @@ defaults:
 
 jobs:
   review:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     timeout-minutes: 30
