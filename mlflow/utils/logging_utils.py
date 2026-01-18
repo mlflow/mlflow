@@ -7,6 +7,11 @@ import sys
 from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
 from mlflow.utils.thread_utils import ThreadLocalVariable
 
+
+def get_mlflow_log_level() -> str:
+    return (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+
+
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
 LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -135,7 +140,7 @@ def _configure_mlflow_loggers(root_module_name):
             "loggers": {
                 root_module_name: {
                     "handlers": ["mlflow_handler"],
-                    "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
+                    "level": get_mlflow_log_level(),
                     "propagate": False,
                 },
                 "sqlalchemy.engine": {
