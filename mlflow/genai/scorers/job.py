@@ -35,7 +35,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
-# Job name constants for job names that are referenced in multiple locations
+# Constants for job names that are referenced in multiple locations
 ONLINE_TRACE_SCORER_JOB_NAME = "run_online_trace_scorer"
 ONLINE_SESSION_SCORER_JOB_NAME = "run_online_session_scorer"
 
