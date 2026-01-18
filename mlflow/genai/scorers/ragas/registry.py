@@ -40,6 +40,32 @@ _METRIC_REGISTRY = {
 
 
 def get_metric_class(metric_name: str):
+    """
+    Resolve and return the metric class corresponding to the given metric name.
+
+    This function looks up the provided ``metric_name`` in the internal
+    ``_METRIC_REGISTRY`` mapping, dynamically imports the module that defines
+    the metric, and returns the associated class object. It is part of the
+    public API used by :class:`RagasScorer`.
+
+    Parameters
+    ----------
+    metric_name : str
+        The name of the metric to load. Must be one of the keys defined in
+        ``_METRIC_REGISTRY``.
+
+    Returns
+    -------
+    type
+        The metric class corresponding to ``metric_name``.
+
+    Raises
+    ------
+    mlflow.exceptions.MlflowException
+        If ``metric_name`` is not a known metric, or if the underlying metric
+        class cannot be imported (for example, when RAGAS metrics are requested
+        but the ``ragas`` package is not installed).
+    """
     if metric_name not in _METRIC_REGISTRY:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
         raise MlflowException.invalid_parameter_value(
