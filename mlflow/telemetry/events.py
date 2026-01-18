@@ -637,7 +637,7 @@ class ScorerCallEvent(Event):
             ONLINE_TRACE_SCORER_JOB_NAME,
         )
 
-        job_name = os.environ.get("_MLFLOW_SERVER_JOB_NAME", "")
+        job_name = os.environ.get("_MLFLOW_SERVER_JOB_NAME")
         if job_name in (ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME):
             callsite = "online_scoring"
         else:

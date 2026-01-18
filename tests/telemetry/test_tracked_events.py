@@ -1520,6 +1520,41 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
     mock_requests.clear()
 
 
+@pytest.mark.parametrize(
+    "job_name",
+    [
+        "run_online_trace_scorer",
+        "run_online_session_scorer",
+    ],
+)
+def test_scorer_call_online_scoring_callsite(
+    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name
+):
+    # Set the env var that indicates we're in an online scoring job
+    monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+
+    @scorer
+    def custom_scorer(outputs: str) -> bool:
+        return True
+
+    custom_scorer(outputs="test output")
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": "UserDefinedScorer",
+            "scorer_kind": "decorator",
+            "is_session_level_scorer": False,
+            "callsite": "online_scoring",
+            "has_feedback_error": False,
+        },
+    )
+
+    mock_requests.clear()
+
+
 def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client: TelemetryClient):
     error_judge = make_judge(
         name="quality_judge",
