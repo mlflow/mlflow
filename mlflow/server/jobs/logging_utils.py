@@ -11,5 +11,5 @@ def configure_job_consumer_logging() -> None:
     logging.getLogger("huey").setLevel(log_level)
     logging.getLogger("huey.consumer").setLevel(log_level)
     # Suppress noisy alembic INFO logs about database context
-    if log_level != "DEBUG":
+    if logging.getLevelName(log_level) > logging.DEBUG:
         logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
