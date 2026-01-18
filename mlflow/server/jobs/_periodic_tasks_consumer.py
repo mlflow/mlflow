@@ -7,7 +7,7 @@ It is launched by the job runner and runs in a separate process from job executi
 
 import threading
 
-from mlflow.server.jobs.logging_utils import configure_job_consumer_logging
+from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,
     _exit_when_orphaned,
@@ -16,7 +16,7 @@ from mlflow.server.jobs.utils import (
 )
 
 # Configure Python logging to suppress noisy job logs
-configure_job_consumer_logging()
+configure_logging_for_jobs()
 
 # Ensure the subprocess is killed when parent process dies.
 # The huey consumer's parent process is `_job_runner` process,

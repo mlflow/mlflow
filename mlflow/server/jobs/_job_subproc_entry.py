@@ -11,11 +11,11 @@ import json
 import os
 import threading
 
-from mlflow.server.jobs.logging_utils import configure_alembic_logging
+from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
 # Suppress noisy alembic logs (e.g., "Context impl SQLiteImpl", "Will assume non-transactional DDL")
-configure_alembic_logging()
+configure_logging_for_jobs()
 
 if __name__ == "__main__":
     # ensure the subprocess is killed when parent process dies.
