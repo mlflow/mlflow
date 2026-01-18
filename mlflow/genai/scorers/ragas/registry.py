@@ -21,6 +21,7 @@ _METRIC_REGISTRY = {
     "NonLLMStringSimilarity": ("ragas.metrics.NonLLMStringSimilarity", True),
     "BleuScore": ("ragas.metrics.BleuScore", True),
     "ChrfScore": ("ragas.metrics.ChrfScore", True),
+    "CHRFScore": ("ragas.metrics.ChrfScore", True),
     "RougeScore": ("ragas.metrics.RougeScore", True),
     "StringPresence": ("ragas.metrics.StringPresence", True),
     "ExactMatch": ("ragas.metrics.ExactMatch", True),
