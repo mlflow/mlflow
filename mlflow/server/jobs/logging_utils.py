@@ -47,8 +47,10 @@ def configure_job_consumer_logging() -> None:
     - Adds filters to huey loggers to suppress/downgrade online scoring logs
     - Sets alembic logger to WARNING level to suppress migration logs
     """
-    # Suppress online scoring logs from huey - use filter since setLevel gets overridden by huey
-    # Need to add filter to each logger since child loggers may have their own handlers
+    # Downgrade online scoring logs from huey using filters (not setLevel) to preserve them
+    # at DEBUG level. setLevel(WARNING) would suppress them entirely, making them invisible
+    # even when MLFLOW_LOGGING_LEVEL=DEBUG is set. Filters allow conditional downgrading.
+    # Add filter to each logger since child loggers may have their own handlers
     _filter = SuppressOnlineScoringFilter()
     logging.getLogger("huey").addFilter(_filter)
     logging.getLogger("huey.consumer").addFilter(_filter)
