@@ -42,7 +42,7 @@ class SuppressOnlineScoringFilter(logging.Filter):
 
 
 def configure_job_consumer_logging() -> None:
-    """Configure logging for job consumers.
+    """Configure Python logging for job consumers.
 
     - Adds filters to huey loggers to suppress/downgrade online scoring logs
     - Sets alembic logger to WARNING level to suppress migration logs
