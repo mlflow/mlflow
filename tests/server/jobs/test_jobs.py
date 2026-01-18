@@ -504,7 +504,7 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 
 
 @job(
-    name="check_python_env_fn",
+    name="python_env_checker",
     max_workers=1,
     python_version="3.11.9",
     pip_requirements=["openai==1.108.2", "pytest<9"],
@@ -517,6 +517,15 @@ def check_python_env_fn():
     assert PYTHON_VERSION == "3.11.9"
     assert openai.__version__ == "1.108.2"
 
+    # Verify job env vars are set correctly
+    # Job name from @job(name=...) decorator - different from function name
+    assert os.environ.get("_MLFLOW_SERVER_JOB_NAME") == "python_env_checker"
+    # Full module path to the job function
+    assert (
+        os.environ.get("_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME")
+        == "tests.server.jobs.test_jobs.check_python_env_fn"
+    )
+
 
 def test_job_with_python_env(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
@@ -525,7 +534,7 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         supported_job_functions=["tests.server.jobs.test_jobs.check_python_env_fn"],
-        allowed_job_names=["check_python_env_fn"],
+        allowed_job_names=["python_env_checker"],
     ):
         job_id = submit_job(check_python_env_fn, params={}).job_id
         wait_job_finalize(job_id, timeout=600)
