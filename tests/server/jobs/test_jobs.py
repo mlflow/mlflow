@@ -512,15 +512,13 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 def check_python_env_fn():
     import openai
 
+    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
     from mlflow.utils import PYTHON_VERSION
 
     assert PYTHON_VERSION == "3.11.9"
     assert openai.__version__ == "1.108.2"
 
-    # Verify job env vars are set correctly
-    # Job name from @job(name=...) decorator - different from function name
-    assert os.environ.get("_MLFLOW_SERVER_JOB_NAME") == "python_env_checker"
-    # Full module path to the job function
+    assert os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR) == "python_env_checker"
     assert (
         os.environ.get("_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME")
         == "tests.server.jobs.test_jobs.check_python_env_fn"

@@ -1530,8 +1530,10 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
 def test_scorer_call_online_scoring_callsite(
     mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name
 ):
+    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
+
     # Set the env var that indicates we're in an online scoring job
-    monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_NAME_ENV_VAR, job_name)
 
     @scorer
     def custom_scorer(outputs: str) -> bool:
