@@ -35,6 +35,10 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
+# Job name constants for online scoring jobs
+ONLINE_TRACE_SCORER_JOB_NAME = "run_online_trace_scorer"
+ONLINE_SESSION_SCORER_JOB_NAME = "run_online_session_scorer"
+
 
 @dataclass
 class ScorerFailure:
@@ -60,7 +64,7 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
 
 
 @job(
-    name="run_online_trace_scorer",
+    name=ONLINE_TRACE_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
     exclusive=["experiment_id"],
 )
@@ -94,7 +98,7 @@ def run_online_trace_scorer_job(
 
 
 @job(
-    name="run_online_session_scorer",
+    name=ONLINE_SESSION_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
     exclusive=["experiment_id"],
 )

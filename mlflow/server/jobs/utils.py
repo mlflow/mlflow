@@ -149,6 +149,7 @@ def _exec_job_in_subproc(
     tmpdir: str,
     job_store: "AbstractJobStore",
     job_id: str,
+    job_name: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -211,6 +212,7 @@ def _exec_job_in_subproc(
         job_cmd,
         env={
             **os.environ,
+            "_MLFLOW_SERVER_JOB_NAME": job_name,
             "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
             "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
             "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
@@ -323,6 +325,7 @@ def _exec_job(
                 tmpdir,
                 job_store,
                 job_id,
+                job_name,
             )
 
         if job_result is None:
