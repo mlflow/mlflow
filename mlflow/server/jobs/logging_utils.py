@@ -10,7 +10,6 @@ class SuppressOnlineScoringFilter(logging.Filter):
     - run_online_trace_scorer
     - run_online_session_scorer
     - online_scoring_scheduler
-    - _exec_job (when called for online scoring)
     """
 
     ONLINE_SCORING_PATTERNS = (
