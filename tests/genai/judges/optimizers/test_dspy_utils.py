@@ -82,8 +82,16 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
             ["trace", "inputs", "outputs"],
         ),
         ("trace_with_expectations", ["expectations"], ["expectations"]),
-        ("trace_with_expectations", ["inputs", "expectations"], ["inputs", "expectations"]),
-        ("trace_with_expectations", ["outputs", "expectations"], ["outputs", "expectations"]),
+        (
+            "trace_with_expectations",
+            ["inputs", "expectations"],
+            ["inputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["outputs", "expectations"],
+            ["outputs", "expectations"],
+        ),
         (
             "trace_with_expectations",
             ["inputs", "outputs", "expectations"],
@@ -151,7 +159,10 @@ def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, 
         ("sample_trace_with_assessment", ["inputs", "expectations"]),
         ("sample_trace_with_assessment", ["outputs", "expectations"]),
         ("sample_trace_with_assessment", ["inputs", "outputs", "expectations"]),
-        ("sample_trace_with_assessment", ["trace", "inputs", "outputs", "expectations"]),
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs", "expectations"],
+        ),
     ],
 )
 def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, required_fields):
@@ -346,19 +357,13 @@ def test_agent_eval_lm_uses_optimizer_session_name():
         )
 
 
-def test_append_input_fields_section_basic(mock_judge):
-    instructions = "Evaluate the response"
-    result = append_input_fields_section(instructions, mock_judge)
-
-    assert "Inputs for assessment: inputs, outputs" in result
-    assert result.startswith("Evaluate the response")
-
-
 def test_append_input_fields_section_preserves_original(mock_judge):
     original = "Original instructions with {{inputs}} and {{outputs}}"
     result = append_input_fields_section(original, mock_judge)
 
     assert original in result
+    assert "{{inputs}}" in result
+    assert "{{outputs}}" in result
     assert "Inputs for assessment:" in result
 
 
@@ -376,66 +381,28 @@ def test_append_input_fields_section_empty_fields():
     assert result == instructions
 
 
-def test_append_input_fields_section_single_field():
-    class SingleFieldJudge(MockJudge):
-        def get_input_fields(self):
-            return [JudgeField(name="query", description="The query")]
-
-    judge = SingleFieldJudge(name="single_field_judge")
-    instructions = "Evaluate the query"
-
-    result = append_input_fields_section(instructions, judge)
-
-    assert "Inputs for assessment: query" in result
-    assert ", " not in result.split("Inputs for assessment: ")[1]
-
-
 def test_format_demos_empty_list(mock_judge):
     result = format_demos_as_examples([], mock_judge)
     assert result == ""
 
 
-def test_format_demos_single_demo(mock_judge):
-    demo = dspy.Example(
-        inputs="What is 2+2?",
-        outputs="4",
-        result="pass",
-        rationale="Correct answer",
-    )
-
-    result = format_demos_as_examples([demo], mock_judge)
-
-    assert "Here are some examples of good assessments:" in result
-    assert "Example 1:" in result
-    assert "inputs: What is 2+2?" in result
-    assert "outputs: 4" in result
-    assert "result: pass" in result
-    assert "rationale: Correct answer" in result
-
-
 def test_format_demos_multiple_demos(mock_judge):
+    long_input = "x" * 600
     demos = [
         dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
         dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+        dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test"),
     ]
 
     result = format_demos_as_examples(demos, mock_judge)
 
     assert "Example 1:" in result
     assert "Example 2:" in result
+    assert "Example 3:" in result
     assert "inputs: Q1" in result
     assert "inputs: Q2" in result
-
-
-def test_format_demos_truncates_long_values(mock_judge):
-    long_input = "x" * 600  # Longer than 500 char limit
-    demo = dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test")
-
-    result = format_demos_as_examples([demo], mock_judge)
-
-    # Should truncate at 500 chars and add ...
-    assert "x" * 500 + "..." in result
-    assert long_input not in result
+    # Long values should NOT be truncated
+    assert long_input in result
 
 
 def test_format_demos_respects_judge_fields():

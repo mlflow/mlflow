@@ -550,9 +550,6 @@ def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
         for field in input_fields:
             if field in demo_dict:
                 value = demo_dict[field]
-                # Truncate long values
-                if isinstance(value, str) and len(value) > 500:
-                    value = value[:500] + "..."
                 example_parts.append(f"{field}: {value}")
 
         # Format output fields
