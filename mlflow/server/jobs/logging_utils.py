@@ -26,16 +26,9 @@ class SuppressOnlineScoringFilter(logging.Filter):
         # Check if this is an online scoring log
         msg = record.getMessage()
         if any(pattern in msg for pattern in self.ONLINE_SCORING_PATTERNS):
-            # Check if the logger would show DEBUG logs
-            logger = logging.getLogger(record.name)
-            if logger.getEffectiveLevel() <= logging.DEBUG:
-                # Downgrade to DEBUG and show
-                record.levelno = logging.DEBUG
-                record.levelname = "DEBUG"
-                return True
-            else:
-                # Suppress entirely
-                return False
+            # Downgrade to DEBUG - handlers will automatically filter based on their level
+            record.levelno = logging.DEBUG
+            record.levelname = "DEBUG"
 
         return True
 
