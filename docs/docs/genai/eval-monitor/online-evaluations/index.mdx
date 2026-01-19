@@ -55,6 +55,8 @@ This example shows how to set up an LLM judge that automatically evaluates trace
    - Optionally add a **Filter string** to target specific traces
 6. Click **Save**
 
+To edit or disable an existing judge, click on it in the **Judges** tab and modify the settings.
+
 </TabItem>
 <TabItem value="sdk" label="SDK">
 
@@ -82,6 +84,15 @@ registered_frustration_judge = frustration_judge.register(name="user_frustration
 registered_frustration_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=1.0),  # Evaluate all conversations
 )
+
+# Update or disable an existing judge
+from mlflow.genai.scorers import get_scorer
+
+judge = get_scorer(name="tool_call_correctness")
+judge.update(
+    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
+)  # Change sample rate
+judge.stop()  # Disable the judge
 ```
 
 </TabItem>
