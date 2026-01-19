@@ -28,6 +28,7 @@ from flask import (
     render_template_string,
     request,
 )
+from starlette.requests import Request as StarletteRequest
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -1113,7 +1114,6 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-    # Note: /gateway/ routes are handled by FastAPIPermissionMiddleware when using uvicorn,
     # and are not registered in Flask so they won't reach here in Flask mode either.
     return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
@@ -2041,22 +2041,6 @@ def get_graphql_authorization_middleware():
     return [GraphQLAuthorizationMiddleware()]
 
 
-def _is_protected_fastapi_route(path: str) -> bool:
-    """
-    Check if a route is served directly by FastAPI and bypasses Flask.
-
-    These routes need to be handled by the FastAPI permission middleware since they
-    don't go through Flask's before_request hooks.
-
-    Args:
-        path: The request path.
-
-    Returns:
-        True if the route is served by FastAPI, False otherwise.
-    """
-    return path.startswith("/gateway/")
-
-
 # Routes that need request body to extract endpoint name for validation
 _ROUTES_NEEDING_BODY = frozenset(
     (
@@ -2069,7 +2053,7 @@ _ROUTES_NEEDING_BODY = frozenset(
 )
 
 
-def _authenticate_request(request) -> str | None:
+def _authenticate_request(request: StarletteRequest) -> str | None:
     """
     Authenticate request using Basic Auth and return username.
 
@@ -2138,18 +2122,68 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         return False
 
 
-def _add_fastapi_permission_middleware(app):
+def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool] | None:
+    """
+    Get a validator function for gateway routes.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        An async validator function that takes (username, request) and returns
+        True if authorized, or None if no validation is needed for this route.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        body = None
+        if path in _ROUTES_NEEDING_BODY:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+
+        endpoint_name = _extract_gateway_endpoint_name(path, body)
+        if endpoint_name is None:
+            # No endpoint name found, allow request
+            return True
+
+        return _validate_gateway_use_permission(endpoint_name, username)
+
+    return validator
+
+
+def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], bool] | None:
+    """
+    Find the validator for a FastAPI route that bypasses Flask.
+
+    This mirrors the _find_validator pattern used in Flask's _before_request,
+    returning a validator function for routes that need permission checks.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        An async validator function that takes (username, request) and returns
+        True if authorized, or None if the route is not handled by FastAPI.
+    """
+    if path.startswith("/gateway/"):
+        return _get_gateway_validator(path)
+
+    return None
+
+
+def add_fastapi_permission_middleware(app):
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
 
     This middleware mirrors the logic of _before_request for routes that are served
     directly by FastAPI (e.g., /gateway/ routes) and thus bypass Flask's before_request
     hooks. It follows the same authentication and authorization flow:
-    1. Skip non-FastAPI routes (let Flask handle them)
-    2. Skip unprotected routes
+    1. Skip unprotected routes
+    2. Find the appropriate validator for the route
     3. Authenticate the request
     4. Allow admins full access
-    5. Find and run the appropriate validator for the route
+    5. Run the validator
 
     Args:
         app: The FastAPI application instance.
@@ -2160,12 +2194,13 @@ def _add_fastapi_permission_middleware(app):
     async def fastapi_permission_middleware(request, call_next):
         path = request.url.path
 
-        # Only handle routes served directly by FastAPI (bypass Flask)
-        if not _is_protected_fastapi_route(path):
-            return await call_next(request)
-
         # Skip unprotected routes
         if is_unprotected_route(path):
+            return await call_next(request)
+
+        # Find validator for this route
+        validator = _find_fastapi_validator(path)
+        if validator is None:
             return await call_next(request)
 
         # Authenticate user
@@ -2181,28 +2216,19 @@ def _add_fastapi_permission_middleware(app):
         if store.get_user(username).is_admin:
             return await call_next(request)
 
-        # Parse body if needed for validation
-        body = None
-        if path in _ROUTES_NEEDING_BODY:
-            try:
-                body = await request.json()
-            except Exception:
-                body = {}
-
-        # Validate gateway use permission
-        if endpoint_name := _extract_gateway_endpoint_name(path, body):
-            try:
-                if not _validate_gateway_use_permission(endpoint_name, username):
-                    return PlainTextResponse(
-                        "Permission denied",
-                        status_code=HTTPStatus.FORBIDDEN,
-                    )
-            except Exception as e:
-                _logger.warning(f"FastAPI permission check failed: {e}")
+        # Run the validator
+        try:
+            if not await validator(username, request):
                 return PlainTextResponse(
                     "Permission denied",
                     status_code=HTTPStatus.FORBIDDEN,
                 )
+        except Exception as e:
+            _logger.warning(f"FastAPI permission check failed: {e}")
+            return PlainTextResponse(
+                "Permission denied",
+                status_code=HTTPStatus.FORBIDDEN,
+            )
 
         return await call_next(request)
 
@@ -2414,7 +2440,7 @@ def create_app(app: Flask = app):
 
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
         fastapi_app = create_fastapi_app(app)
-        _add_fastapi_permission_middleware(fastapi_app)
+        add_fastapi_permission_middleware(fastapi_app)
         return fastapi_app
     else:
         return app
