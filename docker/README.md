@@ -17,7 +17,6 @@ This image contains MLflow with all extra dependencies, including:
 - Database drivers (MySQL, PostgreSQL, SQL Server)
 - Cloud storage integrations (AWS S3, Azure Blob, GCS)
 - AI Gateway and GenAI capabilities
-- Databricks integrations
 
 Use this image when you need comprehensive MLflow functionality with multiple integrations.
 
