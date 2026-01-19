@@ -34,6 +34,7 @@ import {
 import type { TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
 import { getTraceInfoInputs, getTraceInfoOutputs } from '../utils/TraceUtils';
+import { TokenComponent } from './TokensCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -171,77 +172,14 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       }
     });
 
-    cellContent =
-      totalTokens > 0 ? (
-        <HoverCard
-          trigger={
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session-tokens"
-            >
-              <span
-                css={{
-                  display: 'block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {totalTokens}
-              </span>
-            </Tag>
-          }
-          content={
-            <div css={{ display: 'flex', flexDirection: 'column' }}>
-              <div css={{ display: 'flex', flexDirection: 'row' }}>
-                <div css={{ width: '35%' }}>
-                  <Typography.Text>
-                    {intl.formatMessage({
-                      defaultMessage: 'Total',
-                      description: 'Label for the total tokens in the tooltip for the tokens cell.',
-                    })}
-                  </Typography.Text>
-                </div>
-                <div>
-                  <Typography.Text color="secondary">{totalTokens}</Typography.Text>
-                </div>
-              </div>
-              {totalInputTokens > 0 && (
-                <div css={{ display: 'flex', flexDirection: 'row' }}>
-                  <div css={{ width: '35%' }}>
-                    <Typography.Text>
-                      {intl.formatMessage({
-                        defaultMessage: 'Input',
-                        description: 'Label for the input tokens in the tooltip for the tokens cell.',
-                      })}
-                    </Typography.Text>
-                  </div>
-                  <div>
-                    <Typography.Text color="secondary">{totalInputTokens}</Typography.Text>
-                  </div>
-                </div>
-              )}
-              {totalOutputTokens > 0 && (
-                <div css={{ display: 'flex', flexDirection: 'row' }}>
-                  <div css={{ width: '35%' }}>
-                    <Typography.Text>
-                      {intl.formatMessage({
-                        defaultMessage: 'Output',
-                        description: 'Label for the output tokens in the tooltip for the tokens cell.',
-                      })}
-                    </Typography.Text>
-                  </div>
-                  <div>
-                    <Typography.Text color="secondary">{totalOutputTokens}</Typography.Text>
-                  </div>
-                </div>
-              )}
-            </div>
-          }
-        />
-      ) : (
-        <NullCell />
-      );
+    cellContent = (
+      <TokenComponent
+        inputTokens={totalInputTokens}
+        outputTokens={totalOutputTokens}
+        totalTokens={totalTokens}
+        isComparing={false}
+      />
+    );
   }
 
   return (
