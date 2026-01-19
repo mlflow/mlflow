@@ -9,7 +9,6 @@ import {
   Card,
   CloseIcon,
   CopyIcon,
-  FunctionIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
@@ -37,11 +36,6 @@ const PULSE_ANIMATION = {
   '50%': { transform: 'scale(1.3)' },
 };
 
-const BLINK_ANIMATION = {
-  '0%, 100%': { opacity: 1 },
-  '50%': { opacity: 0.6 },
-};
-
 const DOTS_ANIMATION = {
   '0%': { content: '""' },
   '33%': { content: '"."' },
@@ -52,7 +46,15 @@ const DOTS_ANIMATION = {
 /**
  * Single chat message bubble.
  */
-const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; isLastMessage: boolean }) => {
+const ChatMessageBubble = ({
+  message,
+  isLastMessage,
+  activeTools,
+}: {
+  message: ChatMessage;
+  isLastMessage: boolean;
+  activeTools?: ToolUseInfo[];
+}) => {
   const { theme } = useDesignSystemTheme();
   const isUser = message.role === 'user';
   const [isHovered, setIsHovered] = useState(false);
@@ -123,7 +125,9 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
                 '@keyframes dots': DOTS_ANIMATION,
               }}
             >
-              Processing
+              {activeTools && activeTools.length > 0 && activeTools[0].description
+                ? activeTools[0].description
+                : 'Processing'}
             </span>
           </div>
         )}
@@ -239,136 +243,11 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
- * Status indicator showing processing state.
- */
-const StatusIndicator = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: theme.spacing.md,
-        color: theme.colors.textSecondary,
-        flexShrink: 0,
-      }}
-    >
-      <SparkleIcon
-        color="ai"
-        css={{
-          fontSize: 18,
-          animation: 'pulse 1.5s ease-in-out infinite',
-          '@keyframes pulse': PULSE_ANIMATION,
-        }}
-      />
-      <span
-        css={{
-          fontSize: theme.typography.fontSizeBase,
-          color: theme.colors.textSecondary,
-          '&::after': {
-            content: '"..."',
-            animation: 'dots 1.5s steps(3, end) infinite',
-            display: 'inline-block',
-            width: '1.2em',
-          },
-          '@keyframes dots': DOTS_ANIMATION,
-        }}
-      >
-        Processing
-      </span>
-    </div>
-  );
-};
-
-const formatToolInput = (input?: Record<string, any>, maxLength = 80): string => {
-  if (!input) return '';
-
-  const fullText = Object.entries(input)
-    .filter(([key]) => key !== 'description')
-    .map(([key, value]) => (typeof value === 'string' ? `${key}="${value}"` : `${key}=${JSON.stringify(value)}`))
-    .join(', ');
-
-  if (!fullText || fullText.length <= maxLength) return fullText;
-  return fullText.substring(0, maxLength - 3) + '...';
-};
-
-const ToolUsageMessage = ({ tools }: { tools: ToolUseInfo[] }) => {
-  const { theme } = useDesignSystemTheme();
-  const [expandedToolId, setExpandedToolId] = useState<string | null>(null);
-
-  return (
-    <div css={{ padding: `${theme.spacing.md}px ${theme.spacing.md}px 0`, color: theme.colors.textSecondary }}>
-      {tools.map((tool) => {
-        const isExpanded = expandedToolId === tool.id;
-        const inputStr = formatToolInput(tool.input);
-
-        return (
-          <div
-            key={tool.id}
-            css={{
-              marginBottom: theme.spacing.sm,
-              animation: 'blink 1.5s ease-in-out infinite',
-              '@keyframes blink': BLINK_ANIMATION,
-            }}
-          >
-            {/* Header row */}
-            <div
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.sm,
-                fontSize: theme.typography.fontSizeBase,
-              }}
-            >
-              <span
-                onClick={() => setExpandedToolId(isExpanded ? null : tool.id)}
-                css={{ cursor: 'pointer', padding: theme.spacing.xs, '&:hover': { opacity: 0.7 } }}
-              >
-                {isExpanded ? '▼' : '▶'}
-              </span>
-              <FunctionIcon css={{ fontSize: 18 }} />
-              <span
-                css={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  '&::after': {
-                    content: '"..."',
-                    animation: 'dots 1.5s steps(3, end) infinite',
-                    width: '1.2em',
-                    display: 'inline-block',
-                  },
-                  '@keyframes dots': DOTS_ANIMATION,
-                }}
-              >
-                {tool.description || `Running tool ${tool.name}`}
-              </span>
-            </div>
-
-            {/* Expanded details */}
-            {isExpanded && (
-              <div css={{ marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm, opacity: 0.8 }}>
-                <Typography.Text code css={{ color: theme.colors.textSecondary, fontSize: 'inherit' }}>
-                  {tool.name}
-                </Typography.Text>
-                {inputStr && <span css={{ fontStyle: 'italic' }}> ({inputStr})</span>}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, activeTools, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -429,17 +308,18 @@ const ChatPanelContent = () => {
         {messages.map((message, index) => {
           // Check if this is the last assistant message
           const isLastAssistantMessage = message.role === 'assistant' && index === messages.length - 1;
-          return <ChatMessageBubble key={message.id} message={message} isLastMessage={isLastAssistantMessage} />;
+          return (
+            <ChatMessageBubble
+              key={message.id}
+              message={message}
+              isLastMessage={isLastAssistantMessage}
+              activeTools={message.isStreaming ? activeTools : undefined}
+            />
+          );
         })}
-
-        {/* Show active tools inline in message history */}
-        {activeTools.length > 0 && <ToolUsageMessage tools={activeTools} />}
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Status indicator */}
-      {currentStatus && <StatusIndicator />}
 
       {/* Input area */}
       <div
