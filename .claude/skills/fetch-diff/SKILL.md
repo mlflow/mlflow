@@ -21,7 +21,7 @@ Example:
 uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123
 ```
 
-Token is auto-detected from `GITHUB_TOKEN` env var or `gh auth token`.
+Token is auto-detected from `GH_TOKEN` env var or `gh auth token`.
 
 ## Output Example
 
