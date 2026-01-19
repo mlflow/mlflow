@@ -75,6 +75,20 @@ class ScorerSamplingConfig:
     sample_rate: float | None = None
     filter_string: str | None = None
 
+    def __post_init__(self):
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+        if self.sample_rate is not None and not isinstance(self.sample_rate, (int, float)):
+            raise MlflowException(
+                f"sample_rate must be a number, got {type(self.sample_rate).__name__}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if self.filter_string is not None and not isinstance(self.filter_string, str):
+            raise MlflowException(
+                f"filter_string must be a string, got {type(self.filter_string).__name__}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 

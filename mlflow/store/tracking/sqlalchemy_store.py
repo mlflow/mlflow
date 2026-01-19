@@ -82,6 +82,8 @@ from mlflow.genai.scorers.scorer_utils import (
     extract_model_from_serialized_scorer,
     is_gateway_model,
     update_model_in_serialized_scorer,
+    validate_scorer_model,
+    validate_scorer_name,
 )
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -2107,14 +2109,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If the scorer references a gateway endpoint that does not exist.
         """
+        # Validate scorer name
+        validate_scorer_name(name)
+
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # Parse serialized_scorer and resolve gateway endpoint name to ID if applicable
+            # Parse serialized_scorer and validate its contents
             serialized_data = json.loads(serialized_scorer)
+
+            # Validate model if present
             model = extract_model_from_serialized_scorer(serialized_data)
+            validate_scorer_model(model)
 
             if is_gateway_model(model):
                 endpoint_name = extract_endpoint_ref(model)

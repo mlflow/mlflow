@@ -1,8 +1,11 @@
 from unittest.mock import ANY, Mock, patch
 
+import pytest
+
 import mlflow
 import mlflow.genai
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
@@ -281,3 +284,30 @@ def test_mlflow_backend_online_scoring_config_chained_update():
         )
         assert retrieved_after_restart.sample_rate == 0.3
         assert retrieved_after_restart.status == ScorerStatus.STARTED
+
+
+# ============================================================================
+# SCORER SAMPLING CONFIG VALIDATION TESTS
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("sample_rate", "filter_string"),
+    [(0.5, None), (1, "status = 'OK'"), (None, None)],
+)
+def test_scorer_sampling_config_accepts_valid_inputs(sample_rate, filter_string):
+    config = ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string)
+    assert config.sample_rate == sample_rate
+    assert config.filter_string == filter_string
+
+
+@pytest.mark.parametrize(
+    ("sample_rate", "filter_string", "error_match"),
+    [
+        ("0.5", None, "sample_rate must be a number"),
+        (None, 123, "filter_string must be a string"),
+    ],
+)
+def test_scorer_sampling_config_rejects_invalid_types(sample_rate, filter_string, error_match):
+    with pytest.raises(MlflowException, match=error_match):
+        ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string)

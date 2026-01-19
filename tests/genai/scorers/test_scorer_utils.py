@@ -16,6 +16,8 @@ from mlflow.genai.scorers.scorer_utils import (
     parse_tool_call_expectations,
     recreate_function,
     update_model_in_serialized_scorer,
+    validate_scorer_model,
+    validate_scorer_name,
 )
 from mlflow.genai.utils.type import FunctionCall
 
@@ -592,3 +594,51 @@ def test_get_tool_call_signature_sorts_arguments():
     sig1 = get_tool_call_signature(call1, include_arguments=True)
     sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
+
+
+# ============================================================================
+# SCORER NAME VALIDATION TESTS
+# ============================================================================
+
+
+@pytest.mark.parametrize("valid_name", ["my_scorer", "a", "Test Scorer"])
+def test_validate_scorer_name_accepts_valid_names(valid_name):
+    validate_scorer_name(valid_name)
+
+
+@pytest.mark.parametrize(
+    ("invalid_name", "error_match"),
+    [
+        (None, "cannot be None"),
+        (123, "must be a string"),
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+        ("name\nwith", "newline"),
+    ],
+)
+def test_validate_scorer_name_rejects_invalid(invalid_name, error_match):
+    with pytest.raises(MlflowException, match=error_match):
+        validate_scorer_name(invalid_name)
+
+
+# ============================================================================
+# SCORER MODEL VALIDATION TESTS
+# ============================================================================
+
+
+@pytest.mark.parametrize("valid_model", [None, "gateway:/endpoint", "openai:/gpt-4"])
+def test_validate_scorer_model_accepts_valid(valid_model):
+    validate_scorer_model(valid_model)
+
+
+@pytest.mark.parametrize(
+    ("invalid_model", "error_match"),
+    [
+        (123, "must be a string"),
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+    ],
+)
+def test_validate_scorer_model_rejects_invalid(invalid_model, error_match):
+    with pytest.raises(MlflowException, match=error_match):
+        validate_scorer_model(invalid_model)
