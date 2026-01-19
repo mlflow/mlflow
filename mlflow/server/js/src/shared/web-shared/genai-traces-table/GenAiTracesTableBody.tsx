@@ -128,7 +128,10 @@ export const GenAiTracesTableBody = React.memo(
 
     const isComparing = !isNil(compareToRunUuid);
 
-    const evaluationInputs = selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT);
+    const evaluationInputs = useMemo(
+      () => selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT),
+      [selectedColumns],
+    );
 
     const sortedGroupedColumns = useMemo(
       () => sortGroupedColumns(selectedColumns, isComparing),
