@@ -46,14 +46,22 @@ const DOTS_ANIMATION = {
 /**
  * Single chat message bubble.
  */
-const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; isLastMessage: boolean }) => {
+const ChatMessageBubble = ({
+  message,
+  isLastMessage,
+  onRegenerate,
+}: {
+  message: ChatMessage;
+  isLastMessage: boolean;
+  onRegenerate?: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const isUser = message.role === 'user';
   const [isHovered, setIsHovered] = useState(false);
   const { actionIcon: copyIcon, tooltipMessage: copyTooltip, copy: handleCopy } = useCopyController(message.content);
 
   const handleRegenerate = () => {
-    // TODO: Implement regenerate functionality
+    onRegenerate?.();
   };
 
   return (
@@ -278,7 +286,7 @@ const StatusIndicator = () => {
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, currentStatus, sendMessage, regenerateLastMessage } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -339,7 +347,14 @@ const ChatPanelContent = () => {
         {messages.map((message, index) => {
           // Check if this is the last assistant message
           const isLastAssistantMessage = message.role === 'assistant' && index === messages.length - 1;
-          return <ChatMessageBubble key={message.id} message={message} isLastMessage={isLastAssistantMessage} />;
+          return (
+            <ChatMessageBubble
+              key={message.id}
+              message={message}
+              isLastMessage={isLastAssistantMessage}
+              onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
+            />
+          );
         })}
 
         <div ref={messagesEndRef} />
