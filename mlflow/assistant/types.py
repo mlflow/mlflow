@@ -57,6 +57,9 @@ class EventType(str, Enum):
     DONE = "done"
     ERROR = "error"
 
+    def __str__(self):
+        return self.value
+
 
 class Event(BaseModel):
     """A common event format parsed from the raw assistant provider output."""
