@@ -2151,8 +2151,7 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
 
         endpoint_name = _extract_gateway_endpoint_name(path, body)
         if endpoint_name is None:
-            # No endpoint name found, allow request
-            return True
+            raise MlflowException("No endpoint name found", error_code=BAD_REQUEST)
 
         return _validate_gateway_use_permission(endpoint_name, username)
 
