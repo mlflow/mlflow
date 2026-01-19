@@ -12,10 +12,11 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     create_examples_field,
     create_guidelines_field,
 )
+from mlflow.genai.judges.optimizers.dspy_utils import convert_mlflow_uri_to_litellm
 
 # Try to import litellm at module level
 try:
-    from litellm import get_max_tokens, token_counter
+    from litellm import get_model_info, token_counter
 
     _LITELLM_AVAILABLE = True
 except ImportError:
@@ -26,45 +27,57 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-# Maximum tokens for model input (most models have this limit)
-_MAX_MODEL_TOKENS = 8192
+# Maximum input tokens for embedding models (most models have this limit or higher)
+_MAX_EMBEDDING_MODEL_TOKENS = 8192
+# Maximum input tokens for chat models (most models have this limit or higher)
+_MAX_CHAT_MODEL_TOKENS = 128000
+# Maximum records per group for distillation
+_MAX_RECORDS_PER_GROUP = 50
+# Flexible tokens to reserve for response and variance in prompt length
+_FLEX_TOKENS = 5000
 
 
 @lru_cache(maxsize=1)
-def _get_model_max_tokens(model: str) -> int:
-    """Get the maximum token limit for a model.
+def _get_model_max_tokens(model: str, model_type: str) -> int:
+    """Get the maximum input token limit for a model.
 
     Args:
         model: Model identifier (e.g., "openai:/text-embedding-3-small")
+        model_type: Type of model ("embedding" or "chat")
 
     Returns:
         Maximum token limit for the model
     """
-    if not _LITELLM_AVAILABLE:
-        return _MAX_MODEL_TOKENS
 
-    litellm_model = _mlflow_to_litellm_embedding_model(model)
-    try:
-        max_tokens = get_max_tokens(litellm_model)
-        if max_tokens is not None:
-            return max_tokens
-    except Exception as e:
-        _logger.debug(f"Error getting max tokens for model {model}: {e}", exc_info=True)
-    return _MAX_MODEL_TOKENS
-
+    if _LITELLM_AVAILABLE:
+      litellm_model = convert_mlflow_uri_to_litellm(model)
+      try:
+          max_tokens = get_model_info(litellm_model)["max_input_tokens"]
+          if max_tokens is not None:
+              return max_tokens
+      except Exception as e:
+          _logger.debug(f"Error getting max tokens for model {model}: {e}", exc_info=True)
+    
+    if model_type == "embedding":
+        return _MAX_EMBEDDING_MODEL_TOKENS
+    elif model_type == "chat":
+        return _MAX_CHAT_MODEL_TOKENS
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
 @lru_cache(maxsize=1000)
-def truncate_to_token_limit(text: str, model: str) -> str:
-    """Truncate text to fit within model's token limit.
+def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
+    """Truncate text to fit within the model's token limit.
 
     Args:
         text: Text to truncate
         model: Model identifier (e.g., "openai:/text-embedding-3-small")
+        model_type: Type of model ("embedding" or "chat")
 
     Returns:
         Truncated text that fits within token limit
     """
-    max_tokens = _get_model_max_tokens(model)
+    max_tokens = _get_model_max_tokens(model, model_type=model_type)
 
     if not _LITELLM_AVAILABLE:
         # Naive truncation to `max_tokens` characters in the text if litellm is not available
@@ -78,7 +91,7 @@ def truncate_to_token_limit(text: str, model: str) -> str:
     if len(text) <= max_tokens:
         return text
 
-    litellm_model = _mlflow_to_litellm_embedding_model(model)
+    litellm_model = convert_mlflow_uri_to_litellm(model)
     token_count = token_counter(model=litellm_model, text=text)
     if token_count <= max_tokens:
         return text
@@ -106,31 +119,16 @@ class Guidelines(BaseModel):
 def get_default_embedding_model() -> str:
     return "openai:/text-embedding-3-small"
 
-
-def _mlflow_to_litellm_embedding_model(model: str) -> str:
-    """Convert MLflow embedding model format to LiteLLM format.
-
-    Args:
-        model: Model in MLflow format (e.g., "openai:/text-embedding-3-small")
-
-    Returns:
-        Model in LiteLLM format (e.g., "openai/text-embedding-3-small")
-    """
-    return model.replace(":/", "/")
-
-
 def _find_optimal_batch_size(
     examples_data: list[dict[str, Any]],
     indices: list[int],
     judge_instructions: str,
     existing_guidelines: list[str],
     reflection_lm: str,
-    distillation_lm: "dspy.LM",
-    max_input_tokens: int,
 ) -> int:
     """Find the optimal batch size for distillation based on token limits.
 
-    Starts with a maximum of 50 records and reduces the batch size using binary search until
+    Starts with a maximum of _MAX_RECORDS_PER_GROUP records and reduces the batch size using binary search until
     the prompt fits within token limits and the LM call succeeds.
 
     Args:
@@ -139,18 +137,19 @@ def _find_optimal_batch_size(
         judge_instructions: Original judge instructions
         existing_guidelines: Previously distilled guidelines
         reflection_lm: Model to use for distillation
-        distillation_lm: DSPy LM instance for distillation
-        max_input_tokens: Maximum input tokens for the model
 
     Returns:
         Optimal number of records per batch that fits within token limits
     """
+    distillation_lm = construct_dspy_lm(reflection_lm)
+    max_input_tokens = _get_model_max_tokens(reflection_lm, model_type="chat")
+
     # Reserve tokens for response and account for variance in prompt length
-    flex_tokens = 5000
+    flex_tokens = _FLEX_TOKENS
     prompt_tokens_limit = max_input_tokens - flex_tokens
 
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
-    records_per_group = min(len(examples_data), 50)
+    records_per_group = min(len(examples_data), _MAX_RECORDS_PER_GROUP)
 
     while records_per_group > 0:
         prompt = template.render(
@@ -265,7 +264,6 @@ def distill_guidelines(
     }
 
     distillation_lm = construct_dspy_lm(reflection_lm)
-    max_input_tokens = _get_model_max_tokens(reflection_lm)
 
     # Find optimal batch size based on token limits
     records_per_group = _find_optimal_batch_size(
@@ -274,8 +272,6 @@ def distill_guidelines(
         judge_instructions=judge_instructions,
         existing_guidelines=existing_guidelines,
         reflection_lm=reflection_lm,
-        distillation_lm=distillation_lm,
-        max_input_tokens=max_input_tokens,
     )
 
     if records_per_group == 0:

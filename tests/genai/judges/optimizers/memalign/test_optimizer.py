@@ -122,16 +122,6 @@ def test_init_custom_config():
     assert optimizer._embedding_dim == 256
 
 
-def test_databricks_embedding_model_raises_error(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]):
-        optimizer = MemAlignOptimizer(embedding_model="databricks:/databricks-bge-large-en")
-        with pytest.raises(
-            MlflowException,
-            match="Databricks embedding models are not currently supported for MemAlign",
-        ):
-            optimizer.align(sample_judge, sample_traces[:1])
-
-
 def test_align_empty_traces_raises_error(sample_judge):
     optimizer = MemAlignOptimizer()
     with pytest.raises(MlflowException, match="No traces provided"):

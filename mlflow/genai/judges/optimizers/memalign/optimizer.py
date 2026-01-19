@@ -15,13 +15,13 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
 )
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
-    _mlflow_to_litellm_embedding_model,
     create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
     truncate_to_token_limit,
 )
+from mlflow.genai.judges.optimizers.dspy_utils import convert_mlflow_uri_to_litellm
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
@@ -119,7 +119,7 @@ class MemoryAugmentedJudge(Judge):
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
         self._embedding_dim = embedding_dim
-        litellm_embedding_model = _mlflow_to_litellm_embedding_model(self._embedding_model)
+        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
             litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
         )
@@ -307,7 +307,7 @@ class MemoryAugmentedJudge(Judge):
                     if value is not None:
                         query_parts.append(str(value))
             query = " ".join(query_parts)
-            query = truncate_to_token_limit(query, self._embedding_model)
+            query = truncate_to_token_limit(query, self._embedding_model, model_type="embedding")
             corpus.append(query)
 
         self._retriever = dspy.retrievers.Embeddings(
