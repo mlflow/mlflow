@@ -1,30 +1,24 @@
-import { useMemo, useCallback } from 'react';
 import { Link } from '../../../common/utils/RoutingUtils';
 import {
   Alert,
   Breadcrumb,
   Button,
-  FormUI,
   Spinner,
   Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, UseFormReturn } from 'react-hook-form';
-import { ProviderSelect } from '../create-endpoint/ProviderSelect';
-import { ModelSelect } from '../create-endpoint/ModelSelect';
-import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
-import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
-import type { ApiKeyConfiguration } from '../model-configuration/types';
+import { useState } from 'react';
 import GatewayRoutes from '../../routes';
-import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
-import { formatProviderName } from '../../utils/providerUtils';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
-
-const LONG_FORM_TITLE_WIDTH = 200;
+import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
+import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
+import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { EditableEndpointName } from './EditableEndpointName';
+import type { Endpoint } from '../../types';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -33,13 +27,13 @@ export interface EditEndpointFormRendererProps {
   loadError: Error | null;
   mutationError: Error | null;
   errorMessage: string | null;
-  resetErrors: () => void;
-  endpointName: string | undefined;
+  endpoint: Endpoint | undefined;
+  existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
-  onNameBlur: () => void;
+  onNameUpdate: (newName: string) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -49,51 +43,23 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
-  resetErrors,
-  endpointName,
+  endpoint,
+  existingEndpoints,
   isFormComplete,
   hasChanges,
   onSubmit,
   onCancel,
-  onNameBlur,
+  onNameUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
 
-  const provider = form.watch('provider');
-  const modelName = form.watch('modelName');
-  const secretMode = form.watch('secretMode');
-  const existingSecretId = form.watch('existingSecretId');
-  const newSecret = form.watch('newSecret');
+  const trafficSplitModels = form.watch('trafficSplitModels');
+  const fallbackModels = form.watch('fallbackModels');
 
-  const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
-    useApiKeyConfiguration({ provider });
-
-  const selectedSecretName = existingSecrets.find((s) => s.secret_id === existingSecretId)?.secret_name;
-
-  const apiKeyConfig: ApiKeyConfiguration = useMemo(
-    () => ({
-      mode: secretMode,
-      existingSecretId: existingSecretId,
-      newSecret: newSecret,
-    }),
-    [secretMode, existingSecretId, newSecret],
-  );
-
-  const handleApiKeyChange = useCallback(
-    (config: ApiKeyConfiguration) => {
-      if (config.mode !== secretMode) {
-        form.setValue('secretMode', config.mode);
-      }
-      if (config.existingSecretId !== existingSecretId) {
-        form.setValue('existingSecretId', config.existingSecretId);
-      }
-      if (config.newSecret !== newSecret) {
-        form.setValue('newSecret', config.newSecret);
-      }
-    },
-    [form, secretMode, existingSecretId, newSecret],
-  );
+  const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
+  const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
 
   if (isLoadingEndpoint) {
     return (
@@ -135,15 +101,19 @@ export const EditEndpointFormRenderer = ({
             </Link>
           </Breadcrumb.Item>
         </Breadcrumb>
-        <Typography.Title level={2} css={{ marginTop: theme.spacing.sm }}>
-          <FormattedMessage defaultMessage="Edit endpoint" description="Page title for edit endpoint" />
-        </Typography.Title>
         <div
-          css={{
-            marginTop: theme.spacing.md,
-            borderBottom: `1px solid ${theme.colors.border}`,
-          }}
-        />
+          css={{ marginTop: theme.spacing.sm, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <EditableEndpointName
+            endpoint={endpoint}
+            existingEndpoints={existingEndpoints}
+            onNameUpdate={onNameUpdate}
+            isSubmitting={isSubmitting}
+          />
+          <Button componentId="mlflow.gateway.edit-endpoint.use-button" onClick={() => setIsUsageModalOpen(true)}>
+            <FormattedMessage defaultMessage="Use" description="Use endpoint button" />
+          </Button>
+        </div>
       </div>
 
       {mutationError && (
@@ -163,121 +133,127 @@ export const EditEndpointFormRenderer = ({
           flex: 1,
           display: 'flex',
           gap: theme.spacing.md,
-          padding: `0 ${theme.spacing.md}px`,
+          padding: `${theme.spacing.md}px`,
           overflow: 'auto',
+          backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
-        <div css={{ flex: 1, maxWidth: 700 }}>
-          <LongFormSection
-            titleWidth={LONG_FORM_TITLE_WIDTH}
-            title={intl.formatMessage({
-              defaultMessage: 'General',
-              description: 'Section title for general settings',
-            })}
+        <div css={{ flex: 1, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
           >
-            <Controller
-              control={form.control}
-              name="name"
-              render={({ field, fieldState }) => (
-                <div>
-                  <FormUI.Label htmlFor="mlflow.gateway.edit-endpoint.name">
-                    <FormattedMessage defaultMessage="Name" description="Label for endpoint name input" />
-                  </FormUI.Label>
-                  <GatewayInput
-                    id="mlflow.gateway.edit-endpoint.name"
-                    componentId="mlflow.gateway.edit-endpoint.name"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                      form.clearErrors('name');
-                      resetErrors();
-                    }}
-                    onBlur={() => {
-                      field.onBlur();
-                      onNameBlur();
-                    }}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'my-endpoint',
-                      description: 'Placeholder for endpoint name input',
-                    })}
-                    validationState={fieldState.error ? 'error' : undefined}
-                  />
-                  {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
-                </div>
-              )}
-            />
-          </LongFormSection>
-
-          <LongFormSection
-            titleWidth={LONG_FORM_TITLE_WIDTH}
-            title={intl.formatMessage({
-              defaultMessage: 'Model configuration',
-              description: 'Section title for model configuration',
-            })}
-          >
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <Controller
-                control={form.control}
-                name="provider"
-                rules={{ required: 'Provider is required' }}
-                render={({ field, fieldState }) => (
-                  <ProviderSelect
-                    value={field.value}
-                    onChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('modelName', '');
-                      form.setValue('existingSecretId', '');
-                      form.setValue('secretMode', 'new');
-                      form.setValue('newSecret', {
-                        name: '',
-                        authMode: '',
-                        secretFields: {},
-                        configFields: {},
-                      });
-                    }}
-                    error={fieldState.error?.message}
-                    componentIdPrefix="mlflow.gateway.edit-endpoint.provider"
-                  />
-                )}
+            <Typography.Title level={3}>
+              <FormattedMessage
+                defaultMessage="Priority 1 (Traffic Split)"
+                description="Section title for traffic split"
               />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Models in this priority will be tested first, with traffic split load balancing"
+                description="Traffic split description"
+              />
+            </Typography.Text>
 
+            <div css={{ marginTop: theme.spacing.lg }}>
               <Controller
                 control={form.control}
-                name="modelName"
-                rules={{ required: 'Model is required' }}
-                render={({ field, fieldState }) => (
-                  <ModelSelect
-                    provider={provider}
+                name="trafficSplitModels"
+                render={({ field }) => (
+                  <TrafficSplitConfigurator
                     value={field.value}
                     onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    componentIdPrefix="mlflow.gateway.edit-endpoint.model"
+                    componentIdPrefix="mlflow.gateway.edit-endpoint.traffic-split"
                   />
                 )}
               />
             </div>
-          </LongFormSection>
+          </div>
 
-          <LongFormSection
-            titleWidth={LONG_FORM_TITLE_WIDTH}
-            title={intl.formatMessage({
-              defaultMessage: 'Connections',
-              description: 'Section title for authentication',
-            })}
-            hideDivider
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
           >
-            <ApiKeyConfigurator
-              value={apiKeyConfig}
-              onChange={handleApiKeyChange}
-              provider={provider}
-              existingSecrets={existingSecrets}
-              isLoadingSecrets={isLoadingSecrets}
-              authModes={authModes}
-              defaultAuthMode={defaultAuthMode}
-              isLoadingProviderConfig={isLoadingProviderConfig}
-              componentIdPrefix="mlflow.gateway.edit-endpoint.api-key"
-            />
-          </LongFormSection>
+            <Typography.Title level={3}>
+              <FormattedMessage
+                defaultMessage="Priority 2 (Fallback)"
+                description="Section title for fallback models"
+              />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom."
+                description="Fallback models description"
+              />
+            </Typography.Text>
+
+            <div css={{ marginTop: theme.spacing.lg }}>
+              <Controller
+                control={form.control}
+                name="fallbackModels"
+                render={({ field }) => (
+                  <FallbackModelsConfigurator
+                    value={field.value}
+                    onChange={field.onChange}
+                    componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+          </div>
         </div>
 
         <div
@@ -296,51 +272,57 @@ export const EditEndpointFormRenderer = ({
             })}
           >
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="Provider" description="Summary provider label" />
-                </Typography.Text>
-                {provider ? (
-                  <Typography.Text>{formatProviderName(provider)}</Typography.Text>
-                ) : (
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+              {trafficSplitModels.length > 0 && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold color="secondary">
+                    <FormattedMessage defaultMessage="Traffic Split" description="Summary traffic split label" />
                   </Typography.Text>
-                )}
-              </div>
+                  {trafficSplitModels.map((model, idx) => (
+                    <div
+                      key={idx}
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: theme.spacing.xs,
+                        fontSize: theme.typography.fontSizeSm,
+                      }}
+                    >
+                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                        {model.provider && model.modelName
+                          ? `${model.provider}/${model.modelName}`
+                          : `Model ${idx + 1}`}{' '}
+                        - {model.weight}%
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="Model" description="Summary model label" />
-                </Typography.Text>
-                {modelName ? (
-                  <Typography.Text>{modelName}</Typography.Text>
-                ) : (
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+              {fallbackModels.length > 0 && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold color="secondary">
+                    <FormattedMessage defaultMessage="Fallback Models" description="Summary fallback models label" />
                   </Typography.Text>
-                )}
-              </div>
-
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="Connections" description="Summary connections label" />
-                </Typography.Text>
-                {secretMode === 'existing' && selectedSecretName ? (
-                  <Typography.Text>{selectedSecretName}</Typography.Text>
-                ) : secretMode === 'new' && newSecret?.name ? (
-                  <Typography.Text>
-                    {newSecret.name}{' '}
-                    <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                      <FormattedMessage defaultMessage="(new)" description="Summary new secret indicator" />
-                    </Typography.Text>
-                  </Typography.Text>
-                ) : (
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
-                  </Typography.Text>
-                )}
-              </div>
+                  {fallbackModels.map((model, idx) => (
+                    <div
+                      key={idx}
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: theme.spacing.xs,
+                        fontSize: theme.typography.fontSizeSm,
+                      }}
+                    >
+                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                        {idx + 1}.{' '}
+                        {model.provider && model.modelName
+                          ? `${model.provider}/${model.modelName}`
+                          : `Model ${idx + 1}`}
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </LongFormSummary>
         </div>
@@ -362,17 +344,22 @@ export const EditEndpointFormRenderer = ({
         <Tooltip
           componentId="mlflow.gateway.edit-endpoint.save-tooltip"
           content={
-            !isFormComplete
+            !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
               ? intl.formatMessage({
-                  defaultMessage: 'Please select a provider, model, and configure authentication',
-                  description: 'Tooltip shown when save button is disabled due to incomplete form',
+                  defaultMessage: 'Traffic split percentages must total 100%',
+                  description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
                 })
-              : !hasChanges
-              ? intl.formatMessage({
-                  defaultMessage: 'No changes to save',
-                  description: 'Tooltip shown when save button is disabled due to no changes',
-                })
-              : undefined
+              : !isFormComplete
+                ? intl.formatMessage({
+                    defaultMessage: 'Please configure at least one model in traffic split',
+                    description: 'Tooltip shown when save button is disabled due to incomplete form',
+                  })
+                : !hasChanges
+                  ? intl.formatMessage({
+                      defaultMessage: 'No changes to save',
+                      description: 'Tooltip shown when save button is disabled due to no changes',
+                    })
+                  : undefined
           }
         >
           <Button
@@ -386,6 +373,12 @@ export const EditEndpointFormRenderer = ({
           </Button>
         </Tooltip>
       </div>
+
+      <EndpointUsageModal
+        open={isUsageModalOpen}
+        onClose={() => setIsUsageModalOpen(false)}
+        endpointName={endpoint?.name || ''}
+      />
     </div>
   );
 };

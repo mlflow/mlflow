@@ -21,12 +21,12 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-import mlflow.telemetry.utils
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
+from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
@@ -215,6 +215,9 @@ def generate_duration_stats() -> str:
 
     if not rows:
         return ""
+
+    # Limit to top 30 files
+    rows = rows[:30]
 
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
@@ -658,7 +661,7 @@ def reset_tracing():
 
 
 def _is_span_active():
-    span = trace_api.get_current_span()
+    span = get_current_otel_span()
     return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
 
 

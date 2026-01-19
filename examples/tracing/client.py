@@ -79,7 +79,7 @@ trace = client.get_trace(trace_id)
 
 # Alternatively, you can use search_traces() API
 # to retrieve the traces from the tracking server.
-trace = client.search_traces(experiment_ids=[exp_id])[0]
+trace = client.search_traces(locations=[exp_id])[0]
 assert trace.info.tags["fruit"] == "apple"
 assert trace.info.tags["vegetable"] == "carrot"
 

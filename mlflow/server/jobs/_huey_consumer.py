@@ -18,10 +18,14 @@ import os
 import threading
 
 from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
+from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import (
     _exit_when_orphaned,
     _get_or_init_huey_instance,
 )
+
+# Configure Python logging to suppress noisy job logs
+configure_logging_for_jobs()
 
 # ensure the subprocess is killed when parent process dies.
 # The huey consumer's parent process is `_job_runner` process,

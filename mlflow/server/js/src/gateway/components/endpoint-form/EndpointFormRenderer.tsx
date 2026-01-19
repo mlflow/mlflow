@@ -3,7 +3,7 @@ import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
@@ -44,6 +44,8 @@ export interface EndpointFormRendererProps {
   onNameBlur: () => void;
   /** Component ID prefix for telemetry */
   componentIdPrefix?: string;
+  /** When true, adapts layout for use inside containers like modals */
+  embedded?: boolean;
 }
 
 /**
@@ -68,6 +70,7 @@ export const EndpointFormRenderer = ({
   onCancel,
   onNameBlur,
   componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -113,16 +116,16 @@ export const EndpointFormRenderer = ({
         description: 'Tooltip shown when submit button is disabled due to incomplete form',
       })
     : mode === 'edit' && !hasChanges
-    ? intl.formatMessage({
-        defaultMessage: 'No changes to save',
-        description: 'Tooltip shown when save button is disabled due to no changes',
-      })
-    : undefined;
+      ? intl.formatMessage({
+          defaultMessage: 'No changes to save',
+          description: 'Tooltip shown when save button is disabled due to no changes',
+        })
+      : undefined;
 
   return (
     <>
       {error && (
-        <div css={{ padding: `0 ${theme.spacing.md}px` }}>
+        <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
             componentId={`${componentIdPrefix}.error`}
             closable={false}
@@ -138,7 +141,7 @@ export const EndpointFormRenderer = ({
           flex: 1,
           display: 'flex',
           gap: theme.spacing.md,
-          padding: `0 ${theme.spacing.md}px`,
+          padding: embedded ? 0 : `0 ${theme.spacing.md}px`,
           overflow: 'auto',
           '@media (max-width: 1023px)': {
             flexDirection: 'column',
@@ -163,6 +166,7 @@ export const EndpointFormRenderer = ({
               defaultMessage: 'Name',
               description: 'Section title for endpoint name',
             })}
+            css={embedded ? { paddingTop: 0 } : undefined}
           >
             <Controller
               control={form.control}
@@ -342,7 +346,7 @@ export const EndpointFormRenderer = ({
           display: 'flex',
           justifyContent: 'flex-end',
           gap: theme.spacing.sm,
-          padding: theme.spacing.md,
+          padding: embedded ? `${theme.spacing.md}px 0 0 0` : theme.spacing.md,
           borderTop: `1px solid ${theme.colors.border}`,
           flexShrink: 0,
         }}

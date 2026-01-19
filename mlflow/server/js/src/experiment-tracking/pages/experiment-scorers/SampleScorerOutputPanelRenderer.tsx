@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
   Button,
   PlayCircleFillIcon,
-  LoadingState,
   ChevronLeftIcon,
   ChevronRightIcon,
   Alert,
   Tooltip,
+  Spinner,
+  StopCircleFillIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
@@ -19,6 +20,10 @@ import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvalua
 import { useFormContext } from 'react-hook-form';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
+import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
+import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { compact } from 'lodash';
+import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
 
 /**
  * Run scorer button component.
@@ -42,7 +47,7 @@ const RunScorerButton: React.FC<{
 
   const button = (
     <Button
-      componentId={`${COMPONENT_ID_PREFIX}.${isRerun ? 'rerun-scorer-button' : 'run-scorer-button'}`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_52"
       type="primary"
       size={isRerun ? 'small' : undefined}
       onClick={onClick}
@@ -65,10 +70,11 @@ interface SampleScorerOutputPanelRendererProps {
   isRunScorerDisabled: boolean;
   runScorerDisabledTooltip?: string;
   error: Error | null;
-  currentTraceIndex: number;
-  currentTrace: ModelTrace | undefined;
+  currentEvalResultIndex: number;
+  currentEvalResult?: JudgeEvaluationResult;
   assessments: Assessment[] | undefined;
   handleRunScorer: () => Promise<void>;
+  handleCancel: () => void;
   handlePrevious: () => void;
   handleNext: () => void;
   totalTraces: number;
@@ -81,10 +87,11 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   isRunScorerDisabled,
   runScorerDisabledTooltip,
   error,
-  currentTraceIndex,
-  currentTrace,
+  currentEvalResultIndex,
+  currentEvalResult,
   assessments,
   handleRunScorer,
+  handleCancel,
   handlePrevious,
   handleNext,
   totalTraces,
@@ -94,10 +101,45 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   const { theme } = useDesignSystemTheme();
 
   // Whether we are showing a trace or the initial screen
-  const isInitialScreen = !currentTrace;
+  const isInitialScreen = !currentEvalResult;
 
   const { watch } = useFormContext<ScorerFormData>();
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, watch('evaluationScope'), ScorerEvaluationScope.TRACES);
+
+  // For session-level judges, get the traces from the current evaluation result
+  const currentSessionTraces = useMemo(() => {
+    if (!currentEvalResult || !isSessionJudgeEvaluationResult(currentEvalResult)) {
+      return [];
+    }
+    return compact(currentEvalResult.traces?.map((trace) => trace));
+  }, [currentEvalResult]);
+
+  // Render the current evaluation result, either a trace or a chat session
+  const renderCurrentEvaluationResult = () => {
+    if (!currentEvalResult) {
+      return null;
+    }
+    if (isSessionJudgeEvaluationResult(currentEvalResult)) {
+      return (
+        <div css={{ display: 'flex', gap: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+          <div css={{ flex: 1 }}>
+            <ExperimentSingleChatConversation
+              traces={currentSessionTraces}
+              selectedTurnIndex={null}
+              getAssessmentTitle={(assessmentName) => assessmentName}
+            />
+          </div>
+          <div css={{ flex: 1 }}>
+            <SimplifiedAssessmentView assessments={assessments ?? []} />
+          </div>
+        </div>
+      );
+    }
+    if (!currentEvalResult.trace) {
+      return null;
+    }
+    return <SimplifiedModelTraceExplorer modelTrace={currentEvalResult.trace} assessments={assessments ?? []} />;
+  };
 
   return (
     <div
@@ -131,15 +173,17 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           />
           {!isInitialScreen && (
             <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.rerun-scorer-button-tooltip`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RERUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RERUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           )}
         </div>
@@ -154,7 +198,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           overflowY: 'auto',
         }}
       >
-        {!isInitialScreen && currentTrace ? (
+        {!isInitialScreen && currentEvalResult ? (
           <div
             css={{
               display: 'flex',
@@ -175,25 +219,29 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
                 <Typography.Text size="sm" color="secondary">
                   <FormattedMessage
-                    defaultMessage="Trace {index} of {total}"
+                    defaultMessage="{isTraces, select, true {Trace} other {Session}} {index} of {total}"
                     description="Index of the current trace and total number of traces"
-                    values={{ index: currentTraceIndex + 1, total: totalTraces }}
+                    values={{
+                      index: currentEvalResultIndex + 1,
+                      total: totalTraces,
+                      isTraces: evaluationScope === ScorerEvaluationScope.TRACES,
+                    }}
                   />
                 </Typography.Text>
                 <Button
-                  componentId={`${COMPONENT_ID_PREFIX}.previous-trace-button`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_224"
                   size="small"
                   onClick={handlePrevious}
-                  disabled={currentTraceIndex === 0}
+                  disabled={currentEvalResultIndex === 0}
                 >
                   <ChevronLeftIcon />
                   <FormattedMessage defaultMessage="Previous" description="Button text for previous trace" />
                 </Button>
                 <Button
-                  componentId={`${COMPONENT_ID_PREFIX}.next-trace-button`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_234"
                   size="small"
                   onClick={handleNext}
-                  disabled={currentTraceIndex === totalTraces - 1}
+                  disabled={currentEvalResultIndex === totalTraces - 1}
                 >
                   <FormattedMessage defaultMessage="Next" description="Button text for next trace" />
                   <ChevronRightIcon />
@@ -201,9 +249,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             </div>
 
-            <div css={{ height: '600px' }}>
-              <SimplifiedModelTraceExplorer modelTrace={currentTrace} assessments={assessments ?? []} />
-            </div>
+            <div css={{ height: '600px' }}>{renderCurrentEvaluationResult()}</div>
           </div>
         ) : error ? (
           <div
@@ -218,22 +264,24 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
             }}
           >
             <Alert
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-error-alert`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_263"
               type="error"
               message={error.message}
               closable={false}
               css={{ width: '100%', maxWidth: '600px' }}
             />
             <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-error-tooltip`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_271"
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           </div>
         ) : (
@@ -248,36 +296,55 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               padding: theme.spacing.lg,
             }}
           >
-            {isLoading && (
-              <div css={{ marginBottom: theme.spacing.md }}>
-                <LoadingState />
-              </div>
+            {isLoading ? (
+              <>
+                <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Evaluating {isTraces, select, true {traces} other {sessions}}..."
+                    description="Status text while evaluating traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <Spinner size="default" css={{ marginBottom: theme.spacing.md }} />
+                <Button
+                  componentId="codegen_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_cancel"
+                  icon={<StopCircleFillIcon />}
+                  onClick={handleCancel}
+                >
+                  <FormattedMessage defaultMessage="Cancel" description="Button text for canceling evaluation" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
+                    description="Title for running judge on traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
+                  <FormattedMessage
+                    defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
+                    description="Description for running judge on traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <Tooltip
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
+                  content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+                >
+                  <span>
+                    <RunScorerButton
+                      variant={BUTTON_VARIANT.RUN}
+                      onClick={handleRunScorer}
+                      loading={false}
+                      disabled={isRunScorerDisabled}
+                    />
+                  </span>
+                </Tooltip>
+              </>
             )}
-            <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
-              <FormattedMessage
-                defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
-                description="Title for running judge on traces or sessions"
-                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
-              />
-            </Typography.Text>
-            <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
-              <FormattedMessage
-                defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
-                description="Description for running judge on traces or sessions"
-                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
-              />
-            </Typography.Text>
-            <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-initial-tooltip`}
-              content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-            >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
-            </Tooltip>
           </div>
         )}
       </div>

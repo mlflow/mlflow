@@ -8,7 +8,7 @@ import {
   ChatCompletion,
   ChatCompletionCreateParams,
   CreateEmbeddingResponse,
-  EmbeddingCreateParams
+  EmbeddingCreateParams,
 } from 'openai/resources/index';
 import { ResponseCreateParams, Response } from 'openai/resources/responses/responses';
 import { setupServer } from 'msw/node';
@@ -31,17 +31,17 @@ function createChatCompletionResponse(request: ChatCompletionCreateParams): Chat
         message: {
           role: 'assistant',
           content: 'Test response content',
-          refusal: null
+          refusal: null,
         },
         finish_reason: 'stop',
-        logprobs: null
-      }
+        logprobs: null,
+      },
     ],
     usage: {
       prompt_tokens: 100,
       completion_tokens: 200,
-      total_tokens: 300
-    }
+      total_tokens: 300,
+    },
   };
 }
 
@@ -60,24 +60,24 @@ function createResponsesResponse(request: ResponseCreateParams): Response {
           {
             type: 'output_text',
             text: 'Dummy output',
-            annotations: []
-          }
+            annotations: [],
+          },
         ],
         role: 'assistant',
         status: 'completed',
-        type: 'message'
-      }
+        type: 'message',
+      },
     ],
     usage: {
       input_tokens: 36,
       output_tokens: 87,
       total_tokens: 123,
       input_tokens_details: {
-        cached_tokens: 0
+        cached_tokens: 0,
       },
       output_tokens_details: {
-        reasoning_tokens: 0
-      }
+        reasoning_tokens: 0,
+      },
     },
     created_at: 123,
     output_text: 'Dummy output',
@@ -89,7 +89,7 @@ function createResponsesResponse(request: ResponseCreateParams): Response {
     temperature: 0.5,
     tools: [],
     top_p: 1,
-    tool_choice: 'auto'
+    tool_choice: 'auto',
   };
 }
 
@@ -106,13 +106,13 @@ function createEmbeddingResponse(request: EmbeddingCreateParams): CreateEmbeddin
       index,
       embedding: Array(1536)
         .fill(0)
-        .map(() => Math.random() * 0.1 - 0.05)
+        .map(() => Math.random() * 0.1 - 0.05),
     })),
     model: request.model,
     usage: {
       prompt_tokens: inputs.length * 10,
-      total_tokens: inputs.length * 10
-    }
+      total_tokens: inputs.length * 10,
+    },
   };
 }
 
@@ -131,7 +131,7 @@ export const openAIMockHandlers = [
   http.post('https://api.openai.com/v1/embeddings', async ({ request }) => {
     const body = (await request.json()) as EmbeddingCreateParams;
     return HttpResponse.json(createEmbeddingResponse(body));
-  })
+  }),
 ];
 
 export const openAIMswServer = setupServer(...openAIMockHandlers);

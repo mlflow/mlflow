@@ -1,25 +1,25 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useEffect, useCallback, useMemo, useState } from 'react';
-import { GatewayApi } from '../api';
-import { useCreateSecret } from './useCreateSecret';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useEndpointQuery } from './useEndpointQuery';
 import { useUpdateEndpointMutation } from './useUpdateEndpointMutation';
+import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
-import { getReadableErrorMessage, isSecretNameConflict } from '../utils/errorUtils';
+import { useCreateSecret } from './useCreateSecret';
+import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
-import type { SecretMode } from '../components/model-configuration/types';
 import type { Endpoint } from '../types';
 
 export { getReadableErrorMessage };
 
-export interface EditEndpointFormData {
-  name: string;
+export interface TrafficSplitModel {
+  modelDefinitionId?: string;
+  modelDefinitionName: string;
   provider: string;
   modelName: string;
-  secretMode: SecretMode;
+  secretMode: 'new' | 'existing';
   existingSecretId: string;
   newSecret: {
     name: string;
@@ -27,6 +27,29 @@ export interface EditEndpointFormData {
     secretFields: Record<string, string>;
     configFields: Record<string, string>;
   };
+  weight: number;
+}
+
+export interface FallbackModel {
+  modelDefinitionId?: string;
+  modelDefinitionName: string;
+  provider: string;
+  modelName: string;
+  secretMode: 'new' | 'existing';
+  existingSecretId: string;
+  newSecret: {
+    name: string;
+    authMode: string;
+    secretFields: Record<string, string>;
+    configFields: Record<string, string>;
+  };
+  fallbackOrder: number;
+}
+
+export interface EditEndpointFormData {
+  name: string;
+  trafficSplitModels: TrafficSplitModel[];
+  fallbackModels: FallbackModel[];
 }
 
 export interface UseEditEndpointFormResult {
@@ -35,13 +58,13 @@ export interface UseEditEndpointFormResult {
   isSubmitting: boolean;
   loadError: Error | null;
   mutationError: Error | null;
-  resetErrors: () => void;
   endpoint: Endpoint | undefined;
+  existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
-  handleNameBlur: () => void;
+  handleNameUpdate: (newName: string) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -50,226 +73,325 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const { data: endpointData, isLoading: isLoadingEndpoint, error: loadError } = useEndpointQuery(endpointId);
   const endpoint = endpointData?.endpoint;
-  const primaryMapping = endpoint?.model_mappings?.[0];
-  const primaryModelDef = primaryMapping?.model_definition;
 
   const form = useForm<EditEndpointFormData>({
     defaultValues: {
       name: '',
-      provider: '',
-      modelName: '',
-      secretMode: 'existing',
-      existingSecretId: '',
-      newSecret: {
-        name: '',
-        authMode: '',
-        secretFields: {},
-        configFields: {},
-      },
+      trafficSplitModels: [],
+      fallbackModels: [],
     },
   });
 
   useEffect(() => {
-    if (endpoint && primaryModelDef) {
+    if (endpoint && endpoint.model_mappings) {
+      const primaryMappings = endpoint.model_mappings.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
+      const fallbackMappings = endpoint.model_mappings.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
+      const totalWeight = primaryMappings.reduce((sum, m) => sum + (m.weight ?? 1.0), 0);
+
       form.reset({
         name: endpoint.name ?? '',
-        provider: primaryModelDef.provider ?? '',
-        modelName: primaryModelDef.model_name ?? '',
-        secretMode: 'existing',
-        existingSecretId: primaryModelDef.secret_id ?? '',
-        newSecret: {
-          name: '',
-          authMode: '',
-          secretFields: {},
-          configFields: {},
-        },
+        trafficSplitModels: primaryMappings.map((m) => ({
+          modelDefinitionId: m.model_definition?.model_definition_id,
+          modelDefinitionName: m.model_definition?.name ?? '',
+          provider: m.model_definition?.provider ?? '',
+          modelName: m.model_definition?.model_name ?? '',
+          secretMode: 'existing' as const,
+          existingSecretId: m.model_definition?.secret_id ?? '',
+          newSecret: {
+            name: '',
+            authMode: '',
+            secretFields: {},
+            configFields: {},
+          },
+          weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
+        })),
+        fallbackModels: fallbackMappings
+          .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
+          .map((m, idx) => ({
+            modelDefinitionId: m.model_definition?.model_definition_id,
+            modelDefinitionName: m.model_definition?.name ?? '',
+            provider: m.model_definition?.provider ?? '',
+            modelName: m.model_definition?.model_name ?? '',
+            secretMode: 'existing' as const,
+            existingSecretId: m.model_definition?.secret_id ?? '',
+            newSecret: {
+              name: '',
+              authMode: '',
+              secretFields: {},
+              configFields: {},
+            },
+            fallbackOrder: idx + 1,
+          })),
       });
     }
-  }, [endpoint, primaryModelDef, form]);
-
-  const provider = form.watch('provider');
+  }, [endpoint, form]);
 
   const {
     mutateAsync: updateEndpoint,
     error: updateEndpointError,
     isLoading: isUpdatingEndpoint,
-    reset: resetEndpointError,
   } = useUpdateEndpointMutation();
 
-  const {
-    mutateAsync: updateModelDefinition,
-    error: updateModelDefError,
-    isLoading: isUpdatingModelDef,
-    reset: resetModelDefError,
-  } = useUpdateModelDefinitionMutation();
+  const { mutateAsync: createSecret } = useCreateSecret();
+  const { mutateAsync: createModelDefinition } = useCreateModelDefinitionMutation();
+  const { mutateAsync: updateModelDefinition } = useUpdateModelDefinitionMutation();
 
-  const {
-    mutateAsync: createSecret,
-    error: createSecretError,
-    isLoading: isCreatingSecret,
-    reset: resetSecretError,
-  } = useCreateSecret();
-
-  const [customError, setCustomError] = useState<Error | null>(null);
-
-  const resetErrors = useCallback(() => {
-    resetEndpointError();
-    resetModelDefError();
-    resetSecretError();
-    setCustomError(null);
-  }, [resetEndpointError, resetModelDefError, resetSecretError]);
-
-  const isSubmitting = isUpdatingEndpoint || isUpdatingModelDef || isCreatingSecret;
-  const mutationError = (customError ||
-    updateEndpointError ||
-    updateModelDefError ||
-    createSecretError) as Error | null;
-
-  const resolveSecretId = useCallback(
-    async (values: EditEndpointFormData): Promise<string | null> => {
-      if (values.secretMode !== 'new') {
-        return values.existingSecretId;
-      }
-
-      const authConfig: Record<string, string> = { ...values.newSecret.configFields };
-      if (values.newSecret.authMode) {
-        authConfig['auth_mode'] = values.newSecret.authMode;
-      }
-
-      try {
-        const secretResponse = await createSecret({
-          secret_name: values.newSecret.name,
-          secret_value: values.newSecret.secretFields,
-          provider: values.provider,
-          auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
-        });
-        return (secretResponse as { secret: { secret_id: string } }).secret.secret_id;
-      } catch (secretError) {
-        if (!isSecretNameConflict(secretError)) {
-          throw secretError;
-        }
-        const secretsResponse = await GatewayApi.listSecrets(values.provider);
-        const existingSecret = secretsResponse.secrets?.find((s) => s.secret_name === values.newSecret.name);
-        if (!existingSecret) {
-          throw secretError;
-        }
-        form.setValue('secretMode', 'existing');
-        form.setValue('existingSecretId', existingSecret.secret_id);
-        form.setValue('newSecret', { name: '', authMode: '', secretFields: {}, configFields: {} });
-        queryClient.invalidateQueries(['gateway_secrets']);
-        resetSecretError();
-        setCustomError(
-          new Error(
-            `An API key named "${values.newSecret.name}" already exists. ` +
-              `It has been selected for you. Please click Save again to continue.`,
-          ),
-        );
-        return null;
-      }
-    },
-    [createSecret, form, queryClient, resetSecretError],
-  );
+  const isSubmitting = isUpdatingEndpoint;
+  const mutationError = updateEndpointError as Error | null;
 
   const handleSubmit = useCallback(
     async (values: EditEndpointFormData) => {
-      if (!endpoint || !primaryModelDef) return;
+      if (!endpoint) return;
 
       try {
-        if (values.name !== endpoint.name) {
-          await updateEndpoint({ endpointId: endpoint.endpoint_id, name: values.name || undefined });
-        }
+        const getSecretId = async (model: TrafficSplitModel | FallbackModel): Promise<string> => {
+          if (model.secretMode === 'existing') {
+            return model.existingSecretId;
+          }
 
-        const secretId = await resolveSecretId(values);
-        if (secretId === null) {
-          return;
-        }
-
-        const modelDefChanged =
-          values.provider !== primaryModelDef.provider ||
-          values.modelName !== primaryModelDef.model_name ||
-          secretId !== primaryModelDef.secret_id;
-
-        if (modelDefChanged) {
-          await updateModelDefinition({
-            modelDefinitionId: primaryModelDef.model_definition_id,
-            secretId: secretId,
-            provider: values.provider,
-            modelName: values.modelName,
+          const secretResponse = await createSecret({
+            secret_name: model.newSecret.name,
+            secret_value: model.newSecret.secretFields,
+            provider: model.provider,
+            auth_config: model.newSecret.configFields,
           });
-        }
+
+          return secretResponse.secret.secret_id;
+        };
+
+        const getOrCreateModelDef = async (model: TrafficSplitModel | FallbackModel): Promise<string> => {
+          // If model has a modelDefinitionId, check if it needs updating
+          if (model.modelDefinitionId) {
+            const originalMapping = endpoint.model_mappings?.find(
+              (m) => m.model_definition?.model_definition_id === model.modelDefinitionId,
+            );
+
+            if (originalMapping?.model_definition) {
+              const hasChanges =
+                model.provider !== originalMapping.model_definition.provider ||
+                model.modelName !== originalMapping.model_definition.model_name ||
+                (model.secretMode === 'existing' &&
+                  model.existingSecretId !== originalMapping.model_definition.secret_id) ||
+                model.secretMode === 'new';
+
+              if (hasChanges) {
+                // Update the existing model definition
+                const secretId = await getSecretId(model);
+                await updateModelDefinition({
+                  modelDefinitionId: model.modelDefinitionId,
+                  secretId,
+                  provider: model.provider,
+                  modelName: model.modelName,
+                });
+              }
+            }
+
+            return model.modelDefinitionId;
+          }
+
+          // Otherwise, create a new model definition
+          const secretId = await getSecretId(model);
+
+          if (!model.provider || !model.modelName) {
+            throw new Error('Provider and model name are required to create a model definition');
+          }
+
+          const timestamp = Date.now();
+          const rawModelDefName = `${values.name || endpoint.name}-${model.provider}-${model.modelName}-${timestamp}`;
+          let modelDefName = rawModelDefName
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+          if (!modelDefName) {
+            modelDefName = `model-definition-${timestamp}`;
+          }
+
+          const modelDefResponse = await createModelDefinition({
+            name: modelDefName,
+            secret_id: secretId,
+            provider: model.provider,
+            model_name: model.modelName,
+          });
+
+          return modelDefResponse.model_definition.model_definition_id;
+        };
+
+        const trafficSplitModelDefIds = await Promise.all(values.trafficSplitModels.map((m) => getOrCreateModelDef(m)));
+
+        const fallbackModelDefIds = await Promise.all(values.fallbackModels.map((m) => getOrCreateModelDef(m)));
+
+        const totalWeightPercent = values.trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
+        const trafficSplitCount = values.trafficSplitModels.length || 1;
+
+        const modelConfigs = [
+          ...values.trafficSplitModels.map((m, idx) => ({
+            model_definition_id: trafficSplitModelDefIds[idx],
+            linkage_type: 'PRIMARY' as const,
+            weight: totalWeightPercent > 0 ? m.weight / 100 : 1.0 / trafficSplitCount,
+          })),
+          ...values.fallbackModels.map((m, idx) => ({
+            model_definition_id: fallbackModelDefIds[idx],
+            linkage_type: 'FALLBACK' as const,
+            fallback_order: m.fallbackOrder,
+          })),
+        ];
+
+        const routingStrategy = values.trafficSplitModels.length > 1 ? 'REQUEST_BASED_TRAFFIC_SPLIT' : undefined;
+
+        const fallbackConfig =
+          values.fallbackModels.length > 0
+            ? {
+                strategy: 'SEQUENTIAL',
+                max_attempts: values.fallbackModels.length + 1,
+              }
+            : undefined;
+
+        await updateEndpoint({
+          endpointId: endpoint.endpoint_id,
+          name: values.name || undefined,
+          model_configs: modelConfigs,
+          routing_strategy: routingStrategy,
+          fallback_config: fallbackConfig,
+        });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
       } catch {
         // Errors are captured by mutation error state
       }
     },
-    [endpoint, primaryModelDef, updateEndpoint, updateModelDefinition, navigate, resolveSecretId],
+    [endpoint, updateEndpoint, navigate, createSecret, createModelDefinition, updateModelDefinition],
   );
 
   const handleCancel = useCallback(() => {
-    navigate(GatewayRoutes.getEndpointDetailsRoute(endpointId));
-  }, [navigate, endpointId]);
+    navigate(GatewayRoutes.gatewayPageRoute);
+  }, [navigate]);
 
-  const modelName = form.watch('modelName');
-  const secretMode = form.watch('secretMode');
-  const existingSecretId = form.watch('existingSecretId');
-  const newSecretName = form.watch('newSecret.name');
-  const newSecretFields = form.watch('newSecret.secretFields');
+  const handleNameUpdate = useCallback(
+    async (newName: string) => {
+      if (!endpoint) return;
+
+      await updateEndpoint({
+        endpointId: endpoint.endpoint_id,
+        name: newName,
+      });
+
+      // Invalidate the endpoint query to refetch the updated data
+      queryClient.invalidateQueries({ queryKey: ['gateway', 'endpoint', endpointId] });
+      queryClient.invalidateQueries({ queryKey: ['gateway', 'endpoints'] });
+    },
+    [endpoint, updateEndpoint, queryClient, endpointId],
+  );
+
+  const trafficSplitModels = form.watch('trafficSplitModels');
+  const fallbackModels = form.watch('fallbackModels');
 
   const isFormComplete = useMemo(() => {
-    const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => Boolean(v));
-    const isSecretConfigured =
-      secretMode === 'existing' ? Boolean(existingSecretId) : Boolean(newSecretName) && hasSecretFieldValues;
-    return Boolean(provider) && Boolean(modelName) && isSecretConfigured;
-  }, [secretMode, existingSecretId, newSecretName, newSecretFields, provider, modelName]);
+    if (trafficSplitModels.length === 0) return false;
+
+    const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
+    if (Math.abs(totalWeight - 100) > 0.01) return false;
+
+    const isModelComplete = (m: TrafficSplitModel | FallbackModel) => {
+      if (!m.provider || !m.modelName) return false;
+
+      if (m.secretMode === 'existing') {
+        return Boolean(m.existingSecretId);
+      } else {
+        if (!m.newSecret) return false;
+
+        const hasRequiredNewSecretFields = Boolean(m.newSecret.name && m.newSecret.authMode);
+        const hasAtLeastOneSecretFieldValue = m.newSecret.secretFields
+          ? Object.values(m.newSecret.secretFields).some((value) => value)
+          : false;
+
+        return hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue;
+      }
+    };
+
+    const allTrafficSplitComplete = trafficSplitModels.every(isModelComplete);
+    const allFallbackComplete = fallbackModels.every(isModelComplete);
+
+    return allTrafficSplitComplete && allFallbackComplete;
+  }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
 
   const hasChanges = useMemo(() => {
-    if (!endpoint || !primaryModelDef) return false;
+    if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
-
     if (name !== originalName) return true;
 
-    const originalProvider = primaryModelDef.provider ?? '';
-    const originalModelName = primaryModelDef.model_name ?? '';
-    const originalSecretId = primaryModelDef.secret_id ?? '';
+    const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
+    const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
 
-    if (secretMode === 'new') {
-      const hasNewSecretData = Boolean(newSecretName) || Object.values(newSecretFields || {}).some((v) => Boolean(v));
-      if (hasNewSecretData) return true;
-    }
+    if (trafficSplitModels.length !== originalPrimaryMappings.length) return true;
+    if (fallbackModels.length !== originalFallbackMappings.length) return true;
 
-    return (
-      provider !== originalProvider ||
-      modelName !== originalModelName ||
-      (secretMode === 'existing' && existingSecretId !== originalSecretId)
-    );
-  }, [
-    endpoint,
-    primaryModelDef,
-    name,
-    provider,
-    modelName,
-    secretMode,
-    existingSecretId,
-    newSecretName,
-    newSecretFields,
-  ]);
+    const originalTotalWeight = originalPrimaryMappings.reduce((sum, m) => sum + (m.weight ?? 1.0), 0);
+    const trafficSplitChanged = trafficSplitModels.some((model, idx) => {
+      const original = originalPrimaryMappings[idx];
+      if (!original || !original.model_definition) return true;
+
+      const originalWeightPercent =
+        originalTotalWeight > 0
+          ? ((original.weight ?? 1.0) / originalTotalWeight) * 100
+          : 100 / originalPrimaryMappings.length;
+
+      // Check if model definition ID changed (different model selected)
+      if (model.modelDefinitionId && model.modelDefinitionId !== original.model_definition.model_definition_id) {
+        return true;
+      }
+
+      // Check if model definition content changed (provider, model, or secret modified)
+      if (model.modelDefinitionId && model.modelDefinitionId === original.model_definition.model_definition_id) {
+        const modelDefChanged =
+          model.provider !== original.model_definition.provider ||
+          model.modelName !== original.model_definition.model_name ||
+          (model.secretMode === 'existing' && model.existingSecretId !== original.model_definition.secret_id) ||
+          model.secretMode === 'new';
+
+        if (modelDefChanged) return true;
+      }
+
+      return (
+        model.provider !== original.model_definition.provider ||
+        model.modelName !== original.model_definition.model_name ||
+        model.secretMode !== 'existing' ||
+        model.existingSecretId !== original.model_definition.secret_id ||
+        Math.abs(model.weight - originalWeightPercent) > 0.01
+      );
+    });
+
+    const fallbackChanged = fallbackModels.some((model) => {
+      // If no modelDefinitionId, it's a newly added model
+      if (!model.modelDefinitionId) return true;
+
+      const original = originalFallbackMappings.find(
+        (m) => m.model_definition?.model_definition_id === model.modelDefinitionId,
+      );
+
+      if (!original) return true;
+
+      if (original.model_definition) {
+        const modelDefChanged =
+          model.provider !== original.model_definition.provider ||
+          model.modelName !== original.model_definition.model_name ||
+          (model.secretMode === 'existing' && model.existingSecretId !== original.model_definition.secret_id) ||
+          model.secretMode === 'new';
+
+        if (modelDefChanged) return true;
+      }
+
+      return original.fallback_order !== model.fallbackOrder;
+    });
+
+    return trafficSplitChanged || fallbackChanged;
+  }, [endpoint, name, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
-
-  const handleNameBlur = useCallback(() => {
-    const name = form.getValues('name');
-    const otherEndpoints = existingEndpoints?.filter((e) => e.endpoint_id !== endpointId);
-    if (name && otherEndpoints?.some((e) => e.name === name)) {
-      form.setError('name', {
-        type: 'manual',
-        message: 'An endpoint with this name already exists',
-      });
-    }
-  }, [form, existingEndpoints, endpointId]);
 
   return {
     form,
@@ -277,12 +399,12 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     isSubmitting,
     loadError: loadError as Error | null,
     mutationError,
-    resetErrors,
     endpoint,
+    existingEndpoints,
     isFormComplete,
     hasChanges,
     handleSubmit,
     handleCancel,
-    handleNameBlur,
+    handleNameUpdate,
   };
 }

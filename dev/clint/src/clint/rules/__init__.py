@@ -35,6 +35,7 @@ from clint.rules.no_shebang import NoShebang
 from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
+from clint.rules.prefer_dict_union import PreferDictUnion
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
@@ -48,6 +49,7 @@ from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
 from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
+from clint.rules.use_gh_token import UseGhToken
 from clint.rules.use_sys_executable import UseSysExecutable
 from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
 from clint.rules.version_major_check import MajorVersionCheck
@@ -90,6 +92,7 @@ __all__ = [
     "OsChdirInTest",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
+    "PreferDictUnion",
     "PytestMarkRepeat",
     "RedundantTestDocstring",
     "SubprocessCheckCall",
@@ -103,6 +106,7 @@ __all__ = [
     "UnnamedThread",
     "UnparameterizedGenericType",
     "AssignBeforeAppend",
+    "UseGhToken",
     "UseSysExecutable",
     "UseWalrusOperator",
     "WalrusOperatorVisitor",

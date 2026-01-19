@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   ArrowLeftIcon,
   BeakerIcon,
@@ -12,7 +12,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link } from '../../../../../common/utils/RoutingUtils';
+import { Link, useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import type { ExperimentEntity } from '../../../../types';
@@ -42,6 +42,7 @@ const getDocLinkHref = (experimentKind: ExperimentKind) => {
  * controls for renaming, deleting and editing permissions.
  */
 export const ExperimentViewHeader = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     experiment,
     inferredExperimentKind,
@@ -60,6 +61,19 @@ export const ExperimentViewHeader = React.memo(
     refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const handleBack = useCallback(() => {
+      const pathSegments = location.pathname.split('/').filter(Boolean);
+      // Navigate to /experiments for tab pages (up to 3 segments: /experiments/ID/tab)
+      // For deeper paths, remove last segment to navigate to parent
+      if (pathSegments.length <= 3 && pathSegments[0] === 'experiments') {
+        navigate(Routes.experimentsObservatoryRoute);
+      } else {
+        pathSegments.pop();
+        navigate('/' + pathSegments.join('/'));
+      }
+    }, [location.pathname, navigate]);
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [
         // eslint-disable-next-line react/jsx-key
@@ -150,13 +164,13 @@ export const ExperimentViewHeader = React.memo(
           >
             {shouldEnableExperimentPageSideTabs() && (
               <>
-                <Link to={Routes.experimentsObservatoryRoute}>
-                  <Button
-                    componentId="mlflow.experiment-page.header.back-icon-button"
-                    type="tertiary"
-                    icon={<ArrowLeftIcon />}
-                  />
-                </Link>
+                <Button
+                  componentId="mlflow.experiment-page.header.back-icon-button"
+                  data-testid="experiment-view-header-back-button"
+                  type="tertiary"
+                  icon={<ArrowLeftIcon />}
+                  onClick={handleBack}
+                />
                 <div
                   css={{
                     borderRadius: theme.borders.borderRadiusSm,

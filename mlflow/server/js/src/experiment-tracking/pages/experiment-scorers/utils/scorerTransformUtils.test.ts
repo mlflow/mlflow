@@ -1,15 +1,21 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   ScorerTransformationError,
   transformScorerConfig,
   transformScheduledScorer,
   convertFormDataToScheduledScorer,
   convertRegisterScorerResponseToConfig,
+  outputTypeSpecToFormData,
 } from './scorerTransformUtils';
 import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+import { ScorerEvaluationScope } from '../constants';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  isEvaluatingSessionsInScorersEnabled: () => true,
+}));
 
 describe('transformScorerConfig', () => {
   describe('Custom template (instructions-based) LLM scorer', () => {
@@ -37,7 +43,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: 'databricks:/databricks-gpt-5',
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: true,
       });
     });
@@ -61,7 +67,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: undefined,
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: true,
       });
     });
@@ -91,7 +97,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -116,7 +122,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Single guideline'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -139,9 +145,95 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: [],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
+      });
+    });
+  });
+
+  describe('ConversationalGuidelines LLM scorer', () => {
+    it('should transform ConversationalGuidelines scorer with array guidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        sample_rate: 0.75,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: ['Be professional', 'Stay on topic'],
+          },
+          is_session_level_scorer: true,
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        sampleRate: 75,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic'],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        isSessionLevelScorer: true,
+        model: undefined,
+        version: undefined,
+      });
+    });
+
+    it('should transform ConversationalGuidelines scorer with string guideline to array', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: 'Single guideline',
+          },
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Single guideline'],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        model: undefined,
+        sampleRate: undefined,
+        version: undefined,
+      });
+    });
+
+    it('should handle missing guidelines in ConversationalGuidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Conversational Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {},
+        }),
+        builtin: { name: 'Test Conversational Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: [],
+        disableMonitoring: false,
+        is_instructions_judge: false,
+        model: undefined,
+        sampleRate: undefined,
+        version: undefined,
       });
     });
   });
@@ -164,7 +256,7 @@ describe('transformScorerConfig', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -195,7 +287,7 @@ describe('transformScorerConfig', () => {
         code: 'def my_scorer(inputs, outputs, metadata):\n    return len(inputs["text"]) > 10',
         callSignature: '(inputs, outputs, metadata)',
         originalFuncName: 'my_scorer',
-        disableMonitoring: true,
+        disableMonitoring: false,
       });
     });
 
@@ -214,7 +306,7 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: 'def evaluate(inputs, outputs):\n    return True',
-        disableMonitoring: true,
+        disableMonitoring: false,
         originalFuncName: undefined,
         callSignature: undefined,
       });
@@ -233,7 +325,7 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: '',
-        disableMonitoring: true,
+        disableMonitoring: false,
         originalFuncName: undefined,
         callSignature: undefined,
       });
@@ -340,6 +432,7 @@ describe('transformScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -351,6 +444,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Guidelines Scorer',
           builtin_scorer_class: 'Guidelines',
           builtin_scorer_pydantic_data: {
@@ -365,12 +459,48 @@ describe('transformScheduledScorer', () => {
       });
     });
 
+    it('should transform ConversationalGuidelines LLM scorer', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic'],
+        isSessionLevelScorer: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).toEqual({
+        name: 'Test Conversational Guidelines Scorer',
+        sample_rate: 0.8,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          mlflow_version: '3.3.2+ui',
+          serialization_version: 1,
+          is_session_level_scorer: true,
+          name: 'Test Conversational Guidelines Scorer',
+          builtin_scorer_class: 'ConversationalGuidelines',
+          builtin_scorer_pydantic_data: {
+            name: 'Test Conversational Guidelines Scorer',
+            required_columns: ['outputs', 'inputs'],
+            guidelines: ['Be professional', 'Stay on topic'],
+          },
+        }),
+        builtin: {
+          name: 'Test Conversational Guidelines Scorer',
+        },
+      });
+    });
+
     it('should transform built-in LLM scorer without instructions as built-in', () => {
       const scorer: LLMScorer = {
         name: 'Test Toxicity Scorer',
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -381,6 +511,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Toxicity Scorer',
           builtin_scorer_class: 'Safety',
           builtin_scorer_pydantic_data: {
@@ -459,6 +590,7 @@ describe('transformScheduledScorer', () => {
         name: 'Test Scorer',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -472,6 +604,7 @@ describe('transformScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -483,6 +616,7 @@ describe('transformScheduledScorer', () => {
       const scorer = {
         name: 'Test Scorer',
         type: 'llm' as const,
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -502,6 +636,7 @@ describe('transformScheduledScorer', () => {
         code: 'def my_scorer(inputs, outputs):\n    return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -513,6 +648,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Custom Scorer',
           call_source: 'def my_scorer(inputs, outputs):\n    return True',
           call_signature: '',
@@ -529,6 +665,7 @@ describe('transformScheduledScorer', () => {
         code: 'return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -576,6 +713,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response',
         isInstructionsJudge: true,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -630,6 +768,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'RelevanceToQuery',
         instructions: 'Evaluate if the response is relevant.',
         isInstructionsJudge: true,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -656,6 +795,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Correctness',
         instructions: 'These instructions should be ignored',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -682,6 +822,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: '  Line 1  \n\n  Line 2  \n  \n  Line 3  ',
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -697,6 +838,32 @@ describe('convertFormDataToScheduledScorer', () => {
       });
     });
 
+    it('should create new ConversationalGuidelines scorer with parsed guidelines', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm'; evaluationScope: ScorerEvaluationScope } = {
+        name: 'New Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: '',
+        scorerType: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: 'Be professional\nStay on topic\nBe helpful',
+        model: 'openai:/gpt-4o-mini',
+        evaluationScope: ScorerEvaluationScope.SESSIONS,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Conversational Guidelines Scorer',
+        sampleRate: 80,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'ConversationalGuidelines',
+        guidelines: ['Be professional', 'Stay on topic', 'Be helpful'],
+        model: 'openai:/gpt-4o-mini',
+        isSessionLevelScorer: true,
+      });
+    });
+
     it('should handle falsy guidelines values', () => {
       const formDataWithEmpty: LLMScorerFormData & { scorerType: 'llm' } = {
         name: 'New Guidelines Scorer',
@@ -704,6 +871,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: '',
+        model: '',
       };
 
       const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -711,6 +879,7 @@ describe('convertFormDataToScheduledScorer', () => {
         sampleRate: 50,
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
+        model: '',
         // guidelines intentionally undefined
       };
 
@@ -725,6 +894,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
       };
 
       const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -732,6 +902,7 @@ describe('convertFormDataToScheduledScorer', () => {
         sampleRate: 50,
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
         // filterString intentionally undefined
       };
 
@@ -787,6 +958,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const formData: CustomCodeScorerFormData & { scorerType: 'custom-code' } = {
@@ -807,6 +979,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False', // Code unchanged
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       });
     });
 
@@ -828,6 +1001,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Guidelines',
         guidelines: 'New guideline 1\nNew guideline 2',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -859,6 +1033,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Safety',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -893,6 +1068,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'old_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -901,6 +1077,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -917,6 +1094,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'original_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: Partial<LLMScorerFormData> & { scorerType: 'llm' } = {
@@ -934,6 +1112,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       });
     });
   });
@@ -962,5 +1141,108 @@ describe('convertRegisterScorerResponseToConfig', () => {
       serialized_scorer: response.serialized_scorer,
       scorer_version: 2,
     });
+  });
+});
+
+describe('outputTypeSpecToFormData', () => {
+  it('should return default for undefined spec', () => {
+    expect(outputTypeSpecToFormData(undefined)).toEqual({ outputTypeKind: 'default' });
+  });
+
+  it('should convert primitive types', () => {
+    expect(outputTypeSpecToFormData({ kind: 'bool' })).toEqual({ outputTypeKind: 'bool' });
+    expect(outputTypeSpecToFormData({ kind: 'int' })).toEqual({ outputTypeKind: 'int' });
+    expect(outputTypeSpecToFormData({ kind: 'str' })).toEqual({ outputTypeKind: 'str' });
+  });
+
+  it('should convert categorical type with options joined by newlines', () => {
+    expect(outputTypeSpecToFormData({ kind: 'categorical', categoricalOptions: ['good', 'bad'] })).toEqual({
+      outputTypeKind: 'categorical',
+      categoricalOptions: 'good\nbad',
+    });
+  });
+
+  it('should convert dict type', () => {
+    expect(outputTypeSpecToFormData({ kind: 'dict', dictValueType: 'float' })).toEqual({
+      outputTypeKind: 'dict',
+      dictValueType: 'float',
+    });
+  });
+
+  it('should convert list type', () => {
+    expect(outputTypeSpecToFormData({ kind: 'list', listElementType: 'int' })).toEqual({
+      outputTypeKind: 'list',
+      listElementType: 'int',
+    });
+  });
+});
+
+describe('output type in transformScorerConfig', () => {
+  it('should parse feedback_value_type from instructions judge', () => {
+    const config: ScorerConfig = {
+      name: 'Test Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate',
+          feedback_value_type: { type: 'boolean' },
+        },
+      }),
+      custom: {},
+    };
+
+    const result = transformScorerConfig(config) as LLMScorer;
+
+    expect(result.outputType).toEqual({ kind: 'bool' });
+  });
+
+  it('should parse categorical feedback_value_type', () => {
+    const config: ScorerConfig = {
+      name: 'Test Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate',
+          feedback_value_type: { type: 'string', enum: ['good', 'bad', 'neutral'] },
+        },
+      }),
+      custom: {},
+    };
+
+    const result = transformScorerConfig(config) as LLMScorer;
+
+    expect(result.outputType).toEqual({ kind: 'categorical', categoricalOptions: ['good', 'bad', 'neutral'] });
+  });
+});
+
+describe('output type in transformScheduledScorer', () => {
+  it('should serialize outputType to feedback_value_type JSON Schema', () => {
+    const scorer: LLMScorer = {
+      name: 'Test Scorer',
+      type: 'llm',
+      llmTemplate: 'Custom',
+      instructions: 'Evaluate',
+      is_instructions_judge: true,
+      outputType: { kind: 'int' },
+    };
+
+    const result = transformScheduledScorer(scorer);
+    const serialized = JSON.parse(result.serialized_scorer);
+
+    expect(serialized.instructions_judge_pydantic_data.feedback_value_type).toEqual({ type: 'integer' });
+  });
+
+  it('should not include feedback_value_type for default output type', () => {
+    const scorer: LLMScorer = {
+      name: 'Test Scorer',
+      type: 'llm',
+      llmTemplate: 'Custom',
+      instructions: 'Evaluate',
+      is_instructions_judge: true,
+      // outputType undefined = default
+    };
+
+    const result = transformScheduledScorer(scorer);
+    const serialized = JSON.parse(result.serialized_scorer);
+
+    expect(serialized.instructions_judge_pydantic_data.feedback_value_type).toBeUndefined();
   });
 });

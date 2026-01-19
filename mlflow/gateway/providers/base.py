@@ -110,16 +110,17 @@ class BaseProvider(ABC):
         """
         provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
         if provider_path is None:
-            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            requested_route = PASSTHROUGH_ROUTES.get(action, action.value)
             supported_routes = ", ".join(
-                f"/gateway{route} (provider_path: {path})"
+                f"/gateway{supported_route} (provider_path: {path})"
                 for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
-                if (route := PASSTHROUGH_ROUTES.get(act))
+                if (supported_route := PASSTHROUGH_ROUTES.get(act))
                 and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
             )
             raise AIGatewayException(
                 status_code=400,
-                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                detail="Unsupported passthrough endpoint "
+                f"'{requested_route}' for {self.NAME} provider. "
                 f"Supported endpoints: {supported_routes}",
             )
         return provider_path
@@ -186,8 +187,8 @@ class TrafficRouteProvider(BaseProvider):
             )
 
         self._providers = [get_provider(config.model.provider)(config) for config in configs]
-
-        self._weights = np.array(traffic_splits, dtype=np.float32) / 100
+        # Normalize the weights to sum to 1
+        self._weights = np.array(traffic_splits, dtype=np.float32) / np.sum(traffic_splits)
         self._indices = np.arange(len(self._providers))
 
     def _get_provider(self):
@@ -362,9 +363,12 @@ class FallbackProvider(BaseProvider):
         return await self._execute_with_fallback("embeddings", payload)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        return await self._execute_with_fallback("passthrough", action, payload)
+        return await self._execute_with_fallback("passthrough", action, payload, headers)
 
 
 class ProviderAdapter(ABC):

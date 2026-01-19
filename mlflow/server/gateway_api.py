@@ -6,7 +6,10 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
+import functools
 import logging
+import time
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -15,18 +18,16 @@ from fastapi.responses import StreamingResponse
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    AmazonBedrockConfig,
     AnthropicConfig,
-    AWSBaseConfig,
-    AWSIdAndKey,
-    AWSRole,
     EndpointConfig,
     EndpointType,
     GeminiConfig,
     LiteLLMConfig,
     MistralConfig,
+    OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    _AuthConfigKey,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -47,11 +48,54 @@ from mlflow.store.tracking.gateway.entities import (
     RoutingStrategy,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
+from mlflow.telemetry.track import _record_event
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+
+
+def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
+    """
+    Decorator to record telemetry for gateway invocation endpoints.
+
+    Automatically tracks success/failure status, duration, and streaming mode
+    (determined by checking if the response is a StreamingResponse).
+
+    Args:
+        invocation_type: The type of invocation endpoint.
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            success = True
+            result = None
+
+            try:
+                result = await func(*args, **kwargs)
+                return result  # noqa: RET504
+            except Exception:
+                success = False
+                raise
+            finally:
+                duration_ms = int((time.time() - start_time) * 1000)
+                _record_event(
+                    GatewayInvocationEvent,
+                    params={
+                        "is_streaming": isinstance(result, StreamingResponse),
+                        "invocation_type": invocation_type,
+                    },
+                    success=success,
+                    duration_ms=duration_ms,
+                )
+
+        return wrapper
+
+    return decorator
 
 
 def _build_endpoint_config(
@@ -81,75 +125,58 @@ def _build_endpoint_config(
     if model_config.provider == Provider.OPENAI:
         auth_config = model_config.auth_config or {}
         openai_config = {
-            "openai_api_key": model_config.secret_value.get("api_key"),
+            "openai_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
 
         # Check if this is Azure OpenAI (requires api_type, deployment_name, api_base, api_version)
         if "api_type" in auth_config and auth_config["api_type"] in ("azure", "azuread"):
             openai_config["openai_api_type"] = auth_config["api_type"]
-            openai_config["openai_api_base"] = auth_config.get("api_base")
+            openai_config["openai_api_base"] = auth_config.get(_AuthConfigKey.API_BASE)
             openai_config["openai_deployment_name"] = auth_config.get("deployment_name")
             openai_config["openai_api_version"] = auth_config.get("api_version")
         else:
             # Standard OpenAI
-            if "api_base" in auth_config:
-                openai_config["openai_api_base"] = auth_config["api_base"]
+            if _AuthConfigKey.API_BASE in auth_config:
+                openai_config["openai_api_base"] = auth_config[_AuthConfigKey.API_BASE]
             if "organization" in auth_config:
                 openai_config["openai_organization"] = auth_config["organization"]
 
         provider_config = OpenAIConfig(**openai_config)
+    elif model_config.provider == Provider.AZURE:
+        auth_config = model_config.auth_config or {}
+        model_config.provider = Provider.OPENAI
+        provider_config = OpenAIConfig(
+            openai_api_type=OpenAIAPIType.AZURE,
+            openai_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+            openai_api_base=auth_config.get(_AuthConfigKey.API_BASE),
+            openai_deployment_name=model_config.model_name,
+            openai_api_version=auth_config.get("api_version"),
+        )
     elif model_config.provider == Provider.ANTHROPIC:
         anthropic_config = {
-            "anthropic_api_key": model_config.secret_value.get("api_key"),
+            "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
-    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
-        # Bedrock supports multiple auth modes
-        auth_config = model_config.auth_config or {}
-        secret_value = model_config.secret_value or {}
-
-        # Check for role-based auth (aws_role_arn in auth_config)
-        if "aws_role_arn" in auth_config:
-            aws_config = AWSRole(
-                aws_role_arn=auth_config["aws_role_arn"],
-                session_length_seconds=auth_config.get("session_length_seconds", 15 * 60),
-                aws_region=auth_config.get("aws_region"),
-            )
-        # Check for access key auth (credentials in secret_value)
-        elif "aws_access_key_id" in secret_value:
-            aws_config = AWSIdAndKey(
-                aws_access_key_id=secret_value["aws_access_key_id"],
-                aws_secret_access_key=secret_value["aws_secret_access_key"],
-                aws_session_token=secret_value.get("aws_session_token"),
-                aws_region=auth_config.get("aws_region"),
-            )
-        else:
-            aws_config = AWSBaseConfig(
-                aws_region=auth_config.get("aws_region"),
-            )
-
-        provider_config = AmazonBedrockConfig(aws_config=aws_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
-            mistral_api_key=model_config.secret_value.get("api_key"),
+            mistral_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
-            gemini_api_key=model_config.secret_value.get("api_key"),
+            gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
         original_provider = model_config.provider
+        auth_config = model_config.auth_config or {}
+        # Merge auth_config with secret_value (secret_value contains api_key and other secrets)
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_api_key": model_config.secret_value.get("api_key"),
+            "litellm_auth_config": auth_config | model_config.secret_value,
         }
-        auth_config = model_config.auth_config or {}
-        if "api_base" in auth_config:
-            litellm_config["litellm_api_base"] = auth_config["api_base"]
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM
 
@@ -325,6 +352,7 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
 async def invocations(endpoint_name: str, request: Request):
     """
     Unified invocations endpoint handler that supports both chat and embeddings.
@@ -379,6 +407,7 @@ async def invocations(endpoint_name: str, request: Request):
 
 @gateway_router.post("/mlflow/v1/chat/completions", response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_CHAT_COMPLETIONS)
 async def chat_completions(request: Request):
     """
     OpenAI-compatible chat completions endpoint.
@@ -407,13 +436,12 @@ async def chat_completions(request: Request):
 
     _validate_store(store)
 
-    endpoint_type = EndpointType.LLM_V1_CHAT
     try:
         payload = chat.RequestPayload(**body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
 
     if payload.stream:
         return await make_streaming_response(provider.chat_stream(payload))
@@ -423,6 +451,7 @@ async def chat_completions(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_CHAT)
 async def openai_passthrough_chat(request: Request):
     """
     OpenAI passthrough endpoint for chat completions.
@@ -463,6 +492,7 @@ async def openai_passthrough_chat(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_EMBEDDINGS)
 async def openai_passthrough_embeddings(request: Request):
     """
     OpenAI passthrough endpoint for embeddings.
@@ -497,6 +527,7 @@ async def openai_passthrough_embeddings(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
 async def openai_passthrough_responses(request: Request):
     """
     OpenAI passthrough endpoint for the Responses API.
@@ -537,6 +568,7 @@ async def openai_passthrough_responses(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.ANTHROPIC_PASSTHROUGH_MESSAGES)
 async def anthropic_passthrough_messages(request: Request):
     """
     Anthropic passthrough endpoint for the Messages API.
@@ -579,6 +611,7 @@ async def anthropic_passthrough_messages(request: Request):
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_GENERATE_CONTENT)
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for generateContent API (non-streaming).
@@ -615,6 +648,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT)
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for streamGenerateContent API (streaming).

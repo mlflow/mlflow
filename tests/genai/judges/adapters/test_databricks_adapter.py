@@ -2,6 +2,7 @@ import json
 from typing import Any
 from unittest import mock
 
+import litellm
 import pytest
 import requests
 from pydantic import BaseModel
@@ -12,7 +13,10 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _run_databricks_agentic_loop,
     call_chat_completions,
+    create_litellm_message_from_databricks_response,
+    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     InvokeDatabricksModelOutput,
@@ -21,6 +25,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
 )
+from mlflow.types.llm import ChatMessage
 from mlflow.utils import AttrDict
 
 
@@ -310,13 +315,39 @@ def test_invoke_databricks_serving_endpoint_with_response_format(mock_databricks
         # Verify response_format was included in the payload
         assert captured_payload is not None
         assert "response_format" in captured_payload
-        assert captured_payload["response_format"] == ResponseFormat.model_json_schema()
+        assert captured_payload["response_format"] == {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "schema": ResponseFormat.model_json_schema(),
+            },
+        }
 
         # Verify the response was returned correctly
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
 
-def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databricks_creds):
+@pytest.mark.parametrize(
+    "error_text",
+    [
+        '{"error": "Invalid parameter: response_format is not supported"}',
+        (
+            '{"error_code":"BAD_REQUEST",'
+            '"message":"Bad request: json: unknown field \\"response_schema\\""}'
+        ),
+        (
+            '{"error_code":"INVALID_PARAMETER_VALUE",'
+            '"message": "INVALID_PARAMETER_VALUE: Response format type object '
+            'is not supported for this model."}'
+        ),
+        '{"error": "ResponseFormatObject is not supported by this model"}',
+        '{"error": "Bad request: json: unknown field \\"properties\\""}',
+        '{"error": "Bad request: json: unknown field "properties""}',
+    ],
+)
+def test_invoke_databricks_serving_endpoint_response_format_error_detection(
+    mock_databricks_creds, error_text: str
+):
     class ResponseFormat(BaseModel):
         result: int
         rationale: str
@@ -331,11 +362,9 @@ def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databr
 
         mock_response = mock.Mock()
         if call_count == 1:
-            # First call with response_format fails
             mock_response.status_code = 400
-            mock_response.text = '{"error": "Invalid parameter: response_format is not supported"}'
+            mock_response.text = error_text
         else:
-            # Second call without response_format succeeds
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "choices": [{"message": {"content": '{"result": 8, "rationale": "Good quality"}'}}],
@@ -355,7 +384,7 @@ def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databr
         ),
     ):
         output = _invoke_databricks_serving_endpoint(
-            model_name="my-endpoint",
+            model_name="test-model",
             prompt="Rate this",
             num_retries=1,
             response_format=ResponseFormat,
@@ -709,3 +738,485 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
         )
 
         assert result.output == "test response"
+
+
+# Tests for _run_databricks_agentic_loop
+
+
+def test_agentic_loop_final_answer_without_tool_calls():
+    # Mock response with no tool calls (final answer)
+    mock_response = AttrDict(
+        {
+            "output_json": json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": '{"result": "yes", "rationale": "Looks good"}',
+                            }
+                        }
+                    ]
+                }
+            )
+        }
+    )
+
+    messages = [litellm.Message(role="user", content="Test prompt")]
+    callback_called_with = []
+
+    def callback(content):
+        callback_called_with.append(content)
+        return {"parsed": content}
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+        return_value=mock_response,
+    ) as mock_call:
+        result = _run_databricks_agentic_loop(
+            messages=messages,
+            trace=None,
+            on_final_answer=callback,
+        )
+
+        # Verify callback was called with the content
+        assert len(callback_called_with) == 1
+        assert callback_called_with[0] == '{"result": "yes", "rationale": "Looks good"}'
+        assert result == {"parsed": '{"result": "yes", "rationale": "Looks good"}'}
+
+        # Verify call_chat_completions was called once (no loop)
+        assert mock_call.call_count == 1
+
+
+def test_agentic_loop_tool_calling_loop(mock_trace):
+    # First response has tool calls, second response is final answer
+    mock_responses = [
+        # First call: LLM requests tool call
+        AttrDict(
+            {
+                "output_json": json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [
+                                        {
+                                            "id": "call_123",
+                                            "type": "function",
+                                            "function": {
+                                                "name": "get_root_span",
+                                                "arguments": "{}",
+                                            },
+                                        }
+                                    ],
+                                }
+                            }
+                        ]
+                    }
+                )
+            }
+        ),
+        # Second call: LLM returns final answer
+        AttrDict(
+            {
+                "output_json": json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": '{"outputs": "The answer is 42"}',
+                                }
+                            }
+                        ]
+                    }
+                )
+            }
+        ),
+    ]
+
+    messages = [litellm.Message(role="user", content="Extract outputs")]
+
+    def callback(content):
+        return {"result": content}
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            side_effect=mock_responses,
+        ) as mock_call,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
+        ) as mock_process,
+    ):
+        mock_process.return_value = [
+            litellm.Message(
+                role="tool",
+                content='{"name": "root_span", "inputs": null}',
+                tool_call_id="call_123",
+                name="get_root_span",
+            )
+        ]
+
+        result = _run_databricks_agentic_loop(
+            messages=messages,
+            trace=mock_trace,
+            on_final_answer=callback,
+        )
+
+        # Verify we looped twice
+        assert mock_call.call_count == 2
+
+        # Verify tool calls were processed
+        mock_process.assert_called_once()
+
+        # Verify final result
+        assert result == {"result": '{"outputs": "The answer is 42"}'}
+
+
+def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
+    # Always return tool calls (never a final answer)
+    mock_response = AttrDict(
+        {
+            "output_json": json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": "call_123",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "get_root_span",
+                                            "arguments": "{}",
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            )
+        }
+    )
+
+    messages = [litellm.Message(role="user", content="Extract outputs")]
+
+    def callback(content):
+        return content
+
+    # Set max iterations to 1 for minimal test run
+    monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", "1")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            return_value=mock_response,
+        ) as mock_call,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
+        ) as mock_process,
+    ):
+        mock_process.return_value = [
+            litellm.Message(
+                role="tool", content="{}", tool_call_id="call_123", name="get_root_span"
+            )
+        ]
+
+        with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
+            _run_databricks_agentic_loop(
+                messages=messages,
+                trace=mock_trace,
+                on_final_answer=callback,
+            )
+
+        # Verify we hit the limit (called once before raising)
+        assert mock_call.call_count == 1
+
+
+def _create_message(message_type, role, content=None, **kwargs):
+    if message_type == "litellm":
+        return litellm.Message(role=role, content=content, **kwargs)
+    else:
+        return ChatMessage(role=role, content=content, **kwargs)
+
+
+def _create_tool_call(message_type, tool_id, function_name, arguments):
+    if message_type == "litellm":
+        return litellm.ChatCompletionMessageToolCall(
+            id=tool_id,
+            type="function",
+            function=litellm.Function(name=function_name, arguments=arguments),
+        )
+    else:
+        from mlflow.types.llm import FunctionToolCallArguments, ToolCall
+
+        return ToolCall(
+            id=tool_id,
+            type="function",
+            function=FunctionToolCallArguments(name=function_name, arguments=arguments),
+        )
+
+
+@pytest.mark.parametrize("message_type", ["litellm", "chatmessage"])
+@pytest.mark.parametrize(
+    ("messages_builder", "expected_user_prompt", "expected_system_prompt"),
+    [
+        # System message is extracted separately, user message becomes user_prompt
+        (
+            lambda mt: [
+                _create_message(mt, "system", "You are a helpful assistant"),
+                _create_message(mt, "user", "What is 2+2?"),
+            ],
+            "What is 2+2?",
+            "You are a helpful assistant",
+        ),
+        # No system message results in None for system_prompt
+        (
+            lambda mt: [_create_message(mt, "user", "What is 2+2?")],
+            "What is 2+2?",
+            None,
+        ),
+        # Multiple user messages are concatenated with \n\n separator
+        (
+            lambda mt: [
+                _create_message(mt, "user", "First question"),
+                _create_message(mt, "user", "Second question"),
+            ],
+            "First question\n\nSecond question",
+            None,
+        ),
+        # Assistant messages are prefixed with "Assistant: " in the user_prompt
+        (
+            lambda mt: [
+                _create_message(mt, "user", "What is 2+2?"),
+                _create_message(mt, "assistant", "4"),
+                _create_message(mt, "user", "What is 3+3?"),
+            ],
+            "What is 2+2?\n\nAssistant: 4\n\nWhat is 3+3?",
+            None,
+        ),
+        # Assistant with tool calls shows "[Called tools]" placeholder
+        (
+            lambda mt: [
+                _create_message(mt, "user", "Get the root span"),
+                _create_message(
+                    mt,
+                    "assistant",
+                    None,
+                    tool_calls=[_create_tool_call(mt, "call_123", "get_root_span", "{}")],
+                ),
+            ],
+            "Get the root span\n\nAssistant: [Called tools]",
+            None,
+        ),
+        # Tool messages are formatted as "Tool {name}: {content}"
+        (
+            lambda mt: [
+                _create_message(mt, "user", "Get the root span"),
+                _create_message(
+                    mt,
+                    "assistant",
+                    None,
+                    tool_calls=[_create_tool_call(mt, "call_123", "get_root_span", "{}")],
+                ),
+                _create_message(
+                    mt,
+                    "tool",
+                    '{"name": "root_span"}',
+                    tool_call_id="call_123",
+                    name="get_root_span",
+                ),
+            ],
+            "Get the root span\n\nAssistant: [Called tools]\n\nTool get_root_span: "
+            '{"name": "root_span"}',
+            None,
+        ),
+        # Full multi-turn conversation with system prompt
+        (
+            lambda mt: [
+                _create_message(mt, "system", "You are helpful"),
+                _create_message(mt, "user", "Question 1"),
+                _create_message(mt, "assistant", "Answer 1"),
+                _create_message(mt, "user", "Question 2"),
+            ],
+            "Question 1\n\nAssistant: Answer 1\n\nQuestion 2",
+            "You are helpful",
+        ),
+    ],
+    ids=[
+        "with_system_message",
+        "without_system_message",
+        "multiple_user_messages",
+        "with_assistant_messages",
+        "with_tool_calls",
+        "with_tool_messages",
+        "full_conversation",
+    ],
+)
+def test_serialize_messages_to_databricks_prompts(
+    message_type, messages_builder, expected_user_prompt, expected_system_prompt
+):
+    messages = messages_builder(message_type)
+    user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
+
+    assert user_prompt == expected_user_prompt
+    assert system_prompt == expected_system_prompt
+
+
+@pytest.mark.parametrize(
+    ("response_data", "expected_role", "expected_content"),
+    [
+        # Simple string content is extracted as-is
+        (
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "This is a response",
+                        }
+                    }
+                ]
+            },
+            "assistant",
+            "This is a response",
+        ),
+        # List content with text blocks are concatenated with newlines (reasoning models)
+        (
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {"type": "text", "text": "First part"},
+                                {"type": "text", "text": "Second part"},
+                                {"type": "other", "data": "ignored"},
+                            ],
+                        }
+                    }
+                ]
+            },
+            "assistant",
+            "First part\nSecond part",
+        ),
+        # List content with no text blocks results in None
+        (
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": [{"type": "other", "data": "no text"}],
+                        }
+                    }
+                ]
+            },
+            "assistant",
+            None,
+        ),
+    ],
+    ids=["string_content", "list_content", "empty_list_content"],
+)
+def test_create_litellm_message_from_databricks_response(
+    response_data, expected_role, expected_content
+):
+    message = create_litellm_message_from_databricks_response(response_data)
+
+    assert isinstance(message, litellm.Message)
+    assert message.role == expected_role
+    assert message.content == expected_content
+    assert message.tool_calls is None
+
+
+def test_create_litellm_message_from_databricks_response_with_single_tool_call():
+    response_data = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_root_span",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                }
+            }
+        ]
+    }
+
+    message = create_litellm_message_from_databricks_response(response_data)
+
+    assert isinstance(message, litellm.Message)
+    assert message.role == "assistant"
+    assert message.content is None
+    assert message.tool_calls is not None
+    assert len(message.tool_calls) == 1
+    assert message.tool_calls[0].id == "call_123"
+    assert message.tool_calls[0].type == "function"
+    assert message.tool_calls[0].function.name == "get_root_span"
+    assert message.tool_calls[0].function.arguments == "{}"
+
+
+def test_create_litellm_message_from_databricks_response_with_multiple_tool_calls():
+    response_data = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "get_root_span", "arguments": "{}"},
+                        },
+                        {
+                            "id": "call_2",
+                            "type": "function",
+                            "function": {"name": "list_spans", "arguments": "{}"},
+                        },
+                    ],
+                }
+            }
+        ]
+    }
+
+    message = create_litellm_message_from_databricks_response(response_data)
+
+    assert isinstance(message, litellm.Message)
+    assert message.role == "assistant"
+    assert message.content is None
+    assert message.tool_calls is not None
+    assert len(message.tool_calls) == 2
+    assert message.tool_calls[0].id == "call_1"
+    assert message.tool_calls[0].function.name == "get_root_span"
+    assert message.tool_calls[1].id == "call_2"
+    assert message.tool_calls[1].function.name == "list_spans"
+
+
+@pytest.mark.parametrize(
+    ("response_data", "expected_error"),
+    [
+        # Response without choices field raises ValueError
+        ({}, "missing 'choices' field"),
+        # Response with empty choices array raises ValueError
+        ({"choices": []}, "missing 'choices' field"),
+    ],
+    ids=["missing_choices", "empty_choices"],
+)
+def test_create_litellm_message_from_databricks_response_errors(response_data, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        create_litellm_message_from_databricks_response(response_data)

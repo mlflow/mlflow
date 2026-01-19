@@ -6,9 +6,6 @@ import ExperimentGenAIOverviewPage from './ExperimentGenAIOverviewPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
-import { rest } from 'msw';
-import { setupServer } from '../../../common/utils/setup-msw';
-import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
@@ -18,22 +15,6 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Mock recharts to avoid rendering issues
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
 
 describe('ExperimentGenAIOverviewPage', () => {
   const testExperimentId = 'test-experiment-456';
@@ -47,14 +28,17 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview`) => {
+  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview/usage`) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
           <MemoryRouter initialEntries={[initialUrl]}>
             <Routes>
-              <Route path="/experiments/:experimentId/overview" element={<ExperimentGenAIOverviewPage />} />
+              <Route
+                path="/experiments/:experimentId/overview/:overviewTab?"
+                element={<ExperimentGenAIOverviewPage />}
+              />
             </Routes>
           </MemoryRouter>
         </DesignSystemProvider>
@@ -71,11 +55,13 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('page rendering', () => {
-    it('should render the Usage tab', async () => {
+    it('should render all tabs', async () => {
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByRole('tab', { name: 'Usage' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
       });
     });
 
@@ -96,12 +82,10 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should render the control bar with search and time range selector', async () => {
+    it('should render the control bar with time range selector', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Search input
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
         // Time range selector
         expect(screen.getByRole('combobox')).toBeInTheDocument();
       });
@@ -116,45 +100,37 @@ describe('ExperimentGenAIOverviewPage', () => {
         expect(screen.getByRole('tabpanel')).toBeInTheDocument();
       });
     });
-  });
 
-  describe('search input handling', () => {
-    it('should render the search input with placeholder', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Search charts');
-        expect(searchInput).toBeInTheDocument();
-      });
-    });
-
-    it('should allow typing in the search input', async () => {
+    it('should switch to Quality tab when clicked', async () => {
       const user = userEvent.setup();
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.type(searchInput, 'test query');
+      await user.click(screen.getByRole('tab', { name: 'Quality' }));
 
-      expect(searchInput).toHaveValue('test query');
+      await waitFor(() => {
+        const qualityTab = screen.getByRole('tab', { name: 'Quality' });
+        expect(qualityTab).toHaveAttribute('aria-selected', 'true');
+      });
     });
 
-    it('should update search query state when typing', async () => {
+    it('should switch to Tool calls tab when clicked', async () => {
       const user = userEvent.setup();
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.clear(searchInput);
-      await user.type(searchInput, 'my search');
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
 
-      expect(searchInput).toHaveValue('my search');
+      await waitFor(() => {
+        const toolCallsTab = screen.getByRole('tab', { name: 'Tool calls' });
+        expect(toolCallsTab).toHaveAttribute('aria-selected', 'true');
+      });
     });
   });
 
@@ -215,7 +191,7 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should handle custom time range from URL parameters', async () => {
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
+      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 
@@ -230,84 +206,38 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('chart integration', () => {
-    it('should render TraceRequestsChart component', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: { [AggregationType.COUNT]: 100 },
-              },
-            ],
-          }),
-      } as Response);
-
+    it('should render all chart components', async () => {
       renderComponent();
 
+      // Verify all charts are rendered
       await waitFor(() => {
         expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
       });
     });
 
-    it('should display chart with data when API returns data', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: { [AggregationType.COUNT]: 50 },
-              },
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-                values: { [AggregationType.COUNT]: 75 },
-              },
-            ],
-          }),
-      } as Response);
-
+    it('should pass experimentId to chart API calls', async () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+        expect(mockFetchOrFail).toHaveBeenCalled();
       });
 
-      // Verify total count is displayed (50 + 75 = 125)
-      expect(screen.getByText('125')).toBeInTheDocument();
+      // Verify experimentId is passed to chart API calls
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      expect(callBody.experiment_ids).toEqual([testExperimentId]);
     });
 
-    it('should show empty state when no data is available', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: [] }),
-      } as Response);
-
+    it('should render charts in correct layout', async () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
-      });
-    });
-
-    it('should show error state when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
-      });
-    });
-
-    it('should pass experimentId to TraceRequestsChart', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.experiment_ids).toEqual([testExperimentId]);
+        // Requests chart should be present (full width)
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        // Latency and Errors charts should be present (side by side)
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
       });
     });
   });

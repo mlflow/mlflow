@@ -2,9 +2,10 @@ import { isNil, isNumber, isPlainObject, orderBy } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import { CheckCircleIcon, WarningIcon, XCircleIcon } from '@databricks/design-system';
-import { defineMessage } from '@databricks/i18n';
 import type { MessageDescriptor, IntlShape } from '@databricks/i18n';
+import { defineMessage } from '@databricks/i18n';
 import { getUser } from '@databricks/web-shared/global-settings';
+import { normalizeConversation } from '@databricks/web-shared/model-trace-explorer';
 
 import type {
   AssessmentInfo,
@@ -18,6 +19,36 @@ import { getEvaluationResultAssessmentBackgroundColor, getEvaluationResultIconCo
 const ERROR_VALUE = 'Error';
 
 export const INPUT_REQUEST_KEY = 'request';
+
+const COMMON_MESSAGE_FORMATS = ['openai', 'langchain', 'anthropic'] as const;
+
+/**
+ * Attempts to extract the last user message content from various chat formats.
+ * Returns undefined if the input cannot be parsed as a chat format.
+ */
+export const tryExtractUserMessageContent = (input: unknown): string | undefined => {
+  // This prevents raw/truncated strings from being incorrectly treated as user messages
+  if (isNil(input) || typeof input !== 'object') {
+    return undefined;
+  }
+
+  try {
+    for (const format of COMMON_MESSAGE_FORMATS) {
+      const messages = normalizeConversation(input, format);
+      if (messages && messages.length > 0) {
+        const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user');
+        if (lastUserMessage?.content) {
+          return lastUserMessage.content;
+        }
+      }
+    }
+  } catch {
+    // JSON may be truncated or malformed, silently fail
+  }
+
+  return undefined;
+};
+
 const INPUT_MESSAGES_KEY = 'messages';
 
 export enum KnownEvaluationResultAssessmentName {
@@ -34,6 +65,7 @@ export enum KnownEvaluationResultAssessmentName {
   GUIDELINE_ADHERENCE = 'guideline_adherence',
   GUIDELINES = 'guidelines', // Updated name for guideline adherence
   GLOBAL_GUIDELINE_ADHERENCE = 'global_guideline_adherence',
+  CONVERSATIONAL_GUIDELINES = 'conversational_guidelines',
 }
 
 export const DEFAULT_ASSESSMENTS_SORT_ORDER: string[] = [
@@ -43,6 +75,7 @@ export const DEFAULT_ASSESSMENTS_SORT_ORDER: string[] = [
   KnownEvaluationResultAssessmentName.GLOBAL_GUIDELINE_ADHERENCE,
   KnownEvaluationResultAssessmentName.GUIDELINE_ADHERENCE,
   KnownEvaluationResultAssessmentName.GUIDELINES,
+  KnownEvaluationResultAssessmentName.CONVERSATIONAL_GUIDELINES,
   KnownEvaluationResultAssessmentName.RELEVANCE_TO_QUERY,
   KnownEvaluationResultAssessmentName.CONTEXT_SUFFICIENCY,
   KnownEvaluationResultAssessmentName.RETRIEVAL_SUFFICIENCY,
@@ -117,6 +150,10 @@ export const ASSESSMENTS_DOC_LINKS: Record<string, AssessmentLearnMoreLink> = {
   [KnownEvaluationResultAssessmentName.GUIDELINES]: {
     basePath: '/generative-ai/agent-evaluation/llm-judge-reference',
     hash: 'guideline-adherence',
+  },
+  [KnownEvaluationResultAssessmentName.CONVERSATIONAL_GUIDELINES]: {
+    basePath: '/generative-ai/agent-evaluation/llm-judge-reference',
+    hash: 'conversational-guidelines',
   },
 };
 
@@ -350,6 +387,11 @@ export const KnownEvaluationResultAssessmentValueLabel: Record<string, MessageDe
     description:
       'Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. "Global guideline adherence: moderate"',
   }),
+  [KnownEvaluationResultAssessmentName.CONVERSATIONAL_GUIDELINES]: defineMessage({
+    defaultMessage: 'Conversational guidelines',
+    description:
+      'Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation.',
+  }),
 };
 
 export const KnownEvaluationResultAssessmentValueMissingTooltip: Record<string, MessageDescriptor> = {
@@ -452,6 +494,11 @@ export const KnownEvaluationResultAssessmentValueDescription: Record<string, Mes
     defaultMessage:
       'The global guideline adherence LLM judge determines whether the response adheres to the global guidelines provided. All responses must adhere to global guidelines.',
     description: 'Evaluation results > known type of evaluation result assessment > global guideline adherence judge.',
+  }),
+  [KnownEvaluationResultAssessmentName.CONVERSATIONAL_GUIDELINES]: defineMessage({
+    defaultMessage:
+      "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",
+    description: 'Evaluation results > known type of evaluation result assessment > conversational guidelines judge.',
   }),
 };
 
@@ -612,6 +659,18 @@ export const KnownEvaluationResultAssessmentValueMapping: Record<string, Record<
         'Evaluation results > global guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the global guidelines.',
     }),
   },
+  [KnownEvaluationResultAssessmentName.CONVERSATIONAL_GUIDELINES]: {
+    [KnownEvaluationResultAssessmentStringValue.YES]: defineMessage({
+      defaultMessage: 'Adheres to guidelines',
+      description:
+        'Evaluation results > conversational guidelines assessment > positive value label. Displayed if the assistant adheres to guidelines throughout the conversation.',
+    }),
+    [KnownEvaluationResultAssessmentStringValue.NO]: defineMessage({
+      defaultMessage: 'Violates guidelines',
+      description:
+        'Evaluation results > conversational guidelines assessment > negative value label. Displayed if the assistant violates guidelines at any point in the conversation.',
+    }),
+  },
 };
 
 const isAssessmentAiGenerated = (assessment: RunEvaluationResultAssessment) => {
@@ -669,8 +728,9 @@ export const getEvaluationResultInputTitle = (
   } else if (!isNil(input) && Array.isArray(input) && !isNil(input[0]?.content)) {
     // Try to parse OpenAI messages.
     title = input[input.length - 1]?.content;
-  } else {
-    title = input ? stringifyValue(input) : undefined;
+  } else if (input) {
+    const extractedContent = tryExtractUserMessageContent(input);
+    title = extractedContent ?? stringifyValue(input);
   }
 
   return title;

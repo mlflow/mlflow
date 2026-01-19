@@ -102,7 +102,7 @@ jobs:
       - id: set-matrix
         name: Set matrix
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -110,7 +110,7 @@ jobs:
             PR_NUMBER="${{ github.event.pull_request.number }}"
             BASE_REF="${{ github.base_ref }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
-            CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep -v '^mlflow/server/js' || true)
+            CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -v '^mlflow/server/js' || true)
             ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
             ONLY_LATEST="${{ fromJson(steps.check-labels.outputs.result).only_latest }}"

@@ -217,18 +217,19 @@ describe('useApiKeysPage', () => {
     const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.handleDeleteClick(mockSecret, mockModelDefinitions, 1);
+      result.current.handleDeleteClick(mockSecret, mockModelDefinitions, mockEndpoints, 1);
     });
 
     expect(result.current.isDeleteModalOpen).toBe(true);
     expect(result.current.deleteModalData).toEqual({
       secret: mockSecret,
       modelDefinitions: mockModelDefinitions,
+      endpoints: mockEndpoints,
       bindingCount: 1,
     });
   });
 
-  test('handleDeleteFromDrawer computes model definitions and binding count', () => {
+  test('handleDeleteFromDrawer computes model definitions, endpoints, and binding count', () => {
     const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
 
     act(() => {
@@ -238,6 +239,7 @@ describe('useApiKeysPage', () => {
     expect(result.current.isDeleteModalOpen).toBe(true);
     expect(result.current.deleteModalData?.secret).toEqual(mockSecret);
     expect(result.current.deleteModalData?.modelDefinitions).toEqual(mockModelDefinitions);
+    expect(result.current.deleteModalData?.endpoints).toEqual(mockEndpoints);
     expect(result.current.deleteModalData?.bindingCount).toBe(1);
   });
 
@@ -245,7 +247,7 @@ describe('useApiKeysPage', () => {
     const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.handleDeleteClick(mockSecret, [], 0);
+      result.current.handleDeleteClick(mockSecret, [], [], 0);
     });
     expect(result.current.isDeleteModalOpen).toBe(true);
 
