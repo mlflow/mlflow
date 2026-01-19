@@ -412,3 +412,34 @@ def test_optimize_prompts_with_chat_prompt(
             optimizer=MockPromptOptimizer(),
             scorers=[equivalence],
         )
+
+
+def test_optimize_prompts_logs_assessments(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
+    mock_optimizer = MockPromptOptimizer()
+
+    with mlflow.start_run() as run:
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=sample_dataset,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=mock_optimizer,
+            scorers=[equivalence],
+        )
+
+        traces = mlflow.search_traces(run_id=run.info.run_id, return_type="list")
+        # Filters out validation trace if it exists in the same run
+        from mlflow.tracing.constant import TraceTagKey
+
+        eval_traces = [t for t in traces if TraceTagKey.EVAL_REQUEST_ID in t.info.tags]
+        assert len(eval_traces) > 0
+
+        any_with_assessments = False
+        for t in eval_traces:
+            if t.info.assessments and any(a.name == "equivalence" for a in t.info.assessments):
+                any_with_assessments = True
+
+        assert any_with_assessments, "Equivalence assessment not found in traces"
