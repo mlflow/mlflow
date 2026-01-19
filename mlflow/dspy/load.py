@@ -3,7 +3,15 @@ import logging
 import os
 
 import cloudpickle
+import dspy
 
+from mlflow.dspy.save import (
+    _DSPY_SETTINGS_FILE_NAME,
+    _MODEL_CONFIG_FILE_NAME,
+    _MODEL_DATA_PATH,
+)
+from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_model
@@ -35,16 +43,6 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 
 
 def _load_model(model_uri, dst_path=None):
-    import dspy
-
-    from mlflow.dspy.save import (
-        _DSPY_SETTINGS_FILE_NAME,
-        _MODEL_CONFIG_FILE_NAME,
-        _MODEL_DATA_PATH,
-    )
-    from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
-    from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
-    from mlflow.transformers.llm_inference_utils import _LLM_INFERENCE_TASK_KEY
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
@@ -53,7 +51,7 @@ def _load_model(model_uri, dst_path=None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
-    task = flavor_conf.get(_LLM_INFERENCE_TASK_KEY)
+    task = flavor_conf.get("inference_task")
 
     if model_path.endswith(".pkl"):
         if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
