@@ -69,8 +69,8 @@ from mlflow.genai.scorers import (
 
 # Create and start a trace-level judge
 tool_judge = ToolCallCorrectness(model="gateway:/your-endpoint")
-registered_judge = tool_judge.register(name="tool_call_correctness")
-registered_judge.start(
+registered_tool_judge = tool_judge.register(name="tool_call_correctness")
+registered_tool_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=0.5),  # Evaluate 50% of traces
 )
 
