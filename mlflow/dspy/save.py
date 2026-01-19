@@ -8,6 +8,7 @@ from typing import Any
 
 import cloudpickle
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -51,7 +52,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
 _MODEL_CONFIG_FILE_NAME = "model_config.json"
-_DSPY_CONFIG_FILE_NAME = "dspy_config.json"
+_DSPY_SETTINGS_FILE_NAME = "dspy_config.pkl"
 _DSPY_RM_FILE_NAME = "dspy_rm.pkl"
 
 _logger = logging.getLogger(__name__)
@@ -123,12 +124,12 @@ def save_model(
     """
 
     import dspy
-    from dspy import BaseLM
 
     from mlflow.transformers.llm_inference_utils import (
         _LLM_INFERENCE_TASK_KEY,
         _METADATA_LLM_INFERENCE_TASK_KEY,
     )
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if signature:
         num_inputs = len(signature.inputs.inputs)
@@ -142,6 +143,15 @@ def save_model(
             "Invalid task: {task} at `mlflow.dspy.save_model()` call. The task must be None or one "
             f"of: {list(SIGNATURE_FOR_LLM_INFERENCE_TASK.keys())}",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not use_dspy_model_save and not is_in_databricks_runtime():
+        _logger.warning(
+            "Saving DSpy model by Pickle or CloudPickle format requires exercising "
+            "caution because these formats rely on Python's object serialization mechanism, "
+            "which can execute arbitrary code during deserialization."
+            "The recommended alternative is to set 'use_dspy_model_save' to True "
+            "(requiring DSpy >= 3.1.0) to save the "
+            "DSpy model using the DSpy builtin saving method."
         )
 
     if mlflow_model is None:
@@ -175,6 +185,10 @@ def save_model(
     model_path = os.path.join(path, model_subpath)
 
     if use_dspy_model_save:
+        if Version(dspy.__version__) <= Version("3.1.0"):
+            raise MlflowException(
+                "'use_dspy_model_save' option is only supported for DSpy version > 3.1.0."
+            )
         os.makedirs(model_path, exist_ok=True)
 
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
@@ -218,27 +232,12 @@ def save_model(
     if use_dspy_model_save:
         wrapped_dspy_model.model.save(model_path, save_program=True)
 
-        class CustomJSONEncoder(json.JSONEncoder):
-            def default(self, obj):
-                if isinstance(obj, BaseLM):
-                    return {
-                        "__type__": "LM",
-                        "class": obj.__class__.__module__ + "." + obj.__class__.__name__,
-                        "state": obj.dump_state(),
-                    }
-                return super().default(obj)
-
-        if dspy_rm := dspy_settings.pop("rm", None):
-            # TODO: delegate the saving to dspy API once dspy library supports it.
-            with open(os.path.join(data_path, _DSPY_RM_FILE_NAME), "wb") as f:
-                cloudpickle.dump(dspy_rm, f)
-
-        with open(os.path.join(data_path, _DSPY_CONFIG_FILE_NAME), "w") as f:
-            json.dump(dspy_settings, f, cls=CustomJSONEncoder)
-
         with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
             json.dump(model_config, f)
 
+        dspy_settings.save(
+            os.path.join(data_path, _DSPY_SETTINGS_FILE_NAME), exclude_keys=["trace"]
+        )
     else:
         with open(model_path, "wb") as f:
             cloudpickle.dump(wrapped_dspy_model, f)
