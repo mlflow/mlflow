@@ -412,7 +412,7 @@ def run_online_scoring_scheduler() -> None:
     """
     tracking_store = _get_tracking_store()
     online_scorers = tracking_store.get_active_online_scorers()
-    _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")
+    _logger.debug(f"Online scoring scheduler found {len(online_scorers)} active scorers")
 
     scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
     for scorer in online_scorers:
@@ -422,7 +422,7 @@ def run_online_scoring_scheduler() -> None:
     # limited job runners available
     experiment_groups = list(scorers_by_experiment.items())
     random.shuffle(experiment_groups)
-    _logger.info(
+    _logger.debug(
         f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
     )
 
@@ -445,7 +445,7 @@ def run_online_scoring_scheduler() -> None:
 
         # Only submit jobs for scorer types that exist
         if trace_level_scorers:
-            _logger.info(
+            _logger.debug(
                 f"Submitting trace scoring job for experiment {experiment_id} "
                 f"with {len(trace_level_scorers)} scorers"
             )
@@ -456,7 +456,7 @@ def run_online_scoring_scheduler() -> None:
             )
 
         if session_level_scorers:
-            _logger.info(
+            _logger.debug(
                 f"Submitting session scoring job for experiment {experiment_id} "
                 f"with {len(session_level_scorers)} scorers"
             )

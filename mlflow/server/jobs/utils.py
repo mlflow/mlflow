@@ -400,7 +400,7 @@ def _get_or_init_huey_instance(instance_key: str):
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
-            _logger.info(f"Creating huey instance for {instance_key}")
+            _logger.debug(f"Creating huey instance for {instance_key}")
             huey_store_file = os.path.join(
                 os.environ[HUEY_STORAGE_PATH_ENV_VAR], f"{instance_key}.mlflow-huey-store"
             )
