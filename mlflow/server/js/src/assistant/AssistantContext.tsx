@@ -208,6 +208,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      startChat,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
