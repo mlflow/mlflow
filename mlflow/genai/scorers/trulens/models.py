@@ -76,7 +76,9 @@ def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: A
         ) -> str:
             if messages:
                 user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
-                final_prompt = f"System: {system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
+                final_prompt = (
+                    f"System: {system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
+                )
             else:
                 final_prompt = prompt if prompt is not None else ""
 
