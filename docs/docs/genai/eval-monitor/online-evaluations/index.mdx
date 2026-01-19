@@ -67,14 +67,14 @@ from mlflow.genai.scorers import (
     ScorerSamplingConfig,
 )
 
-# Trace-level judge for tool call correctness
+# Create and start a trace-level judge
 tool_judge = ToolCallCorrectness(model="gateway:/your-endpoint")
 registered_judge = tool_judge.register(name="tool_call_correctness")
 registered_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=0.5),  # Evaluate 50% of traces
 )
 
-# Session-level judge for multi-turn conversations
+# Create and start a session-level judge for multi-turn conversations
 frustration_judge = ConversationalGuidelines(
     name="user_frustration",
     guidelines="The user should not express frustration, confusion, or dissatisfaction during the conversation.",
@@ -92,7 +92,7 @@ judge = get_scorer(name="tool_call_correctness")
 judge.update(
     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
 )  # Change sample rate
-judge.stop()  # Disable the judge
+judge.stop()  # Or, disable the judge
 ```
 
 </TabItem>
