@@ -72,3 +72,6 @@ jobs:
       - name: Run tests
         run: |
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker tests/pyfunc/docker
+        env:
+          MALLOC_ARENA_MAX: 2
+          PYTHONMALLOC: malloc
