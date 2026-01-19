@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useEndpointQuery } from './useEndpointQuery';
 import { useUpdateEndpointMutation } from './useUpdateEndpointMutation';
@@ -58,13 +58,13 @@ export interface UseEditEndpointFormResult {
   isSubmitting: boolean;
   loadError: Error | null;
   mutationError: Error | null;
-  resetErrors: () => void;
   endpoint: Endpoint | undefined;
+  existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
-  handleNameBlur: () => void;
+  handleNameUpdate: (newName: string) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -130,22 +130,14 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     mutateAsync: updateEndpoint,
     error: updateEndpointError,
     isLoading: isUpdatingEndpoint,
-    reset: resetEndpointError,
   } = useUpdateEndpointMutation();
 
   const { mutateAsync: createSecret } = useCreateSecret();
   const { mutateAsync: createModelDefinition } = useCreateModelDefinitionMutation();
   const { mutateAsync: updateModelDefinition } = useUpdateModelDefinitionMutation();
 
-  const [customError, setCustomError] = useState<Error | null>();
-
-  const resetErrors = useCallback(() => {
-    resetEndpointError();
-    setCustomError(null);
-  }, [resetEndpointError]);
-
   const isSubmitting = isUpdatingEndpoint;
-  const mutationError = (customError || updateEndpointError) as Error | null;
+  const mutationError = updateEndpointError as Error | null;
 
   const handleSubmit = useCallback(
     async (values: EditEndpointFormData) => {
@@ -276,6 +268,22 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     navigate(GatewayRoutes.gatewayPageRoute);
   }, [navigate]);
 
+  const handleNameUpdate = useCallback(
+    async (newName: string) => {
+      if (!endpoint) return;
+
+      await updateEndpoint({
+        endpointId: endpoint.endpoint_id,
+        name: newName,
+      });
+
+      // Invalidate the endpoint query to refetch the updated data
+      queryClient.invalidateQueries({ queryKey: ['gateway', 'endpoint', endpointId] });
+      queryClient.invalidateQueries({ queryKey: ['gateway', 'endpoints'] });
+    },
+    [endpoint, updateEndpoint, queryClient, endpointId],
+  );
+
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
 
@@ -385,29 +393,18 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const { data: existingEndpoints } = useEndpointsQuery();
 
-  const handleNameBlur = useCallback(() => {
-    const name = form.getValues('name');
-    const otherEndpoints = existingEndpoints?.filter((e) => e.endpoint_id !== endpointId);
-    if (name && otherEndpoints?.some((e) => e.name === name)) {
-      form.setError('name', {
-        type: 'manual',
-        message: 'An endpoint with this name already exists',
-      });
-    }
-  }, [form, existingEndpoints, endpointId]);
-
   return {
     form,
     isLoadingEndpoint,
     isSubmitting,
     loadError: loadError as Error | null,
     mutationError,
-    resetErrors,
     endpoint,
+    existingEndpoints,
     isFormComplete,
     hasChanges,
     handleSubmit,
     handleCancel,
-    handleNameBlur,
+    handleNameUpdate,
   };
 }

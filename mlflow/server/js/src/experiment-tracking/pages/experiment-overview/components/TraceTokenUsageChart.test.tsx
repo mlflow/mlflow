@@ -226,16 +226,6 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should format token count in millions for values >= 1,000,000', async () => {
       setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(1500000)]);
 

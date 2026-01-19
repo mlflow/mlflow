@@ -1,8 +1,12 @@
 import React, { useCallback } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 
-const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
+export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
@@ -43,19 +47,6 @@ export const OverviewChartHeader: React.FC<OverviewChartHeaderProps> = ({ icon, 
         </Typography.Title>
       )}
     </div>
-  );
-};
-
-/**
- * "Over time" label shown above time-series charts in overview
- */
-export const OverviewChartTimeLabel: React.FC = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
-    </Typography.Text>
   );
 };
 
@@ -190,8 +181,6 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
     return null;
   }
 
-  const maxHeight = 120;
-
   return (
     <div
       css={{
@@ -213,7 +202,7 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
       {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
       <div
         css={{
-          maxHeight,
+          maxHeight: DEFAULT_TOOLTIP_MAX_HEIGHT,
           overflowY: 'auto',
           overflowX: 'hidden',
         }}
@@ -324,7 +313,7 @@ interface ScrollableLegendConfig {
  */
 export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
   const { theme } = useDesignSystemTheme();
-  const maxHeight = config?.maxHeight ?? 60;
+  const maxHeight = config?.maxHeight ?? DEFAULT_LEGEND_MAX_HEIGHT;
 
   const formatter = (value: string) => (
     <span
@@ -356,13 +345,18 @@ export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
  */
 interface OverviewChartContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
+  /** Component ID for telemetry tracking (e.g., "mlflow.charts.trace_requests") */
+  componentId?: string;
 }
 
 /**
- * Common container styling for overview chart cards
+ * Common container styling for overview chart cards.
+ * When componentId is provided, tracks user interactions for telemetry.
  */
-export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, ...rest }) => {
+export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, componentId, ...rest }) => {
   const { theme } = useDesignSystemTheme();
+  const interactionProps = useChartInteractionTelemetry(componentId);
+
   return (
     <div
       css={{
@@ -371,6 +365,7 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
         padding: theme.spacing.lg,
         backgroundColor: theme.colors.backgroundPrimary,
       }}
+      {...interactionProps}
       {...rest}
     >
       {children}

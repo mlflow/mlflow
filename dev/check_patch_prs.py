@@ -5,11 +5,12 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from typing import Any
 
 import requests
 
 
-def get_release_branch(version):
+def get_release_branch(version: str) -> str:
     major_minor_version = ".".join(version.split(".")[:2])
     return f"branch-{major_minor_version}"
 
@@ -20,7 +21,7 @@ class Commit:
     pr_num: int
 
 
-def get_commits(branch: str):
+def get_commits(branch: str) -> list[Commit]:
     """
     Get the commits in the release branch.
     """
@@ -59,18 +60,18 @@ class PR:
     merged: bool
 
 
-def is_closed(pr):
+def is_closed(pr: dict[str, Any]) -> bool:
     return pr["state"] == "closed" and pr["pull_request"]["merged_at"] is None
 
 
-def fetch_patch_prs(version):
+def fetch_patch_prs(version: str) -> dict[int, bool]:
     """
     Fetch PRs labeled with `v{version}` from the MLflow repository.
     """
     label = f"v{version}"
     per_page = 100
     page = 1
-    pulls = []
+    pulls: list[dict[str, Any]] = []
     while True:
         response = requests.get(
             f'https://api.github.com/search/issues?q=is:pr+repo:mlflow/mlflow+label:"{label}"&per_page={per_page}&page={page}',
@@ -86,7 +87,7 @@ def fetch_patch_prs(version):
     return {pr["number"]: pr["pull_request"].get("merged_at") is not None for pr in pulls}
 
 
-def main(version, dry_run):
+def main(version: str, dry_run: bool) -> None:
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
