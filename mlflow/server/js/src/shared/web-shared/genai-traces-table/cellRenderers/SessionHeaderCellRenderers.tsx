@@ -11,7 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { MLFLOW_TRACE_USER_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
@@ -25,6 +25,7 @@ import {
 } from '../hooks/useTableColumns';
 import type { TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
+import { getTraceInfoInputs } from '../utils/TraceUtils';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -65,7 +66,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     );
   } else if (column.id === INPUTS_COLUMN_ID && firstTrace) {
     // Request/Input column - get from first trace's request_preview
-    const inputTitle = firstTrace.request_preview || '';
+    const inputTitle = getTraceInfoInputs(firstTrace);
     cellContent = inputTitle ? (
       <div
         css={{
@@ -107,7 +108,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     );
   } else if (column.id === USER_COLUMN_ID && firstTrace) {
     // User column - get from first trace's metadata or tags
-    const value = firstTrace.trace_metadata?.['mlflow.trace.user'] || firstTrace.tags?.['mlflow.user'];
+    const value = firstTrace.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
     cellContent = value ? (
       <div
         css={{
