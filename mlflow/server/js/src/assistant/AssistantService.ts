@@ -8,6 +8,42 @@ import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
 /**
+ * Process content block array from assistant response.
+ * Extracts text or tool uses and calls appropriate callbacks.
+ */
+const processContentBlocks = (
+  content: any[],
+  onMessage: (text: string) => void,
+  onToolUse?: (tools: ToolUseInfo[]) => void,
+): void => {
+  // Extract text from TextBlock items
+  const text = content
+    .filter((block: any) => 'text' in block)
+    .map((block: any) => block.text)
+    .join('');
+
+  if (text) {
+    // Clear tools and show text when assistant is responding
+    onToolUse?.([]);
+    onMessage(text);
+    return;
+  }
+
+  // Only show tool uses when there's no text response yet
+  const toolUses = content
+    .filter((block: any) => block.name && block.input && !block.tool_use_id)
+    .map((block: any) => ({
+      id: block.id,
+      name: block.name,
+      description: block.input?.description,
+      input: block.input,
+    }));
+  if (toolUses.length > 0 && onToolUse) {
+    onToolUse(toolUses);
+  }
+};
+
+/**
  * Create an EventSource for streaming responses.
  */
 export const createEventSource = (sessionId: string): EventSource => {
@@ -68,33 +104,9 @@ export const sendMessageStream = async (
           // Handle string content
           if (typeof content === 'string') {
             onMessage(content);
-          }
-          // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
-          else if (Array.isArray(content)) {
-            // Extract text from TextBlock items
-            const text = content
-              .filter((block: any) => 'text' in block)
-              .map((block: any) => block.text)
-              .join('');
-
-            if (text) {
-              // Clear tools and show text when assistant is responding
-              onToolUse?.([]);
-              onMessage(text);
-            } else {
-              // Only show tool uses when there's no text response yet
-              const toolUses = content
-                .filter((block: any) => block.name && block.input && !block.tool_use_id)
-                .map((block: any) => ({
-                  id: block.id,
-                  name: block.name,
-                  description: block.input?.description,
-                  input: block.input,
-                }));
-              if (toolUses.length > 0 && onToolUse) {
-                onToolUse(toolUses);
-              }
-            }
+          } else if (Array.isArray(content)) {
+            // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
+            processContentBlocks(content, onMessage, onToolUse);
           }
         }
       } catch (err) {
