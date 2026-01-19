@@ -1,7 +1,7 @@
-import { isNil } from 'lodash';
 import React from 'react';
 
 import {
+  HoverCard,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -11,21 +11,30 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import { MLFLOW_TRACE_USER_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  TOKEN_USAGE_METADATA_KEY,
+  MLFLOW_TRACE_USER_KEY,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
+import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
+  EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
+  TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
 import type { TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
-import { getTraceInfoInputs } from '../utils/TraceUtils';
+import { getTraceInfoInputs, getTraceInfoOutputs } from '../utils/TraceUtils';
+import { TokenComponent } from './TokensCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -125,6 +134,51 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       </div>
     ) : (
       <NullCell />
+    );
+  } else if (column.id === RESPONSE_COLUMN_ID && traces.length > 0) {
+    // Response column - get output from the last trace
+    const lastTrace = traces[traces.length - 1];
+    const value = formatResponseTitle(getTraceInfoOutputs(lastTrace));
+    cellContent = value ? (
+      <div
+        css={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0,
+        }}
+        title={value}
+      >
+        {value}
+      </div>
+    ) : (
+      <NullCell />
+    );
+  } else if (column.id === TOKENS_COLUMN_ID && traces.length > 0) {
+    // Tokens - sum all token counts
+    let totalTokens = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    traces.forEach((trace) => {
+      const tokenUsage = trace.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+      try {
+        const parsedTokenUsage = tokenUsage ? JSON.parse(tokenUsage) : {};
+        totalTokens += parsedTokenUsage.total_tokens || 0;
+        totalInputTokens += parsedTokenUsage.input_tokens || 0;
+        totalOutputTokens += parsedTokenUsage.output_tokens || 0;
+      } catch {
+        // Skip invalid token data
+      }
+    });
+
+    cellContent = (
+      <TokenComponent
+        inputTokens={totalInputTokens}
+        outputTokens={totalOutputTokens}
+        totalTokens={totalTokens}
+        isComparing={false}
+      />
     );
   }
 
