@@ -39,6 +39,7 @@ For alignment to work:
 
 - Each trace must have BOTH judge assessments AND human feedback **with the same assessment name**
 - The assessment name must exactly match the judge name
+- A mix of agreements and disagreements between judge and human is recommended
 
 ## How MemAlign Works
 
@@ -89,7 +90,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 
 ## Inspecting Learned Knowledge
 
-After alignment, you can inspect what the judge has learned:
+After alignment, you can inspect what the judge has learned by viewing the updated instructions:
 
 ```python
 # View the updated instructions with distilled guidelines
@@ -98,13 +99,6 @@ print(aligned_judge.instructions)
 # "Distilled Guidelines (7):
 #   - Responses must be factually accurate...
 #   - Use neutral, descriptive language..."
-
-# Access the semantic memory (guidelines)
-for guideline in aligned_judge._semantic_memory:
-    print(f"• {guideline.guideline_text}")
-
-# Check the number of stored examples
-print(f"Episodic memory size: {len(aligned_judge._episodic_memory)}")
 ```
 
 ## Removing Feedback (Unalignment)
