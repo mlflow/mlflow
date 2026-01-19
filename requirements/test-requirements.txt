@@ -40,5 +40,5 @@ dspy
 gepa
 # required for testing docker compose
 testcontainers
-# paddlepaddle>=3.3.0 causes segfaults during import on CI
-paddlepaddle<3.3.0
+# paddlepaddle>=3.0.0 causes segfaults during import on CI
+paddlepaddle<3.0.0
