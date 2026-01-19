@@ -2,6 +2,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import { CardGroup, TitleCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Online Evaluations
 
@@ -122,11 +123,14 @@ For more information about session evaluation, see [Evaluate Conversations](/gen
 
 ## Viewing Results
 
-Assessments from online evaluation appear directly on traces in the MLflow UI. Navigate to your experiment's **Traces** tab to see assessment scores for each trace.
+Assessments from online evaluation appear directly in the MLflow UI. Navigate to your experiment's **Traces** or **Sessions** tab to see assessment scores.
 
-![Online Evaluation Results](/images/genai/eval-monitor/online-evaluation-results.png)
-
-You can also filter traces by assessment scores to find traces that need attention.
+<ImageBox
+  src="/images/genai/eval-monitor/online-evaluation-results.png"
+  alt="Online evaluation results showing assessment scores for traces"
+  caption="Assessment scores from online evaluation appear as columns in the traces table"
+  width="80%"
+/>
 
 ## Best Practices
 
