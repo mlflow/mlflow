@@ -11,6 +11,11 @@ import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+const isLocalServer = (): boolean => {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+};
+
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -307,6 +312,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     error,
     currentStatus,
     activeTools,
+    isLocalServer: isLocalServer(),
     // Actions
     openPanel,
     closePanel,
@@ -327,6 +333,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   error: null,
   currentStatus: null,
   activeTools: [],
+  isLocalServer: true,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

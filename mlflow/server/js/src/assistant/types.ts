@@ -46,6 +46,8 @@ export interface AssistantAgentState {
   currentStatus: string | null;
   /** Active tools being used by the assistant */
   activeTools: ToolUseInfo[];
+  /** Whether the server is running on localhost */
+  isLocalServer: boolean;
 }
 
 export interface AssistantAgentActions {

@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Button,
   Card,
   CloseIcon,
@@ -242,11 +243,54 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
+ * Warning displayed when the server is not local.
+ */
+const NonLocalServerWarning = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.lg * 2,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+      <Alert
+        type="warning"
+        componentId={`${COMPONENT_ID}.non_local_server_warning`}
+        closable={false}
+        message={
+          <FormattedMessage
+            defaultMessage="MLflow Assistant is only available when accessing the UI from a local MLflow server (localhost)."
+            description="Warning message when MLflow Assistant is not available because the server is not local"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="To use the Assistant with a remote tracking server, run a local MLflow server with {code} pointing to your remote server."
+            description="Instructions for using MLflow Assistant with a remote tracking server"
+            values={{
+              code: <code>MLFLOW_TRACKING_URI</code>,
+            }}
+          />
+        }
+      />
+    </div>
+  );
+};
+
+/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, isLocalServer } =
+    useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -279,6 +323,23 @@ const ChatPanelContent = () => {
     },
     [sendMessage],
   );
+
+  if (!isLocalServer) {
+    return (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <NonLocalServerWarning />
+      </div>
+    );
+  }
 
   return (
     <div
