@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.scorers.trulens.registry import build_trulens_args
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -13,6 +12,15 @@ from mlflow.genai.utils.trace_utils import (
     resolve_outputs_from_trace,
 )
 
+# Mapping from metric name to TruLens argument names
+# Each metric expects different argument names for its feedback function
+_ARG_MAPPING: dict[str, dict[str, str]] = {
+    "Groundedness": {"context": "source", "output": "statement"},
+    "ContextRelevance": {"input": "question", "context": "context"},
+    "AnswerRelevance": {"input": "prompt", "output": "response"},
+    "Coherence": {"output": "text"},
+}
+
 
 def map_scorer_inputs_to_trulens_args(
     metric_name: str,
@@ -21,19 +29,6 @@ def map_scorer_inputs_to_trulens_args(
     expectations: dict[str, Any] | None = None,
     trace: Trace | None = None,
 ) -> dict[str, Any]:
-    """
-    Convert MLflow scorer inputs to TruLens feedback function arguments.
-
-    Args:
-        metric_name: Name of the TruLens metric
-        inputs: The input to evaluate
-        outputs: The output to evaluate
-        expectations: Expected values and context for evaluation
-        trace: MLflow trace for evaluation
-
-    Returns:
-        Dictionary of arguments for the TruLens feedback function
-    """
     if trace:
         inputs = resolve_inputs_from_trace(inputs, trace)
         outputs = resolve_outputs_from_trace(outputs, trace)
@@ -43,12 +38,28 @@ def map_scorer_inputs_to_trulens_args(
     output_str = parse_outputs_to_str(outputs) if outputs is not None else ""
     context_str = _extract_context(expectations, trace)
 
-    return build_trulens_args(
+    return _build_trulens_args(
         metric_name=metric_name,
         input_str=input_str,
         output_str=output_str,
         context_str=context_str,
     )
+
+
+def _build_trulens_args(
+    metric_name: str,
+    input_str: str,
+    output_str: str,
+    context_str: str,
+) -> dict[str, Any]:
+    arg_mapping = _ARG_MAPPING.get(metric_name, {})
+    generic_values = {"input": input_str, "output": output_str, "context": context_str}
+
+    return {
+        trulens_arg: generic_values[generic_key]
+        for generic_key, trulens_arg in arg_mapping.items()
+        if generic_values.get(generic_key)
+    }
 
 
 def _extract_context(
