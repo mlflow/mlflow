@@ -5,7 +5,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils.dummies import dummy_rm
+from dspy.utils.dummies import DummyLM, dummy_rm
 from packaging.version import Version
 
 import mlflow
@@ -33,17 +33,9 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 
-class _DummyLM(dspy.utils.DummyLM):
-    def dump_state(self):
-        return {
-            "answers": list(self.answers),
-            "follow_examples": self.follow_examples,
-        }
-
-
 @pytest.fixture
 def dummy_model():
-    return _DummyLM(
+    return DummyLM(
         [{"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]]
     )
 
@@ -73,7 +65,16 @@ def reset_dspy_settings():
     dspy.settings.configure(lm=None, rm=None)
 
 
-@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+use_dspy_model_save_param = pytest.param(
+    True,
+    marks=pytest.mark.skipif(
+        Version(dspy.__version__) <= Version("3.1.0"),
+        reason="dspy<=3.1.0 does not support 'use_dspy_model_save' param.",
+    ),
+)
+
+
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_basic_save(use_dspy_model_save):
     if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
         pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
@@ -98,7 +99,7 @@ def test_basic_save(use_dspy_model_save):
     assert isinstance(loaded_model, CoT)
 
 
-@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_save_compiled_model(dummy_model, use_dspy_model_save):
     train_data = [
         "What is 2 + 2?",
@@ -135,7 +136,7 @@ def test_save_compiled_model(dummy_model, use_dspy_model_save):
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
-@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_dspy_save_preserves_object_state(use_dspy_model_save):
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
@@ -160,9 +161,7 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    model = _DummyLM(
-        [{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]]
-    )
+    model = DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
 
@@ -230,7 +229,7 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     assert original_settings == loaded_settings
 
 
-@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_load_logged_model_in_native_dspy(dummy_model, use_dspy_model_save):
     dspy_model = CoT()
     # Arbitrary set the demo to test saving/loading has no data loss.

@@ -146,12 +146,12 @@ def save_model(
         )
     if not use_dspy_model_save and not is_in_databricks_runtime():
         _logger.warning(
-            "Saving DSpy model by Pickle or CloudPickle format requires exercising "
+            "Saving DSPy model by Pickle or CloudPickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
             "which can execute arbitrary code during deserialization."
             "The recommended alternative is to set 'use_dspy_model_save' to True "
-            "(requiring DSpy >= 3.1.0) to save the "
-            "DSpy model using the DSpy builtin saving method."
+            "(requiring dspy >= 3.1.0) to save the "
+            "DSPy model using the DSPy builtin saving method."
         )
 
     if mlflow_model is None:
@@ -187,7 +187,7 @@ def save_model(
     if use_dspy_model_save:
         if Version(dspy.__version__) <= Version("3.1.0"):
             raise MlflowException(
-                "'use_dspy_model_save' option is only supported for DSpy version > 3.1.0."
+                "'use_dspy_model_save' option is only supported for DSPy version > 3.1.0."
             )
         os.makedirs(model_path, exist_ok=True)
 
