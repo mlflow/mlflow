@@ -9,10 +9,12 @@ Usage
 
 from __future__ import annotations
 
+import base64
 import functools
 import importlib
 import logging
 import re
+from http import HTTPStatus
 from typing import Any, Callable
 
 import sqlalchemy
@@ -1111,65 +1113,9 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-    elif req.path.startswith("/gateway/"):
-        return _validate_gateway_use_permission
-    else:
-        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
-
-
-@catch_mlflow_exception
-def _validate_gateway_use_permission() -> bool:
-    """
-    Validate use permission for AI Gateway invocation routes.
-
-    Returns:
-        True if permission is granted, False otherwise.
-    """
-    path = request.path
-    endpoint_name = None
-
-    # Extract endpoint name from route
-    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
-    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
-        endpoint_name = match.group(1)
-    # Pattern 2-6: Passthrough routes (endpoint in request body)
-    elif path in (
-        "/gateway/mlflow/v1/chat/completions",
-        "/gateway/openai/v1/chat/completions",
-        "/gateway/openai/v1/embeddings",
-        "/gateway/openai/v1/responses",
-        "/gateway/anthropic/v1/messages",
-    ):
-        try:
-            if request.is_json and request.json:
-                endpoint_name = request.json.get("model")
-        except Exception:
-            pass
-    # Pattern 7-8: Gemini routes (endpoint in URL path)
-    elif (match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path)) or (
-        match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path)
-    ):
-        endpoint_name = match.group(1)
-
-    # If we couldn't extract endpoint name, let it through and let handler return 400
-    if not endpoint_name:
-        return True
-
-    username = authenticate_request().username
-    try:
-        # TODO: we need to query endpoint ID by name from the database.
-        # Revisit the mutability of the endpoint name if it causes latency issues.
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        tracking_store = _get_store()
-        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
-        endpoint_id = endpoint.endpoint_id
-
-        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
-        permission = get_permission(permission_str)
-        return permission.can_use
-    except MlflowException:
-        return False
+    # Note: /gateway/ routes are handled by FastAPIPermissionMiddleware when using uvicorn,
+    # and are not registered in Flask so they won't reach here in Flask mode either.
+    return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
 @catch_mlflow_exception
@@ -2095,6 +2041,172 @@ def get_graphql_authorization_middleware():
     return [GraphQLAuthorizationMiddleware()]
 
 
+def _is_protected_fastapi_route(path: str) -> bool:
+    """
+    Check if a route is served directly by FastAPI and bypasses Flask.
+
+    These routes need to be handled by the FastAPI permission middleware since they
+    don't go through Flask's before_request hooks.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        True if the route is served by FastAPI, False otherwise.
+    """
+    return path.startswith("/gateway/")
+
+
+# Routes that need request body to extract endpoint name for validation
+_ROUTES_NEEDING_BODY = frozenset(
+    (
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/openai/v1/chat/completions",
+        "/gateway/openai/v1/embeddings",
+        "/gateway/openai/v1/responses",
+        "/gateway/anthropic/v1/messages",
+    )
+)
+
+
+def _authenticate_request(request) -> str | None:
+    """
+    Authenticate request using Basic Auth and return username.
+
+    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+
+    Args:
+        request: The Starlette/FastAPI Request object.
+
+    Returns:
+        Username if authentication succeeds, None otherwise.
+    """
+    if "Authorization" not in request.headers:
+        return None
+
+    auth = request.headers["Authorization"]
+    try:
+        scheme, credentials = auth.split()
+        if scheme.lower() != "basic":
+            return None
+        decoded = base64.b64decode(credentials).decode("ascii")
+    except (ValueError, UnicodeDecodeError, Exception):
+        return None
+
+    username, _, password = decoded.partition(":")
+    if store.authenticate_user(username, password):
+        return username
+    return None
+
+
+def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
+    """Extract endpoint name from gateway routes."""
+    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
+    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
+        return match.group(1)
+
+    # Pattern 2-6: Passthrough routes (endpoint in request body as "model")
+    if path in _ROUTES_NEEDING_BODY:
+        if body:
+            return body.get("model")
+        return None
+
+    # Pattern 7-8: Gemini routes (endpoint in URL path)
+    if match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path):
+        return match.group(1)
+    if match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path):
+        return match.group(1)
+
+    return None
+
+
+def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
+    """Check if the user has USE permission on the gateway endpoint."""
+    # TODO: we need to query endpoint ID by name from the database.
+    # Revisit the mutability of the endpoint name if it causes latency issues.
+    try:
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
+        endpoint_id = endpoint.endpoint_id
+
+        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
+        permission = get_permission(permission_str)
+        return permission.can_use
+    except MlflowException:
+        return False
+
+
+def _add_fastapi_permission_middleware(app):
+    """
+    Add permission middleware to FastAPI app for routes not handled by Flask.
+
+    This middleware mirrors the logic of _before_request for routes that are served
+    directly by FastAPI (e.g., /gateway/ routes) and thus bypass Flask's before_request
+    hooks. It follows the same authentication and authorization flow:
+    1. Skip non-FastAPI routes (let Flask handle them)
+    2. Skip unprotected routes
+    3. Authenticate the request
+    4. Allow admins full access
+    5. Find and run the appropriate validator for the route
+
+    Args:
+        app: The FastAPI application instance.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    @app.middleware("http")
+    async def fastapi_permission_middleware(request, call_next):
+        path = request.url.path
+
+        # Only handle routes served directly by FastAPI (bypass Flask)
+        if not _is_protected_fastapi_route(path):
+            return await call_next(request)
+
+        # Skip unprotected routes
+        if is_unprotected_route(path):
+            return await call_next(request)
+
+        # Authenticate user
+        username = _authenticate_request(request)
+        if username is None:
+            return PlainTextResponse(
+                "You are not authenticated.",
+                status_code=HTTPStatus.UNAUTHORIZED,
+                headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
+            )
+
+        # Admins have full access
+        if store.get_user(username).is_admin:
+            return await call_next(request)
+
+        # Parse body if needed for validation
+        body = None
+        if path in _ROUTES_NEEDING_BODY:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+
+        # Validate gateway use permission
+        if endpoint_name := _extract_gateway_endpoint_name(path, body):
+            try:
+                if not _validate_gateway_use_permission(endpoint_name, username):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except Exception as e:
+                _logger.warning(f"FastAPI permission check failed: {e}")
+                return PlainTextResponse(
+                    "Permission denied",
+                    status_code=HTTPStatus.FORBIDDEN,
+                )
+
+        return await call_next(request)
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -2301,6 +2413,8 @@ def create_app(app: Flask = app):
     app.after_request(_after_request)
 
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        return create_fastapi_app(app)
+        fastapi_app = create_fastapi_app(app)
+        _add_fastapi_permission_middleware(fastapi_app)
+        return fastapi_app
     else:
         return app
