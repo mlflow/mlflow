@@ -2074,7 +2074,7 @@ def _authenticate_request(request: StarletteRequest) -> str | None:
         if scheme.lower() != "basic":
             return None
         decoded = base64.b64decode(credentials).decode("ascii")
-    except (ValueError, UnicodeDecodeError, Exception):
+    except Exception:
         return None
 
     username, _, password = decoded.partition(":")
@@ -2139,6 +2139,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
         if path in _ROUTES_NEEDING_BODY:
             try:
                 body = await request.json()
+                # Cache parsed body in request.state so route handlers can reuse it
+                # (request body can only be read once in Starlette/FastAPI)
+                request.state.cached_body = body
             except Exception:
                 body = {}
 
@@ -2176,14 +2179,21 @@ def add_fastapi_permission_middleware(app):
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
 
-    This middleware mirrors the logic of _before_request for routes that are served
-    directly by FastAPI (e.g., /gateway/ routes) and thus bypass Flask's before_request
-    hooks. It follows the same authentication and authorization flow:
+    This middleware mirrors the high-level logic of ``_before_request`` for routes that are
+    served directly by FastAPI (e.g., ``/gateway/`` routes) and thus bypass Flask's
+    ``before_request`` hooks. It follows the same authorization flow:
+
     1. Skip unprotected routes
     2. Find the appropriate validator for the route
     3. Authenticate the request
     4. Allow admins full access
     5. Run the validator
+
+    Note:
+        Unlike Flask's ``_before_request``, which uses the pluggable ``authenticate_request()``
+        (configured via ``authorization_function``), this FastAPI middleware currently uses the
+        internal ``_authenticate_request()`` and therefore does not support custom authentication
+        functions configured for Flask.
 
     Args:
         app: The FastAPI application instance.
@@ -2207,7 +2217,9 @@ def add_fastapi_permission_middleware(app):
         username = _authenticate_request(request)
         if username is None:
             return PlainTextResponse(
-                "You are not authenticated.",
+                "You are not authenticated. Please see "
+                "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+                "on how to authenticate.",
                 status_code=HTTPStatus.UNAUTHORIZED,
                 headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
             )
