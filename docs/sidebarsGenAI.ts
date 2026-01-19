@@ -65,13 +65,13 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/app-instrumentation/distributed-tracing',
-                  label: 'Propagate Trace Context Across Services',
+                  id: 'tracing/app-instrumentation/opentelemetry',
+                  label: 'Tracing with OpenTelemetry',
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/app-instrumentation/opentelemetry',
-                  label: 'Tracing with OpenTelemetry',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
                 },
               ],
             },

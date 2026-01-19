@@ -2,12 +2,12 @@ import { APILink } from "@site/src/components/APILink";
 
 # Propagate Trace Context Across Services
 
-When your application spans multiple services, propagate the active trace context over HTTP so spans recorded in different services are stitched into a single trace.
+When your application spans multiple services, you may want to connect spans from these services into a single trace for tracking the end to end execution in one place. MLflow support this via **Distributed Tracing**,  by propagating the active trace context over HTTP so spans recorded in different services.
 
-If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
+For the purposes of this guide, we will assume that you have a simple LLM application that is made up of two services: a client and a server. We will assume that the client will create the trace and span, while the server will add a nested span. In order to do this, the trace_id and span_id will be passed in the headers of the request from the client to the server, MLflow provides some helper functions to make it easier to fetch headers in the client and ingest them in the server:
 
-- Use the <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> API on the client to inject headers.
-- Use the <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> API on the server to extract and set the current context for the duration of the request.
+- Use the <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> API in the client to fetch headers.
+- Use the <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> API in the server to extract the trace and span information from the request headers and set them to current trac context.
 
 ## Client example
 
@@ -42,3 +42,7 @@ def handle():
             span.set_attribute("status", "ok")
     return {"ok": True}
 ```
+
+## Limitation in Databricks
+
+If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
