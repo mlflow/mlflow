@@ -35,6 +35,10 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
+# Constants for job names that are referenced in multiple locations
+ONLINE_TRACE_SCORER_JOB_NAME = "run_online_trace_scorer"
+ONLINE_SESSION_SCORER_JOB_NAME = "run_online_session_scorer"
+
 
 @dataclass
 class ScorerFailure:
@@ -60,7 +64,7 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
 
 
 @job(
-    name="run_online_trace_scorer",
+    name=ONLINE_TRACE_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
     exclusive=["experiment_id"],
 )
@@ -94,7 +98,7 @@ def run_online_trace_scorer_job(
 
 
 @job(
-    name="run_online_session_scorer",
+    name=ONLINE_SESSION_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
     exclusive=["experiment_id"],
 )
@@ -412,7 +416,7 @@ def run_online_scoring_scheduler() -> None:
     """
     tracking_store = _get_tracking_store()
     online_scorers = tracking_store.get_active_online_scorers()
-    _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")
+    _logger.debug(f"Online scoring scheduler found {len(online_scorers)} active scorers")
 
     scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
     for scorer in online_scorers:
@@ -422,7 +426,7 @@ def run_online_scoring_scheduler() -> None:
     # limited job runners available
     experiment_groups = list(scorers_by_experiment.items())
     random.shuffle(experiment_groups)
-    _logger.info(
+    _logger.debug(
         f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
     )
 
@@ -445,7 +449,7 @@ def run_online_scoring_scheduler() -> None:
 
         # Only submit jobs for scorer types that exist
         if trace_level_scorers:
-            _logger.info(
+            _logger.debug(
                 f"Submitting trace scoring job for experiment {experiment_id} "
                 f"with {len(trace_level_scorers)} scorers"
             )
@@ -456,7 +460,7 @@ def run_online_scoring_scheduler() -> None:
             )
 
         if session_level_scorers:
-            _logger.info(
+            _logger.debug(
                 f"Submitting session scoring job for experiment {experiment_id} "
                 f"with {len(session_level_scorers)} scorers"
             )
