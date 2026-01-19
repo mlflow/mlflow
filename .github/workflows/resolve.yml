@@ -142,7 +142,7 @@ jobs:
         id: claude-fix
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROMPT: ${{ needs.precheck.outputs.prompt }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |

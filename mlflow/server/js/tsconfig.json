@@ -46,10 +46,8 @@
     "jsx": "preserve",
     "isolatedModules": true
   },
-  "references": [],
-  "include": [
-    "./src/**/*"
-  ],
+  "include": ["./src/**/*"],
+  "exclude": ["./src/shared/web-shared/**/*"],
   "ts-node": {
     "swc": true
   }

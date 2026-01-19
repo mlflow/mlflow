@@ -228,6 +228,76 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     ],
   );
 
+  const regenerateLastMessage = useCallback(() => {
+    // Prevent regeneration while already streaming
+    if (isStreaming) {
+      return;
+    }
+
+    // Find the last user message from current state
+    const lastUserMessageIndex = messages.findLastIndex((msg) => msg.role === 'user');
+    if (lastUserMessageIndex === -1) {
+      return; // No user message to regenerate from
+    }
+
+    const userMessageContent = messages[lastUserMessageIndex].content;
+
+    // Set streaming state BEFORE modifying messages
+    setError(null);
+    setIsStreaming(true);
+    streamingMessageRef.current = '';
+
+    // Remove all messages after the last user message and add streaming placeholder
+    setMessages((prev) => {
+      const lastUserIdx = prev.findLastIndex((msg) => msg.role === 'user');
+
+      if (lastUserIdx === -1) {
+        return prev;
+      }
+
+      // Keep messages up to and including the last user message
+      const messagesUpToLastUser = prev.slice(0, lastUserIdx + 1);
+
+      // Add the new streaming placeholder
+      return [
+        ...messagesUpToLastUser,
+        {
+          id: generateMessageId(),
+          role: 'assistant' as const,
+          content: '',
+          timestamp: new Date(),
+          isStreaming: true,
+        },
+      ];
+    });
+
+    // Re-send the last user message
+    const pageContext = getPageContext();
+    sendMessageStream(
+      {
+        session_id: sessionId ?? undefined,
+        message: userMessageContent,
+        experiment_id: pageContext['experimentId'] as string | undefined,
+        context: pageContext,
+      },
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+    );
+  }, [
+    messages,
+    sessionId,
+    isStreaming,
+    getPageContext,
+    appendToStreamingMessage,
+    handleStreamError,
+    finalizeStreamingMessage,
+    handleStatus,
+    handleSessionId,
+  ]);
+
   const value: AssistantAgentContextType = {
     // State
     isPanelOpen,
@@ -241,6 +311,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    regenerateLastMessage,
     reset,
   };
 
@@ -259,6 +330,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  regenerateLastMessage: () => {},
   reset: () => {},
 };
 

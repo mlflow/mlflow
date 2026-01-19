@@ -55,6 +55,8 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
+  /** Regenerate the last assistant response */
+  regenerateLastMessage: () => void;
   /** Reset the conversation */
   reset: () => void;
 }

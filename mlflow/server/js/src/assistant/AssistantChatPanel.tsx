@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   CloseIcon,
-  CopyIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
@@ -27,6 +26,7 @@ import { useAssistant } from './AssistantContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
+import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
 
@@ -50,21 +50,20 @@ const ChatMessageBubble = ({
   message,
   isLastMessage,
   activeTools,
+  onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
   activeTools?: ToolUseInfo[];
+  onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const isUser = message.role === 'user';
   const [isHovered, setIsHovered] = useState(false);
-
-  const handleCopy = () => {
-    // TODO: Implement copy functionality
-  };
+  const { actionIcon: copyIcon, tooltipMessage: copyTooltip, copy: handleCopy } = useCopyController(message.content);
 
   const handleRegenerate = () => {
-    // TODO: Implement regenerate functionality
+    onRegenerate?.();
   };
 
   return (
@@ -145,8 +144,8 @@ const ChatMessageBubble = ({
             transition: 'opacity 0.2s ease',
           }}
         >
-          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content="Copy">
-            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={<CopyIcon />} onClick={handleCopy} />
+          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copyTooltip}>
+            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={copyIcon} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
             <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
@@ -247,7 +246,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -314,6 +313,7 @@ const ChatPanelContent = () => {
               message={message}
               isLastMessage={isLastAssistantMessage}
               activeTools={message.isStreaming ? activeTools : undefined}
+              onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
         })}
