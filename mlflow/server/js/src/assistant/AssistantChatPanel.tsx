@@ -24,7 +24,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import type { ChatMessage } from './types';
+import type { ChatMessage, ToolUseInfo } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
@@ -49,10 +49,12 @@ const DOTS_ANIMATION = {
 const ChatMessageBubble = ({
   message,
   isLastMessage,
+  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
+  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -122,7 +124,9 @@ const ChatMessageBubble = ({
                 '@keyframes dots': DOTS_ANIMATION,
               }}
             >
-              Processing
+              {activeTools && activeTools.length > 0 && activeTools[0].description
+                ? activeTools[0].description
+                : 'Processing'}
             </span>
           </div>
         )}
@@ -238,55 +242,11 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
- * Status indicator showing processing state.
- */
-const StatusIndicator = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: theme.spacing.md,
-        color: theme.colors.textSecondary,
-        flexShrink: 0,
-      }}
-    >
-      <SparkleIcon
-        color="ai"
-        css={{
-          fontSize: 18,
-          animation: 'pulse 1.5s ease-in-out infinite',
-          '@keyframes pulse': PULSE_ANIMATION,
-        }}
-      />
-      <span
-        css={{
-          fontSize: theme.typography.fontSizeBase,
-          color: theme.colors.textSecondary,
-          '&::after': {
-            content: '"..."',
-            animation: 'dots 1.5s steps(3, end) infinite',
-            display: 'inline-block',
-            width: '1.2em',
-          },
-          '@keyframes dots': DOTS_ANIMATION,
-        }}
-      >
-        Processing
-      </span>
-    </div>
-  );
-};
-
-/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, sendMessage, regenerateLastMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -352,6 +312,7 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
+              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
@@ -359,9 +320,6 @@ const ChatPanelContent = () => {
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Status indicator */}
-      {currentStatus && <StatusIndicator />}
 
       {/* Input area */}
       <div
