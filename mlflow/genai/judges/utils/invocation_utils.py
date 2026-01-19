@@ -230,7 +230,7 @@ def get_chat_completions_with_structured_output(
     # parsing of the tool handling response. We should eventually pass this cost
     # estimation through so that the total cost of the usage of the scorer incorporates
     # tool call usage. Deferring for initial implementation due to complexity.
-    response, _, _, _, _ = _invoke_litellm_and_handle_tools(
+    output = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
@@ -240,6 +240,6 @@ def get_chat_completions_with_structured_output(
         inference_params=inference_params,
     )
 
-    cleaned_response = _strip_markdown_code_blocks(response)
+    cleaned_response = _strip_markdown_code_blocks(output.response)
     response_dict = json.loads(cleaned_response)
     return output_schema(**response_dict)

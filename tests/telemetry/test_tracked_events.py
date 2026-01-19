@@ -1188,9 +1188,17 @@ def test_invoke_custom_judge_model(
                     assessment_name="test_assessment",
                 )
         else:
+            from mlflow.genai.judges.adapters.litellm_adapter import InvokeLiteLLMOutput
+
             with mock.patch(
                 "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
-                return_value=(mock_response, 10, "req-123", 5, 3),
+                return_value=InvokeLiteLLMOutput(
+                    response=mock_response,
+                    request_id="req-123",
+                    num_prompt_tokens=5,
+                    num_completion_tokens=3,
+                    cost=10,
+                ),
             ):
                 invoke_judge_model(
                     model_uri=model_uri,
