@@ -959,13 +959,12 @@ def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
 
 
 def test_databricks_config_profile_env_var_is_respected(tmp_path, monkeypatch):
-    file_name = f"{tmp_path}/.databrickscfg"
+    file_path = tmp_path / "/.databrickscfg"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
-    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(file_path))
     monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "test")
 
-    with open(file_name, "w") as f:
-        f.write("""[DEFAULT]
+    file_path.write_text("""[DEFAULT]
 host = http://default-workspace.databricks.com
 token = default-token
 
