@@ -18,6 +18,7 @@ from http import HTTPStatus
 from typing import Any, Callable
 
 import sqlalchemy
+from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from flask import (
     Flask,
@@ -2178,7 +2179,7 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], bool
     return None
 
 
-def add_fastapi_permission_middleware(app):
+def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
 
