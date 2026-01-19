@@ -15,7 +15,7 @@ import importlib
 import logging
 import re
 from http import HTTPStatus
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 import sqlalchemy
 from fastapi import FastAPI
@@ -1116,7 +1116,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-    # and are not registered in Flask so they won't reach here in Flask mode either.
+
     return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
@@ -2124,7 +2124,7 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         return False
 
 
-def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool] | None:
+def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Get a validator function for gateway routes.
 
@@ -2134,9 +2134,6 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
     Returns:
         An async validator function that takes (username, request) and returns
         True if authorized, or None if no validation is needed for this route.
-
-    Raises:
-        MlflowException: If the request body is malformed JSON (BAD_REQUEST).
     """
 
     async def validator(username: str, request: StarletteRequest) -> bool:
@@ -2159,7 +2156,7 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
     return validator
 
 
-def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], bool] | None:
+def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 
