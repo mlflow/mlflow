@@ -316,7 +316,7 @@ class MemoryAugmentedJudge(Judge):
         )
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
-    def add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
+    def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples by updating both episodic memory and semantic memory.
 
         Args:
@@ -436,7 +436,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 embedding_dim=self._embedding_dim,
             )
 
-            memory_judge.add_examples_to_memory(new_examples)
+            memory_judge._add_examples_to_memory(new_examples)
 
             _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples. ")
             return memory_judge

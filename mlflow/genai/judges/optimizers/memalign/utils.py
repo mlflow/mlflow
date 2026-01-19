@@ -186,7 +186,7 @@ def _find_optimal_batch_size(
     return 0
 
 
-def _process_batch_response(
+def _parse_batch_response(
     response: str,
     index_to_trace_id: dict[int, str],
     existing_guideline_texts: set[str],
@@ -242,8 +242,6 @@ def distill_guidelines(
 ) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
 
-    Handles large batches by splitting them into smaller groups based on token limits.
-
     Args:
         examples: List of DSPy examples containing feedback (with _trace_id attribute)
         judge_instructions: Original judge instructions
@@ -276,9 +274,8 @@ def distill_guidelines(
     )
 
     if records_per_group == 0:
-        _logger.warning(
-            "Not a single trace can fit in the guideline distillation prompt. "
-            "Please reduce the trace length."
+        _logger.error(
+            "Inputs to the judge are too large, please reduce the size of inputs for alignment. "
         )
         return []
 
@@ -318,7 +315,7 @@ def distill_guidelines(
                 response_format=Guidelines,
             )[0]
 
-            batch_guidelines = _process_batch_response(
+            batch_guidelines = _parse_batch_response(
                 response=response,
                 index_to_trace_id=index_to_trace_id,
                 existing_guideline_texts=existing_guideline_texts,
