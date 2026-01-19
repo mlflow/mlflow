@@ -1550,6 +1550,10 @@
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
   },
+  "A3bM/D": {
+    "defaultMessage": "Assistant",
+    "description": "Tooltip for assistant button"
+  },
   "A6c78D": {
     "defaultMessage": "Child runs loading",
     "description": "Run page > Overview > Child runs loading"
@@ -2346,10 +2350,6 @@
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
   },
-  "Gopd1/": {
-    "defaultMessage": "Assistant",
-    "description": "Label for global Assistant button"
-  },
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -2585,6 +2585,10 @@
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
+  },
+  "J3NI3e": {
+    "defaultMessage": "Assistant",
+    "description": "Sidebar button for AI assistant"
   },
   "J45Atg": {
     "defaultMessage": "Key is required if value is present",
@@ -6598,10 +6602,6 @@
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
-  },
-  "o6lfQF": {
-    "defaultMessage": "Ask Assistant for help",
-    "description": "Tooltip for global Ask Assistant button"
   },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
