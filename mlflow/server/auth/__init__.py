@@ -18,6 +18,7 @@ from http import HTTPStatus
 from typing import Any, Callable
 
 import sqlalchemy
+from fastapi.responses import PlainTextResponse
 from flask import (
     Flask,
     Request,
@@ -135,7 +136,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewaySecretInfos as ListGatewaySecretInfos,
 )
 from mlflow.server import app
-from mlflow.server.auth.config import read_auth_config
+from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
@@ -2132,6 +2133,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
     Returns:
         An async validator function that takes (username, request) and returns
         True if authorized, or None if no validation is needed for this route.
+
+    Raises:
+        MlflowException: If the request body is malformed JSON (BAD_REQUEST).
     """
 
     async def validator(username: str, request: StarletteRequest) -> bool:
@@ -2142,8 +2146,8 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], bool]
                 # Cache parsed body in request.state so route handlers can reuse it
                 # (request body can only be read once in Starlette/FastAPI)
                 request.state.cached_body = body
-            except Exception:
-                body = {}
+            except Exception as e:
+                raise MlflowException(f"Invalid JSON payload: {e}", error_code=BAD_REQUEST)
 
         endpoint_name = _extract_gateway_endpoint_name(path, body)
         if endpoint_name is None:
@@ -2185,20 +2189,14 @@ def add_fastapi_permission_middleware(app):
 
     1. Skip unprotected routes
     2. Find the appropriate validator for the route
-    3. Authenticate the request
-    4. Allow admins full access
-    5. Run the validator
-
-    Note:
-        Unlike Flask's ``_before_request``, which uses the pluggable ``authenticate_request()``
-        (configured via ``authorization_function``), this FastAPI middleware currently uses the
-        internal ``_authenticate_request()`` and therefore does not support custom authentication
-        functions configured for Flask.
+    3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
+    4. Authenticate the request
+    5. Allow admins full access
+    6. Run the validator
 
     Args:
         app: The FastAPI application instance.
     """
-    from fastapi.responses import PlainTextResponse
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
@@ -2212,6 +2210,16 @@ def add_fastapi_permission_middleware(app):
         validator = _find_fastapi_validator(path)
         if validator is None:
             return await call_next(request)
+
+        # Check for custom authorization_function (only affects routes with validators)
+        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+            return PlainTextResponse(
+                f"Custom authorization_function '{auth_config.authorization_function}' is not "
+                f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
+                f"Basic Auth function is supported. Please use "
+                f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
 
         # Authenticate user
         username = _authenticate_request(request)
@@ -2235,11 +2243,10 @@ def add_fastapi_permission_middleware(app):
                     "Permission denied",
                     status_code=HTTPStatus.FORBIDDEN,
                 )
-        except Exception as e:
-            _logger.warning(f"FastAPI permission check failed: {e}")
+        except MlflowException as e:
             return PlainTextResponse(
-                "Permission denied",
-                status_code=HTTPStatus.FORBIDDEN,
+                e.message,
+                status_code=e.get_http_status_code(),
             )
 
         return await call_next(request)
