@@ -27,7 +27,7 @@ Before setting up online evaluations, ensure that:
 
 1. **The MLflow Server is running** (see [Set Up MLflow Server](/genai/getting-started/connect-environment))
 2. **MLflow Tracing is enabled** in your agent or LLM application (see [Tracing Quickstart](/genai/tracing/quickstart))
-   - **For multi-turn conversation evaluation**: Traces must include session IDs (see [Track Users & Sessions](/genai/tracing/track-users-sessions))
+   - **For multi-turn conversation evaluation**, traces must include session IDs (see [Track Users & Sessions](/genai/tracing/track-users-sessions))
 3. **An AI Gateway endpoint is configured** for LLM judge execution (see [Create and Manage Endpoints](/genai/governance/ai-gateway/endpoints/create-and-manage))
 
 ## Setting Up Online Evaluation
@@ -51,18 +51,18 @@ When a judge is created or enabled, it evaluates traces and sessions that are **
    <img src={require('@site/static/images/genai/eval-monitor/new-llm-judge-button.png').default} alt="New LLM judge button" width="180" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 
 3. **Select scope**:
-   - **Traces**: Evaluate individual traces for quality and correctness
-   - **Sessions**: Evaluate entire sessions for conversation quality and outcomes
+   - **Traces**: Evaluate individual traces
+   - **Sessions**: Evaluate entire multi-turn conversations
 4. **Configure the judge**:
    - **LLM judge**: Select a built-in judge or create a custom one
-   - **Name**: Unique identifier (cannot be changed after creation)
+   - **Name**: A unique name for the judge
    - **Instructions**: Define evaluation criteria for the judge
    - **Output type**: Select the type of value the judge will return
-   - **Model**: Select an AI Gateway endpoint to run the judge
+   - **Model**: Select an [AI Gateway](/genai/governance/ai-gateway/endpoints/create-and-manage) endpoint (LLM) to run the judge
 5. **Evaluation settings**:
    - Check **"Automatically evaluate future traces using this judge"**
-   - Set the **Sample rate** (percentage of traces to evaluate)
-   - Optionally add a **Filter string** to target specific traces
+   - Set the **Sample rate** (percentage of traces or sessions to evaluate)
+   - Optionally add a **Filter string** to target specific traces or sessions
 
    <img src={require('@site/static/images/genai/eval-monitor/evaluation-settings.png').default} alt="Evaluation settings" width="400" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 6. Click **Save**
@@ -134,8 +134,8 @@ Assessments from online evaluation appear directly in the MLflow UI. For traces,
 ### Sampling Rate
 
 Control what percentage of traces are evaluated (0-100%). Balance cost and coverage based on your needs:
-- **Development**: Use higher rates (50-100%) for comprehensive feedback
-- **Production**: Use lower rates (1-20%) to manage costs at scale
+- **Development**: Use a high sampling rate to detect as many issues as possible before production deployment
+- **Production**: Consider using lower rates if necessary to control costs
 
 ### Filtering Traces
 
@@ -155,17 +155,17 @@ For session-level evaluation, filters apply to the **first trace** in the sessio
 
 ### Session-Level Evaluation
 
-For multi-turn conversations, online evaluation can assess entire sessions, in addition to individual traces.
+Online evaluation can assess entire multi-turn conversations (sessions), in addition to individual traces.
 
 - **Session completion**: A session is considered complete (ready for online evaluation) after no new traces arrive for 5 minutes ([configurable](/api_reference/python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS))
-- **Re-evaluation**: If new traces arrive after evaluation, the session is re-evaluated and previous online evaluation results are overwritten
+- **Re-evaluation**: If new traces are added to the session after evaluation, the session is re-evaluated and previous online evaluation results are overwritten
 
 For more information about session evaluation, see [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn).
 
 ## Best Practices
 
 - **Combine judges**: Use multiple judges for comprehensive quality coverage
-- **Start high, scale down as needed**: Use 100% sampling during development, then reduce for production if necessary to control costs
+- **Start with a high sampling rate, then scale down as needed**: Use a high sampling rate during development to detect as many issues as possible before production deployment, then reduce for production if necessary to control costs
 - **Monitor costs**: LLM-based evaluation has associated costs—adjust sampling accordingly
 - **Use filters strategically in production**: Focus evaluation on high-value or high-risk traces
 
@@ -175,7 +175,7 @@ For more information about session evaluation, see [Evaluate Conversations](/gen
 |---|---|
 | **Missing assessments** | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
 | **Unexpected or unsatisfactory judge results** | Review the judge's prompt/guidelines and test with known inputs |
-| **Evaluation errors** | Check server logs for details. Failed evaluations are not retried automatically |
+| **Evaluation errors** | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically |
 
 For further debugging, enable debug logging on the MLflow server by setting the [`MLFLOW_LOGGING_LEVEL=DEBUG`](/api_reference/python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_LOGGING_LEVEL) environment variable and checking the MLflow server logs.
 
