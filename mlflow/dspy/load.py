@@ -3,7 +3,6 @@ import logging
 import os
 
 import cloudpickle
-import dspy
 
 from mlflow.dspy.save import (
     _DSPY_SETTINGS_FILE_NAME,
@@ -43,6 +42,8 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 
 
 def _load_model(model_uri, dst_path=None):
+    import dspy
+
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
