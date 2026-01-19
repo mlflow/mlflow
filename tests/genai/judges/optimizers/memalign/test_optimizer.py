@@ -9,6 +9,20 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers import MemAlignOptimizer
+from mlflow.genai.judges.optimizers.memalign.utils import (
+    _get_model_max_tokens,
+    truncate_to_token_limit,
+)
+
+
+@pytest.fixture(autouse=True)
+def clear_lru_caches():
+    """Clear lru_cache before each test to ensure mocks work correctly."""
+    _get_model_max_tokens.cache_clear()
+    truncate_to_token_limit.cache_clear()
+    yield
+    _get_model_max_tokens.cache_clear()
+    truncate_to_token_limit.cache_clear()
 
 
 @pytest.fixture
@@ -47,7 +61,7 @@ def mock_distillation_lm():
 
 
 @contextmanager
-def mock_apis(guidelines=None):
+def mock_apis(guidelines=None, batch_size=50):
     """Context manager for mocking API calls with optional guideline configuration."""
     if guidelines is None:
         guidelines = []
@@ -58,10 +72,19 @@ def mock_apis(guidelines=None):
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
+            return_value=batch_size,
+        ) as mock_find_batch_size,
     ):
-        # Mock distillation LM
+        # Mock distillation LM - include source_trace_ids for guidelines to be retained
         mock_lm = MagicMock()
-        guidelines_json = {"guidelines": [{"guideline_text": g} for g in guidelines]}
+        guidelines_json = {
+            "guidelines": [
+                {"guideline_text": g, "source_trace_ids": list(range(batch_size))}
+                for g in guidelines
+            ]
+        }
         mock_lm.return_value = [f"{guidelines_json}".replace("'", '"')]
         mock_construct_lm.return_value = mock_lm
 
@@ -78,6 +101,7 @@ def mock_apis(guidelines=None):
             "construct_lm": mock_construct_lm,
             "embedder_class": mock_embedder_class,
             "embeddings_class": mock_embeddings_class,
+            "find_batch_size": mock_find_batch_size,
         }
 
 

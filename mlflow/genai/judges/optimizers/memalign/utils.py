@@ -166,7 +166,8 @@ def _find_optimal_batch_size(
             prompt_tokens_estimate = len(prompt.split())
         else:
             # Use litellm to estimate token count
-            prompt_tokens_estimate = token_counter(model=reflection_lm, text=prompt)
+            litellm_model = convert_mlflow_uri_to_litellm(reflection_lm)
+            prompt_tokens_estimate = token_counter(model=litellm_model, text=prompt)
 
         if prompt_tokens_estimate <= prompt_tokens_limit:  # Found potentially acceptable batch size
             # Do a trial LM call to verify if prompt can fit into LM context window

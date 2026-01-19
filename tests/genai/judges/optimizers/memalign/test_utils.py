@@ -4,11 +4,22 @@ import dspy
 import pytest
 
 from mlflow.genai.judges.optimizers.memalign.utils import (
+    _get_model_max_tokens,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
     truncate_to_token_limit,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_lru_caches():
+    """Clear lru_cache before each test to ensure mocks work correctly."""
+    _get_model_max_tokens.cache_clear()
+    truncate_to_token_limit.cache_clear()
+    yield
+    _get_model_max_tokens.cache_clear()
+    truncate_to_token_limit.cache_clear()
 
 
 def test_get_default_embedding_model():
@@ -30,9 +41,15 @@ def test_distill_guidelines_empty_examples():
 
 
 def test_distill_guidelines_with_examples():
-    with patch(
-        "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
-    ) as mock_construct_lm:
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
+            return_value=2,
+        ),
+    ):
         example1 = MagicMock(spec=dspy.Example)
         example1.__iter__ = lambda self: iter([("input", "test input"), ("output", "good")])
         example1._trace_id = "trace_1"
@@ -63,15 +80,24 @@ def test_distill_guidelines_with_examples():
 
 
 def test_distill_guidelines_filters_existing():
-    with patch(
-        "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
-    ) as mock_construct_lm:
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
+            return_value=1,
+        ),
+    ):
         example1 = MagicMock(spec=dspy.Example)
         example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
 
         mock_lm = MagicMock()
+        # Guidelines need source_trace_ids to be retained
         mock_lm.return_value = [
-            '{"guidelines": [{"guideline_text": "Be concise"}, {"guideline_text": "Be clear"}]}'
+            '{"guidelines": [{"guideline_text": "Be concise", "source_trace_ids": [0]}, '
+            '{"guideline_text": "Be clear", "source_trace_ids": [0]}]}'
         ]
         mock_construct_lm.return_value = mock_lm
 
@@ -88,12 +114,20 @@ def test_distill_guidelines_filters_existing():
         assert result[0].guideline_text == "Be clear"
 
 
-def test_distill_guidelines_raises_on_error():
-    with patch(
-        "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
-    ) as mock_construct_lm:
+def test_distill_guidelines_handles_lm_error():
+    # When LM fails, _find_optimal_batch_size returns 0 and distill_guidelines returns []
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
+            return_value=1,
+        ),
+    ):
         example1 = MagicMock(spec=dspy.Example)
         example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
 
         mock_lm = MagicMock()
         mock_lm.side_effect = Exception("API Error")
@@ -101,13 +135,14 @@ def test_distill_guidelines_raises_on_error():
 
         signature = MagicMock()
 
-        with pytest.raises(Exception, match="API Error"):
-            distill_guidelines(
-                examples=[example1],
-                judge_instructions="Evaluate quality",
-                reflection_lm="openai:/gpt-4",
-                existing_guidelines=[],
-            )
+        # The function catches errors per batch and continues, returning empty list
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm="openai:/gpt-4",
+            existing_guidelines=[],
+        )
+        assert result == []
 
 
 def test_retrieve_relevant_examples_empty():

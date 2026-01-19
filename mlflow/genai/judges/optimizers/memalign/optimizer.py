@@ -104,15 +104,6 @@ class MemoryAugmentedJudge(Judge):
         self._base_signature = create_dspy_signature(effective_base_judge)
         self._retrieval_k = retrieval_k
 
-        # inherit both memory modules if base_judge is MemoryAugmentedJudge
-        if isinstance(base_judge, MemoryAugmentedJudge):
-            self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
-            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
-            self._build_episodic_memory()
-        else:
-            self._episodic_memory: list["dspy.Example"] = []
-            self._semantic_memory: list[Guideline] = []
-
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
 
         self._embedding_model = (
@@ -124,6 +115,16 @@ class MemoryAugmentedJudge(Judge):
             litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
         )
         self._retriever = None
+
+        # inherit both memory modules if base_judge is MemoryAugmentedJudge
+        # Note: must be after _embedding_model is set since _build_episodic_memory() uses it
+        if isinstance(base_judge, MemoryAugmentedJudge):
+            self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
+            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
+            self._build_episodic_memory()
+        else:
+            self._episodic_memory: list["dspy.Example"] = []
+            self._semantic_memory: list[Guideline] = []
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
