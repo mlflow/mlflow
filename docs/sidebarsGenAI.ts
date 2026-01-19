@@ -260,11 +260,6 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/temporal',
-                  label: 'Temporal',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/txtai',
                   label: 'Txtai',
                 },

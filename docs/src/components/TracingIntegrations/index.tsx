@@ -127,13 +127,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
-    id: 'temporal',
-    name: 'Temporal',
-    logoPath: '/images/logos/temporal.png',
-    link: '/genai/tracing/integrations/listing/temporal',
-    category: 'Agent Frameworks (Python)',
-  },
-  {
     id: 'agno',
     name: 'Agno',
     logoPath: '/images/logos/agno-logo.png',
