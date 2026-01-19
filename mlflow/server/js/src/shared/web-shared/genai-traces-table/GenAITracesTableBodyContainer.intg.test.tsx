@@ -1,5 +1,6 @@
 import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -200,6 +201,32 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     expect(screen.getByText('Hello world 2')).toBeInTheDocument();
     expect(screen.getByText('trace-1')).toBeInTheDocument();
     expect(screen.getByText('trace-2')).toBeInTheDocument();
+  });
+
+  it('supports selecting a range of traces with Shift+click', async () => {
+    const traceInfos = [
+      createTestTraceInfoV3('trace-1', 'request-1', 'Hello world 1', [], testExperimentId),
+      createTestTraceInfoV3('trace-2', 'request-2', 'Hello world 2', [], testExperimentId),
+      createTestTraceInfoV3('trace-3', 'request-3', 'Hello world 3', [], testExperimentId),
+    ];
+
+    renderTestComponent(traceInfos, [], { compareToRunUuid: undefined, compareToRunDisplayName: undefined });
+
+    await waitForViewToBeReady();
+
+    const user = userEvent.setup();
+    const rowCheckboxes = screen.getAllByRole('checkbox');
+
+    expect(rowCheckboxes).toHaveLength(4);
+
+    await user.click(rowCheckboxes[0]);
+    await user.keyboard('{Shift>}');
+    await user.click(rowCheckboxes[2]);
+    await user.keyboard('{/Shift}');
+
+    rowCheckboxes.forEach((checkbox) => {
+      expect(checkbox).toBeChecked();
+    });
   });
 
   it('renders table with comparison data', async () => {

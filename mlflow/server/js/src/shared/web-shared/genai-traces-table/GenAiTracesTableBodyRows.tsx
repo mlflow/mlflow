@@ -19,6 +19,7 @@ interface GenAiTracesTableBodyRowsProps {
   // eslint-disable-next-line react/no-unused-prop-types
   rowSelectionState: RowSelectionState | undefined;
   selectedColumns: TracesTableColumn[];
+  getRowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>) => (event: unknown) => void;
 }
 
 export const GenAiTracesTableBodyRows = React.memo(
@@ -31,6 +32,7 @@ export const GenAiTracesTableBodyRows = React.memo(
     virtualizerTotalSize,
     virtualizerMeasureElement,
     selectedColumns,
+    getRowSelectionChangeHandler,
   }: GenAiTracesTableBodyRowsProps) => {
     return (
       <div
@@ -62,6 +64,7 @@ export const GenAiTracesTableBodyRows = React.memo(
                 isSelected={enableRowSelection ? row.getIsSelected() : undefined}
                 isComparing={isComparing}
                 selectedColumns={selectedColumns}
+                getRowSelectionChangeHandler={getRowSelectionChangeHandler}
               />
             </div>
           );
@@ -84,6 +87,7 @@ export const GenAiTracesTableBodyRow = React.memo(
     isSelected,
     // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
+    getRowSelectionChangeHandler,
   }: {
     row: Row<EvalTraceComparisonEntry>;
     exportableTrace?: boolean;
@@ -91,9 +95,14 @@ export const GenAiTracesTableBodyRow = React.memo(
     isComparing: boolean;
     isSelected?: boolean;
     selectedColumns: TracesTableColumn[];
+    getRowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>) => (event: unknown) => void;
   }) => {
     const cells = row.getVisibleCells();
     const intl = useIntl();
+    const rowSelectHandler = React.useMemo(
+      () => (getRowSelectionChangeHandler ? getRowSelectionChangeHandler(row) : row.getToggleSelectedHandler()),
+      [getRowSelectionChangeHandler, row],
+    );
     return (
       <>
         <TableRow>
@@ -119,7 +128,7 @@ export const GenAiTracesTableBodyRow = React.memo(
                 <TableRowSelectCell
                   componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
                   checked={isSelected && exportableTrace}
-                  onChange={row.getToggleSelectedHandler()}
+                  onChange={rowSelectHandler}
                   isDisabled={isComparing || !exportableTrace}
                 />
               </Tooltip>

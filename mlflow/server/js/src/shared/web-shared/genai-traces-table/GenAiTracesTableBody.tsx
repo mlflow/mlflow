@@ -2,7 +2,7 @@ import type { RowSelectionState, OnChangeFn, ColumnDef, Row } from '@tanstack/re
 import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
@@ -111,6 +111,7 @@ export const GenAiTracesTableBody = React.memo(
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
+    const lastSelectedRowIdRef = useRef<string | null>(null);
     // Track which sessions are expanded (collapsed by default)
     const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
@@ -236,6 +237,61 @@ export const GenAiTracesTableBody = React.memo(
       },
     );
 
+    const getRowSelectionChangeHandler = useCallback(
+      (row: Row<EvalTraceComparisonEntry>) => {
+        const defaultHandler = row.getToggleSelectedHandler();
+
+        return (event: unknown) => {
+          if (!enableRowSelection) {
+            defaultHandler(event);
+            return;
+          }
+
+          const safeEvent = event as Event;
+          const eventWithShiftKey = safeEvent as KeyboardEvent & MouseEvent;
+          const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+          const currentSelectionState = table.getState().rowSelection ?? {};
+
+          if (!isShiftPressed || !lastSelectedRowIdRef.current) {
+            defaultHandler(event);
+            lastSelectedRowIdRef.current = row.id;
+            return;
+          }
+
+          const allRows = table.getRowModel().rows;
+          const anchorIndex = allRows.findIndex((tableRow) => tableRow.id === lastSelectedRowIdRef.current);
+          const currentIndex = allRows.findIndex((tableRow) => tableRow.id === row.id);
+
+          if (anchorIndex === -1 || currentIndex === -1) {
+            defaultHandler(event);
+            lastSelectedRowIdRef.current = row.id;
+            return;
+          }
+
+          const [start, end] = anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+          const updatedSelection: RowSelectionState = { ...currentSelectionState };
+
+          for (let index = start; index <= end; index += 1) {
+            const targetRow = allRows[index];
+
+            if (!targetRow.getCanSelect()) {
+              continue;
+            }
+
+            if (row.getIsSelected()) {
+              delete updatedSelection[targetRow.id];
+            } else {
+              updatedSelection[targetRow.id] = true;
+            }
+          }
+
+          table.setRowSelection(updatedSelection);
+          lastSelectedRowIdRef.current = row.id;
+        };
+      },
+      [enableRowSelection, table],
+    );
+
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();
     const someRowSelected = table.getIsSomeRowsSelected();
@@ -251,6 +307,17 @@ export const GenAiTracesTableBody = React.memo(
         setSelectedRowIds(table.getSelectedRowModel().rows.map((r) => r.id));
       }
     }, [table, rowSelection, setSelectedRowIds, enableRowSelection]);
+
+    useEffect(() => {
+      if (!enableRowSelection) {
+        lastSelectedRowIdRef.current = null;
+        return;
+      }
+
+      if (!rowSelection || Object.keys(rowSelection).length === 0) {
+        lastSelectedRowIdRef.current = null;
+      }
+    }, [rowSelection, enableRowSelection]);
 
     // When the table is empty.
     const emptyDescription = intl.formatMessage({
@@ -451,6 +518,7 @@ export const GenAiTracesTableBody = React.memo(
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
+                getRowSelectionChangeHandler={getRowSelectionChangeHandler}
               />
             )}
           </Table>
