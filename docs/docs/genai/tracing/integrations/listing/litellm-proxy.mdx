@@ -33,6 +33,10 @@ There are two ways to trace LLM calls through LiteLLM Proxy with MLflow:
 | **Server-side Callback** | Configure MLflow as a callback in LiteLLM Proxy config | Centralized tracing for all requests through the proxy                                                  |
 | **Client-side Tracing**  | Use OpenAI SDK with MLflow autolog                     | Combining LLM traces with your agent or application traces ([how to →](#combining-with-manual-tracing)) |
 
+:::note
+With **server-side tracing**, all requests through the proxy are captured in a single MLflow experiment, regardless of which client or application made them. For application-specific tracing, consider using **client-side tracing** where each application manages its own traces.
+:::
+
 ## Option 1: Server-side Callback (Recommended)
 
 This approach configures LiteLLM Proxy to send traces directly to MLflow, capturing all LLM calls across all clients using the proxy.
