@@ -225,6 +225,7 @@ class LiteLLMProvider(BaseProvider):
         Passthrough endpoint for raw API requests using LiteLLM.
 
         Routes requests to the appropriate LiteLLM SDK method based on the action.
+        The headers parameter is unused because LiteLLM handles auth via kwargs.
         """
         self._validate_passthrough_action(action)
 
@@ -245,6 +246,8 @@ class LiteLLMProvider(BaseProvider):
                 return await self._passthrough_openai_chat(kwargs)
             case PassthroughAction.OPENAI_EMBEDDINGS:
                 return await self._passthrough_openai_embeddings(kwargs)
+            case _:
+                raise ValueError(f"Unsupported passthrough action: {action!r}")
 
     async def _passthrough_openai_responses(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Passthrough for OpenAI Response API using litellm.aresponses()."""
@@ -299,10 +302,10 @@ class LiteLLMProvider(BaseProvider):
         return stream_generator()
 
     async def _passthrough_gemini_generate_content(self, kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Passthrough for Gemini generateContent API using litellm.agenerate_content()."""
-        import litellm
+        """Passthrough for Gemini generateContent API."""
+        from litellm.google_genai import agenerate_content
 
-        response = await litellm.agenerate_content(**kwargs)
+        response = await agenerate_content(**kwargs)
         return self._response_to_dict(response)
 
     def _passthrough_gemini_stream_generate_content(
@@ -311,13 +314,15 @@ class LiteLLMProvider(BaseProvider):
         """Passthrough for Gemini streamGenerateContent API."""
 
         async def stream_generator():
-            import litellm
+            from litellm.google_genai import agenerate_content
 
-            # Use agenerate_content with stream=True for streaming
-            response = await litellm.agenerate_content(**kwargs, stream=True)
+            response = await agenerate_content(**kwargs, stream=True)
             async for chunk in response:
-                data = json.dumps(self._response_to_dict(chunk))
-                yield f"data: {data}\n\n".encode()
+                if isinstance(chunk, bytes):
+                    yield chunk
+                else:
+                    data = json.dumps(self._response_to_dict(chunk))
+                    yield f"data: {data}\n\n".encode()
             yield b"data: [DONE]\n\n"
 
         return stream_generator()

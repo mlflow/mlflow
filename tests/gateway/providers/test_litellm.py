@@ -476,7 +476,9 @@ async def test_passthrough_gemini_generate_content():
         "candidates": [{"content": {"parts": [{"text": "Generated content"}]}}],
     }
 
-    with mock.patch("litellm.agenerate_content", return_value=mock_response) as mock_agenerate:
+    with mock.patch(
+        "litellm.google_genai.agenerate_content", return_value=mock_response
+    ) as mock_agenerate:
         provider = LiteLLMProvider(EndpointConfig(**config))
         payload = {
             "contents": [{"parts": [{"text": "Generate something"}]}],
@@ -505,7 +507,7 @@ async def test_passthrough_gemini_stream_generate_content():
             yield chunk
 
     # agenerate_content is called with stream=True for streaming
-    with mock.patch("litellm.agenerate_content", return_value=mock_stream()):
+    with mock.patch("litellm.google_genai.agenerate_content", return_value=mock_stream()):
         provider = LiteLLMProvider(EndpointConfig(**config))
         payload = {
             "contents": [{"parts": [{"text": "Generate something"}]}],
