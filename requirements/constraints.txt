@@ -14,3 +14,5 @@ transformers!=4.52.1
 # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
 # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
 xgboost<3.1.0
+# paddlepaddle>=3.3.0 causes segfaults during import on CI
+paddlepaddle<3.3.0
