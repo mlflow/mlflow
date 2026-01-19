@@ -7,7 +7,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Online Evaluations
 
-*Automatically evaluate traces and multi-turn conversations as they're logged - no code required*
+_Automatically evaluate traces and multi-turn conversations as they're logged - no code required_
 
 Online evaluations run your LLM judges automatically on traces and multi-turn conversations as they're logged to MLflow, without requiring manual execution of code. This enables two key use cases:
 
@@ -16,11 +16,11 @@ Online evaluations run your LLM judges automatically on traces and multi-turn co
 
 ## Online vs Offline Evaluation
 
-| | Online Evaluation | Offline Evaluation |
-|---|---|---|
-| **When it runs** | Automatically, as traces and conversations are logged | Manually, when you call [`mlflow.genai.evaluate()`](/genai/eval-monitor/running-evaluation/traces) |
-| **Use case** | Continuous monitoring, internal QA, interactive testing during development | Regression testing, bug fix verification |
-| **Data source** | Live traces and conversations from your application | Curated datasets |
+|                  | Online Evaluation                                                          | Offline Evaluation                                                                                 |
+| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **When it runs** | Automatically, as traces and conversations are logged                      | Manually, when you call [`mlflow.genai.evaluate()`](/genai/eval-monitor/running-evaluation/traces) |
+| **Use case**     | Continuous monitoring, internal QA, interactive testing during development | Regression testing, bug fix verification                                                           |
+| **Data source**  | Live traces and conversations from your application                        | Curated datasets                                                                                   |
 
 ## Prerequisites
 
@@ -66,6 +66,7 @@ When a judge is created or enabled, it evaluates traces and sessions that are **
    - Optionally add a **Filter string** to target specific traces or sessions
 
    <img src={require('@site/static/images/genai/eval-monitor/evaluation-settings.png').default} alt="Evaluation settings" width="400" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
+
 6. Click **Save**
 7. To edit or disable an existing judge, click on it in the **Judges** tab.
 
@@ -135,6 +136,7 @@ Assessments from online evaluation appear directly in the MLflow UI. For traces,
 ### Sampling Rate
 
 Control what percentage of traces are evaluated (0-100%). Balance cost and coverage based on your needs:
+
 - **Development**: Use a high sampling rate to detect as many issues as possible before production deployment
 - **Production**: Consider using lower rates if necessary to control costs
 
@@ -172,11 +174,11 @@ For more information about session evaluation, see [Evaluate Conversations](/gen
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| **Missing assessments** | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
-| **Unexpected or unsatisfactory judge results** | Review the judge's prompt/guidelines and test with known inputs |
-| **Evaluation errors** | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically |
+| Issue                                          | Solution                                                                                                                                           |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Missing assessments**                        | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
+| **Unexpected or unsatisfactory judge results** | Review the judge's prompt/guidelines and test with known inputs                                                                                    |
+| **Evaluation errors**                          | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically                    |
 
 For further debugging, enable debug logging on the MLflow server by setting the <APILink fn="mlflow.environment_variables.MLFLOW_LOGGING_LEVEL"><code>MLFLOW_LOGGING_LEVEL=DEBUG</code></APILink> environment variable and checking the MLflow server logs.
 
