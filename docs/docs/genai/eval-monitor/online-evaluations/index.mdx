@@ -1,12 +1,147 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+
 # Online Evaluations
 
-*Automatically evaluate traces as they're logged*
+*Automatically evaluate traces as they're logged - no code required*
 
-Online evaluations run your judges automatically on traces as they're logged to MLflow, without requiring manual invocation of `mlflow.genai.evaluate()`. This enables two key use cases:
+Online evaluations run your LLM judges automatically as traces are logged to MLflow, without requiring manual execution of code. This enables two key use cases:
 
-- **Development**: Seamlessly measure quality as you iterate on your application, getting immediate feedback and quality insights without extra evaluation steps
-- **Production**: Continuously monitor for issues like hallucinations, PII leakage, or user frustration on live traffic
+- **Streamlined Development**: Seamlessly measure quality as you iterate on your application, getting immediate feedback and quality insights without extra evaluation steps
+- **Production Monitoring**: Continuously monitor for issues like hallucinations, PII leakage, or user frustration on live traffic
 
-:::info Coming Soon
-Documentation for Online Evaluations is in progress.
+## Online vs Offline Evaluation
+
+| | Online Evaluation | Offline Evaluation |
+|---|---|---|
+| **When it runs** | Automatically, as traces are logged | Manually, when you call `mlflow.genai.evaluate()` |
+| **Use case** | Continuous monitoring, internal QA, interactive testing during development | Regression testing, bug fix verification |
+| **Data source** | Live traces from your application | Curated datasets |
+
+## Prerequisites
+
+Before setting up online evaluations, ensure that:
+
+1. **The MLflow Server is running** - See [Set Up MLflow Server](/genai/getting-started/connect-environment)
+2. **MLflow Tracing is enabled** in your agent or LLM application - See [Tracing Quickstart](/genai/tracing/quickstart)
+   - **For session-level evaluation**: Traces must include session IDs - See [Track Users & Sessions](/genai/tracing/track-users-sessions)
+
+## Setting Up Online Evaluation
+
+This example shows how to set up an LLM judge that automatically evaluates traces as they're logged. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/).
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="ui" label="UI" default>
+
+1. Navigate to your experiment and select the **Judges** tab
+2. Click **Create Judge**
+3. Select the **evaluation scope**:
+   - **Traces**: Evaluate individual traces
+   - **Sessions**: Evaluate entire multi-turn conversations
+4. Configure the judge:
+   - **LLM judge**: Select a built-in judge or create a custom one
+   - **Name**: Unique identifier (cannot be changed after creation)
+   - **Guidelines/Instructions**: Define your evaluation criteria
+   - **Model**: Select the LLM model for evaluation
+5. Enable automatic evaluation:
+   - Check **"Automatically evaluate future traces using this judge"**
+   - Set the **Sample rate** (0-100%)
+   - Optionally add a **Filter string** to target specific traces
+6. Click **Save**
+
+</TabItem>
+<TabItem value="sdk" label="SDK">
+
+```python
+from mlflow.genai.scorers import Guidelines
+
+# Create a custom guidelines-based judge
+quality_judge = Guidelines(
+    name="response_quality",
+    guidelines="The response must be helpful, accurate, and concise.",
+)
+
+# Register and enable online evaluation
+quality_judge.register(
+    name="quality_monitor",
+    sample_rate=0.5,  # Evaluate 50% of traces
+    filter_string="trace.status = 'OK'",  # Only evaluate successful traces
+)
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Configuration Options
+
+### Sampling Rate
+
+Control what percentage of traces are evaluated (0-100%). Balance cost and coverage based on your needs:
+- **Development**: Use higher rates (50-100%) for comprehensive feedback
+- **Production**: Use lower rates (1-20%) to manage costs at scale
+
+### Filtering Traces
+
+Use [search_traces syntax](/genai/tracing/search-traces) to target specific traces. Examples:
+
+```python
+# Only evaluate successful traces
+filter_string = "trace.status = 'OK'"
+
+# Only evaluate traces from a specific user
+filter_string = "tags.`mlflow.trace.user` = 'user-123'"
+```
+
+:::note
+For session-level evaluation, filters apply to the **first trace** in the session.
 :::
+
+### Session-Level Evaluation
+
+For multi-turn conversations, online evaluation can assess entire sessions rather than individual traces.
+
+- **Session completion**: A session is considered complete after no new traces arrive for 5 minutes (configurable via `MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS`)
+- **Re-evaluation**: If new traces arrive after evaluation, the session is re-evaluated and previous assessments are overwritten
+
+For more on session evaluation, see [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn).
+
+## Viewing Results
+
+Assessments from online evaluation appear directly on traces in the MLflow UI:
+
+1. Navigate to your experiment's **Traces** tab
+2. Select a trace to view its details
+3. Assessment scores and feedback appear in the trace details panel
+
+You can also filter traces by assessment scores to find traces that need attention.
+
+## Best Practices
+
+- **Start high, scale down**: Use 100% sampling during development, then reduce for production
+- **Use filters strategically**: Focus evaluation on high-value or high-risk traces
+- **Combine judges**: Use multiple judges for comprehensive quality coverage
+- **Monitor costs**: LLM-based evaluation has associated costs—adjust sampling accordingly
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| **Missing assessments** | Verify the judge is active, traces match the filter, and sampling rate is greater than zero |
+| **Unexpected or unsatisfactory judge results** | Review the judge's prompt/guidelines and test with known inputs |
+
+For further debugging, enable debug logging on the MLflow server by setting the `MLFLOW_LOGGING_LEVEL=DEBUG` environment variable and checking the server logs.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <TitleCard title="LLM-as-a-Judge →" link="/genai/eval-monitor/scorers/llm-judge/">
+    Learn how to create and customize LLM judges for your specific evaluation needs.
+  </TitleCard>
+  <TitleCard title="Evaluate Conversations →" link="/genai/eval-monitor/running-evaluation/multi-turn">
+    Set up evaluation for multi-turn conversations and chat sessions.
+  </TitleCard>
+</CardGroup>
