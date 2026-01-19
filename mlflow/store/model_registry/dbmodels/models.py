@@ -1,3 +1,4 @@
+import sqlalchemy as sa
 from cryptography.fernet import Fernet
 from sqlalchemy import (
     BigInteger,
@@ -32,12 +33,20 @@ from mlflow.entities.webhook import (
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 class SqlRegisteredModel(Base):
     __tablename__ = "registered_models"
 
-    name = Column(String(256), unique=True, nullable=False)
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+
+    name = Column(String(256), nullable=False)
 
     creation_time = Column(BigInteger, default=get_current_time_millis)
 
@@ -45,7 +54,7 @@ class SqlRegisteredModel(Base):
 
     description = Column(String(5000), nullable=True)
 
-    __table_args__ = (PrimaryKeyConstraint("name", name="registered_model_pk"),)
+    __table_args__ = (PrimaryKeyConstraint("workspace", "name", name="registered_model_pk"),)
 
     def __repr__(self):
         return (
@@ -70,13 +79,21 @@ class SqlRegisteredModel(Base):
             [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
             [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
+            workspace=self.workspace,
         )
 
 
 class SqlModelVersion(Base):
     __tablename__ = "model_versions"
 
-    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+
+    name = Column(String(256), nullable=False)
 
     version = Column(Integer, nullable=False)
 
@@ -107,7 +124,14 @@ class SqlModelVersion(Base):
         "SqlRegisteredModel", backref=backref("model_versions", cascade="all")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("name", "version", name="model_version_pk"),)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["registered_models.workspace", "registered_models.name"],
+            onupdate="cascade",
+        ),
+        PrimaryKeyConstraint("workspace", "name", "version", name="model_version_pk"),
+    )
 
     # entity mappers
     def to_mlflow_entity(self):
@@ -126,13 +150,21 @@ class SqlModelVersion(Base):
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
             [],
+            workspace=self.workspace,
         )
 
 
 class SqlRegisteredModelTag(Base):
     __tablename__ = "registered_model_tags"
 
-    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+
+    name = Column(String(256), nullable=False)
 
     key = Column(String(250), nullable=False)
 
@@ -143,7 +175,14 @@ class SqlRegisteredModelTag(Base):
         "SqlRegisteredModel", backref=backref("registered_model_tags", cascade="all")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("key", "name", name="registered_model_tag_pk"),)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["registered_models.workspace", "registered_models.name"],
+            onupdate="cascade",
+        ),
+        PrimaryKeyConstraint("workspace", "key", "name", name="registered_model_tag_pk"),
+    )
 
     def __repr__(self):
         return f"<SqlRegisteredModelTag ({self.name}, {self.key}, {self.value})>"
@@ -156,7 +195,13 @@ class SqlRegisteredModelTag(Base):
 class SqlModelVersionTag(Base):
     __tablename__ = "model_version_tags"
 
-    name = Column(String(256))
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
 
     version = Column(Integer)
 
@@ -164,20 +209,22 @@ class SqlModelVersionTag(Base):
 
     value = Column(Text, nullable=True)
 
-    # linked entities
-    model_version = relationship(
-        "SqlModelVersion",
-        foreign_keys=[name, version],
-        backref=backref("model_version_tags", cascade="all"),
-    )
-
     __table_args__ = (
-        PrimaryKeyConstraint("key", "name", "version", name="model_version_tag_pk"),
         ForeignKeyConstraint(
-            ("name", "version"),
-            ("model_versions.name", "model_versions.version"),
+            ["workspace", "name", "version"],
+            [
+                "model_versions.workspace",
+                "model_versions.name",
+                "model_versions.version",
+            ],
             onupdate="cascade",
         ),
+        PrimaryKeyConstraint("workspace", "key", "name", "version", name="model_version_tag_pk"),
+    )
+
+    # linked entities
+    model_version = relationship(
+        "SqlModelVersion", backref=backref("model_version_tags", cascade="all")
     )
 
     def __repr__(self):
@@ -190,15 +237,15 @@ class SqlModelVersionTag(Base):
 
 class SqlRegisteredModelAlias(Base):
     __tablename__ = "registered_model_aliases"
-    name = Column(
-        String(256),
-        ForeignKey(
-            "registered_models.name",
-            onupdate="cascade",
-            ondelete="cascade",
-            name="registered_model_alias_name_fkey",
-        ),
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
+
+    name = Column(String(256), nullable=False)
     alias = Column(String(256), nullable=False)
     version = Column(Integer, nullable=False)
 
@@ -207,7 +254,16 @@ class SqlRegisteredModelAlias(Base):
         "SqlRegisteredModel", backref=backref("registered_model_aliases", cascade="all")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["registered_models.workspace", "registered_models.name"],
+            onupdate="cascade",
+            ondelete="cascade",
+            name="registered_model_alias_registered_model_fkey",
+        ),
+        PrimaryKeyConstraint("workspace", "name", "alias", name="registered_model_alias_pk"),
+    )
 
     def __repr__(self):
         return f"<SqlRegisteredModelAlias ({self.name}, {self.alias}, {self.version})>"
@@ -247,6 +303,12 @@ class EncryptedString(TypeDecorator):
 class SqlWebhook(Base):
     __tablename__ = "webhooks"
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
     webhook_id = Column(String(256), nullable=False)
     name = Column(String(256), nullable=False)
     description = Column(String(1000), nullable=True)
@@ -261,6 +323,7 @@ class SqlWebhook(Base):
         PrimaryKeyConstraint("webhook_id", name="webhook_pk"),
         Index("idx_webhooks_status", "status"),
         Index("idx_webhooks_name", "name"),
+        Index("idx_webhooks_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -277,6 +340,7 @@ class SqlWebhook(Base):
             events=[we.to_mlflow_entity() for we in self.webhook_events],
             creation_timestamp=self.creation_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
+            workspace=self.workspace,
             description=self.description,
             status=WebhookStatus(self.status),
             secret=self.secret,

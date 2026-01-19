@@ -106,6 +106,34 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
+#: Specifies the workspace provider backend URI.
+#: Defaults to the tracking URI when unset.
+MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", str, None)
+
+#: Enables workspace-aware behavior for MLflow servers and clients.
+#: When set, requests can include a workspace. Some workspace providers support default workspaces.
+#: (default: ``False``)
+MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
+
+#: Specifies the active workspace for client operations.
+#: (default: ``None``)
+MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
+
+#: Specifies the maximum number of entries in the workspace artifact root resolution cache.
+#: Increase this value if the server manages many workspaces.
+#: (default: ``128``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY", int, 128
+)
+
+#: Specifies the time-to-live in seconds for entries in the workspace artifact root resolution
+#: cache. Lower values improve consistency when running multiple server replicas; higher values
+#: reduce database load.
+#: (default: ``60``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS", int, 60
+)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model

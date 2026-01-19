@@ -20,7 +20,12 @@ import mlflow.store.artifact.cli
 from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -41,6 +46,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
+    assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
 
@@ -482,6 +488,26 @@ def _validate_static_prefix(ctx, param, value):
         "Range: 1-10000 entries."
     ),
 )
+@click.option(
+    "--workspace-store-uri",
+    envvar=MLFLOW_WORKSPACE_STORE_URI.name,
+    metavar="URI",
+    default=None,
+    help=(
+        "Workspace provider backend URI used for workspace CRUD APIs and request routing. "
+        "When unspecified, defaults to the backend store URI. This only needs to be specified "
+        "when using a workspace store plugin leveraging externally managed workspaces (e.g. "
+        + "Kubernetes namespaces)."
+    ),
+)
+@click.option(
+    "--enable-workspaces/--disable-workspaces",
+    envvar=MLFLOW_ENABLE_WORKSPACES.name,
+    default=False,
+    show_default=True,
+    help="Enable backwards compatible workspaces mode for logical isolation of experiments, "
+    + "registered models, and prompts.",
+)
 def server(
     ctx,
     backend_store_uri,
@@ -506,6 +532,8 @@ def server(
     uvicorn_opts,
     secrets_cache_ttl,
     secrets_cache_max_size,
+    workspace_store_uri,
+    enable_workspaces,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -551,6 +579,20 @@ def server(
         disable_security_middleware=disable_security_middleware,
     )
 
+    assert_server_workspace_env_unset()
+
+    # Keep environment flag in sync with the resolved boolean so server-side gating
+    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
+    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    if enable_workspaces and workspace_store_uri:
+        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    elif workspace_store_uri:
+        click.echo(
+            "Ignoring --workspace-store-uri because workspaces are not enabled. "
+            "Use --enable-workspaces to activate workspace mode.",
+            err=True,
+        )
+
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
     else:
@@ -585,11 +627,16 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri)
+    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
 
     if not artifacts_only:
         try:
-            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+            initialize_backend_stores(
+                backend_store_uri,
+                registry_store_uri,
+                default_artifact_root,
+                workspace_store_uri=workspace_store_uri,
+            )
         except Exception as e:
             _logger.error("Error initializing backend store")
             _logger.exception(e)

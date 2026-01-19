@@ -10,6 +10,7 @@ from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
+import click
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,6 +23,7 @@ from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -69,6 +71,22 @@ def test_server_static_prefix_validation():
         result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
+
+
+def test_server_cli_fails_when_workspace_env_set():
+    env = os.environ.copy()
+    # Trigger server-mode guard in mlflow.server.__init__
+    env["_MLFLOW_SERVER_SERVE_ARTIFACTS"] = "1"
+    env["MLFLOW_WORKSPACE"] = "team-a"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mlflow", "server", "--port", "0"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode != 0
+    assert "MLFLOW_WORKSPACE=team-a is client-only" in result.stderr
 
 
 def test_server_uvicorn_options():
@@ -215,20 +233,83 @@ def test_server_skips_backend_store_init_in_artifacts_only_mode():
 def test_server_mlflow_artifacts_options():
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    runner = CliRunner()
-    with runner.isolated_filesystem():
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--artifacts-only"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--serve-artifacts"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--no-serve-artifacts"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--artifacts-only"])
-            run_server_mock.assert_called_once()
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._has_existing_mlruns_data", return_value=False
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--artifacts-only"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--serve-artifacts"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--no-serve-artifacts"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--artifacts-only"])
+                run_server_mock.assert_called_once()
+
+
+def test_server_artifacts_only_conflicts_with_enable_workspaces():
+    with pytest.raises(
+        click.UsageError, match="--enable-workspaces cannot be combined with --artifacts-only"
+    ):
+        CliRunner().invoke(
+            server,
+            ["--artifacts-only", "--enable-workspaces"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root_path = tmp_path / "artifacts"
+    artifact_root_path.mkdir()
+    artifact_root = artifact_root_path.as_uri()
+
+    MLFLOW_WORKSPACE_STORE_URI.unset()
+    MLFLOW_ENABLE_WORKSPACES.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--enable-workspaces",
+                    "--workspace-store-uri",
+                    workspace_uri,
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once_with(
+            backend_uri,
+            backend_uri,
+            artifact_root,
+            workspace_store_uri=workspace_uri,
+        )
+        assert MLFLOW_WORKSPACE_STORE_URI.get() == workspace_uri
+        assert MLFLOW_ENABLE_WORKSPACES.get() is True
+    finally:
+        MLFLOW_WORKSPACE_STORE_URI.unset()
+        MLFLOW_ENABLE_WORKSPACES.unset()
 
 
 @pytest.mark.parametrize("command", [server])
