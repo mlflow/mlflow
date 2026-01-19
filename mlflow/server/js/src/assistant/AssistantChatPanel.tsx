@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   CloseIcon,
-  CopyIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
@@ -25,8 +24,9 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import type { ChatMessage } from './types';
+import type { ChatMessage, ToolUseInfo } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
+import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
 
@@ -46,17 +46,24 @@ const DOTS_ANIMATION = {
 /**
  * Single chat message bubble.
  */
-const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; isLastMessage: boolean }) => {
+const ChatMessageBubble = ({
+  message,
+  isLastMessage,
+  activeTools,
+  onRegenerate,
+}: {
+  message: ChatMessage;
+  isLastMessage: boolean;
+  activeTools?: ToolUseInfo[];
+  onRegenerate?: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const isUser = message.role === 'user';
   const [isHovered, setIsHovered] = useState(false);
-
-  const handleCopy = () => {
-    // TODO: Implement copy functionality
-  };
+  const { actionIcon: copyIcon, tooltipMessage: copyTooltip, copy: handleCopy } = useCopyController(message.content);
 
   const handleRegenerate = () => {
-    // TODO: Implement regenerate functionality
+    onRegenerate?.();
   };
 
   return (
@@ -77,7 +84,7 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
             theme.spacing.md
           }px`,
           borderRadius: theme.borders.borderRadiusLg,
-          backgroundColor: isUser ? theme.colors.blue100 : 'transparent',
+          backgroundColor: isUser ? theme.colors.backgroundSecondary : 'transparent',
           color: theme.colors.textPrimary,
         }}
       >
@@ -117,7 +124,9 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
                 '@keyframes dots': DOTS_ANIMATION,
               }}
             >
-              Processing
+              {activeTools && activeTools.length > 0 && activeTools[0].description
+                ? activeTools[0].description
+                : 'Processing'}
             </span>
           </div>
         )}
@@ -135,8 +144,8 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
             transition: 'opacity 0.2s ease',
           }}
         >
-          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content="Copy">
-            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={<CopyIcon />} onClick={handleCopy} />
+          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copyTooltip}>
+            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={copyIcon} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
             <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
@@ -233,55 +242,11 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
- * Status indicator showing processing state.
- */
-const StatusIndicator = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: theme.spacing.md,
-        color: theme.colors.textSecondary,
-        flexShrink: 0,
-      }}
-    >
-      <SparkleIcon
-        color="ai"
-        css={{
-          fontSize: 18,
-          animation: 'pulse 1.5s ease-in-out infinite',
-          '@keyframes pulse': PULSE_ANIMATION,
-        }}
-      />
-      <span
-        css={{
-          fontSize: theme.typography.fontSizeBase,
-          color: theme.colors.textSecondary,
-          '&::after': {
-            content: '"..."',
-            animation: 'dots 1.5s steps(3, end) infinite',
-            display: 'inline-block',
-            width: '1.2em',
-          },
-          '@keyframes dots': DOTS_ANIMATION,
-        }}
-      >
-        Processing
-      </span>
-    </div>
-  );
-};
-
-/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -342,14 +307,19 @@ const ChatPanelContent = () => {
         {messages.map((message, index) => {
           // Check if this is the last assistant message
           const isLastAssistantMessage = message.role === 'assistant' && index === messages.length - 1;
-          return <ChatMessageBubble key={message.id} message={message} isLastMessage={isLastAssistantMessage} />;
+          return (
+            <ChatMessageBubble
+              key={message.id}
+              message={message}
+              isLastMessage={isLastAssistantMessage}
+              activeTools={message.isStreaming ? activeTools : undefined}
+              onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
+            />
+          );
         })}
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Status indicator */}
-      {currentStatus && <StatusIndicator />}
 
       {/* Input area */}
       <div

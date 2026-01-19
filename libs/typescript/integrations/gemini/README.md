@@ -32,7 +32,7 @@ import * as mlflow from 'mlflow-tracing';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
-  experimentId: '<experiment-id>'
+  experimentId: '<experiment-id>',
 });
 ```
 
@@ -47,7 +47,7 @@ const client = tracedGemini(gemini);
 
 const response = await client.models.generateContent({
   model: 'gemini-2.0-flash-001',
-  contents: 'Hello Gemini'
+  contents: 'Hello Gemini',
 });
 ```
 

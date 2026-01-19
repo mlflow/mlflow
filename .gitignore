@@ -4,6 +4,9 @@ mlartifacts/
 outputs/
 mlruns*.db
 mlflow.db
+# SQLite WAL mode temporary files
+*-shm
+*-wal
 **/basic_auth.db
 
 # Mac
