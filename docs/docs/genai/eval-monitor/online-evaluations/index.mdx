@@ -32,7 +32,11 @@ Before setting up online evaluations, ensure that:
 
 ## Setting Up Online Evaluation
 
-These examples show how to set up LLM judges that automatically evaluate traces and multi-turn conversations as they're logged, and how to update or disable existing judges. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/).
+These examples show how to set up LLM judges that automatically evaluate traces and multi-turn conversations as they're logged to an [MLflow Experiment](/genai/tracing/quickstart#create-a-mlflow-experiment), and how to update or disable existing judges. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/).
+
+:::note
+When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
+:::
 
 <TabsWrapper>
 <Tabs>
@@ -40,7 +44,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 1. Navigate to your experiment and select the **Judges** tab
 
-   <img src={require('@site/static/images/genai/eval-monitor/judges-tab.png').default} alt="Judges tab" width="120" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
+   <img src={require('@site/static/images/genai/eval-monitor/judges-tab.png').default} alt="Judges tab" width="108" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 
 2. Click **+ New LLM judge**
 
@@ -62,9 +66,9 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
    <img src={require('@site/static/images/genai/eval-monitor/evaluation-settings.png').default} alt="Evaluation settings" width="400" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 6. Click **Save**
-7. To edit or disable an existing judge, click on it in the **Judges** tab and modify the settings.
+7. To edit or disable an existing judge, click on it in the **Judges** tab.
 
-   <img src={require('@site/static/images/genai/eval-monitor/edit-llm-judge-button.png').default} alt="Edit LLM judge button" width="180" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
+   <img src={require('@site/static/images/genai/eval-monitor/edit-llm-judge-button.png').default} alt="Edit LLM judge button" width="270" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 
 </TabItem>
 <TabItem value="sdk" label="SDK">
@@ -72,11 +76,15 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 For more details about the APIs used in this example, see [`Scorer.start()`](/api_reference/python_api/mlflow.genai.html), [`Scorer.update()`](/api_reference/python_api/mlflow.genai.html), and [`Scorer.stop()`](/api_reference/python_api/mlflow.genai.html).
 
 ```python
+import mlflow
 from mlflow.genai.scorers import (
     ToolCallCorrectness,
     ConversationalGuidelines,
     ScorerSamplingConfig,
 )
+
+# Set the experiment for the judges
+mlflow.set_experiment("my-experiment")
 
 # Create and start a trace-level judge
 tool_judge = ToolCallCorrectness(model="gateway:/your-endpoint")
@@ -109,6 +117,17 @@ judge.stop()  # Or, disable the judge
 </TabItem>
 </Tabs>
 </TabsWrapper>
+
+## Viewing Results
+
+Assessments from online evaluation appear directly in the MLflow UI. For traces, assessments typically appear within a minute or two of logging. For multi-turn sessions, evaluation begins after 5 minutes of inactivity (no new traces) by default—this is [configurable](/api_reference/python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS). Navigate to your experiment's **Traces** or **Sessions** tab to see results.
+
+<ImageBox
+  src="/images/genai/eval-monitor/online-evaluation-results.png"
+  alt="Online evaluation results showing assessment scores for traces"
+  caption="Assessment scores from online evaluation appear as columns in the traces tab"
+  width="80%"
+/>
 
 ## Configuration Options
 
@@ -143,17 +162,6 @@ For multi-turn conversations, online evaluation can assess entire sessions, in a
 
 For more information about session evaluation, see [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn).
 
-## Viewing Results
-
-Assessments from online evaluation appear directly in the MLflow UI. Navigate to your experiment's **Traces** or **Sessions** tab to see results.
-
-<ImageBox
-  src="/images/genai/eval-monitor/online-evaluation-results.png"
-  alt="Online evaluation results showing assessment scores for traces"
-  caption="Assessment scores from online evaluation appear as columns in the traces tab"
-  width="80%"
-/>
-
 ## Best Practices
 
 - **Combine judges**: Use multiple judges for comprehensive quality coverage
@@ -165,8 +173,9 @@ Assessments from online evaluation appear directly in the MLflow UI. Navigate to
 
 | Issue | Solution |
 |---|---|
-| **Missing assessments** | Verify the judge is active, traces match the filter, and sampling rate is greater than zero |
+| **Missing assessments** | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
 | **Unexpected or unsatisfactory judge results** | Review the judge's prompt/guidelines and test with known inputs |
+| **Evaluation errors** | Check server logs for details. Failed evaluations are not retried automatically |
 
 For further debugging, enable debug logging on the MLflow server by setting the [`MLFLOW_LOGGING_LEVEL=DEBUG`](/api_reference/python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_LOGGING_LEVEL) environment variable and checking the MLflow server logs.
 
