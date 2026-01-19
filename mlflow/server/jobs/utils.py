@@ -38,6 +38,9 @@ _logger = logging.getLogger(__name__)
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
+# Environment variable name for the job name set in job subprocesses
+MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
+
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
 
@@ -149,6 +152,7 @@ def _exec_job_in_subproc(
     tmpdir: str,
     job_store: "AbstractJobStore",
     job_id: str,
+    job_name: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -211,6 +215,7 @@ def _exec_job_in_subproc(
         job_cmd,
         env={
             **os.environ,
+            MLFLOW_SERVER_JOB_NAME_ENV_VAR: job_name,
             "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
             "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
             "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
@@ -323,6 +328,7 @@ def _exec_job(
                 tmpdir,
                 job_store,
                 job_id,
+                job_name,
             )
 
         if job_result is None:
