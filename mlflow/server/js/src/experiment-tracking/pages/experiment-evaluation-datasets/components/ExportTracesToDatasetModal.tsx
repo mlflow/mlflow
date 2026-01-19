@@ -137,7 +137,7 @@ export const ExportTracesToDatasetModal = ({
             css={{ marginBottom: theme.spacing.sm }}
             message={
               <FormattedMessage
-                defaultMessage="Cannot add trace to multiturn dataset"
+                defaultMessage="Exporting to multi-turn datasets is not yet supported."
                 description="Error message when trying to export traces to a multiturn dataset"
               />
             }

@@ -10,12 +10,7 @@ export const useCheckMultiturnDatasets = ({ datasetIds }: { datasetIds: string[]
   return useQuery({
     queryKey: [CHECK_MULTITURN_DATASETS_QUERY_KEY, datasetIds],
     queryFn: async () => {
-      let hasMultiturnDataset = false;
-      if (datasetIds.length === 0) {
-        return hasMultiturnDataset;
-      }
-
-      await Promise.all(
+      const results = await Promise.all(
         datasetIds.map(async (datasetId) => {
           const queryParams = new URLSearchParams();
           queryParams.set('dataset_id', datasetId);
@@ -25,19 +20,21 @@ export const useCheckMultiturnDatasets = ({ datasetIds }: { datasetIds: string[]
             getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records?${queryParams.toString()}`),
             'GET',
           ).catch(() => null);
-          if (!response) return;
+          if (!response) return false;
 
           const records = parseJSONSafe(response.records);
           if (records && records.length > 0) {
             const firstRecordInputs = records[0].inputs;
             if (firstRecordInputs && firstRecordInputs.goal) {
-              hasMultiturnDataset = true;
+              return true;
             }
           }
+
+          return false;
         }),
       );
 
-      return hasMultiturnDataset;
+      return results.includes(true);
     },
     enabled: datasetIds.length > 0,
     refetchOnWindowFocus: false,
