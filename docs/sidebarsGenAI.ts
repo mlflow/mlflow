@@ -398,6 +398,63 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
+              type: 'category',
+              label: 'Gateways',
+              items: [
+                // TODO: Add MLflow AI Gateway integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/mlflow-gateway',
+                //   label: 'MLflow AI Gateway',
+                // },
+                // TODO: Add Databricks integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/databricks-gateway',
+                //   label: 'Databricks',
+                // },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/litellm-proxy',
+                  label: 'LiteLLM Proxy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openrouter',
+                  label: 'OpenRouter',
+                },
+                // TODO: Add Kong Gateway integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/kong-gateway',
+                //   label: 'Kong Gateway',
+                // },
+                // TODO: Add Portkey integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/portkey',
+                //   label: 'Portkey',
+                // },
+                // TODO: Add Pydantic AI Gateway integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                //   label: 'Pydantic AI Gateway',
+                // },
+                // TODO: Add Helicone integration
+                // {
+                //   type: 'doc',
+                //   id: 'tracing/integrations/listing/helicone',
+                //   label: 'Helicone',
+                // },
+              ],
+            },
+            {
               type: 'doc',
               id: 'tracing/integrations/contribute',
               label: 'Add New Integration',

@@ -25,7 +25,8 @@ type Category =
   | 'Agent Frameworks (TypeScript)'
   | 'Agent Frameworks (Java)'
   | 'Model Providers'
-  | 'Tools';
+  | 'Tools'
+  | 'Gateways';
 
 const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
@@ -34,6 +35,7 @@ const CATEGORY_ORDER: Category[] = [
   'Agent Frameworks (Java)',
   'Model Providers',
   'Tools',
+  'Gateways',
 ];
 
 // Centralized integration definitions with categories
@@ -394,6 +396,76 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Tools',
   },
+  // Gateways
+  // TODO: Add MLflow AI Gateway integration
+  // {
+  //   id: 'mlflow-gateway',
+  //   name: 'MLflow AI Gateway',
+  //   logoPath: '/images/logos/mlflow-logo.svg',
+  //   link: '/genai/tracing/integrations/listing/mlflow-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Databricks integration
+  // {
+  //   id: 'databricks-gateway',
+  //   name: 'Databricks',
+  //   logoPath: '/images/logos/databricks-logo.png',
+  //   link: '/genai/tracing/integrations/listing/databricks-gateway',
+  //   category: 'Gateways',
+  // },
+  {
+    id: 'litellm-proxy',
+    name: 'LiteLLM Proxy',
+    logoPath: '/images/logos/litellm-logo.png',
+    link: '/genai/tracing/integrations/listing/litellm-proxy',
+    category: 'Gateways',
+  },
+  {
+    id: 'vercel-ai-gateway',
+    name: 'Vercel AI Gateway',
+    logoPath: '/images/logos/vercel-logo.svg',
+    link: '/genai/tracing/integrations/listing/vercel-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    logoPath: '/images/logos/openrouter-logo.png',
+    link: '/genai/tracing/integrations/listing/openrouter',
+    category: 'Gateways',
+  },
+  // TODO: Add Kong Gateway integration
+  // {
+  //   id: 'kong-gateway',
+  //   name: 'Kong Gateway',
+  //   logoPath: '/images/logos/kong-logo.png',
+  //   link: '/genai/tracing/integrations/listing/kong-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Portkey integration
+  // {
+  //   id: 'portkey',
+  //   name: 'Portkey',
+  //   logoPath: '/images/logos/portkey-logo.png',
+  //   link: '/genai/tracing/integrations/listing/portkey',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Pydantic AI Gateway integration
+  // {
+  //   id: 'pydantic-ai-gateway',
+  //   name: 'Pydantic AI Gateway',
+  //   logoPath: '/images/logos/pydantic-ai-logo-only.png',
+  //   link: '/genai/tracing/integrations/listing/pydantic-ai-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Helicone integration
+  // {
+  //   id: 'helicone',
+  //   name: 'Helicone',
+  //   logoPath: '/images/logos/helicone-logo.png',
+  //   link: '/genai/tracing/integrations/listing/helicone',
+  //   category: 'Gateways',
+  // },
 ];
 
 const IntegrationSection: React.FC<{

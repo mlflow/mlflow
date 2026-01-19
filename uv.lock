@@ -4277,11 +4277,15 @@ dev = [
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml" },
+    { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "setuptools" },
     { name = "skills" },
     { name = "tiktoken" },
     { name = "toml" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+    { name = "types-toml" },
     { name = "wheel" },
 ]
 docs = [
@@ -4332,9 +4336,20 @@ lint = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pyyaml" },
+    { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "tiktoken" },
     { name = "toml" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+    { name = "types-toml" },
+]
+pytest = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
 ]
 test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -4459,11 +4474,15 @@ dev = [
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruamel-yaml" },
     { name = "ruff", specifier = "==0.14.10" },
     { name = "setuptools" },
     { name = "skills", editable = ".claude/skills" },
     { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+    { name = "types-toml" },
     { name = "wheel" },
 ]
 docs = [
@@ -4509,9 +4528,20 @@ lint = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruamel-yaml" },
     { name = "ruff", specifier = "==0.14.10" },
     { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+    { name = "types-toml" },
+]
+pytest = [
+    { name = "pytest", specifier = "==9.0.2" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
 ]
 test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -7553,6 +7583,15 @@ wheels = [
 ]
 
 [[package]]
+name = "ruamel-yaml"
+version = "0.19.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/3b/ebda527b56beb90cb7652cb1c7e4f91f48649fbcd8d2eb2fb6e77cd3329b/ruamel_yaml-0.19.1.tar.gz", hash = "sha256:53eb66cd27849eff968ebf8f0bf61f46cdac2da1d1f3576dd4ccee9b25c31993", size = 142709, upload-time = "2026-01-02T16:50:31.84Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/0c/51f6841f1d84f404f92463fc2b1ba0da357ca1e3db6b7fbda26956c3b82a/ruamel_yaml-0.19.1-py3-none-any.whl", hash = "sha256:27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93", size = 118102, upload-time = "2026-01-02T16:50:29.201Z" },
+]
+
+[[package]]
 name = "ruff"
 version = "0.14.10"
 source = { registry = "https://pypi.org/simple" }
@@ -8845,6 +8884,36 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/17/d4/064570dec6358aa9049d4708e4a10407d74c99258f8b2136bb8702303f1a/typer_slim-0.21.1.tar.gz", hash = "sha256:73495dd08c2d0940d611c5a8c04e91c2a0a98600cbd4ee19192255a233b6dbfd", size = 110478, upload-time = "2026-01-06T11:21:11.176Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/0a/4aca634faf693e33004796b6cee0ae2e1dba375a800c16ab8d3eff4bb800/typer_slim-0.21.1-py3-none-any.whl", hash = "sha256:6e6c31047f171ac93cc5a973c9e617dbc5ab2bddc4d0a3135dc161b4e2020e0d", size = 47444, upload-time = "2026-01-06T11:21:12.441Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522, upload-time = "2025-09-15T03:01:00.728Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338, upload-time = "2025-09-15T03:00:59.218Z" },
+]
+
+[[package]]
+name = "types-requests"
+version = "2.32.4.20260107"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0f/f3/a0663907082280664d745929205a89d41dffb29e89a50f753af7d57d0a96/types_requests-2.32.4.20260107.tar.gz", hash = "sha256:018a11ac158f801bfa84857ddec1650750e393df8a004a8a9ae2a9bec6fcb24f", size = 23165, upload-time = "2026-01-07T03:20:54.091Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/12/709ea261f2bf91ef0a26a9eed20f2623227a8ed85610c1e54c5805692ecb/types_requests-2.32.4.20260107-py3-none-any.whl", hash = "sha256:b703fe72f8ce5b31ef031264fe9395cac8f46a04661a79f7ed31a80fb308730d", size = 20676, upload-time = "2026-01-07T03:20:52.929Z" },
+]
+
+[[package]]
+name = "types-toml"
+version = "0.10.8.20240310"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/47/3e4c75042792bff8e90d7991aa5c51812cc668828cc6cce711e97f63a607/types-toml-0.10.8.20240310.tar.gz", hash = "sha256:3d41501302972436a6b8b239c850b26689657e25281b48ff0ec06345b8830331", size = 4392, upload-time = "2024-03-10T02:18:37.518Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl", hash = "sha256:627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d", size = 4777, upload-time = "2024-03-10T02:18:36.568Z" },
 ]
 
 [[package]]
