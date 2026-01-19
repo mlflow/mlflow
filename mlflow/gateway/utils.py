@@ -267,7 +267,8 @@ async def validate_git_location(url: str) -> bool:
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.head(url, allow_redirects=True, timeout=10) as response:
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with session.head(url, allow_redirects=True, timeout=timeout) as response:
                 return response.status == 200
     except Exception:
         return False
