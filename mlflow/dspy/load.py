@@ -66,9 +66,11 @@ def _load_model(model_uri, dst_path=None):
         with open(os.path.join(local_model_path, model_path), "rb") as f:
             loaded_wrapper = cloudpickle.load(f)
     else:
-        model = dspy.load(os.path.join(local_model_path, model_path))
+        model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=True)
 
-        dspy_settings = dspy.load_settings(os.path.join(local_model_path, _DSPY_SETTINGS_FILE_NAME))
+        dspy_settings = dspy.load_settings(
+            os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
+        )
 
         with open(os.path.join(local_model_path, _MODEL_DATA_PATH, _MODEL_CONFIG_FILE_NAME)) as f:
             model_config = json.load(f)
