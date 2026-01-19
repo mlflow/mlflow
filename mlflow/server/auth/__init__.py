@@ -1045,9 +1045,17 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
 
 def _is_proxy_artifact_path(path: str) -> bool:
-    return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
+    # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
+    # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.
+    prefixes = [
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    ]
+    return any(path.startswith(prefix) for prefix in prefixes)
 
 
 def _get_proxy_artifact_validator(

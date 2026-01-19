@@ -506,18 +506,17 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
 
     // Valid expectation should be in targets
-    expect(result[0].targets['validExpectation']).toBe('Should be included');
+    expect(result[0].targets.validExpectation).toBe('Should be included');
 
     // Invalid expectation should NOT be in targets
-    expect(result[0].targets['invalidExpectation']).toBeUndefined();
+    expect(result[0].targets.invalidExpectation).toBeUndefined();
 
     // Valid feedback should be in responseAssessmentsByName
-    expect(result[0].responseAssessmentsByName['validFeedback']).toHaveLength(1);
-    expect(result[0].responseAssessmentsByName['validFeedback'][0].stringValue).toBe('yes');
+    expect(result[0].responseAssessmentsByName.validFeedback).toHaveLength(1);
+    expect(result[0].responseAssessmentsByName.validFeedback[0].stringValue).toBe('yes');
 
     // Invalid feedback should NOT be in responseAssessmentsByName
-    expect(result[0].responseAssessmentsByName['invalidFeedback']).toBeUndefined();
-
+    expect(result[0].responseAssessmentsByName.invalidFeedback).toBeUndefined();
     // Valid overall assessment should be present
     expect(result[0].overallAssessments).toHaveLength(1);
     expect(result[0].overallAssessments[0].stringValue).toBe('pass');

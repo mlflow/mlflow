@@ -88,6 +88,11 @@ from mlflow.telemetry.events import (
     ScorerCallEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    TracingContextPropagation,
+)
+from mlflow.tracing.distributed import (
+    get_tracing_context_headers_for_http_request,
+    set_tracing_context_from_http_request_headers,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
 from mlflow.utils.os import is_windows
@@ -1515,6 +1520,43 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
     mock_requests.clear()
 
 
+@pytest.mark.parametrize(
+    ("job_name", "expected_callsite"),
+    [
+        ("run_online_trace_scorer", "online_scoring"),
+        ("run_online_session_scorer", "online_scoring"),
+        # Counterexample: non-online-scoring job should be treated as direct call
+        ("invoke_scorer", "direct_scorer_call"),
+    ],
+)
+def test_scorer_call_online_scoring_callsite(
+    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name, expected_callsite
+):
+    # Import here to avoid circular imports
+    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
+
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_NAME_ENV_VAR, job_name)
+
+    @scorer
+    def custom_scorer(outputs: str) -> bool:
+        return True
+
+    custom_scorer(outputs="test output")
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": "UserDefinedScorer",
+            "scorer_kind": "decorator",
+            "is_session_level_scorer": False,
+            "callsite": expected_callsite,
+            "has_feedback_error": False,
+        },
+    )
+
+
 def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client: TelemetryClient):
     error_judge = make_judge(
         name="quality_judge",
@@ -1999,4 +2041,33 @@ async def test_gateway_invocation_telemetry(
         mock_requests,
         GatewayInvocationEvent.name,
         {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
+    )
+
+
+def test_tracing_context_propagation_get_and_set_success(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        with mlflow.start_span("client span"):
+            headers = get_tracing_context_headers_for_http_request()
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        TracingContextPropagation.name,
+    )
+
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        with set_tracing_context_from_http_request_headers(headers):
+            with mlflow.start_span("server span"):
+                pass
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        TracingContextPropagation.name,
     )

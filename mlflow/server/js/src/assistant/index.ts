@@ -5,7 +5,6 @@
  */
 export { AssistantProvider, useAssistant } from './AssistantContext';
 export { AssistantChatPanel } from './AssistantChatPanel';
-export { AssistantButton } from './AssistantButton';
 export {
   AssistantRouteContextProvider,
   useRegisterAssistantContext,

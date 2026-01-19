@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "3.8.2.dev0"
+version = "3.9.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -65,6 +65,7 @@ extras = [
   "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",

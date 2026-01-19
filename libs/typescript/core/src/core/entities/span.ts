@@ -2,7 +2,7 @@ import {
   HrTime,
   INVALID_SPANID,
   INVALID_TRACEID,
-  SpanStatusCode as OTelSpanStatusCode
+  SpanStatusCode as OTelSpanStatusCode,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
 import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
@@ -13,7 +13,7 @@ import {
   convertNanoSecondsToHrTime,
   encodeSpanIdToBase64,
   encodeTraceIdToBase64,
-  decodeIdFromBase64
+  decodeIdFromBase64,
 } from '../utils';
 import { safeJsonStringify } from '../utils/json';
 /**
@@ -151,7 +151,7 @@ export class Span implements ISpan {
       return new SpanEvent({
         name: event.name,
         attributes: event.attributes as Record<string, any>,
-        timestamp: BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds)
+        timestamp: BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds),
       });
     });
   }
@@ -171,14 +171,14 @@ export class Span implements ISpan {
       end_time_unix_nano: this.endTime ? convertHrTimeToNanoSeconds(this.endTime) : null,
       status: {
         code: this.status?.statusCode || SpanStatusCode.UNSET,
-        message: this.status?.description
+        message: this.status?.description,
       },
       attributes: this.attributes || {},
       events: this.events.map((event) => ({
         name: event.name,
         time_unix_nano: event.timestamp,
-        attributes: event.attributes || {}
-      }))
+        attributes: event.attributes || {},
+      })),
     };
   }
 
@@ -196,7 +196,7 @@ export class Span implements ISpan {
       endTime: json.end_time_unix_nano ? convertNanoSecondsToHrTime(json.end_time_unix_nano) : null,
       status: {
         code: convertStatusCodeToOTel(json.status.code),
-        message: json.status.message
+        message: json.status.message,
       },
       // For fromJson, attributes are already in their final form (not JSON serialized)
       // so we store them directly
@@ -204,7 +204,7 @@ export class Span implements ISpan {
       events: (json.events || []).map((event) => ({
         name: event.name,
         time: convertNanoSecondsToHrTime(event.time_unix_nano),
-        attributes: event.attributes || {}
+        attributes: event.attributes || {},
       })),
       ended: true,
       // Add spanContext() method that returns proper SpanContext
@@ -212,7 +212,7 @@ export class Span implements ISpan {
         traceId: decodeIdFromBase64(json.trace_id),
         spanId: decodeIdFromBase64(json.span_id),
         traceFlags: 1, // Sampled
-        isRemote: false
+        isRemote: false,
       }),
       // Add parentSpanContext for parent span ID
       parentSpanContext: json.parent_span_id
@@ -220,9 +220,9 @@ export class Span implements ISpan {
             traceId: decodeIdFromBase64(json.trace_id),
             spanId: decodeIdFromBase64(json.parent_span_id),
             traceFlags: 1,
-            isRemote: false
+            isRemote: false,
           }
-        : undefined
+        : undefined,
     };
 
     // Create a span that behaves like our Span class but from downloaded data
@@ -409,10 +409,10 @@ export class NoOpSpan implements ISpan {
     this._span = span || {
       spanContext: () => ({
         spanId: INVALID_SPANID,
-        traceId: INVALID_TRACEID
+        traceId: INVALID_TRACEID,
       }),
       attributes: {},
-      events: []
+      events: [],
     };
     this._attributesRegistry = new SpanAttributesRegistry(this._span as OTelSpan);
   }
@@ -468,7 +468,7 @@ export class NoOpSpan implements ISpan {
     _outputs?: any,
     _attributes?: Record<string, any>,
     _status?: SpanStatus | SpanStatusCode,
-    _endTimeNs?: number
+    _endTimeNs?: number,
   ): void {}
 
   get events(): SpanEvent[] {
@@ -485,7 +485,7 @@ export class NoOpSpan implements ISpan {
       end_time_unix_nano: null,
       status: { code: 'UNSET', message: '' },
       attributes: {},
-      events: []
+      events: [],
     };
   }
 }
@@ -628,7 +628,7 @@ class CachedSpanAttributesRegistry extends SpanAttributesRegistry {
 export function createMlflowSpan(
   otelSpan: any,
   traceId: string,
-  spanType?: string
+  spanType?: string,
 ): NoOpSpan | Span | LiveSpan {
   // NonRecordingSpan always has a spanId of '0000000000000000'
   // https://github.com/open-telemetry/opentelemetry-js/blob/f2cfd1327a5b131ea795301b10877291aac4e6f5/api/src/trace/invalid-span-constants.ts#L23C32-L23C48
