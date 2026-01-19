@@ -80,9 +80,11 @@ const ExperimentPageTabsImpl = () => {
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
   const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
-  // ...if true, we want to navigate to the appropriate tab based on the experiment kind
+  // ...if true, we want to navigate to the appropriate tab based on the experiment kind.
+  // However, if experiment kind inference is enabled (no kind tag exists), we should
+  // let the inference process handle navigation instead to avoid race conditions.
   useNavigateToExperimentPageTab({
-    enabled: matchedExperimentPageWithoutTab,
+    enabled: matchedExperimentPageWithoutTab && !isExperimentKindInferenceEnabled,
     experimentId,
   });
 
