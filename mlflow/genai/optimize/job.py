@@ -232,7 +232,7 @@ def optimize_prompts_job(
     """
     set_experiment(experiment_id=experiment_id)
 
-    dataset = get_dataset(dataset_id=dataset_id)
+    dataset = get_dataset(dataset_id=dataset_id) if dataset_id else None
     predict_fn = _build_predict_fn(prompt_uri)
     optimizer = _create_optimizer(optimizer_type, optimizer_config)
     loaded_scorers = _load_scorers(scorer_names, experiment_id)

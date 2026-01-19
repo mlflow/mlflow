@@ -30,6 +30,7 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayEndpointTag,
     GatewayResourceType,
+    InputTag,
     Metric,
     Param,
     RunTag,
@@ -107,11 +108,19 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
+from mlflow.protos.prompt_optimization_pb2 import (
+    JobStatus,
+    OptimizerType,
+)
+from mlflow.protos.prompt_optimization_pb2 import (
+    PromptOptimizationJob as PromptOptimizationJobProto,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
+    CancelPromptOptimizationJob,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -120,6 +129,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePromptOptimizationJob,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
@@ -290,6 +300,15 @@ MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
 # Chunk size for streaming artifact uploads and downloads (1 MB)
 ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
+
+# Mapping from MLflow job status to protobuf JobStatus enum
+_JOB_STATUS_MAPPING = {
+    "PENDING": JobStatus.JOB_STATUS_PENDING,
+    "RUNNING": JobStatus.JOB_STATUS_IN_PROGRESS,
+    "SUCCEEDED": JobStatus.JOB_STATUS_COMPLETED,
+    "FAILED": JobStatus.JOB_STATUS_FAILED,
+    "CANCELLED": JobStatus.JOB_STATUS_CANCELED,
+}
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -5163,6 +5182,158 @@ def post_ui_telemetry_handler():
         return jsonify({"status": "disabled"})
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_prompt_optimization_job():
+    from mlflow.genai.optimize.job import optimize_prompts_job
+    from mlflow.server.jobs import submit_job
+
+    request_message = _get_request_message(
+        CreatePromptOptimizationJob(),
+        schema={
+            "experiment_id": [_assert_string],
+            "config": [_assert_required],
+            "tags": [_assert_array],
+        },
+    )
+
+    config = request_message.config
+    prompt_uri = config.target_prompt_uri or ""
+    if not prompt_uri:
+        raise MlflowException(
+            "target_prompt_uri is required for optimization job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    dataset_id = config.dataset_id or ""
+
+    scorers = list(config.scorers) if config.scorers else []
+
+    # Convert proto enum to string for optimizer_type
+    # Derive optimizer type string from enum name (e.g., OPTIMIZER_TYPE_GEPA -> "gepa")
+    enum_name = OptimizerType.Name(config.optimizer_type)
+    if enum_name == "OPTIMIZER_TYPE_UNSPECIFIED":
+        supported_types = [
+            name for name in OptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+        ]
+        raise MlflowException(
+            f"optimizer_type is required. Supported types: {supported_types}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    optimizer_type = enum_name.replace("OPTIMIZER_TYPE_", "").lower()
+
+    experiment_id = request_message.experiment_id
+
+    # Create MLflow run upfront so run_id is immediately available
+    # The job will resume this run when it starts executing
+    from mlflow.tracking.context.default_context import _get_user
+
+    tracking_store = _get_tracking_store()
+    run = tracking_store.create_run(
+        experiment_id=experiment_id,
+        user_id=_get_user(),
+        start_time=int(time.time() * 1000),
+        tags=[],
+        run_name=None,
+    )
+    run_id = run.info.run_id
+
+    _logger.info(f"GEEZ run_id: {run_id}")
+
+    # Parse optimizer_config_json to dict for the job function
+    optimizer_config = None
+    if config.optimizer_config_json:
+        try:
+            optimizer_config = json.loads(config.optimizer_config_json)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Invalid JSON in optimizer_config_json: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Log optimization config as run parameters
+    params_to_log = [
+        Param("source_prompt_uri", prompt_uri),
+        Param("optimizer_type", optimizer_type),
+        Param("dataset_id", dataset_id),
+        Param("scorer_names", json.dumps(scorers)),
+    ]
+    if config.optimizer_config_json:
+        params_to_log.append(Param("optimizer_config_json", config.optimizer_config_json))
+    tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
+
+    # Link the evaluation dataset to the run for lineage tracking (if dataset_id is provided)
+    _logger.info(f"GEEZ dataset_id: {dataset_id}")
+    if dataset_id:
+        try:
+            from mlflow.genai.datasets import get_dataset
+
+            dataset = get_dataset(dataset_id=dataset_id)
+            dataset_input = DatasetInput(
+                dataset=dataset._to_mlflow_entity(),
+                tags=[InputTag(key="mlflow.data.context", value="optimization")],
+            )
+            tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
+        except Exception:
+            # Dataset linking is best-effort; don't fail job creation if it fails
+            pass
+
+    params = {
+        "run_id": run_id,
+        "experiment_id": experiment_id,
+        "prompt_uri": prompt_uri,
+        "dataset_id": dataset_id,
+        "optimizer_type": optimizer_type,
+        "optimizer_config": optimizer_config,
+        "scorer_names": scorers,
+    }
+
+    job_entity = submit_job(optimize_prompts_job, params)
+
+    response_message = CreatePromptOptimizationJob.Response()
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.run_id = run_id
+    optimization_job.state.status = JobStatus.JOB_STATUS_PENDING
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+    optimization_job.experiment_id = experiment_id
+    optimization_job.config.CopyFrom(config)
+    optimization_job.source_prompt_uri = prompt_uri
+
+    for tag in request_message.tags:
+        job_tag = optimization_job.tags.add()
+        job_tag.key = tag.key
+        job_tag.value = tag.value
+
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _cancel_prompt_optimization_job(job_id):
+    from mlflow.server.jobs import cancel_job
+
+    job_entity = cancel_job(job_id)
+
+    response_message = CancelPromptOptimizationJob.Response()
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.state.status = JobStatus.JOB_STATUS_CANCELED
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+
+    params = json.loads(job_entity.params)
+    if "experiment_id" in params:
+        optimization_job.experiment_id = params["experiment_id"]
+    if "prompt_uri" in params:
+        optimization_job.source_prompt_uri = params["prompt_uri"]
+    if "run_id" in params:
+        optimization_job.run_id = params["run_id"]
+
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -5310,4 +5481,7 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    # Prompt Optimization Job APIs
+    CreatePromptOptimizationJob: _create_prompt_optimization_job,
+    CancelPromptOptimizationJob: _cancel_prompt_optimization_job,
 }

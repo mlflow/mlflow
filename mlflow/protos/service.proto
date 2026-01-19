@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
+import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -1999,6 +2000,56 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Gateway Delete Endpoint Tag"
+    };
+  }
+
+  // Create a new prompt optimization job.
+  // This endpoint initiates an optimization run with the specified configuration.
+  // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
+  rpc createPromptOptimizationJob(CreatePromptOptimizationJob) returns (CreatePromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Prompt Optimization Job"
+    };
+  }
+
+  // Cancel an in-progress prompt optimization job.
+  // If the job is already completed or cancelled, this operation has no effect.
+  rpc cancelPromptOptimizationJob(CancelPromptOptimizationJob) returns (CancelPromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}/cancel"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INVALID_STATE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Cancel Prompt Optimization Job"
     };
   }
 }
@@ -4613,5 +4664,34 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+  }
+}
+
+// ========== Prompt Optimization API Messages ==========
+
+message CreatePromptOptimizationJob {
+  // ID of the MLflow experiment to track the optimization job in.
+  optional string experiment_id = 1;
+
+  // Configuration for the optimization job.
+  // Must include target_prompt specifying the prompt to optimize.
+  optional PromptOptimizationJobConfig config = 2;
+
+  // Optional tags for the optimization job.
+  repeated PromptOptimizationJobTag tags = 3;
+
+  message Response {
+    // The created optimization job.
+    optional PromptOptimizationJob job = 1;
+  }
+}
+
+message CancelPromptOptimizationJob {
+  // The unique identifier of the optimization job to cancel.
+  optional string job_id = 1;
+
+  message Response {
+    // The cancelled optimization job.
+    optional PromptOptimizationJob job = 1;
   }
 }
