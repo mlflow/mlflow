@@ -17,6 +17,7 @@ import {
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   type ModelTraceInfoV3,
+  isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
@@ -202,9 +203,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       compact(
         trace.assessments?.filter(
           (a): a is FeedbackAssessment =>
-            a.assessment_name === assessmentName &&
-            Boolean(a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) &&
-            'feedback' in a,
+            Boolean(a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) && isFeedbackAssessment(a),
         ),
       ),
     );
