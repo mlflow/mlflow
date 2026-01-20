@@ -506,6 +506,11 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
               label: 'Evaluate Prompts',
             },
