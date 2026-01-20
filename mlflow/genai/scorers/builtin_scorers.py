@@ -438,6 +438,10 @@ class RetrievalRelevance(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalRelevance judge.
@@ -572,6 +576,10 @@ class RetrievalSufficiency(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalSufficiency judge.
@@ -704,6 +712,10 @@ class RetrievalGroundedness(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GROUNDEDNESS_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalGroundedness judge.
@@ -809,6 +821,10 @@ class ToolCallEfficiency(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -943,6 +959,10 @@ class ToolCallCorrectness(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         fields = [
@@ -1196,6 +1216,10 @@ class Guidelines(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the Guidelines judge.
@@ -1316,6 +1340,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1468,6 +1496,10 @@ class RelevanceToQuery(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RelevanceToQuery judge.
@@ -1576,6 +1608,10 @@ class Safety(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1713,6 +1749,10 @@ class Correctness(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1886,6 +1926,10 @@ class Fluency(BuiltInScorer):
     def instructions(self) -> str:
         return FLUENCY_PROMPT
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         return self._get_judge().get_input_fields()
 
@@ -1963,6 +2007,10 @@ class Equivalence(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return EQUIVALENCE_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -2246,6 +2294,10 @@ class UserFrustration(BuiltInSessionLevelScorer):
     def instructions(self) -> str:
         return USER_FRUSTRATION_PROMPT
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["none", "resolved", "unresolved"]
+
 
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
@@ -2319,6 +2371,10 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATION_COMPLETENESS_PROMPT
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
 
 @experimental(version="3.8.0")
@@ -2396,6 +2452,10 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
     def instructions(self) -> str:
         return CONVERSATIONAL_SAFETY_PROMPT
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -2471,6 +2531,10 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     def instructions(self) -> str:
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -2542,6 +2606,10 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
 
 @experimental(version="3.9.0")
@@ -2632,6 +2700,10 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             guidelines = [guidelines]
         formatted_guidelines = "\n".join(f"<guideline>{g}</guideline>" for g in guidelines)
         return CONVERSATIONAL_GUIDELINES_PROMPT.replace("{{ guidelines }}", formatted_guidelines)
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
 
 # Internal implementation detail for KnowledgeRetention - not part of public API
@@ -2764,6 +2836,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             "KnowledgeRetention uses composition with last_turn_scorer "
             "and does not use instructions directly."
         )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def __call__(
         self,
@@ -2927,6 +3003,10 @@ class Completeness(BuiltInScorer):
     def instructions(self) -> str:
         return COMPLETENESS_PROMPT
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         return [
             JudgeField(
@@ -3028,6 +3108,10 @@ class Summarization(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return SUMMARIZATION_PROMPT
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
