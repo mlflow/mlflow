@@ -23,15 +23,19 @@ type Category =
   | 'OpenTelemetry'
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
+  | 'Agent Frameworks (Java)'
   | 'Model Providers'
-  | 'Tools';
+  | 'Tools'
+  | 'Gateways';
 
 const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
+  'Agent Frameworks (Java)',
   'Model Providers',
   'Tools',
+  'Gateways',
 ];
 
 // Centralized integration definitions with categories
@@ -130,6 +134,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'bedrock-agentcore',
+    name: 'Amazon Bedrock AgentCore',
+    logoPath: '/images/logos/bedrock-logo.png',
+    link: '/genai/tracing/integrations/listing/bedrock-agentcore',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'smolagents',
     name: 'Smolagents',
     logoPath: '/images/logos/smolagents-logo.png',
@@ -159,18 +170,31 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
-    id: 'instructor',
-    name: 'Instructor',
-    logoPath: '/images/logos/instructor-logo.svg',
-    link: '/genai/tracing/integrations/listing/instructor',
-    category: 'Tools',
-    languages: ['python'],
+    id: 'koog',
+    name: 'Koog',
+    logoPath: '/images/logos/koog.png',
+    link: '/genai/tracing/integrations/listing/koog',
+    category: 'Agent Frameworks (Python)',
   },
   {
     id: 'txtai',
     name: 'txtai',
     logoPath: '/images/logos/txtai-logo.png',
     link: '/genai/tracing/integrations/listing/txtai',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'pipecat',
+    name: 'Pipecat',
+    logoPath: '/images/logos/pipecat.png',
+    link: '/genai/tracing/integrations/listing/pipecat',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'watsonx-orchestrate',
+    name: 'Watsonx Orchestrate',
+    logoPath: '/images/logos/watsonx-orchestrate.png',
+    link: '/genai/tracing/integrations/listing/watsonx-orchestrate',
     category: 'Agent Frameworks (Python)',
   },
   // Agent Frameworks (TypeScript)
@@ -209,6 +233,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/voltagent',
     category: 'Agent Frameworks (TypeScript)',
   },
+  {
+    id: 'spring-ai',
+    name: 'Spring AI',
+    logoPath: '/images/logos/spring-ai-logo.png',
+    link: '/genai/tracing/integrations/listing/spring-ai',
+    category: 'Agent Frameworks (Java)',
+  },
+  {
+    id: 'quarkus-langchain4j',
+    name: 'Quarkus LangChain4j',
+    logoPath: '/images/logos/langchain4j.svg',
+    link: '/genai/tracing/integrations/listing/quarkus-langchain4j',
+    category: 'Agent Frameworks (Java)',
+  },
   // Model Providers
   {
     id: 'openai',
@@ -225,10 +263,10 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
-    id: 'bedrock',
-    name: 'Amazon Bedrock',
-    logoPath: '/images/logos/bedrock-logo.png',
-    link: '/genai/tracing/integrations/listing/bedrock',
+    id: 'databricks',
+    name: 'Databricks',
+    logoPath: '/images/logos/databricks-logo.png',
+    link: '/genai/tracing/integrations/listing/databricks',
     category: 'Model Providers',
   },
   {
@@ -236,6 +274,34 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Gemini',
     logoPath: '/images/logos/google-gemini-logo.svg',
     link: '/genai/tracing/integrations/listing/gemini',
+    category: 'Model Providers',
+  },
+  {
+    id: 'bedrock',
+    name: 'Amazon Bedrock',
+    logoPath: '/images/logos/bedrock-logo.png',
+    link: '/genai/tracing/integrations/listing/bedrock',
+    category: 'Model Providers',
+  },
+  {
+    id: 'litellm',
+    name: 'LiteLLM',
+    logoPath: '/images/logos/litellm-logo.png',
+    link: '/genai/tracing/integrations/listing/litellm',
+    category: 'Model Providers',
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral',
+    logoPath: '/images/logos/mistral-ai-logo.svg',
+    link: '/genai/tracing/integrations/listing/mistral',
+    category: 'Model Providers',
+  },
+  {
+    id: 'xai-grok',
+    name: 'xAI / Grok',
+    logoPath: '/images/logos/grok-logo.png',
+    link: '/genai/tracing/integrations/listing/xai-grok',
     category: 'Model Providers',
   },
   {
@@ -253,10 +319,45 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
-    id: 'mistral',
-    name: 'Mistral',
-    logoPath: '/images/logos/mistral-ai-logo.svg',
-    link: '/genai/tracing/integrations/listing/mistral',
+    id: 'deepseek',
+    name: 'DeepSeek',
+    logoPath: '/images/logos/deepseek-logo.png',
+    link: '/genai/tracing/integrations/listing/deepseek',
+    category: 'Model Providers',
+  },
+  {
+    id: 'qwen',
+    name: 'Qwen',
+    logoPath: '/images/logos/qwen-logo.jpg',
+    link: '/genai/tracing/integrations/listing/qwen',
+    category: 'Model Providers',
+  },
+  {
+    id: 'moonshot',
+    name: 'Moonshot AI',
+    logoPath: '/images/logos/kimi-logo.png',
+    link: '/genai/tracing/integrations/listing/moonshot',
+    category: 'Model Providers',
+  },
+  {
+    id: 'cohere',
+    name: 'Cohere',
+    logoPath: '/images/logos/cohere-logo.png',
+    link: '/genai/tracing/integrations/listing/cohere',
+    category: 'Model Providers',
+  },
+  {
+    id: 'byteplus',
+    name: 'BytePlus',
+    logoPath: '/images/logos/byteplus-logo.png',
+    link: '/genai/tracing/integrations/listing/byteplus',
+    category: 'Model Providers',
+  },
+  {
+    id: 'novitaai',
+    name: 'Novita AI',
+    logoPath: '/images/logos/novitaai-logo.jpg',
+    link: '/genai/tracing/integrations/listing/novitaai',
     category: 'Model Providers',
   },
   {
@@ -267,20 +368,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    logoPath: '/images/logos/deepseek-logo.png',
-    link: '/genai/tracing/integrations/listing/deepseek',
-    category: 'Model Providers',
-  },
-  {
-    id: 'litellm',
-    name: 'LiteLLM',
-    logoPath: '/images/logos/litellm-logo.png',
-    link: '/genai/tracing/integrations/listing/litellm',
+    id: 'togetherai',
+    name: 'Together AI',
+    logoPath: '/images/logos/together-ai-logo.png',
+    link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
   // Tools
+  {
+    id: 'instructor',
+    name: 'Instructor',
+    logoPath: '/images/logos/instructor-logo.svg',
+    link: '/genai/tracing/integrations/listing/instructor',
+    category: 'Tools',
+  },
   {
     id: 'claude_code',
     name: 'Claude Code',
@@ -288,6 +389,76 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Tools',
   },
+  // Gateways
+  // TODO: Add MLflow AI Gateway integration
+  // {
+  //   id: 'mlflow-gateway',
+  //   name: 'MLflow AI Gateway',
+  //   logoPath: '/images/logos/mlflow-logo.svg',
+  //   link: '/genai/tracing/integrations/listing/mlflow-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Databricks integration
+  // {
+  //   id: 'databricks-gateway',
+  //   name: 'Databricks',
+  //   logoPath: '/images/logos/databricks-logo.png',
+  //   link: '/genai/tracing/integrations/listing/databricks-gateway',
+  //   category: 'Gateways',
+  // },
+  {
+    id: 'litellm-proxy',
+    name: 'LiteLLM Proxy',
+    logoPath: '/images/logos/litellm-logo.png',
+    link: '/genai/tracing/integrations/listing/litellm-proxy',
+    category: 'Gateways',
+  },
+  {
+    id: 'vercel-ai-gateway',
+    name: 'Vercel AI Gateway',
+    logoPath: '/images/logos/vercel-logo.svg',
+    link: '/genai/tracing/integrations/listing/vercel-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    logoPath: '/images/logos/openrouter-logo.png',
+    link: '/genai/tracing/integrations/listing/openrouter',
+    category: 'Gateways',
+  },
+  // TODO: Add Kong Gateway integration
+  // {
+  //   id: 'kong-gateway',
+  //   name: 'Kong Gateway',
+  //   logoPath: '/images/logos/kong-logo.png',
+  //   link: '/genai/tracing/integrations/listing/kong-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Portkey integration
+  // {
+  //   id: 'portkey',
+  //   name: 'Portkey',
+  //   logoPath: '/images/logos/portkey-logo.png',
+  //   link: '/genai/tracing/integrations/listing/portkey',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Pydantic AI Gateway integration
+  // {
+  //   id: 'pydantic-ai-gateway',
+  //   name: 'Pydantic AI Gateway',
+  //   logoPath: '/images/logos/pydantic-ai-logo-only.png',
+  //   link: '/genai/tracing/integrations/listing/pydantic-ai-gateway',
+  //   category: 'Gateways',
+  // },
+  // TODO: Add Helicone integration
+  // {
+  //   id: 'helicone',
+  //   name: 'Helicone',
+  //   logoPath: '/images/logos/helicone-logo.png',
+  //   link: '/genai/tracing/integrations/listing/helicone',
+  //   category: 'Gateways',
+  // },
 ];
 
 const IntegrationSection: React.FC<{

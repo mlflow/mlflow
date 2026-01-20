@@ -28,6 +28,14 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
         }),
       },
       {
+        value: LLM_TEMPLATE.GUIDELINES,
+        label: intl.formatMessage({ defaultMessage: 'Guidelines', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Does the response follow the provided guidelines?',
+          description: 'Hint for Guidelines template',
+        }),
+      },
+      {
         value: LLM_TEMPLATE.RELEVANCE_TO_QUERY,
         label: intl.formatMessage({ defaultMessage: 'Relevance to Query', description: 'LLM template option' }),
         hint: intl.formatMessage({
@@ -77,6 +85,14 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
         }),
       },
       {
+        value: LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES,
+        label: intl.formatMessage({ defaultMessage: 'Conversational guidelines', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Does the assistant follow the provided guidelines throughout the conversation?',
+          description: 'Hint for ConversationalGuidelines template',
+        }),
+      },
+      {
         value: LLM_TEMPLATE.KNOWLEDGE_RETENTION,
         label: intl.formatMessage({ defaultMessage: 'Knowledge retention', description: 'LLM template option' }),
         hint: intl.formatMessage({
@@ -96,12 +112,12 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
       {
         value: LLM_TEMPLATE.CUSTOM,
         label: intl.formatMessage({
-          defaultMessage: 'Create custom LLM template',
-          description: 'LLM template option',
+          defaultMessage: 'Custom judge',
+          description: 'LLM judge option for creating a custom judge',
         }),
         hint: intl.formatMessage({
           defaultMessage: 'Define custom instructions for LLM evaluation',
-          description: 'Hint for Custom template',
+          description: 'Hint for Custom judge',
         }),
       },
     ],

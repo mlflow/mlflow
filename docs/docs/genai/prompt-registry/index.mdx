@@ -269,6 +269,42 @@ chat_template = [
 ]
 ```
 
+#### Jinja2 Prompts
+
+For advanced templating needs, MLflow supports [Jinja2](https://jinja.palletsprojects.com/) templates with conditionals, loops, and filters. Jinja2 prompts are automatically detected when the template contains control flow syntax (`{% %}`):
+
+```python
+import mlflow
+
+# Jinja2 template with conditionals and loops
+jinja_template = """\
+Hello {% if name %}{{ name }}{% else %}Guest{% endif %}!
+
+{% if items %}
+Here are your items:
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+"""
+
+# Register the Jinja2 prompt
+prompt = mlflow.genai.register_prompt(
+    name="greeting-prompt",
+    template=jinja_template,
+)
+
+# Format with variables
+result = prompt.format(name="Alice", items=["Book", "Pen", "Notebook"])
+```
+
+:::note
+
+- Templates with only `{{ variable }}` syntax are treated as **text prompts** and use simple string substitution
+- Templates containing `{% %}` control flow syntax are treated as **Jinja2 prompts** and support the full Jinja2 feature set
+- Jinja2 rendering uses `SandboxedEnvironment` by default for security. Pass `use_jinja_sandbox=False` to `format()` if you need unrestricted Jinja2 features
+  :::
+
 ### Response Format
 
 The `response_format` property allows you to specify the expected structure of responses from LLM calls. This can be either a Pydantic model class or a dictionary defining the schema:

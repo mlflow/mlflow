@@ -28,14 +28,17 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview`) => {
+  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview/usage`) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
           <MemoryRouter initialEntries={[initialUrl]}>
             <Routes>
-              <Route path="/experiments/:experimentId/overview" element={<ExperimentGenAIOverviewPage />} />
+              <Route
+                path="/experiments/:experimentId/overview/:overviewTab?"
+                element={<ExperimentGenAIOverviewPage />}
+              />
             </Routes>
           </MemoryRouter>
         </DesignSystemProvider>
@@ -79,12 +82,10 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should render the control bar with search and time range selector', async () => {
+    it('should render the control bar with time range selector', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Search input
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
         // Time range selector
         expect(screen.getByRole('combobox')).toBeInTheDocument();
       });
@@ -130,46 +131,6 @@ describe('ExperimentGenAIOverviewPage', () => {
         const toolCallsTab = screen.getByRole('tab', { name: 'Tool calls' });
         expect(toolCallsTab).toHaveAttribute('aria-selected', 'true');
       });
-    });
-  });
-
-  describe('search input handling', () => {
-    it('should render the search input with placeholder', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Search charts');
-        expect(searchInput).toBeInTheDocument();
-      });
-    });
-
-    it('should allow typing in the search input', async () => {
-      const user = userEvent.setup();
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
-      });
-
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.type(searchInput, 'test query');
-
-      expect(searchInput).toHaveValue('test query');
-    });
-
-    it('should update search query state when typing', async () => {
-      const user = userEvent.setup();
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
-      });
-
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.clear(searchInput);
-      await user.type(searchInput, 'my search');
-
-      expect(searchInput).toHaveValue('my search');
     });
   });
 
@@ -230,7 +191,7 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should handle custom time range from URL parameters', async () => {
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
+      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 

@@ -74,7 +74,7 @@ jobs:
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
       - name: Install Claude CLI
         run: |
-          npm install -g @anthropic-ai/claude-code@2.0.76
+          npm install -g @anthropic-ai/claude-code@2.1.3
 
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
@@ -88,7 +88,7 @@ jobs:
       - name: Review
         id: review
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}

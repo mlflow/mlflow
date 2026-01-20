@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create an input tokens data point
 const createInputTokensDataPoint = (timeBucket: string, sum: number) => ({
@@ -43,8 +44,8 @@ describe('TraceTokenUsageChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -63,12 +64,15 @@ describe('TraceTokenUsageChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceTokenUsageChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceTokenUsageChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -219,16 +223,6 @@ describe('TraceTokenUsageChart', () => {
       await waitFor(() => {
         expect(screen.getByText(/125\.00K input/)).toBeInTheDocument();
         expect(screen.getByText(/50\.00K output/)).toBeInTheDocument();
-      });
-    });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
       });
     });
 

@@ -106,14 +106,13 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         auth_config={
             "api_type": "azure",
             "api_base": "https://my-resource.openai.azure.com",
-            "deployment_name": "gpt-4-deployment",
             "api_version": "2024-02-01",
         },
     )
     model_def = store.create_gateway_model_definition(
         name="azure-gpt-model",
         secret_id=secret.secret_id,
-        provider="openai",
+        provider="azure",
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
@@ -133,7 +132,7 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
     assert isinstance(provider.config.model.config, OpenAIConfig)
     assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
     assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
     assert provider.config.model.config.openai_api_version == "2024-02-01"
     assert provider.config.model.config.openai_api_key == "azure-api-key-test"
 
@@ -297,7 +296,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-test-key"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
@@ -329,9 +328,57 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-custom-key"
-    assert provider.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://custom-api.example.com"
+    )
     assert provider.config.model.config.litellm_provider == "litellm"
+
+
+@pytest.mark.parametrize(
+    "input_url",
+    [
+        "https://my-workspace.databricks.com",
+        "https://my-workspace.databricks.com/serving-endpoints",
+    ],
+)
+def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
+    store: SqlAlchemyStore, input_url: str
+):
+    secret = store.create_gateway_secret(
+        secret_name="databricks-key",
+        secret_value={"api_key": "databricks-token-123"},
+        provider="databricks",
+        auth_config={"api_base": input_url},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="databricks-model",
+        secret_id=secret.secret_id,
+        provider="databricks",
+        model_name="databricks-dbrx-instruct",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-databricks-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    # Verify the base URL was normalized to include /serving-endpoints
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://my-workspace.databricks.com/serving-endpoints"
+    )
+    assert provider.config.model.config.litellm_provider == "databricks"
 
 
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):

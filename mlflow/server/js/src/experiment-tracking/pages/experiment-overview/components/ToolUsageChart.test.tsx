@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a tool usage data point
 const createToolUsageDataPoint = (timeBucket: string, toolName: string, count: number) => ({
@@ -30,7 +31,7 @@ describe('ToolUsageChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps = {
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -49,12 +50,15 @@ describe('ToolUsageChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <ToolUsageChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <ToolUsageChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -155,16 +159,6 @@ describe('ToolUsageChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Tool Usage Over Time')).toBeInTheDocument();
-      });
-    });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
       });
     });
   });

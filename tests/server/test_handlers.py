@@ -2607,6 +2607,62 @@ def test_litellm_not_available():
             assert "LiteLLM is not installed" in data["message"]
 
 
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+        "invalid#name",  # hash
+        "invalid@name",  # at sign
+        "invalid:name",  # colon
+        "日本語",  # unicode (Japanese)
+        "naïve",  # unicode (accented)
+    ],
+)
+def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+    ],
+)
+def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
+    from mlflow.server.handlers import _update_gateway_endpoint
+
+    request_msg = UpdateGatewayEndpoint()
+    request_msg.endpoint_id = "test-endpoint-id"
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _update_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["exp1", "exp2"]
     metric_name = "latency"
@@ -2751,7 +2807,7 @@ def test_invoke_scorer_missing_trace_ids():
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "trace_ids" in data["message"]
+        assert "Please select at least one trace to evaluate" in data["message"]
 
 
 def test_invoke_scorer_submits_jobs(mock_tracking_store):

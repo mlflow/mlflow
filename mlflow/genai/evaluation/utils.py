@@ -25,6 +25,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+    from mlflow.genai.simulators import ConversationSimulator
 
     try:
         import pyspark.sql.dataframe
@@ -36,6 +37,8 @@ if TYPE_CHECKING:
             | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
+            | ConversationSimulator
+            | None
         )
     except ImportError:
         EvaluationDatasetTypes = (
@@ -44,6 +47,8 @@ if TYPE_CHECKING:
             | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
+            | ConversationSimulator
+            | None
         )
 
 
@@ -76,6 +81,9 @@ def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
             return {"eval_data_type": "pd.DataFrame"}
         if module.startswith("pyspark"):
             return {"eval_data_type": "pyspark.sql.DataFrame"}
+
+    if qualname == "ConversationSimulator":
+        return {"eval_data_type": "ConversationSimulator"}
 
     return "unknown"
 

@@ -470,6 +470,12 @@ class RetrievalRelevance(BuiltInScorer):
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalRelevance "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedbacks.extend(self._compute_span_relevance(span_id, request, context))
@@ -614,6 +620,12 @@ class RetrievalSufficiency(BuiltInScorer):
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalSufficiency "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
@@ -721,6 +733,13 @@ class RetrievalGroundedness(BuiltInScorer):
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalGroundedness "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(

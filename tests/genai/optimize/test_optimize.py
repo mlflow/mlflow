@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -371,8 +372,6 @@ def test_optimize_prompts_with_custom_scorers(
 @pytest.mark.parametrize(
     ("train_data", "error_match"),
     [
-        # Empty dataset validation (handled by _convert_eval_set_to_df)
-        ([], "The dataset is empty"),
         # Missing inputs validation (handled by _convert_eval_set_to_df)
         ([{"outputs": "Hola"}], "Either `inputs` or `trace` column is required"),
         # Empty inputs validation
@@ -414,3 +413,26 @@ def test_optimize_prompts_with_chat_prompt(
             optimizer=MockPromptOptimizer(),
             scorers=[equivalence],
         )
+
+
+def test_optimize_prompts_with_managed_evaluation_dataset(
+    sample_translation_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+):
+    # Create a `ManagedEvaluationDataset` and populate it with records from sample_dataset
+    managed_dataset = create_dataset(name="test_optimize_managed_dataset")
+    managed_dataset.merge_records(sample_dataset)
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=managed_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=MockPromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9

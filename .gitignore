@@ -2,8 +2,11 @@
 mlruns/
 mlartifacts/
 outputs/
-mlruns.db
+mlruns*.db
 mlflow.db
+# SQLite WAL mode temporary files
+*-shm
+*-wal
 **/basic_auth.db
 
 # Mac
@@ -137,3 +140,4 @@ gunicorn.conf.py
 !.claude/hooks/
 !.claude/rules/
 !.claude/settings.json
+!.claude/statusline.sh
