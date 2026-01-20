@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable
 
@@ -201,7 +201,7 @@ def optimize_prompts_job(
     optimizer_type: str,
     optimizer_config: dict[str, Any] | None,
     scorer_names: list[str],
-) -> PromptOptimizationJobResult:
+) -> dict[str, Any]:
     """
     Job function for async single-prompt optimization.
 
@@ -228,7 +228,7 @@ def optimize_prompts_job(
             and pass the registered scorer name here.
 
     Returns:
-        PromptOptimizationJobResult containing optimization results and metadata.
+        Dict containing optimization results and metadata (JSON-serializable).
     """
     set_experiment(experiment_id=experiment_id)
 
@@ -252,7 +252,7 @@ def optimize_prompts_job(
             enable_tracking=True,
         )
 
-    return PromptOptimizationJobResult(
+    job_result = PromptOptimizationJobResult(
         run_id=run_id,
         source_prompt_uri=prompt_uri,
         optimized_prompt_uri=result.optimized_prompts[0].uri if result.optimized_prompts else None,
@@ -262,3 +262,4 @@ def optimize_prompts_job(
         dataset_id=dataset_id,
         scorer_names=scorer_names,
     )
+    return asdict(job_result)

@@ -84,6 +84,7 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "webhooks.proto",
+    "prompt_optimization.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",

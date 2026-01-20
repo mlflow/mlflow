@@ -3143,25 +3143,25 @@ def test_create_prompt_optimization_job(mock_tracking_store):
     mock_run.info.run_id = "run-456"
     mock_tracking_store.create_run.return_value = mock_run
 
-    with mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity):
-        with mock.patch(
-            "mlflow.tracking.context.default_context._get_user", return_value="test_user"
-        ):
-            with app.test_request_context(
-                method="POST",
-                json={
-                    "experiment_id": "exp-123",
-                    "config": {
-                        "target_prompt_uri": "prompts:/my-prompt/1",
-                        "optimizer_type": 1,  # OPTIMIZER_TYPE_GEPA
-                        "dataset_id": "dataset-123",
-                        "scorers": ["Correctness", "Safety"],
-                        "optimizer_config_json": '{"reflection_model": "openai:/gpt-4"}',
-                    },
-                    "tags": [{"key": "env", "value": "test"}],
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.tracking.context.default_context._get_user", return_value="test_user"),
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "config": {
+                    "target_prompt_uri": "prompts:/my-prompt/1",
+                    "optimizer_type": 1,  # OPTIMIZER_TYPE_GEPA
+                    "dataset_id": "dataset-123",
+                    "scorers": ["Correctness", "Safety"],
+                    "optimizer_config_json": '{"reflection_model": "openai:/gpt-4"}',
                 },
-            ):
-                response = _create_prompt_optimization_job()
+                "tags": [{"key": "env", "value": "test"}],
+            },
+        ):
+            response = _create_prompt_optimization_job()
 
     # Verify run creation
     mock_tracking_store.create_run.assert_called_once()
@@ -3204,23 +3204,23 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
     mock_run.info.run_id = "run-999"
     mock_tracking_store.create_run.return_value = mock_run
 
-    with mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity):
-        with mock.patch(
-            "mlflow.tracking.context.default_context._get_user", return_value="test_user"
-        ):
-            with app.test_request_context(
-                method="POST",
-                json={
-                    "experiment_id": "exp-123",
-                    "config": {
-                        "target_prompt_uri": "prompts:/my-prompt/1",
-                        "optimizer_type": 2,  # OPTIMIZER_TYPE_METAPROMPT
-                        "scorers": [],  # Empty scorers for zero-shot
-                        # No dataset_id - zero-shot optimization
-                    },
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.tracking.context.default_context._get_user", return_value="test_user"),
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "config": {
+                    "target_prompt_uri": "prompts:/my-prompt/1",
+                    "optimizer_type": 2,  # OPTIMIZER_TYPE_METAPROMPT
+                    "scorers": [],  # Empty scorers for zero-shot
+                    # No dataset_id - zero-shot optimization
                 },
-            ):
-                response = _create_prompt_optimization_job()
+            },
+        ):
+            response = _create_prompt_optimization_job()
 
     # Verify response is successful
     response_data = json.loads(response.get_data())
@@ -3301,12 +3301,35 @@ def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_track
             assert "Invalid JSON in optimizer_config_json" in json_response["message"]
 
 
+def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "",  # Empty experiment_id
+            "config": {
+                "target_prompt_uri": "prompts:/my-prompt/1",
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "experiment_id is required" in json_response["message"]
+
+
 def test_cancel_prompt_optimization_job():
     mock_job_entity = JobEntity(
         job_id="job-123",
         creation_time=1234567890,
         job_name="optimize_prompts",
-        params='{"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1", "run_id": "run-456"}',
+        params=(
+            '{"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1", '
+            '"run_id": "run-456"}'
+        ),
         timeout=None,
         status=JobStatus.CANCELED,
         result=None,

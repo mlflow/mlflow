@@ -182,7 +182,7 @@ def optimize_prompts(
     if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
         train_data = train_data.to_df()
     # Check if train_data is empty (for zero-shot optimization)
-    if len(train_data) == 0:
+    if train_data is None or len(train_data) == 0:
         _logger.info("Zero-shot mode: no training data provided")
         # Zero-shot mode: no training data provided
         train_data_df = None

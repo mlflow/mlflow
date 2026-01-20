@@ -301,15 +301,6 @@ MAX_RESULTS_PER_RUN = 2500
 # Chunk size for streaming artifact uploads and downloads (1 MB)
 ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
-# Mapping from MLflow job status to protobuf JobStatus enum
-_JOB_STATUS_MAPPING = {
-    "PENDING": JobStatus.JOB_STATUS_PENDING,
-    "RUNNING": JobStatus.JOB_STATUS_IN_PROGRESS,
-    "SUCCEEDED": JobStatus.JOB_STATUS_COMPLETED,
-    "FAILED": JobStatus.JOB_STATUS_FAILED,
-    "CANCELLED": JobStatus.JOB_STATUS_CANCELED,
-}
-
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
     def __init__(self):
@@ -5222,7 +5213,12 @@ def _create_prompt_optimization_job():
         )
     optimizer_type = enum_name.replace("OPTIMIZER_TYPE_", "").lower()
 
-    experiment_id = request_message.experiment_id
+    experiment_id = (request_message.experiment_id or "").strip()
+    if not experiment_id:
+        raise MlflowException(
+            "experiment_id is required for optimization job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     # Create MLflow run upfront so run_id is immediately available
     # The job will resume this run when it starts executing
@@ -5274,9 +5270,16 @@ def _create_prompt_optimization_job():
                 tags=[InputTag(key="mlflow.data.context", value="optimization")],
             )
             tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
-        except Exception:
-            # Dataset linking is best-effort; don't fail job creation if it fails
-            pass
+        except Exception as e:
+            # Dataset linking is best-effort; don't fail job creation if it fails,
+            # but log the exception for observability and debugging.
+            _logger.warning(
+                "Failed to link evaluation dataset '%s' to run '%s': %s",
+                dataset_id,
+                run_id,
+                e,
+                exc_info=True,
+            )
 
     params = {
         "run_id": run_id,
@@ -5322,7 +5325,14 @@ def _cancel_prompt_optimization_job(job_id):
     optimization_job.state.status = JobStatus.JOB_STATUS_CANCELED
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
-    params = json.loads(job_entity.params)
+    try:
+        params = json.loads(job_entity.params)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Failed to parse job parameters as JSON: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if "experiment_id" in params:
         optimization_job.experiment_id = params["experiment_id"]
     if "prompt_uri" in params:
