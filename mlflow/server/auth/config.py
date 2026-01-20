@@ -4,6 +4,8 @@ from typing import NamedTuple
 
 from mlflow.environment_variables import MLFLOW_AUTH_CONFIG_PATH
 
+DEFAULT_AUTHORIZATION_FUNCTION = "mlflow.server.auth:authenticate_request_basic_auth"
+
 
 class AuthConfig(NamedTuple):
     default_permission: str
@@ -29,6 +31,6 @@ def read_auth_config() -> AuthConfig:
         admin_username=config["mlflow"]["admin_username"],
         admin_password=config["mlflow"]["admin_password"],
         authorization_function=config["mlflow"].get(
-            "authorization_function", "mlflow.server.auth:authenticate_request_basic_auth"
+            "authorization_function", DEFAULT_AUTHORIZATION_FUNCTION
         ),
     )
