@@ -89,7 +89,7 @@ jobs:
       - name: Create Pull Request
         if: steps.remove.outputs.has_changes == 'true'
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
         run: |
           # Create the PR body from the removal output using a heredoc
