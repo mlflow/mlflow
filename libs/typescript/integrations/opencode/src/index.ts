@@ -67,18 +67,18 @@ function loadMLflowConfig(directory: string): MLflowConfig {
  * Automatically traces conversations to MLflow when sessions become idle.
  */
 export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> => {
-  const client = input.client as PluginClient;
-  const { directory } = input;
+  const client = (input as { client: PluginClient }).client;
+  const directory = (input as { directory: string }).directory;
 
   return Promise.resolve({
-    event: async ({ event }) => {
+    event: async ({ event }: { event: { type: string; properties?: Record<string, unknown> } }) => {
       // Only process session.idle events
       if (event.type !== 'session.idle') {
         return;
       }
 
       // Now we know it's a session.idle event
-      const sessionID = (event.properties as { sessionID?: string })?.sessionID;
+      const sessionID = (event.properties as { sessionID?: string } | undefined)?.sessionID;
       if (!sessionID) {
         return;
       }
