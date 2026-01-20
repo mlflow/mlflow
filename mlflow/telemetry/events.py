@@ -78,6 +78,10 @@ class LoadPromptEvent(Event):
         uses_alias = "@" in name_or_uri
         return {"uses_alias": uses_alias}
 
+
+class GetPromptEvent(Event):
+    name: str = "get_prompt"
+
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY

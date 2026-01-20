@@ -820,14 +820,7 @@ class AbstractStore:
             description=description,
         )
 
-        # Get prompt-level tags from registered model
-        rm = self.get_registered_model(name)
-        if isinstance(rm.tags, dict):
-            prompt_tags = rm.tags.copy()
-        else:
-            prompt_tags = {tag.key: tag.value for tag in rm.tags}
-
-        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+        return model_version_to_prompt_version(mv)
 
     def get_prompt_version(self, name: str, version: str | int) -> PromptVersion | None:
         """
@@ -873,13 +866,7 @@ class AbstractStore:
             if not has_prompt_tag(mv.tags):
                 return None
 
-            # Get user-visible tags from registered model
-            if isinstance(rm.tags, dict):
-                prompt_tags = rm.tags.copy()
-            else:
-                prompt_tags = {tag.key: tag.value for tag in rm.tags}
-
-            return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+            return model_version_to_prompt_version(mv)
 
         except MlflowException:
             raise  # Re-raise MlflowExceptions (including our custom one above)

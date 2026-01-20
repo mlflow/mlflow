@@ -39,6 +39,7 @@ from mlflow.telemetry.events import (
     CreatePromptEvent,
     CreateRegisteredModelEvent,
     CreateWebhookEvent,
+    GetPromptEvent,
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
@@ -497,6 +498,7 @@ class ModelRegistryClient:
         """
         return self.store.create_prompt(name, description, tags)
 
+    @record_usage_event(GetPromptEvent)
     def get_prompt(self, name: str) -> Prompt | None:
         """
         Get prompt metadata by name.

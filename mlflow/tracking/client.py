@@ -688,13 +688,10 @@ class MlflowClient:
                 registry_client.delete_registered_model(name)
             raise
 
-        # Fetch the prompt-level tags from the registered model
-        prompt_tags = registry_client.get_registered_model(name)._tags
-
         # Invalidate "latest" cache entry since we just created a new version
         PromptCache.get_instance().delete(name, alias="latest")
 
-        prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+        prompt_version = model_version_to_prompt_version(mv)
 
         if experiment_id := MLFLOW_EXPERIMENT_ID.get():
             self._link_prompt_to_experiment(prompt_version, experiment_id)
