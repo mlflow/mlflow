@@ -459,14 +459,14 @@ def test_align_includes_demos_in_judge_instructions(sample_traces_with_assessmen
     assert "Another question" in result.instructions
 
 
-def test_create_judge_from_optimized_program_uses_optimized_instructions():
+def test_create_judge_from_dspy_program_uses_optimized_instructions():
     optimizer = ConcreteDSPyOptimizer()
     mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
 
     program = dspy.Predict("inputs, outputs -> result, rationale")
     program.signature.instructions = "New optimized instructions for {{inputs}} and {{outputs}}"
 
-    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+    result = optimizer._create_judge_from_dspy_program(program, mock_judge)
 
     assert result.name == "test_judge"
     assert result.model == "openai:/gpt-4"
@@ -474,20 +474,20 @@ def test_create_judge_from_optimized_program_uses_optimized_instructions():
     assert "Inputs for assessment:" not in result.instructions
 
 
-def test_create_judge_from_optimized_program_with_empty_demos():
+def test_create_judge_from_dspy_program_with_empty_demos():
     optimizer = ConcreteDSPyOptimizer()
     mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
 
     program = dspy.Predict("inputs, outputs -> result, rationale")
     program.signature.instructions = "Instructions for {{inputs}} and {{outputs}}"
 
-    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+    result = optimizer._create_judge_from_dspy_program(program, mock_judge)
 
     assert "Here are some examples" not in result.instructions
     assert "Instructions for {{inputs}}" in result.instructions
 
 
-def test_create_judge_from_optimized_program_with_demos():
+def test_create_judge_from_dspy_program_with_demos():
     optimizer = ConcreteDSPyOptimizer()
     mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4")
 
@@ -497,14 +497,14 @@ def test_create_judge_from_optimized_program_with_demos():
         dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
     ]
 
-    result = optimizer._create_judge_from_optimized_program(program, mock_judge)
+    result = optimizer._create_judge_from_dspy_program(program, mock_judge)
 
     assert "Here are some examples of good assessments:" in result.instructions
     assert "Example 1:" in result.instructions
     assert "inputs: Q1" in result.instructions
 
 
-def test_create_judge_from_optimized_program_preserves_feedback_value_type():
+def test_create_judge_from_dspy_program_preserves_feedback_value_type():
     optimizer = ConcreteDSPyOptimizer()
     judge = make_judge(
         name="test_judge",
@@ -516,6 +516,6 @@ def test_create_judge_from_optimized_program_preserves_feedback_value_type():
     program = dspy.Predict("inputs, outputs -> result, rationale")
     program.signature.instructions = "Check {{inputs}} vs {{outputs}}"
 
-    result = optimizer._create_judge_from_optimized_program(program, judge)
+    result = optimizer._create_judge_from_dspy_program(program, judge)
 
     assert result.feedback_value_type == bool

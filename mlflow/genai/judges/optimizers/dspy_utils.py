@@ -3,7 +3,7 @@
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
 from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -70,7 +70,7 @@ def suppress_verbose_logging(
 
 
 def create_gepa_metric_adapter(
-    metric_fn: Any,
+    metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
 ) -> Any:
     """
     Create a metric adapter that bridges DSPy's standard metric to GEPA's format.
@@ -121,14 +121,34 @@ def construct_dspy_lm(model: str):
         return AgentEvalLM()
     else:
         model_litellm = convert_mlflow_uri_to_litellm(model)
-        if api_base := _get_api_base_for_model(model):
-            return dspy.LM(model=model_litellm, api_base=api_base)
+        api_base, api_key = _get_api_base_key(model)
+        if api_base:
+            return dspy.LM(model=model_litellm, api_base=api_base, api_key=api_key)
         return dspy.LM(model=model_litellm)
 
 
-def _get_api_base_for_model(model: str) -> str | None:
+def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
     """
-    Get the api_base URL for Databricks serving endpoints.
+    Get the api_base URL and api_key for a model.
+
+    Args:
+        model: MLflow model URI (e.g., 'endpoints:/my-endpoint', 'databricks:/my-endpoint')
+
+    Returns:
+        Tuple of (api_base, api_key) - both None if not applicable
+    """
+    try:
+        scheme, _ = _parse_model_uri(model)
+        if scheme in ("endpoints", "databricks"):
+            return _get_databricks_api_base_key()
+        return None, None
+    except Exception:
+        return None, None
+
+
+def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
+    """
+    Get the api_base URL and api_key for Databricks serving endpoints.
 
     For Databricks endpoints with OpenAI-compatible API, the URL format is:
     - api_base: https://host/serving-endpoints
@@ -137,38 +157,36 @@ def _get_api_base_for_model(model: str) -> str | None:
     LiteLLM appends /chat/completions to api_base, making the final URL:
     https://host/serving-endpoints/chat/completions with model=endpoint-name in body.
 
-    Args:
-        model: MLflow model URI (e.g., 'endpoints:/my-endpoint', 'databricks:/my-endpoint')
-
     Returns:
-        The api_base URL (just /serving-endpoints), or None for non-Databricks models
+        Tuple of (api_base, api_key) - both None if credentials cannot be determined
     """
-    try:
-        scheme, _ = _parse_model_uri(model)
-        if scheme in ("endpoints", "databricks"):
-            # Get Databricks host from environment or SDK
-            host = os.environ.get("DATABRICKS_HOST")
-            if not host:
-                try:
-                    from databricks.sdk import WorkspaceClient
+    # Get Databricks host and token from environment or SDK
+    host = os.environ.get("DATABRICKS_HOST")
+    api_key = os.environ.get("DATABRICKS_TOKEN")
 
-                    client = WorkspaceClient()
-                    host = client.config.host
-                except ImportError:
-                    _logger.warning(
-                        "Could not determine Databricks host. "
-                        "Set DATABRICKS_HOST environment variable."
-                    )
-                    return None
+    if not host or not api_key:
+        try:
+            from databricks.sdk import WorkspaceClient
+        except ImportError:
+            _logger.warning(
+                "Could not determine Databricks credentials. "
+                "Set DATABRICKS_HOST and DATABRICKS_TOKEN environment variables."
+            )
+            return None, None
 
-            # Remove trailing slash from host
-            host = host.rstrip("/")
-            # Return api_base with just /serving-endpoints
-            # LiteLLM will append /chat/completions and pass the endpoint name as model
-            return f"{host}/serving-endpoints"
-        return None
-    except Exception:
-        return None
+        client = WorkspaceClient()
+        if not host:
+            host = client.config.host
+        if not api_key:
+            # Get token from SDK authentication (supports OAuth, PAT, etc.)
+            headers = client.config.authenticate()
+            if "Authorization" in headers:
+                api_key = headers["Authorization"].replace("Bearer ", "")
+
+    host = host.rstrip("/")
+    # Return api_base with just /serving-endpoints
+    # LiteLLM will append /chat/completions and pass the endpoint name as model
+    return f"{host}/serving-endpoints", api_key
 
 
 def _to_attrdict(obj):
@@ -359,9 +377,15 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
     try:
         judge_input_fields = judge.get_input_fields()
 
-        judge_requires_trace = any(field.name == "trace" for field in judge_input_fields)
-        judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
-        judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
+        judge_requires_trace = any(
+            field.name == "trace" for field in judge_input_fields
+        )
+        judge_requires_inputs = any(
+            field.name == "inputs" for field in judge_input_fields
+        )
+        judge_requires_outputs = any(
+            field.name == "outputs" for field in judge_input_fields
+        )
         judge_requires_expectations = any(
             field.name == "expectations" for field in judge_input_fields
         )
@@ -378,7 +402,9 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
             return None
         elif not expectations and judge_requires_expectations:
-            _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
+            _logger.warning(
+                f"Missing required expectations in trace {trace.info.trace_id}"
+            )
             return None
 
         # Find human assessment for this judge
@@ -389,7 +415,9 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             sorted_assessments = sorted(
                 trace.info.assessments,
                 key=lambda a: (
-                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
+                    a.create_time_ms
+                    if hasattr(a, "create_time_ms") and a.create_time_ms
+                    else 0
                 ),
                 reverse=True,
             )
@@ -410,7 +438,9 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             return None
 
         if not expected_result.feedback:
-            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
+            _logger.warning(
+                f"No feedback found in assessment for trace {trace.info.trace_id}"
+            )
             return None
 
         # Create DSPy example
@@ -492,7 +522,9 @@ def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = Non
         expected_norm = str(expected).lower().strip()
         predicted_norm = str(predicted).lower().strip()
 
-        _logger.debug(f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}")
+        _logger.debug(
+            f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}"
+        )
 
         return expected_norm == predicted_norm
     except Exception as e:
@@ -584,5 +616,7 @@ def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
             examples_text.append(f"Example {i + 1}:\n" + "\n".join(example_parts))
 
     if examples_text:
-        return "Here are some examples of good assessments:\n\n" + "\n\n".join(examples_text)
+        return "Here are some examples of good assessments:\n\n" + "\n\n".join(
+            examples_text
+        )
     return ""

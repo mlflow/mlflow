@@ -58,9 +58,6 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
     )
     mock_gepa.compile.return_value = mock_compiled_program
 
-    def custom_metric(example, pred, trace=None):
-        return True
-
     with (
         patch("dspy.GEPA", create=True) as mock_gepa_class,
         patch("dspy.LM", MagicMock()),
@@ -69,7 +66,6 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
         optimizer = GEPAAlignmentOptimizer(
             max_metric_calls=50,
             gepa_kwargs={
-                "metric": custom_metric,
                 "candidate_pool_size": 10,
                 "num_threads": 4,
             },
@@ -80,10 +76,13 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
         # Verify GEPA was initialized with custom parameters
         mock_gepa_class.assert_called_once()
         call_kwargs = mock_gepa_class.call_args.kwargs
+        # max_metric_calls comes from the direct constructor parameter
         assert call_kwargs["max_metric_calls"] == 50
-        assert call_kwargs["metric"] == custom_metric
+        # gepa_kwargs pass through non-critical parameters
         assert call_kwargs["candidate_pool_size"] == 10
         assert call_kwargs["num_threads"] == 4
+        # metric is controlled internally, not from gepa_kwargs
+        assert callable(call_kwargs["metric"])
 
 
 def test_default_parameters(mock_judge, sample_traces_with_assessments):

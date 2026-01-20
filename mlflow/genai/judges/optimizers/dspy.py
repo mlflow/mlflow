@@ -92,7 +92,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             Optimized DSPy Predict program
         """
 
-    def _create_judge_from_optimized_program(
+    def _create_judge_from_dspy_program(
         self,
         optimized_program: "dspy.Predict",
         original_judge: Judge,
@@ -128,7 +128,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
     def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
         """Convert a judge into a DSPy Predict module."""
-        create_judge_from_optimized_program = self._create_judge_from_optimized_program
+        create_judge_from_dspy_program = self._create_judge_from_dspy_program
 
         class CustomPredict(dspy.Predict):
             """
@@ -150,7 +150,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 input_field_names = {f.name for f in self._original_judge.get_input_fields()}
                 judge_kwargs = {k: v for k, v in kwargs.items() if k in input_field_names}
 
-                created_judge: Judge = create_judge_from_optimized_program(
+                created_judge: Judge = create_judge_from_dspy_program(
                     optimized_program=self,
                     original_judge=self._original_judge,
                 )
@@ -254,7 +254,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                         error_code=INTERNAL_ERROR,
                     )
 
-                return self._create_judge_from_optimized_program(
+                return self._create_judge_from_dspy_program(
                     optimized_program=optimized_program,
                     original_judge=judge,
                 )

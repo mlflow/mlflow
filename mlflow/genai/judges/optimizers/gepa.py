@@ -5,10 +5,7 @@ from typing import Any, Callable, Collection
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import (
-    create_gepa_metric_adapter,
-    suppress_verbose_logging,
-)
+from mlflow.genai.judges.optimizers.dspy_utils import create_gepa_metric_adapter
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.annotations import experimental
 
@@ -103,10 +100,10 @@ class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
 
     def _dspy_optimize(
         self,
-        program: "dspy.Module",
+        program: "dspy.Predict",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
-    ) -> "dspy.Module":
+    ) -> "dspy.Predict":
         gepa_metric_adapter = create_gepa_metric_adapter(metric_fn)
 
         reflection_lm = dspy.settings.lm
@@ -122,11 +119,10 @@ class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
                 f"number of examples: {max_metric_calls}"
             )
 
-        optimizer_kwargs = {
+        optimizer_kwargs = self._gepa_kwargs | {
             "metric": gepa_metric_adapter,
             "max_metric_calls": max_metric_calls,
             "reflection_lm": reflection_lm,
-            **self._gepa_kwargs,  # Pass through any additional GEPA parameters
         }
 
         optimizer = dspy.GEPA(**optimizer_kwargs)
@@ -136,11 +132,10 @@ class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
             f"and max {max_metric_calls} metric calls"
         )
 
-        with suppress_verbose_logging("dspy.teleprompt.gepa.gepa"):
-            result = optimizer.compile(
-                student=program,
-                trainset=examples,
-            )
+        result = optimizer.compile(
+            student=program,
+            trainset=examples,
+        )
 
         self._logger.info("GEPA optimization completed")
         return result
