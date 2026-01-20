@@ -5183,6 +5183,10 @@
     "defaultMessage": "Select sessions",
     "description": "Button to select sessions"
   },
+  "cSEpGa": {
+    "defaultMessage": "Machine Learning",
+    "description": "Label for Machine Learning workflow type option"
+  },
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
