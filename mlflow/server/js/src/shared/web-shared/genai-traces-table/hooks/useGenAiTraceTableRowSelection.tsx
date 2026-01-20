@@ -1,6 +1,11 @@
 import { RowSelectionState } from '@tanstack/react-table';
 import { createContext, SetStateAction, useContext, useState } from 'react';
 
+const GenAiTraceTableRowSelectionContext = createContext<{
+  rowSelection: RowSelectionState;
+  setRowSelection: (rowSelection: SetStateAction<RowSelectionState>) => void;
+} | null>(null);
+
 export const useGenAiTraceTableRowSelection = () => {
   const context = useContext(GenAiTraceTableRowSelectionContext);
 
@@ -14,10 +19,14 @@ export const useGenAiTraceTableRowSelection = () => {
   return { rowSelection, setRowSelection };
 };
 
-const GenAiTraceTableRowSelectionContext = createContext<{
-  rowSelection: RowSelectionState;
-  setRowSelection: (rowSelection: SetStateAction<RowSelectionState>) => void;
-} | null>(null);
+/**
+ * Hook to check if we're inside a GenAiTraceTableRowSelectionProvider.
+ * Useful for components that need to conditionally create their own provider.
+ */
+export const useIsInsideGenAiTraceTableRowSelectionProvider = () => {
+  const context = useContext(GenAiTraceTableRowSelectionContext);
+  return context !== null;
+};
 
 /**
  * Use this provider to manage selected rows across the table using a context.

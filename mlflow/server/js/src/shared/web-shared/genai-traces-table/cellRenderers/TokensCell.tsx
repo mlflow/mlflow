@@ -1,6 +1,6 @@
 import { HoverCard, Tag, Typography } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
@@ -12,29 +12,44 @@ export const TokensCell = (props: {
 }) => {
   const { currentTraceInfo, otherTraceInfo, isComparing } = props;
 
+  const currentTokenUsage = currentTraceInfo ? getTraceTokenUsage(currentTraceInfo) : undefined;
+  const otherTokenUsage = otherTraceInfo ? getTraceTokenUsage(otherTraceInfo) : undefined;
+
   return (
     <StackedComponents
-      first={<TokenComponent traceInfo={currentTraceInfo} isComparing={isComparing} />}
-      second={isComparing && <TokenComponent traceInfo={otherTraceInfo} isComparing={isComparing} />}
+      first={
+        <TokenComponent
+          inputTokens={currentTokenUsage?.input_tokens}
+          outputTokens={currentTokenUsage?.output_tokens}
+          totalTokens={currentTokenUsage?.total_tokens}
+          isComparing={isComparing}
+        />
+      }
+      second={
+        isComparing && (
+          <TokenComponent
+            inputTokens={otherTokenUsage?.input_tokens}
+            outputTokens={otherTokenUsage?.output_tokens}
+            totalTokens={otherTokenUsage?.total_tokens}
+            isComparing={isComparing}
+          />
+        )
+      }
     />
   );
 };
 
-const TokenComponent = (props: { traceInfo?: ModelTraceInfoV3; isComparing: boolean }) => {
-  const { traceInfo, isComparing } = props;
-
-  const tokenUsage = traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
-  const parsedTokenUsage = (() => {
-    try {
-      return tokenUsage ? JSON.parse(tokenUsage) : {};
-    } catch {
-      return {};
-    }
-  })();
-  const totalTokens = parsedTokenUsage.total_tokens;
-  const inputTokens = parsedTokenUsage.input_tokens;
-  const outputTokens = parsedTokenUsage.output_tokens;
-
+export const TokenComponent = ({
+  inputTokens,
+  outputTokens,
+  totalTokens,
+  isComparing,
+}: {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  isComparing: boolean;
+}) => {
   const intl = useIntl();
 
   if (!totalTokens) {
