@@ -192,6 +192,12 @@ For more information about session evaluation, see [Evaluate Conversations](/gen
 - **Monitor costs**: LLM-based evaluation has associated costs—adjust sampling accordingly
 - **Use filters strategically in production**: Focus evaluation on high-value or high-risk traces
 
+## How It Works
+
+LLM judges are periodically executed securely within the MLflow server as new traces and multi-turn conversations are received. Evaluation happens asynchronously and does not block trace logging, so your application's performance is unaffected.
+
+The server uses [AI Gateway](/genai/governance/ai-gateway/) endpoints to access LLMs for judge execution, ensuring secure and managed model access. Only the relevant trace or session data required by the judge (such as inputs, outputs, and context) is sent to the LLM.
+
 ## Troubleshooting
 
 | Issue                                          | Solution                                                                                                                                           |
