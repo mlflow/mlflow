@@ -17,11 +17,11 @@ Online evaluations run your LLM judges automatically on traces and multi-turn co
 
 ## Online vs Offline Evaluation
 
-|                  | Online Evaluation                                                          | Offline Evaluation                                                                                 |
-| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **When it runs** | Automatically, as traces and conversations are logged                      | Manually, when you call [`mlflow.genai.evaluate()`](/genai/eval-monitor/running-evaluation/traces) |
+|                  | Online Evaluation                                                                    | Offline Evaluation                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **When it runs** | Automatically, as traces and conversations are logged                                | Manually, when you call [`mlflow.genai.evaluate()`](/genai/eval-monitor/running-evaluation/traces) |
 | **Use case**     | Production quality tracking, continuous monitoring, internal QA, interactive testing | Regression testing, bug fix verification, pre-deployment testing, comparing agent versions         |
-| **Data source**  | Live traces and conversations from your application                        | Curated datasets or historical traces                                                              |
+| **Data source**  | Live traces and conversations from your application                                  | Curated datasets or historical traces                                                              |
 
 ## Prerequisites
 
@@ -38,9 +38,10 @@ Before setting up online evaluations, ensure that:
 These examples show how to set up LLM judges that automatically evaluate traces and multi-turn conversations as they're logged to an [MLflow Experiment](/genai/tracing/quickstart#create-a-mlflow-experiment), and how to update or disable existing judges. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/).
 
 :::note
+
 - Online evaluations only support [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge).
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
-:::
+  :::
 
 <TabsWrapper>
 <Tabs>
@@ -202,7 +203,7 @@ The [MLflow Server](/genai/getting-started/connect-environment) uses [AI Gateway
 | Issue                                          | Solution                                                                                                                                           |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Missing assessments**                        | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
-| **Unexpected or unsatisfactory judge results** | Edit the judge's instructions or use the [`align()` method](/genai/eval-monitor/scorers/llm-judge/alignment) to optimize them automatically |
+| **Unexpected or unsatisfactory judge results** | Edit the judge's instructions or use the [`align()` method](/genai/eval-monitor/scorers/llm-judge/alignment) to optimize them automatically        |
 | **Evaluation errors**                          | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically                    |
 
 For further debugging, enable debug logging on the MLflow server by setting the <APILink fn="mlflow.environment_variables.MLFLOW_LOGGING_LEVEL"><code>MLFLOW_LOGGING_LEVEL=DEBUG</code></APILink> environment variable and checking the MLflow server logs.
