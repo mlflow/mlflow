@@ -26,7 +26,8 @@ type Category =
   | 'Agent Frameworks (Java)'
   | 'Model Providers'
   | 'Tools'
-  | 'Gateways';
+  | 'Gateways'
+  | 'No-Code';
 
 const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
@@ -36,6 +37,7 @@ const CATEGORY_ORDER: Category[] = [
   'Model Providers',
   'Tools',
   'Gateways',
+  'No-Code',
 ];
 
 // Centralized integration definitions with categories
@@ -459,6 +461,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   //   link: '/genai/tracing/integrations/listing/helicone',
   //   category: 'Gateways',
   // },
+  {
+    id: 'langflow',
+    name: 'Langflow',
+    logoPath: '/images/logos/langflow.svg',
+    link: '/genai/tracing/integrations/listing/langflow',
+    category: 'No-Code',
+  },
 ];
 
 const IntegrationSection: React.FC<{
