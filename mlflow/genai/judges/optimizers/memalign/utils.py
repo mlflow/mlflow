@@ -13,13 +13,15 @@ try:
 except ImportError:
     _JINJA2_AVAILABLE = False
 
-from mlflow.genai.judges.optimizers.dspy_utils import construct_dspy_lm
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    construct_dspy_lm,
+    convert_mlflow_uri_to_litellm,
+)
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
     create_examples_field,
     create_guidelines_field,
 )
-from mlflow.genai.judges.optimizers.dspy_utils import convert_mlflow_uri_to_litellm
 
 # Try to import litellm at module level
 try:
@@ -57,20 +59,21 @@ def _get_model_max_input_tokens(model: str, model_type: str) -> int:
     """
 
     if _LITELLM_AVAILABLE:
-      litellm_model = convert_mlflow_uri_to_litellm(model)
-      try:
-          max_tokens = get_model_info(litellm_model)["max_input_tokens"]
-          if max_tokens is not None:
-              return max_tokens
-      except Exception as e:
-          _logger.debug(f"Error getting max tokens for model {model}: {e}", exc_info=True)
-    
+        litellm_model = convert_mlflow_uri_to_litellm(model)
+        try:
+            max_tokens = get_model_info(litellm_model)["max_input_tokens"]
+            if max_tokens is not None:
+                return max_tokens
+        except Exception as e:
+            _logger.debug(f"Error getting max tokens for model {model}: {e}", exc_info=True)
+
     if model_type == "embedding":
         return _MAX_EMBEDDING_MODEL_TOKENS
     elif model_type == "chat":
         return _MAX_CHAT_MODEL_TOKENS
     else:
         raise ValueError(f"Unknown model type: {model_type}")
+
 
 @lru_cache(maxsize=1000)
 def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
@@ -126,6 +129,7 @@ class Guidelines(BaseModel):
 def get_default_embedding_model() -> str:
     return "openai:/text-embedding-3-small"
 
+
 def _find_optimal_batch_size(
     examples_data: list[dict[str, Any]],
     indices: list[int],
@@ -135,8 +139,8 @@ def _find_optimal_batch_size(
 ) -> int:
     """Find the optimal batch size for distillation based on token limits.
 
-    Starts with a maximum of _MAX_RECORDS_PER_GROUP records and reduces the batch size using binary search until
-    the prompt fits within token limits and the LM call succeeds.
+    Starts with a maximum of _MAX_RECORDS_PER_GROUP records and reduces the batch size using
+    binary search until the prompt fits within token limits and the LM call succeeds.
 
     Args:
         examples_data: List of feedback example data dicts

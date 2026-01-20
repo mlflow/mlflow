@@ -52,8 +52,6 @@ def test_distill_guidelines_with_examples():
         ]
         mock_construct_lm.return_value = mock_lm
 
-        signature = MagicMock()
-
         result = distill_guidelines(
             examples=[example1, example2],
             judge_instructions="Evaluate quality",
@@ -90,8 +88,6 @@ def test_distill_guidelines_filters_existing():
         ]
         mock_construct_lm.return_value = mock_lm
 
-        signature = MagicMock()
-
         result = distill_guidelines(
             examples=[example1],
             judge_instructions="Evaluate quality",
@@ -121,8 +117,6 @@ def test_distill_guidelines_handles_lm_error():
         mock_lm = MagicMock()
         mock_lm.side_effect = Exception("API Error")
         mock_construct_lm.return_value = mock_lm
-
-        signature = MagicMock()
 
         # The function catches errors per batch and continues, returning empty list
         result = distill_guidelines(

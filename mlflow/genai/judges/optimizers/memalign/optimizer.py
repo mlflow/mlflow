@@ -10,6 +10,7 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     construct_dspy_lm,
+    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -21,7 +22,6 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     retrieve_relevant_examples,
     truncate_to_token_limit,
 )
-from mlflow.genai.judges.optimizers.dspy_utils import convert_mlflow_uri_to_litellm
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
@@ -230,7 +230,8 @@ class MemoryAugmentedJudge(Judge):
                 # Assuming `all_traces` contains human feedback for the judge
                 aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
                 aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
-                # aligned_judge_v2 now only retains feedback from `set(all_traces) - set(bad_traces)`
+                # aligned_judge_v2 now only retains feedback from
+                # `set(all_traces) - set(bad_traces)`
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
