@@ -4412,7 +4412,7 @@ requires-dist = [
     { name = "huey", specifier = ">=2.5.0,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.15,<=1.2.3" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.15,<=1.2.6" },
     { name = "litellm", marker = "extra == 'genai'", specifier = ">=1.0.0,<2" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
