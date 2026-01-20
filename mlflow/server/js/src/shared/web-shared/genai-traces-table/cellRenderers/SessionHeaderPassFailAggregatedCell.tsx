@@ -2,7 +2,7 @@ import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { AssessmentInfo } from '../types';
 import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { aggregatePassFailAssessmentsFromTraces } from '../utils/SessionAggregationUtils';
+import { aggregatePassFailAssessments } from '../utils/SessionAggregationUtils';
 import { FAIL_BARCHART_BAR_COLOR, PASS_BARCHART_BAR_COLOR } from '../utils/Colors';
 import { NullCell } from './NullCell';
 
@@ -17,7 +17,7 @@ export const SessionHeaderPassFailAggregatedCell = ({
   const intl = useIntl();
 
   // Non-session-level assessment column - aggregate values from all traces
-  const { passCount, totalCount } = aggregatePassFailAssessmentsFromTraces(traces, assessmentInfo);
+  const { passCount, totalCount } = aggregatePassFailAssessments(traces, assessmentInfo);
 
   if (totalCount > 0) {
     return (

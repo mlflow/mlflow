@@ -19,7 +19,7 @@ export interface AssessmentAggregationResult {
  * @param assessmentInfo - The assessment metadata including name and dtype
  * @returns Object containing passCount and totalCount
  */
-export function aggregatePassFailAssessmentsFromTraces(
+export function aggregatePassFailAssessments(
   traces: ModelTraceInfoV3[],
   assessmentInfo: AssessmentInfo,
 ): AssessmentAggregationResult {
