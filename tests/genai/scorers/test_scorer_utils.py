@@ -596,11 +596,6 @@ def test_get_tool_call_signature_sorts_arguments():
     assert sig1 == sig2
 
 
-# ============================================================================
-# SCORER NAME VALIDATION TESTS
-# ============================================================================
-
-
 @pytest.mark.parametrize("valid_name", ["my_scorer", "a", "Test Scorer"])
 def test_validate_scorer_name_accepts_valid_names(valid_name):
     validate_scorer_name(valid_name)
@@ -613,17 +608,11 @@ def test_validate_scorer_name_accepts_valid_names(valid_name):
         (123, "must be a string"),
         ("", "cannot be empty"),
         ("   ", "cannot be empty"),
-        ("name\nwith", "newline"),
     ],
 )
 def test_validate_scorer_name_rejects_invalid(invalid_name, error_match):
     with pytest.raises(MlflowException, match=error_match):
         validate_scorer_name(invalid_name)
-
-
-# ============================================================================
-# SCORER MODEL VALIDATION TESTS
-# ============================================================================
 
 
 @pytest.mark.parametrize("valid_model", [None, "gateway:/endpoint", "openai:/gpt-4"])

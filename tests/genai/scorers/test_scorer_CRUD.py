@@ -286,11 +286,6 @@ def test_mlflow_backend_online_scoring_config_chained_update():
         assert retrieved_after_restart.status == ScorerStatus.STARTED
 
 
-# ============================================================================
-# SCORER SAMPLING CONFIG VALIDATION TESTS
-# ============================================================================
-
-
 @pytest.mark.parametrize(
     ("sample_rate", "filter_string"),
     [(0.5, None), (1, "status = 'OK'"), (None, None)],

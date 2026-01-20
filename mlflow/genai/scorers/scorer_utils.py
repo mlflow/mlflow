@@ -220,11 +220,6 @@ def validate_scorer_name(name: str | None) -> None:
             "Scorer name cannot be empty or contain only whitespace.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if "\n" in name or "\r" in name:
-        raise MlflowException(
-            "Scorer name cannot contain newline characters.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
 
 def validate_scorer_model(model: str | None) -> None:
