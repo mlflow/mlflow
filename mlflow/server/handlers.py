@@ -72,6 +72,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.jobs_pb2 import JobStatus
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
     CompleteMultipartUpload,
@@ -108,10 +109,7 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.protos.prompt_optimization_pb2 import (
-    JobStatus,
-    OptimizerType,
-)
+from mlflow.protos.prompt_optimization_pb2 import OptimizerType
 from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
 )
@@ -5234,8 +5232,6 @@ def _create_prompt_optimization_job():
     )
     run_id = run.info.run_id
 
-    _logger.info(f"GEEZ run_id: {run_id}")
-
     # Parse optimizer_config_json to dict for the job function
     optimizer_config = None
     if config.optimizer_config_json:
@@ -5259,7 +5255,6 @@ def _create_prompt_optimization_job():
     tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
 
     # Link the evaluation dataset to the run for lineage tracking (if dataset_id is provided)
-    _logger.info(f"GEEZ dataset_id: {dataset_id}")
     if dataset_id:
         try:
             from mlflow.genai.datasets import get_dataset

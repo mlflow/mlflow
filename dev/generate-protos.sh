@@ -43,12 +43,6 @@ docker cp "$CONTAINER_NAME:/mlflow/mlflow/protos/." "mlflow/protos/"
 docker cp "$CONTAINER_NAME:/mlflow/tests/protos/." "tests/protos/"
 docker cp "$CONTAINER_NAME:/mlflow/mlflow/java/client/src/main/java/." "mlflow/java/client/src/main/java/"
 
-echo "Fixing relative imports in generated proto files..."
-# protoc generates absolute imports, but we need relative imports for the mlflow package
-sed -i.bak 's/^import prompt_optimization_pb2 as/from . import prompt_optimization_pb2 as/g' mlflow/protos/service_pb2.py
-sed -i.bak 's/^  import prompt_optimization_pb2 as/  from . import prompt_optimization_pb2 as/g' mlflow/protos/service_pb2.py
-rm -f mlflow/protos/service_pb2.py.bak
-
 echo "Generating GraphQL schema from Protobuf files..."
 uv run ./dev/proto_to_graphql/code_generator.py
 
