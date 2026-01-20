@@ -94,7 +94,7 @@ mlflow.set_experiment("my-experiment")
 ```python
 from mlflow.genai.scorers import ToolCallCorrectness, ScorerSamplingConfig
 
-tool_judge = ToolCallCorrectness(model="gateway:/your-endpoint")
+tool_judge = ToolCallCorrectness(model="gateway:/my-llm-endpoint")
 registered_tool_judge = tool_judge.register(name="tool_call_correctness")
 registered_tool_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=0.5),  # Evaluate 50% of traces
@@ -109,7 +109,7 @@ from mlflow.genai.scorers import ConversationalGuidelines, ScorerSamplingConfig
 frustration_judge = ConversationalGuidelines(
     name="user_frustration",
     guidelines="The user should not express frustration, confusion, or dissatisfaction during the conversation.",
-    model="gateway:/your-endpoint",
+    model="gateway:/my-llm-endpoint",
 )
 registered_frustration_judge = frustration_judge.register(name="user_frustration")
 registered_frustration_judge.start(
