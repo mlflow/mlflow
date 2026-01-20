@@ -347,6 +347,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0eoz8L": {
+    "defaultMessage": "Hour",
+    "description": "Time unit: hour"
+  },
   "0gGMZm": {
     "defaultMessage": "Name",
     "description": "Default text for name placeholder in editable tags table form in MLflow"
@@ -1481,6 +1485,10 @@
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
+  },
+  "9UmYIH": {
+    "defaultMessage": "Month",
+    "description": "Time unit: month"
   },
   "9W3kev": {
     "defaultMessage": "Register",
@@ -3014,6 +3022,10 @@
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
   },
+  "MHWark": {
+    "defaultMessage": "Year",
+    "description": "Time unit: year"
+  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -3193,6 +3205,10 @@
   "Nj6Ez5": {
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
+  },
+  "NjTPKb": {
+    "defaultMessage": "Second",
+    "description": "Time unit: second"
   },
   "NjV5NM": {
     "defaultMessage": "Search providers...",
@@ -3797,6 +3813,10 @@
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
   },
+  "Smixdu": {
+    "defaultMessage": "Day",
+    "description": "Time unit: day"
+  },
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
@@ -3864,6 +3884,10 @@
   "TLHzWu": {
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
+  },
+  "TLfh74": {
+    "defaultMessage": "Minute",
+    "description": "Time unit: minute"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -6174,6 +6198,10 @@
   "kgJSBI": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt modal"
+  },
+  "ki5dBO": {
+    "defaultMessage": "Time Unit",
+    "description": "Label for time unit selector"
   },
   "kjltRf": {
     "defaultMessage": "Click a cell to preview data",
