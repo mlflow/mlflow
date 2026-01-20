@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -141,6 +142,16 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        serialization_format: The format in which to serialize the model if the model is not
+            `lightgbm.Booster` instance. This should be one of
+            the formats "skops", "cloudpickle" or "pickle".
+            The "skops" format guarantees safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the "skops" format.
 
     .. code-block:: python
         :caption: Example
@@ -291,6 +302,8 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    serialization_format="cloudpickle",
+    skops_trusted_types: list[str] | None = None,
     **kwargs,
 ):
     """
@@ -320,6 +333,16 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        serialization_format: The format in which to serialize the model if the model is not
+            `lightgbm.Booster` instance. This should be one of
+            the formats "skops", "cloudpickle" or "pickle".
+            The "skops" format guarantees safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the "skops" format.
         kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
 
     Returns:
@@ -388,6 +411,8 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
         **kwargs,
     )
 

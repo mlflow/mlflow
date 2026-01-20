@@ -548,3 +548,25 @@ def test_model_log_with_signature_inference(lgb_model):
         ),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
+
+
+def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
+    model = lgb_sklearn_model.model
+    mlflow.lightgbm.save_model(
+        lgb_model=model,
+        path=model_path,
+        serialization_format="skops",
+        skops_trusted_types=['collections.OrderedDict', 'lightgbm.basic.Booster', 'lightgbm.sklearn.LGBMClassifier'],
+    )
+    reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_sklearn_model.inference_dataframe),
+    )

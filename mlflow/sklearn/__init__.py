@@ -200,12 +200,10 @@ def save_model(
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             The "skops" format guarantees safe deserialization.
-            The "cloudpickle"
-            format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-            provides better cross-system compatibility by identifying and
-            packaging code dependencies with the serialized model.
-            The default format is "cloudpickle", but in future MLflow version, the default format
-            will be changed to "skops" for safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
 
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -259,16 +257,6 @@ def save_model(
                 f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
-        warnings.warn(
-            "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
-            "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
-            "The recommended safe alternative is the 'skops' format.",
-            FutureWarning,
-            stacklevel=2,
         )
 
     _validate_and_prepare_target_save_path(path)
@@ -406,12 +394,10 @@ def log_model(
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             The "skops" format guarantees safe deserialization.
-            The "cloudpickle"
-            format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-            provides better cross-system compatibility by identifying and
-            packaging code dependencies with the serialized model.
-            The default format is "cloudpickle", but in future MLflow version, the default format
-            will be changed to "skops" for safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -509,7 +495,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in pickle format. To address this issue, you need to set environment variable "
@@ -666,6 +652,14 @@ def _save_model(sk_model, output_path, serialization_format, skops_trusted_types
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
     """
+    if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
+        _logger.warning(
+            "Saving the model in the pickle or cloudpickle format requires exercising "
+            "caution because these formats rely on Python's object serialization mechanism, "
+            "which can execute arbitrary code during deserialization."
+            "The recommended safe alternative is the 'skops' format."
+        )
+
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
         from skops.io.exceptions import UntrustedTypesFoundException
