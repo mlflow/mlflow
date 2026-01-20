@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.entities import Trace
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
@@ -79,6 +81,8 @@ def optimize_prompts(
               Each input should contain keys matching the variables in the prompt template.
             - outputs: A column containing an output for each input
               that the predict_fn should produce.
+
+            If None, the optimization will be performed in zero-shot mode.
         prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
         optimizer: a prompt optimizer object that optimizes a set of prompts with
@@ -176,14 +180,11 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
-    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-
+    # For EvaluationDataset types, convert to DataFrame first since they don't support len()
     if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
         train_data = train_data.to_df()
-    # Check if train_data is empty (for zero-shot optimization)
+
     if train_data is None or len(train_data) == 0:
-        _logger.info("Zero-shot mode: no training data provided")
         # Zero-shot mode: no training data provided
         train_data_df = None
         converted_train_data = []

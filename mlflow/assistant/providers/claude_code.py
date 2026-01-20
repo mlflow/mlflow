@@ -221,6 +221,8 @@ class ClaudeCodeProvider(AssistantProvider):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                # Increase buffer limit from default 64KB to handle large JSON responses
+                limit=1024 * 1024,  # 1 MB
             )
 
             async for line in process.stdout:

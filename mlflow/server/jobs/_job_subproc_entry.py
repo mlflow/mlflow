@@ -13,9 +13,12 @@ import os
 import threading
 import traceback
 
+from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
 _logger = logging.getLogger(__name__)
+# Configure Python logging to suppress noisy job logs
+configure_logging_for_jobs()
 
 if __name__ == "__main__":
     # ensure the subprocess is killed when parent process dies.

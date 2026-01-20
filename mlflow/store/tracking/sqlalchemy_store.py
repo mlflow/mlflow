@@ -82,6 +82,8 @@ from mlflow.genai.scorers.scorer_utils import (
     extract_model_from_serialized_scorer,
     is_gateway_model,
     update_model_in_serialized_scorer,
+    validate_scorer_model,
+    validate_scorer_name,
 )
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -2105,16 +2107,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
 
         Raises:
-            MlflowException: If the scorer references a gateway endpoint that does not exist.
+            MlflowException: If the scorer name is invalid, if the model is invalid,
+                or if the scorer references a gateway endpoint that does not exist.
         """
+        # Validate scorer name
+        validate_scorer_name(name)
+
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # Parse serialized_scorer and resolve gateway endpoint name to ID if applicable
+            # Parse serialized_scorer and validate its contents
             serialized_data = json.loads(serialized_scorer)
+
+            # Validate model if present
             model = extract_model_from_serialized_scorer(serialized_data)
+            validate_scorer_model(model)
 
             if is_gateway_model(model):
                 endpoint_name = extract_endpoint_ref(model)
@@ -2481,14 +2490,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The created or updated OnlineScoringConfig entity.
 
         Raises:
-            MlflowException: If scorer is not found or does not use a gateway model.
+            MlflowException: If sample_rate is not a number, if sample_rate is outside
+                the range [0.0, 1.0], if filter_string is not a string, if the
+                filter_string syntax is invalid, if the scorer is not found, or if the
+                scorer does not use a gateway model.
         """
+        if not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                f"sample_rate must be a number, got {type(sample_rate).__name__}"
+            )
         if not 0.0 <= sample_rate <= 1.0:
             raise MlflowException.invalid_parameter_value(
                 f"sample_rate must be between 0.0 and 1.0, got {sample_rate}"
             )
-
         if filter_string:
+            if not isinstance(filter_string, str):
+                raise MlflowException.invalid_parameter_value(
+                    f"filter_string must be a string, got {type(filter_string).__name__}"
+                )
             # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
 
