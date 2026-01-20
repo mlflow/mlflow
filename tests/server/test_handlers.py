@@ -3341,20 +3341,22 @@ def test_cancel_prompt_optimization_job():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job_entity):
-        with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
-            mock_tracking_store = mock.Mock()
-            mock_store.return_value = mock_tracking_store
-            with app.test_request_context(method="POST"):
-                response = _cancel_prompt_optimization_job("job-123")
+    with (
+        mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        mock_tracking_store = mock.Mock()
+        mock_store.return_value = mock_tracking_store
+        with app.test_request_context(method="POST"):
+            response = _cancel_prompt_optimization_job("job-123")
 
-            # Verify that the underlying run was terminated
-            mock_tracking_store.update_run_info.assert_called_once()
-            call_args = mock_tracking_store.update_run_info.call_args
-            assert call_args.kwargs["run_id"] == "run-456"
-            assert call_args.kwargs["run_status"] == RunStatus.KILLED
-            assert call_args.kwargs["run_name"] is None
-            assert "end_time" in call_args.kwargs
+        # Verify that the underlying run was terminated
+        mock_tracking_store.update_run_info.assert_called_once()
+        call_args = mock_tracking_store.update_run_info.call_args
+        assert call_args.kwargs["run_id"] == "run-456"
+        assert call_args.kwargs["run_status"] == RunStatus.KILLED
+        assert call_args.kwargs["run_name"] is None
+        assert "end_time" in call_args.kwargs
 
     response_data = json.loads(response.get_data())
     assert response_data["job"]["job_id"] == "job-123"
