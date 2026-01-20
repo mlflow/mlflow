@@ -4,22 +4,11 @@ import dspy
 import pytest
 
 from mlflow.genai.judges.optimizers.memalign.utils import (
-    _get_model_max_tokens,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
     truncate_to_token_limit,
 )
-
-
-@pytest.fixture(autouse=True)
-def clear_lru_caches():
-    """Clear lru_cache before each test to ensure mocks work correctly."""
-    _get_model_max_tokens.cache_clear()
-    truncate_to_token_limit.cache_clear()
-    yield
-    _get_model_max_tokens.cache_clear()
-    truncate_to_token_limit.cache_clear()
 
 
 def test_get_default_embedding_model():

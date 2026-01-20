@@ -3,8 +3,15 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
-from jinja2 import Template
 from pydantic import BaseModel
+
+# Try to import jinja2 at module level
+try:
+    from jinja2 import Template
+
+    _JINJA2_AVAILABLE = True
+except ImportError:
+    _JINJA2_AVAILABLE = False
 
 from mlflow.genai.judges.optimizers.dspy_utils import construct_dspy_lm
 from mlflow.genai.judges.optimizers.memalign.prompts import (
@@ -38,7 +45,7 @@ _FLEX_TOKENS = 5000
 
 
 @lru_cache(maxsize=1)
-def _get_model_max_tokens(model: str, model_type: str) -> int:
+def _get_model_max_input_tokens(model: str, model_type: str) -> int:
     """Get the maximum input token limit for a model.
 
     Args:
@@ -77,7 +84,7 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     Returns:
         Truncated text that fits within token limit
     """
-    max_tokens = _get_model_max_tokens(model, model_type=model_type)
+    max_tokens = _get_model_max_input_tokens(model, model_type=model_type)
 
     if not _LITELLM_AVAILABLE:
         # Naive truncation to `max_tokens` characters in the text if litellm is not available
@@ -142,7 +149,7 @@ def _find_optimal_batch_size(
         Optimal number of records per batch that fits within token limits
     """
     distillation_lm = construct_dspy_lm(reflection_lm)
-    max_input_tokens = _get_model_max_tokens(reflection_lm, model_type="chat")
+    max_input_tokens = _get_model_max_input_tokens(reflection_lm, model_type="chat")
 
     # Reserve tokens for response and account for variance in prompt length
     flex_tokens = _FLEX_TOKENS
@@ -251,6 +258,12 @@ def distill_guidelines(
     Returns:
         List of newly distilled Guideline objects (not including existing ones)
     """
+    if not _JINJA2_AVAILABLE:
+        raise ImportError(
+            "jinja2 is required for guideline distillation. "
+            "Please install it using: `pip install jinja2`"
+        )
+
     if not examples:
         return []
 

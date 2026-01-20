@@ -9,20 +9,6 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers import MemAlignOptimizer
-from mlflow.genai.judges.optimizers.memalign.utils import (
-    _get_model_max_tokens,
-    truncate_to_token_limit,
-)
-
-
-@pytest.fixture(autouse=True)
-def clear_lru_caches():
-    """Clear lru_cache before each test to ensure mocks work correctly."""
-    _get_model_max_tokens.cache_clear()
-    truncate_to_token_limit.cache_clear()
-    yield
-    _get_model_max_tokens.cache_clear()
-    truncate_to_token_limit.cache_clear()
 
 
 @pytest.fixture
