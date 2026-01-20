@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.prompt_version import (
     PromptVersion,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_MODEL_CONFIG_TAG_KEY
 from mlflow.prompt.registry_utils import model_version_to_prompt_version
 from mlflow.protos.model_registry_pb2 import ModelVersionTag
 
@@ -179,6 +179,29 @@ def test_prompt_from_model_version():
 
     with pytest.raises(MlflowException, match="Prompt `my-prompt` does not contain a prompt text"):
         model_version_to_prompt_version(invalid_model_version)
+
+
+def test_model_version_to_prompt_version_merges_prompt_tags():
+    model_version = ModelVersion(
+        name="my-prompt",
+        version=1,
+        description="test",
+        creation_timestamp=123,
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="Hello, {{name}}!"),
+        ],
+    )
+
+    prompt_tags = {
+        PROMPT_EXPERIMENT_IDS_TAG_KEY: ",exp1,exp2,",
+    }
+
+    prompt = model_version_to_prompt_version(model_version, prompt_tags=prompt_tags)
+
+    assert prompt._tags[PROMPT_EXPERIMENT_IDS_TAG_KEY] == ",exp1,exp2,"
+    assert prompt._tags[IS_PROMPT_TAG_KEY] == "true"
+    assert prompt._tags[PROMPT_TEXT_TAG_KEY] == "Hello, {{name}}!"
 
 
 def test_prompt_with_model_config_dict():

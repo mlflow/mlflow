@@ -96,7 +96,8 @@ def model_version_to_prompt_version(
 
     Args:
         model_version: The ModelVersion object to convert to a PromptVersion.
-        prompt_tags: The prompt-level tags. Optional.
+        prompt_tags: The prompt-level tags (from RegisteredModel). These are merged with
+            model version tags, with model version tags taking precedence. Optional.
 
     Returns:
         PromptVersion: The converted PromptVersion object.
@@ -122,13 +123,16 @@ def model_version_to_prompt_version(
     else:
         response_format = None
 
+    # Merge prompt-level tags with model version tags (model version tags take precedence)
+    merged_tags = {**(prompt_tags or {}), **model_version.tags}
+
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
         template=template,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
-        tags=model_version.tags,
+        tags=merged_tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,

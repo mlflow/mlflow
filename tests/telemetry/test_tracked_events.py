@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -117,6 +118,12 @@ def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
         return_value=mock_telemetry_client,
     ):
         yield
+
+
+def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
+    for thread in threading.enumerate():
+        if thread != threading.main_thread() and thread.name.startswith(prefix):
+            thread.join(timeout=timeout)
 
 
 def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -1312,7 +1319,7 @@ def test_load_prompt(mock_requests, mock_telemetry_client: TelemetryClient):
         mock_telemetry_client,
         mock_requests,
         LoadPromptEvent.name,
-        {"uses_alias": False},
+        {"uses_alias": False, "num_linked_experiments": 0},
     )
 
     # Test load_prompt with URI and version (no alias)
@@ -1321,19 +1328,44 @@ def test_load_prompt(mock_requests, mock_telemetry_client: TelemetryClient):
         mock_telemetry_client,
         mock_requests,
         LoadPromptEvent.name,
-        {"uses_alias": False},
+        {"uses_alias": False, "num_linked_experiments": 0},
     )
 
     # Test load_prompt with alias
     mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@production")
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+        mock_telemetry_client,
+        mock_requests,
+        LoadPromptEvent.name,
+        {"uses_alias": True, "num_linked_experiments": 0},
     )
 
     # Test load_prompt with @latest (special alias)
     mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@latest")
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+        mock_telemetry_client,
+        mock_requests,
+        LoadPromptEvent.name,
+        {"uses_alias": True, "num_linked_experiments": 0},
+    )
+
+    # First, set an experiment and register a prompt which will link the experiment
+    experiment = mlflow.set_experiment("test_telemetry_experiment")
+    mlflow.genai.register_prompt(name="linked_prompt", template="Linked {{name}}")
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+    mock_telemetry_client.flush()
+
+    # Disable caching to ensure we get fresh data from the server
+    mlflow.genai.load_prompt(name_or_uri="linked_prompt", version=1, cache_ttl_seconds=0)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LoadPromptEvent.name,
+        {
+            "uses_alias": False,
+            "num_linked_experiments": 1,
+            "mlflow_experiment_id": experiment.experiment_id,
+        },
     )
 
 

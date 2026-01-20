@@ -78,6 +78,22 @@ class LoadPromptEvent(Event):
         uses_alias = "@" in name_or_uri
         return {"uses_alias": uses_alias}
 
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+
+        if result is None:
+            return {}
+
+        tags = getattr(result, "tags", None)
+        if tags and isinstance(tags, dict):
+            experiment_ids = tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+            # Experiment IDs are stored as comma-separated list: ",id1,id2,"
+            ids_list = [eid for eid in experiment_ids.strip(",").split(",") if eid.strip()]
+            return {"num_linked_experiments": len(ids_list)}
+
+        return {"num_linked_experiments": 0}
+
 
 class StartTraceEvent(Event):
     name: str = "start_trace"
