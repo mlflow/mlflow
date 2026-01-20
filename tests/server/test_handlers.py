@@ -3154,14 +3154,14 @@ def test_create_prompt_optimization_job(mock_tracking_store):
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
-        mock.patch("mlflow.tracking.context.default_context._get_user", return_value="test_user"),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
     ):
         with app.test_request_context(
             method="POST",
             json={
                 "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
                 "config": {
-                    "target_prompt_uri": "prompts:/my-prompt/1",
                     "optimizer_type": 1,  # OPTIMIZER_TYPE_GEPA
                     "dataset_id": "dataset-123",
                     "scorers": ["Correctness", "Safety"],
@@ -3212,14 +3212,14 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
-        mock.patch("mlflow.tracking.context.default_context._get_user", return_value="test_user"),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
     ):
         with app.test_request_context(
             method="POST",
             json={
                 "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
                 "config": {
-                    "target_prompt_uri": "prompts:/my-prompt/1",
                     "optimizer_type": 2,  # OPTIMIZER_TYPE_METAPROMPT
                     "scorers": [],  # Empty scorers for zero-shot
                     # No dataset_id - zero-shot optimization
@@ -3256,7 +3256,7 @@ def test_create_prompt_optimization_job_missing_prompt_uri(mock_tracking_store):
         assert response.status_code == 400
         json_response = json.loads(response.get_data())
         assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        assert "target_prompt_uri is required" in json_response["message"]
+        assert "source_prompt_uri" in json_response["message"]
 
 
 def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking_store):
@@ -3264,8 +3264,8 @@ def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking
         method="POST",
         json={
             "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
             "config": {
-                "target_prompt_uri": "prompts:/my-prompt/1",
                 "optimizer_type": 0,  # OPTIMIZER_TYPE_UNSPECIFIED
                 "dataset_id": "dataset-123",
                 "scorers": ["Correctness"],
@@ -3280,29 +3280,24 @@ def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking
 
 
 def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_tracking_store):
-    mock_run = mock.MagicMock()
-    mock_run.info.run_id = "run-456"
-    mock_tracking_store.create_run.return_value = mock_run
-
-    with mock.patch("mlflow.tracking.context.default_context._get_user", return_value="test_user"):
-        with app.test_request_context(
-            method="POST",
-            json={
-                "experiment_id": "exp-123",
-                "config": {
-                    "target_prompt_uri": "prompts:/my-prompt/1",
-                    "optimizer_type": 1,
-                    "dataset_id": "dataset-123",
-                    "scorers": ["Correctness"],
-                    "optimizer_config_json": "invalid json {",
-                },
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+                "optimizer_config_json": "invalid json {",
             },
-        ):
-            response = _create_prompt_optimization_job()
-            assert response.status_code == 400
-            json_response = json.loads(response.get_data())
-            assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-            assert "Invalid JSON in optimizer_config_json" in json_response["message"]
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid JSON in optimizer_config_json" in json_response["message"]
 
 
 def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
@@ -3310,8 +3305,8 @@ def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_stor
         method="POST",
         json={
             "experiment_id": "",  # Empty experiment_id
+            "source_prompt_uri": "prompts:/my-prompt/1",
             "config": {
-                "target_prompt_uri": "prompts:/my-prompt/1",
                 "optimizer_type": 1,
                 "dataset_id": "dataset-123",
                 "scorers": ["Correctness"],

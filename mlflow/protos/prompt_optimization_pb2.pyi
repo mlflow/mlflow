@@ -26,18 +26,16 @@ class PromptOptimizationJobTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJobConfig(_message.Message):
-    __slots__ = ("target_prompt_uri", "optimizer_type", "dataset_id", "scorers", "optimizer_config_json")
-    TARGET_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("optimizer_type", "dataset_id", "scorers", "optimizer_config_json")
     OPTIMIZER_TYPE_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     SCORERS_FIELD_NUMBER: _ClassVar[int]
     OPTIMIZER_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
-    target_prompt_uri: str
     optimizer_type: OptimizerType
     dataset_id: str
     scorers: _containers.RepeatedScalarFieldContainer[str]
     optimizer_config_json: str
-    def __init__(self, target_prompt_uri: _Optional[str] = ..., optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
+    def __init__(self, optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJob(_message.Message):
     __slots__ = ("job_id", "run_id", "state", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "tags", "initial_eval_scores", "final_eval_scores")

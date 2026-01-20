@@ -251,6 +251,7 @@ from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -5176,6 +5177,8 @@ def post_ui_telemetry_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_prompt_optimization_job():
+    # These imports must be local to avoid circular import with mlflow.server.jobs
+    from mlflow.genai.datasets import get_dataset as get_genai_dataset
     from mlflow.genai.optimize.job import optimize_prompts_job
     from mlflow.server.jobs import submit_job
 
@@ -5183,19 +5186,20 @@ def _create_prompt_optimization_job():
         CreatePromptOptimizationJob(),
         schema={
             "experiment_id": [_assert_string],
+            "source_prompt_uri": [_assert_string, _assert_required],
             "config": [_assert_required],
             "tags": [_assert_array],
         },
     )
 
-    config = request_message.config
-    prompt_uri = config.target_prompt_uri or ""
+    prompt_uri = request_message.source_prompt_uri or ""
     if not prompt_uri:
         raise MlflowException(
-            "target_prompt_uri is required for optimization job",
+            "source_prompt_uri is required for optimization job",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    config = request_message.config
     dataset_id = config.dataset_id or ""
 
     scorers = list(config.scorers) if config.scorers else []
@@ -5220,21 +5224,8 @@ def _create_prompt_optimization_job():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Create MLflow run upfront so run_id is immediately available
-    # The job will resume this run when it starts executing
-    from mlflow.tracking.context.default_context import _get_user
-
-    tracking_store = _get_tracking_store()
-    run = tracking_store.create_run(
-        experiment_id=experiment_id,
-        user_id=_get_user(),
-        start_time=int(time.time() * 1000),
-        tags=[],
-        run_name=None,
-    )
-    run_id = run.info.run_id
-
     # Parse optimizer_config_json to dict for the job function
+    # Validate before creating run to avoid creating unused runs on validation failure
     optimizer_config = None
     if config.optimizer_config_json:
         try:
@@ -5244,6 +5235,18 @@ def _create_prompt_optimization_job():
                 f"Invalid JSON in optimizer_config_json: {e}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    # Create MLflow run upfront so run_id is immediately available
+    # The job will resume this run when it starts executing
+    tracking_store = _get_tracking_store()
+    run = tracking_store.create_run(
+        experiment_id=experiment_id,
+        user_id=_get_user(),
+        start_time=int(time.time() * 1000),
+        tags=[],
+        run_name=None,
+    )
+    run_id = run.info.run_id
 
     # Log optimization config as run parameters
     params_to_log = [
@@ -5259,9 +5262,7 @@ def _create_prompt_optimization_job():
     # Link the evaluation dataset to the run for lineage tracking (if dataset_id is provided)
     if dataset_id:
         try:
-            from mlflow.genai.datasets import get_dataset
-
-            dataset = get_dataset(dataset_id=dataset_id)
+            dataset = get_genai_dataset(dataset_id=dataset_id)
             dataset_input = DatasetInput(
                 dataset=dataset._to_mlflow_entity(),
                 tags=[InputTag(key="mlflow.data.context", value="optimization")],
@@ -5312,6 +5313,7 @@ def _create_prompt_optimization_job():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _cancel_prompt_optimization_job(job_id):
+    # This import must be local to avoid circular import with mlflow.server.jobs
     from mlflow.server.jobs import cancel_job
 
     job_entity = cancel_job(job_id)
@@ -5330,23 +5332,27 @@ def _cancel_prompt_optimization_job(job_id):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if "experiment_id" in params:
-        optimization_job.experiment_id = params["experiment_id"]
-    if "prompt_uri" in params:
-        optimization_job.source_prompt_uri = params["prompt_uri"]
-    if "run_id" in params:
-        optimization_job.run_id = params["run_id"]
+    if experiment_id := params.get("experiment_id"):
+        optimization_job.experiment_id = experiment_id
+    if prompt_uri := params.get("prompt_uri"):
+        optimization_job.source_prompt_uri = prompt_uri
+    if run_id := params.get("run_id"):
+        optimization_job.run_id = run_id
         # Terminate the underlying MLflow run if it exists
         try:
             _get_tracking_store().update_run_info(
-                run_id=params["run_id"],
+                run_id=run_id,
                 run_status=RunStatus.KILLED,
                 end_time=get_current_time_millis(),
                 run_name=None,
             )
         except Exception:
-            # If the run doesn't exist or is already terminated, ignore the error
-            pass
+            # If the run doesn't exist or is already terminated, log warning and continue
+            _logger.warning(
+                "Failed to terminate MLflow run '%s' when canceling job '%s'",
+                run_id,
+                job_id,
+            )
 
     response_message.job.CopyFrom(optimization_job)
     return _wrap_response(response_message)

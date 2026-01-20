@@ -941,39 +941,10 @@ public final class PromptOptimization {
 
     /**
      * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return Whether the targetPromptUri field is set.
-     */
-    boolean hasTargetPromptUri();
-    /**
-     * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return The targetPromptUri.
-     */
-    java.lang.String getTargetPromptUri();
-    /**
-     * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return The bytes for targetPromptUri.
-     */
-    com.google.protobuf.ByteString
-        getTargetPromptUriBytes();
-
-    /**
-     * <pre>
      * The optimizer type to use.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+     * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
      * @return Whether the optimizerType field is set.
      */
     boolean hasOptimizerType();
@@ -982,7 +953,7 @@ public final class PromptOptimization {
      * The optimizer type to use.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+     * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
      * @return The optimizerType.
      */
     org.mlflow.api.proto.PromptOptimization.OptimizerType getOptimizerType();
@@ -992,7 +963,7 @@ public final class PromptOptimization {
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return Whether the datasetId field is set.
      */
     boolean hasDatasetId();
@@ -1001,7 +972,7 @@ public final class PromptOptimization {
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return The datasetId.
      */
     java.lang.String getDatasetId();
@@ -1010,7 +981,7 @@ public final class PromptOptimization {
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return The bytes for datasetId.
      */
     com.google.protobuf.ByteString
@@ -1022,7 +993,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @return A list containing the scorers.
      */
     java.util.List<java.lang.String>
@@ -1033,7 +1004,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @return The count of scorers.
      */
     int getScorersCount();
@@ -1043,7 +1014,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @param index The index of the element to return.
      * @return The scorers at the given index.
      */
@@ -1054,7 +1025,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @param index The index of the value to return.
      * @return The bytes of the scorers at the given index.
      */
@@ -1069,7 +1040,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return Whether the optimizerConfigJson field is set.
      */
     boolean hasOptimizerConfigJson();
@@ -1081,7 +1052,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return The optimizerConfigJson.
      */
     java.lang.String getOptimizerConfigJson();
@@ -1093,7 +1064,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return The bytes for optimizerConfigJson.
      */
     com.google.protobuf.ByteString
@@ -1117,7 +1088,6 @@ public final class PromptOptimization {
       super(builder);
     }
     private PromptOptimizationJobConfig() {
-      targetPromptUri_ = "";
       optimizerType_ = 0;
       datasetId_ = "";
       scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -1155,42 +1125,36 @@ public final class PromptOptimization {
             case 0:
               done = true;
               break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              targetPromptUri_ = bs;
-              break;
-            }
-            case 16: {
+            case 8: {
               int rawValue = input.readEnum();
                 @SuppressWarnings("deprecation")
               org.mlflow.api.proto.PromptOptimization.OptimizerType value = org.mlflow.api.proto.PromptOptimization.OptimizerType.valueOf(rawValue);
               if (value == null) {
-                unknownFields.mergeVarintField(2, rawValue);
+                unknownFields.mergeVarintField(1, rawValue);
               } else {
-                bitField0_ |= 0x00000002;
+                bitField0_ |= 0x00000001;
                 optimizerType_ = rawValue;
               }
               break;
             }
-            case 26: {
+            case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000002;
               datasetId_ = bs;
               break;
             }
-            case 34: {
+            case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000004) != 0)) {
                 scorers_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000008;
+                mutable_bitField0_ |= 0x00000004;
               }
               scorers_.add(bs);
               break;
             }
-            case 42: {
+            case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000004;
               optimizerConfigJson_ = bs;
               break;
             }
@@ -1209,7 +1173,7 @@ public final class PromptOptimization {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+        if (((mutable_bitField0_ & 0x00000004) != 0)) {
           scorers_ = scorers_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -1230,85 +1194,25 @@ public final class PromptOptimization {
     }
 
     private int bitField0_;
-    public static final int TARGET_PROMPT_URI_FIELD_NUMBER = 1;
-    private volatile java.lang.Object targetPromptUri_;
-    /**
-     * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return Whether the targetPromptUri field is set.
-     */
-    @java.lang.Override
-    public boolean hasTargetPromptUri() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return The targetPromptUri.
-     */
-    @java.lang.Override
-    public java.lang.String getTargetPromptUri() {
-      java.lang.Object ref = targetPromptUri_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          targetPromptUri_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-     * </pre>
-     *
-     * <code>optional string target_prompt_uri = 1;</code>
-     * @return The bytes for targetPromptUri.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getTargetPromptUriBytes() {
-      java.lang.Object ref = targetPromptUri_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        targetPromptUri_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int OPTIMIZER_TYPE_FIELD_NUMBER = 2;
+    public static final int OPTIMIZER_TYPE_FIELD_NUMBER = 1;
     private int optimizerType_;
     /**
      * <pre>
      * The optimizer type to use.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+     * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
      * @return Whether the optimizerType field is set.
      */
     @java.lang.Override public boolean hasOptimizerType() {
-      return ((bitField0_ & 0x00000002) != 0);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
      * The optimizer type to use.
      * </pre>
      *
-     * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+     * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
      * @return The optimizerType.
      */
     @java.lang.Override public org.mlflow.api.proto.PromptOptimization.OptimizerType getOptimizerType() {
@@ -1317,26 +1221,26 @@ public final class PromptOptimization {
       return result == null ? org.mlflow.api.proto.PromptOptimization.OptimizerType.OPTIMIZER_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int DATASET_ID_FIELD_NUMBER = 3;
+    public static final int DATASET_ID_FIELD_NUMBER = 2;
     private volatile java.lang.Object datasetId_;
     /**
      * <pre>
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return Whether the datasetId field is set.
      */
     @java.lang.Override
     public boolean hasDatasetId() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return The datasetId.
      */
     @java.lang.Override
@@ -1359,7 +1263,7 @@ public final class PromptOptimization {
      * ID of the EvaluationDataset containing training data.
      * </pre>
      *
-     * <code>optional string dataset_id = 3;</code>
+     * <code>optional string dataset_id = 2;</code>
      * @return The bytes for datasetId.
      */
     @java.lang.Override
@@ -1377,7 +1281,7 @@ public final class PromptOptimization {
       }
     }
 
-    public static final int SCORERS_FIELD_NUMBER = 4;
+    public static final int SCORERS_FIELD_NUMBER = 3;
     private com.google.protobuf.LazyStringList scorers_;
     /**
      * <pre>
@@ -1385,7 +1289,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @return A list containing the scorers.
      */
     public com.google.protobuf.ProtocolStringList
@@ -1398,7 +1302,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @return The count of scorers.
      */
     public int getScorersCount() {
@@ -1410,7 +1314,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @param index The index of the element to return.
      * @return The scorers at the given index.
      */
@@ -1423,7 +1327,7 @@ public final class PromptOptimization {
      * (e.g., "Correctness", "Safety") or registered scorer names.
      * </pre>
      *
-     * <code>repeated string scorers = 4;</code>
+     * <code>repeated string scorers = 3;</code>
      * @param index The index of the value to return.
      * @return The bytes of the scorers at the given index.
      */
@@ -1432,7 +1336,7 @@ public final class PromptOptimization {
       return scorers_.getByteString(index);
     }
 
-    public static final int OPTIMIZER_CONFIG_JSON_FIELD_NUMBER = 5;
+    public static final int OPTIMIZER_CONFIG_JSON_FIELD_NUMBER = 4;
     private volatile java.lang.Object optimizerConfigJson_;
     /**
      * <pre>
@@ -1442,12 +1346,12 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return Whether the optimizerConfigJson field is set.
      */
     @java.lang.Override
     public boolean hasOptimizerConfigJson() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -1457,7 +1361,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return The optimizerConfigJson.
      */
     @java.lang.Override
@@ -1483,7 +1387,7 @@ public final class PromptOptimization {
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
      * </pre>
      *
-     * <code>optional string optimizer_config_json = 5;</code>
+     * <code>optional string optimizer_config_json = 4;</code>
      * @return The bytes for optimizerConfigJson.
      */
     @java.lang.Override
@@ -1516,19 +1420,16 @@ public final class PromptOptimization {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, targetPromptUri_);
+        output.writeEnum(1, optimizerType_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        output.writeEnum(2, optimizerType_);
-      }
-      if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, datasetId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, datasetId_);
       }
       for (int i = 0; i < scorers_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, scorers_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, scorers_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, optimizerConfigJson_);
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, optimizerConfigJson_);
       }
       unknownFields.writeTo(output);
     }
@@ -1540,14 +1441,11 @@ public final class PromptOptimization {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, targetPromptUri_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, optimizerType_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, optimizerType_);
-      }
-      if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, datasetId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, datasetId_);
       }
       {
         int dataSize = 0;
@@ -1557,8 +1455,8 @@ public final class PromptOptimization {
         size += dataSize;
         size += 1 * getScorersList().size();
       }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, optimizerConfigJson_);
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, optimizerConfigJson_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1575,11 +1473,6 @@ public final class PromptOptimization {
       }
       org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig other = (org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig) obj;
 
-      if (hasTargetPromptUri() != other.hasTargetPromptUri()) return false;
-      if (hasTargetPromptUri()) {
-        if (!getTargetPromptUri()
-            .equals(other.getTargetPromptUri())) return false;
-      }
       if (hasOptimizerType() != other.hasOptimizerType()) return false;
       if (hasOptimizerType()) {
         if (optimizerType_ != other.optimizerType_) return false;
@@ -1607,10 +1500,6 @@ public final class PromptOptimization {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasTargetPromptUri()) {
-        hash = (37 * hash) + TARGET_PROMPT_URI_FIELD_NUMBER;
-        hash = (53 * hash) + getTargetPromptUri().hashCode();
-      }
       if (hasOptimizerType()) {
         hash = (37 * hash) + OPTIMIZER_TYPE_FIELD_NUMBER;
         hash = (53 * hash) + optimizerType_;
@@ -1765,16 +1654,14 @@ public final class PromptOptimization {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        targetPromptUri_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
         optimizerType_ = 0;
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
         datasetId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         optimizerConfigJson_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -1806,22 +1693,18 @@ public final class PromptOptimization {
         if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.targetPromptUri_ = targetPromptUri_;
+        result.optimizerType_ = optimizerType_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.optimizerType_ = optimizerType_;
-        if (((from_bitField0_ & 0x00000004) != 0)) {
-          to_bitField0_ |= 0x00000004;
-        }
         result.datasetId_ = datasetId_;
-        if (((bitField0_ & 0x00000008) != 0)) {
+        if (((bitField0_ & 0x00000004) != 0)) {
           scorers_ = scorers_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000004);
         }
         result.scorers_ = scorers_;
-        if (((from_bitField0_ & 0x00000010) != 0)) {
-          to_bitField0_ |= 0x00000008;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000004;
         }
         result.optimizerConfigJson_ = optimizerConfigJson_;
         result.bitField0_ = to_bitField0_;
@@ -1873,23 +1756,18 @@ public final class PromptOptimization {
 
       public Builder mergeFrom(org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig other) {
         if (other == org.mlflow.api.proto.PromptOptimization.PromptOptimizationJobConfig.getDefaultInstance()) return this;
-        if (other.hasTargetPromptUri()) {
-          bitField0_ |= 0x00000001;
-          targetPromptUri_ = other.targetPromptUri_;
-          onChanged();
-        }
         if (other.hasOptimizerType()) {
           setOptimizerType(other.getOptimizerType());
         }
         if (other.hasDatasetId()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000002;
           datasetId_ = other.datasetId_;
           onChanged();
         }
         if (!other.scorers_.isEmpty()) {
           if (scorers_.isEmpty()) {
             scorers_ = other.scorers_;
-            bitField0_ = (bitField0_ & ~0x00000008);
+            bitField0_ = (bitField0_ & ~0x00000004);
           } else {
             ensureScorersIsMutable();
             scorers_.addAll(other.scorers_);
@@ -1897,7 +1775,7 @@ public final class PromptOptimization {
           onChanged();
         }
         if (other.hasOptimizerConfigJson()) {
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000008;
           optimizerConfigJson_ = other.optimizerConfigJson_;
           onChanged();
         }
@@ -1931,132 +1809,24 @@ public final class PromptOptimization {
       }
       private int bitField0_;
 
-      private java.lang.Object targetPromptUri_ = "";
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @return Whether the targetPromptUri field is set.
-       */
-      public boolean hasTargetPromptUri() {
-        return ((bitField0_ & 0x00000001) != 0);
-      }
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @return The targetPromptUri.
-       */
-      public java.lang.String getTargetPromptUri() {
-        java.lang.Object ref = targetPromptUri_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            targetPromptUri_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @return The bytes for targetPromptUri.
-       */
-      public com.google.protobuf.ByteString
-          getTargetPromptUriBytes() {
-        java.lang.Object ref = targetPromptUri_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          targetPromptUri_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @param value The targetPromptUri to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTargetPromptUri(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        targetPromptUri_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTargetPromptUri() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        targetPromptUri_ = getDefaultInstance().getTargetPromptUri();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-       * </pre>
-       *
-       * <code>optional string target_prompt_uri = 1;</code>
-       * @param value The bytes for targetPromptUri to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTargetPromptUriBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        targetPromptUri_ = value;
-        onChanged();
-        return this;
-      }
-
       private int optimizerType_ = 0;
       /**
        * <pre>
        * The optimizer type to use.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+       * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
        * @return Whether the optimizerType field is set.
        */
       @java.lang.Override public boolean hasOptimizerType() {
-        return ((bitField0_ & 0x00000002) != 0);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
        * The optimizer type to use.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+       * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
        * @return The optimizerType.
        */
       @java.lang.Override
@@ -2070,7 +1840,7 @@ public final class PromptOptimization {
        * The optimizer type to use.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+       * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
        * @param value The optimizerType to set.
        * @return This builder for chaining.
        */
@@ -2078,7 +1848,7 @@ public final class PromptOptimization {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000002;
+        bitField0_ |= 0x00000001;
         optimizerType_ = value.getNumber();
         onChanged();
         return this;
@@ -2088,11 +1858,11 @@ public final class PromptOptimization {
        * The optimizer type to use.
        * </pre>
        *
-       * <code>optional .mlflow.OptimizerType optimizer_type = 2;</code>
+       * <code>optional .mlflow.OptimizerType optimizer_type = 1;</code>
        * @return This builder for chaining.
        */
       public Builder clearOptimizerType() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
         optimizerType_ = 0;
         onChanged();
         return this;
@@ -2104,18 +1874,18 @@ public final class PromptOptimization {
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @return Whether the datasetId field is set.
        */
       public boolean hasDatasetId() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @return The datasetId.
        */
       public java.lang.String getDatasetId() {
@@ -2137,7 +1907,7 @@ public final class PromptOptimization {
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @return The bytes for datasetId.
        */
       public com.google.protobuf.ByteString
@@ -2158,7 +1928,7 @@ public final class PromptOptimization {
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @param value The datasetId to set.
        * @return This builder for chaining.
        */
@@ -2167,7 +1937,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         datasetId_ = value;
         onChanged();
         return this;
@@ -2177,11 +1947,11 @@ public final class PromptOptimization {
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @return This builder for chaining.
        */
       public Builder clearDatasetId() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         datasetId_ = getDefaultInstance().getDatasetId();
         onChanged();
         return this;
@@ -2191,7 +1961,7 @@ public final class PromptOptimization {
        * ID of the EvaluationDataset containing training data.
        * </pre>
        *
-       * <code>optional string dataset_id = 3;</code>
+       * <code>optional string dataset_id = 2;</code>
        * @param value The bytes for datasetId to set.
        * @return This builder for chaining.
        */
@@ -2200,7 +1970,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         datasetId_ = value;
         onChanged();
         return this;
@@ -2208,9 +1978,9 @@ public final class PromptOptimization {
 
       private com.google.protobuf.LazyStringList scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureScorersIsMutable() {
-        if (!((bitField0_ & 0x00000008) != 0)) {
+        if (!((bitField0_ & 0x00000004) != 0)) {
           scorers_ = new com.google.protobuf.LazyStringArrayList(scorers_);
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000004;
          }
       }
       /**
@@ -2219,7 +1989,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @return A list containing the scorers.
        */
       public com.google.protobuf.ProtocolStringList
@@ -2232,7 +2002,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @return The count of scorers.
        */
       public int getScorersCount() {
@@ -2244,7 +2014,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param index The index of the element to return.
        * @return The scorers at the given index.
        */
@@ -2257,7 +2027,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param index The index of the value to return.
        * @return The bytes of the scorers at the given index.
        */
@@ -2271,7 +2041,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param index The index to set the value at.
        * @param value The scorers to set.
        * @return This builder for chaining.
@@ -2292,7 +2062,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param value The scorers to add.
        * @return This builder for chaining.
        */
@@ -2312,7 +2082,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param values The scorers to add.
        * @return This builder for chaining.
        */
@@ -2330,12 +2100,12 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @return This builder for chaining.
        */
       public Builder clearScorers() {
         scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         onChanged();
         return this;
       }
@@ -2345,7 +2115,7 @@ public final class PromptOptimization {
        * (e.g., "Correctness", "Safety") or registered scorer names.
        * </pre>
        *
-       * <code>repeated string scorers = 4;</code>
+       * <code>repeated string scorers = 3;</code>
        * @param value The bytes of the scorers to add.
        * @return This builder for chaining.
        */
@@ -2369,11 +2139,11 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @return Whether the optimizerConfigJson field is set.
        */
       public boolean hasOptimizerConfigJson() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
@@ -2383,7 +2153,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @return The optimizerConfigJson.
        */
       public java.lang.String getOptimizerConfigJson() {
@@ -2408,7 +2178,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @return The bytes for optimizerConfigJson.
        */
       public com.google.protobuf.ByteString
@@ -2432,7 +2202,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @param value The optimizerConfigJson to set.
        * @return This builder for chaining.
        */
@@ -2441,7 +2211,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         optimizerConfigJson_ = value;
         onChanged();
         return this;
@@ -2454,11 +2224,11 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @return This builder for chaining.
        */
       public Builder clearOptimizerConfigJson() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         optimizerConfigJson_ = getDefaultInstance().getOptimizerConfigJson();
         onChanged();
         return this;
@@ -2471,7 +2241,7 @@ public final class PromptOptimization {
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
        * </pre>
        *
-       * <code>optional string optimizer_config_json = 5;</code>
+       * <code>optional string optimizer_config_json = 4;</code>
        * @param value The bytes for optimizerConfigJson to set.
        * @return This builder for chaining.
        */
@@ -2480,7 +2250,7 @@ public final class PromptOptimization {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         optimizerConfigJson_ = value;
         onChanged();
         return this;
@@ -6251,30 +6021,29 @@ public final class PromptOptimization {
       "\n\031prompt_optimization.proto\022\006mlflow\032\njob" +
       "s.proto\032\025scalapb/scalapb.proto\"6\n\030Prompt" +
       "OptimizationJobTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t\"\253\001\n\033PromptOptimizationJobConfig\022\031" +
-      "\n\021target_prompt_uri\030\001 \001(\t\022-\n\016optimizer_t" +
-      "ype\030\002 \001(\0162\025.mlflow.OptimizerType\022\022\n\ndata" +
-      "set_id\030\003 \001(\t\022\017\n\007scorers\030\004 \003(\t\022\035\n\025optimiz" +
-      "er_config_json\030\005 \001(\t\"\341\004\n\025PromptOptimizat" +
-      "ionJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006run_id\030\002 \001(\t\022\037" +
-      "\n\005state\030\003 \001(\0132\020.mlflow.JobState\022\025\n\rexper" +
-      "iment_id\030\004 \001(\t\022\031\n\021source_prompt_uri\030\005 \001(" +
-      "\t\022\034\n\024optimized_prompt_uri\030\006 \001(\t\0223\n\006confi" +
-      "g\030\007 \001(\0132#.mlflow.PromptOptimizationJobCo" +
-      "nfig\022\035\n\025creation_timestamp_ms\030\010 \001(\003\022\037\n\027c" +
-      "ompletion_timestamp_ms\030\t \001(\003\022.\n\004tags\030\n \003" +
-      "(\0132 .mlflow.PromptOptimizationJobTag\022Q\n\023" +
-      "initial_eval_scores\030\013 \003(\01324.mlflow.Promp" +
-      "tOptimizationJob.InitialEvalScoresEntry\022" +
-      "M\n\021final_eval_scores\030\014 \003(\01322.mlflow.Prom" +
-      "ptOptimizationJob.FinalEvalScoresEntry\0328" +
-      "\n\026InitialEvalScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
-      "\005value\030\002 \001(\001:\0028\001\0326\n\024FinalEvalScoresEntry" +
-      "\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001*g\n\rOpti" +
-      "mizerType\022\036\n\032OPTIMIZER_TYPE_UNSPECIFIED\020" +
-      "\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022\035\n\031OPTIMIZER_" +
-      "TYPE_METAPROMPT\020\002B\036\n\024org.mlflow.api.prot" +
-      "o\220\001\001\342?\002\020\001"
+      "\030\002 \001(\t\"\220\001\n\033PromptOptimizationJobConfig\022-" +
+      "\n\016optimizer_type\030\001 \001(\0162\025.mlflow.Optimize" +
+      "rType\022\022\n\ndataset_id\030\002 \001(\t\022\017\n\007scorers\030\003 \003" +
+      "(\t\022\035\n\025optimizer_config_json\030\004 \001(\t\"\341\004\n\025Pr" +
+      "omptOptimizationJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006r" +
+      "un_id\030\002 \001(\t\022\037\n\005state\030\003 \001(\0132\020.mlflow.JobS" +
+      "tate\022\025\n\rexperiment_id\030\004 \001(\t\022\031\n\021source_pr" +
+      "ompt_uri\030\005 \001(\t\022\034\n\024optimized_prompt_uri\030\006" +
+      " \001(\t\0223\n\006config\030\007 \001(\0132#.mlflow.PromptOpti" +
+      "mizationJobConfig\022\035\n\025creation_timestamp_" +
+      "ms\030\010 \001(\003\022\037\n\027completion_timestamp_ms\030\t \001(" +
+      "\003\022.\n\004tags\030\n \003(\0132 .mlflow.PromptOptimizat" +
+      "ionJobTag\022Q\n\023initial_eval_scores\030\013 \003(\01324" +
+      ".mlflow.PromptOptimizationJob.InitialEva" +
+      "lScoresEntry\022M\n\021final_eval_scores\030\014 \003(\0132" +
+      "2.mlflow.PromptOptimizationJob.FinalEval" +
+      "ScoresEntry\0328\n\026InitialEvalScoresEntry\022\013\n" +
+      "\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001\0326\n\024FinalEv" +
+      "alScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(" +
+      "\001:\0028\001*g\n\rOptimizerType\022\036\n\032OPTIMIZER_TYPE" +
+      "_UNSPECIFIED\020\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022" +
+      "\035\n\031OPTIMIZER_TYPE_METAPROMPT\020\002B\036\n\024org.ml" +
+      "flow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6293,7 +6062,7 @@ public final class PromptOptimization {
     internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_PromptOptimizationJobConfig_descriptor,
-        new java.lang.String[] { "TargetPromptUri", "OptimizerType", "DatasetId", "Scorers", "OptimizerConfigJson", });
+        new java.lang.String[] { "OptimizerType", "DatasetId", "Scorers", "OptimizerConfigJson", });
     internal_static_mlflow_PromptOptimizationJob_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable = new
