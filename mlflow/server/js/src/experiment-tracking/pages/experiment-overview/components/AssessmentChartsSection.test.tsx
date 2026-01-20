@@ -15,6 +15,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Helper to create an assessment count data point (for getting all assessment names)
 const createCountDataPoint = (assessmentName: string, count: number) => ({
@@ -64,13 +65,15 @@ describe('AssessmentChartsSection', () => {
   const renderComponent = () => {
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <AssessmentChartsSection />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <AssessmentChartsSection />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 
@@ -129,15 +132,47 @@ describe('AssessmentChartsSection', () => {
   });
 
   describe('empty state', () => {
-    it('should render empty state when no assessments are available', async () => {
+    it('should render empty state with guidance when no assessments are available at all', async () => {
       setupTraceMetricsHandler([]);
 
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('No assessments available')).toBeInTheDocument();
+        expect(screen.getByText('Monitor quality metrics from scorers')).toBeInTheDocument();
+        expect(screen.getByText('Learn more')).toBeInTheDocument();
       });
     });
+
+    it('should render time range message when assessments exist outside the current time range', async () => {
+      // Setup handler that returns empty for time-filtered queries but data for non-time-filtered queries
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // If query has no time range (from useHasAssessmentsOutsideTimeRange), return data
+          // Note: undefined values are omitted when serialized to JSON, so we check if the property doesn't exist
+          const hasNoTimeRange = !('start_time_ms' in body) || body.start_time_ms === null;
+          if (hasNoTimeRange && body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+            return res(ctx.json({ data_points: [createCountDataPoint('SomeAssessment', 10)] }));
+          }
+          // Time-filtered queries return empty
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderComponent();
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('No assessments available')).toBeInTheDocument();
+          expect(screen.getByText(/Try selecting a longer time range/)).toBeInTheDocument();
+        },
+        { timeout: 10000 },
+      );
+
+      // Should NOT show the full guidance
+      expect(screen.queryByText('Monitor quality metrics from scorers')).not.toBeInTheDocument();
+    }, 15000);
   });
 
   describe('with data', () => {
