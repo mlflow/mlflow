@@ -108,7 +108,8 @@ export function AssistantContextTags(): React.ReactElement | null {
 
   // Check if current page already shows run/trace info to avoid duplication
   const isOnRunPage = currentPage?.startsWith('Run ');
-  const isOnTracePage = currentPage?.toLowerCase().includes('trace');
+  // Only consider it a specific trace page if the trace ID is shown in the page title
+  const isOnSpecificTracePage = traceId && currentPage?.includes(traceId);
 
   // Remove duplication of active and selected trace/run IDs
   // Don't show run tag separately if we're on a run page (it's already in the page title)
@@ -118,8 +119,8 @@ export function AssistantContextTags(): React.ReactElement | null {
       [...new Set([...(selectedRunIds ?? [])].filter((id) => id !== runId && Boolean(id)))] as string[]
     : ([...new Set([runId, ...(selectedRunIds ?? [])].filter(Boolean))] as string[]);
 
-  // Similarly for traces - don't show if it's part of the page
-  const filteredTraceIds = isOnTracePage && traceIds.length === 1 && traceId ? [] : traceIds;
+  // Similarly for traces - don't show if the trace ID is already in the page title
+  const filteredTraceIds = isOnSpecificTracePage && traceIds.length === 1 ? [] : traceIds;
 
   if (filteredTraceIds.length === 0 && runIds.length === 0 && !currentPage) return null;
 
