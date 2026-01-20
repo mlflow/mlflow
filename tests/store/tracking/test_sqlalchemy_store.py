@@ -10817,6 +10817,35 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
 
 
+@pytest.mark.parametrize(
+    ("name", "error_match"),
+    [
+        (None, "cannot be None"),
+        (123, "must be a string"),
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+    ],
+)
+def test_register_scorer_validates_name(store: SqlAlchemyStore, name, error_match):
+    experiment_id = store.create_experiment("test_scorer_name_validation")
+    with pytest.raises(MlflowException, match=error_match):
+        store.register_scorer(experiment_id, name, '{"data": "test"}')
+
+
+@pytest.mark.parametrize(
+    ("model", "error_match"),
+    [
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+    ],
+)
+def test_register_scorer_validates_model(store: SqlAlchemyStore, model, error_match):
+    experiment_id = store.create_experiment("test_scorer_model_validation")
+    scorer_json = json.dumps({"instructions_judge_pydantic_data": {"model": model}})
+    with pytest.raises(MlflowException, match=error_match):
+        store.register_scorer(experiment_id, "test_scorer", scorer_json)
+
+
 def _gateway_model_scorer_json():
     return json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/my-endpoint"}})
 
