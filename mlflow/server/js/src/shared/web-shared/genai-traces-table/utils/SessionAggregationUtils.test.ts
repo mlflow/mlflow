@@ -5,7 +5,7 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type { AssessmentInfo } from '../types';
 
-import { aggregateAssessmentsFromTraces } from './SessionAggregationUtils';
+import { aggregatePassFailAssessments } from './SessionAggregationUtils';
 
 // Helper to create a minimal AssessmentInfo for testing
 const createAssessmentInfo = (overrides: Partial<AssessmentInfo> = {}): AssessmentInfo => ({
@@ -33,11 +33,11 @@ const createTrace = (assessments: any[] = []): ModelTraceInfoV3 =>
   }) as ModelTraceInfoV3;
 
 describe('SessionAggregationUtils', () => {
-  describe('aggregateAssessmentsFromTraces', () => {
+  describe('aggregatePassFailAssessments', () => {
     const assessmentInfo = createAssessmentInfo({ name: 'correctness', dtype: 'pass-fail' });
 
     it('returns zero counts for empty traces array', () => {
-      const result = aggregateAssessmentsFromTraces([], assessmentInfo);
+      const result = aggregatePassFailAssessments([], assessmentInfo);
       expect(result).toEqual({ passCount: 0, totalCount: 0 });
     });
 
@@ -59,7 +59,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 2, totalCount: 2 });
     });
 
@@ -81,7 +81,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 0, totalCount: 2 });
     });
 
@@ -117,7 +117,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 2, totalCount: 4 });
     });
 
@@ -140,7 +140,7 @@ describe('SessionAggregationUtils', () => {
         createTrace([]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 1, totalCount: 1 });
     });
 
@@ -163,7 +163,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 1, totalCount: 1 });
     });
 
@@ -185,7 +185,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       expect(result).toEqual({ passCount: 1, totalCount: 1 });
     });
 
@@ -215,7 +215,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, booleanAssessmentInfo);
+      const result = aggregatePassFailAssessments(traces, booleanAssessmentInfo);
       expect(result).toEqual({ passCount: 2, totalCount: 3 });
     });
 
@@ -247,7 +247,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       // 3 assessments in first trace + 1 in second = 4 total
       // 2 pass in first trace + 1 pass in second = 3 pass
       expect(result).toEqual({ passCount: 3, totalCount: 4 });
@@ -279,7 +279,7 @@ describe('SessionAggregationUtils', () => {
         ]),
       ];
 
-      const result = aggregateAssessmentsFromTraces(traces, assessmentInfo);
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
       // Only 2 valid assessments: 1 pass, 1 fail
       expect(result).toEqual({ passCount: 1, totalCount: 2 });
     });
