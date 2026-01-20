@@ -687,7 +687,7 @@ def autolog(
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
         )
-        # Filter out None-valued parameters if log_none_params is False
+       
         if not log_none_params:
             params_to_log_for_fn = {
                 k: v for k, v in params_to_log_for_fn.items() if v is not None
