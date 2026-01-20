@@ -64,7 +64,7 @@ function ContextTagGroup({
 }
 
 /**
- * Context tags showing explicitly selected traces and runs.
+ * Context tags showing current page context.
  */
 export function AssistantContextTags(): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
@@ -75,7 +75,7 @@ export function AssistantContextTags(): React.ReactElement | null {
   const runId = context['runId'] as string | undefined;
   const selectedRunIds = context['selectedRunIds'] as string[] | undefined;
 
-  // Combine and deduplicate IDs
+  // Remove duplication of active and selected trace/run IDs
   const traceIds = [...new Set([traceId, ...(selectedTraceIds ?? [])].filter(Boolean))] as string[];
   const runIds = [...new Set([runId, ...(selectedRunIds ?? [])].filter(Boolean))] as string[];
 
