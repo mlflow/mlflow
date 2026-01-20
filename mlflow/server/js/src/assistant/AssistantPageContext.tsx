@@ -41,25 +41,13 @@ const useAssistantPageContextStore = create<AssistantPageContextStore>((set, get
 }));
 
 /**
- * Converts a URL slug to a human-readable title.
- * Examples: "tool-calls" → "Tool Calls", "model-metrics" → "Model Metrics"
+ * Extracts sub-tab/path from route params.
+ * Returns raw URL slugs - the LLM can understand them without conversion.
  */
-const slugToTitle = (slug: string): string => {
-  return slug
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-/**
- * Extracts sub-tab name from route params.
- * Automatically converts URL slugs to readable names - no manual mapping needed.
- */
-const getSubTabFromParams = (params: Record<string, string | undefined>): string | null => {
+const getSubPathFromParams = (params: Record<string, string | undefined>): string | null => {
   // Check for overview sub-tab (e.g., /overview/tool-calls)
-  const overviewTab = params['overviewTab'];
-  if (overviewTab) {
-    return slugToTitle(overviewTab);
+  if (params['overviewTab']) {
+    return params['overviewTab'];
   }
 
   // Check for catch-all param (used in run page tabs, e.g., /runs/:id/model-metrics)
@@ -67,14 +55,13 @@ const getSubTabFromParams = (params: Record<string, string | undefined>): string
   if (catchAll) {
     const tabKey = catchAll.split('/')[0];
     if (tabKey) {
-      return slugToTitle(tabKey);
+      return tabKey;
     }
   }
 
   // Check for tabName param (used in logged model details)
-  const tabName = params['tabName'];
-  if (tabName) {
-    return slugToTitle(tabName);
+  if (params['tabName']) {
+    return params['tabName'];
   }
 
   return null;
@@ -100,14 +87,14 @@ export const AssistantRouteContextProvider = () => {
   const runId = (params as Record<string, string | undefined>)['runUuid'];
   const traceId = searchParams.get('selectedEvaluationId');
 
-  // Build the current page context, including sub-tabs if present
+  // Build the current page context, including sub-paths if present
   const currentPage = useMemo(() => {
     if (!pageTitle) return null;
 
-    // Check if there's a sub-tab to append
-    const subTab = getSubTabFromParams(params as Record<string, string | undefined>);
-    if (subTab) {
-      return `${pageTitle} > ${subTab}`;
+    // Check if there's a sub-path to append
+    const subPath = getSubPathFromParams(params as Record<string, string | undefined>);
+    if (subPath) {
+      return `${pageTitle}/${subPath}`;
     }
 
     return pageTitle;
