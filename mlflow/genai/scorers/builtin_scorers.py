@@ -2655,6 +2655,10 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         "provided by users in earlier conversation turns."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
