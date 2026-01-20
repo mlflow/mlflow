@@ -50,6 +50,7 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -360,7 +361,10 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     return (
-      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={AssistantAwareDrawer}
+      >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <GenAITracesTableProvider experimentId={experimentId}>
             <div

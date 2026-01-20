@@ -64,5 +64,6 @@ export {
   useModelTraceExplorerContext,
   type ModelTraceExplorerContextValue,
   type RenderExportTracesToDatasetsModalParams,
+  type DrawerComponentType,
 } from './ModelTraceExplorerContext';
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';

@@ -9,7 +9,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
@@ -42,7 +41,7 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
-  const { renderExportTracesToDatasetsModal } = useModelTraceExplorerContext();
+  const { renderExportTracesToDatasetsModal, DrawerComponent } = useModelTraceExplorerContext();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -76,7 +75,7 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
 
   return (
-    <AssistantAwareDrawer.Root
+    <DrawerComponent.Root
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -84,7 +83,7 @@ export const ModelTraceExplorerDrawer = ({
         }
       }}
     >
-      <AssistantAwareDrawer.Content
+      <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
@@ -144,7 +143,7 @@ export const ModelTraceExplorerDrawer = ({
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}
-      </AssistantAwareDrawer.Content>
-    </AssistantAwareDrawer.Root>
+      </DrawerComponent.Content>
+    </DrawerComponent.Root>
   );
 };

@@ -63,6 +63,7 @@ import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v
 import { useIntl } from 'react-intl';
 import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -296,7 +297,10 @@ const RunViewEvaluationsTabInner = ({
           </span>
         </div>
       )}
-      <ModelTraceExplorerContextProvider renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={AssistantAwareDrawer}
+      >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <GenAITracesTableProvider experimentId={experimentId}>
             <div
