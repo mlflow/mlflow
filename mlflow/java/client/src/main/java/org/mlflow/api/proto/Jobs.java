@@ -17,7 +17,7 @@ public final class Jobs {
   /**
    * <pre>
    * Generic status enum for MLflow jobs.
-   * Can be used across different job types (optimization, evaluation, etc.).
+   * Can be used across different job types (optimization, scorer, etc.).
    * </pre>
    *
    * Protobuf enum {@code mlflow.JobStatus}

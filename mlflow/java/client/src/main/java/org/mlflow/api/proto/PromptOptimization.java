@@ -29,7 +29,7 @@ public final class PromptOptimization {
     OPTIMIZER_TYPE_UNSPECIFIED(0),
     /**
      * <pre>
-     * GEPA (Guided Evolution of Prompt Attributes) optimizer.
+     * GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)
      * </pre>
      *
      * <code>OPTIMIZER_TYPE_GEPA = 1;</code>
@@ -51,7 +51,7 @@ public final class PromptOptimization {
     public static final int OPTIMIZER_TYPE_UNSPECIFIED_VALUE = 0;
     /**
      * <pre>
-     * GEPA (Guided Evolution of Prompt Attributes) optimizer.
+     * GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)
      * </pre>
      *
      * <code>OPTIMIZER_TYPE_GEPA = 1;</code>
