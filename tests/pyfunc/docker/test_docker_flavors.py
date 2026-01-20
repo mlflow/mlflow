@@ -15,7 +15,6 @@ import shutil
 import sys
 import threading
 import time
-from operator import itemgetter
 
 import pandas as pd
 import pytest
@@ -219,13 +218,21 @@ def keras_model(model_path, iris_data):
 
 
 @pytest.fixture
-def langchain_model(model_path):
-    from langchain_core.runnables import RunnablePassthrough
+def langchain_model(model_path, tmp_path):
+    # LangChain v1+ requires models-from-code
+    model_code = """
+from operator import itemgetter
+from langchain_core.runnables import RunnablePassthrough
+import mlflow
 
-    chain = RunnablePassthrough() | itemgetter("messages")
+mlflow.models.set_model(RunnablePassthrough() | itemgetter("messages"))
+"""
+    code_path = tmp_path / "langchain_model.py"
+    code_path.write_text(model_code)
+
     save_model_with_latest_mlflow_version(
         flavor="langchain",
-        lc_model=chain,
+        lc_model=str(code_path),
         path=model_path,
         input_example={"messages": "Hi"},
     )
