@@ -45,6 +45,7 @@ import {
 import { compact } from 'lodash';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
+import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -238,15 +239,21 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         })}
       </div>
     );
-  }
-
-  if (!cellContent) {
+  } else if (
+    column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
+    !column.assessmentInfo?.isSessionLevelAssessment &&
+    traces.length > 0
+  ) {
+    cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+  } else {
     cellContent = <NullCell />;
   }
 
   return (
     <TableCell
       key={column.id}
+      wrapContent={false}
       style={{
         flex: `1 1 var(--col-${escapeCssSpecialCharacters(column.id)}-size)`,
       }}
@@ -256,7 +263,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         alignItems: 'center',
       }}
     >
-      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0 }}>{cellContent}</div>
+      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0, flex: 1 }}>{cellContent}</div>
     </TableCell>
   );
 };
