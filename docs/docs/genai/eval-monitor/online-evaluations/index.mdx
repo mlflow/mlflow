@@ -12,7 +12,7 @@ _Automatically evaluate traces and multi-turn conversations as they're logged - 
 
 Online evaluations run your LLM judges automatically on traces and multi-turn conversations as they're logged to MLflow, without requiring manual execution of code. This enables two key use cases:
 
-- **Streamlined Quality Improvement**: Seamlessly measure quality as you iterate on your agent or LLM application, getting immediate feedback and quality insights without extra evaluation steps
+- **Streamlined Quality Iteration**: Seamlessly measure quality as you iterate on your agent or LLM application in development, getting immediate feedback and quality insights without extra evaluation steps
 - **Production Monitoring**: Continuously monitor for issues like hallucinations, PII leakage, or user frustration on live traffic
 
 ## Online vs Offline Evaluation
@@ -39,7 +39,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 :::note
 
-- Online evaluations only support [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge).
+- Online evaluations only support [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/make-judge).
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
   :::
 
@@ -72,7 +72,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
    <img src={require('@site/static/images/genai/eval-monitor/evaluation-settings.png').default} alt="Evaluation settings" width="400" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 
 6. Click **Save**
-7. To edit or disable an existing judge, click on it in the **Judges** tab.
+7. To edit or disable an existing judge, select it in the **Judges** tab.
 
    <img src={require('@site/static/images/genai/eval-monitor/edit-llm-judge-button.png').default} alt="Edit LLM judge button" width="270" style={{ borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }} />
 
@@ -81,25 +81,31 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 For more details about the APIs used in this example, see <APILink fn="mlflow.genai.scorers.Scorer.start" />, <APILink fn="mlflow.genai.scorers.Scorer.update" />, and <APILink fn="mlflow.genai.scorers.Scorer.stop" />.
 
+**1. Specify the experiment for online evaluation**
+
 ```python
 import mlflow
-from mlflow.genai.scorers import (
-    ToolCallCorrectness,
-    ConversationalGuidelines,
-    ScorerSamplingConfig,
-)
 
-# Set the experiment for the judges
 mlflow.set_experiment("my-experiment")
+```
 
-# Create and start a trace-level judge
+**2. Start online evaluation for a trace-level judge**
+
+```python
+from mlflow.genai.scorers import ToolCallCorrectness, ScorerSamplingConfig
+
 tool_judge = ToolCallCorrectness(model="gateway:/your-endpoint")
 registered_tool_judge = tool_judge.register(name="tool_call_correctness")
 registered_tool_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=0.5),  # Evaluate 50% of traces
 )
+```
 
-# Create and start a session-level judge for multi-turn conversations
+**3. Start online evaluation for a multi-turn (session-level) judge**
+
+```python
+from mlflow.genai.scorers import ConversationalGuidelines, ScorerSamplingConfig
+
 frustration_judge = ConversationalGuidelines(
     name="user_frustration",
     guidelines="The user should not express frustration, confusion, or dissatisfaction during the conversation.",
@@ -109,9 +115,12 @@ registered_frustration_judge = frustration_judge.register(name="user_frustration
 registered_frustration_judge.start(
     sampling_config=ScorerSamplingConfig(sample_rate=1.0),  # Evaluate all conversations
 )
+```
 
-# Update or disable an existing judge
-from mlflow.genai.scorers import get_scorer
+**4. Update or disable online evaluation for an existing judge**
+
+```python
+from mlflow.genai.scorers import get_scorer, ScorerSamplingConfig
 
 judge = get_scorer(name="tool_call_correctness")
 judge.update(
