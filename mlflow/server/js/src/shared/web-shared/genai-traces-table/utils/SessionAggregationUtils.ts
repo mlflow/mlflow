@@ -34,8 +34,7 @@ export interface StringAggregationResult {
 function getValidAssessments(trace: ModelTraceInfoV3, assessmentName: string) {
   return (
     trace.assessments?.filter(
-      (a) =>
-        a.assessment_name === assessmentName && !isSessionLevelAssessment(a) && a.valid !== false,
+      (a) => a.assessment_name === assessmentName && !isSessionLevelAssessment(a) && a.valid !== false,
     ) ?? []
   );
 }
