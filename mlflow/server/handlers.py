@@ -110,7 +110,6 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.protos.prompt_optimization_pb2 import OptimizerType
 from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
 )
@@ -5179,7 +5178,7 @@ def post_ui_telemetry_handler():
 def _create_prompt_optimization_job():
     # These imports must be local to avoid circular import with mlflow.server.jobs
     from mlflow.genai.datasets import get_dataset as get_genai_dataset
-    from mlflow.genai.optimize.job import optimize_prompts_job
+    from mlflow.genai.optimize.job import OptimizerType, optimize_prompts_job
     from mlflow.server.jobs import submit_job
 
     request_message = _get_request_message(
@@ -5204,18 +5203,7 @@ def _create_prompt_optimization_job():
 
     scorers = list(config.scorers) if config.scorers else []
 
-    # Convert proto enum to string for optimizer_type
-    # Derive optimizer type string from enum name (e.g., OPTIMIZER_TYPE_GEPA -> "gepa")
-    enum_name = OptimizerType.Name(config.optimizer_type)
-    if enum_name == "OPTIMIZER_TYPE_UNSPECIFIED":
-        supported_types = [
-            name for name in OptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
-        ]
-        raise MlflowException(
-            f"optimizer_type is required. Supported types: {supported_types}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    optimizer_type = enum_name.replace("OPTIMIZER_TYPE_", "").lower()
+    optimizer_type = OptimizerType.from_proto(config.optimizer_type)
 
     experiment_id = (request_message.experiment_id or "").strip()
     if not experiment_id:
@@ -5324,13 +5312,7 @@ def _cancel_prompt_optimization_job(job_id):
     optimization_job.state.status = JobStatus.JOB_STATUS_CANCELED
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
-    try:
-        params = json.loads(job_entity.params)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Failed to parse job parameters as JSON: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    params = json.loads(job_entity.params)
 
     if experiment_id := params.get("experiment_id"):
         optimization_job.experiment_id = experiment_id

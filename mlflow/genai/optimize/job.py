@@ -32,6 +32,49 @@ class OptimizerType(str, Enum):
     GEPA = "gepa"
     METAPROMPT = "metaprompt"
 
+    @classmethod
+    def from_proto(cls, proto_value: int) -> "OptimizerType":
+        """
+        Convert a proto OptimizerType enum value to the Python OptimizerType enum.
+
+        Args:
+            proto_value: The integer value from the proto OptimizerType enum.
+
+        Returns:
+            The corresponding OptimizerType enum member.
+
+        Raises:
+            MlflowException: If the proto value is unspecified or unsupported.
+        """
+        from mlflow.protos.prompt_optimization_pb2 import (
+            OPTIMIZER_TYPE_GEPA,
+            OPTIMIZER_TYPE_METAPROMPT,
+            OPTIMIZER_TYPE_UNSPECIFIED,
+        )
+        from mlflow.protos.prompt_optimization_pb2 import (
+            OptimizerType as ProtoOptimizerType,
+        )
+
+        if proto_value == OPTIMIZER_TYPE_UNSPECIFIED:
+            supported_types = [
+                name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+            ]
+            raise MlflowException.invalid_parameter_value(
+                f"optimizer_type is required. Supported types: {supported_types}"
+            )
+        elif proto_value == OPTIMIZER_TYPE_GEPA:
+            return cls.GEPA
+        elif proto_value == OPTIMIZER_TYPE_METAPROMPT:
+            return cls.METAPROMPT
+        else:
+            supported_types = [
+                name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+            ]
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported optimizer_type value: {proto_value}. "
+                f"Supported types: {supported_types}"
+            )
+
 
 @dataclass
 class PromptOptimizationJobResult:

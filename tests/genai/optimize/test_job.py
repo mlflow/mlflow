@@ -13,6 +13,7 @@ import pytest
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.job import (
+    OptimizerType,
     _build_predict_fn,
     _create_optimizer,
     _load_scorers,
@@ -21,6 +22,11 @@ from mlflow.genai.optimize.job import (
 from mlflow.genai.optimize.optimizers import GepaPromptOptimizer, MetaPromptOptimizer
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import Correctness, Safety
+from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_GEPA,
+    OPTIMIZER_TYPE_METAPROMPT,
+    OPTIMIZER_TYPE_UNSPECIFIED,
+)
 
 
 def test_create_gepa_optimizer_success():
@@ -58,6 +64,25 @@ def test_create_metaprompt_optimizer_missing_reflection_model():
 def test_create_optimizer_unsupported_type():
     with pytest.raises(MlflowException, match="Unsupported optimizer type: 'invalid'"):
         _create_optimizer("invalid", None)
+
+
+@pytest.mark.parametrize(
+    ("proto_value", "expected_type", "expected_str", "error_match"),
+    [
+        (OPTIMIZER_TYPE_GEPA, OptimizerType.GEPA, "gepa", None),
+        (OPTIMIZER_TYPE_METAPROMPT, OptimizerType.METAPROMPT, "metaprompt", None),
+        (OPTIMIZER_TYPE_UNSPECIFIED, None, None, "optimizer_type is required"),
+        (999, None, None, "Unsupported optimizer_type value"),
+    ],
+)
+def test_optimizer_type_from_proto(proto_value, expected_type, expected_str, error_match):
+    if error_match:
+        with pytest.raises(MlflowException, match=error_match):
+            OptimizerType.from_proto(proto_value)
+    else:
+        result = OptimizerType.from_proto(proto_value)
+        assert result == expected_type
+        assert result == expected_str
 
 
 def test_load_builtin_scorers():
