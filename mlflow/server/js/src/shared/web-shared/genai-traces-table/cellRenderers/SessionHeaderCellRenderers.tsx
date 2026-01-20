@@ -45,6 +45,9 @@ import {
 import { compact } from 'lodash';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
+import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
+import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggregatedCell';
+import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -238,15 +241,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         })}
       </div>
     );
-  }
+  } else if (
+    column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
+    !column.assessmentInfo?.isSessionLevelAssessment &&
+    traces.length > 0
+  ) {
+    // Non-session-level assessment column - aggregate values from all traces
+    const assessmentInfo = column.assessmentInfo;
+    const { dtype } = assessmentInfo;
 
-  if (!cellContent) {
-    cellContent = <NullCell />;
+    if (dtype === 'pass-fail' || dtype === 'boolean') {
+      cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'numeric') {
+      cellContent = <SessionHeaderNumericAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'string' || dtype === 'unknown') {
+      cellContent = <SessionHeaderStringAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (
     <TableCell
       key={column.id}
+      wrapContent={false}
       style={{
         flex: `1 1 var(--col-${escapeCssSpecialCharacters(column.id)}-size)`,
       }}
@@ -256,7 +275,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         alignItems: 'center',
       }}
     >
-      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0 }}>{cellContent}</div>
+      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0, flex: 1 }}>{cellContent}</div>
     </TableCell>
   );
 };
