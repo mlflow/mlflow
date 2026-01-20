@@ -1,4 +1,4 @@
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { isSessionLevelAssessment, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
 import type { AssessmentInfo } from '../types';
@@ -29,7 +29,10 @@ export function aggregatePassFailAssessments(
   for (const trace of traces) {
     const assessments =
       trace.assessments?.filter(
-        (assessment) => assessment.valid !== false && assessment.assessment_name === assessmentInfo.name,
+        (assessment) =>
+          assessment.valid !== false &&
+          assessment.assessment_name === assessmentInfo.name &&
+          !isSessionLevelAssessment(assessment),
       ) ?? [];
     for (const assessment of assessments) {
       if (!('feedback' in assessment)) {
