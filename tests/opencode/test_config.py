@@ -18,7 +18,6 @@ def test_get_opencode_config_path():
     assert config_path == Path("/test/project/opencode.json")
 
 
-
 def test_load_json_config_nonexistent(tmp_path):
     config_path = tmp_path / "opencode.json"
     config = load_json_config(config_path)
@@ -63,7 +62,6 @@ def test_save_opencode_config_creates_directory(tmp_path):
     save_opencode_config(config_path, config)
 
     assert config_path.exists()
-
 
 
 def test_get_tracing_status_no_config(tmp_path):

@@ -67,8 +67,7 @@ def setup_mlflow() -> None:
     if not is_tracing_enabled():
         return
 
-    tracking_uri = get_env_var(MLFLOW_TRACKING_URI.name)
-    if tracking_uri:
+    if tracking_uri := get_env_var(MLFLOW_TRACKING_URI.name):
         mlflow.set_tracking_uri(tracking_uri)
 
     experiment_id = get_env_var(MLFLOW_EXPERIMENT_ID.name)
@@ -163,14 +162,12 @@ def _reconstruct_conversation_messages(
 
         if role == MESSAGE_ROLE_USER:
             # Extract text parts from user message
-            text_parts = [p.get("text", "") for p in parts if p.get("type") == PART_TYPE_TEXT]
-            if text_parts:
+            if text_parts := [p.get("text", "") for p in parts if p.get("type") == PART_TYPE_TEXT]:
                 result.append({"role": "user", "content": "\n".join(text_parts)})
 
         elif role == MESSAGE_ROLE_ASSISTANT:
             # Extract text parts from assistant message
-            text_parts = [p.get("text", "") for p in parts if p.get("type") == PART_TYPE_TEXT]
-            if text_parts:
+            if text_parts := [p.get("text", "") for p in parts if p.get("type") == PART_TYPE_TEXT]:
                 result.append({"role": "assistant", "content": "\n".join(text_parts)})
 
             # Also add tool results as tool messages

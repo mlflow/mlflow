@@ -218,7 +218,6 @@ def test_find_last_user_message_index_none():
     assert idx is None
 
 
-
 def test_process_session_creates_trace():
     trace = process_session("session_123", DUMMY_SESSION_INFO, DUMMY_MESSAGES)
 

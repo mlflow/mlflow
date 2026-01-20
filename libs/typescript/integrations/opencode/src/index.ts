@@ -10,22 +10,15 @@
  *   3. Run opencode normally - tracing happens automatically
  */
 
-import type { Plugin, PluginInput, Hooks } from "@opencode-ai/plugin";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import type { Plugin, PluginInput, Hooks } from '@opencode-ai/plugin';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 const processedTurns = new Map<string, number>();
 
 // Silent plugin - no console output to avoid TUI interference
 // Errors are logged to stderr only in debug mode
-const DEBUG = process.env.MLFLOW_OPENCODE_DEBUG === "true";
-
-interface SessionIdleEvent {
-  type: string;
-  properties: {
-    sessionID?: string;
-  };
-}
+const DEBUG = process.env.MLFLOW_OPENCODE_DEBUG === 'true';
 
 interface MLflowConfig {
   enabled?: boolean;
@@ -34,18 +27,37 @@ interface MLflowConfig {
   experimentName?: string;
 }
 
+interface ApiResponse<T> {
+  data?: T;
+  error?: unknown;
+}
+
+interface SessionClient {
+  get: (params: { path: { id: string } }) => Promise<ApiResponse<unknown>>;
+  messages: (params: {
+    path: { id: string };
+    query: { limit: number };
+  }) => Promise<ApiResponse<unknown[]>>;
+}
+
+interface PluginClient {
+  session: SessionClient;
+}
+
 /**
  * Load MLflow config from .opencode/mlflow.json
  */
 function loadMLflowConfig(directory: string): MLflowConfig {
-  const configPath = join(directory, ".opencode", "mlflow.json");
+  const configPath = join(directory, '.opencode', 'mlflow.json');
   try {
     if (existsSync(configPath)) {
-      const content = readFileSync(configPath, "utf-8");
+      const content = readFileSync(configPath, 'utf-8');
       return JSON.parse(content) as MLflowConfig;
     }
   } catch (e) {
-    if (DEBUG) console.error("[mlflow] Failed to load config:", e);
+    if (DEBUG) {
+      console.error('[mlflow] Failed to load config:', e);
+    }
   }
   return {};
 }
@@ -54,21 +66,19 @@ function loadMLflowConfig(directory: string): MLflowConfig {
  * MLflow tracing plugin for Opencode.
  * Automatically traces conversations to MLflow when sessions become idle.
  */
-export const MLflowTracingPlugin: Plugin = async (
-  input: PluginInput
-): Promise<Hooks> => {
-  const { client, directory } = input;
+export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> => {
+  const client = input.client as PluginClient;
+  const { directory } = input;
 
-  return {
+  return Promise.resolve({
     event: async ({ event }) => {
-      const typedEvent = event as SessionIdleEvent;
-
       // Only process session.idle events
-      if (typedEvent.type !== "session.idle") {
+      if (event.type !== 'session.idle') {
         return;
       }
 
-      const sessionID = typedEvent.properties?.sessionID;
+      // Now we know it's a session.idle event
+      const sessionID = (event.properties as { sessionID?: string })?.sessionID;
       if (!sessionID) {
         return;
       }
@@ -79,7 +89,9 @@ export const MLflowTracingPlugin: Plugin = async (
           path: { id: sessionID },
         });
         if (!sessionResult.data) {
-          if (DEBUG) console.error("[mlflow] Failed to fetch session:", sessionID);
+          if (DEBUG) {
+            console.error('[mlflow] Failed to fetch session:', sessionID);
+          }
           return;
         }
 
@@ -88,14 +100,16 @@ export const MLflowTracingPlugin: Plugin = async (
           query: { limit: 1000 },
         });
         if (!messagesResult.data) {
-          if (DEBUG) console.error("[mlflow] Failed to fetch messages:", sessionID);
+          if (DEBUG) {
+            console.error('[mlflow] Failed to fetch messages:', sessionID);
+          }
           return;
         }
 
         // Check if we've already processed this exact turn (same message count)
         const allMessages = messagesResult.data;
         const messageCount = allMessages.length;
-        const lastProcessedCount = processedTurns.get(sessionID) || 0;
+        const lastProcessedCount = processedTurns.get(sessionID) ?? 0;
 
         if (messageCount <= lastProcessedCount) {
           // Already processed this turn, skip
@@ -117,7 +131,9 @@ export const MLflowTracingPlugin: Plugin = async (
         // Load MLflow config from .opencode/mlflow.json
         const mlflowConfig = loadMLflowConfig(directory);
         if (!mlflowConfig.enabled) {
-          if (DEBUG) console.error("[mlflow] Tracing not enabled in config");
+          if (DEBUG) {
+            console.error('[mlflow] Tracing not enabled in config');
+          }
           return;
         }
 
@@ -132,8 +148,8 @@ export const MLflowTracingPlugin: Plugin = async (
 
         // Build environment variables from config
         const envVars: Record<string, string> = {
-          ...process.env as Record<string, string>,
-          MLFLOW_OPENCODE_TRACING_ENABLED: "true",
+          ...(process.env as Record<string, string>),
+          MLFLOW_OPENCODE_TRACING_ENABLED: 'true',
         };
 
         if (mlflowConfig.trackingUri) {
@@ -146,34 +162,33 @@ export const MLflowTracingPlugin: Plugin = async (
         }
 
         // Invoke Python MLflow tracing script via subprocess
-        const proc = Bun.spawn(
-          ["python", "-m", "mlflow.opencode.hooks", "session_completed"],
-          {
-            stdin: "pipe",
-            stdout: "pipe",
-            stderr: "pipe",
-            env: envVars,
-          }
-        );
+        const proc = Bun.spawn(['python', '-m', 'mlflow.opencode.hooks', 'session_completed'], {
+          stdin: 'pipe',
+          stdout: 'pipe',
+          stderr: 'pipe',
+          env: envVars,
+        });
 
         // Send session data as JSON to stdin using Bun's FileSink API
         const jsonData = JSON.stringify(sessionData);
-        proc.stdin.write(jsonData);
-        proc.stdin.end();
+        await proc.stdin.write(jsonData);
+        await proc.stdin.end();
 
         // Wait for process to complete
         const exitCode = await proc.exited;
 
         if (exitCode !== 0 && DEBUG) {
           const stderr = await new Response(proc.stderr).text();
-          console.error("[mlflow] Tracing failed:", stderr);
+          console.error('[mlflow] Tracing failed:', stderr);
         }
         // Success - silent
       } catch (error) {
-        if (DEBUG) console.error("[mlflow] Error processing session:", error);
+        if (DEBUG) {
+          console.error('[mlflow] Error processing session:', error);
+        }
       }
     },
-  };
+  });
 };
 
 export default MLflowTracingPlugin;
