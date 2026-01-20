@@ -11,6 +11,7 @@ $ python dev/update_ml_package_versions.py
 import argparse
 import json
 import re
+import subprocess
 import sys
 import time
 import urllib.request
@@ -263,8 +264,6 @@ def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = F
 
 def update_pyproject():
     """Update pyproject.toml files based on ml-package-versions.yml."""
-    import subprocess
-
     pyproject_script = Path(__file__).parent / "pyproject.py"
     subprocess.check_call([sys.executable, str(pyproject_script)])
 
