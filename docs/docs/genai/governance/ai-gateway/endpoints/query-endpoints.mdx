@@ -372,7 +372,7 @@ lm = dspy.LM(
 )
 dspy.configure(lm=lm)
 program = dspy.Predict("question -> answer")
-print(program(question="What is MLflow").answer)
+print(program(question="What is MLflow?").answer)
 ```
 
 </TabItem>
