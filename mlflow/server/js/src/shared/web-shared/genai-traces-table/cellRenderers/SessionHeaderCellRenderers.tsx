@@ -46,6 +46,8 @@ import { compact } from 'lodash';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
 import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
+import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggregatedCell';
+import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -245,9 +247,19 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     !column.assessmentInfo?.isSessionLevelAssessment &&
     traces.length > 0
   ) {
-    cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
-  } else {
-    cellContent = <NullCell />;
+    // Non-session-level assessment column - aggregate values from all traces
+    const assessmentInfo = column.assessmentInfo;
+    const { dtype } = assessmentInfo;
+
+    if (dtype === 'pass-fail' || dtype === 'boolean') {
+      cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'numeric') {
+      cellContent = <SessionHeaderNumericAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'string' || dtype === 'unknown') {
+      cellContent = <SessionHeaderStringAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (

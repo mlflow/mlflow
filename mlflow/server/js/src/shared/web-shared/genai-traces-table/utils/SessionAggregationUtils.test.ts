@@ -5,7 +5,11 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type { AssessmentInfo } from '../types';
 
-import { aggregatePassFailAssessments } from './SessionAggregationUtils';
+import {
+  aggregateNumericAssessments,
+  aggregatePassFailAssessments,
+  aggregateStringAssessments,
+} from './SessionAggregationUtils';
 
 // Helper to create a minimal AssessmentInfo for testing
 const createAssessmentInfo = (overrides: Partial<AssessmentInfo> = {}): AssessmentInfo => ({
@@ -282,6 +286,219 @@ describe('SessionAggregationUtils', () => {
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
       // Only 2 valid assessments: 1 pass, 1 fail
       expect(result).toEqual({ passCount: 1, totalCount: 2 });
+    });
+  });
+
+  describe('aggregateNumericAssessments', () => {
+    it('returns null average for empty traces array', () => {
+      const result = aggregateNumericAssessments([], 'numeric_assessment');
+      expect(result).toEqual({ average: null, count: 0 });
+    });
+
+    it('calculates average correctly', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 0.8 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 0.6 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 1.0 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateNumericAssessments(traces, 'score');
+      expect(result.count).toBe(3);
+      expect(result.average).toBeCloseTo(0.8, 5);
+    });
+
+    it('skips non-numeric values', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 0.5 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 'not a number' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 1.5 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateNumericAssessments(traces, 'score');
+      expect(result.count).toBe(2);
+      expect(result.average).toBe(1.0);
+    });
+
+    it('skips invalid assessments', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'score',
+            feedback: { value: 10 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+            valid: false,
+          },
+          {
+            assessment_name: 'score',
+            feedback: { value: 20 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateNumericAssessments(traces, 'score');
+      expect(result).toEqual({ average: 20, count: 1 });
+    });
+  });
+
+  describe('aggregateStringAssessments', () => {
+    it('returns empty map for empty traces array', () => {
+      const result = aggregateStringAssessments([], 'string_assessment');
+      expect(result.valueCounts.size).toBe(0);
+      expect(result.totalCount).toBe(0);
+    });
+
+    it('counts unique string values correctly', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'good' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'bad' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'good' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'neutral' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateStringAssessments(traces, 'category');
+      expect(result.totalCount).toBe(4);
+      expect(result.valueCounts.size).toBe(3);
+      expect(result.valueCounts.get('good')).toBe(2);
+      expect(result.valueCounts.get('bad')).toBe(1);
+      expect(result.valueCounts.get('neutral')).toBe(1);
+    });
+
+    it('skips non-string values', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'valid' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 123 },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: true },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateStringAssessments(traces, 'category');
+      expect(result.totalCount).toBe(1);
+      expect(result.valueCounts.size).toBe(1);
+      expect(result.valueCounts.get('valid')).toBe(1);
+    });
+
+    it('skips invalid assessments', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'invalid' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+            valid: false,
+          },
+          {
+            assessment_name: 'category',
+            feedback: { value: 'valid' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateStringAssessments(traces, 'category');
+      expect(result.totalCount).toBe(1);
+      expect(result.valueCounts.get('valid')).toBe(1);
+      expect(result.valueCounts.get('invalid')).toBeUndefined();
+    });
+
+    it('skips session-level assessments', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'category',
+            feedback: { value: 'session-value' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+            metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'true' },
+          },
+          {
+            assessment_name: 'category',
+            feedback: { value: 'trace-value' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregateStringAssessments(traces, 'category');
+      expect(result.totalCount).toBe(1);
+      expect(result.valueCounts.get('trace-value')).toBe(1);
+      expect(result.valueCounts.get('session-value')).toBeUndefined();
     });
   });
 });
