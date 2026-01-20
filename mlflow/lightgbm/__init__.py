@@ -123,6 +123,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    serialization_format="cloudpickle",
+    skops_trusted_types=None,
 ):
     """
     Save a LightGBM model to a path on the local file system.
@@ -196,7 +198,7 @@ def save_model(
         mlflow_model.metadata = metadata
 
     # Save a LightGBM model
-    _save_model(lgb_model, model_data_path)
+    _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
     lgb_model_class = _get_fully_qualified_class_name(lgb_model)
     pyfunc.add_to_model(
@@ -213,6 +215,8 @@ def save_model(
         data=model_data_subpath,
         model_class=lgb_model_class,
         code=code_dir_subpath,
+        serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -254,20 +258,18 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _save_model(lgb_model, model_path):
+def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
     """
     LightGBM Boosters are saved using the built-in method `save_model()`,
     whereas LightGBM scikit-learn models are serialized using Cloudpickle.
     """
     import lightgbm as lgb
+    from mlflow.sklearn import _save_model as _save_sklearn_model
 
     if isinstance(lgb_model, lgb.Booster):
         lgb_model.save_model(model_path)
     else:
-        import cloudpickle
-
-        with open(model_path, "wb") as out:
-            cloudpickle.dump(lgb_model, out)
+        _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -411,11 +413,12 @@ def _load_model(path):
 
         model = lgb.Booster(model_file=lgb_model_path)
     else:
-        # LightGBM scikit-learn models are deserialized using Cloudpickle.
-        import cloudpickle
+        from mlflow.sklearn import _load_model_from_local_file as _load_sklearn_model
 
-        with open(lgb_model_path, "rb") as f:
-            model = cloudpickle.load(f)
+        serialization_format = flavor_conf.get("serialization_format", "cloudpickle")
+        skops_trusted_types = flavor_conf.get("skops_trusted_types", None)
+
+        model = _load_sklearn_model(lgb_model_path, serialization_format, skops_trusted_types)
 
     return model
 
