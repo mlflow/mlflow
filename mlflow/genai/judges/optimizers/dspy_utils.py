@@ -377,15 +377,9 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
     try:
         judge_input_fields = judge.get_input_fields()
 
-        judge_requires_trace = any(
-            field.name == "trace" for field in judge_input_fields
-        )
-        judge_requires_inputs = any(
-            field.name == "inputs" for field in judge_input_fields
-        )
-        judge_requires_outputs = any(
-            field.name == "outputs" for field in judge_input_fields
-        )
+        judge_requires_trace = any(field.name == "trace" for field in judge_input_fields)
+        judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
+        judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
         judge_requires_expectations = any(
             field.name == "expectations" for field in judge_input_fields
         )
@@ -402,9 +396,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
             return None
         elif not expectations and judge_requires_expectations:
-            _logger.warning(
-                f"Missing required expectations in trace {trace.info.trace_id}"
-            )
+            _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
             return None
 
         # Find human assessment for this judge
@@ -415,9 +407,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             sorted_assessments = sorted(
                 trace.info.assessments,
                 key=lambda a: (
-                    a.create_time_ms
-                    if hasattr(a, "create_time_ms") and a.create_time_ms
-                    else 0
+                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
                 ),
                 reverse=True,
             )
@@ -438,9 +428,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             return None
 
         if not expected_result.feedback:
-            _logger.warning(
-                f"No feedback found in assessment for trace {trace.info.trace_id}"
-            )
+            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
             return None
 
         # Create DSPy example
@@ -522,9 +510,7 @@ def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = Non
         expected_norm = str(expected).lower().strip()
         predicted_norm = str(predicted).lower().strip()
 
-        _logger.debug(
-            f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}"
-        )
+        _logger.debug(f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}")
 
         return expected_norm == predicted_norm
     except Exception as e:
@@ -616,7 +602,5 @@ def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
             examples_text.append(f"Example {i + 1}:\n" + "\n".join(example_parts))
 
     if examples_text:
-        return "Here are some examples of good assessments:\n\n" + "\n\n".join(
-            examples_text
-        )
+        return "Here are some examples of good assessments:\n\n" + "\n\n".join(examples_text)
     return ""
