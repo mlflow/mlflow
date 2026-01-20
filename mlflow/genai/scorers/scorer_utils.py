@@ -206,19 +206,14 @@ def validate_scorer_name(name: str | None) -> None:
         MlflowException: If the name is invalid.
     """
     if name is None:
-        raise MlflowException(
-            "Scorer name cannot be None.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
     if not isinstance(name, str):
-        raise MlflowException(
-            f"Scorer name must be a string, got {type(name).__name__}.",
-            error_code=INVALID_PARAMETER_VALUE,
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
         )
-    if not name or not name.strip():
-        raise MlflowException(
-            "Scorer name cannot be empty or contain only whitespace.",
-            error_code=INVALID_PARAMETER_VALUE,
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
         )
 
 
@@ -233,18 +228,15 @@ def validate_scorer_model(model: str | None) -> None:
         MlflowException: If the model is invalid.
     """
     if model is None:
-        # Model is optional for some scorers
         return
 
     if not isinstance(model, str):
-        raise MlflowException(
-            f"Scorer model must be a string, got {type(model).__name__}.",
-            error_code=INVALID_PARAMETER_VALUE,
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
         )
     if not model.strip():
-        raise MlflowException(
-            "Scorer model cannot be empty or contain only whitespace.",
-            error_code=INVALID_PARAMETER_VALUE,
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
         )
 
 

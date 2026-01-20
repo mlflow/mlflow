@@ -2107,7 +2107,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
 
         Raises:
-            MlflowException: If the scorer references a gateway endpoint that does not exist.
+            MlflowException: If the scorer name is invalid, if the model is invalid,
+                or if the scorer references a gateway endpoint that does not exist.
         """
         # Validate scorer name
         validate_scorer_name(name)
@@ -2489,7 +2490,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The created or updated OnlineScoringConfig entity.
 
         Raises:
-            MlflowException: If scorer is not found or does not use a gateway model.
+            MlflowException: If sample_rate is not a number, if sample_rate is outside
+                the range [0.0, 1.0], if filter_string is not a string, if the
+                filter_string syntax is invalid, if the scorer is not found, or if the
+                scorer does not use a gateway model.
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
