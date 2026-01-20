@@ -111,13 +111,17 @@ export const AssessmentSummaryTable: React.FC<AssessmentSummaryTableProps> = ({
 
         {/* Scrollable table body */}
         <div css={{ maxHeight: 300, overflowY: 'auto' }}>
-          {sortedTableData.map((row, index) => (
-            <div key={row.scorerName} css={bodyRowStyle}>
-              <NameCellWithColor name={row.scorerName} color={getChartColor(index)} />
-              <Typography.Text css={cellStyle}>{formatCount(row.totalCount)}</Typography.Text>
-              <Typography.Text css={cellStyle}>{formatAvgValue(row.avgValue)}</Typography.Text>
-            </div>
-          ))}
+          {sortedTableData.map((row, index) => {
+            const originalIndex = assessmentNames.indexOf(row.scorerName);
+            const colorIndex = originalIndex === -1 ? index : originalIndex;
+            return (
+              <div key={row.scorerName} css={bodyRowStyle}>
+                <NameCellWithColor name={row.scorerName} color={getChartColor(colorIndex)} />
+                <Typography.Text css={cellStyle}>{formatCount(row.totalCount)}</Typography.Text>
+                <Typography.Text css={cellStyle}>{formatAvgValue(row.avgValue)}</Typography.Text>
+              </div>
+            );
+          })}
         </div>
       </div>
     </OverviewChartContainer>

@@ -109,14 +109,18 @@ export const ToolPerformanceSummary: React.FC = () => {
 
           {/* Scrollable table body */}
           <div css={{ maxHeight: 300, overflowY: 'auto' }}>
-            {sortedToolsData.map((tool, index) => (
-              <div key={tool.toolName} css={bodyRowStyle}>
-                <NameCellWithColor name={tool.toolName} color={getChartColor(index)} />
-                <Typography.Text css={cellStyle}>{formatCount(tool.totalCalls)}</Typography.Text>
-                <Typography.Text css={cellStyle}>{tool.successRate.toFixed(2)}%</Typography.Text>
-                <Typography.Text css={cellStyle}>{formatLatency(tool.avgLatency)}</Typography.Text>
-              </div>
-            ))}
+            {sortedToolsData.map((tool, index) => {
+              const originalIndex = toolsData.findIndex((t) => t.toolName === tool.toolName);
+              const colorIndex = originalIndex === -1 ? index : originalIndex;
+              return (
+                <div key={tool.toolName} css={bodyRowStyle}>
+                  <NameCellWithColor name={tool.toolName} color={getChartColor(colorIndex)} />
+                  <Typography.Text css={cellStyle}>{formatCount(tool.totalCalls)}</Typography.Text>
+                  <Typography.Text css={cellStyle}>{tool.successRate.toFixed(2)}%</Typography.Text>
+                  <Typography.Text css={cellStyle}>{formatLatency(tool.avgLatency)}</Typography.Text>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
