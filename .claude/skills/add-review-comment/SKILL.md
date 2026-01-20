@@ -21,7 +21,8 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   -f path=<file_path> \
   -F line=<line_number> \
   -f side=<side> \
-  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)"
+  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)" \
+  --jq '.html_url'
 ```
 
 **Multi-line comment:**
@@ -35,7 +36,8 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   -f start_side=<side> \
   -F line=<last_line> \
   -f side=<side> \
-  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)"
+  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)" \
+  --jq '.html_url'
 ```
 
 ## Parameters
