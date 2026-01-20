@@ -71,6 +71,8 @@ interface UseTraceMetricsQueryParams {
   filters?: string[];
   /** Optional: Dimensions to group metrics by (e.g. `assessment_name`) */
   dimensions?: string[];
+  /** Optional: Whether the query is enabled. Defaults to true. */
+  enabled?: boolean;
 }
 
 export function useTraceMetricsQuery({
@@ -83,6 +85,7 @@ export function useTraceMetricsQuery({
   timeIntervalSeconds,
   filters,
   dimensions,
+  enabled = true,
 }: UseTraceMetricsQueryParams) {
   const queryParams: QueryTraceMetricsRequest = {
     experiment_ids: [experimentId],
@@ -113,7 +116,7 @@ export function useTraceMetricsQuery({
       const response = await queryTraceMetrics(queryParams);
       return response;
     },
-    enabled: !!experimentId,
+    enabled: !!experimentId && enabled,
     refetchOnWindowFocus: false,
   });
 }

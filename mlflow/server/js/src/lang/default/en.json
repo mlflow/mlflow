@@ -2394,6 +2394,10 @@
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
   },
+  "HF6L/f": {
+    "defaultMessage": "Monitor quality metrics from scorers",
+    "description": "Empty state title for the quality tab in overview page"
+  },
   "HFavpn": {
     "defaultMessage": "Max input: {tokens}",
     "description": "Max input tokens"
@@ -3205,6 +3209,10 @@
   "Nm/Pjx": {
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
+  },
+  "NnO0Lz": {
+    "defaultMessage": "MLflow allows you to evaluate your GenAI applications using scorers. Scorers compute quality metrics like relevance, correctness, and custom assessments. Copy the code snippet below to run an evaluation, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the quality tab in overview page"
   },
   "Nnsm0p": {
     "defaultMessage": "All runs in this experiment have been filtered. Change or clear filters to view runs.",
@@ -4926,6 +4934,10 @@
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
+  },
+  "bUdkau": {
+    "defaultMessage": "Try selecting a longer time range.",
+    "description": "Suggestion to select a longer time range"
   },
   "bXA79t": {
     "defaultMessage": "On",
@@ -7335,6 +7347,10 @@
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
   },
+  "tiQptW": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for GenAI evaluation"
+  },
   "tkAOSa": {
     "defaultMessage": "Custom expression",
     "description": "Experiment tracking > runs charts > line chart configuration > custom expression label"
@@ -7938,6 +7954,10 @@
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
     "description": "Description for outputs variable"
+  },
+  "yzf17M": {
+    "defaultMessage": "Some assessments are hidden by your time range filter: \"{filterLabel}\".",
+    "description": "Message shown when assessments are hidden by time filter"
   },
   "yzxYIm": {
     "defaultMessage": "Points:",
