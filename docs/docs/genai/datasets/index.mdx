@@ -15,7 +15,7 @@ To systematically test and improve a GenAI application, you use an evaluation da
 - Prevent regressions. Create a "golden set" of examples that must always work correctly.
 - Compare app versions. Test different prompts, models, or app logic against the same data.
 - Target specific features or issues. Build specialized datasets for safety, domain knowledge, or edge cases.
-- Validate the app across different environments as part of LLMOps.
+- Validate the app across different environments (e.g., development vs. production) as part of LLMOps.
 
 You can think of them as test suites for your LLM functionality.
 
@@ -115,14 +115,6 @@ for trace in traces:
 # 4. Add the traces to the evaluation dataset
 eval_dataset = eval_dataset.merge_records(traces)
 print(f"Added {len(traces)} records to evaluation dataset")
-
-# Preview the dataset
-df = eval_dataset.to_df()
-print(f"\nDataset preview:")
-print(f"Total records: {len(df)}")
-print("\nSample record:")
-sample = df.iloc[0]
-print(f"Inputs: {sample['inputs']}")
 ```
 
 #### Select traces for evaluation datasets
@@ -172,6 +164,8 @@ Review individual traces to identify patterns requiring human judgment:
 - Compare high-quality vs. low-quality traces to understand differentiating factors
 
 Once you've identified representative traces, add them to your dataset using the search and merge methods described above.
+
+You can also use AI Insights features like [Analyze Experiment](/genai/eval-monitor/ai-insights/ai-issue-discovery/) to automatically discover quality and operational issues across your traces.
 
 </TabItem>
 
@@ -283,7 +277,21 @@ dataset.merge_records(df)
 </Tabs>
 </TabsWrapper>
 
-## Understanding Source Types
+
+### Preview the dataset
+
+Optionally, you can examine the dataset by converting it to a dataframe.
+
+```python
+df = eval_dataset.to_df()
+print(f"\nDataset preview:")
+print(f"Total records: {len(df)}")
+print("\nSample record:")
+sample = df.iloc[0]
+print(f"Inputs: {sample['inputs']}")
+```
+
+### Understanding Source Types
 
 Every record in an evaluation dataset has a **source type** that tracks its provenance. This enables you to analyze model performance by data origin and understand which types of test data are most valuable.
 
@@ -340,11 +348,6 @@ dataset = dataset.merge_records(new_cases)
 
 </Tabs>
 </TabsWrapper>
-
-## Limitations
-
-- Maximum of 2000 rows per evaluation dataset.
-- Maximum of 20 expectations per dataset record.
 
 ## Next Steps
 
