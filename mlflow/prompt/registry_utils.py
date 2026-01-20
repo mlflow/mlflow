@@ -88,16 +88,12 @@ class PromptCacheKey(NamedTuple):
             return cls.from_parts(prompt_name, version=prompt_version)
 
 
-def model_version_to_prompt_version(
-    model_version: ModelVersion, prompt_tags: dict[str, str] | None = None
-) -> PromptVersion:
+def model_version_to_prompt_version(model_version: ModelVersion) -> PromptVersion:
     """
     Create a PromptVersion object from a ModelVersion object.
 
     Args:
         model_version: The ModelVersion object to convert to a PromptVersion.
-        prompt_tags: The prompt-level tags (from RegisteredModel). These are merged with
-            model version tags, with model version tags taking precedence. Optional.
 
     Returns:
         PromptVersion: The converted PromptVersion object.
@@ -123,16 +119,13 @@ def model_version_to_prompt_version(
     else:
         response_format = None
 
-    # Merge prompt-level tags with model version tags (model version tags take precedence)
-    merged_tags = {**(prompt_tags or {}), **model_version.tags}
-
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
         template=template,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
-        tags=merged_tags,
+        tags=model_version.tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,
