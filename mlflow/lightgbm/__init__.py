@@ -59,7 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import is_in_databricks_runtime as is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -275,6 +275,7 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
     whereas LightGBM scikit-learn models are serialized using Cloudpickle.
     """
     import lightgbm as lgb
+
     from mlflow.sklearn import _save_model as _save_sklearn_model
 
     if isinstance(lgb_model, lgb.Booster):
