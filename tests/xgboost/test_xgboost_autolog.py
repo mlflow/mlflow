@@ -792,3 +792,42 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
             }
         }
     )
+
+
+@pytest.mark.parametrize("log_none_params", [True, False])
+def test_xgb_autolog_log_none_params_configuration(bst_params, log_none_params):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = xgb.DMatrix(X, y)
+
+    mlflow.xgboost.autolog(log_none_params=log_none_params)
+    xgb.train(bst_params, dataset)
+    run = get_latest_run()
+    params = run.data.params
+
+    none_valued_params = [k for k, v in params.items() if v == "None"]
+
+    if log_none_params:
+        if Version(xgb.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+            assert len(none_valued_params) > 0
+    else:
+        assert len(none_valued_params) == 0
+
+
+def test_xgb_autolog_log_none_params_default_is_true(bst_params):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = xgb.DMatrix(X, y)
+
+    mlflow.xgboost.autolog()
+    xgb.train(bst_params, dataset)
+    run = get_latest_run()
+    params = run.data.params
+
+    if Version(xgb.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+        assert "maximize" in params
+        assert params["maximize"] == "None"
+
+
