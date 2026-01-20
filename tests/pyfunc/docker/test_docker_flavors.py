@@ -220,7 +220,7 @@ def keras_model(model_path, iris_data):
 
 @pytest.fixture
 def langchain_model(model_path):
-    from langchain.schema.runnable import RunnablePassthrough
+    from langchain_core.runnables import RunnablePassthrough
 
     chain = RunnablePassthrough() | itemgetter("messages")
     save_model_with_latest_mlflow_version(

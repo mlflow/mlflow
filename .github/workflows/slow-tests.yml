@@ -71,5 +71,4 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          # trigger test
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker tests/pyfunc/docker
