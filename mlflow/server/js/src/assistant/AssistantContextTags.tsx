@@ -3,15 +3,46 @@
  * Displays the current page context (traces, runs) as compact tags.
  */
 
-import { ForkHorizontalIcon, PlayIcon, Tag, TagColors, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ForkHorizontalIcon,
+  HomeIcon,
+  PlayIcon,
+  Tag,
+  TagColors,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 
 import { useAssistantPageContext } from './AssistantPageContext';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel.context';
 const MAX_VISIBLE_ITEMS = 3;
+const MAX_PAGE_NAME_LENGTH = 30;
 
 function truncateId(id: string, maxLen = 8): string {
   return id.length > maxLen ? `${id.slice(0, maxLen)}...` : id;
+}
+
+/**
+ * Truncates a page name to fit within the UI.
+ * Shortens long IDs (like run/experiment IDs) while preserving the page type.
+ */
+function truncatePageName(pageName: string, maxLen = MAX_PAGE_NAME_LENGTH): string {
+  if (pageName.length <= maxLen) return pageName;
+
+  // Try to preserve the structure: "Page Type > Sub Tab" or just "Page Type"
+  const parts = pageName.split(' > ');
+  if (parts.length === 2) {
+    // Has sub-tab, try to shorten the main part
+    const [mainPart, subTab] = parts;
+    const availableLen = maxLen - subTab.length - 5; // 5 for " > " and "..."
+    if (availableLen > 10) {
+      return `${mainPart.slice(0, availableLen)}... > ${subTab}`;
+    }
+  }
+
+  // Fallback: simple truncation
+  return `${pageName.slice(0, maxLen - 3)}...`;
 }
 
 interface ContextTagGroupProps {
@@ -73,17 +104,41 @@ export function AssistantContextTags(): React.ReactElement | null {
   const selectedTraceIds = context['selectedTraceIds'] as string[] | undefined;
   const runId = context['runId'] as string | undefined;
   const selectedRunIds = context['selectedRunIds'] as string[] | undefined;
+  const currentPage = context['currentPage'] as string | undefined;
+
+  // Check if current page already shows run/trace info to avoid duplication
+  const isOnRunPage = currentPage?.startsWith('Run ');
+  const isOnTracePage = currentPage?.toLowerCase().includes('trace');
 
   // Remove duplication of active and selected trace/run IDs
+  // Don't show run tag separately if we're on a run page (it's already in the page title)
   const traceIds = [...new Set([traceId, ...(selectedTraceIds ?? [])].filter(Boolean))] as string[];
-  const runIds = [...new Set([runId, ...(selectedRunIds ?? [])].filter(Boolean))] as string[];
+  const runIds = isOnRunPage
+    ? // On run page: only show selected runs, not the current run (already in page title)
+      [...new Set([...(selectedRunIds ?? [])].filter((id) => id !== runId && Boolean(id)))] as string[]
+    : ([...new Set([runId, ...(selectedRunIds ?? [])].filter(Boolean))] as string[]);
 
-  if (traceIds.length === 0 && runIds.length === 0) return null;
+  // Similarly for traces - don't show if it's part of the page
+  const filteredTraceIds = isOnTracePage && traceIds.length === 1 && traceId ? [] : traceIds;
+
+  if (filteredTraceIds.length === 0 && runIds.length === 0 && !currentPage) return null;
 
   return (
     <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
+      {currentPage && (
+        <Tooltip componentId={`${COMPONENT_ID}.page.tooltip`} content={`Current page: ${currentPage}`}>
+          <Tag componentId={`${COMPONENT_ID}.page`} color="lemon">
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, maxWidth: 200 }}>
+              <HomeIcon css={{ fontSize: 12, flexShrink: 0 }} />
+              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {truncatePageName(currentPage)}
+              </span>
+            </span>
+          </Tag>
+        </Tooltip>
+      )}
       <ContextTagGroup
-        ids={traceIds}
+        ids={filteredTraceIds}
         color="indigo"
         label="Trace"
         componentIdPrefix={`${COMPONENT_ID}.trace`}

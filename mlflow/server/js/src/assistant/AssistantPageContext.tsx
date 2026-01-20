@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { create } from '@databricks/web-shared/zustand';
-import { useParams, useSearchParams } from '../common/utils/RoutingUtils';
+import { usePageTitle, useParams, useSearchParams } from '../common/utils/RoutingUtils';
 import type { RowSelectionState } from '@tanstack/react-table';
 
 import type { AssistantContextKey, KnownAssistantContext } from './types';
@@ -11,7 +11,9 @@ interface AssistantPageContextStore {
   context: AssistantPageContextData;
   setContext: (key: string, value: unknown) => void;
   removeContext: (key: string) => void;
-  updateRouteContext: (updates: Partial<Record<'experimentId' | 'runId' | 'traceId', string | null>>) => void;
+  updateRouteContext: (
+    updates: Partial<Record<'experimentId' | 'runId' | 'traceId' | 'currentPage', string | null>>,
+  ) => void;
   getContext: () => AssistantPageContextData;
 }
 
@@ -39,25 +41,86 @@ const useAssistantPageContextStore = create<AssistantPageContextStore>((set, get
 }));
 
 /**
+ * Converts a URL slug to a human-readable title.
+ * Examples: "tool-calls" → "Tool Calls", "model-metrics" → "Model Metrics"
+ */
+const slugToTitle = (slug: string): string => {
+  return slug
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Extracts sub-tab name from route params.
+ * Automatically converts URL slugs to readable names - no manual mapping needed.
+ */
+const getSubTabFromParams = (params: Record<string, string | undefined>): string | null => {
+  // Check for overview sub-tab (e.g., /overview/tool-calls)
+  const overviewTab = params['overviewTab'];
+  if (overviewTab) {
+    return slugToTitle(overviewTab);
+  }
+
+  // Check for catch-all param (used in run page tabs, e.g., /runs/:id/model-metrics)
+  const catchAll = params['*'];
+  if (catchAll) {
+    const tabKey = catchAll.split('/')[0];
+    if (tabKey) {
+      return slugToTitle(tabKey);
+    }
+  }
+
+  // Check for tabName param (used in logged model details)
+  const tabName = params['tabName'];
+  if (tabName) {
+    return slugToTitle(tabName);
+  }
+
+  return null;
+};
+
+/**
  * Component that provides route parameters as assistant context.
  * Mount this once at the app root (inside Router context).
+ *
+ * Uses React Router's route handles (via usePageTitle) to automatically
+ * detect the current page. When new routes are added with getPageTitle handlers,
+ * they are automatically included in the context.
  */
 export const AssistantRouteContextProvider = () => {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const { updateRouteContext } = useAssistantPageContextStore();
 
+  // Get page title from route handle (automatically works for any route with getPageTitle)
+  const pageTitle = usePageTitle();
+
   const experimentId = (params as Record<string, string | undefined>)['experimentId'];
   const runId = (params as Record<string, string | undefined>)['runUuid'];
   const traceId = searchParams.get('selectedEvaluationId');
+
+  // Build the current page context, including sub-tabs if present
+  const currentPage = useMemo(() => {
+    if (!pageTitle) return null;
+
+    // Check if there's a sub-tab to append
+    const subTab = getSubTabFromParams(params as Record<string, string | undefined>);
+    if (subTab) {
+      return `${pageTitle} > ${subTab}`;
+    }
+
+    return pageTitle;
+  }, [pageTitle, params]);
 
   useEffect(() => {
     updateRouteContext({
       experimentId: experimentId ?? null,
       runId: runId ?? null,
       traceId: traceId ?? null,
+      currentPage: currentPage ?? null,
     });
-  }, [experimentId, runId, traceId, updateRouteContext]);
+  }, [experimentId, runId, traceId, currentPage, updateRouteContext]);
 
   return null;
 };
