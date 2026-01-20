@@ -12,8 +12,6 @@ import {
   CheckCircleIcon,
 } from '@databricks/design-system';
 
-const COMPONENT_ID = 'mlflow.assistant.setup.complete';
-
 const SUGGESTIONS = [
   'What does this trace show?',
   'Debug the error in this trace.',
@@ -45,7 +43,7 @@ export const SetupComplete = ({ onStartChatting }: SetupCompleteProps) => {
 
       <Typography.Text color="secondary">You're all set to use the MLflow Assistant.</Typography.Text>
 
-      <Button componentId={`${COMPONENT_ID}.start_chatting`} type="primary" onClick={onStartChatting}>
+      <Button componentId="mlflow.assistant.setup.complete.start_chatting" type="primary" onClick={onStartChatting}>
         Start Chatting
       </Button>
 
@@ -85,7 +83,7 @@ export const SetupComplete = ({ onStartChatting }: SetupCompleteProps) => {
           {SUGGESTIONS.map((suggestion) => (
             <Card
               key={suggestion}
-              componentId={`${COMPONENT_ID}.suggestion`}
+              componentId="mlflow.assistant.setup.complete.suggestion"
               onClick={onStartChatting}
               css={{
                 cursor: 'pointer',

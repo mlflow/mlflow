@@ -29,8 +29,6 @@ import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
-const COMPONENT_ID = 'mlflow.assistant.chat_panel';
-
 // Shared animation keyframes
 const PULSE_ANIMATION = {
   '0%, 100%': { transform: 'scale(1)' },
@@ -145,13 +143,13 @@ const ChatMessageBubble = ({
             transition: 'opacity 0.2s ease',
           }}
         >
-          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copyTooltip}>
-            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={copyIcon} onClick={handleCopy} />
+          <Tooltip componentId="mlflow.assistant.chat_panel.copy.tooltip" content={copyTooltip}>
+            <Button componentId="mlflow.assistant.chat_panel.copy" size="small" icon={copyIcon} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
-            <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
+            <Tooltip componentId="mlflow.assistant.chat_panel.regenerate.tooltip" content="Regenerate">
               <Button
-                componentId={`${COMPONENT_ID}.regenerate`}
+                componentId="mlflow.assistant.chat_panel.regenerate"
                 size="small"
                 icon={<RefreshIcon />}
                 onClick={handleRegenerate}
@@ -213,7 +211,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
       >
         {suggestions.map((suggestion) => (
           <Card
-            componentId={`${COMPONENT_ID}.suggestion.card`}
+            componentId="mlflow.assistant.chat_panel.suggestion.card"
             key={suggestion}
             onClick={() => onSelect(suggestion)}
             css={{
@@ -457,7 +455,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         Ask questions about your experiments, traces, evaluations, and more.
       </Typography.Text>
 
-      <Button componentId={`${COMPONENT_ID}.setup`} type="primary" onClick={onSetup}>
+      <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
         Get Started
       </Button>
     </div>
@@ -549,15 +547,15 @@ export const AssistantChatPanel = () => {
         >
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
           <FormattedMessage defaultMessage="MLflow Assistant" description="Title for the global Assistant chat panel" />
-          <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise">
+          <Tag componentId="mlflow.assistant.chat_panel.beta" color="turquoise">
             Beta
           </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
-            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="Clear Chat">
+            <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="Clear Chat">
               <Button
-                componentId={`${COMPONENT_ID}.reset`}
+                componentId="mlflow.assistant.chat_panel.reset"
                 size="small"
                 icon={<RefreshIcon />}
                 onClick={handleReset}
@@ -565,9 +563,9 @@ export const AssistantChatPanel = () => {
               />
             </Tooltip>
           )}
-          <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
+          <Tooltip componentId="mlflow.assistant.chat_panel.close.tooltip" content="Close">
             <Button
-              componentId={`${COMPONENT_ID}.close`}
+              componentId="mlflow.assistant.chat_panel.close"
               size="small"
               icon={<CloseIcon />}
               onClick={handleClose}

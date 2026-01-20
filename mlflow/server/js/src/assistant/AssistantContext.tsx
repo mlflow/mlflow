@@ -123,7 +123,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
-  }, []);
+    // Refresh config when panel opens (intentionally not awaited)
+    refreshConfig();
+  }, [refreshConfig]);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);

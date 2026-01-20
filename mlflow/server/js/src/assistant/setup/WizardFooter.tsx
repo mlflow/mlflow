@@ -4,8 +4,6 @@
 
 import { Button, Spinner, useDesignSystemTheme } from '@databricks/design-system';
 
-const COMPONENT_ID = 'mlflow.assistant.setup.footer';
-
 interface WizardFooterProps {
   onBack?: () => void;
   onNext: () => void;
@@ -36,12 +34,12 @@ export const WizardFooter = ({
       }}
     >
       {onBack && (
-        <Button componentId={`${COMPONENT_ID}.back`} onClick={onBack} disabled={backDisabled || isLoading}>
+        <Button componentId="mlflow.assistant.setup.footer.back" onClick={onBack} disabled={backDisabled || isLoading}>
           Back
         </Button>
       )}
 
-      <Button componentId={`${COMPONENT_ID}.next`} type="primary" onClick={onNext} disabled={nextDisabled || isLoading}>
+      <Button componentId="mlflow.assistant.setup.footer.next" type="primary" onClick={onNext} disabled={nextDisabled || isLoading}>
         {isLoading ? <Spinner size="small" /> : nextLabel}
       </Button>
     </div>

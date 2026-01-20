@@ -46,14 +46,12 @@ export const AssistantSparkleIcon = ({ isHovered, iconSize, className }: Assista
  * Use this for icon-only buttons (e.g., in the header).
  */
 interface AssistantIconButtonProps {
-  componentId: string;
   tooltipSide?: 'top' | 'bottom' | 'left' | 'right';
   iconSize?: number;
   className?: string;
 }
 
 export const AssistantIconButton = ({
-  componentId,
   tooltipSide = 'bottom',
   iconSize,
   className,
@@ -71,7 +69,7 @@ export const AssistantIconButton = ({
       openPanel();
     }
     logTelemetryEvent({
-      componentId,
+      componentId: 'mlflow.assistant.icon_button',
       componentViewId: viewId,
       componentType: DesignSystemEventProviderComponentTypes.Button,
       componentSubType: null,
@@ -87,7 +85,7 @@ export const AssistantIconButton = ({
 
   return (
     <Tooltip
-      componentId={`${componentId}.tooltip`}
+      componentId="mlflow.assistant.icon_button.tooltip"
       content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
       side={tooltipSide}
       delayDuration={0}

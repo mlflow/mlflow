@@ -8,8 +8,6 @@ import { Typography, useDesignSystemTheme, Input, Checkbox } from '@databricks/d
 import { updateConfig } from '../AssistantService';
 import { WizardFooter } from './WizardFooter';
 
-const COMPONENT_ID = 'mlflow.assistant.setup.project';
-
 interface SetupStepProjectProps {
   experimentId?: string;
   onBack: () => void;
@@ -69,7 +67,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               <div>
-                <Checkbox componentId={`${COMPONENT_ID}.perm_mlflow_cli`} isChecked disabled onChange={() => {}}>
+                <Checkbox componentId="mlflow.assistant.setup.project.perm_mlflow_cli" isChecked disabled onChange={() => {}}>
                   <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
                 </Checkbox>
                 <Typography.Text
@@ -82,7 +80,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
               <div>
                 <Checkbox
-                  componentId={`${COMPONENT_ID}.perm_edit_files`}
+                  componentId="mlflow.assistant.setup.project.perm_edit_files"
                   isChecked={editFiles}
                   onChange={(checked) => setEditFiles(checked)}
                 >
@@ -98,7 +96,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
               <div>
                 <Checkbox
-                  componentId={`${COMPONENT_ID}.perm_full`}
+                  componentId="mlflow.assistant.setup.project.perm_full"
                   isChecked={fullPermission}
                   onChange={(checked) => setFullPermission(checked)}
                 >
@@ -126,7 +124,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
             {experimentId ? (
               <Input
-                componentId={`${COMPONENT_ID}.path_input`}
+                componentId="mlflow.assistant.setup.project.path_input"
                 value={projectPath}
                 onChange={(e) => setProjectPath(e.target.value)}
                 placeholder="/Users/me/projects/my-llm-project"
