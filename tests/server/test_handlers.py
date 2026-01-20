@@ -7,7 +7,16 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
-from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, TraceState, ViewType
+from mlflow.entities import (
+    RunStatus,
+    ScorerVersion,
+    Span,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceState,
+    ViewType,
+)
 from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities.model_registry import (
@@ -3163,13 +3172,11 @@ def test_create_prompt_optimization_job(mock_tracking_store):
         ):
             response = _create_prompt_optimization_job()
 
-    # Verify run creation
     mock_tracking_store.create_run.assert_called_once()
     call_kwargs = mock_tracking_store.create_run.call_args[1]
     assert call_kwargs["experiment_id"] == "exp-123"
     assert call_kwargs["user_id"] == "test_user"
 
-    # Verify params logged
     mock_tracking_store.log_batch.assert_called_once()
     logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
     param_dict = {p.key: p.value for p in logged_params}
@@ -3178,7 +3185,6 @@ def test_create_prompt_optimization_job(mock_tracking_store):
     assert param_dict["dataset_id"] == "dataset-123"
     assert param_dict["scorer_names"] == '["Correctness", "Safety"]'
 
-    # Verify response
     response_data = json.loads(response.get_data())
     assert response_data["job"]["job_id"] == "job-123"
     assert response_data["job"]["run_id"] == "run-456"
@@ -3222,13 +3228,11 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
         ):
             response = _create_prompt_optimization_job()
 
-    # Verify response is successful
     response_data = json.loads(response.get_data())
     assert response_data["job"]["job_id"] == "job-999"
     assert response_data["job"]["run_id"] == "run-999"
     assert response_data["job"]["state"]["status"] == "JOB_STATUS_PENDING"
 
-    # Verify params logged with empty scorers
     mock_tracking_store.log_batch.assert_called_once()
     logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
     param_dict = {p.key: p.value for p in logged_params}
@@ -3338,10 +3342,20 @@ def test_cancel_prompt_optimization_job():
     )
 
     with mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job_entity):
-        with app.test_request_context(method="POST"):
-            response = _cancel_prompt_optimization_job("job-123")
+        with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
+            mock_tracking_store = mock.Mock()
+            mock_store.return_value = mock_tracking_store
+            with app.test_request_context(method="POST"):
+                response = _cancel_prompt_optimization_job("job-123")
 
-    # Verify response
+            # Verify that the underlying run was terminated
+            mock_tracking_store.update_run_info.assert_called_once()
+            call_args = mock_tracking_store.update_run_info.call_args
+            assert call_args.kwargs["run_id"] == "run-456"
+            assert call_args.kwargs["run_status"] == RunStatus.KILLED
+            assert call_args.kwargs["run_name"] is None
+            assert "end_time" in call_args.kwargs
+
     response_data = json.loads(response.get_data())
     assert response_data["job"]["job_id"] == "job-123"
     assert response_data["job"]["state"]["status"] == "JOB_STATUS_CANCELED"

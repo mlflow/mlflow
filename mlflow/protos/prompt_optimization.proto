@@ -13,7 +13,7 @@ option (scalapb.options) = {flat_package: true};
 enum OptimizerType {
   OPTIMIZER_TYPE_UNSPECIFIED = 0;
 
-  // GEPA (Guided Evolution of Prompt Attributes) optimizer.
+  // GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)
   OPTIMIZER_TYPE_GEPA = 1;
 
   // MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass.

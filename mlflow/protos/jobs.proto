@@ -9,7 +9,7 @@ option py_generic_services = true;
 option (scalapb.options) = {flat_package: true};
 
 // Generic status enum for MLflow jobs.
-// Can be used across different job types (optimization, evaluation, etc.).
+// Can be used across different job types (optimization, scorer, etc.).
 enum JobStatus {
   JOB_STATUS_UNSPECIFIED = 0;
 

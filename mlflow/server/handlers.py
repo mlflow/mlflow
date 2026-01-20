@@ -33,6 +33,7 @@ from mlflow.entities import (
     InputTag,
     Metric,
     Param,
+    RunStatus,
     RunTag,
     ViewType,
 )
@@ -264,6 +265,7 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
     _validate_batch_log_api_req,
@@ -5334,6 +5336,17 @@ def _cancel_prompt_optimization_job(job_id):
         optimization_job.source_prompt_uri = params["prompt_uri"]
     if "run_id" in params:
         optimization_job.run_id = params["run_id"]
+        # Terminate the underlying MLflow run if it exists
+        try:
+            _get_tracking_store().update_run_info(
+                run_id=params["run_id"],
+                run_status=RunStatus.KILLED,
+                end_time=get_current_time_millis(),
+                run_name=None,
+            )
+        except Exception:
+            # If the run doesn't exist or is already terminated, ignore the error
+            pass
 
     response_message.job.CopyFrom(optimization_job)
     return _wrap_response(response_message)
