@@ -922,6 +922,10 @@
     "defaultMessage": "Error fetching models",
     "description": "Workspace models page > Error empty state title"
   },
+  "5e0ysy": {
+    "defaultMessage": "Automatically evaluate future traces using this judge ({link})",
+    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
+  },
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
@@ -6347,10 +6351,6 @@
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
   },
-  "lpptdR": {
-    "defaultMessage": "Automatically evaluate future traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
-  },
   "ls3868": {
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
@@ -7558,6 +7558,10 @@
   "vQa9lQ": {
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
+  },
+  "vV8sXP": {
+    "defaultMessage": "learn more",
+    "description": "Link text for online evaluation documentation"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
