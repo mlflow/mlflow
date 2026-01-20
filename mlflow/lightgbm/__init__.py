@@ -90,7 +90,7 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
@@ -100,16 +100,21 @@ def get_default_pip_requirements(include_cloudpickle=False):
     pip_deps = [_get_pinned_requirement("lightgbm")]
     if include_cloudpickle:
         pip_deps.append(_get_pinned_requirement("cloudpickle"))
+    if include_skops:
+        pip_deps += [_get_pinned_requirement("skops")]
+
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
+    return _mlflow_conda_env(
+        additional_pip_deps=get_default_pip_requirements(include_cloudpickle, include_skops)
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -235,8 +240,11 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
+            include_cloudpickle = not isinstance(lgb_model, lgb.Booster)
+            include_skops = include_cloudpickle and serialization_format == "skops"
             default_reqs = get_default_pip_requirements(
-                include_cloudpickle=not isinstance(lgb_model, lgb.Booster)
+                include_cloudpickle=include_cloudpickle,
+                include_skops=include_skops,
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
@@ -272,7 +280,8 @@ def save_model(
 def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
     """
     LightGBM Boosters are saved using the built-in method `save_model()`,
-    whereas LightGBM scikit-learn models are serialized using Cloudpickle.
+    whereas LightGBM scikit-learn models are serialized using the specified
+    `serialization_format`.
     """
     import lightgbm as lgb
 

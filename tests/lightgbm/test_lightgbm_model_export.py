@@ -551,6 +551,10 @@ def test_model_log_with_signature_inference(lgb_model):
 
 
 def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
+    import skops
+
+    from mlflow.utils.requirements_utils import _parse_requirements
+
     model = lgb_sklearn_model.model
     mlflow.lightgbm.save_model(
         lgb_model=model,
@@ -562,6 +566,15 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
             "lightgbm.sklearn.LGBMClassifier",
         ],
     )
+
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
+        )
+    ]
+    assert f"skops=={skops.__version__}" in logged_reqs
+
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 

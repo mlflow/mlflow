@@ -17,7 +17,6 @@ import logging
 import os
 import pickle
 import shutil
-import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -656,7 +655,7 @@ def _save_model(sk_model, output_path, serialization_format, skops_trusted_types
         _logger.warning(
             "Saving the model in the pickle or cloudpickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
+            "which can execute arbitrary code during deserialization. "
             "The recommended safe alternative is the 'skops' format."
         )
 
