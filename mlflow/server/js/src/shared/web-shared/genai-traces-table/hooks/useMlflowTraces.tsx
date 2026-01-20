@@ -85,6 +85,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
   filterByAssessmentSourceRun = false,
+  evalStartTime,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string;
@@ -111,6 +112,11 @@ export const useMlflowTracesTableMetadata = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * Optional timestamp (ms) when evaluation started. If provided during an active
+   * evaluation, traces created after this time are filtered out.
+   */
+  evalStartTime?: number | null;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -131,8 +137,8 @@ export const useMlflowTracesTableMetadata = ({
     orderBy,
   });
   const filteredTraces = useMemo(
-    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(traces, runUuid) : traces),
-    [traces, runUuid, filterByAssessmentSourceRun],
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(traces, runUuid, evalStartTime) : traces),
+    [traces, runUuid, filterByAssessmentSourceRun, evalStartTime],
   );
 
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
@@ -292,6 +298,7 @@ export const useSearchMlflowTraces = ({
   loggedModelId,
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
+  evalStartTime,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string | null;
@@ -323,6 +330,11 @@ export const useSearchMlflowTraces = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * Optional timestamp (ms) when evaluation started. If provided during an active
+   * evaluation, traces created after this time are filtered out.
+   */
+  evalStartTime?: number | null;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -422,8 +434,11 @@ export const useSearchMlflowTraces = ({
   }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName, useClientSideFiltering]);
 
   const tracesFilteredBySourceRun = useMemo(
-    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(filteredTraces, runUuid) : filteredTraces),
-    [filteredTraces, runUuid, filterByAssessmentSourceRun],
+    () =>
+      filterByAssessmentSourceRun
+        ? filterTracesByAssessmentSourceRunId(filteredTraces, runUuid, evalStartTime)
+        : filteredTraces,
+    [filteredTraces, runUuid, filterByAssessmentSourceRun, evalStartTime],
   );
 
   if (disabled) {

@@ -88,11 +88,15 @@ export const getTracesTagKeys = (traces: ModelTraceInfoV3[]): string[] => {
  *
  * @param traces - The traces to filter.
  * @param runUuid - The run UUID to filter by.
+ * @param evalStartTime - Optional timestamp (ms) when evaluation started. If provided,
+ *   traces created after this time are filtered out (they are likely auto-instrumented
+ *   traces from LLM calls during scoring, not the original traces being evaluated).
  * @returns The filtered traces.
  */
 export const filterTracesByAssessmentSourceRunId = (
   traces: ModelTraceInfoV3[] | undefined,
   runUuid?: string | null,
+  evalStartTime?: number | null,
 ): ModelTraceInfoV3[] | undefined => {
   if (!traces || !runUuid) {
     return traces;
@@ -111,6 +115,16 @@ export const filterTracesByAssessmentSourceRunId = (
     const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG];
     if (sourceScorerName) {
       return acc;
+    }
+
+    // During an active evaluation, filter out traces created after the eval started.
+    // These are likely auto-instrumented traces from LLM calls during scoring,
+    // not the original traces being evaluated.
+    if (evalStartTime) {
+      const traceTimestamp = new Date(trace.request_time).getTime();
+      if (traceTimestamp >= evalStartTime) {
+        return acc;
+      }
     }
 
     // Early return to avoid the overhead of copying the trace and assessments below.

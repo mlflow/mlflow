@@ -14,6 +14,15 @@ export const useGenAiTraceTableRowSelection = () => {
   return { rowSelection, setRowSelection };
 };
 
+/**
+ * Returns true if there is an existing GenAiTraceTableRowSelectionProvider in the component tree.
+ * Use this to avoid creating nested providers.
+ */
+export const useHasRowSelectionContext = () => {
+  const context = useContext(GenAiTraceTableRowSelectionContext);
+  return context !== null;
+};
+
 const GenAiTraceTableRowSelectionContext = createContext<{
   rowSelection: RowSelectionState;
   setRowSelection: (rowSelection: SetStateAction<RowSelectionState>) => void;

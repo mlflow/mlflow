@@ -57,6 +57,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -286,6 +287,10 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
+        progress_callback: Optional callback function for reporting progress. The function
+            receives two arguments: the number of completed items and the total number
+            of items. Used internally by the UI for progress tracking.
+
     Returns:
         An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
@@ -298,12 +303,21 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    result, _ = _run_harness(
+        data, scorers, predict_fn, model_id, progress_callback=progress_callback
+    )
     return result
 
 
 @record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
+def _run_harness(
+    data,
+    scorers,
+    predict_fn,
+    model_id,
+    *,
+    progress_callback: Callable[[int, int], None] | None = None,
+) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
 
@@ -415,6 +429,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
+            progress_callback=progress_callback,
         )
 
     try:

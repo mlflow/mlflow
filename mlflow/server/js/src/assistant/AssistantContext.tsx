@@ -11,6 +11,8 @@ import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+const ASSISTANT_BUTTON_DISMISSED_KEY = 'mlflow.assistant.buttonDismissed';
+
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -18,6 +20,13 @@ const generateMessageId = (): string => {
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Panel state
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isButtonDismissed, setIsButtonDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(ASSISTANT_BUTTON_DISMISSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Chat state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -85,6 +94,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
+  }, []);
+
+  const dismissButton = useCallback(() => {
+    setIsButtonDismissed(true);
+    try {
+      localStorage.setItem(ASSISTANT_BUTTON_DISMISSED_KEY, 'true');
+    } catch {
+      // Ignore localStorage errors
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -220,6 +238,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const value: AssistantAgentContextType = {
     // State
     isPanelOpen,
+    isButtonDismissed,
     sessionId,
     messages,
     isStreaming,
@@ -228,6 +247,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Actions
     openPanel,
     closePanel,
+    dismissButton,
     sendMessage: handleSendMessage,
     reset,
   };
@@ -238,6 +258,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 // Default disabled state when no provider is present
 const disabledAssistantContext: AssistantAgentContextType = {
   isPanelOpen: false,
+  isButtonDismissed: false,
   sessionId: null,
   messages: [],
   isStreaming: false,
@@ -245,6 +266,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   currentStatus: null,
   openPanel: () => {},
   closePanel: () => {},
+  dismissButton: () => {},
   sendMessage: () => {},
   reset: () => {},
 };

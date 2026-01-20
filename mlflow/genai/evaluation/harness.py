@@ -100,6 +100,7 @@ def run(
     predict_fn=None,
     scorers=None,
     run_id: str | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -127,6 +128,7 @@ def run(
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
 
     total_tasks = len(eval_items) + len(session_groups)
+    total_items = len(eval_items)
 
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
@@ -160,13 +162,21 @@ def run(
             else None
         )
 
+        completed_items = 0
+
         try:
             # Phase 1: Complete single-turn tasks
             for future in as_completed(single_turn_futures):
                 idx = single_turn_futures[future]
                 eval_results[idx] = future.result()
+                completed_items += 1
                 if progress_bar:
                     progress_bar.update(1)
+                if progress_callback:
+                    try:
+                        progress_callback(completed_items, total_items)
+                    except Exception:
+                        _logger.debug("progress_callback failed", exc_info=True)
 
             # Phase 2: Submit and complete multi-turn tasks (after single-turn)
             # We run multi-turn scorers after single-turn, since single-turn scorers may create new

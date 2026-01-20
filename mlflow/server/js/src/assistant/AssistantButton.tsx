@@ -4,7 +4,15 @@
  */
 
 import { useState } from 'react';
-import { Button, SparkleFillIcon, SparkleIcon, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  CloseIcon,
+  SparkleFillIcon,
+  SparkleIcon,
+  Tag,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
@@ -18,14 +26,23 @@ export const AssistantButton = () => {
     gradientMid: aiGradientMid,
     gradientEnd: aiGradientEnd,
   } = theme.colors.branded.ai;
-  const { openPanel, isPanelOpen } = useAssistant();
+  const { openPanel, isPanelOpen, isButtonDismissed, dismissButton } = useAssistant();
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
     openPanel();
   };
 
-  return isPanelOpen ? null : (
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dismissButton();
+  };
+
+  if (isPanelOpen || isButtonDismissed) {
+    return null;
+  }
+
+  return (
     <div
       data-assistant-ui="true"
       css={{
@@ -63,45 +80,78 @@ export const AssistantButton = () => {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <Button
-            componentId={COMPONENT_ID}
-            icon={
-              <div
+          <div css={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <Button
+              componentId={COMPONENT_ID}
+              icon={
+                <div
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: isHovered ? 'rotate(-90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  {isHovered ? (
+                    <SparkleFillIcon color="ai" css={{ fontSize: 20 }} />
+                  ) : (
+                    <SparkleIcon color="ai" css={{ fontSize: 20 }} />
+                  )}
+                </div>
+              }
+              css={{
+                backgroundColor: '#ffffff !important',
+                border: 'none !important',
+                borderRadius: '22px 0 0 22px',
+                height: 'auto',
+                minHeight: 48,
+                fontSize: theme.typography.fontSizeMd,
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                paddingRight: theme.spacing.sm,
+                '&:hover': {
+                  backgroundColor: '#fafafa !important',
+                },
+              }}
+            >
+              <FormattedMessage defaultMessage="Assistant" description="Label for global Assistant button" />
+              <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise" css={{ marginLeft: 4 }}>
+                Beta
+              </Tag>
+            </Button>
+            <Tooltip
+              componentId={`${COMPONENT_ID}.dismiss.tooltip`}
+              content={
+                <FormattedMessage defaultMessage="Dismiss" description="Tooltip for dismissing the Assistant button" />
+              }
+            >
+              <button
+                onClick={handleDismiss}
                 css={{
+                  backgroundColor: '#ffffff',
+                  border: 'none',
+                  borderLeft: `1px solid ${theme.colors.border}`,
+                  borderRadius: '0 22px 22px 0',
+                  height: 48,
+                  width: 36,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transform: isHovered ? 'rotate(-90deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.3s ease',
+                  cursor: 'pointer',
+                  color: theme.colors.textSecondary,
+                  transition: 'background-color 0.2s ease, color 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: '#fafafa',
+                    color: theme.colors.textPrimary,
+                  },
                 }}
               >
-                {isHovered ? (
-                  <SparkleFillIcon color="ai" css={{ fontSize: 20 }} />
-                ) : (
-                  <SparkleIcon color="ai" css={{ fontSize: 20 }} />
-                )}
-              </div>
-            }
-            css={{
-              backgroundColor: '#ffffff !important',
-              border: 'none !important',
-              borderRadius: 24 - 2,
-              height: 'auto',
-              minHeight: 48,
-              fontSize: theme.typography.fontSizeMd,
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
-              '&:hover': {
-                backgroundColor: '#fafafa !important',
-              },
-            }}
-          >
-            <FormattedMessage defaultMessage="Assistant" description="Label for global Assistant button" />
-            <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise" css={{ marginLeft: 4 }}>
-              Beta
-            </Tag>
-          </Button>
+                <CloseIcon css={{ fontSize: 14 }} />
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </Tooltip>
     </div>

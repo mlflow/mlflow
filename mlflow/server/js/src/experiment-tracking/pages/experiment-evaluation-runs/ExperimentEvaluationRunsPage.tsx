@@ -6,7 +6,8 @@ import { ExperimentEvaluationRunsPageWrapper } from './ExperimentEvaluationRunsP
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Progress } from '@databricks/design-system/development';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
 import { RunViewEvaluationsTab } from '../../components/evaluations/RunViewEvaluationsTab';
@@ -36,14 +37,42 @@ import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluatio
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import {
+  loadPersistedEvaluationRun,
+  loadPersistedEvaluationRunByRunId,
+  clearPersistedEvaluationRun,
+  clearPersistedEvaluationRunByRunId,
+  EVALUATION_RUN_STORAGE_EVENT,
+} from '../../components/experiment-page/components/traces-v3/utils/evaluationRunStorage';
+import {
+  TrackingJobQueryResult,
+  TrackingJobStatus,
+  useGetTrackingServerJobStatus,
+} from '../../../common/hooks/useGetTrackingServerJobStatus';
+import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 
 const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
 };
 
+type EvaluateTracesToRunJobResult = {
+  run_id?: string;
+  experiment_id?: string;
+  progress?: { completed: number; total: number };
+};
+
+const JOB_POLLING_INTERVAL = 1500;
+
+const isJobRunning = (jobData?: TrackingJobQueryResult<EvaluateTracesToRunJobResult>): boolean => {
+  return jobData?.status === TrackingJobStatus.RUNNING || jobData?.status === TrackingJobStatus.PENDING;
+};
+
 const ExperimentEvaluationRunsPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
+  const formatCount = useMemo(() => new Intl.NumberFormat(), []);
   const [tableWidth, setTableWidth] = useState(432);
   const [dragging, setDragging] = useState(false);
   const [runListHidden, setRunListHidden] = useState(false);
@@ -79,10 +108,127 @@ const ExperimentEvaluationRunsPageImpl = () => {
     filter: searchFilter,
   });
 
+  const [persistedEvalRun, setPersistedEvalRun] = useState(() =>
+    selectedRunUuid
+      ? loadPersistedEvaluationRunByRunId(experimentId, selectedRunUuid)
+      : loadPersistedEvaluationRun(experimentId),
+  );
+
+  useEffect(() => {
+    setPersistedEvalRun(
+      selectedRunUuid
+        ? loadPersistedEvaluationRunByRunId(experimentId, selectedRunUuid)
+        : loadPersistedEvaluationRun(experimentId),
+    );
+  }, [experimentId, selectedRunUuid]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ experimentId?: string }>;
+      if (customEvent.detail?.experimentId && customEvent.detail.experimentId !== experimentId) {
+        return;
+      }
+      setPersistedEvalRun(
+        selectedRunUuid
+          ? loadPersistedEvaluationRunByRunId(experimentId, selectedRunUuid)
+          : loadPersistedEvaluationRun(experimentId),
+      );
+    };
+    window.addEventListener(EVALUATION_RUN_STORAGE_EVENT, handler);
+    return () => window.removeEventListener(EVALUATION_RUN_STORAGE_EVENT, handler);
+  }, [experimentId, selectedRunUuid]);
+
+  const persistedJobId = persistedEvalRun?.jobId;
+  const { jobResults: evalJobResults } = useGetTrackingServerJobStatus<EvaluateTracesToRunJobResult>(
+    persistedJobId ? [persistedJobId] : undefined,
+    {
+      enabled: Boolean(persistedJobId),
+      refetchInterval: (data) => {
+        if (data?.some((job) => isJobRunning(job))) {
+          return JOB_POLLING_INTERVAL;
+        }
+        return false;
+      },
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    },
+  );
+
+  const currentEvalJob = persistedJobId ? evalJobResults?.[persistedJobId] : undefined;
+  const evalJobPayload = currentEvalJob && 'result' in currentEvalJob ? (currentEvalJob.result as any) : undefined;
+  const evalJobRunId = evalJobPayload?.run_id ?? persistedEvalRun?.runId;
+  const isSelectedRunActiveEval = Boolean(selectedRunUuid && evalJobRunId && selectedRunUuid === evalJobRunId);
+  const evalJobProgress = evalJobPayload?.progress;
+  const evalCompleted = evalJobProgress?.completed ?? 0;
+  const evalTotal = evalJobProgress?.total ?? persistedEvalRun?.total ?? 0;
+  const evalPct = evalTotal ? Math.min(100, Math.round((evalCompleted / evalTotal) * 100)) : 0;
+  const evalJobIsRunning = isJobRunning(currentEvalJob as any);
+  const evalJobSucceeded = currentEvalJob?.status === TrackingJobStatus.SUCCEEDED;
+  // Consider eval as potentially running if we have a persisted job but haven't received status yet,
+  // OR if the job is confirmed to be running. This ensures we apply timestamp filtering immediately
+  // on initial render before the first job status poll returns.
+  const evalJobMaybeRunning = persistedJobId && (!currentEvalJob || evalJobIsRunning);
+
+  // Track completed evaluation state to show completion message even after persisted data is cleared
+  const [completedEvalForRun, setCompletedEvalForRun] = useState<{
+    runId: string;
+    total: number;
+    startedAt: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!persistedEvalRun?.jobId || !currentEvalJob) {
+      return;
+    }
+    // Once the job completes (success/failure/canceled), clear persisted job info so stale storage
+    // doesn't affect subsequent runs or deep-links.
+    if (isJobRunning(currentEvalJob as any)) {
+      return;
+    }
+
+    // If job succeeded, remember the completion state for this run before clearing
+    if (currentEvalJob.status === TrackingJobStatus.SUCCEEDED && persistedEvalRun.runId && persistedEvalRun.startedAt) {
+      setCompletedEvalForRun({
+        runId: persistedEvalRun.runId,
+        total: evalTotal,
+        startedAt: persistedEvalRun.startedAt,
+      });
+    }
+
+    const runIdToClear = persistedEvalRun.runId ?? selectedRunUuid;
+    if (runIdToClear) {
+      clearPersistedEvaluationRunByRunId(experimentId, runIdToClear);
+    }
+    const active = loadPersistedEvaluationRun(experimentId);
+    if (active?.jobId === persistedEvalRun.jobId) {
+      clearPersistedEvaluationRun(experimentId);
+    }
+  }, [experimentId, selectedRunUuid, persistedEvalRun?.jobId, persistedEvalRun?.runId, currentEvalJob, evalTotal]);
+
+  // Clear completed state when switching to a different run
+  useEffect(() => {
+    if (completedEvalForRun && selectedRunUuid !== completedEvalForRun.runId) {
+      setCompletedEvalForRun(null);
+    }
+  }, [selectedRunUuid, completedEvalForRun]);
+
+  useEffect(() => {
+    if (!isSelectedRunActiveEval || !evalJobIsRunning) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      // Refresh the run's evaluation traces + the runs list while evaluation is ongoing.
+      invalidateMlflowSearchTracesCache({ queryClient });
+      refetch();
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [isSelectedRunActiveEval, evalJobIsRunning, queryClient, refetch]);
+
   const runUuids = runs?.map((run) => run.info.runUuid) ?? [];
-  // set the selected run to the first run if we don't already have one
-  // or if the selected run went out of scope (e.g. was deleted)
-  if (runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
+  // Set the selected run to the first run only if we don't already have one.
+  // Note: we intentionally do NOT override a URL-provided selection if it's not yet present in
+  // the fetched runs list (e.g. evaluation run exists but hasn't appeared in this view's list yet).
+  if (runs?.length && !selectedRunUuid) {
     setSelectedRunUuid(runs[0].info.runUuid);
   }
 
@@ -171,18 +317,74 @@ const ExperimentEvaluationRunsPageImpl = () => {
       return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
     }
 
+    // Show loading state if: actively running eval for this run (not yet succeeded)
+    const showEvalLoadingState = isSelectedRunActiveEval && evalJobIsRunning;
+    // Show completed state briefly after eval finishes
+    const showCompletedState = completedEvalForRun?.runId === selectedRunUuid;
+
+    // While evaluation is running, show centered spinner + progress bar (hide table)
+    if (showEvalLoadingState) {
+      return (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            textAlign: 'center',
+            padding: theme.spacing.lg,
+          }}
+        >
+          <Spinner
+            size="large"
+            css={{
+              marginBottom: theme.spacing.sm,
+            }}
+          />
+          <Typography.Title level={3} withoutMargins>
+            <FormattedMessage
+              defaultMessage="Evaluation in progress"
+              description="Title for evaluation status when in progress"
+            />
+          </Typography.Title>
+          <div css={{ width: '100%', maxWidth: 300, marginTop: theme.spacing.md }}>
+            <Progress.Root value={evalPct}>
+              <Progress.Indicator />
+            </Progress.Root>
+            <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, display: 'block' }}>
+              {`${evalPct}% • ${formatCount.format(evalCompleted)} / ${formatCount.format(evalTotal)} traces`}
+            </Typography.Text>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <RunViewEvaluationsTab
-        experimentId={experimentId}
-        runUuid={selectedRunUuid}
-        runDisplayName={Utils.getRunDisplayName(
-          runs?.find((run) => run.info.runUuid === selectedRunUuid)?.info,
-          selectedRunUuid,
-        )}
-        setCurrentRunUuid={setSelectedRunUuid}
-        showCompareSelector
-        showRefreshButton
-      />
+      <>
+        <RunViewEvaluationsTab
+          experimentId={experimentId}
+          runUuid={selectedRunUuid}
+          runDisplayName={Utils.getRunDisplayName(
+            runs?.find((run) => run.info.runUuid === selectedRunUuid)?.info,
+            selectedRunUuid,
+          )}
+          setCurrentRunUuid={setSelectedRunUuid}
+          showCompareSelector
+          showRefreshButton
+          // Pass evalStartTime when evaluation is running or just completed for this run.
+          // This filters out auto-instrumented traces created during scoring.
+          // We use evalJobMaybeRunning to cover initial render before the first job status poll,
+          // and completedEvalForRun to keep filtering after completion until page refresh.
+          evalStartTime={
+            isSelectedRunActiveEval && evalJobMaybeRunning
+              ? persistedEvalRun?.startedAt
+              : showCompletedState
+                ? completedEvalForRun?.startedAt
+                : undefined
+          }
+        />
+      </>
     );
   };
 

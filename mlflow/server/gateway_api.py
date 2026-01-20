@@ -171,10 +171,12 @@ def _build_endpoint_config(
         # Store the original provider name for LiteLLM's provider/model format
         original_provider = model_config.provider
         auth_config = model_config.auth_config or {}
+        # Filter out MLflow-internal fields that shouldn't be passed to the LLM provider
+        litellm_auth_config = {k: v for k, v in auth_config.items() if k != "auth_mode"}
         # Merge auth_config with secret_value (secret_value contains api_key and other secrets)
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_auth_config": auth_config | model_config.secret_value,
+            "litellm_auth_config": litellm_auth_config | model_config.secret_value,
         }
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM

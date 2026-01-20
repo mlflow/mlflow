@@ -24,6 +24,8 @@ export type AssistantContextKey = keyof KnownAssistantContext;
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
+  /** Whether the floating Assistant button has been dismissed */
+  isButtonDismissed: boolean;
   /** Session ID for conversation continuity */
   sessionId: string | null;
   /** Chat message history */
@@ -41,6 +43,8 @@ export interface AssistantAgentActions {
   openPanel: () => void;
   /** Close the Assistant panel */
   closePanel: () => void;
+  /** Dismiss the floating Assistant button */
+  dismissButton: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
   /** Reset the conversation */

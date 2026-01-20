@@ -21,6 +21,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.invoke_scorer_job",
     "mlflow.genai.scorers.job.run_online_trace_scorer_job",
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
+    "mlflow.genai.evaluation.job.evaluate_traces_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
@@ -32,6 +33,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "invoke_scorer",
     "run_online_trace_scorer",
     "run_online_session_scorer",
+    "evaluate_traces",
 ]
 
 if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):

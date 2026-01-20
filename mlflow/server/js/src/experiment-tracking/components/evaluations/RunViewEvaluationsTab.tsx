@@ -83,6 +83,7 @@ const RunViewEvaluationsTabInner = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  evalStartTime,
 }: {
   experimentId: string;
   runUuid: string;
@@ -91,6 +92,11 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector?: boolean;
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
+  /**
+   * Optional timestamp (ms) when evaluation started. If provided during an active
+   * evaluation, traces created after this time are filtered out.
+   */
+  evalStartTime?: number | null;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -117,6 +123,7 @@ const RunViewEvaluationsTabInner = ({
     otherRunUuid: compareToRunUuid,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    evalStartTime,
   });
 
   // Setup table states
@@ -174,6 +181,7 @@ const RunViewEvaluationsTabInner = ({
     tableSort,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    evalStartTime,
   });
 
   const {
@@ -369,6 +377,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  evalStartTime,
 }: {
   experimentId: string;
   experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
@@ -379,6 +388,11 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid?: (runUuid: string) => void;
   showCompareSelector?: boolean;
   showRefreshButton?: boolean;
+  /**
+   * Optional timestamp (ms) when evaluation started. If provided during an active
+   * evaluation, traces created after this time are filtered out.
+   */
+  evalStartTime?: number | null;
 }) => {
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -416,6 +430,7 @@ export const RunViewEvaluationsTab = ({
       setCurrentRunUuid={setCurrentRunUuid}
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
+      evalStartTime={evalStartTime}
     />
   );
 };

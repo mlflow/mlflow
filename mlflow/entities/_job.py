@@ -83,14 +83,23 @@ class Job(_MlflowObject):
     def parsed_result(self) -> Any:
         """
         Return the parsed result.
-        If job status is SUCCEEDED, the parsed result is the
-        job function returned value
+        If job status is SUCCEEDED, the parsed result is the job function returned value.
         If job status is FAILED, the parsed result is the error string.
-        Otherwise, the parsed result is None.
+        If job status is RUNNING / PENDING and the job store wrote a JSON payload (e.g. progress),
+        this returns the parsed JSON payload; otherwise returns the raw string / None.
         """
-        if self.status == JobStatus.SUCCEEDED:
+        if self.result is None:
+            return None
+
+        # For failed jobs, result is an error message (not necessarily JSON).
+        if self.status == JobStatus.FAILED:
+            return self.result
+
+        # For succeeded (and some running) jobs, result is expected to be JSON-serialized.
+        try:
             return json.loads(self.result)
-        return self.result
+        except Exception:
+            return self.result
 
     @property
     def retry_count(self) -> int:

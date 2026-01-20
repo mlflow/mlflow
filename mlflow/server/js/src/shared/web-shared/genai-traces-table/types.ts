@@ -142,6 +142,12 @@ export interface TraceActions {
     disabledReason?: string;
   };
 
+  evaluateTracesAction?: {
+    evaluateTraces?: (experimentId: string, traceIds: string[]) => void;
+    isDisabled?: boolean;
+    disabledReason?: string;
+  };
+
   editTags?: {
     showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;

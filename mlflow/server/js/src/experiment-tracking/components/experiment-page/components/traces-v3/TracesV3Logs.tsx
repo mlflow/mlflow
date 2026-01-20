@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { RowSelectionState } from '@tanstack/react-table';
+import React, { useCallback, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
-import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import { Button, Empty, ParagraphSkeleton, DangerIcon, Typography } from '@databricks/design-system';
 import type {
   TracesTableColumn,
   TraceActions,
@@ -32,12 +31,16 @@ import {
   createTraceLocationForExperiment,
   doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
-import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import {
+  GenAiTraceTableRowSelectionProvider,
+  useGenAiTraceTableRowSelection,
+  useHasRowSelectionContext,
+} from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -46,7 +49,7 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
-
+import { CreateEvaluationRunFromTracesDrawer } from './CreateEvaluationRunFromTracesDrawer';
 const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
@@ -90,8 +93,11 @@ const TracesV3LogsImpl = React.memo(
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
 
-    // Row selection state - lifted to provide shared state via context
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    // Check if we're already inside a row selection context (e.g., from SelectTracesModal)
+    const hasExistingContext = useHasRowSelectionContext();
+
+    // Row selection state - use existing context if available, otherwise create local state
+    const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
     useRegisterSelectedIds('selectedTraceIds', rowSelection);
 
     const traceSearchLocations = useMemo(
@@ -217,17 +223,29 @@ const TracesV3LogsImpl = React.memo(
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
+    const [isCreateEvalDrawerOpen, setIsCreateEvalDrawerOpen] = useState(false);
+    const [evalDrawerTraceIds, setEvalDrawerTraceIds] = useState<string[]>([]);
+
+    const openCreateEvalDrawer = useCallback((_experimentId: string, traceIds: string[]) => {
+      setEvalDrawerTraceIds(traceIds);
+      setIsCreateEvalDrawerOpen(true);
+    }, []);
+
     const traceActions: TraceActions = useMemo(() => {
       if (disableActions) {
         return {
           deleteTracesAction: undefined,
           exportToEvals: undefined,
+          evaluateTracesAction: undefined,
           editTags: undefined,
         };
       }
       return {
         deleteTracesAction,
         exportToEvals: true,
+        evaluateTracesAction: {
+          evaluateTraces: openCreateEvalDrawer,
+        },
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -246,6 +264,7 @@ const TracesV3LogsImpl = React.memo(
       showEditTagsModalForTrace,
       EditTagsModal,
       disableActions,
+      openCreateEvalDrawer,
     ]);
 
     const countInfo = useMemo(() => {
@@ -349,46 +368,63 @@ const TracesV3LogsImpl = React.memo(
     };
 
     // Single unified layout with toolbar and content
+    const tableContent = (
+      <GenAITracesTableProvider
+        experimentId={experimentId}
+        getTrace={getTrace}
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+      >
+        <div
+          css={{
+            overflowY: 'hidden',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <GenAITracesTableToolbar
+            experimentId={experimentId}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filters={filters}
+            setFilters={setFilters}
+            assessmentInfos={assessmentInfos}
+            traceInfos={traceInfos}
+            tableFilterOptions={tableFilterOptions}
+            countInfo={countInfo}
+            traceActions={traceActions}
+            tableSort={tableSort}
+            setTableSort={setTableSort}
+            allColumns={allColumns}
+            selectedColumns={selectedColumns}
+            toggleColumns={toggleColumns}
+            setSelectedColumns={setSelectedColumns}
+            isMetadataLoading={isMetadataLoading}
+            metadataError={metadataError}
+            usesV4APIs={usesV4APIs}
+            addons={toolbarAddons}
+          />
+          {renderMainContent()}
+        </div>
+
+        {isCreateEvalDrawerOpen && (
+          <CreateEvaluationRunFromTracesDrawer
+            experimentId={experimentId}
+            traceIds={evalDrawerTraceIds}
+            onClose={() => setIsCreateEvalDrawerOpen(false)}
+          />
+        )}
+      </GenAITracesTableProvider>
+    );
+
+    // Only wrap with row selection provider if there isn't one already (e.g., from SelectTracesModal)
+    if (hasExistingContext) {
+      return tableContent;
+    }
+
     return (
       <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <GenAITracesTableProvider
-          experimentId={experimentId}
-          getTrace={getTrace}
-          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        >
-          <div
-            css={{
-              overflowY: 'hidden',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <GenAITracesTableToolbar
-              experimentId={experimentId}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              filters={filters}
-              setFilters={setFilters}
-              assessmentInfos={assessmentInfos}
-              traceInfos={traceInfos}
-              tableFilterOptions={tableFilterOptions}
-              countInfo={countInfo}
-              traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
-              allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              toggleColumns={toggleColumns}
-              setSelectedColumns={setSelectedColumns}
-              isMetadataLoading={isMetadataLoading}
-              metadataError={metadataError}
-              usesV4APIs={usesV4APIs}
-              addons={toolbarAddons}
-            />
-            {renderMainContent()}
-          </div>
-        </GenAITracesTableProvider>
+        {tableContent}
       </GenAiTraceTableRowSelectionProvider>
     );
   },

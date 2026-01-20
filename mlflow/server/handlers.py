@@ -9,6 +9,7 @@ import re
 import tempfile
 import time
 import urllib
+import uuid
 from functools import partial, wraps
 from typing import Any, Callable
 
@@ -4722,6 +4723,74 @@ def _invoke_scorer_handler():
     return jsonify({"jobs": jobs})
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_evaluation_run_from_traces_handler():
+    """
+    Create an evaluation run from a set of selected traces asynchronously.
+
+    This is a UI-only AJAX endpoint for triggering `mlflow.genai.evaluate` from the Traces tab.
+    """
+    _validate_content_type(request, ["application/json"])
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    trace_ids = args.get("trace_ids", [])
+    judges = args.get("judges", [])
+    run_name = args.get("run_name")
+    run_id = args.get("run_id")
+    endpoint_name = args.get("endpoint_name")  # Optional endpoint for builtin/third-party judges
+
+    if not experiment_id:
+        raise MlflowException(
+            "Missing required parameter: experiment_id",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to evaluate.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not judges:
+        raise MlflowException(
+            "Missing required parameter: judges",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    from mlflow.genai.evaluation.job import evaluate_traces_job
+    from mlflow.server.jobs import submit_job
+    from mlflow.utils.time import get_current_time_millis
+
+    client_job_uuid = str(uuid.uuid4())
+
+    # Create the evaluation run synchronously so the UI can immediately link to it
+    # without waiting for the async job to finish.
+    if not run_id:
+        tracking_store = _get_tracking_store()
+        run = tracking_store.create_run(
+            experiment_id=experiment_id,
+            user_id="",
+            start_time=get_current_time_millis(),
+            tags=[],
+            run_name=run_name,
+        )
+        run_id = run.info.run_id
+
+    job = submit_job(
+        function=evaluate_traces_job,
+        params={
+            "experiment_id": experiment_id,
+            "trace_ids": trace_ids,
+            "judges": judges,
+            "run_name": run_name,
+            "run_id": run_id,
+            "client_job_uuid": client_job_uuid,
+            "endpoint_name": endpoint_name,
+        },
+    )
+    return jsonify({"job_id": job.job_id, "run_id": run_id, "experiment_id": experiment_id})
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4825,6 +4894,11 @@ def get_gateway_endpoints():
         (
             _get_ajax_path("/mlflow/scorer/invoke", version=3),
             _invoke_scorer_handler,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/evaluations/traces/run", version=3),
+            _create_evaluation_run_from_traces_handler,
             ["POST"],
         ),
     ]
