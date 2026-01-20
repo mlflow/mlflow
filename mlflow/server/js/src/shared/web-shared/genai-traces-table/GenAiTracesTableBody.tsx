@@ -128,7 +128,15 @@ export const GenAiTracesTableBody = React.memo(
 
     const isComparing = !isNil(compareToRunUuid);
 
-    const evaluationInputs = selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT);
+    const evaluationInputs = useMemo(
+      () => selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT),
+      [selectedColumns],
+    );
+
+    const sortedGroupedColumns = useMemo(
+      () => sortGroupedColumns(selectedColumns, isComparing),
+      [selectedColumns, isComparing],
+    );
 
     const { columns } = useMemo(() => {
       if (!enableGrouping) {
@@ -150,7 +158,6 @@ export const GenAiTracesTableBody = React.memo(
 
       // Create a map of group IDs to their column arrays
       const groupColumns = new Map<TracesTableColumnGroup, ColumnDef<EvalTraceComparisonEntry>[]>();
-      const sortedGroupedColumns = sortGroupedColumns(selectedColumns, isComparing);
 
       sortedGroupedColumns.forEach((col) => {
         // Get the group for this column, defaulting to 'Info' if not specified
@@ -192,6 +199,7 @@ export const GenAiTracesTableBody = React.memo(
 
       return { columns: topLevelColumns };
     }, [
+      sortedGroupedColumns,
       selectedColumns,
       evaluationInputs,
       isComparing,
@@ -428,8 +436,10 @@ export const GenAiTracesTableBody = React.memo(
                 virtualizerTotalSize={virtualizerTotalSize}
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
-                selectedColumns={selectedColumns}
+                selectedColumns={sortedGroupedColumns}
+                expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
+                experimentId={experimentId}
               />
             ) : (
               <MemoizedGenAiTracesTableBodyRows

@@ -302,7 +302,7 @@ const RunViewEvaluationsTabInner = ({
         DrawerComponent={AssistantAwareDrawer}
       >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-          <GenAITracesTableProvider experimentId={experimentId}>
+          <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
             <div
               css={{
                 overflowY: 'hidden',
@@ -336,34 +336,34 @@ const RunViewEvaluationsTabInner = ({
               {
                 // prettier-ignore
                 isTableLoading ? (
-            <LoadingSkeleton />
-          ) : traceInfosError ? (
-            <div>
-              <pre>{String(traceInfosError)}</pre>
-            </div>
-          ) : (
-            <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
-              <GenAITracesTableBodyContainer
-                experimentId={experimentId}
-                currentRunDisplayName={runDisplayName}
-                compareToRunDisplayName={compareToRunDisplayName}
-                compareToRunUuid={compareToRunUuid}
-                getTrace={getTrace}
-                getRunColor={getRunColor}
-                assessmentInfos={assessmentInfos}
-                setFilters={setFilters}
-                filters={filters}
-                selectedColumns={selectedColumns}
-                allColumns={allColumns}
-                tableSort={tableSort}
-                currentTraceInfoV3={traceInfos || []}
-                compareToTraceInfoV3={compareToRunData}
-                onTraceTagsEdit={showEditTagsModalForTrace}
-                displayLoadingOverlay={displayLoadingOverlay}
-                isGroupedBySession={isGroupedBySession}
-              />
-            </ContextProviders>
-          )
+                <LoadingSkeleton />
+              ) : traceInfosError ? (
+                <div>
+                  <pre>{String(traceInfosError)}</pre>
+                </div>
+              ) : (
+                <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
+                  <GenAITracesTableBodyContainer
+                    experimentId={experimentId}
+                    currentRunDisplayName={runDisplayName}
+                    compareToRunDisplayName={compareToRunDisplayName}
+                    compareToRunUuid={compareToRunUuid}
+                    getTrace={getTrace}
+                    getRunColor={getRunColor}
+                    assessmentInfos={assessmentInfos}
+                    setFilters={setFilters}
+                    filters={filters}
+                    selectedColumns={selectedColumns}
+                    allColumns={allColumns}
+                    tableSort={tableSort}
+                    currentTraceInfoV3={traceInfos || []}
+                    compareToTraceInfoV3={compareToRunData}
+                    onTraceTagsEdit={showEditTagsModalForTrace}
+                    displayLoadingOverlay={displayLoadingOverlay}
+                    isGroupedBySession={isGroupedBySession}
+                  />
+                </ContextProviders>
+              )
               }
               {EditTagsModal}
             </div>

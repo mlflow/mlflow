@@ -279,6 +279,10 @@
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
   },
+  "/yjgDc": {
+    "defaultMessage": "{formattedAverage} (AVG)",
+    "description": "Label showing the average value of numeric assessments"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -1330,6 +1334,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8Pb2Gx": {
+    "defaultMessage": "PASS",
+    "description": "Label for an aggregate display showing how many assessments have passed or failed"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1514,6 +1522,10 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9qUuQ6": {
+    "defaultMessage": "Average of {count} values",
+    "description": "Tooltip for numeric assessment average in session header"
+  },
   "9tCd/m": {
     "defaultMessage": "AI Gateway",
     "description": "Header title for the AI Gateway configuration page"
@@ -1549,6 +1561,10 @@
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
+  },
+  "A3bM/D": {
+    "defaultMessage": "Assistant",
+    "description": "Tooltip for assistant button"
   },
   "A6c78D": {
     "defaultMessage": "Child runs loading",
@@ -2238,6 +2254,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
   },
+  "FhnIR9": {
+    "defaultMessage": "Exporting to multi-turn datasets is not yet supported.",
+    "description": "Error message when trying to export traces to a multiturn dataset"
+  },
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
@@ -2345,10 +2365,6 @@
   "GogRws": {
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
-  },
-  "Gopd1/": {
-    "defaultMessage": "Assistant",
-    "description": "Label for global Assistant button"
   },
   "Gs+blV": {
     "defaultMessage": "Last modified",
@@ -2582,9 +2598,17 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
+  "J/srtP": {
+    "defaultMessage": "{count} {count, plural, one {value} other {values}}",
+    "description": "Tag showing the number of unique string values in session assessment"
+  },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
+  },
+  "J3NI3e": {
+    "defaultMessage": "Assistant",
+    "description": "Sidebar button for AI assistant"
   },
   "J45Atg": {
     "defaultMessage": "Key is required if value is present",
@@ -6598,10 +6622,6 @@
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
-  },
-  "o6lfQF": {
-    "defaultMessage": "Ask Assistant for help",
-    "description": "Tooltip for global Ask Assistant button"
   },
   "o7dzKo": {
     "defaultMessage": "Last Modified",

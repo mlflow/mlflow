@@ -17,6 +17,9 @@ export interface GenAITracesTableContextValue<T> {
   /** Grandchild updates this on every selection change */
   setSelectedRowIds: (rowIds: string[]) => void;
 
+  /** Whether traces are grouped by session */
+  isGroupedBySession: boolean;
+
   /**
    * Function to show the "Add to Evaluation Dataset" modal.
    * Provide traces to be added to the dataset. If `undefined` is passed, the modal is closed.
@@ -28,16 +31,19 @@ export const GenAITracesTableContext = createContext<GenAITracesTableContextValu
   setTable: () => {},
   selectedRowIds: [],
   setSelectedRowIds: () => {},
+  isGroupedBySession: false,
 });
 
 interface GenAITracesTableProviderProps {
   children: React.ReactNode;
   experimentId?: string;
+  isGroupedBySession?: boolean;
 }
 
 export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({
   children,
   experimentId,
+  isGroupedBySession = false,
 }) => {
   const [table, setTable] = useState<Table<TraceRow> | undefined>();
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
@@ -57,9 +63,10 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       setTable,
       selectedRowIds,
       setSelectedRowIds,
+      isGroupedBySession,
       showAddToEvaluationDatasetModal,
     }),
-    [table, selectedRowIds, showAddToEvaluationDatasetModal],
+    [table, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
   );
 
   return (
