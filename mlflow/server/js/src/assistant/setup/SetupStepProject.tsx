@@ -67,7 +67,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               <div>
-                <Checkbox componentId="mlflow.assistant.setup.project.perm_mlflow_cli" isChecked disabled onChange={() => {}}>
+                <Checkbox componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`} isChecked disabled onChange={() => {}}>
                   <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
                 </Checkbox>
                 <Typography.Text
