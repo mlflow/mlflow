@@ -50,7 +50,19 @@ Correctness(model="google:/gemini-2.0-flash")
 
 ### Supported Models
 
-MLflow supports all major LLM providers:
+#### AI Gateway Endpoints
+
+[AI Gateway](/genai/governance/ai-gateway/) endpoints are the recommended way to configure judge models, especially when creating judges from the UI. Benefits include:
+
+- **Run judges directly from the UI** - Test and execute judges without leaving the browser
+- **Centralized API key management** - No need to configure API keys locally
+- **Traffic routing and fallbacks** - Configure load balancing and provider fallbacks
+
+To use AI Gateway endpoints, select the endpoint from the UI dropdown or specify the endpoint name from the SDK with the `gateway:/` prefix, e.g., `gateway:/my-chat-endpoint`.
+
+#### Direct Model Providers
+
+MLflow also supports calling model providers directly:
 
 - OpenAI / Azure OpenAI
 - Anthropic
@@ -58,6 +70,10 @@ MLflow supports all major LLM providers:
 - Cohere
 - Together AI
 - Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+
+:::warning
+Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
+:::
 
 To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
 
