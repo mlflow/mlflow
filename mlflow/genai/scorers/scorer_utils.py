@@ -197,7 +197,7 @@ def update_model_in_serialized_scorer(
 
 def validate_scorer_name(name: str | None) -> None:
     """
-    Validate that a scorer name is valid.
+    Validate the scorer name.
 
     Args:
         name: The scorer name to validate.
@@ -224,7 +224,7 @@ def validate_scorer_name(name: str | None) -> None:
 
 def validate_scorer_model(model: str | None) -> None:
     """
-    Validate that a scorer model is valid if present.
+    Validate the scorer model string if present.
 
     Args:
         model: The model string to validate.

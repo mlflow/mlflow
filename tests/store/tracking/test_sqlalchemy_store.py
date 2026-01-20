@@ -10993,6 +10993,23 @@ def test_upsert_online_scoring_config_validates_sample_rate(store: SqlAlchemySto
             sample_rate=-0.1,
         )
 
+    # Non-numeric sample_rate should raise
+    with pytest.raises(MlflowException, match="sample_rate must be a number"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate="0.5",
+        )
+
+    # Non-string filter_string should raise
+    with pytest.raises(MlflowException, match="filter_string must be a string"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=0.5,
+            filter_string=123,
+        )
+
 
 def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_active_configs")

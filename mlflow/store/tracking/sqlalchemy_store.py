@@ -2491,12 +2491,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If scorer is not found or does not use a gateway model.
         """
+        if not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                f"sample_rate must be a number, got {type(sample_rate).__name__}"
+            )
         if not 0.0 <= sample_rate <= 1.0:
             raise MlflowException.invalid_parameter_value(
                 f"sample_rate must be between 0.0 and 1.0, got {sample_rate}"
             )
-
         if filter_string:
+            if not isinstance(filter_string, str):
+                raise MlflowException.invalid_parameter_value(
+                    f"filter_string must be a string, got {type(filter_string).__name__}"
+                )
             # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
 
