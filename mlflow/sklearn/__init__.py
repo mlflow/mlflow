@@ -17,6 +17,7 @@ import logging
 import os
 import pickle
 import shutil
+import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -256,6 +257,16 @@ def save_model(
                 f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
+        warnings.warn(
+            "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
+            "caution because these formats rely on Python's object serialization mechanism, "
+            "which can execute arbitrary code during deserialization."
+            "The recommended safe alternative is the 'skops' format.",
+            FutureWarning,
+            stacklevel=2,
         )
 
     _validate_and_prepare_target_save_path(path)
@@ -651,14 +662,6 @@ def _save_model(sk_model, output_path, serialization_format, skops_trusted_types
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
     """
-    if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
-        _logger.warning(
-            "Saving the model in the pickle or cloudpickle format requires exercising "
-            "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization. "
-            "The recommended safe alternative is the 'skops' format."
-        )
-
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
         from skops.io.exceptions import UntrustedTypesFoundException

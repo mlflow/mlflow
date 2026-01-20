@@ -290,6 +290,13 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
     if isinstance(lgb_model, lgb.Booster):
         lgb_model.save_model(model_path)
     else:
+        if serialization_format != "skops" and not is_in_databricks_runtime():
+            _logger.warning(
+                "Saving the models in the pickle or cloudpickle format requires exercising "
+                "caution because these formats rely on Python's object serialization mechanism, "
+                "which can execute arbitrary code during deserialization."
+                "The recommended safe alternative is the 'skops' format.",
+            )
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
 
