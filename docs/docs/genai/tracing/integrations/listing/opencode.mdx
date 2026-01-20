@@ -1,0 +1,208 @@
+---
+sidebar_position: 10
+sidebar_label: Opencode
+---
+
+import ImageBox from "@site/src/components/ImageBox";
+
+# Tracing Opencode
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Opencode](https://opencode.ai), a terminal-based agentic coding tool that supports multiple LLM providers including Claude, OpenAI, Google, and local models.
+
+<ImageBox src="/images/llms/opencode/opencode-tracing.png" alt="Opencode Tracing" />
+
+After setting up auto tracing, MLflow will automatically capture traces of your Opencode conversations and log them to the active MLflow experiment. The trace automatically captures information such as:
+
+- User prompts and assistant responses
+- Tool usage (file operations, bash commands, code edits, etc.)
+- Conversation timing and duration per turn
+- Tool execution results
+- Token usage (input, output, and total tokens)
+- Session metadata including working directory and user
+
+## Setup
+
+Opencode tracing is configured using CLI commands that set up an Opencode plugin and create a configuration file.
+
+### Requirements
+
+- MLflow >= 3.10 (`pip install mlflow>=3.10`)
+- [Opencode CLI](https://opencode.ai) installed
+- Bun or Node.js runtime (for the plugin)
+- The `mlflow-opencode` npm package
+
+### Basic Setup
+
+```bash
+# Set up tracing with MLflow tracking server
+mlflow autolog opencode -u http://localhost:5000
+
+# Set up tracing with SQLite backend
+mlflow autolog opencode -u sqlite:///mlflow.db
+
+# Set up tracing in specific directory
+mlflow autolog opencode ~/my-project -u http://localhost:5000
+
+# Check tracing status
+mlflow autolog opencode --status
+
+# Disable tracing
+mlflow autolog opencode --disable
+```
+
+### Configuration Examples
+
+```bash
+# Set up with specific experiment ID
+mlflow autolog opencode -u http://localhost:5000 -e 123456
+
+# Set up with Databricks backend
+mlflow autolog opencode -u databricks -e 123456789
+
+# Set up with specific experiment name
+mlflow autolog opencode -u http://localhost:5000 -n "My AI Project"
+```
+
+### Complete Setup Steps
+
+After running `mlflow autolog opencode`, follow these steps:
+
+```bash
+# 1. Install the MLflow Opencode plugin
+bun add mlflow-opencode
+# or: npm install mlflow-opencode
+
+# 2. Run Opencode normally - tracing happens automatically
+opencode
+
+# 3. View traces in MLflow UI
+mlflow server --backend-store-uri sqlite:///mlflow.db
+```
+
+The plugin automatically reads configuration from `.opencode/mlflow.json` - no environment variables needed.
+
+## Token Usage
+
+MLflow automatically tracks the token usage for each LLM call within Opencode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the `token_usage` field of the trace info object.
+
+```python
+import mlflow
+
+# Get an Opencode trace by its trace ID
+trace = mlflow.get_trace("<your-trace-id>")
+
+# Print the total token usage
+total_usage = trace.info.token_usage
+if total_usage:
+    print("== Total token usage: ==")
+    print(f"  Input tokens: {total_usage['input_tokens']}")
+    print(f"  Output tokens: {total_usage['output_tokens']}")
+    print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 17839
+  Output tokens: 588
+  Total tokens: 18427
+
+== Detailed usage for each LLM call: ==
+llm_call_1:
+  Input tokens: 65
+  Output tokens: 53
+  Total tokens: 118
+llm_call_2:
+  Input tokens: 1854
+  Output tokens: 51
+  Total tokens: 1905
+llm_call_3:
+  Input tokens: 401
+  Output tokens: 38
+  Total tokens: 439
+llm_call_4:
+  Input tokens: 15519
+  Output tokens: 446
+  Total tokens: 15965
+```
+
+## Configuration
+
+The Opencode plugin reads its configuration from `.opencode/mlflow.json`, which is automatically created by the `mlflow autolog opencode` command:
+
+```json
+{
+  "enabled": true,
+  "trackingUri": "http://localhost:5000",
+  "experimentId": "123456"
+}
+```
+
+| Field            | Description                      | Required |
+| ---------------- | -------------------------------- | -------- |
+| `enabled`        | Set to `true` to enable tracing  | Yes      |
+| `trackingUri`    | MLflow tracking server URI       | Yes      |
+| `experimentId`   | Experiment ID to log traces to   | No       |
+| `experimentName` | Experiment name to log traces to | No       |
+
+### Debug Logging
+
+For debug logging, set the `MLFLOW_OPENCODE_DEBUG` environment variable:
+
+```bash
+export MLFLOW_OPENCODE_DEBUG=true
+opencode
+```
+
+## Troubleshooting
+
+### Check Status
+
+```bash
+mlflow autolog opencode --status
+```
+
+This shows:
+
+- Whether tracing is enabled
+- Current tracking URI
+- Configured experiment
+- Any configuration issues
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure you've installed the plugin: `bun add mlflow-opencode`
+- Verify `.opencode/mlflow.json` exists and has correct settings
+- Check that the tracking URI is accessible
+
+**Missing traces:**
+
+- Verify the tracking URI is accessible: `curl http://localhost:5000/api/2.0/mlflow/experiments/list`
+- Check that the SQLite database path is writable
+- Enable debug logging: `export MLFLOW_OPENCODE_DEBUG=true`
+
+**Plugin not loading:**
+
+- Check `opencode.json` contains the plugin entry: `"plugin": ["mlflow-opencode"]`
+- Verify the plugin is installed: `bun pm ls | grep mlflow-opencode`
+- For local development, ensure the `file://` path is correct
+
+### Disable Tracing
+
+To stop automatic tracing:
+
+```bash
+mlflow autolog opencode --disable
+```
+
+This removes the plugin from `opencode.json` and cleans up the config file, but preserves existing traces.

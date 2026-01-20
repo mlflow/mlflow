@@ -390,6 +390,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/opencode',
+                  label: 'Opencode',
+                },
               ],
             },
             {

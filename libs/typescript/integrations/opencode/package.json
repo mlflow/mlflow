@@ -1,0 +1,54 @@
+{
+  "name": "mlflow-opencode",
+  "version": "0.1.0",
+  "description": "MLflow tracing plugin for Opencode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "bugs": {
+    "url": "https://github.com/mlflow/mlflow/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "opencode",
+    "llm",
+    "agent",
+    "javascript",
+    "typescript"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.1.25",
+    "@types/bun": "^1.3.6",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18",
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/"
+  ]
+}
