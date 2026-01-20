@@ -5253,12 +5253,23 @@ def _create_prompt_optimization_job():
     )
     run_id = run.info.run_id
 
+    # Parse optimizer_config_json to dict for the job function
+    optimizer_config = None
+    if config.optimizer_config_json:
+        try:
+            optimizer_config = json.loads(config.optimizer_config_json)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Invalid JSON in optimizer_config_json: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     # Log optimization config as run parameters
     params_to_log = [
         Param("source_prompt_uri", prompt_uri),
         Param("optimizer_type", optimizer_type),
         Param("dataset_id", dataset_id),
-        Param("scorers", json.dumps(scorers)),
+        Param("scorer_names", json.dumps(scorers)),
     ]
     if config.optimizer_config_json:
         params_to_log.append(Param("optimizer_config_json", config.optimizer_config_json))
@@ -5284,8 +5295,8 @@ def _create_prompt_optimization_job():
         "prompt_uri": prompt_uri,
         "dataset_id": dataset_id,
         "optimizer_type": optimizer_type,
-        "optimizer_config_json": config.optimizer_config_json,
-        "scorers": scorers,
+        "optimizer_config": optimizer_config,
+        "scorer_names": scorers,
     }
 
     job_entity = submit_job(optimize_prompts_job, params)
@@ -5364,8 +5375,8 @@ def _get_prompt_optimization_job(job_id):
             config.optimizer_type = OptimizerType.Value(enum_name)
         if "dataset_id" in run_params:
             config.dataset_id = run_params["dataset_id"]
-        if "scorers" in run_params:
-            config.scorers.extend(json.loads(run_params["scorers"]))
+        if "scorer_names" in run_params:
+            config.scorers.extend(json.loads(run_params["scorer_names"]))
         if "optimizer_config_json" in run_params:
             config.optimizer_config_json = run_params["optimizer_config_json"]
 

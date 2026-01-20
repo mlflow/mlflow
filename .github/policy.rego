@@ -63,6 +63,15 @@ deny_jobs_without_timeout contains msg if {
 	)
 }
 
+deny_ubuntu_slim_long_timeout contains msg if {
+	jobs := ubuntu_slim_jobs_with_long_timeout(input.jobs)
+	count(jobs) > 0
+	msg := sprintf(
+		"The following ubuntu-slim jobs have timeout-minutes > 15: %s. ubuntu-slim has a 15-minute timeout limit.",
+		[concat(", ", jobs)],
+	)
+}
+
 deny_unpinned_actions contains msg if {
 	actions := unpinned_actions(input)
 	count(actions) > 0
@@ -104,6 +113,12 @@ jobs_without_permissions(jobs) := {job_id |
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
 	not job["timeout-minutes"]
+}
+
+ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
+	some job_id, job in jobs
+	job["runs-on"] == "ubuntu-slim"
+	job["timeout-minutes"] > 15
 }
 
 is_step_unpinned(step) if {

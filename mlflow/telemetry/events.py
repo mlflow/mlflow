@@ -1,4 +1,5 @@
 import inspect
+import os
 import sys
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -629,17 +630,29 @@ class ScorerCallEvent(Event):
         if not isinstance(scorer_instance, Scorer):
             return None
 
-        callsite = "direct_scorer_call"
-        for frame_info in inspect.stack()[:10]:
-            frame_filename = frame_info.filename
-            frame_function = frame_info.function
+        # Check if running inside an online scoring job
+        # Import here to avoid circular imports
+        from mlflow.genai.scorers.job import (
+            ONLINE_SESSION_SCORER_JOB_NAME,
+            ONLINE_TRACE_SCORER_JOB_NAME,
+        )
+        from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
 
-            if (
-                GENAI_SCORERS_PATH in frame_filename.replace("\\", "/")
-                and frame_function == SCORER_RUN_FUNCTION
-            ):
-                callsite = "genai_evaluate"
-                break
+        job_name = os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR)
+        if job_name in (ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME):
+            callsite = "online_scoring"
+        else:
+            callsite = "direct_scorer_call"
+            for frame_info in inspect.stack()[:10]:
+                frame_filename = frame_info.filename
+                frame_function = frame_info.function
+
+                if (
+                    GENAI_SCORERS_PATH in frame_filename.replace("\\", "/")
+                    and frame_function == SCORER_RUN_FUNCTION
+                ):
+                    callsite = "genai_evaluate"
+                    break
 
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
