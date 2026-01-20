@@ -2,27 +2,62 @@
  * Final step: Project configuration for MLflow Assistant setup.
  */
 
-import { useState, useCallback } from 'react';
-import { Typography, useDesignSystemTheme, Input, Checkbox } from '@databricks/design-system';
+import { useState, useCallback, useEffect } from 'react';
+import { Typography, useDesignSystemTheme, Input, Checkbox, Spinner } from '@databricks/design-system';
 
-import { updateConfig } from '../AssistantService';
+import { getConfig, updateConfig } from '../AssistantService';
 import { WizardFooter } from './WizardFooter';
 
 interface SetupStepProjectProps {
   experimentId?: string;
   onBack: () => void;
   onComplete: () => void;
+  /** Custom label for the save/finish button */
+  nextLabel?: string;
+  /** Custom label for the back button */
+  backLabel?: string;
 }
 
-export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStepProjectProps) => {
+export const SetupStepProject = ({
+  experimentId,
+  onBack,
+  onComplete,
+  nextLabel = 'Finish',
+  backLabel,
+}: SetupStepProjectProps) => {
   const { theme } = useDesignSystemTheme();
 
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [projectPath, setProjectPath] = useState<string>('');
-  // Permissions state (UI only for now, will be saved in a future PR)
+  // Permissions state
   const [editFiles, setEditFiles] = useState(true);
+  const [readDocs, setReadDocs] = useState(true);
   const [fullPermission, setFullPermission] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load existing config on mount
+  useEffect(() => {
+    const loadExistingConfig = async () => {
+      try {
+        const config = await getConfig();
+        const provider = config.providers?.['claude_code'];
+        if (provider?.permissions) {
+          setEditFiles(provider.permissions.allow_edit_files ?? true);
+          setReadDocs(provider.permissions.allow_read_docs ?? true);
+          setFullPermission(provider.permissions.full_access ?? false);
+        }
+        if (experimentId && config.projects?.[experimentId]) {
+          setProjectPath(config.projects[experimentId].location || '');
+        }
+      } catch {
+        // Ignore errors - use defaults
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+    loadExistingConfig();
+  }, [experimentId]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -30,10 +65,17 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
     try {
       // Build config update - always mark provider as selected (setup complete)
-      // TODO: Save permissions in a future PR
       const configUpdate: Parameters<typeof updateConfig>[0] = {
         providers: {
-          claude_code: { model: 'default', selected: true },
+          claude_code: {
+            model: 'default',
+            selected: true,
+            permissions: {
+              allow_edit_files: editFiles,
+              allow_read_docs: readDocs,
+              full_access: fullPermission,
+            },
+          },
         },
       };
 
@@ -50,7 +92,15 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
       setIsSaving(false);
     }
-  }, [experimentId, projectPath, onComplete]);
+  }, [experimentId, projectPath, editFiles, readDocs, fullPermission, onComplete]);
+
+  if (isLoadingConfig) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Spinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -91,6 +141,22 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
                   css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
                 >
                   Allow modifying files in your project directory.
+                </Typography.Text>
+              </div>
+
+              <div>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_read_docs"
+                  isChecked={readDocs}
+                  onChange={(checked) => setReadDocs(checked)}
+                >
+                  <Typography.Text>Read MLflow documentation</Typography.Text>
+                </Checkbox>
+                <Typography.Text
+                  color="secondary"
+                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                >
+                  Allow fetching content from mlflow.org documentation.
                 </Typography.Text>
               </div>
 
@@ -149,7 +215,13 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
         </div>
       </div>
 
-      <WizardFooter onBack={onBack} onNext={handleSave} nextLabel="Finish" isLoading={isSaving} />
+      <WizardFooter
+        onBack={onBack}
+        onNext={handleSave}
+        nextLabel={nextLabel}
+        backLabel={backLabel}
+        isLoading={isSaving}
+      />
     </div>
   );
 };

@@ -8,6 +8,7 @@ interface WizardFooterProps {
   onBack?: () => void;
   onNext: () => void;
   nextLabel?: string;
+  backLabel?: string;
   nextDisabled?: boolean;
   backDisabled?: boolean;
   isLoading?: boolean;
@@ -17,6 +18,7 @@ export const WizardFooter = ({
   onBack,
   onNext,
   nextLabel = 'Continue',
+  backLabel = 'Back',
   nextDisabled = false,
   backDisabled = false,
   isLoading = false,

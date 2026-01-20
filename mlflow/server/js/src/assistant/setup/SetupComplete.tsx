@@ -2,21 +2,7 @@
  * Setup complete screen for MLflow Assistant.
  */
 
-import {
-  Button,
-  Card,
-  Typography,
-  useDesignSystemTheme,
-  SparkleIcon,
-  WrenchSparkleIcon,
-  CheckCircleIcon,
-} from '@databricks/design-system';
-
-const SUGGESTIONS = [
-  'What does this trace show?',
-  'Debug the error in this trace.',
-  'What is the performance bottleneck?',
-];
+import { Button, Typography, useDesignSystemTheme, CheckCircleIcon, WrenchSparkleIcon } from '@databricks/design-system';
 
 interface SetupCompleteProps {
   onStartChatting: () => void;
@@ -68,39 +54,6 @@ export const SetupComplete = ({ onStartChatting }: SetupCompleteProps) => {
           <Typography.Text color="secondary">
             Ask questions about your experiments, traces, evaluations, and more.
           </Typography.Text>
-        </div>
-
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.sm,
-            width: '100%',
-            maxWidth: 400,
-            margin: '0 auto',
-          }}
-        >
-          {SUGGESTIONS.map((suggestion) => (
-            <Card
-              key={suggestion}
-              componentId="mlflow.assistant.setup.complete.suggestion"
-              onClick={onStartChatting}
-              css={{
-                cursor: 'pointer',
-                padding: theme.spacing.sm,
-                textAlign: 'left',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  borderColor: theme.colors.actionPrimaryBackgroundDefault,
-                },
-              }}
-            >
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                <SparkleIcon color="ai" css={{ fontSize: 16, flexShrink: 0 }} />
-                <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>"{suggestion}"</Typography.Text>
-              </div>
-            </Card>
-          ))}
         </div>
       </div>
     </div>

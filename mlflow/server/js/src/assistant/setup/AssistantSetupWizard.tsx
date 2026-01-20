@@ -95,12 +95,24 @@ const StepIndicator = ({ currentStep, completedSteps }: StepIndicatorProps) => {
 interface AssistantSetupWizardProps {
   experimentId?: string;
   onComplete: () => void;
+  /** Initial step to start at (for settings flow) */
+  initialStep?: SetupStep;
+  /** Callback for back button when in settings mode */
+  onBack?: () => void;
 }
 
-export const AssistantSetupWizard = ({ experimentId, onComplete }: AssistantSetupWizardProps) => {
+export const AssistantSetupWizard = ({
+  experimentId,
+  onComplete,
+  initialStep,
+  onBack: onBackFromSettings,
+}: AssistantSetupWizardProps) => {
   const { theme } = useDesignSystemTheme();
 
-  const [currentStep, setCurrentStep] = useState<SetupStep>('provider');
+  // Settings mode: when we start at a specific step (not 'provider')
+  const isSettingsMode = initialStep && initialStep !== 'provider';
+
+  const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep || 'provider');
   const [completedSteps, setCompletedSteps] = useState<Set<SetupStep>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<string>('claude_code');
   const [cachedAuthStatus, setCachedAuthStatus] = useState<Record<string, AuthState>>({});
@@ -160,7 +172,15 @@ export const AssistantSetupWizard = ({ experimentId, onComplete }: AssistantSetu
           />
         );
       case 'project':
-        return <SetupStepProject experimentId={experimentId} onBack={handleBack} onComplete={handleProjectComplete} />;
+        return (
+          <SetupStepProject
+            experimentId={experimentId}
+            onBack={isSettingsMode && onBackFromSettings ? onBackFromSettings : handleBack}
+            onComplete={handleProjectComplete}
+            nextLabel={isSettingsMode ? 'Save' : 'Finish'}
+            backLabel={isSettingsMode ? 'Cancel' : 'Back'}
+          />
+        );
       case 'complete':
         return <SetupComplete onStartChatting={onComplete} />;
       default:
@@ -179,13 +199,15 @@ export const AssistantSetupWizard = ({ experimentId, onComplete }: AssistantSetu
       }}
     >
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        <FormattedMessage
-          defaultMessage="Setup MLflow Assistant"
-          description="Title for the MLflow Assistant setup wizard"
-        />
+        {
+          isSettingsMode
+          ? <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings wizard" /> : <FormattedMessage defaultMessage="Setup MLflow Assistant" description="Title for the MLflow Assistant setup wizard" />
+        }
       </Typography.Title>
 
-      {currentStep !== 'complete' && <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />}
+      {!isSettingsMode && currentStep !== 'complete' && (
+        <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />
+      )}
 
       <div css={{ flex: 1, overflow: 'auto' }}>{renderStepContent()}</div>
     </div>

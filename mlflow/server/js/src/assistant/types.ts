@@ -89,11 +89,21 @@ export interface MessageRequest {
 export type HealthCheckResult = { ok: true } | { ok: false; error: string; status: number };
 
 /**
+ * Permission settings for the assistant provider.
+ */
+export interface PermissionsConfig {
+  allow_edit_files: boolean;
+  allow_read_docs: boolean;
+  full_access: boolean;
+}
+
+/**
  * Provider configuration.
  */
 export interface ProviderConfig {
   model: string;
   selected: boolean;
+  permissions: PermissionsConfig;
 }
 
 /**

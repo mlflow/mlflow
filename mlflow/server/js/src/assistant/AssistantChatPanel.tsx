@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CloseIcon,
+  GearIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -475,6 +476,8 @@ export const AssistantChatPanel = () => {
 
   // Track whether the user is in the setup wizard
   const [isInSetupWizard, setIsInSetupWizard] = useState(false);
+  // Track whether the user is viewing settings
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleClose = useCallback(() => {
     closePanel();
@@ -490,8 +493,22 @@ export const AssistantChatPanel = () => {
 
   const handleSetupComplete = useCallback(() => {
     setIsInSetupWizard(false);
+    setShowSettings(false);
     completeSetup();
   }, [completeSetup]);
+
+  const handleOpenSettings = () => {
+    setShowSettings(true);
+    setIsInSetupWizard(true);
+  };
+
+  const handleBackFromSettings = () => {
+    setShowSettings(false);
+    setIsInSetupWizard(false);
+  };
+
+  // Determine if setup is needed
+  const needsSetup = !setupComplete;
 
   // Determine what to show in the content area
   const renderContent = () => {
@@ -500,9 +517,16 @@ export const AssistantChatPanel = () => {
       return <SetupLoadingState />;
     }
 
-    // Show setup wizard if user clicked "Setup"
+    // Show setup wizard if user clicked "Setup" or viewing settings
     if (isInSetupWizard) {
-      return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+      return (
+        <AssistantSetupWizard
+          experimentId={experimentId}
+          onComplete={handleSetupComplete}
+          initialStep={showSettings ? 'project' : undefined}
+          onBack={showSettings ? handleBackFromSettings : undefined}
+        />
+      );
     }
 
     // Show setup prompt if setup is incomplete
@@ -553,15 +577,26 @@ export const AssistantChatPanel = () => {
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
-            <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="Clear Chat">
-              <Button
-                componentId="mlflow.assistant.chat_panel.reset"
-                size="small"
-                icon={<RefreshIcon />}
-                onClick={handleReset}
-                aria-label="Clear Chat"
-              />
-            </Tooltip>
+            <>
+              <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="New Chat">
+                <Button
+                  componentId="mlflow.assistant.chat_panel.reset"
+                  size="small"
+                  icon={<RefreshIcon />}
+                  onClick={handleReset}
+                  aria-label="New Chat"
+                />
+              </Tooltip>
+              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+                <Button
+                  componentId="mlflow.assistant.chat_panel.settings"
+                  size="small"
+                  icon={<GearIcon />}
+                  onClick={handleOpenSettings}
+                  aria-label="Settings"
+                />
+              </Tooltip>
+            </>
           )}
           <Tooltip componentId="mlflow.assistant.chat_panel.close.tooltip" content="Close">
             <Button
