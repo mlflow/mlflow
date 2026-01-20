@@ -326,11 +326,6 @@ class BuiltInScorer(Judge):
         Get the instructions of what this scorer evaluates.
         """
 
-    @property
-    def feedback_value_type(self) -> Any:
-        """Get the type of the feedback value."""
-        return str
-
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
         pydantic_model_data = pydantic.BaseModel.model_dump(self, mode="json", **kwargs)
