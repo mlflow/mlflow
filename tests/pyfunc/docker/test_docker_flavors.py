@@ -34,7 +34,6 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
     from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
     from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
-    from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
     from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
         auto_arima_object_model,
         test_data,
@@ -132,7 +131,7 @@ def start_container(port: int):
         "lightgbm",
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
-        "paddle",
+        # "paddle",  # Disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
         "pmdarima",
         "prophet",
         "pyfunc",
@@ -272,15 +271,16 @@ def onnx_model(tmp_path, model_path):
     return model_path
 
 
-@pytest.fixture
-def paddle_model(model_path, pd_model):
-    save_model_with_latest_mlflow_version(
-        flavor="paddle",
-        pd_model=pd_model.model,
-        path=model_path,
-        input_example=pd_model.inference_dataframe[:1],
-    )
-    return model_path
+# Paddle fixture disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
+# @pytest.fixture
+# def paddle_model(model_path, pd_model):
+#     save_model_with_latest_mlflow_version(
+#         flavor="paddle",
+#         pd_model=pd_model.model,
+#         path=model_path,
+#         input_example=pd_model.inference_dataframe[:1],
+#     )
+#     return model_path
 
 
 @pytest.fixture
