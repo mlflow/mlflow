@@ -12,14 +12,18 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  FeedbackAssessment,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   type ModelTraceInfoV3,
+  isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
+import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -31,9 +35,15 @@ import {
   TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
-import type { TracesTableColumn } from '../types';
+import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
-import { getTraceInfoInputs, getTraceInfoOutputs } from '../utils/TraceUtils';
+import {
+  convertFeedbackAssessmentToRunEvalAssessment,
+  getTraceInfoInputs,
+  getTraceInfoOutputs,
+} from '../utils/TraceUtils';
+import { compact } from 'lodash';
+import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
 
 interface SessionHeaderCellProps {
@@ -172,7 +182,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       }
     });
 
-    cellContent = (
+    cellContent = cellContent = (
       <TokenComponent
         inputTokens={totalInputTokens}
         outputTokens={totalOutputTokens}
@@ -180,6 +190,58 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         isComparing={false}
       />
     );
+  } else if (
+    column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
+    column.assessmentInfo?.isSessionLevelAssessment &&
+    traces.length > 0
+  ) {
+    // Session-level assessment column - find the assessment with session metadata
+    const assessmentInfo = column.assessmentInfo;
+    const assessmentName = assessmentInfo.name;
+    const allFeedback = traces.flatMap((trace) =>
+      compact(
+        trace.assessments?.filter(
+          (a): a is FeedbackAssessment =>
+            Boolean(a.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) && isFeedbackAssessment(a),
+        ),
+      ),
+    );
+
+    const entries = allFeedback.map(convertFeedbackAssessmentToRunEvalAssessment);
+    const uniqueValueCounts = getUniqueValueCountsBySourceId(assessmentInfo, entries);
+
+    cellContent = (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        {uniqueValueCounts.map((uniqueValueCount) => {
+          const assessment = uniqueValueCount.latestAssessment;
+          const count = uniqueValueCount.count;
+          return (
+            <EvaluationsReviewAssessmentTag
+              key={`tag_${uniqueValueCount.latestAssessment.name}_${uniqueValueCount.value}`}
+              showRationaleInTooltip
+              disableJudgeTypeIcon
+              hideAssessmentName
+              assessment={assessment}
+              isRootCauseAssessment={false}
+              assessmentInfo={assessmentInfo}
+              type="value"
+              count={count}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (!cellContent) {
+    cellContent = <NullCell />;
   }
 
   return (
