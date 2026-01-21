@@ -25,7 +25,6 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
-import { useAssistantPageContext } from './AssistantPageContext';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 

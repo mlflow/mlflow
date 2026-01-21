@@ -120,4 +120,3 @@ export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
  * Authentication state for provider connection check.
  */
 export type AuthState = 'checking' | 'cli_not_installed' | 'not_authenticated' | 'authenticated';
-
