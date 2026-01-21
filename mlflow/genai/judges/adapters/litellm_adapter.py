@@ -259,7 +259,7 @@ def _invoke_litellm_and_handle_tools(
 
         # For direct providers, use token-counting based pruning.
         try:
-            max_context_length = litellm.get_max_tokens(model)
+            max_context_length = litellm.get_model_info(model)["max_input_tokens"]
         except Exception:
             max_context_length = None
 
