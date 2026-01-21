@@ -200,6 +200,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
                 },
