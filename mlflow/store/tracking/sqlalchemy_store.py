@@ -51,6 +51,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -112,6 +113,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDatasetTag,
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
@@ -2125,10 +2127,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             model = extract_model_from_serialized_scorer(serialized_data)
             validate_scorer_model(model)
 
+            endpoint_id = None
             if is_gateway_model(model):
                 endpoint_name = extract_endpoint_ref(model)
                 # Resolve name to ID - raises MlflowException if endpoint doesn't exist
                 endpoint = self.get_gateway_endpoint(name=endpoint_name)
+                endpoint_id = endpoint.endpoint_id
                 # Update serialized scorer with endpoint ID instead of name
                 serialized_data = update_model_in_serialized_scorer(
                     serialized_data, build_gateway_model(endpoint.endpoint_id)
@@ -2174,6 +2178,32 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             session.add(sql_scorer_version)
+
+            # Create endpoint binding if scorer uses a gateway endpoint
+            # Verify the endpoint exists in the database before creating binding
+            if endpoint_id is not None:
+                endpoint_exists = (
+                    session.query(SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if endpoint_exists is not None:
+                    # Delete any existing binding for this scorer (in case of re-registration)
+                    session.query(SqlGatewayEndpointBinding).filter(
+                        SqlGatewayEndpointBinding.resource_type
+                        == GatewayResourceType.SCORER_JOB.value,
+                        SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                    ).delete()
+
+                    binding = SqlGatewayEndpointBinding(
+                        endpoint_id=endpoint_id,
+                        resource_type=GatewayResourceType.SCORER_JOB.value,
+                        resource_id=scorer.scorer_id,
+                        created_at=get_current_time_millis(),
+                        last_updated_at=get_current_time_millis(),
+                    )
+                    session.add(binding)
+
             session.flush()
 
             entity = sql_scorer_version.to_mlflow_entity()
@@ -2375,7 +2405,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.delete(sql_scorer_version)
 
             # If we're deleting all versions, also delete the scorer record
+            # and clean up associated endpoint bindings
             if version is None:
+                # Delete endpoint bindings for this scorer
+                session.query(SqlGatewayEndpointBinding).filter(
+                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER_JOB.value,
+                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                ).delete()
+
                 session.delete(scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
@@ -2551,6 +2588,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.query(SqlOnlineScoringConfig).filter(
                 SqlOnlineScoringConfig.scorer_id == scorer.scorer_id
             ).delete()
+
             # Create new online config
             config = SqlOnlineScoringConfig(
                 online_scoring_config_id=uuid.uuid4().hex,

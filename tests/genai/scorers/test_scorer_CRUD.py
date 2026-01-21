@@ -2,6 +2,7 @@ from unittest.mock import ANY, Mock, patch
 
 import mlflow
 import mlflow.genai
+from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
@@ -12,6 +13,7 @@ from mlflow.genai.scorers.registry import (
     list_scorer_versions,
     list_scorers,
 )
+from mlflow.tracking._tracking_service.utils import _get_store
 
 
 def test_scorer_registry_functions_accessible_from_mlflow_genai():
@@ -281,3 +283,101 @@ def test_mlflow_backend_online_scoring_config_chained_update():
         )
         assert retrieved_after_restart.sample_rate == 0.3
         assert retrieved_after_restart.status == ScorerStatus.STARTED
+
+
+def _setup_gateway_endpoint(store):
+    secret = store.create_gateway_secret(
+        secret_name="test-binding-secret",
+        secret_value={"api_key": "test-key"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="test-binding-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    return store.create_gateway_endpoint(
+        name="test-binding-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+
+def test_register_scorer_creates_endpoint_binding(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-for-binding-tests")
+
+    experiment_id = mlflow.create_experiment("test_binding_creation_experiment")
+    mlflow.set_experiment(experiment_id=experiment_id)
+
+    store = _get_store()
+
+    endpoint = _setup_gateway_endpoint(store)
+
+    test_scorer = Guidelines(
+        name="test_binding_scorer",
+        guidelines=["Be helpful"],
+        model=f"gateway:/{endpoint.name}",
+    )
+
+    # Binding should be created at registration time
+    registered_scorer = test_scorer.register(experiment_id=experiment_id)
+    assert registered_scorer.status == ScorerStatus.STOPPED
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 1
+    assert bindings[0].resource_type == "scorer_job"
+    assert bindings[0].endpoint_id == endpoint.endpoint_id
+
+    # Binding should persist even after stopping the scorer
+    # (stopping only changes sample_rate, not the endpoint reference)
+    started_scorer = registered_scorer.start(
+        experiment_id=experiment_id,
+        sampling_config=ScorerSamplingConfig(sample_rate=0.5),
+    )
+    assert started_scorer.status == ScorerStatus.STARTED
+
+    stopped_scorer = started_scorer.stop(experiment_id=experiment_id)
+    assert stopped_scorer.status == ScorerStatus.STOPPED
+
+    # Binding should still exist after stopping
+    bindings_after_stop = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings_after_stop) == 1
+
+    mlflow.delete_experiment(experiment_id)
+
+
+def test_delete_scorer_removes_endpoint_binding(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-for-binding-tests")
+
+    experiment_id = mlflow.create_experiment("test_binding_deletion_experiment")
+    mlflow.set_experiment(experiment_id=experiment_id)
+
+    store = _get_store()
+
+    endpoint = _setup_gateway_endpoint(store)
+
+    test_scorer = Guidelines(
+        name="test_delete_binding_scorer",
+        guidelines=["Be helpful"],
+        model=f"gateway:/{endpoint.name}",
+    )
+
+    test_scorer.register(experiment_id=experiment_id)
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 1
+
+    delete_scorer(name="test_delete_binding_scorer", experiment_id=experiment_id, version="all")
+
+    bindings_after_delete = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings_after_delete) == 0
+
+    mlflow.delete_experiment(experiment_id)
