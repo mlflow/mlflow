@@ -72,3 +72,33 @@ export interface MessageRequest {
   experiment_id?: string;
   context?: KnownAssistantContext & Record<string, unknown>;
 }
+
+/**
+ * Result from the /health endpoint.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export type HealthCheckResult = { ok: true } | { ok: false; error: string; status: number };
+
+/**
+ * Provider configuration.
+ */
+export interface ProviderConfig {
+  model: string;
+  selected: boolean;
+}
+
+/**
+ * Project configuration (experiment to workspace mapping).
+ */
+export interface ProjectConfig {
+  type: 'local';
+  location: string;
+}
+
+/**
+ * Full assistant configuration from /config endpoint.
+ */
+export interface AssistantConfig {
+  providers: Record<string, ProviderConfig>;
+  projects: Record<string, ProjectConfig>;
+}
