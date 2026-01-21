@@ -31,8 +31,9 @@ class MockPromptOptimizer(BasePromptOptimizer):
             # Simple optimization: add "Be precise and accurate. " prefix
             optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
 
-        # Verify the optimization by calling eval_fn
-        eval_fn(optimized_prompts, train_data)
+        # Verify the optimization by calling eval_fn (only if provided)
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
 
         return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
@@ -436,3 +437,40 @@ def test_optimize_prompts_with_managed_evaluation_dataset(
     assert len(result.optimized_prompts) == 1
     assert result.initial_eval_score == 0.5
     assert result.final_eval_score == 0.9
+
+
+def test_optimize_prompts_validation_train_data_without_scorers(
+    sample_translation_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+):
+    with pytest.raises(
+        MlflowException,
+        match="train_data is provided but scorers is None or empty.*must be set together",
+    ):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=sample_dataset,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=MockPromptOptimizer(),
+            scorers=None,
+        )
+
+
+def test_optimize_prompts_validation_scorers_without_train_data(
+    sample_translation_prompt: PromptVersion,
+):
+    with pytest.raises(
+        MlflowException,
+        match="scorers is provided but train_data is None or empty.*must be set together",
+    ):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=None,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=MockPromptOptimizer(),
+            scorers=[equivalence],
+        )
