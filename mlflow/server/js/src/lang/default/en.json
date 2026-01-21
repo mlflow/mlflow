@@ -4284,6 +4284,10 @@
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
   },
+  "WfgCke": {
+    "defaultMessage": "Automatically evaluate traces using this judge",
+    "description": "Checkbox label for enabling automatic evaluation"
+  },
   "Wh+aKq": {
     "defaultMessage": "Details & Timeline",
     "description": "Label for the details & timeline view tab in the model trace explorer"
@@ -6326,10 +6330,6 @@
   "loe2Ov": {
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
-  },
-  "lpptdR": {
-    "defaultMessage": "Automatically evaluate future traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
   },
   "ls3868": {
     "defaultMessage": "Guidelines",
