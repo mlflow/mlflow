@@ -14,7 +14,7 @@ MemAlign is an experimental optimizer. The API may change in future releases.
   {
     icon: Zap,
     title: "Fast Alignment",
-    description: "Alignment completes in seconds instead of minutes, enabling rapid iteration on judge quality."
+    description: "Up to 100× faster than traditional prompt optimizers like SIMBA, enabling rapid iteration on judge quality."
   },
   {
     icon: DollarSign,
@@ -53,6 +53,8 @@ When evaluating new inputs, MemAlign constructs a dynamic context by gathering a
 
 ## Basic Usage
 
+See [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for details on creating judges.
+
 ```python
 import mlflow
 from mlflow.genai.judges import make_judge
@@ -62,9 +64,11 @@ from mlflow.genai.judges.optimizers import MemAlignOptimizer
 judge = make_judge(
     name="politeness",
     instructions=(
-        "Evaluate if the outputs are polite and respectful. "
-        "Consider the tone, language, and context of the {{ outputs }}."
+        "Evaluate if the response is polite and respectful. "
+        "Consider the tone, language, and context of the response.\n\n"
+        "Response: {{ outputs }}"
     ),
+    feedback_value_type=bool,
     model="openai:/gpt-4.1-mini",
 )
 
@@ -76,7 +80,7 @@ optimizer = MemAlignOptimizer(
 # Retrieve traces with human feedback
 traces = mlflow.search_traces(return_type="list")
 
-# Align the judge - completes in seconds
+# Align the judge
 aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 ```
 
@@ -85,7 +89,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. We recommend using a stronger model for better guideline extraction. |
-| `retrieval_k` | `int` | `5` | Number of similar examples to retrieve from episodic memory during inference. |
+| `retrieval_k` | `int` | `5` | Number of relevant examples to retrieve from episodic memory during inference. |
 | `embedding_model` | `str` | `None` | Optional custom embedding model for episodic memory retrieval. Uses default embeddings if not specified. |
 
 ## Inspecting Learned Knowledge

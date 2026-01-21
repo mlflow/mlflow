@@ -15,17 +15,34 @@ For alignment to work:
 
 ## Basic Usage
 
+See [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for details on creating judges.
+
 ```python
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+import mlflow
+
+# Create a judge
+judge = make_judge(
+    name="politeness",
+    instructions=(
+        "Evaluate if the response is polite and respectful.\n\n"
+        "Response: {{ outputs }}"
+    ),
+    model="openai:/gpt-4.1-mini",
+)
+
+# Retrieve traces with human feedback
+traces_with_feedback = mlflow.search_traces(return_type="list")
+
 # Default: Uses SIMBA optimizer automatically
-aligned_judge = initial_judge.align(traces_with_feedback)
+aligned_judge = judge.align(traces_with_feedback)
 
 # Explicit: Same as above but with custom model specification
-from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
-
 optimizer = SIMBAAlignmentOptimizer(
     model="openai:/gpt-4.1"  # Model used for optimization
 )
-aligned_judge = initial_judge.align(traces_with_feedback, optimizer)
+aligned_judge = judge.align(traces_with_feedback, optimizer)
 ```
 
 :::tip[Default Optimizer Behavior]
