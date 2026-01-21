@@ -261,6 +261,20 @@ def _parse_batch_response(
     """
     response_data = json.loads(response)
     guidelines = []
+    trace_ids_set = set(index_to_trace_id.values())
+
+    def resolve_trace_id(idx: Any) -> str | None:
+        """Resolve an LLM-returned index to a trace ID."""
+        if isinstance(idx, int):
+            return index_to_trace_id.get(idx)
+        if isinstance(idx, str):
+            if idx in trace_ids_set:
+                return idx
+            try:
+                return index_to_trace_id.get(int(idx))
+            except ValueError:
+                return None
+        return None
 
     for guideline_data in response_data.get("guidelines", []):
         # Skip empty or duplicate guidelines
@@ -277,7 +291,7 @@ def _parse_batch_response(
         trace_ids = [
             resolved
             for idx in source_trace_ids_raw
-            if (resolved := _resolve_trace_id(idx, index_to_trace_id)) is not None
+            if (resolved := resolve_trace_id(idx)) is not None
         ]
         # Only add guideline if there is at least one valid trace ID
         if trace_ids:
@@ -289,26 +303,6 @@ def _parse_batch_response(
             )
 
     return guidelines
-
-
-def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int, str]) -> str | None:
-    """Resolve an LLM-returned index to an actual trace ID.
-
-    Handles LLM unpredictability where it might return:
-    - Integer index (expected): 0, 1, 2
-    - String index: "0", "1", "2"
-    - Actual trace ID: "tr-xxx" (if LLM returns the ID directly)
-    """
-    if isinstance(idx, int):
-        return index_to_trace_id.get(idx)
-    if isinstance(idx, str):
-        if idx in index_to_trace_id.values():
-            return idx
-        try:
-            return index_to_trace_id.get(int(idx))
-        except ValueError:
-            return None
-    return None
 
 
 def value_to_embedding_text(value: Any) -> str:
