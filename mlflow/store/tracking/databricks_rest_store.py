@@ -552,7 +552,7 @@ class DatabricksTracingRestStore(RestStore):
 
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
-        resource_spans.resource.CopyFrom(spans[0].resource.to_otel_proto())
+        resource_spans.resource.CopyFrom(spans[0].resource_to_otel_proto())
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
