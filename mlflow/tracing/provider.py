@@ -13,7 +13,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -497,7 +497,7 @@ def _initialize_tracer_provider(disabled=False):
     provider.set(tracer_provider)
 
 
-def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dict:
+def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dict[str, Any]:
     """
     Parse the otel resource attributes from a comma separated key-value pairs string.
     """
@@ -510,7 +510,7 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
             key, value = item.split("=", maxsplit=1)
             attributes[key.strip()] = value.strip()
     except ValueError:
-        _logger.warning("Failed to parse otel resource attributes, skipping", exc_info=True)
+        _logger.debug("Failed to parse otel resource attributes, skipping", exc_info=True)
         return {}
     return attributes
 

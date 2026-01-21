@@ -4,6 +4,7 @@ import logging
 from functools import lru_cache
 from typing import Any, Union
 
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
@@ -205,6 +206,13 @@ class Span:
             )
             for event in self._span.events
         ]
+
+    @property
+    def resource(self) -> _OTelResource:
+        """The resource associated with this span."""
+        if hasattr(self._span, "resource") and self._span.resource is not None:
+            return self._span.resource
+        return _OTelResource.get_empty()
 
     def __repr__(self):
         return (
@@ -451,6 +459,20 @@ class Span:
             otel_span.events.append(otel_event)
 
         return otel_span
+
+    def resource_to_otel_proto(self) -> OTelProtoResource:
+        """
+        Convert the span's resource to OpenTelemetry protobuf Resource format.
+
+        Returns:
+            An OpenTelemetry protobuf Resource message.
+        """
+        otel_resource = OTelProtoResource()
+        for key, value in self.resource.attributes.items():
+            attr = otel_resource.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+        return otel_resource
 
 
 def _encode_span_id_to_byte(span_id: int | None) -> bytes:
