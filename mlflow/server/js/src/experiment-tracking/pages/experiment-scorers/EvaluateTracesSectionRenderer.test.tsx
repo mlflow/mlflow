@@ -8,11 +8,11 @@ import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 
 describe('EvaluateTracesSectionRenderer', () => {
   const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
-    const { control } = useForm({ defaultValues });
+    const { control, setValue } = useForm({ defaultValues });
     return (
       <IntlProvider locale="en">
         <DesignSystemProvider>
-          <EvaluateTracesSectionRenderer control={control} mode={mode} />
+          <EvaluateTracesSectionRenderer control={control} mode={mode} setValue={setValue} />
         </DesignSystemProvider>
       </IntlProvider>
     );
@@ -80,6 +80,23 @@ describe('EvaluateTracesSectionRenderer', () => {
 
       expect(screen.getByText(/Sample rate/i)).toBeInTheDocument();
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
+    });
+
+    it('should disable and uncheck automatic evaluation when instructions contain expectations', () => {
+      render(
+        <TestWrapper
+          defaultValues={{
+            sampleRate: 100,
+            instructions: 'Compare {{ outputs }} against {{ expectations }}',
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeDisabled();
+      // sampleRate is set to 0, so sample rate and filter controls should be hidden
+      expect(screen.queryByText(/Sample rate/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
     });
   });
 });

@@ -554,7 +554,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       )}
       {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      <EvaluateTracesSectionRenderer control={control} mode={mode} setValue={setValue} />
     </div>
   );
 };

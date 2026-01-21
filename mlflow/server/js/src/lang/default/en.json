@@ -4180,6 +4180,10 @@
     "defaultMessage": "Top K",
     "description": "Label for top K input"
   },
+  "VTNUPu": {
+    "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
+    "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
+  },
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
