@@ -19,6 +19,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     get_default_embedding_model,
     retrieve_relevant_examples,
     truncate_to_token_limit,
+    value_to_embedding_text,
 )
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -312,7 +313,6 @@ class MemoryAugmentedJudge(Judge):
         """Build episodic memory search index from examples."""
         import dspy.retrievers
 
-        # Build episodic memory corpus from input fields
         corpus = []
         for example in self._episodic_memory:
             query_parts = []
@@ -320,7 +320,7 @@ class MemoryAugmentedJudge(Judge):
                 if hasattr(example, field_name):
                     value = getattr(example, field_name)
                     if value is not None:
-                        query_parts.append(str(value))
+                        query_parts.append(value_to_embedding_text(value))
             query = " ".join(query_parts)
             query = truncate_to_token_limit(query, self._embedding_model)
             corpus.append(query)

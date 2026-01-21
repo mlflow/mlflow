@@ -6,11 +6,16 @@ from typing import TYPE_CHECKING, Any
 from jinja2 import Template
 from pydantic import BaseModel
 
+from mlflow.entities.trace import Trace
 from mlflow.genai.judges.optimizers.dspy_utils import construct_dspy_lm
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
     create_examples_field,
     create_guidelines_field,
+)
+from mlflow.genai.utils.trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
 )
 
 # Try to import litellm at module level
@@ -105,6 +110,37 @@ def get_default_embedding_model() -> str:
     return "openai/text-embedding-3-small"
 
 
+def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int, str]) -> str:
+    if isinstance(idx, int):
+        return index_to_trace_id.get(idx, f"unknown_{idx}")
+    if isinstance(idx, str):
+        if idx in index_to_trace_id.values():
+            return idx
+        try:
+            return index_to_trace_id.get(int(idx), f"unknown_{idx}")
+        except ValueError:
+            pass
+    return f"unknown_{idx}"
+
+
+def value_to_embedding_text(value: Any) -> str:
+    """
+    Convert an arbitrary value to text suitable for embedding.
+
+    For Trace objects, extracts the request and response text. We do not use other attributes
+    of the trace because the size is generally unbounded.
+    For other types, returns the string representation.
+    """
+    if isinstance(value, Trace):
+        parts = []
+        if request := extract_request_from_trace(value):
+            parts.append(request)
+        if response := extract_response_from_trace(value):
+            parts.append(response)
+        return " ".join(parts) if parts else ""
+    return str(value)
+
+
 def distill_guidelines(
     examples: list["dspy.Example"],
     signature: "dspy.Signature",
@@ -168,19 +204,12 @@ def distill_guidelines(
         if guideline_text and guideline_text not in existing_guidelines:
             source_trace_ids_raw = guideline_data.get("source_trace_ids")
 
-            if source_trace_ids_raw is not None:
-                # Convert integers (indices) to actual trace IDs
-                trace_ids = [
-                    index_to_trace_id.get(
-                        int(idx) if isinstance(idx, (int, str)) else idx, f"unknown_{idx}"
-                    )
-                    for idx in source_trace_ids_raw
-                ]
-                guidelines.append(
-                    Guideline(guideline_text=guideline_text, source_trace_ids=trace_ids)
-                )
-            else:
-                guidelines.append(Guideline(guideline_text=guideline_text, source_trace_ids=None))
+            trace_ids = (
+                [_resolve_trace_id(idx, index_to_trace_id) for idx in source_trace_ids_raw]
+                if source_trace_ids_raw is not None
+                else None
+            )
+            guidelines.append(Guideline(guideline_text=guideline_text, source_trace_ids=trace_ids))
 
     return guidelines
 
@@ -206,15 +235,16 @@ def retrieve_relevant_examples(
         return []
 
     query_parts = [
-        str(query_kwargs[field_name])
+        value_to_embedding_text(query_kwargs[field_name])
         for field_name in signature.input_fields
         if field_name in query_kwargs and query_kwargs[field_name] is not None
     ]
     query = " ".join(query_parts)
+    if not query.strip():
+        return []
     search_results = retriever(query)
     indices = [int(i) for i in search_results.indices]
 
-    # Return list of tuples for safer API
     return [
         (
             examples[i],
