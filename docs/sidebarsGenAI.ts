@@ -533,8 +533,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'eval-monitor/online-evaluations/index',
-          label: 'Online Evaluations',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
         },
         {
           type: 'category',
