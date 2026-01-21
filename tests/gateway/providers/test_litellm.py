@@ -356,3 +356,84 @@ def test_adapter_model_to_embeddings():
     assert result.data[0].embedding == [0.1, 0.2, 0.3]
     assert result.data[0].index == 0
     assert result.usage.prompt_tokens == 5
+
+
+def databricks_chat_config():
+    return {
+        "name": "databricks-chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "dbrx-instruct",
+            "config": {
+                "litellm_provider": "databricks",
+                "litellm_auth_config": {
+                    "api_key": "test-databricks-token",
+                    "api_base": "https://my-workspace.databricks.com/serving-endpoints",
+                },
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_with_databricks_provider_includes_model_name_in_api_base():
+    config = databricks_chat_config()
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["model"] == "databricks/dbrx-instruct"
+        assert (
+            call_kwargs["api_base"]
+            == "https://my-workspace.databricks.com/serving-endpoints/dbrx-instruct"
+        )
+
+
+@pytest.mark.asyncio
+async def test_chat_with_databricks_provider_handles_trailing_slash():
+    config = {
+        "name": "databricks-chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "dbrx-instruct",
+            "config": {
+                "litellm_provider": "databricks",
+                "litellm_auth_config": {
+                    "api_key": "test-token",
+                    "api_base": "https://my-workspace.databricks.com/serving-endpoints/",
+                },
+            },
+        },
+    }
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_completion.call_args[1]
+        assert (
+            call_kwargs["api_base"]
+            == "https://my-workspace.databricks.com/serving-endpoints/dbrx-instruct"
+        )
+
+
+@pytest.mark.asyncio
+async def test_chat_with_non_databricks_provider_does_not_modify_api_base():
+    config = chat_config_with_api_base()
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["api_base"] == "https://custom-api.example.com"

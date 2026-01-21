@@ -65,6 +65,20 @@ class LiteLLMProvider(BaseProvider):
         if self.litellm_config.litellm_auth_config:
             kwargs.update(self.litellm_config.litellm_auth_config)
 
+        # For Databricks, we need to include the model name in the api_base URL path.
+        # Databricks serving endpoints expect the URL format:
+        #   https://{host}/serving-endpoints/{model_name}/chat/completions
+        # However, when api_base is explicitly set, LiteLLM uses OpenAI-compatible format
+        # and only appends /chat/completions, missing the model_name in the path.
+        # To fix this, we append the model name to api_base for Databricks endpoints.
+        if (
+            self.litellm_config.litellm_provider == "databricks"
+            and "api_base" in kwargs
+            and self.config.model.name
+        ):
+            api_base = kwargs["api_base"].rstrip("/")
+            kwargs["api_base"] = f"{api_base}/{self.config.model.name}"
+
         return kwargs
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
