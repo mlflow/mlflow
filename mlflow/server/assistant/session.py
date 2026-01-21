@@ -261,7 +261,7 @@ def terminate_session_process(session_id: str) -> bool:
     pid = get_process_pid(session_id)
     if pid:
         try:
-            os.kill(pid, signal.SIGKILL)
+            os.kill(pid, signal.SIGTERM)
             clear_process_pid(session_id)
             return True
         except ProcessLookupError:
