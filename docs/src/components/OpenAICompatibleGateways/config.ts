@@ -71,9 +71,9 @@ export const OPENAI_COMPATIBLE_GATEWAYS: OpenAICompatibleGateway[] = [
       '<a href="https://www.helicone.ai/">Helicone AI Gateway</a> is an open-source LLM gateway that provides unified access to 100+ AI models through an OpenAI-compatible API. It offers built-in caching, rate limiting, automatic failover, and comprehensive analytics with minimal latency overhead.',
     baseUrl: 'http://localhost:8080/ai',
     apiKeyPlaceholder: 'placeholder-api-key',
-    sampleModel: 'anthropic/claude-3-5-sonnet',
+    sampleModel: 'anthropic/claude-4-5-sonnet',
     prerequisite:
-      'Before following the steps below, you need to set up Helicone AI Gateway server.<ol><li>Set up your <code>.env</code> file with your LLM provider API keys (e.g., <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>).</li><li>Run the gateway locally with <code>npx @helicone/ai-gateway@latest</code>.</li></ol>See the <ins><a href="https://docs.helicone.ai/helicone-ai-gateway/getting-started">Helicone AI Gateway docs</a></ins> for more details.',
+      'Before following the steps below, you need to set up Helicone AI Gateway server.<ol><li>Set up your <code>.env</code> file with your LLM provider API keys (e.g., <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>).</li><li>Run the gateway locally with <code>npx @helicone/ai-gateway@latest</code>.</li></ol>See the <ins><a href="https://docs.helicone.ai/gateway/overview#ai-gateway-overview">Helicone AI Gateway docs</a></ins> for more details.',
   },
   {
     id: 'portkey',
