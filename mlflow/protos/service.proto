@@ -4259,6 +4259,8 @@ message GatewayEndpointBinding {
   // User ID who last updated the binding
   optional string last_updated_by = 7;
   // Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side)
+  // Human-readable display name for the resource (e.g., scorer name)
+  optional string display_name = 10;
 }
 
 // ========== Secrets API Messages ==========

@@ -62,6 +62,7 @@ const generateMockBinding = (id: string, endpointId: string): EndpointBinding =>
   resource_type: 'scorer',
   resource_id: `job-${id}`,
   created_at: 1700000000000,
+  display_name: `Scorer ${id}`,
 });
 
 const generateMockModelDefinition = (id: string, secretId: string): ModelDefinition => ({

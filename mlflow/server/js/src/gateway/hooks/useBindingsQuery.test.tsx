@@ -24,6 +24,7 @@ const generateMockBinding = (id: string): EndpointBinding => ({
   resource_type: 'scorer',
   resource_id: `job-${id}`,
   created_at: 1700000000000,
+  display_name: `Scorer ${id}`,
 });
 
 describe('useBindingsQuery', () => {
