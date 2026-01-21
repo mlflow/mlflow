@@ -1,5 +1,5 @@
 import json
-from typing import Literal
+from typing import Any, Literal
 
 import click
 
@@ -16,6 +16,41 @@ EXPERIMENT_ID = click.option(
     required=True,
     help="Experiment ID to list datasets for. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
+
+
+def _format_datasets_as_json(datasets) -> dict[str, Any]:
+    """Format datasets as a JSON-serializable dictionary."""
+    return {
+        "datasets": [
+            {
+                "dataset_id": ds.dataset_id,
+                "name": ds.name,
+                "digest": ds.digest,
+                "created_time": ds.created_time,
+                "last_update_time": ds.last_update_time,
+                "created_by": ds.created_by,
+                "last_updated_by": ds.last_updated_by,
+                "tags": ds.tags,
+            }
+            for ds in datasets
+        ],
+        "next_page_token": datasets.token,
+    }
+
+
+def _format_datasets_as_table(datasets) -> tuple[list[list[str]], list[str], str | None]:
+    """Format datasets as table rows with headers.
+
+    Returns:
+        A tuple of (rows, headers, next_page_token).
+    """
+    headers = ["Dataset ID", "Name", "Created", "Last Updated", "Created By"]
+    rows = []
+    for ds in datasets:
+        created = conv_longdate_to_str(ds.created_time) if ds.created_time else ""
+        updated = conv_longdate_to_str(ds.last_update_time) if ds.last_update_time else ""
+        rows.append([ds.dataset_id, ds.name, created, updated, ds.created_by or ""])
+    return rows, headers, datasets.token
 
 
 @click.group("datasets")
@@ -97,32 +132,11 @@ def list_datasets(
     )
 
     if output == "json":
-        result = {
-            "datasets": [
-                {
-                    "dataset_id": ds.dataset_id,
-                    "name": ds.name,
-                    "digest": ds.digest,
-                    "created_time": ds.created_time,
-                    "last_update_time": ds.last_update_time,
-                    "created_by": ds.created_by,
-                    "last_updated_by": ds.last_updated_by,
-                    "tags": ds.tags,
-                }
-                for ds in datasets
-            ],
-            "next_page_token": datasets.token,
-        }
+        result = _format_datasets_as_json(datasets)
         click.echo(json.dumps(result, indent=2))
     else:
-        table = []
-        for ds in datasets:
-            created = conv_longdate_to_str(ds.created_time) if ds.created_time else ""
-            updated = conv_longdate_to_str(ds.last_update_time) if ds.last_update_time else ""
-            table.append([ds.dataset_id, ds.name, created, updated, ds.created_by or ""])
+        rows, headers, next_page_token = _format_datasets_as_table(datasets)
+        click.echo(_create_table(rows, headers=headers))
 
-        headers = ["Dataset ID", "Name", "Created", "Last Updated", "Created By"]
-        click.echo(_create_table(table, headers=headers))
-
-        if datasets.token:
-            click.echo(f"\nNext page token: {datasets.token}")
+        if next_page_token:
+            click.echo(f"\nNext page token: {next_page_token}")
