@@ -253,9 +253,7 @@ class LiteLLMProvider(BaseProvider):
         """Passthrough for OpenAI Response API using litellm.aresponses()."""
         import litellm
 
-        is_streaming = kwargs.pop("stream", False)
-
-        if is_streaming:
+        if kwargs.pop("stream", False):
             return self._stream_openai_responses(kwargs)
 
         response = await litellm.aresponses(**kwargs)
@@ -279,9 +277,7 @@ class LiteLLMProvider(BaseProvider):
         """Passthrough for Anthropic Messages API using litellm.anthropic.messages.acreate()."""
         import litellm
 
-        is_streaming = kwargs.pop("stream", False)
-
-        if is_streaming:
+        if kwargs.pop("stream", False):
             return self._stream_anthropic_messages(kwargs)
 
         response = await litellm.anthropic.messages.acreate(**kwargs)
@@ -331,9 +327,7 @@ class LiteLLMProvider(BaseProvider):
         """Passthrough for OpenAI Chat Completions API."""
         import litellm
 
-        is_streaming = kwargs.pop("stream", False)
-
-        if is_streaming:
+        if kwargs.pop("stream", False):
             return self._stream_openai_chat(kwargs)
 
         response = await litellm.acompletion(**kwargs)

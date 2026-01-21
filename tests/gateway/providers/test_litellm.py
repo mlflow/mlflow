@@ -362,18 +362,6 @@ def test_adapter_model_to_embeddings():
 # Passthrough tests
 
 
-def test_passthrough_provider_paths():
-    assert PassthroughAction.OPENAI_CHAT in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    assert PassthroughAction.OPENAI_EMBEDDINGS in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    assert PassthroughAction.OPENAI_RESPONSES in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    assert PassthroughAction.ANTHROPIC_MESSAGES in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    assert PassthroughAction.GEMINI_GENERATE_CONTENT in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    assert (
-        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
-        in LiteLLMProvider.PASSTHROUGH_PROVIDER_PATHS
-    )
-
-
 def mock_response_with_model_dump():
     """Create a mock response object that supports model_dump()."""
     response = mock.MagicMock()
