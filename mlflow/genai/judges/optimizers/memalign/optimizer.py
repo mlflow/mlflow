@@ -311,9 +311,9 @@ class MemoryAugmentedJudge(Judge):
                 break
         if query_field is None:
             raise MlflowException(
-                "Unable to build episodic memory: no suitable input field found in judge instructions.",
-                "Please ensure the judge instructions reference at least one of the following fields: "
-                "inputs, outputs, expectations, conversation",
+                "Unable to build episodic memory: no suitable input field found in judge "
+                "instructions. Please ensure the judge instructions reference at least one of "
+                "the following fields: inputs, outputs, expectations, conversation.",
                 error_code=INTERNAL_ERROR,
             )
 
