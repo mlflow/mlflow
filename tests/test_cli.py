@@ -23,6 +23,7 @@ from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
+from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -661,6 +662,43 @@ def test_mlflow_gc_experiments(get_store_details, request):
     assert sorted([e.experiment_id for e in experiments]) == sorted(
         [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
     )
+
+
+def test_mlflow_gc_experiment_with_logged_model_params_and_tags(sqlite_store):
+    """Test that GC can delete experiments with logged models that have params and tags.
+
+    This tests the fix for https://github.com/mlflow/mlflow/issues/20184 where GC failed
+    with a foreign key constraint error when deleting experiments that had logged_model_params
+    or logged_model_tags records referencing the experiment.
+    """
+    store, uri = sqlite_store
+    exp_id = store.create_experiment("exp_with_logged_model")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    store.log_logged_model_params(
+        model_id=model.model_id,
+        params=[
+            LoggedModelParameter(key="param1", value="value1"),
+            LoggedModelParameter(key="param2", value="value2"),
+        ],
+    )
+    store.set_logged_model_tags(
+        model_id=model.model_id,
+        tags=[
+            LoggedModelTag(key="tag1", value="value1"),
+            LoggedModelTag(key="tag2", value="value2"),
+        ],
+    )
+
+    store.delete_experiment(exp_id)
+
+    subprocess.check_call([sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", uri])
+
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
 
 
 @pytest.fixture
