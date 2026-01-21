@@ -8,8 +8,6 @@ import {
   Button,
   Card,
   CloseIcon,
-  InfoBookIcon,
-  PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -404,20 +402,123 @@ const ChatPanelContent = () => {
 };
 
 /**
+ * Loading state while fetching setup status.
+ */
+const SetupLoadingState = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: theme.spacing.md,
+      }}
+    >
+      <Spinner size="default" />
+      <Typography.Text color="secondary">Loading...</Typography.Text>
+    </div>
+  );
+};
+
+/**
+ * Setup prompt shown when assistant is not set up yet.
+ * Shows description and setup button.
+ */
+const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        padding: theme.spacing.lg,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        Ask questions about your experiments, traces, evaluations, and more.
+      </Typography.Text>
+
+      <Button componentId={`${COMPONENT_ID}.setup`} type="primary" onClick={onSetup}>
+        Get Started
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Assistant Chat Panel.
  * Shows the chat header and the chat interface.
+ * When setup is incomplete, shows a banner prompting the user to set up.
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, completeSetup } = useAssistant();
+  const context = useAssistantPageContext();
+  const experimentId = context['experimentId'] as string | undefined;
 
-  const handleClose = () => {
+  // Track whether the user is in the setup wizard
+  const [isInSetupWizard, setIsInSetupWizard] = useState(false);
+
+  const handleClose = useCallback(() => {
     closePanel();
+  }, [closePanel]);
+
+  const handleReset = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  const handleStartSetup = useCallback(() => {
+    setIsInSetupWizard(true);
+  }, []);
+
+  const handleSetupComplete = useCallback(() => {
+    setIsInSetupWizard(false);
+    completeSetup();
+  }, [completeSetup]);
+
+  // Determine what to show in the content area
+  const renderContent = () => {
+    // Show loading state while fetching config
+    if (isLoadingConfig) {
+      return <SetupLoadingState />;
+    }
+
+    // Show setup wizard if user clicked "Setup"
+    if (isInSetupWizard) {
+      // TODO: Part 3 will add the actual AssistantSetupWizard component here
+      // return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+      return <SetupLoadingState />; // Placeholder until part 3
+    }
+
+    // Show setup prompt if setup is incomplete
+    if (!setupComplete) {
+      return <SetupPrompt onSetup={handleStartSetup} />;
+    }
+
+    // Show chat panel content
+    return <ChatPanelContent />;
   };
 
-  const handleReset = () => {
-    reset();
-  };
+  // Determine if we should show the chat controls (new chat button)
+  const showChatControls = setupComplete && !isInSetupWizard;
 
   return (
     <div
@@ -454,15 +555,17 @@ export const AssistantChatPanel = () => {
           </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-          <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
-            <Button
-              componentId={`${COMPONENT_ID}.reset`}
-              size="small"
-              icon={<PlusIcon />}
-              onClick={handleReset}
-              aria-label="New Chat"
-            />
-          </Tooltip>
+          {showChatControls && (
+            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="Clear Chat">
+              <Button
+                componentId={`${COMPONENT_ID}.reset`}
+                size="small"
+                icon={<RefreshIcon />}
+                onClick={handleReset}
+                aria-label="Clear Chat"
+              />
+            </Tooltip>
+          )}
           <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
             <Button
               componentId={`${COMPONENT_ID}.close`}
@@ -474,7 +577,7 @@ export const AssistantChatPanel = () => {
           </Tooltip>
         </div>
       </div>
-      <ChatPanelContent />
+      {renderContent()}
     </div>
   );
 };
