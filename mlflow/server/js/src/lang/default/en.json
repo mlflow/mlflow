@@ -5415,6 +5415,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
+  "enp602": {
+    "defaultMessage": "Automatic evaluation settings",
+    "description": "Section header for automatic evaluation settings"
+  },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
     "description": "Label for the evaluations tab in the MLflow experiment navbar"
@@ -5854,10 +5858,6 @@
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
-  },
-  "i30A98": {
-    "defaultMessage": "Evaluation settings",
-    "description": "Section header for evaluation settings"
   },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
