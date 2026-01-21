@@ -4,10 +4,12 @@ from pathlib import Path
 from typing import NamedTuple
 from unittest import mock
 
+import cloudpickle
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import pytest
+import skops
 import yaml
 from sklearn import datasets
 from sklearn.pipeline import Pipeline
@@ -551,8 +553,6 @@ def test_model_log_with_signature_inference(lgb_model):
 
 
 def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
-    import skops
-
     from mlflow.utils.requirements_utils import _parse_requirements
 
     model = lgb_sklearn_model.model
@@ -574,6 +574,7 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
         )
     ]
     assert f"skops=={skops.__version__}" in logged_reqs
+    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
 
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)

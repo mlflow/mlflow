@@ -177,7 +177,16 @@ def save_model(
 
         # Save the model
         path = "model"
-        mlflow.lightgbm.save_model(model, path)
+        mlflow.lightgbm.save_model(
+            model,
+            path,
+            serialization_format="skops",
+            skops_trusted_types=[
+                "collections.OrderedDict",
+                "lightgbm.basic.Booster",
+                "lightgbm.sklearn.LGBMClassifier",
+            ],
+        )
 
         # Load model for inference
         loaded_model = mlflow.lightgbm.load_model(Path.cwd() / path)
@@ -240,8 +249,9 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            include_cloudpickle = not isinstance(lgb_model, lgb.Booster)
-            include_skops = include_cloudpickle and serialization_format == "skops"
+            is_booster = isinstance(lgb_model, lgb.Booster)
+            include_cloudpickle = (not is_booster) and (serialization_format == "cloudpickle")
+            include_skops = (not is_booster) and (serialization_format == "skops")
             default_reqs = get_default_pip_requirements(
                 include_cloudpickle=include_cloudpickle,
                 include_skops=include_skops,
