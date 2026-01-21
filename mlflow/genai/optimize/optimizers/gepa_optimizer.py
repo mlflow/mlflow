@@ -140,6 +140,18 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         provider, model = _parse_model_uri(self.reflection_model)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
+            """
+            MLflow optimization adapter for GEPA optimization
+
+            Args:
+                eval_function: Function that evaluates candidate prompts on a dataset.
+                prompts_dict: Dictionary mapping prompt names to their templates.
+                tracking_enabled: Whether to log traces/metrics/params/artifacts during
+                    optimization.
+                full_dataset_size: Size of the full training dataset, used to distinguish
+                    full validation passes from minibatch evaluations.
+            """
+
             def __init__(self, eval_function, prompts_dict, tracking_enabled, full_dataset_size):
                 self.eval_function = eval_function
                 self.prompts_dict = prompts_dict
