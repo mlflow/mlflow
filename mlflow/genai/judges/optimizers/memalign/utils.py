@@ -193,10 +193,9 @@ def _create_batches(
 
     for idx, tokens in zip(indices, example_tokens):
         # Check if adding this example would exceed limits
-        if (
-            current_batch
-            and (current_tokens + tokens > prompt_tokens_limit
-                 or len(current_batch) >= _MAX_RECORDS_PER_BATCH)
+        if current_batch and (
+            current_tokens + tokens > prompt_tokens_limit
+            or len(current_batch) >= _MAX_RECORDS_PER_BATCH
         ):
             # Start a new batch
             batches.append(current_batch)

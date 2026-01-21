@@ -395,9 +395,7 @@ class TestCreateBatches:
                 "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
                 return_value="gpt-4",
             ),
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
-            ) as mock_counter,
+            patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
         ):
             # Base prompt = 1000 tokens, each example = 3000 tokens
             # Limit = 10000 - 5000 (flex) = 5000 tokens
@@ -424,9 +422,7 @@ class TestCreateBatches:
                 "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
                 return_value=10000000,
             ),
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.utils._MAX_RECORDS_PER_BATCH", 2
-            ),
+            patch("mlflow.genai.judges.optimizers.memalign.utils._MAX_RECORDS_PER_BATCH", 2),
         ):
             examples = [{"input": f"test{i}"} for i in range(5)]
             result = _create_batches(
@@ -454,9 +450,7 @@ class TestCreateBatches:
                 "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
                 return_value="gpt-4",
             ),
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
-            ) as mock_counter,
+            patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
         ):
             # Base = 1000, limit = 5000
             # Examples: 500, 500, 500, 3500 tokens
@@ -494,9 +488,7 @@ class TestCreateBatches:
                 "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
                 return_value="gpt-4",
             ),
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
-            ) as mock_counter,
+            patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
         ):
             # Base = 1000, limit = 5000
             # Single example = 6000 tokens (exceeds limit even alone)
@@ -519,9 +511,7 @@ class TestCreateBatches:
 
 def test_distill_guidelines_empty_batches():
     with (
-        patch(
-            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
-        ),
+        patch("mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"),
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
             return_value=[],
