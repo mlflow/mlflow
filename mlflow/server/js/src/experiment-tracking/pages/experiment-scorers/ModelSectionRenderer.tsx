@@ -33,10 +33,13 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
     setValue('model', '');
-    // Disable automatic evaluation when switching to non-gateway model,
-    // since automatic evaluation only works with gateway models
+    // Toggle automatic evaluation based on model provider:
+    // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
+    // - Re-enable when switching back to gateway model
     if (targetProvider === ModelProvider.OTHER) {
       setValue('sampleRate', 0);
+    } else if (targetProvider === ModelProvider.GATEWAY) {
+      setValue('sampleRate', 100);
     }
   };
 
