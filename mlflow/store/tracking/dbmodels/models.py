@@ -1269,6 +1269,7 @@ class SqlLoggedModelMetric(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_metrics_experiment_id",
+            ondelete="CASCADE",
         ),
         ForeignKeyConstraint(
             ["run_id"],
@@ -1331,6 +1332,7 @@ class SqlLoggedModelParam(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_params_experiment_id",
+            ondelete="CASCADE",
         ),
     )
 
@@ -1377,6 +1379,7 @@ class SqlLoggedModelTag(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_tags_experiment_id",
+            ondelete="CASCADE",
         ),
     )
 
