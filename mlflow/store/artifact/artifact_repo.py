@@ -290,7 +290,19 @@ class ArtifactRepository:
 
         # Submit download tasks
         futures = {}
-        if self._is_directory(artifact_path):
+        if artifact_path in ("", None):
+            root_listing = self.list_artifacts(artifact_path)
+            if not root_listing:
+                _logger.info(
+                    "No artifacts found to download at %s. Returning destination path.",
+                    self.artifact_uri,
+                )
+                return dst_path
+            is_dir = True
+        else:
+            is_dir = self._is_directory(artifact_path)
+
+        if is_dir:
             for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
                     os.makedirs(os.path.join(dst_path, file_info.path), exist_ok=True)
