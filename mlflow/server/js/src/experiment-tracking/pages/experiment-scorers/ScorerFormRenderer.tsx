@@ -209,6 +209,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           paddingTop: theme.spacing.md,
           position: 'sticky',
           bottom: 0,
+          backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
         {/* Error message - display with priority: local error first, then mutation error */}
@@ -218,7 +219,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
             type="error"
             message={componentError || mutation.error?.message || mutation.error?.displayMessage}
             closable={false}
-            css={{ flex: 1, marginRight: theme.spacing.sm }}
+            css={{ flex: 1 }}
           />
         )}
         <Button

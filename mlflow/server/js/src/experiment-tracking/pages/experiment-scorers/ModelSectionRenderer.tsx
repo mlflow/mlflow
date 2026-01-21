@@ -33,6 +33,11 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
     setValue('model', '');
+    // Disable automatic evaluation when switching to non-gateway model,
+    // since automatic evaluation only works with gateway models
+    if (targetProvider === ModelProvider.OTHER) {
+      setValue('sampleRate', 0);
+    }
   };
 
   const stopPropagationClick = (e: React.MouseEvent) => {

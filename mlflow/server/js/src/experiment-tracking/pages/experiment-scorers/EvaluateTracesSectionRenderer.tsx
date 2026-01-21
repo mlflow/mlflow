@@ -45,13 +45,13 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
 
   return (
     <>
-      {/* Evaluation settings section header */}
+      {/* Automatic evaluation settings section header */}
       {(mode === SCORER_FORM_MODE.EDIT || mode === SCORER_FORM_MODE.CREATE) && (
         <div css={sectionStyles}>
           <FormUI.Label>
             <FormattedMessage
-              defaultMessage="Evaluation settings"
-              description="Section header for evaluation settings"
+              defaultMessage="Automatic evaluation settings"
+              description="Section header for automatic evaluation settings"
             />
           </FormUI.Label>
         </div>
