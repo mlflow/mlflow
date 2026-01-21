@@ -1,6 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import ImageBox from "@site/src/components/ImageBox";
 import TileCard from "@site/src/components/TileCard";
 import TilesGrid from "@site/src/components/TilesGrid";
@@ -16,6 +17,7 @@ Template-based scorers let you create custom LLM judges using natural language i
 - **SDK**: The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the deprecated <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> instead.
   :::
 
+<TabsWrapper>
 <Tabs groupId="creation-method">
   <TabItem value="ui" label="UI" default>
 
@@ -239,6 +241,7 @@ Navigate to the link displayed in the console to view the evaluation results.
 
   </TabItem>
 </Tabs>
+</TabsWrapper>
 
 ## Template Format
 
@@ -262,8 +265,14 @@ You can only use the reserved template variables shown above (`inputs`, `outputs
 
 MLflow supports two ways to configure judge models:
 
-- **[AI Gateway](/genai/governance/ai-gateway/) endpoints** (Recommended for UI) - Enables running judges directly from the UI with centralized API key management. Select an endpoint from the dropdown or use the `gateway:/` prefix in the SDK.
-- **Direct model providers** - Call providers like OpenAI, Anthropic, Google, etc. directly. Requires local API keys and cannot be run from the UI.
+- **[AI Gateway](/genai/governance/ai-gateway/) endpoints** (Recommended for UI) - AI Gateway centralizes LLM access, which provides key benefits for evaluation workflows:
+  - **Run judges directly from the UI** - Test and iterate on judges without configuring local API keys
+  - **Team collaboration** - Share judges across your team without each member needing their own API keys
+  - **Centralized cost tracking** - Monitor LLM usage across all judge executions in one place
+
+  Select an endpoint from the UI dropdown or use the `gateway:/` prefix in the SDK.
+
+- **Direct model providers** - Call providers like OpenAI, Anthropic, Google, etc. directly. Requires API keys to be set locally via environment variables (e.g., `OPENAI_API_KEY`) and cannot be run from the UI.
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
 
