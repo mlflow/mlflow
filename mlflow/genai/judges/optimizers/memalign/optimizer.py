@@ -216,6 +216,10 @@ class MemoryAugmentedJudge(Judge):
     def model(self) -> str:
         return self._base_judge.model
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return self._base_judge.feedback_value_type
+
     def get_input_fields(self) -> list[JudgeField]:
         return self._base_judge.get_input_fields()
 
