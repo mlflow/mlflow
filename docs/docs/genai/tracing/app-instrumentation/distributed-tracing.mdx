@@ -2,7 +2,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Propagate Trace Context Across Services
 
-When your application spans multiple services, you may want to connect spans from these services into a single trace for tracking the end to end execution in one place. MLflow support this via **Distributed Tracing**,  by propagating the active trace context over HTTP so spans recorded in different services.
+When your application spans multiple services, you may want to connect spans from these services into a single trace for tracking the end to end execution in one place. MLflow support this via **Distributed Tracing**, by propagating the active trace context over HTTP so spans recorded in different services.
 
 The following is a simple example of distributed tracing. There is a simple LLM application that is made up of two services: a client and a server. The client will create the trace and the parent span, while the server will add a nested span. In order to do this, the trace context (including the trace id and the parent span id) will be formatted according to the W3C TraceContext specification and passed in the headers of the request from the client to the server, MLflow provides two APIs to make it easier to fetch headers in the client and ingest them in the server:
 
