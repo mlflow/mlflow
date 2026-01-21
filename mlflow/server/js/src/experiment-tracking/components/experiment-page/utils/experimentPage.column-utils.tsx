@@ -170,6 +170,8 @@ export interface UseRunsColumnDefinitionsParams {
 
 export const getAdjustableAttributeColumns = (isComparingExperiments = false) => {
   const result = [
+    ATTRIBUTE_COLUMN_LABELS.DATE,
+    ATTRIBUTE_COLUMN_LABELS.DURATION,
     ATTRIBUTE_COLUMN_LABELS.USER,
     ATTRIBUTE_COLUMN_LABELS.SOURCE,
     ATTRIBUTE_COLUMN_LABELS.VERSION,
@@ -317,6 +319,7 @@ export const useRunsColumnDefinitions = ({
     // Date and expander selection column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
+      colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE),
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       pinned: usingCompactViewport ? undefined : 'left',
       sortable: true,
@@ -350,6 +353,7 @@ export const useRunsColumnDefinitions = ({
     // Duration column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+      colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION),
       field: 'duration',
       initialWidth: 80,
     });
