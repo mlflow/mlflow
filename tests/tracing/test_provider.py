@@ -542,7 +542,6 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
     assert processors[0]._export_metrics is True
 
 
-
 def test_otel_resource_attributes(monkeypatch):
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
@@ -564,7 +563,6 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.version": mlflow.__version__,
         "service.name": "unknown_service",
     }
-
 
     # Service name should be propagated from the env var
     mlflow.tracing.reset()

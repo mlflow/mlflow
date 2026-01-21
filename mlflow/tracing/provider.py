@@ -486,14 +486,15 @@ def _initialize_tracer_provider(disabled=False):
     else:
         # Update the env var to let otel initialize the resource with MLflow's SDK attributes
         attributes = {**_parse_otel_resource_attributes(otel_resource_attributes), **sdk_attributes}
-        os.environ["OTEL_RESOURCE_ATTRIBUTES"] = ",".join([f"{k}={v}" for k, v in attributes.items()])
+        os.environ["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(
+            [f"{k}={v}" for k, v in attributes.items()]
+        )
 
     tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
     provider.set(tracer_provider)
-
 
 
 def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dict:
@@ -509,7 +510,7 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
             key, value = item.split("=", maxsplit=1)
             attributes[key.strip()] = value.strip()
     except ValueError:
-        _logger.warning(f"Failed to parse otel resource attributes, skipping", exc_info=True)
+        _logger.warning("Failed to parse otel resource attributes, skipping", exc_info=True)
         return {}
     return attributes
 
