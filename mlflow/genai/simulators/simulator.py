@@ -15,6 +15,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
+    create_litellm_message_from_databricks_response,
+    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
@@ -50,7 +52,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
-_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 _MODEL_API_DOC = {
@@ -136,12 +138,12 @@ def _invoke_model_without_tracing(
     with _delete_trace_if_created():
         # Use Databricks managed endpoint with agentic model for the default "databricks" URI
         if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-            user_prompt = json.dumps(
-                [{"role": msg.role, "content": msg.content} for msg in messages]
-            )
+            user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
+
             result = call_chat_completions(
                 user_prompt=user_prompt,
-                system_prompt="",
+                # NB: We cannot use an empty system prompt here so we use a period.
+                system_prompt=system_prompt or ".",
                 model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
             )
             if getattr(result, "error_code", None):
@@ -149,7 +151,13 @@ def _invoke_model_without_tracing(
                     f"Failed to get chat completions result from Databricks managed endpoint: "
                     f"[{result.error_code}] {result.error_message}"
                 )
-            return result.output
+
+            output_json = result.output_json
+            if not output_json:
+                raise MlflowException("Empty response from Databricks managed endpoint")
+
+            parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+            return create_litellm_message_from_databricks_response(parsed_json).content
 
         provider, model_name = _parse_model_uri(model_uri)
 
@@ -174,6 +182,8 @@ def _invoke_model_without_tracing(
         if inference_params:
             kwargs.update(inference_params)
 
+        # Drop unsupported params (e.g., temperature=0 for gpt-5)
+        litellm.drop_params = True
         response = litellm.completion(**kwargs)
         return response.choices[0].message.content
 
@@ -287,6 +297,10 @@ class ConversationSimulator:
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
             - "context" (optional): Dict of additional kwargs to pass to predict_fn.
+            - "expectations" (optional): Dict of expected values (ground truth) for
+              session-level evaluation. These are logged to the first trace of the
+              session with the session ID in metadata, allowing session-level scorers
+              to retrieve them.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
@@ -308,7 +322,8 @@ class ConversationSimulator:
                 return response
 
 
-            # Each test case requires a "goal". "persona" and "context" are optional.
+            # Each test case requires a "goal". "persona", "context", and "expectations"
+            # are optional.
             simulator = ConversationSimulator(
                 test_cases=[
                     {"goal": "Learn about MLflow tracking"},
@@ -317,6 +332,7 @@ class ConversationSimulator:
                         "goal": "Set up model registry",
                         "persona": "A beginner",
                         "context": {"user_id": "123"},
+                        "expectations": {"expected_topic": "model registry"},
                     },
                 ],
                 max_turns=5,
@@ -336,11 +352,16 @@ class ConversationSimulator:
         user_model: str | None = None,
         **user_llm_params,
     ):
-        self.test_cases = self._normalize_test_cases(test_cases)
-        self._validate_test_cases()
+        self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
         self.user_llm_params = user_llm_params
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "test_cases":
+            value = self._normalize_test_cases(value)
+            self._validate_test_cases(value)
+        super().__setattr__(name, value)
 
     def _normalize_test_cases(
         self, test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset
@@ -361,19 +382,19 @@ class ConversationSimulator:
 
         return test_cases
 
-    def _validate_test_cases(self) -> None:
-        if not self.test_cases:
+    def _validate_test_cases(self, test_cases: list[dict[str, Any]]) -> None:
+        if not test_cases:
             raise ValueError("test_cases cannot be empty")
 
         missing_goal_indices = [
-            i for i, test_case in enumerate(self.test_cases) if not test_case.get("goal")
+            i for i, test_case in enumerate(test_cases) if not test_case.get("goal")
         ]
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
 
         indices_with_extra_keys = [
             i
-            for i, test_case in enumerate(self.test_cases)
+            for i, test_case in enumerate(test_cases)
             if set(test_case.keys()) - _EXPECTED_TEST_CASE_KEYS
         ]
         if indices_with_extra_keys:
@@ -433,6 +454,7 @@ class ConversationSimulator:
         goal = test_case["goal"]
         persona = test_case.get("persona")
         context = test_case.get("context", {})
+        expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
         user_agent = SimulatedUserAgent(
@@ -459,8 +481,9 @@ class ConversationSimulator:
                     trace_session_id=trace_session_id,
                     goal=goal,
                     persona=persona,
+                    context=context,
+                    expectations=expectations if turn == 0 else None,
                     turn=turn,
-                    **context,
                 )
 
                 if trace_id:
@@ -489,8 +512,9 @@ class ConversationSimulator:
         trace_session_id: str,
         goal: str,
         persona: str | None,
+        context: dict[str, Any],
+        expectations: dict[str, Any] | None,
         turn: int,
-        **context,
     ) -> tuple[dict[str, Any], str | None]:
         # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
         #     This adds a new root span to the trace, with the same inputs and outputs as the
@@ -508,10 +532,29 @@ class ConversationSimulator:
                     "mlflow.simulation.turn": str(turn),
                 },
             )
+            if span := mlflow.get_current_active_span():
+                span.set_attributes(
+                    {
+                        "mlflow.simulation.goal": goal,
+                        "mlflow.simulation.persona": persona or DEFAULT_PERSONA,
+                        "mlflow.simulation.context": context,
+                    }
+                )
             return predict_fn(input=input, **ctx)
 
         response = traced_predict(input=input_messages, **context)
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+
+        # Log expectations to the first trace of the session
+        if expectations and trace_id:
+            for name, value in expectations.items():
+                mlflow.log_expectation(
+                    trace_id=trace_id,
+                    name=name,
+                    value=value,
+                    metadata={TraceMetadataKey.TRACE_SESSION: trace_session_id},
+                )
+
         return response, trace_id
 
     def _check_goal_achieved(
@@ -540,7 +583,7 @@ class ConversationSimulator:
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"
         except pydantic.ValidationError:
-            _logger.warning("Goal achievement check: could not parse response")
+            _logger.warning(f"Could not parse response for goal achievement check: {text_result}")
             return False
         except Exception as e:
             _logger.warning(f"Goal achievement check failed: {e}")

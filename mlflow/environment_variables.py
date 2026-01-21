@@ -684,6 +684,13 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum number of worker threads to use for online scoring (both trace-level
+#: and session-level scoring). This controls the parallelism when processing multiple traces
+#: or sessions concurrently during background online scoring jobs. (default: ``10``)
+MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS", int, 10
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
@@ -1139,10 +1146,11 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
 
 #: Specifies whether to enable job execution feature for MLflow server.
 #: This feature requires "huey" package dependency, and requires MLflow server to configure
-#: --backend-store-uri to database URI.
-#: (default: ``False``)
+#: --backend-store-uri to database URI. If enabled but requirements are not met, the server
+#: will start without job execution support and errors will be surfaced at job invocation time.
+#: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
@@ -1184,6 +1192,13 @@ MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
 )
 
+#: Default buffer time in seconds to wait before considering a session complete for online scoring.
+#: Sessions with no new traces for this duration are considered complete and ready for scoring.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
@@ -1212,4 +1227,10 @@ _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
+)
+
+
+#: Specifies whether to allow unsafe pickle deserialization for loading model
+MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )

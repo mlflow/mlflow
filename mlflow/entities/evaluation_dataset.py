@@ -12,7 +12,7 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
-from mlflow.telemetry.events import MergeRecordsEvent
+from mlflow.telemetry.events import DatasetToDataFrameEvent, MergeRecordsEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.context import registry as context_registry
@@ -355,10 +355,12 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 or are incompatible with existing dataset schema
         """
         granularity_counts: dict[DatasetGranularity, int] = {}
+        has_empty_inputs = False
 
         for record in record_dicts:
             input_keys = set(record.get("inputs", {}).keys())
             if not input_keys:
+                has_empty_inputs = True
                 continue
 
             record_type = self._classify_input_fields(input_keys)
@@ -386,6 +388,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         batch_granularity = next(iter(granularity_counts), DatasetGranularity.UNKNOWN)
         existing_granularity = self._get_existing_granularity()
 
+        if has_empty_inputs and DatasetGranularity.SESSION in {
+            batch_granularity,
+            existing_granularity,
+        }:
+            raise MlflowException.invalid_parameter_value(
+                "Empty inputs are not allowed for session records. The 'goal' field is required."
+            )
+
         if DatasetGranularity.UNKNOWN in {batch_granularity, existing_granularity}:
             return
 
@@ -403,6 +413,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             DatasetGranularity based on existing records, or UNKNOWN if empty/unparseable
         """
         if self._schema is None:
+            if self.has_records():
+                return self._classify_input_fields(set(self.records[0].inputs.keys()))
             return DatasetGranularity.UNKNOWN
         try:
             schema = json.loads(self._schema)
@@ -411,7 +423,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         except (json.JSONDecodeError, TypeError):
             return DatasetGranularity.UNKNOWN
 
-    def _classify_input_fields(self, input_keys: set[str]) -> DatasetGranularity:
+    @staticmethod
+    def _classify_input_fields(input_keys: set[str]) -> DatasetGranularity:
         """
         Classify a set of input field names into a granularity type:
         - SESSION: Has 'goal' field, and only session fields (persona, goal, context)
@@ -437,6 +450,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         return DatasetGranularity.UNKNOWN
 
+    @record_usage_event(DatasetToDataFrameEvent)
     def to_df(self) -> "pd.DataFrame":
         """
         Convert dataset records to a pandas DataFrame.

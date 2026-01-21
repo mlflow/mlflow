@@ -86,11 +86,17 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<SessionTableRow>;
   enableRowSelection?: boolean;
   enableLinks?: boolean;
+  openLinksInNewTab?: boolean;
 }
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    function ExperimentChatSessionsTableRow({ row, enableRowSelection, enableLinks = true }) {
+    function ExperimentChatSessionsTableRow({
+      row,
+      enableRowSelection,
+      enableLinks = true,
+      openLinksInNewTab = false,
+    }) {
       const { search } = useLocation();
       const { theme } = useDesignSystemTheme();
 
@@ -109,7 +115,7 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <TableCell key={cell.id}>
+            <TableCell key={cell.id} css={{ flex: `calc(var(--col-${cell.column.id}-size) / 100)` }}>
               {enableLinks ? (
                 <Link
                   to={{
@@ -117,14 +123,16 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
                       row.original.experimentId,
                       row.original.sessionId,
                     ),
-                    search,
+                    search: openLinksInNewTab ? undefined : search,
                   }}
+                  target={openLinksInNewTab ? '_blank' : undefined}
+                  rel={openLinksInNewTab ? 'noopener noreferrer' : undefined}
                   css={{
                     display: 'flex',
                     width: '100%',
                     height: '100%',
                     alignItems: 'center',
-                    color: 'inherit',
+                    color: 'inherit !important',
                     textDecoration: 'none',
                   }}
                 >
@@ -152,6 +160,7 @@ export const GenAIChatSessionsTable = ({
   traceActions,
   enableRowSelection: enableRowSelectionProp = false,
   enableLinks = true,
+  openLinksInNewTab = false,
   empty,
   toolbarAddons,
 }: {
@@ -163,6 +172,7 @@ export const GenAIChatSessionsTable = ({
   traceActions?: TraceActions;
   enableRowSelection?: boolean;
   enableLinks?: boolean;
+  openLinksInNewTab?: boolean;
   empty?: React.ReactElement;
   toolbarAddons?: React.ReactNode;
 }) => {
@@ -286,6 +296,7 @@ export const GenAIChatSessionsTable = ({
                 row={row}
                 enableRowSelection={enableRowSelection}
                 enableLinks={enableLinks}
+                openLinksInNewTab={openLinksInNewTab}
               />
             ))}
 

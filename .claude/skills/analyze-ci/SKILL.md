@@ -2,7 +2,7 @@
 name: analyze-ci
 description: Analyze failed GitHub Action jobs for a pull request.
 allowed-tools:
-  - Bash
+  - Bash(uv run skills analyze-ci:*)
 ---
 
 # Analyze CI Failures
@@ -11,7 +11,7 @@ This skill analyzes logs from failed GitHub Action jobs using Claude.
 
 ## Prerequisites
 
-- **GitHub Token**: Auto-detected via `gh auth token`, or set `GITHUB_TOKEN` env var
+- **GitHub Token**: Auto-detected via `gh auth token`, or set `GH_TOKEN` env var
 
 ## Usage
 

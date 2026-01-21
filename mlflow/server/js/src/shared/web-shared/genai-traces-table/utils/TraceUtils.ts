@@ -12,7 +12,6 @@ import type {
 import {
   createTraceV4LongIdentifier,
   getAssessmentValue,
-  isSessionLevelAssessment,
   ModelTraceSpanType,
 } from '@databricks/web-shared/model-trace-explorer';
 
@@ -219,7 +218,7 @@ const convertAssessmentV3Source = (assessment: Assessment): RunEvaluationResultA
   };
 };
 
-const convertFeedbackAssessmentToRunEvalAssessment = (
+export const convertFeedbackAssessmentToRunEvalAssessment = (
   assessment: FeedbackAssessment,
 ): RunEvaluationResultAssessment => {
   const assessmentValue = assessment.feedback?.value;
@@ -261,11 +260,6 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
     }
 
     if (assessment.valid === false) {
-      return;
-    }
-
-    // Skip assessments that are tied to the session (not the individual trace)
-    if (isSessionLevelAssessment(assessment)) {
       return;
     }
 

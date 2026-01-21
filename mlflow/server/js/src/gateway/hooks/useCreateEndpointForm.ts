@@ -7,6 +7,7 @@ import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
+import { isValidEndpointName } from '../utils/gatewayUtils';
 
 export interface CreateEndpointFormData {
   name: string;
@@ -176,11 +177,21 @@ export function useCreateEndpointForm({
 
   const handleNameBlur = () => {
     const name = form.getValues('name');
-    if (name && existingEndpoints?.some((e) => e.name === name)) {
-      form.setError('name', {
-        type: 'manual',
-        message: 'An endpoint with this name already exists',
-      });
+    if (name) {
+      if (!isValidEndpointName(name)) {
+        form.setError('name', {
+          type: 'manual',
+          message:
+            'Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.',
+        });
+        return;
+      }
+      if (existingEndpoints?.some((e) => e.name === name)) {
+        form.setError('name', {
+          type: 'manual',
+          message: 'An endpoint with this name already exists',
+        });
+      }
     }
   };
 

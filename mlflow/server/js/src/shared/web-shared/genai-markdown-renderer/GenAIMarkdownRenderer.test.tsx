@@ -74,6 +74,56 @@ describe('GenAIMarkdownRenderer', () => {
         expect(screen.container.querySelector('#user-content-fn-3')).toHaveTextContent('My reference 3.');
       });
     });
+
+    describe('Image', () => {
+      it('renders absolute URL as img element', () => {
+        const screen = render(
+          <GenAIMarkdownRenderer>{`![test image](https://example.com/image.png)`}</GenAIMarkdownRenderer>,
+        );
+
+        const img = screen.getByRole('img');
+        expect(img).toHaveAttribute('src', 'https://example.com/image.png');
+        expect(img).toHaveAttribute('alt', 'test image');
+      });
+
+      it('renders relative URL starting with / as text instead of img', () => {
+        const screen = render(<GenAIMarkdownRenderer>{`![test image](/foo/bar/test.png)`}</GenAIMarkdownRenderer>);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('[test image](/foo/bar/test.png)')).toBeInTheDocument();
+      });
+
+      it('renders relative URL starting with ./ as text instead of img', () => {
+        const screen = render(<GenAIMarkdownRenderer>{`![test image](./images/test.png)`}</GenAIMarkdownRenderer>);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('[test image](./images/test.png)')).toBeInTheDocument();
+      });
+
+      it('renders relative URL starting with ../ as text instead of img', () => {
+        const screen = render(<GenAIMarkdownRenderer>{`![test image](../images/test.png)`}</GenAIMarkdownRenderer>);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('[test image](../images/test.png)')).toBeInTheDocument();
+      });
+
+      it('renders relative URL without prefix as text instead of img', () => {
+        const screen = render(<GenAIMarkdownRenderer>{`![test image](images/test.png)`}</GenAIMarkdownRenderer>);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('[test image](images/test.png)')).toBeInTheDocument();
+      });
+
+      it('renders data: URL as img element', () => {
+        const dataUrl =
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        const screen = render(<GenAIMarkdownRenderer>{`![pixel](${dataUrl})`}</GenAIMarkdownRenderer>);
+
+        const img = screen.getByRole('img');
+        expect(img).toHaveAttribute('src', dataUrl);
+        expect(img).toHaveAttribute('alt', 'pixel');
+      });
+    });
   });
 });
 

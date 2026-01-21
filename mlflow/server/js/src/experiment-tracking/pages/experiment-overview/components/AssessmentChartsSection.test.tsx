@@ -15,9 +15,17 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
-// Helper to create an assessment data point with name and avg value
-const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => ({
+// Helper to create an assessment count data point (for getting all assessment names)
+const createCountDataPoint = (assessmentName: string, count: number) => ({
+  metric_name: AssessmentMetricKey.ASSESSMENT_COUNT,
+  dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: assessmentName },
+  values: { [AggregationType.COUNT]: count },
+});
+
+// Helper to create an assessment avg data point (for numeric assessments)
+const createAvgDataPoint = (assessmentName: string, avgValue: number) => ({
   metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
   dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: assessmentName },
   values: { [AggregationType.AVG]: avgValue },
@@ -57,21 +65,30 @@ describe('AssessmentChartsSection', () => {
   const renderComponent = () => {
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <AssessmentChartsSection />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <AssessmentChartsSection />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 
-  // Helper to setup MSW handler for the trace metrics endpoint
-  const setupTraceMetricsHandler = (dataPoints: any[] | undefined) => {
+  // Helper to setup MSW handler that returns different responses based on metric_name
+  // countData: for ASSESSMENT_COUNT query (gets all assessment names)
+  // avgData: for ASSESSMENT_VALUE query (gets avg for numeric assessments)
+  const setupTraceMetricsHandler = (countData: any[], avgData: any[] = countData) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
-        return res(ctx.json({ data_points: dataPoints }));
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+          return res(ctx.json({ data_points: countData }));
+        }
+        // ASSESSMENT_VALUE query
+        return res(ctx.json({ data_points: avgData }));
       }),
     );
   };
@@ -94,7 +111,7 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       // Check that actual chart content is not rendered during loading
-      expect(screen.queryByText('Scorer Insights')).not.toBeInTheDocument();
+      expect(screen.queryByText('Quality Insights')).not.toBeInTheDocument();
     });
   });
 
@@ -115,36 +132,73 @@ describe('AssessmentChartsSection', () => {
   });
 
   describe('empty state', () => {
-    it('should render empty state when no assessments are available', async () => {
+    it('should render empty state with guidance when no assessments are available at all', async () => {
       setupTraceMetricsHandler([]);
 
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('No assessments available')).toBeInTheDocument();
+        expect(screen.getByText('Monitor quality metrics from scorers')).toBeInTheDocument();
+        expect(screen.getByText('Learn more')).toBeInTheDocument();
       });
     });
+
+    it('should render time range message when assessments exist outside the current time range', async () => {
+      // Setup handler that returns empty for time-filtered queries but data for non-time-filtered queries
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // If query has no time range (from useHasAssessmentsOutsideTimeRange), return data
+          // Note: undefined values are omitted when serialized to JSON, so we check if the property doesn't exist
+          const hasNoTimeRange = !('start_time_ms' in body) || body.start_time_ms === null;
+          if (hasNoTimeRange && body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+            return res(ctx.json({ data_points: [createCountDataPoint('SomeAssessment', 10)] }));
+          }
+          // Time-filtered queries return empty
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderComponent();
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('No assessments available')).toBeInTheDocument();
+          expect(screen.getByText(/Try selecting a longer time range/)).toBeInTheDocument();
+        },
+        { timeout: 10000 },
+      );
+
+      // Should NOT show the full guidance
+      expect(screen.queryByText('Monitor quality metrics from scorers')).not.toBeInTheDocument();
+    }, 15000);
   });
 
   describe('with data', () => {
-    const mockDataPoints = [
-      createAssessmentDataPoint('Correctness', 0.85),
-      createAssessmentDataPoint('Relevance', 0.72),
-      createAssessmentDataPoint('Fluency', 0.9),
+    const mockCountData = [
+      createCountDataPoint('Correctness', 100),
+      createCountDataPoint('Relevance', 80),
+      createCountDataPoint('Fluency', 60),
+    ];
+    const mockAvgData = [
+      createAvgDataPoint('Correctness', 0.85),
+      createAvgDataPoint('Relevance', 0.72),
+      createAvgDataPoint('Fluency', 0.9),
     ];
 
     it('should render section header with title', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
+      setupTraceMetricsHandler(mockCountData, mockAvgData);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Scorer Insights')).toBeInTheDocument();
+        expect(screen.getByText('Quality Insights')).toBeInTheDocument();
       });
     });
 
     it('should render section description', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
+      setupTraceMetricsHandler(mockCountData, mockAvgData);
 
       renderComponent();
 
@@ -154,7 +208,7 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should render a chart for each assessment', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
+      setupTraceMetricsHandler(mockCountData, mockAvgData);
 
       renderComponent();
 
@@ -165,8 +219,8 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
-    it('should display average values for each assessment', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
+    it('should display average values for numeric assessments', async () => {
+      setupTraceMetricsHandler(mockCountData, mockAvgData);
 
       renderComponent();
 
@@ -179,11 +233,10 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should sort assessments alphabetically', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Zebra', 0.5),
-        createAssessmentDataPoint('Alpha', 0.8),
-        createAssessmentDataPoint('Middle', 0.6),
-      ]);
+      setupTraceMetricsHandler(
+        [createCountDataPoint('Zebra', 10), createCountDataPoint('Alpha', 20), createCountDataPoint('Middle', 15)],
+        [createAvgDataPoint('Zebra', 0.5), createAvgDataPoint('Alpha', 0.8), createAvgDataPoint('Middle', 0.6)],
+      );
 
       renderComponent();
 
@@ -194,15 +247,34 @@ describe('AssessmentChartsSection', () => {
         expect(charts[2]).toHaveAttribute('data-testid', 'assessment-chart-Zebra');
       });
     });
+
+    it('should render charts for string-type assessments without avgValue', async () => {
+      // String assessment has count but no avg
+      setupTraceMetricsHandler(
+        [createCountDataPoint('StringAssessment', 50), createCountDataPoint('NumericAssessment', 30)],
+        [createAvgDataPoint('NumericAssessment', 0.75)], // Only numeric has avg
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Both assessments should be rendered
+        expect(screen.getByTestId('assessment-chart-StringAssessment')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-NumericAssessment')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('API call parameters', () => {
-    it('should call API with correct parameters for fetching assessments', async () => {
-      let capturedRequestBody: any = null;
+    it('should call API with correct parameters for COUNT query', async () => {
+      let capturedCountRequest: any = null;
 
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedRequestBody = await req.json();
+          const body = await req.json();
+          if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+            capturedCountRequest = body;
+          }
           return res(ctx.json({ data_points: [] }));
         }),
       );
@@ -210,7 +282,34 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(capturedRequestBody).toMatchObject({
+        expect(capturedCountRequest).toMatchObject({
+          experiment_ids: [testExperimentId],
+          view_type: MetricViewType.ASSESSMENTS,
+          metric_name: AssessmentMetricKey.ASSESSMENT_COUNT,
+          aggregations: [{ aggregation_type: AggregationType.COUNT }],
+          dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
+          filters: [`assessment.${AssessmentFilterKey.TYPE} = "${AssessmentTypeValue.FEEDBACK}"`],
+        });
+      });
+    });
+
+    it('should call API with correct parameters for AVG query', async () => {
+      let capturedAvgRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {
+            capturedAvgRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(capturedAvgRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.ASSESSMENTS,
           metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
@@ -221,12 +320,15 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
-    it('should include time range in API call', async () => {
-      let capturedRequestBody: any = null;
+    it('should include time range in API calls', async () => {
+      let capturedCountRequest: any = null;
 
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedRequestBody = await req.json();
+          const body = await req.json();
+          if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+            capturedCountRequest = body;
+          }
           return res(ctx.json({ data_points: [] }));
         }),
       );
@@ -234,22 +336,25 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(capturedRequestBody.start_time_ms).toBe(startTimeMs);
-        expect(capturedRequestBody.end_time_ms).toBe(endTimeMs);
+        expect(capturedCountRequest.start_time_ms).toBe(startTimeMs);
+        expect(capturedCountRequest.end_time_ms).toBe(endTimeMs);
       });
     });
   });
 
   describe('data extraction', () => {
-    it('should handle data points with missing assessment_name', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('ValidName', 0.8),
-        {
-          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
-          dimensions: {}, // Missing assessment_name
-          values: { [AggregationType.AVG]: 0.5 },
-        },
-      ]);
+    it('should handle data points with missing assessment_name in count query', async () => {
+      setupTraceMetricsHandler(
+        [
+          createCountDataPoint('ValidName', 10),
+          {
+            metric_name: AssessmentMetricKey.ASSESSMENT_COUNT,
+            dimensions: {}, // Missing assessment_name
+            values: { [AggregationType.COUNT]: 5 },
+          },
+        ],
+        [createAvgDataPoint('ValidName', 0.8)],
+      );
 
       renderComponent();
 
@@ -260,20 +365,18 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
-    it('should handle data points with missing avg value', async () => {
-      setupTraceMetricsHandler([
-        {
-          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
-          dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: 'NoAvgValue' },
-          values: {}, // Missing AVG value
-        },
-      ]);
+    it('should render chart even when avg value is missing (string-type assessment)', async () => {
+      // Assessment has count but no avg (string type)
+      setupTraceMetricsHandler(
+        [createCountDataPoint('StringAssessment', 20)],
+        [], // No avg values
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        // Should not render any charts
-        expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(0);
+        // Should still render the chart (just without moving average)
+        expect(screen.getByTestId('assessment-chart-StringAssessment')).toBeInTheDocument();
       });
     });
   });

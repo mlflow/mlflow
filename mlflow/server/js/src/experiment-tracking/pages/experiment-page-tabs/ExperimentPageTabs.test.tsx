@@ -32,6 +32,18 @@ jest.mock('../experiment-traces/ExperimentTracesPage', () => ({
   default: () => <div>Experiment traces page</div>,
 }));
 
+jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
+jest.mock('../experiment-runs/ExperimentRunsPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment runs page</div>,
+}));
+
 describe('ExperimentLoggedModelListPage', () => {
   const { history } = setupTestRouter();
   const createTestExperiment = (
@@ -67,7 +79,7 @@ describe('ExperimentLoggedModelListPage', () => {
     rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => res(ctx.json({ runs: [] }))),
   );
 
-  const renderTestComponent = () => {
+  const renderTestComponent = (initialPath = '/experiments/12345678/models') => {
     const queryClient = new QueryClient();
     return render(
       <TestApolloProvider disableCache>
@@ -83,6 +95,13 @@ describe('ExperimentLoggedModelListPage', () => {
                       element: createLazyRouteElement(() => import('./ExperimentPageTabs')),
                       children: [
                         {
+                          path: RoutePaths.experimentPageTabOverview,
+                          pageId: PageId.experimentPageTabOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIOverviewPage'),
+                          ),
+                        },
+                        {
                           path: RoutePaths.experimentPageTabTraces,
                           pageId: PageId.experimentPageTabTraces,
                           element: createLazyRouteElement(() => import('../experiment-traces/ExperimentTracesPage')),
@@ -94,11 +113,16 @@ describe('ExperimentLoggedModelListPage', () => {
                             () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
                           ),
                         },
+                        {
+                          path: RoutePaths.experimentPageTabRuns,
+                          pageId: PageId.experimentPageTabRuns,
+                          element: createLazyRouteElement(() => import('../experiment-runs/ExperimentRunsPage')),
+                        },
                       ],
                     },
                   ]}
                   history={history}
-                  initialEntries={[createMLflowRoutePath('/experiments/12345678/models')]}
+                  initialEntries={[createMLflowRoutePath(initialPath)]}
                 />
               </DesignSystemProvider>
             </QueryClientProvider>
@@ -165,8 +189,8 @@ describe('ExperimentLoggedModelListPage', () => {
       ),
     ).toBeInTheDocument();
 
-    // Check we've been redirected to the Traces tab
-    expect(await screen.findByText('Experiment traces page')).toBeInTheDocument();
+    // Since we started on the /models tab, we should remain on the models tab (no redirect)
+    expect(await screen.findByText('ExperimentLoggedModelListPage')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
@@ -220,5 +244,75 @@ describe('ExperimentLoggedModelListPage', () => {
         value: ExperimentKind.GENAI_DEVELOPMENT,
       });
     });
+  });
+
+  test('integration test: should redirect to overview tab when GenAI experiment kind is inferred', async () => {
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
+      ),
+    );
+
+    // Simulate experiment with traces (GenAI)
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
+        return res(ctx.json({ traces: [{ request_id: 'trace1' }] }));
+      }),
+      rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
+        return res(ctx.json({ runs: [] }));
+      }),
+    );
+
+    // Start on experiment page WITHOUT a tab
+    renderTestComponent('/experiments/12345678');
+
+    // Should redirect to overview tab for GenAI experiments
+    expect(await screen.findByText('Experiment overview page')).toBeInTheDocument();
+  });
+
+  test('integration test: should redirect to runs tab when ML experiment kind is inferred', async () => {
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
+      ),
+    );
+
+    // Simulate experiment with runs but no traces (ML)
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
+        return res(ctx.json({ traces: [] }));
+      }),
+      rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
+        return res(ctx.json({ runs: [{ info: { run_uuid: 'run1' } }] }));
+      }),
+    );
+
+    // Start on experiment page WITHOUT a tab
+    renderTestComponent('/experiments/12345678');
+
+    // Should redirect to runs tab for ML experiments
+    expect(await screen.findByText('Experiment runs page')).toBeInTheDocument();
+  });
+
+  test('integration test: should redirect based on existing kind tag without waiting for inference', async () => {
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(
+          ctx.data(
+            createTestExperimentResponse(
+              createTestExperiment('12345678', 'Test experiment name', [
+                { key: 'mlflow.experimentKind', value: ExperimentKind.GENAI_DEVELOPMENT },
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Start on experiment page WITHOUT a tab
+    renderTestComponent('/experiments/12345678');
+
+    // Should redirect to overview tab based on existing tag
+    expect(await screen.findByText('Experiment overview page')).toBeInTheDocument();
   });
 });

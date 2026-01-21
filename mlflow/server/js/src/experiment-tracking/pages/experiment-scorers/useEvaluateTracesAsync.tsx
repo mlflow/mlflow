@@ -125,7 +125,18 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
   );
 
   const reset = useCallback(() => {
-    setCurrentJobsId(undefined);
+    // Cancel any running jobs on the backend (fire-and-forget)
+    // Use functional setState to access current job IDs without adding to dependency array
+    setCurrentJobsId((prevJobsId) => {
+      if (prevJobsId) {
+        for (const jobId of prevJobsId) {
+          fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {
+            // Ignore errors - job may have already completed
+          });
+        }
+      }
+      return undefined;
+    });
     setTracesData(undefined);
     lastFinishedJobsIdRef.current = undefined;
     setSessionsData(undefined);
