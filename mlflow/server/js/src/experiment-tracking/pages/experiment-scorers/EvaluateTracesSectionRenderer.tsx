@@ -79,7 +79,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                   link: (
                     <Typography.Link
                       componentId={`${COMPONENT_ID_PREFIX}.online-evaluation-docs-link`}
-                      href="https://mlflow.org/docs/latest/genai/eval-monitor/online-evaluations/"
+                      href="https://mlflow.org/docs/latest/genai/eval-monitor/automatic-evaluations/"
                       openInNewTab
                     >
                       {intl.formatMessage({
