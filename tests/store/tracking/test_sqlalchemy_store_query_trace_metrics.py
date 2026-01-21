@@ -326,6 +326,52 @@ def test_query_trace_metrics_latency_percentiles(
     }
 
 
+def test_query_trace_metrics_latency_percentile_identical_values(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_latency_percentile_identical")
+
+    # All traces have the same duration - tests edge case where lower and upper
+    # interpolation points are the same
+    traces_data = [
+        ("trace1", "workflow_a", 50),
+        ("trace2", "workflow_a", 50),
+    ]
+
+    for trace_id, name, duration in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=duration,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: name},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=50),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+        ],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
+    )
+
+    # When all values are identical, any percentile should return that value
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.LATENCY,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
+        "values": {
+            "AVG": 50.0,
+            "P50": pytest.approx(50.0, abs=0.01),
+            "P95": pytest.approx(50.0, abs=0.01),
+        },
+    }
+
+
 def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_latency_multiple_aggregations")
 

@@ -389,7 +389,7 @@ def create_sqlalchemy_engine(db_uri):
     if db_uri.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def _set_sqlite_functions(dbapi_conn, connection_record):
+        def _register_sqlite_functions(dbapi_conn, connection_record):
             # Register REGEXP function to enable RLIKE operator support
             def regexp(pattern, string):
                 """Custom REGEXP function for SQLite that uses Python's re module."""
