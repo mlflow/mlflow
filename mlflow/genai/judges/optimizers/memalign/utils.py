@@ -402,7 +402,8 @@ def retrieve_relevant_examples(
         return []
 
     query_field = get_query_field(signature)
-    query = str(query_kwargs.get(query_field, "")) if query_field else ""
+    value = query_kwargs.get(query_field) if query_field else None
+    query = str(value) if value else ""
     if not query:
         return []
 

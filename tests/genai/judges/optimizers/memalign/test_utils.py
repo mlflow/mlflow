@@ -180,10 +180,11 @@ def test_retrieve_relevant_examples_success():
     assert len(results) == 2
     assert results[0] == (example3, "trace_3")
     assert results[1] == (example1, "trace_1")
-    mock_retriever.assert_called_once_with("test query test output")
+    # Now uses only the first matching field from priority list ("inputs")
+    mock_retriever.assert_called_once_with("test query")
 
 
-def test_retrieve_relevant_examples_filters_none_values():
+def test_retrieve_relevant_examples_uses_first_priority_field():
     examples = [MagicMock()]
     mock_retriever = MagicMock()
     search_results = MagicMock()
@@ -196,12 +197,31 @@ def test_retrieve_relevant_examples_filters_none_values():
     retrieve_relevant_examples(
         retriever=mock_retriever,
         examples=examples,
-        query_kwargs={"inputs": "test", "outputs": None, "context": "ctx"},
+        query_kwargs={"inputs": "test", "outputs": "output_val", "context": "ctx"},
         signature=signature,
     )
 
-    # Should only include non-None values
-    mock_retriever.assert_called_once_with("test ctx")
+    # Should only use "inputs" (first in priority list that exists in input_fields)
+    mock_retriever.assert_called_once_with("test")
+
+
+def test_retrieve_relevant_examples_returns_empty_for_none_value():
+    examples = [MagicMock()]
+    mock_retriever = MagicMock()
+
+    signature = MagicMock()
+    signature.input_fields = ["inputs", "outputs"]
+
+    # When the first priority field value is None, should return empty list
+    results = retrieve_relevant_examples(
+        retriever=mock_retriever,
+        examples=examples,
+        query_kwargs={"inputs": None, "outputs": "output_val"},
+        signature=signature,
+    )
+
+    assert results == []
+    mock_retriever.assert_not_called()
 
 
 def test_retrieve_relevant_examples_out_of_bounds_raises():
