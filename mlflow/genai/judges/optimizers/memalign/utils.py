@@ -273,11 +273,11 @@ def _parse_batch_response(
         if source_trace_ids_raw is None:
             continue
 
-        # Map indices back to trace IDs, filtering out unknown values
+        # Map indices back to trace IDs, filtering out invalid values
         trace_ids = [
             resolved
             for idx in source_trace_ids_raw
-            if not (resolved := _resolve_trace_id(idx, index_to_trace_id)).startswith("unknown_")
+            if (resolved := _resolve_trace_id(idx, index_to_trace_id)) is not None
         ]
         # Only add guideline if there is at least one valid trace ID
         if trace_ids:
@@ -291,17 +291,17 @@ def _parse_batch_response(
     return guidelines
 
 
-def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int | str, str]) -> str:
+def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int | str, str]) -> str | None:
     if isinstance(idx, int):
-        return index_to_trace_id.get(idx, f"unknown_{idx}")
+        return index_to_trace_id.get(idx)
     if isinstance(idx, str):
         if idx in index_to_trace_id.values():
             return idx
         try:
-            return index_to_trace_id.get(int(idx), f"unknown_{idx}")
+            return index_to_trace_id.get(int(idx))
         except ValueError:
             pass
-    return f"unknown_{idx}"
+    return None
 
 
 def value_to_embedding_text(value: Any) -> str:
