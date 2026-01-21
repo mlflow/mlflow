@@ -35,18 +35,30 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
 }) => {
   const { theme } = useDesignSystemTheme();
 
+  const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo, setActiveTab } = useModelTraceExplorerViewState();
+
   const onSpanClick = useCallback(
-    (node) => {
-      setSelectedNode?.(node);
-    },
-    [
+  (node) => {
+    setSelectedNode?.(node);
+    
+    const hasError = 
+      node.status?.code === 'STATUS_CODE_ERROR' ||
+      node.status?.status_code === 'STATUS_CODE_ERROR' ||
+      (node.events && node.events.length > 0 && 
+        node.events.some(event => 
+          event.name === 'exception' || 
+          event.attributes?.['exception.type']
+        ));
+    
+    if (hasError) {
+      setActiveTab('events');
+    }
+  },
+  [
       // comment to prevent prettier format after copybara
-      setSelectedNode,
+      setSelectedNode, setActiveTab
     ],
   );
-
-  const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo } =
-    useModelTraceExplorerViewState();
 
   const expandedNodesList = useMemo(
     () => getTimelineTreeExpandedNodesList(rootNodes, expandedKeys),
