@@ -538,6 +538,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
+            _logger.warning("DEBUGGING: using uc table processor")
 
         elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
@@ -549,10 +550,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
+            _logger.warning("DEBUGGING: using mlflow processor")
 
         # Trace destination has highest precedence; definitely ignore defaults
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            _logger.warning("DEBUGGING: relying on trace destination setup")
             return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
@@ -570,6 +573,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
+        _logger.warning("DEBUGGING: using otel processor")
 
         # We have now added the OTLP processor.
         # If dual export is not set, return.
@@ -579,11 +583,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or any(
             not isinstance(p, OtelSpanProcessor) for p in processors
         ):
+            _logger.warning("DEBUGGING: returning processors")
             return processors
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             # May still return an OTLP processor from above, or nothing at all.
+            _logger.warning("DEBUGGING: mlflow tracing is not enabled in model serving")
             return processors
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -592,7 +598,9 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
+        _logger.warning("DEBUGGING: using inference table exporter")
     else:
+        _logger.warning("DEBUGGING: using mlflow exporter")
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
 
