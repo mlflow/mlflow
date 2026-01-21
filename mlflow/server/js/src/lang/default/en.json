@@ -3705,10 +3705,6 @@
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
   },
-  "SGVNf8": {
-    "defaultMessage": "View docs",
-    "description": "Button text for link to create experiment documentation"
-  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -7554,10 +7550,6 @@
   "w/sljb": {
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
-  },
-  "w0ZK3+": {
-    "defaultMessage": "Assistant is only available within an experiment. Please select or create an experiment to get started.",
-    "description": "Message shown when assistant is opened outside of an experiment context"
   },
   "w2+rkp": {
     "defaultMessage": "Search metrics",
