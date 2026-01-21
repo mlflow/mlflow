@@ -40,8 +40,8 @@ _logger = logging.getLogger(__name__)
 _MAX_EMBEDDING_MODEL_TOKENS = 8192
 # Maximum input tokens for chat models (most models have this limit or higher)
 _MAX_CHAT_MODEL_TOKENS = 128000
-# Maximum records per group for distillation
-_MAX_RECORDS_PER_GROUP = 50
+# Maximum records per batch for distillation
+_MAX_RECORDS_PER_BATCH = 50
 # Flexible tokens to reserve for response and variance in prompt length
 _FLEX_TOKENS = 5000
 
@@ -130,17 +130,26 @@ def get_default_embedding_model() -> str:
     return "openai:/text-embedding-3-small"
 
 
-def _find_optimal_batch_size(
+def _count_tokens(text: str, litellm_model: str | None) -> int:
+    """Count tokens in text using litellm or naive whitespace estimation."""
+    if litellm_model is not None and _LITELLM_AVAILABLE:
+        return token_counter(model=litellm_model, text=text)
+    # Fallback: heuristic estimation based on character count
+    # Approximate 4 characters per token (see https://platform.openai.com/tokenizer)
+    return len(text) // 4
+
+
+def _create_batches(
     examples_data: list[dict[str, Any]],
     indices: list[int],
     judge_instructions: str,
     existing_guidelines: list[str],
     reflection_lm: str,
-) -> int:
-    """Find the optimal batch size for distillation based on token limits.
+) -> list[list[int]]:
+    """Create batches using greedy bin-packing based on token counts.
 
-    Starts with a maximum of _MAX_RECORDS_PER_GROUP records and reduces the batch size using
-    binary search until the prompt fits within token limits and the LM call succeeds.
+    Computes token count for each example and greedily packs them into batches
+    that fit within the model's token limit.
 
     Args:
         examples_data: List of feedback example data dicts
@@ -150,51 +159,57 @@ def _find_optimal_batch_size(
         reflection_lm: Model to use for distillation
 
     Returns:
-        Optimal number of records per batch that fits within token limits
+        List of batches, where each batch is a list of indices into examples_data
     """
-    distillation_lm = construct_dspy_lm(reflection_lm)
     max_input_tokens = _get_model_max_input_tokens(reflection_lm, model_type="chat")
+    prompt_tokens_limit = max_input_tokens - _FLEX_TOKENS
 
-    # Reserve tokens for response and account for variance in prompt length
-    flex_tokens = _FLEX_TOKENS
-    prompt_tokens_limit = max_input_tokens - flex_tokens
+    litellm_model = convert_mlflow_uri_to_litellm(reflection_lm) if _LITELLM_AVAILABLE else None
 
+    # Compute base overhead (template + instructions + guidelines, without examples)
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
-    records_per_group = min(len(examples_data), _MAX_RECORDS_PER_GROUP)
+    base_prompt = template.render(
+        judge_instructions=judge_instructions,
+        feedback_records=[],
+        ids=[],
+        existing_guidelines=existing_guidelines,
+        zip=zip,
+        len=len,
+    )
+    base_tokens = _count_tokens(base_prompt, litellm_model)
 
-    while records_per_group > 0:
-        prompt = template.render(
-            judge_instructions=judge_instructions,
-            feedback_records=examples_data[:records_per_group],
-            ids=indices[:records_per_group],
-            existing_guidelines=existing_guidelines,
-            zip=zip,
-            len=len,
-        )
+    # Compute token count for each example
+    example_tokens = []
+    for example in examples_data:
+        example_str = json.dumps(example)
+        tokens = _count_tokens(example_str, litellm_model)
+        example_tokens.append(tokens)
 
-        if not _LITELLM_AVAILABLE:
-            # Without litellm, use naive white-space-based estimation
-            prompt_tokens_estimate = len(prompt.split())
-        else:
-            # Use litellm to estimate token count
-            litellm_model = convert_mlflow_uri_to_litellm(reflection_lm)
-            prompt_tokens_estimate = token_counter(model=litellm_model, text=prompt)
+    # Greedy bin-packing
+    batches = []
+    current_batch = []
+    current_tokens = base_tokens
 
-        if prompt_tokens_estimate <= prompt_tokens_limit:  # Found potentially acceptable batch size
-            # Do a trial LM call to verify if prompt can fit into LM context window
-            try:
-                trial_response = distillation_lm(
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format=Guidelines,
-                )[0]
-                Guidelines.model_validate_json(trial_response)
-                return records_per_group
-            except Exception:
-                _logger.debug(f"Trial LM call failed with batch size {records_per_group}, reducing")
-                records_per_group //= 2
-        else:  # Prompt still too large, reduce batch size
-            records_per_group //= 2
-    return 0
+    for idx, tokens in zip(indices, example_tokens):
+        # Check if adding this example would exceed limits
+        if (
+            current_batch
+            and (current_tokens + tokens > prompt_tokens_limit
+                 or len(current_batch) >= _MAX_RECORDS_PER_BATCH)
+        ):
+            # Start a new batch
+            batches.append(current_batch)
+            current_batch = []
+            current_tokens = base_tokens
+
+        current_batch.append(idx)
+        current_tokens += tokens
+
+    # Add the last batch
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
 
 
 def _parse_batch_response(
@@ -281,8 +296,8 @@ def distill_guidelines(
 
     distillation_lm = construct_dspy_lm(reflection_lm)
 
-    # Find optimal batch size based on token limits
-    records_per_group = _find_optimal_batch_size(
+    # Create batches using greedy bin-packing
+    batches = _create_batches(
         examples_data=examples_data,
         indices=indices,
         judge_instructions=judge_instructions,
@@ -290,7 +305,7 @@ def distill_guidelines(
         reflection_lm=reflection_lm,
     )
 
-    if records_per_group == 0:
+    if not batches:
         _logger.error(
             "Inputs to the judge are too large, please reduce the size of inputs for alignment. "
         )
@@ -304,18 +319,12 @@ def distill_guidelines(
     try:
         from tqdm.auto import tqdm
 
-        num_batches = (len(examples_data) + records_per_group - 1) // records_per_group
-        batch_iter = tqdm(
-            range(0, len(examples_data), records_per_group),
-            total=num_batches,
-            desc="Distilling guidelines",
-        )
+        batch_iter = tqdm(batches, desc="Distilling guidelines")
     except ImportError:
-        batch_iter = range(0, len(examples_data), records_per_group)
+        batch_iter = batches
 
-    for i in batch_iter:
-        batch_examples = examples_data[i : i + records_per_group]
-        batch_indices = indices[i : i + records_per_group]
+    for batch_indices in batch_iter:
+        batch_examples = [examples_data[i] for i in batch_indices]
 
         prompt = template.render(
             judge_instructions=judge_instructions,
@@ -344,7 +353,10 @@ def distill_guidelines(
                 existing_guideline_texts.add(guideline.guideline_text)
 
         except Exception as e:
-            _logger.error(f"Failed to generate/validate distilled guidelines for batch {i}: {e}")
+            _logger.error(
+                f"Failed to generate/validate distilled guidelines for batch "
+                f"with indices {batch_indices}: {e}"
+            )
             continue
 
     return all_guidelines

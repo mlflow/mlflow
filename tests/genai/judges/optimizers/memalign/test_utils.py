@@ -4,6 +4,8 @@ import dspy
 import pytest
 
 from mlflow.genai.judges.optimizers.memalign.utils import (
+    _count_tokens,
+    _create_batches,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
@@ -35,8 +37,8 @@ def test_distill_guidelines_with_examples():
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
-            return_value=2,
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0, 1]],
         ),
     ):
         example1 = MagicMock(spec=dspy.Example)
@@ -72,8 +74,8 @@ def test_distill_guidelines_filters_existing():
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
-            return_value=1,
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
         ),
     ):
         example1 = MagicMock(spec=dspy.Example)
@@ -100,14 +102,14 @@ def test_distill_guidelines_filters_existing():
 
 
 def test_distill_guidelines_handles_lm_error():
-    # When LM fails, _find_optimal_batch_size returns 0 and distill_guidelines returns []
+    # When LM fails for a batch, distill_guidelines logs error and continues
     with (
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
-            return_value=1,
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
         ),
     ):
         example1 = MagicMock(spec=dspy.Example)
@@ -317,6 +319,226 @@ def test_truncate_to_token_limit_get_model_info_fallback(get_model_info_side_eff
             text = "This is a short text"
             result = truncate_to_token_limit(text, "openai:/gpt-4", model_type="chat")
             assert result == text
+
+
+class TestCountTokens:
+    def test_count_tokens_with_litellm(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.token_counter", return_value=42
+            ) as mock_counter,
+        ):
+            result = _count_tokens("test text", "gpt-4")
+            assert result == 42
+            mock_counter.assert_called_once_with(model="gpt-4", text="test text")
+
+    def test_count_tokens_without_litellm(self):
+        with patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", False):
+            # Fallback uses len(text) // 4
+            result = _count_tokens("a" * 100, None)
+            assert result == 25
+
+    def test_count_tokens_with_none_model(self):
+        with patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True):
+            # Even if litellm is available, None model uses fallback
+            result = _count_tokens("a" * 100, None)
+            assert result == 25
+
+
+class TestCreateBatches:
+    def test_create_batches_empty_examples(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", False),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=10000,
+            ),
+        ):
+            result = _create_batches(
+                examples_data=[],
+                indices=[],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+            assert result == []
+
+    def test_create_batches_single_batch(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", False),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=100000,
+            ),
+        ):
+            examples = [{"input": "test1"}, {"input": "test2"}, {"input": "test3"}]
+            result = _create_batches(
+                examples_data=examples,
+                indices=[0, 1, 2],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+            # All examples should fit in one batch
+            assert len(result) == 1
+            assert result[0] == [0, 1, 2]
+
+    def test_create_batches_multiple_batches_by_token_limit(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=10000,
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+                return_value="gpt-4",
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
+            ) as mock_counter,
+        ):
+            # Base prompt = 1000 tokens, each example = 3000 tokens
+            # Limit = 10000 - 5000 (flex) = 5000 tokens
+            # Can fit 1 example per batch: 1000 + 3000 = 4000 < 5000
+            # But 2 examples: 1000 + 6000 = 7000 > 5000
+            mock_counter.side_effect = [1000, 3000, 3000, 3000]
+
+            examples = [{"input": f"test{i}"} for i in range(3)]
+            result = _create_batches(
+                examples_data=examples,
+                indices=[0, 1, 2],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+
+            assert len(result) == 3
+            assert result == [[0], [1], [2]]
+
+    def test_create_batches_multiple_batches_by_max_records(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", False),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=10000000,
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._MAX_RECORDS_PER_BATCH", 2
+            ),
+        ):
+            examples = [{"input": f"test{i}"} for i in range(5)]
+            result = _create_batches(
+                examples_data=examples,
+                indices=[0, 1, 2, 3, 4],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+
+            # Max 2 records per batch, so 5 examples -> 3 batches
+            assert len(result) == 3
+            assert result[0] == [0, 1]
+            assert result[1] == [2, 3]
+            assert result[2] == [4]
+
+    def test_create_batches_variable_length_examples(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=10000,
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+                return_value="gpt-4",
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
+            ) as mock_counter,
+        ):
+            # Base = 1000, limit = 5000
+            # Examples: 500, 500, 500, 3500 tokens
+            # Batch 1: 1000 + 500 + 500 + 500 = 2500 (fits)
+            # Adding 3500 would make 6000 > 5000, so start new batch
+            # Batch 2: 1000 + 3500 = 4500 (fits)
+            mock_counter.side_effect = [1000, 500, 500, 500, 3500]
+
+            examples = [
+                {"input": "short1"},
+                {"input": "short2"},
+                {"input": "short3"},
+                {"input": "very long example " * 100},
+            ]
+            result = _create_batches(
+                examples_data=examples,
+                indices=[0, 1, 2, 3],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+
+            assert len(result) == 2
+            assert result[0] == [0, 1, 2]
+            assert result[1] == [3]
+
+    def test_create_batches_single_large_example(self):
+        with (
+            patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils._get_model_max_input_tokens",
+                return_value=10000,
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+                return_value="gpt-4",
+            ),
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.token_counter"
+            ) as mock_counter,
+        ):
+            # Base = 1000, limit = 5000
+            # Single example = 6000 tokens (exceeds limit even alone)
+            # Still gets added to a batch (we don't skip it)
+            mock_counter.side_effect = [1000, 6000]
+
+            examples = [{"input": "huge example"}]
+            result = _create_batches(
+                examples_data=examples,
+                indices=[0],
+                judge_instructions="test",
+                existing_guidelines=[],
+                reflection_lm="openai:/gpt-4",
+            )
+
+            # Single example still forms a batch even if over limit
+            assert len(result) == 1
+            assert result[0] == [0]
+
+
+def test_distill_guidelines_empty_batches():
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test")])
+        example1._trace_id = "trace_1"
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="test",
+            reflection_lm="openai:/gpt-4",
+            existing_guidelines=[],
+        )
+
+        assert result == []
 
 
 if __name__ == "__main__":

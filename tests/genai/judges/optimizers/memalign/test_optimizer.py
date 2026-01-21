@@ -52,6 +52,12 @@ def mock_apis(guidelines=None, batch_size=50):
     if guidelines is None:
         guidelines = []
 
+    # _create_batches returns list of batches; mock returns single batch with all indices
+    # based on actual input size
+    def create_batches_side_effect(examples_data, indices, **kwargs):
+        # Return single batch containing all indices
+        return [list(indices)]
+
     with (
         patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
         patch("dspy.Embedder") as mock_embedder_class,
@@ -59,9 +65,9 @@ def mock_apis(guidelines=None, batch_size=50):
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils._find_optimal_batch_size",
-            return_value=batch_size,
-        ) as mock_find_batch_size,
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            side_effect=create_batches_side_effect,
+        ) as mock_create_batches,
     ):
         # Mock distillation LM - include source_trace_ids for guidelines to be retained
         mock_lm = MagicMock()
@@ -87,7 +93,7 @@ def mock_apis(guidelines=None, batch_size=50):
             "construct_lm": mock_construct_lm,
             "embedder_class": mock_embedder_class,
             "embeddings_class": mock_embeddings_class,
-            "find_batch_size": mock_find_batch_size,
+            "create_batches": mock_create_batches,
         }
 
 
