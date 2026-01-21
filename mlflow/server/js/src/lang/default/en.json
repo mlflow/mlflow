@@ -1954,6 +1954,10 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
+  "Cj58gM": {
+    "defaultMessage": "Setup MLflow Assistant",
+    "description": "Title for the MLflow Assistant setup wizard"
+  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
@@ -2037,6 +2041,10 @@
   "DMOaoR": {
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
+  },
+  "DQ3XQT": {
+    "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
+    "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -4303,6 +4311,10 @@
   "WfY+Gj": {
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
+  },
+  "WfgCke": {
+    "defaultMessage": "Automatically evaluate traces using this judge",
+    "description": "Checkbox label for enabling automatic evaluation"
   },
   "Wh+aKq": {
     "defaultMessage": "Details & Timeline",
@@ -7751,10 +7763,6 @@
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
   },
-  "x/rA/e": {
-    "defaultMessage": "Latency",
-    "description": "Column header for average latency"
-  },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
     "description": "Placeholder for stop sequences input"
@@ -7802,6 +7810,10 @@
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
+  },
+  "xRM/Eb": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Column header for average latency"
   },
   "xRw7H2": {
     "defaultMessage": "Created by",

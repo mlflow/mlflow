@@ -142,7 +142,7 @@ export const ToolPerformanceSummary: React.FC = () => {
               <FormattedMessage defaultMessage="Success" description="Column header for success rate" />
             </SortableHeader>
             <SortableHeader column="avgLatency" centered>
-              <FormattedMessage defaultMessage="Latency" description="Column header for average latency" />
+              <FormattedMessage defaultMessage="Latency (AVG)" description="Column header for average latency" />
             </SortableHeader>
           </div>
 
