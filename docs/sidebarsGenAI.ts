@@ -526,6 +526,11 @@ const sidebarsGenAI: SidebarsConfig = {
           ],
         },
         {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
+        },
+        {
           type: 'category',
           label: 'Scorers',
           items: [
