@@ -17,6 +17,7 @@ import { useDebounce } from 'use-debounce';
 const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
+  const pageScope = experimentId ? 'experiment' : 'global';
 
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
 
@@ -36,7 +37,11 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
       <Header
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
-          <Button componentId="mlflow.prompts.list.create" type="primary" onClick={openCreateVersionModal}>
+          <Button
+            componentId={`mlflow.prompts.${pageScope}.list.create`}
+            type="primary"
+            onClick={openCreateVersionModal}
+          >
             <FormattedMessage
               defaultMessage="Create prompt"
               description="Label for the create prompt button on the registered prompts page"
@@ -46,10 +51,15 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
       />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <PromptsListFilters searchFilter={searchFilter} onSearchFilterChange={setSearchFilter} />
+        <PromptsListFilters searchFilter={searchFilter} onSearchFilterChange={setSearchFilter} pageScope={pageScope} />
         {error?.message && (
           <>
-            <Alert type="error" message={error.message} componentId="mlflow.prompts.list.error" closable={false} />
+            <Alert
+              type="error"
+              message={error.message}
+              componentId={`mlflow.prompts.${pageScope}.list.error`}
+              closable={false}
+            />
             <Spacer />
           </>
         )}
@@ -64,6 +74,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
           onPreviousPage={onPreviousPage}
           onEditTags={showEditPromptTagsModal}
           experimentId={experimentId}
+          pageScope={pageScope}
         />
       </div>
       {EditTagsModal}
