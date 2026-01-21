@@ -532,3 +532,28 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
             warning_msg = mock_logger.warning.call_args[0][0]
             assert "Could not find 2 traces" in warning_msg
             assert "Judge will operate with partial memory" in warning_msg
+
+
+def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Test guideline"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        original_trace_ids = [
+            ex._trace_id for ex in aligned_judge._episodic_memory if hasattr(ex, "_trace_id")
+        ]
+        assert len(original_trace_ids) == 3
+
+        copy = aligned_judge._create_copy()
+
+        # Copy should have lazy init set
+        assert copy._episodic_memory_initialized is False
+        assert copy._episodic_memory == []
+
+        # But trace IDs should be preserved
+        assert set(copy._episodic_trace_ids) == set(original_trace_ids)
+
+        # And model_dump on the copy should still return the trace IDs
+        copy_dump = copy.model_dump()
+        copy_trace_ids = copy_dump["memory_augmented_judge_data"]["episodic_trace_ids"]
+        assert set(copy_trace_ids) == set(original_trace_ids)

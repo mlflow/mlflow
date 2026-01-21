@@ -169,13 +169,19 @@ def distill_guidelines(
             source_trace_ids_raw = guideline_data.get("source_trace_ids")
 
             if source_trace_ids_raw is not None:
-                # Convert integers (indices) to actual trace IDs
-                trace_ids = [
-                    index_to_trace_id.get(
-                        int(idx) if isinstance(idx, (int, str)) else idx, f"unknown_{idx}"
-                    )
-                    for idx in source_trace_ids_raw
-                ]
+                # Convert indices to actual trace IDs, handling both integer indices
+                # and cases where the LLM returns trace IDs directly
+                trace_ids = []
+                for idx in source_trace_ids_raw:
+                    if isinstance(idx, str) and idx.startswith("tr-"):
+                        # LLM returned an actual trace ID
+                        trace_ids.append(idx)
+                    elif isinstance(idx, int):
+                        trace_ids.append(index_to_trace_id.get(idx, f"unknown_{idx}"))
+                    elif isinstance(idx, str) and idx.isdigit():
+                        trace_ids.append(index_to_trace_id.get(int(idx), f"unknown_{idx}"))
+                    else:
+                        trace_ids.append(f"unknown_{idx}")
                 guidelines.append(
                     Guideline(guideline_text=guideline_text, source_trace_ids=trace_ids)
                 )

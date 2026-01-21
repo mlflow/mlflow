@@ -74,17 +74,18 @@ def _search_traces_by_ids(
     if not trace_ids:
         return []
 
-    id_list = ", ".join(f"'{tid}'" for tid in trace_ids)
-    filter_string = f"trace_id IN ({id_list})"
+    # Fetch each trace individually using get_trace, which works on both OSS and Databricks
+    traces = []
+    for trace_id in trace_ids:
+        try:
+            trace = mlflow.get_trace(trace_id)
+            if trace is not None:
+                traces.append(trace)
+        except Exception:
+            # Trace not found or error fetching - will be logged as missing later
+            pass
 
-    kwargs = {
-        "filter_string": filter_string,
-        "return_type": "list",
-    }
-    if experiment_id:
-        kwargs["experiment_ids"] = [experiment_id]
-
-    return mlflow.search_traces(**kwargs)
+    return traces
 
 
 @experimental(version="3.9.0")
@@ -258,9 +259,13 @@ class MemoryAugmentedJudge(Judge):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         base_judge_data = self._base_judge.model_dump(**kwargs)
 
-        episodic_trace_ids = [
-            ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
-        ]
+        # For copies that haven't initialized episodic memory yet, use stored trace IDs
+        if self._episodic_memory:
+            episodic_trace_ids = [
+                ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
+            ]
+        else:
+            episodic_trace_ids = getattr(self, "_episodic_trace_ids", []) or []
 
         memory_augmented_data = {
             "base_judge": base_judge_data,
@@ -319,6 +324,26 @@ class MemoryAugmentedJudge(Judge):
         instance._predict_module = None
 
         return instance
+
+    def _create_copy(self) -> "MemoryAugmentedJudge":
+        """Create a copy, nulling out DSPy objects for lazy reconstruction."""
+        episodic_trace_ids = [
+            ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
+        ]
+
+        copy = self.model_copy(deep=False)
+
+        # Null out DSPy objects (they contain thread locks that can't be pickled)
+        copy._embedder = None
+        copy._retriever = None
+        copy._predict_module = None
+
+        # Set up lazy initialization for episodic memory
+        copy._episodic_trace_ids = episodic_trace_ids
+        copy._episodic_memory = []
+        copy._episodic_memory_initialized = False
+
+        return copy
 
     def _ensure_episodic_memory_initialized(self) -> None:
         if getattr(self, "_episodic_memory_initialized", True):
