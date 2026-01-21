@@ -66,23 +66,6 @@ others via LiteLLM. Default: `"openai/text-embedding-3-small"`.
 }
 
 
-def _search_traces_by_ids(
-    trace_ids: list[str],
-    experiment_id: str | None = None,
-) -> list[Trace]:
-    if not trace_ids:
-        return []
-
-    traces = []
-    for trace_id in trace_ids:
-        try:
-            if trace := mlflow.get_trace(trace_id):
-                traces.append(trace)
-        except Exception:
-            pass
-    return traces
-
-
 @experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class MemoryAugmentedJudge(Judge):
@@ -320,6 +303,14 @@ class MemoryAugmentedJudge(Judge):
         return instance
 
     def _create_copy(self) -> "MemoryAugmentedJudge":
+        """
+        Override base _create_copy for Scorer.register().
+
+        The base implementation uses model_copy(deep=True), which fails because
+        DSPy objects (_embedder, _retriever, _predict_module) contain thread locks
+        that can't be pickled. We use shallow copy and null out DSPy objects,
+        storing trace IDs for lazy reconstruction.
+        """
         self._ensure_episodic_memory_initialized()
 
         episodic_trace_ids = [
@@ -327,7 +318,6 @@ class MemoryAugmentedJudge(Judge):
         ]
 
         copy = self.model_copy(deep=False)
-        # Null out DSPy objects (they contain thread locks that can't be pickled)
         copy._embedder = None
         copy._retriever = None
         copy._predict_module = None
@@ -355,10 +345,9 @@ class MemoryAugmentedJudge(Judge):
             self._predict_module = dspy.Predict(extended_signature)
             self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
-        traces = _search_traces_by_ids(
-            trace_ids=episodic_trace_ids,
-            experiment_id=getattr(self, "_experiment_id", None),
-        )
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        traces = _get_store().batch_get_traces(episodic_trace_ids)
 
         found_trace_ids = {t.info.trace_id for t in traces}
         if missing_ids := set(episodic_trace_ids) - found_trace_ids:

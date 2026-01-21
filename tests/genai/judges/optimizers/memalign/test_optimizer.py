@@ -476,14 +476,14 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
 
         # Mock the trace search and predict module for the call
         with (
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.optimizer._search_traces_by_ids"
-            ) as mock_search_traces,
+            patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store,
             patch("dspy.Embedder"),
             patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
         ):
-            mock_search_traces.return_value = sample_traces[:2]
+            mock_store = MagicMock()
+            mock_store.batch_get_traces.return_value = sample_traces[:2]
+            mock_get_store.return_value = mock_store
 
             mock_prediction = MagicMock()
             mock_prediction.result = "yes"
@@ -494,7 +494,7 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
             restored(inputs="test", outputs="test")
 
             assert restored._pending_episodic_trace_ids is None
-            mock_search_traces.assert_called_once()
+            mock_store.batch_get_traces.assert_called_once()
 
 
 def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
@@ -510,15 +510,15 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
 
         # Mock search to return only 1 of 3 traces (simulating missing traces)
         with (
-            patch(
-                "mlflow.genai.judges.optimizers.memalign.optimizer._search_traces_by_ids"
-            ) as mock_search_traces,
+            patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store,
             patch("dspy.Embedder"),
             patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
             patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
         ):
-            mock_search_traces.return_value = sample_traces[:1]
+            mock_store = MagicMock()
+            mock_store.batch_get_traces.return_value = sample_traces[:1]
+            mock_get_store.return_value = mock_store
 
             mock_prediction = MagicMock()
             mock_prediction.result = "yes"
