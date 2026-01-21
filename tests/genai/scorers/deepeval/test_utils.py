@@ -8,7 +8,6 @@ from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.utils import (
     _convert_to_deepeval_tool_calls,
     _extract_tool_calls_from_trace,
-    _extract_tool_name_from_span,
     map_scorer_inputs_to_deepeval_test_case,
 )
 
@@ -92,24 +91,6 @@ def test_extract_tool_calls_from_trace_returns_none_when_no_tools():
     trace = Mock()
     trace.search_spans.return_value = []
     assert _extract_tool_calls_from_trace(trace) is None
-
-
-def test_extract_tool_name_from_span_uses_span_name_by_default():
-    span = Mock(spec=Span)
-    span.name = "my_tool"
-    span.attributes = {SpanAttributeKey.INPUTS: {"arg": "value"}}
-
-    assert _extract_tool_name_from_span(span) == "my_tool"
-
-
-def test_extract_tool_name_from_span_extracts_from_call_tool_name():
-    span = Mock(spec=Span)
-    span.name = "ToolManager.handle_call"
-    span.attributes = {
-        SpanAttributeKey.INPUTS: {"call": {"tool_name": "list_client", "args": {"param": "value"}}}
-    }
-
-    assert _extract_tool_name_from_span(span) == "list_client"
 
 
 def test_map_mlflow_to_test_case_basic():

@@ -8,6 +8,7 @@ from mlflow.entities.span import SpanAttributeKey, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
+    _extract_tool_name_from_span,
     _to_dict,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -65,15 +66,6 @@ def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
         )
         for tc_dict in tool_call_dicts
     ]
-
-
-def _extract_tool_name_from_span(span) -> str:
-    inputs = span.attributes.get(SpanAttributeKey.INPUTS)
-    if isinstance(inputs, dict):
-        call_data = inputs.get("call")
-        if isinstance(call_data, dict) and "tool_name" in call_data:
-            return call_data["tool_name"]
-    return span.name
 
 
 def _extract_tool_calls_from_trace(trace: Trace):
