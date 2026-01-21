@@ -291,7 +291,14 @@ def _parse_batch_response(
     return guidelines
 
 
-def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int | str, str]) -> str | None:
+def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int, str]) -> str | None:
+    """Resolve an LLM-returned index to an actual trace ID.
+
+    Handles LLM unpredictability where it might return:
+    - Integer index (expected): 0, 1, 2
+    - String index: "0", "1", "2"
+    - Actual trace ID: "tr-xxx" (if LLM returns the ID directly)
+    """
     if isinstance(idx, int):
         return index_to_trace_id.get(idx)
     if isinstance(idx, str):
@@ -300,7 +307,7 @@ def _resolve_trace_id(idx: Any, index_to_trace_id: dict[int | str, str]) -> str 
         try:
             return index_to_trace_id.get(int(idx))
         except ValueError:
-            pass
+            return None
     return None
 
 

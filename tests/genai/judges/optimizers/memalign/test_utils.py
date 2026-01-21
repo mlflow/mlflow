@@ -362,9 +362,7 @@ def test_value_to_embedding_text_trace():
         span.set_inputs({"question": "What is ML?"})
         span.set_outputs({"answer": "ML is machine learning."})
 
-    trace_id = mlflow.get_last_active_trace_id()
-    traces = mlflow.search_traces(filter_string=None, return_type="list")
-    trace = next(t for t in traces if t.info.trace_id == trace_id)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     result = value_to_embedding_text(trace)
     assert "What is ML?" in result
