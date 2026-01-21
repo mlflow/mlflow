@@ -245,19 +245,22 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
         >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
         </Button>
-        <Button
-          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
-          type="primary"
-          htmlType="submit"
-          loading={mutation.isLoading}
-          disabled={isSubmitDisabled}
-        >
-          {mode === SCORER_FORM_MODE.EDIT ? (
-            <FormattedMessage defaultMessage="Save" description="Save judge button text" />
-          ) : (
-            <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
-          )}
-        </Button>
+        {/* Hide submit button for custom-code in create mode since it's always disabled */}
+        {!(scorerType === 'custom-code' && mode === SCORER_FORM_MODE.CREATE) && (
+          <Button
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
+            type="primary"
+            htmlType="submit"
+            loading={mutation.isLoading}
+            disabled={isSubmitDisabled}
+          >
+            {mode === SCORER_FORM_MODE.EDIT ? (
+              <FormattedMessage defaultMessage="Save" description="Save judge button text" />
+            ) : (
+              <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
+            )}
+          </Button>
+        )}
       </div>
     </form>
   );
