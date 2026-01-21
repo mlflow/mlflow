@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
-_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 _MODEL_API_DOC = {
@@ -297,6 +297,10 @@ class ConversationSimulator:
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
             - "context" (optional): Dict of additional kwargs to pass to predict_fn.
+            - "expectations" (optional): Dict of expected values (ground truth) for
+              session-level evaluation. These are logged to the first trace of the
+              session with the session ID in metadata, allowing session-level scorers
+              to retrieve them.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
@@ -318,7 +322,8 @@ class ConversationSimulator:
                 return response
 
 
-            # Each test case requires a "goal". "persona" and "context" are optional.
+            # Each test case requires a "goal". "persona", "context", and "expectations"
+            # are optional.
             simulator = ConversationSimulator(
                 test_cases=[
                     {"goal": "Learn about MLflow tracking"},
@@ -327,6 +332,7 @@ class ConversationSimulator:
                         "goal": "Set up model registry",
                         "persona": "A beginner",
                         "context": {"user_id": "123"},
+                        "expectations": {"expected_topic": "model registry"},
                     },
                 ],
                 max_turns=5,
@@ -448,6 +454,7 @@ class ConversationSimulator:
         goal = test_case["goal"]
         persona = test_case.get("persona")
         context = test_case.get("context", {})
+        expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
         user_agent = SimulatedUserAgent(
@@ -474,8 +481,9 @@ class ConversationSimulator:
                     trace_session_id=trace_session_id,
                     goal=goal,
                     persona=persona,
+                    context=context,
+                    expectations=expectations if turn == 0 else None,
                     turn=turn,
-                    **context,
                 )
 
                 if trace_id:
@@ -504,8 +512,9 @@ class ConversationSimulator:
         trace_session_id: str,
         goal: str,
         persona: str | None,
+        context: dict[str, Any],
+        expectations: dict[str, Any] | None,
         turn: int,
-        **context,
     ) -> tuple[dict[str, Any], str | None]:
         # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
         #     This adds a new root span to the trace, with the same inputs and outputs as the
@@ -523,10 +532,29 @@ class ConversationSimulator:
                     "mlflow.simulation.turn": str(turn),
                 },
             )
+            if span := mlflow.get_current_active_span():
+                span.set_attributes(
+                    {
+                        "mlflow.simulation.goal": goal,
+                        "mlflow.simulation.persona": persona or DEFAULT_PERSONA,
+                        "mlflow.simulation.context": context,
+                    }
+                )
             return predict_fn(input=input, **ctx)
 
         response = traced_predict(input=input_messages, **context)
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+
+        # Log expectations to the first trace of the session
+        if expectations and trace_id:
+            for name, value in expectations.items():
+                mlflow.log_expectation(
+                    trace_id=trace_id,
+                    name=name,
+                    value=value,
+                    metadata={TraceMetadataKey.TRACE_SESSION: trace_session_id},
+                )
+
         return response, trace_id
 
     def _check_goal_achieved(
