@@ -218,12 +218,16 @@ class MemoryAugmentedJudge(Judge):
         return ScorerKind.MEMORY_AUGMENTED
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        self._ensure_episodic_memory_initialized()
-
         base_judge_data = self._base_judge.model_dump(**kwargs)
-        episodic_trace_ids = [
-            ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
-        ]
+
+        # Use pending trace IDs if in lazy state, otherwise extract from episodic memory
+        pending_ids = getattr(self, "_pending_episodic_trace_ids", None)
+        if pending_ids is not None:
+            episodic_trace_ids = pending_ids
+        else:
+            episodic_trace_ids = [
+                ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
+            ]
 
         memory_augmented_data = {
             "base_judge": base_judge_data,
@@ -331,15 +335,20 @@ class MemoryAugmentedJudge(Judge):
             self._predict_module = dspy.Predict(extended_signature)
             self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
-        from mlflow.tracking._tracking_service.utils import _get_store
+        # Fetch traces by ID using mlflow.get_trace which handles location context
+        traces = []
+        missing_ids = []
+        for trace_id in episodic_trace_ids:
+            trace = mlflow.get_trace(trace_id, silent=True)
+            if trace is not None:
+                traces.append(trace)
+            else:
+                missing_ids.append(trace_id)
 
-        traces = _get_store().batch_get_traces(episodic_trace_ids)
-
-        found_trace_ids = {t.info.trace_id for t in traces}
-        if missing_ids := set(episodic_trace_ids) - found_trace_ids:
+        if missing_ids:
             _logger.warning(
                 f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
-                f"Missing trace IDs: {list(missing_ids)[:5]}"
+                f"Missing trace IDs: {missing_ids[:5]}"
                 f"{'...' if len(missing_ids) > 5 else ''}. "
                 f"Judge will operate with partial memory "
                 f"({len(traces)}/{len(episodic_trace_ids)} traces)."

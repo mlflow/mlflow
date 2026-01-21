@@ -480,17 +480,17 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
 
         assert restored._pending_episodic_trace_ids is not None
 
-        # Mock the trace search and predict module for the call
+        # Mock mlflow.get_trace and predict module for the call
+        trace_map = {t.info.trace_id: t for t in sample_traces[:2]}
         with (
-            patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store,
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+                side_effect=lambda tid, **kwargs: trace_map.get(tid),
+            ) as mock_get_trace,
             patch("dspy.Embedder"),
             patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
         ):
-            mock_store = MagicMock()
-            mock_store.batch_get_traces.return_value = sample_traces[:2]
-            mock_get_store.return_value = mock_store
-
             mock_prediction = MagicMock()
             mock_prediction.result = "yes"
             mock_prediction.rationale = "Test"
@@ -500,7 +500,7 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
             restored(inputs="test", outputs="test")
 
             assert restored._pending_episodic_trace_ids is None
-            mock_store.batch_get_traces.assert_called_once()
+            assert mock_get_trace.call_count == 2
 
 
 def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
@@ -514,18 +514,24 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
         serialized = SerializedScorer(**dumped)
         restored = MemoryAugmentedJudge._from_serialized(serialized)
 
-        # Mock search to return only 1 of 3 traces (simulating missing traces)
+        # Mock get_trace to return only 1 of 3 traces (simulating missing traces)
+        first_trace = sample_traces[0]
+
+        def mock_get_trace_fn(tid, **kwargs):
+            if tid == first_trace.info.trace_id:
+                return first_trace
+            return None
+
         with (
-            patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store,
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+                side_effect=mock_get_trace_fn,
+            ),
             patch("dspy.Embedder"),
             patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
             patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
         ):
-            mock_store = MagicMock()
-            mock_store.batch_get_traces.return_value = sample_traces[:1]
-            mock_get_store.return_value = mock_store
-
             mock_prediction = MagicMock()
             mock_prediction.result = "yes"
             mock_prediction.rationale = "Test"
