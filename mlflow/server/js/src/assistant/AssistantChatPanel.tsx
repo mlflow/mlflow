@@ -440,6 +440,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         justifyContent: 'center',
         flex: 1,
         padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 4,
         gap: theme.spacing.lg,
       }}
     >
