@@ -29,7 +29,7 @@ Before setting up automatic evaluation, ensure that:
 
 1. **[The MLflow Server is running](/genai/getting-started/connect-environment)**
 2. **[MLflow Tracing is enabled](/genai/tracing/quickstart)** in your agent or LLM application
-   - **For multi-turn conversation evaluation**, traces must include [session IDs](/genai/tracing/track-users-sessions)
+   - **For [multi-turn conversation evaluation](#session-level-evaluation)**, traces must include [session IDs](/genai/tracing/track-users-sessions)
 3. **[An AI Gateway endpoint is configured](/genai/governance/ai-gateway/endpoints/create-and-manage)** for LLM judge execution
    - LLM judges require an LLM to perform evaluations, and [AI Gateway endpoints](/genai/governance/ai-gateway/endpoints/create-and-manage) provide secure, managed access to LLMs
 
