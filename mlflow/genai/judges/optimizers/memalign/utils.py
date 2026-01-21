@@ -45,6 +45,25 @@ _MAX_RECORDS_PER_BATCH = 50
 # Flexible tokens to reserve for response and variance in prompt length
 _FLEX_TOKENS = 5000
 
+# Priority list of fields to use for building corpus and retrieval queries
+_QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation"]
+
+
+def get_query_field(signature: "dspy.Signature") -> str | None:
+    """Get the field name to use for building corpus and retrieval queries.
+
+    Args:
+        signature: DSPy signature defining input fields
+
+    Returns:
+        The first field from priority list that exists in signature's input_fields,
+        or None if no matching field is found.
+    """
+    for field_name in _QUERY_FIELD_PRIORITY:
+        if field_name in signature.input_fields:
+            return field_name
+    return None
+
 
 @lru_cache(maxsize=1)
 def _get_model_max_input_tokens(model: str, model_type: str) -> int:
@@ -382,12 +401,11 @@ def retrieve_relevant_examples(
     if not examples or retriever is None:
         return []
 
-    query_parts = [
-        str(query_kwargs[field_name])
-        for field_name in signature.input_fields
-        if field_name in query_kwargs and query_kwargs[field_name] is not None
-    ]
-    query = " ".join(query_parts)
+    query_field = get_query_field(signature)
+    query = str(query_kwargs.get(query_field, "")) if query_field else ""
+    if not query:
+        return []
+
     search_results = retriever(query)
     indices = [int(i) for i in search_results.indices]
 

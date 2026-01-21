@@ -19,6 +19,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
+    get_query_field,
     retrieve_relevant_examples,
     truncate_to_token_limit,
 )
@@ -299,16 +300,7 @@ class MemoryAugmentedJudge(Judge):
         """Build episodic memory search index from examples."""
         import dspy.retrievers
 
-        # Build episodic memory corpus from input fields
-        # Priority list of fields to use for building the corpus
-        field_priority = ["inputs", "outputs", "expectations", "conversation"]
-
-        # Find the first field from priority list that exists in input_fields
-        query_field = None
-        for field_name in field_priority:
-            if field_name in self._base_signature.input_fields:
-                query_field = field_name
-                break
+        query_field = get_query_field(self._base_signature)
         if query_field is None:
             raise MlflowException(
                 "Unable to build episodic memory: no suitable input field found in judge "
@@ -317,16 +309,16 @@ class MemoryAugmentedJudge(Judge):
                 error_code=INTERNAL_ERROR,
             )
 
+        # Build corpus and filter examples with empty query field
+        filtered_memory = []
         corpus = []
         for example in self._episodic_memory:
-            query_parts = []
-            if hasattr(example, query_field):
-                value = getattr(example, query_field)
-                if value is not None:
-                    query_parts.append(str(value))
-            query = " ".join(query_parts)
-            query = truncate_to_token_limit(query, self._embedding_model, model_type="embedding")
-            corpus.append(query)
+            value = getattr(example, query_field, None)
+            if value:
+                query = truncate_to_token_limit(str(value), self._embedding_model, model_type="embedding")
+                corpus.append(query)
+                filtered_memory.append(example)
+        self._episodic_memory = filtered_memory
 
         self._retriever = dspy.retrievers.Embeddings(
             embedder=self._embedder, corpus=corpus, k=self._retrieval_k
@@ -455,7 +447,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             memory_judge._add_examples_to_memory(new_examples)
 
-            _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples. ")
+            _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples.")
             return memory_judge
 
         except Exception as e:
