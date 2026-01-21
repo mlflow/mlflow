@@ -218,7 +218,10 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
 def test_truncate_to_token_limit_no_truncation_needed(token_count, text):
     with (
         patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
-        patch("mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens", return_value=100),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+            return_value={"max_input_tokens": 100},
+        ),
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils.token_counter",
             return_value=token_count,
@@ -231,7 +234,10 @@ def test_truncate_to_token_limit_no_truncation_needed(token_count, text):
 def test_truncate_to_token_limit_happy_path_with_truncation():
     with (
         patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
-        patch("mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens", return_value=100),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+            return_value={"max_input_tokens": 100},
+        ),
         patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
     ):
         mock_counter.side_effect = [150, 90]
@@ -246,7 +252,10 @@ def test_truncate_to_token_limit_happy_path_with_truncation():
 def test_truncate_to_token_limit_multiple_iterations():
     with (
         patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True),
-        patch("mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens", return_value=100),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+            return_value={"max_input_tokens": 100},
+        ),
         patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
     ):
         mock_counter.side_effect = [200, 120, 95]
@@ -261,7 +270,10 @@ def test_truncate_to_token_limit_multiple_iterations():
 def test_truncate_to_token_limit_without_litellm():
     with (
         patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", False),
-        patch("mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens", return_value=100),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+            return_value={"max_input_tokens": 100},
+        ),
     ):
         text = "a" * 200
         result = truncate_to_token_limit(text, "openai/gpt-4")
@@ -271,27 +283,27 @@ def test_truncate_to_token_limit_without_litellm():
 
 
 @pytest.mark.parametrize(
-    "max_tokens_side_effect",
+    "model_info_side_effect",
     [
         Exception("API Error"),
-        None,
+        {"max_input_tokens": None},
     ],
 )
-def test_truncate_to_token_limit_get_max_tokens_fallback(max_tokens_side_effect):
+def test_truncate_to_token_limit_get_model_info_fallback(model_info_side_effect):
     with patch("mlflow.genai.judges.optimizers.memalign.utils._LITELLM_AVAILABLE", True):
-        if isinstance(max_tokens_side_effect, Exception):
-            mock_get_max = patch(
-                "mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens",
-                side_effect=max_tokens_side_effect,
+        if isinstance(model_info_side_effect, Exception):
+            mock_get_model_info = patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+                side_effect=model_info_side_effect,
             )
         else:
-            mock_get_max = patch(
-                "mlflow.genai.judges.optimizers.memalign.utils.get_max_tokens",
-                return_value=max_tokens_side_effect,
+            mock_get_model_info = patch(
+                "mlflow.genai.judges.optimizers.memalign.utils.get_model_info",
+                return_value=model_info_side_effect,
             )
 
         with (
-            mock_get_max,
+            mock_get_model_info,
             patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter", return_value=50),
         ):
             text = "This is a short text"
