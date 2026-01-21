@@ -4409,7 +4409,7 @@ requires-dist = [
     { name = "google-cloud-storage", marker = "extra == 'extras'", specifier = ">=1.30.0" },
     { name = "graphene", specifier = "<4" },
     { name = "gunicorn", marker = "sys_platform != 'win32'", specifier = "<24" },
-    { name = "huey", specifier = ">=2.5.0,<3" },
+    { name = "huey", specifier = ">=2.5.4,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.15,<=1.2.3" },
