@@ -190,17 +190,9 @@ def optimize_prompts(
     has_train_data = train_data is not None and len(train_data) > 0
     has_scorers = scorers is not None and len(scorers) > 0
 
-    if has_train_data and not has_scorers:
-        raise MlflowException.invalid_parameter_value(
-            "`train_data` is provided but `scorers` is None or empty. "
-            "Both `train_data` and `scorers` must be set together, "
-            "or both must be None/empty for zero-shot mode."
-        )
     if has_scorers and not has_train_data:
         raise MlflowException.invalid_parameter_value(
-            "`scorers` is provided but `train_data` is None or empty. "
-            "Both `train_data` and `scorers` must be set together, "
-            "or both must be None/empty for zero-shot mode."
+            "`scorers` is provided but `train_data` is None or empty or None. "
         )
 
     if not has_train_data:
