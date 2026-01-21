@@ -25,6 +25,7 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
+import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
@@ -503,9 +504,7 @@ export const AssistantChatPanel = () => {
 
     // Show setup wizard if user clicked "Setup"
     if (isInSetupWizard) {
-      // TODO: Part 3 will add the actual AssistantSetupWizard component here
-      // return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
-      return <SetupLoadingState />; // Placeholder until part 3
+      return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
     }
 
     // Show setup prompt if setup is incomplete
