@@ -5227,12 +5227,13 @@ def _create_prompt_optimization_job():
     # Create MLflow run upfront so run_id is immediately available
     # The job will resume this run when it starts executing
     tracking_store = _get_tracking_store()
+    start_time = int(time.time() * 1000)
     run = tracking_store.create_run(
         experiment_id=experiment_id,
         user_id=_get_user(),
-        start_time=int(time.time() * 1000),
+        start_time=start_time,
         tags=[],
-        run_name=None,
+        run_name=f"optimize_prompt_{optimizer_type}_{start_time}",
     )
     run_id = run.info.run_id
 
