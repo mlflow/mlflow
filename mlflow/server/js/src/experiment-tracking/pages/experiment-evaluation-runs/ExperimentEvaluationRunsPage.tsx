@@ -27,6 +27,10 @@ import { RunEvaluationButton } from './RunEvaluationButton';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
+import {
+  RunGroupingAggregateFunction,
+  RunGroupingMode,
+} from '../../components/experiment-page/utils/experimentPage.row-types';
 import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
 import {
   ExperimentEvaluationRunsPageMode,
@@ -54,7 +58,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
 
-  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>(null);
+  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>({
+    aggregateFunction: RunGroupingAggregateFunction.Average,
+    groupByKeys: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset' }],
+  });
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
