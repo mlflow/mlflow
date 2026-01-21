@@ -26,6 +26,7 @@ export interface KnownAssistantContext {
   selectedTraceIds?: string[];
   runId?: string;
   selectedRunIds?: string[];
+  currentPage?: string;
 }
 
 /** All known context keys */
