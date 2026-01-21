@@ -300,14 +300,30 @@ class MemoryAugmentedJudge(Judge):
         import dspy.retrievers
 
         # Build episodic memory corpus from input fields
+        # Priority list of fields to use for building the corpus
+        field_priority = ["inputs", "outputs", "expectations", "conversation"]
+
+        # Find the first field from priority list that exists in input_fields
+        query_field = None
+        for field_name in field_priority:
+            if field_name in self._base_signature.input_fields:
+                query_field = field_name
+                break
+        if query_field is None:
+            raise MlflowException(
+                "Unable to build episodic memory: no suitable input field found in judge instructions.",
+                "Please ensure the judge instructions reference at least one of the following fields: "
+                "inputs, outputs, expectations, conversation",
+                error_code=INTERNAL_ERROR,
+            )
+
         corpus = []
         for example in self._episodic_memory:
             query_parts = []
-            for field_name in self._base_signature.input_fields:
-                if hasattr(example, field_name):
-                    value = getattr(example, field_name)
-                    if value is not None:
-                        query_parts.append(str(value))
+            if hasattr(example, query_field):
+                value = getattr(example, query_field)
+                if value is not None:
+                    query_parts.append(str(value))
             query = " ".join(query_parts)
             query = truncate_to_token_limit(query, self._embedding_model, model_type="embedding")
             corpus.append(query)

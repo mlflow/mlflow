@@ -90,15 +90,15 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     max_tokens = _get_model_max_input_tokens(model, model_type=model_type)
 
     if not _LITELLM_AVAILABLE:
-        # Naive truncation to `max_tokens` characters in the text if litellm is not available
+        # Naive truncation based on character count (1 token ~= 4 characters) if litellm is not available
         _logger.warning(
             f"LiteLLM is required for accurate token counting, using naive truncation to "
-            f"{max_tokens} characters. Please install litellm using: `pip install litellm`"
+            f"{max_tokens * 4} characters. Please install litellm using: `pip install litellm`"
         )
-        return text[:max_tokens]
+        return text[: max_tokens * 4]
 
-    # Optimization to avoid token counting if number of characters is less than max tokens.
-    if len(text) <= max_tokens:
+    # Optimization to avoid token counting if number of characters is well below limit
+    if len(text) <= max_tokens * 4 - _FLEX_TOKENS:
         return text
 
     litellm_model = convert_mlflow_uri_to_litellm(model)
