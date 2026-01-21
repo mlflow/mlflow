@@ -75,6 +75,8 @@ def to_paths(*args: str) -> list[Path]:
 
 basic_proto_files = to_paths(
     "databricks.proto",
+    "jobs.proto",
+    "prompt_optimization.proto",
     "service.proto",
     "model_registry.proto",
     "databricks_artifacts.proto",

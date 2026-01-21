@@ -111,6 +111,9 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.prompt_optimization_pb2 import (
+    OptimizerType as ProtoOptimizerType,
+)
+from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
 )
 from mlflow.protos.service_pb2 import (
@@ -141,6 +144,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -163,6 +167,7 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
+    GetPromptOptimizationJob,
     GetRun,
     GetScorer,
     GetTrace,
@@ -195,6 +200,7 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
+    SearchPromptOptimizationJobs,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
@@ -300,6 +306,15 @@ MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
 # Chunk size for streaming artifact uploads and downloads (1 MB)
 ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
+
+# Map internal job status to generic JobStatus proto enum
+_JOB_STATUS_MAPPING = {
+    "PENDING": JobStatus.JOB_STATUS_PENDING,
+    "RUNNING": JobStatus.JOB_STATUS_IN_PROGRESS,
+    "SUCCEEDED": JobStatus.JOB_STATUS_COMPLETED,
+    "FAILED": JobStatus.JOB_STATUS_FAILED,
+    "CANCELLED": JobStatus.JOB_STATUS_CANCELED,
+}
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -5259,7 +5274,7 @@ def _create_prompt_optimization_job():
         user_id=_get_user(),
         start_time=start_time,
         tags=[],
-        run_name=run_name,
+        run_name=f"optimize_prompt_{optimizer_type}_{start_time}",
     )
     run_id = run.info.run_id
 
@@ -5316,6 +5331,138 @@ def _create_prompt_optimization_job():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_prompt_optimization_job(job_id):
+    """Handler for getPromptOptimizationJob RPC."""
+    from mlflow.server.jobs import get_job
+
+    job_entity = get_job(job_id)
+
+    response_message = GetPromptOptimizationJob.Response()
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.state.status = _JOB_STATUS_MAPPING.get(
+        job_entity.status.name,
+        JobStatus.JOB_STATUS_UNSPECIFIED,
+    )
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+
+    job_params = json.loads(job_entity.params)
+    if "experiment_id" in job_params:
+        optimization_job.experiment_id = job_params["experiment_id"]
+    if "prompt_uri" in job_params:
+        optimization_job.source_prompt_uri = job_params["prompt_uri"]
+
+    # run_id must always be present since it's created upfront by the handler
+    run_id = job_params.get("run_id")
+    if not run_id:
+        raise MlflowException(
+            f"Optimization job {job_id} is missing run_id in params. "
+            "This indicates a corrupted job state.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    optimization_job.run_id = run_id
+
+    # Get optimized_prompt_uri from job result (only available when job succeeds)
+    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+        result = job_entity.parsed_result
+        if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+            optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
+
+    # Fetch MLflow run to get config params and metrics
+    try:
+        mlflow_run = _get_tracking_store().get_run(run_id)
+        run_params = mlflow_run.data.params
+        run_metrics = mlflow_run.data.metrics
+
+        config = optimization_job.config
+        if "optimizer_type" in run_params:
+            # Convert string back to enum
+            optimizer_type_str = run_params["optimizer_type"].upper()
+            enum_name = f"OPTIMIZER_TYPE_{optimizer_type_str}"
+            config.optimizer_type = ProtoOptimizerType.Value(enum_name)
+        if "dataset_id" in run_params:
+            config.dataset_id = run_params["dataset_id"]
+        if "scorer_names" in run_params:
+            config.scorers.extend(json.loads(run_params["scorer_names"]))
+        if "optimizer_config_json" in run_params:
+            config.optimizer_config_json = run_params["optimizer_config_json"]
+
+        # Populate per-scorer evaluation scores from run metrics
+        # Metrics are logged as "initial_eval_score.<scorer_name>" and
+        # "final_eval_score.<scorer_name>"
+        for metric_name, metric_value in run_metrics.items():
+            if metric_name.startswith("initial_eval_score."):
+                scorer_name = metric_name[len("initial_eval_score.") :]
+                optimization_job.initial_eval_scores[scorer_name] = metric_value
+            elif metric_name.startswith("final_eval_score."):
+                scorer_name = metric_name[len("final_eval_score.") :]
+                optimization_job.final_eval_scores[scorer_name] = metric_value
+
+    except Exception as e:
+        _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
+
+    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
+        optimization_job.state.error_message = str(job_entity.parsed_result)
+
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_prompt_optimization_jobs():
+    """Handler for searchPromptOptimizationJobs RPC."""
+    request_message = _get_request_message(
+        SearchPromptOptimizationJobs(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+
+    job_store = _get_job_store()
+
+    # Search for optimize_prompts jobs in the specified experiment
+    jobs = job_store.list_jobs(
+        job_name="optimize_prompts",
+        params={"experiment_id": request_message.experiment_id},
+    )
+
+    response_message = SearchPromptOptimizationJobs.Response()
+
+    for job_entity in jobs:
+        optimization_job = PromptOptimizationJobProto()
+        optimization_job.job_id = job_entity.job_id
+        optimization_job.state.status = _JOB_STATUS_MAPPING.get(
+            job_entity.status.name,
+            JobStatus.JOB_STATUS_UNSPECIFIED,
+        )
+        optimization_job.creation_timestamp_ms = job_entity.creation_time
+
+        params = json.loads(job_entity.params)
+        if "experiment_id" in params:
+            optimization_job.experiment_id = params["experiment_id"]
+        if "prompt_uri" in params:
+            optimization_job.source_prompt_uri = params["prompt_uri"]
+        if "run_id" in params:
+            optimization_job.run_id = params["run_id"]
+
+        # Get optimized_prompt_uri from job result (only available when job succeeds)
+        if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+            result = job_entity.parsed_result
+            if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+                optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
+
+        # If job failed, add error message to state
+        if job_entity.status.name == "FAILED" and job_entity.parsed_result:
+            optimization_job.state.error_message = str(job_entity.parsed_result)
+
+        response_message.jobs.append(optimization_job)
+
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _cancel_prompt_optimization_job(job_id):
     # This import must be local to avoid circular import with mlflow.server.jobs
     from mlflow.server.jobs import cancel_job
@@ -5353,6 +5500,28 @@ def _cancel_prompt_optimization_job(job_id):
             )
 
     response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_prompt_optimization_job(job_id):
+    """Handler for deletePromptOptimizationJob RPC."""
+    job_store = _get_job_store()
+    job_entity = job_store.get_job(job_id)
+    params = json.loads(job_entity.params)
+    run_id = params.get("run_id")
+
+    job_store.delete_jobs(job_ids=[job_id])
+
+    # Delete the associated MLflow run if it exists
+    if run_id:
+        try:
+            _get_tracking_store().delete_run(run_id)
+        except Exception:
+            pass
+
+    response_message = DeletePromptOptimizationJob.Response()
     return _wrap_response(response_message)
 
 
@@ -5503,7 +5672,10 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
-    # Prompt Optimization Job APIs
+    # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
+    GetPromptOptimizationJob: _get_prompt_optimization_job,
+    SearchPromptOptimizationJobs: _search_prompt_optimization_jobs,
     CancelPromptOptimizationJob: _cancel_prompt_optimization_job,
+    DeletePromptOptimizationJob: _delete_prompt_optimization_job,
 }

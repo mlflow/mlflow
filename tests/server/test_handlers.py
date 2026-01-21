@@ -269,6 +269,61 @@ def bypass_telemetry_env_check(monkeypatch):
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
 
 
+@pytest.fixture
+def mock_job_store():
+    with mock.patch("mlflow.server.handlers._get_job_store") as m:
+        mock_store = mock.MagicMock()
+        m.return_value = mock_store
+        yield mock_store
+
+
+def _create_mock_job(
+    job_id="job-123",
+    job_name="optimize_prompts",
+    status_name="PENDING",
+    params=None,
+    result=None,
+    creation_time=1234567890000,
+):
+    from mlflow.entities._job import Job
+    from mlflow.entities._job_status import JobStatus
+
+    if params is None:
+        params = {
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+        }
+
+    status_map = {
+        "PENDING": JobStatus.PENDING,
+        "RUNNING": JobStatus.RUNNING,
+        "SUCCEEDED": JobStatus.SUCCEEDED,
+        "FAILED": JobStatus.FAILED,
+        "CANCELED": JobStatus.CANCELED,
+    }
+
+    return Job(
+        job_id=job_id,
+        creation_time=creation_time,
+        job_name=job_name,
+        params=json.dumps(params),
+        timeout=None,
+        status=status_map[status_name],
+        result=json.dumps(result) if result and status_name == "SUCCEEDED" else result,
+        retry_count=0,
+        last_update_time=creation_time,
+    )
+
+
+def _create_mock_run(run_id="run-456", params=None, metrics=None):
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = run_id
+    mock_run.data.params = params or {}
+    mock_run.data.metrics = metrics or {}
+    return mock_run
+
+
 def test_health():
     with app.test_client() as c:
         response = c.get("/health")
@@ -3367,3 +3422,261 @@ def test_cancel_prompt_optimization_job():
     assert response_data["job"]["experiment_id"] == "exp-123"
     assert response_data["job"]["source_prompt_uri"] == "prompts:/my-prompt/1"
     assert response_data["job"]["run_id"] == "run-456"
+
+
+def test_get_prompt_optimization_job_pending(mock_tracking_store):
+    mock_job = _create_mock_job(status_name="PENDING")
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+            "dataset_id": "dataset-789",
+            "scorer_names": '["Correctness"]',
+        }
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            assert "job" in data
+            job = data["job"]
+            assert job["job_id"] == "job-123"
+            assert job["run_id"] == "run-456"
+            assert job["experiment_id"] == "exp-123"
+            assert job["source_prompt_uri"] == "prompts:/my-prompt/1"
+            assert job["state"]["status"] == "JOB_STATUS_PENDING"
+
+
+def test_get_prompt_optimization_job_succeeded_with_result(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/my-prompt/2"},
+    )
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+            "dataset_id": "dataset-789",
+            "scorer_names": '["Correctness", "Safety"]',
+        },
+        metrics={
+            "initial_eval_score.Correctness": 0.65,
+            "initial_eval_score.Safety": 0.80,
+            "final_eval_score.Correctness": 0.89,
+            "final_eval_score.Safety": 0.95,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_COMPLETED"
+            assert job["optimized_prompt_uri"] == "prompts:/my-prompt/2"
+            # Verify metrics are populated from the run
+            assert job["initial_eval_scores"]["Correctness"] == 0.65
+            assert job["initial_eval_scores"]["Safety"] == 0.80
+            assert job["final_eval_scores"]["Correctness"] == 0.89
+            assert job["final_eval_scores"]["Safety"] == 0.95
+
+
+def test_get_prompt_optimization_job_succeeded_run_fetch_fails(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/my-prompt/2"},
+    )
+
+    # Simulate run fetch failing (e.g., run not found)
+    mock_tracking_store.get_run.side_effect = Exception("Run not found")
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_COMPLETED"
+            assert job["optimized_prompt_uri"] == "prompts:/my-prompt/2"
+            # Metrics should not be present when run fetch fails
+            assert "initial_eval_scores" not in job or job["initial_eval_scores"] == {}
+
+
+def test_get_prompt_optimization_job_failed_with_error(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="FAILED",
+        result="Optimization failed: Invalid scorer",
+    )
+
+    mock_run = _create_mock_run()
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_FAILED"
+            assert "Optimization failed" in job["state"]["error_message"]
+
+
+def test_get_prompt_optimization_job_missing_run_id_raises_error(mock_tracking_store):
+    mock_job = _create_mock_job(
+        params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"}
+    )
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 400
+            data = response.get_json()
+            assert "missing run_id" in data["message"]
+
+
+def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
+    mock_jobs = [
+        _create_mock_job(
+            job_id="job-1",
+            status_name="SUCCEEDED",
+            result={"optimized_prompt_uri": "prompts:/opt/1"},
+        ),
+        _create_mock_job(job_id="job-2", status_name="RUNNING"),
+        _create_mock_job(job_id="job-3", status_name="PENDING"),
+    ]
+    mock_job_store.list_jobs.return_value = iter(mock_jobs)
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert "jobs" in data
+        assert len(data["jobs"]) == 3
+
+        job_ids = [job["job_id"] for job in data["jobs"]]
+        assert "job-1" in job_ids
+        assert "job-2" in job_ids
+        assert "job-3" in job_ids
+
+    mock_job_store.list_jobs.assert_called_once_with(
+        job_name="optimize_prompts",
+        params={"experiment_id": "exp-123"},
+    )
+
+
+def test_search_prompt_optimization_jobs_returns_empty_list(mock_job_store):
+    mock_job_store.list_jobs.return_value = iter([])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-456"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert data.get("jobs", []) == []
+
+
+def test_search_prompt_optimization_jobs_missing_experiment_id():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={},
+        )
+        assert response.status_code == 400
+
+
+def test_search_prompt_optimization_jobs_includes_succeeded_job_result(mock_job_store):
+    mock_job = _create_mock_job(
+        job_id="job-1",
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
+    mock_job_store.list_jobs.return_value = iter([mock_job])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["optimized_prompt_uri"] == "prompts:/optimized/1"
+
+
+def test_search_prompt_optimization_jobs_includes_failed_job_error(mock_job_store):
+    mock_job = _create_mock_job(
+        job_id="job-1",
+        status_name="FAILED",
+        result="Some error occurred",
+    )
+    mock_job_store.list_jobs.return_value = iter([mock_job])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert "Some error occurred" in data["jobs"][0]["state"]["error_message"]
+
+
+def test_delete_prompt_optimization_job_success(mock_job_store, mock_tracking_store):
+    mock_job = _create_mock_job(status_name="SUCCEEDED")
+    mock_job_store.get_job.return_value = mock_job
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    mock_tracking_store.delete_run.assert_called_once_with("run-456")
+
+
+def test_delete_prompt_optimization_job_without_run_id(mock_job_store, mock_tracking_store):
+    mock_job = _create_mock_job(
+        params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"}
+    )
+    mock_job_store.get_job.return_value = mock_job
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    mock_tracking_store.delete_run.assert_not_called()
+
+
+def test_delete_prompt_optimization_job_run_deletion_failure_is_ignored(
+    mock_job_store, mock_tracking_store
+):
+    mock_job = _create_mock_job(status_name="SUCCEEDED")
+    mock_job_store.get_job.return_value = mock_job
+    mock_tracking_store.delete_run.side_effect = Exception("Run not found")
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
