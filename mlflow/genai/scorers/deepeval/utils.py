@@ -67,6 +67,15 @@ def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
     ]
 
 
+def _extract_tool_name_from_span(span) -> str:
+    inputs = span.attributes.get(SpanAttributeKey.INPUTS)
+    if isinstance(inputs, dict):
+        call_data = inputs.get("call")
+        if isinstance(call_data, dict) and "tool_name" in call_data:
+            return call_data["tool_name"]
+    return span.name
+
+
 def _extract_tool_calls_from_trace(trace: Trace):
     """
     Extract tool calls from trace spans with type TOOL.
@@ -86,7 +95,7 @@ def _extract_tool_calls_from_trace(trace: Trace):
 
     return [
         DeepEvalToolCall(
-            name=span.name,
+            name=_extract_tool_name_from_span(span),
             input_parameters=span.attributes.get(SpanAttributeKey.INPUTS),
             output=span.attributes.get(SpanAttributeKey.OUTPUTS),
         )
