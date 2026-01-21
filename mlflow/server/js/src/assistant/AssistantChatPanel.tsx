@@ -244,55 +244,6 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
- * Empty state when no experiment is selected.
- */
-const NoExperimentState = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: theme.spacing.lg * 2,
-        gap: theme.spacing.lg,
-      }}
-    >
-      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
-
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        <FormattedMessage
-          defaultMessage="Assistant is only available within an experiment. Please select or create an experiment to get started."
-          description="Message shown when assistant is opened outside of an experiment context"
-        />
-      </Typography.Text>
-
-      <Button
-        componentId={`${COMPONENT_ID}.create_experiment`}
-        icon={<InfoBookIcon />}
-        href="https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <FormattedMessage
-          defaultMessage="View docs"
-          description="Button text for link to create experiment documentation"
-        />
-      </Button>
-    </div>
-  );
-};
-
-/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
@@ -332,24 +283,6 @@ const ChatPanelContent = () => {
     },
     [sendMessage],
   );
-
-  // Show no experiment state when outside experiment context
-  if (!hasExperimentContext) {
-    return (
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <NoExperimentState />
-      </div>
-    );
-  }
 
   return (
     <div
