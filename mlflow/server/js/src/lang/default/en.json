@@ -3006,6 +3006,10 @@
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
   },
+  "M2zr3g": {
+    "defaultMessage": "Automatically evaluate traces using this judge ({link})",
+    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
+  },
   "M3c7bs": {
     "defaultMessage": "Tags",
     "description": "Column label for tags"
@@ -4307,10 +4311,6 @@
   "WfY+Gj": {
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
-  },
-  "WfgCke": {
-    "defaultMessage": "Automatically evaluate traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
   },
   "Wh+aKq": {
     "defaultMessage": "Details & Timeline",
@@ -7566,6 +7566,10 @@
   "vQa9lQ": {
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
+  },
+  "vV8sXP": {
+    "defaultMessage": "learn more",
+    "description": "Link text for online evaluation documentation"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
