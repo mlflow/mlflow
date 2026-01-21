@@ -922,10 +922,6 @@
     "defaultMessage": "Error fetching models",
     "description": "Workspace models page > Error empty state title"
   },
-  "5e0ysy": {
-    "defaultMessage": "Automatically evaluate future traces using this judge ({link})",
-    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
-  },
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
@@ -3010,6 +3006,10 @@
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
   },
+  "M2zr3g": {
+    "defaultMessage": "Automatically evaluate traces using this judge ({link})",
+    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
+  },
   "M3c7bs": {
     "defaultMessage": "Tags",
     "description": "Column label for tags"
@@ -4311,10 +4311,6 @@
   "WfY+Gj": {
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
-  },
-  "WfgCke": {
-    "defaultMessage": "Automatically evaluate traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
   },
   "Wh+aKq": {
     "defaultMessage": "Details & Timeline",
