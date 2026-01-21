@@ -2,53 +2,18 @@ syntax = "proto2";
 
 package mlflow;
 
+import "jobs.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
 option (scalapb.options) = {flat_package: true};
 
-// Generic status enum for MLflow jobs.
-// Can be used across different job types (optimization, evaluation, etc.).
-enum JobStatus {
-  JOB_STATUS_UNSPECIFIED = 0;
-
-  // Job is queued, waiting to start.
-  JOB_STATUS_PENDING = 1;
-
-  // Job is currently running.
-  JOB_STATUS_IN_PROGRESS = 2;
-
-  // Job completed successfully.
-  JOB_STATUS_COMPLETED = 3;
-
-  // Job failed with an error.
-  JOB_STATUS_FAILED = 4;
-
-  // Job was canceled by user.
-  JOB_STATUS_CANCELED = 5;
-}
-
-// Generic job state message combining status with metadata.
-// Provides a unified way to represent job state across different job types.
-message JobState {
-  // Current status of the job.
-  optional JobStatus status = 1;
-
-  // Error message if the job failed.
-  // Only set when status is JOB_STATUS_FAILED.
-  optional string error_message = 2;
-
-  // Additional metadata as key-value pairs.
-  // Can be used to store job-specific state information.
-  map<string, string> metadata = 3;
-}
-
 // Type of optimizer algorithm to use.
 enum OptimizerType {
   OPTIMIZER_TYPE_UNSPECIFIED = 0;
 
-  // GEPA (Guided Evolution of Prompt Attributes) optimizer.
+  // GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)
   OPTIMIZER_TYPE_GEPA = 1;
 
   // MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass.
@@ -65,24 +30,21 @@ message PromptOptimizationJobTag {
 // Configuration for a prompt optimization job.
 // Stored as run parameters in the underlying MLflow run.
 message PromptOptimizationJobConfig {
-  // URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
-  optional string target_prompt_uri = 1;
-
   // The optimizer type to use.
-  optional OptimizerType optimizer_type = 2;
+  optional OptimizerType optimizer_type = 1;
 
   // ID of the EvaluationDataset containing training data.
-  optional string dataset_id = 3;
+  optional string dataset_id = 2;
 
   // List of scorer names. Can be built-in scorer class names
   // (e.g., "Correctness", "Safety") or registered scorer names.
-  repeated string scorers = 4;
+  repeated string scorers = 3;
 
   // JSON-serialized optimizer-specific configuration.
   // Different optimizers accept different parameters:
   // - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
   // - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
-  optional string optimizer_config_json = 5;
+  optional string optimizer_config_json = 4;
 }
 
 // Represents a prompt optimization job entity.

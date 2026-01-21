@@ -16,10 +16,11 @@ if Version(google.protobuf.__version__).major >= 5:
   _sym_db = _symbol_database.Default()
 
 
+  from . import jobs_pb2 as jobs__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19prompt_optimization.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"\xa7\x01\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"6\n\x18PromptOptimizationJobTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xab\x01\n\x1bPromptOptimizationJobConfig\x12\x19\n\x11target_prompt_uri\x18\x01 \x01(\t\x12-\n\x0eoptimizer_type\x18\x02 \x01(\x0e\x32\x15.mlflow.OptimizerType\x12\x12\n\ndataset_id\x18\x03 \x01(\t\x12\x0f\n\x07scorers\x18\x04 \x03(\t\x12\x1d\n\x15optimizer_config_json\x18\x05 \x01(\t\"\xe1\x04\n\x15PromptOptimizationJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x1f\n\x05state\x18\x03 \x01(\x0b\x32\x10.mlflow.JobState\x12\x15\n\rexperiment_id\x18\x04 \x01(\t\x12\x19\n\x11source_prompt_uri\x18\x05 \x01(\t\x12\x1c\n\x14optimized_prompt_uri\x18\x06 \x01(\t\x12\x33\n\x06\x63onfig\x18\x07 \x01(\x0b\x32#.mlflow.PromptOptimizationJobConfig\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x08 \x01(\x03\x12\x1f\n\x17\x63ompletion_timestamp_ms\x18\t \x01(\x03\x12.\n\x04tags\x18\n \x03(\x0b\x32 .mlflow.PromptOptimizationJobTag\x12Q\n\x13initial_eval_scores\x18\x0b \x03(\x0b\x32\x34.mlflow.PromptOptimizationJob.InitialEvalScoresEntry\x12M\n\x11\x66inal_eval_scores\x18\x0c \x03(\x0b\x32\x32.mlflow.PromptOptimizationJob.FinalEvalScoresEntry\x1a\x38\n\x16InitialEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x36\n\x14\x46inalEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01*\xa5\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05*g\n\rOptimizerType\x12\x1e\n\x1aOPTIMIZER_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13OPTIMIZER_TYPE_GEPA\x10\x01\x12\x1d\n\x19OPTIMIZER_TYPE_METAPROMPT\x10\x02\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19prompt_optimization.proto\x12\x06mlflow\x1a\njobs.proto\x1a\x15scalapb/scalapb.proto\"6\n\x18PromptOptimizationJobTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x90\x01\n\x1bPromptOptimizationJobConfig\x12-\n\x0eoptimizer_type\x18\x01 \x01(\x0e\x32\x15.mlflow.OptimizerType\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0f\n\x07scorers\x18\x03 \x03(\t\x12\x1d\n\x15optimizer_config_json\x18\x04 \x01(\t\"\xe1\x04\n\x15PromptOptimizationJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x1f\n\x05state\x18\x03 \x01(\x0b\x32\x10.mlflow.JobState\x12\x15\n\rexperiment_id\x18\x04 \x01(\t\x12\x19\n\x11source_prompt_uri\x18\x05 \x01(\t\x12\x1c\n\x14optimized_prompt_uri\x18\x06 \x01(\t\x12\x33\n\x06\x63onfig\x18\x07 \x01(\x0b\x32#.mlflow.PromptOptimizationJobConfig\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x08 \x01(\x03\x12\x1f\n\x17\x63ompletion_timestamp_ms\x18\t \x01(\x03\x12.\n\x04tags\x18\n \x03(\x0b\x32 .mlflow.PromptOptimizationJobTag\x12Q\n\x13initial_eval_scores\x18\x0b \x03(\x0b\x32\x34.mlflow.PromptOptimizationJob.InitialEvalScoresEntry\x12M\n\x11\x66inal_eval_scores\x18\x0c \x03(\x0b\x32\x32.mlflow.PromptOptimizationJob.FinalEvalScoresEntry\x1a\x38\n\x16InitialEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x36\n\x14\x46inalEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01*g\n\rOptimizerType\x12\x1e\n\x1aOPTIMIZER_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13OPTIMIZER_TYPE_GEPA\x10\x01\x12\x1d\n\x19OPTIMIZER_TYPE_METAPROMPT\x10\x02\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,30 +28,22 @@ if Version(google.protobuf.__version__).major >= 5:
   if not _descriptor._USE_C_DESCRIPTORS:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
-    _globals['_JOBSTATE_METADATAENTRY']._loaded_options = None
-    _globals['_JOBSTATE_METADATAENTRY']._serialized_options = b'8\001'
     _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._loaded_options = None
     _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._serialized_options = b'8\001'
     _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._loaded_options = None
     _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._serialized_options = b'8\001'
-    _globals['_JOBSTATUS']._serialized_start=1073
-    _globals['_JOBSTATUS']._serialized_end=1238
-    _globals['_OPTIMIZERTYPE']._serialized_start=1240
-    _globals['_OPTIMIZERTYPE']._serialized_end=1343
-    _globals['_JOBSTATE']._serialized_start=61
-    _globals['_JOBSTATE']._serialized_end=228
-    _globals['_JOBSTATE_METADATAENTRY']._serialized_start=181
-    _globals['_JOBSTATE_METADATAENTRY']._serialized_end=228
-    _globals['_PROMPTOPTIMIZATIONJOBTAG']._serialized_start=230
-    _globals['_PROMPTOPTIMIZATIONJOBTAG']._serialized_end=284
-    _globals['_PROMPTOPTIMIZATIONJOBCONFIG']._serialized_start=287
-    _globals['_PROMPTOPTIMIZATIONJOBCONFIG']._serialized_end=458
-    _globals['_PROMPTOPTIMIZATIONJOB']._serialized_start=461
-    _globals['_PROMPTOPTIMIZATIONJOB']._serialized_end=1070
-    _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._serialized_start=958
-    _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._serialized_end=1014
-    _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._serialized_start=1016
-    _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._serialized_end=1070
+    _globals['_OPTIMIZERTYPE']._serialized_start=887
+    _globals['_OPTIMIZERTYPE']._serialized_end=990
+    _globals['_PROMPTOPTIMIZATIONJOBTAG']._serialized_start=72
+    _globals['_PROMPTOPTIMIZATIONJOBTAG']._serialized_end=126
+    _globals['_PROMPTOPTIMIZATIONJOBCONFIG']._serialized_start=129
+    _globals['_PROMPTOPTIMIZATIONJOBCONFIG']._serialized_end=273
+    _globals['_PROMPTOPTIMIZATIONJOB']._serialized_start=276
+    _globals['_PROMPTOPTIMIZATIONJOB']._serialized_end=885
+    _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._serialized_start=773
+    _globals['_PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY']._serialized_end=829
+    _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._serialized_start=831
+    _globals['_PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY']._serialized_end=885
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -69,48 +62,24 @@ else:
   _sym_db = _symbol_database.Default()
 
 
+  from . import jobs_pb2 as jobs__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19prompt_optimization.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"\xa7\x01\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"6\n\x18PromptOptimizationJobTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xab\x01\n\x1bPromptOptimizationJobConfig\x12\x19\n\x11target_prompt_uri\x18\x01 \x01(\t\x12-\n\x0eoptimizer_type\x18\x02 \x01(\x0e\x32\x15.mlflow.OptimizerType\x12\x12\n\ndataset_id\x18\x03 \x01(\t\x12\x0f\n\x07scorers\x18\x04 \x03(\t\x12\x1d\n\x15optimizer_config_json\x18\x05 \x01(\t\"\xe1\x04\n\x15PromptOptimizationJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x1f\n\x05state\x18\x03 \x01(\x0b\x32\x10.mlflow.JobState\x12\x15\n\rexperiment_id\x18\x04 \x01(\t\x12\x19\n\x11source_prompt_uri\x18\x05 \x01(\t\x12\x1c\n\x14optimized_prompt_uri\x18\x06 \x01(\t\x12\x33\n\x06\x63onfig\x18\x07 \x01(\x0b\x32#.mlflow.PromptOptimizationJobConfig\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x08 \x01(\x03\x12\x1f\n\x17\x63ompletion_timestamp_ms\x18\t \x01(\x03\x12.\n\x04tags\x18\n \x03(\x0b\x32 .mlflow.PromptOptimizationJobTag\x12Q\n\x13initial_eval_scores\x18\x0b \x03(\x0b\x32\x34.mlflow.PromptOptimizationJob.InitialEvalScoresEntry\x12M\n\x11\x66inal_eval_scores\x18\x0c \x03(\x0b\x32\x32.mlflow.PromptOptimizationJob.FinalEvalScoresEntry\x1a\x38\n\x16InitialEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x36\n\x14\x46inalEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01*\xa5\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05*g\n\rOptimizerType\x12\x1e\n\x1aOPTIMIZER_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13OPTIMIZER_TYPE_GEPA\x10\x01\x12\x1d\n\x19OPTIMIZER_TYPE_METAPROMPT\x10\x02\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19prompt_optimization.proto\x12\x06mlflow\x1a\njobs.proto\x1a\x15scalapb/scalapb.proto\"6\n\x18PromptOptimizationJobTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x90\x01\n\x1bPromptOptimizationJobConfig\x12-\n\x0eoptimizer_type\x18\x01 \x01(\x0e\x32\x15.mlflow.OptimizerType\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0f\n\x07scorers\x18\x03 \x03(\t\x12\x1d\n\x15optimizer_config_json\x18\x04 \x01(\t\"\xe1\x04\n\x15PromptOptimizationJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x1f\n\x05state\x18\x03 \x01(\x0b\x32\x10.mlflow.JobState\x12\x15\n\rexperiment_id\x18\x04 \x01(\t\x12\x19\n\x11source_prompt_uri\x18\x05 \x01(\t\x12\x1c\n\x14optimized_prompt_uri\x18\x06 \x01(\t\x12\x33\n\x06\x63onfig\x18\x07 \x01(\x0b\x32#.mlflow.PromptOptimizationJobConfig\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x08 \x01(\x03\x12\x1f\n\x17\x63ompletion_timestamp_ms\x18\t \x01(\x03\x12.\n\x04tags\x18\n \x03(\x0b\x32 .mlflow.PromptOptimizationJobTag\x12Q\n\x13initial_eval_scores\x18\x0b \x03(\x0b\x32\x34.mlflow.PromptOptimizationJob.InitialEvalScoresEntry\x12M\n\x11\x66inal_eval_scores\x18\x0c \x03(\x0b\x32\x32.mlflow.PromptOptimizationJob.FinalEvalScoresEntry\x1a\x38\n\x16InitialEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x36\n\x14\x46inalEvalScoresEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01*g\n\rOptimizerType\x12\x1e\n\x1aOPTIMIZER_TYPE_UNSPECIFIED\x10\x00\x12\x17\n\x13OPTIMIZER_TYPE_GEPA\x10\x01\x12\x1d\n\x19OPTIMIZER_TYPE_METAPROMPT\x10\x02\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
-  _JOBSTATUS = DESCRIPTOR.enum_types_by_name['JobStatus']
-  JobStatus = enum_type_wrapper.EnumTypeWrapper(_JOBSTATUS)
   _OPTIMIZERTYPE = DESCRIPTOR.enum_types_by_name['OptimizerType']
   OptimizerType = enum_type_wrapper.EnumTypeWrapper(_OPTIMIZERTYPE)
-  JOB_STATUS_UNSPECIFIED = 0
-  JOB_STATUS_PENDING = 1
-  JOB_STATUS_IN_PROGRESS = 2
-  JOB_STATUS_COMPLETED = 3
-  JOB_STATUS_FAILED = 4
-  JOB_STATUS_CANCELED = 5
   OPTIMIZER_TYPE_UNSPECIFIED = 0
   OPTIMIZER_TYPE_GEPA = 1
   OPTIMIZER_TYPE_METAPROMPT = 2
 
 
-  _JOBSTATE = DESCRIPTOR.message_types_by_name['JobState']
-  _JOBSTATE_METADATAENTRY = _JOBSTATE.nested_types_by_name['MetadataEntry']
   _PROMPTOPTIMIZATIONJOBTAG = DESCRIPTOR.message_types_by_name['PromptOptimizationJobTag']
   _PROMPTOPTIMIZATIONJOBCONFIG = DESCRIPTOR.message_types_by_name['PromptOptimizationJobConfig']
   _PROMPTOPTIMIZATIONJOB = DESCRIPTOR.message_types_by_name['PromptOptimizationJob']
   _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY = _PROMPTOPTIMIZATIONJOB.nested_types_by_name['InitialEvalScoresEntry']
   _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY = _PROMPTOPTIMIZATIONJOB.nested_types_by_name['FinalEvalScoresEntry']
-  JobState = _reflection.GeneratedProtocolMessageType('JobState', (_message.Message,), {
-
-    'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
-      'DESCRIPTOR' : _JOBSTATE_METADATAENTRY,
-      '__module__' : 'prompt_optimization_pb2'
-      # @@protoc_insertion_point(class_scope:mlflow.JobState.MetadataEntry)
-      })
-    ,
-    'DESCRIPTOR' : _JOBSTATE,
-    '__module__' : 'prompt_optimization_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.JobState)
-    })
-  _sym_db.RegisterMessage(JobState)
-  _sym_db.RegisterMessage(JobState.MetadataEntry)
-
   PromptOptimizationJobTag = _reflection.GeneratedProtocolMessageType('PromptOptimizationJobTag', (_message.Message,), {
     'DESCRIPTOR' : _PROMPTOPTIMIZATIONJOBTAG,
     '__module__' : 'prompt_optimization_pb2'
@@ -152,29 +121,21 @@ else:
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
-    _JOBSTATE_METADATAENTRY._options = None
-    _JOBSTATE_METADATAENTRY._serialized_options = b'8\001'
     _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._options = None
     _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._serialized_options = b'8\001'
     _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._options = None
     _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._serialized_options = b'8\001'
-    _JOBSTATUS._serialized_start=1073
-    _JOBSTATUS._serialized_end=1238
-    _OPTIMIZERTYPE._serialized_start=1240
-    _OPTIMIZERTYPE._serialized_end=1343
-    _JOBSTATE._serialized_start=61
-    _JOBSTATE._serialized_end=228
-    _JOBSTATE_METADATAENTRY._serialized_start=181
-    _JOBSTATE_METADATAENTRY._serialized_end=228
-    _PROMPTOPTIMIZATIONJOBTAG._serialized_start=230
-    _PROMPTOPTIMIZATIONJOBTAG._serialized_end=284
-    _PROMPTOPTIMIZATIONJOBCONFIG._serialized_start=287
-    _PROMPTOPTIMIZATIONJOBCONFIG._serialized_end=458
-    _PROMPTOPTIMIZATIONJOB._serialized_start=461
-    _PROMPTOPTIMIZATIONJOB._serialized_end=1070
-    _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._serialized_start=958
-    _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._serialized_end=1014
-    _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._serialized_start=1016
-    _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._serialized_end=1070
+    _OPTIMIZERTYPE._serialized_start=887
+    _OPTIMIZERTYPE._serialized_end=990
+    _PROMPTOPTIMIZATIONJOBTAG._serialized_start=72
+    _PROMPTOPTIMIZATIONJOBTAG._serialized_end=126
+    _PROMPTOPTIMIZATIONJOBCONFIG._serialized_start=129
+    _PROMPTOPTIMIZATIONJOBCONFIG._serialized_end=273
+    _PROMPTOPTIMIZATIONJOB._serialized_start=276
+    _PROMPTOPTIMIZATIONJOB._serialized_end=885
+    _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._serialized_start=773
+    _PROMPTOPTIMIZATIONJOB_INITIALEVALSCORESENTRY._serialized_end=829
+    _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._serialized_start=831
+    _PROMPTOPTIMIZATIONJOB_FINALEVALSCORESENTRY._serialized_end=885
   # @@protoc_insertion_point(module_scope)
 

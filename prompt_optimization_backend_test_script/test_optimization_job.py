@@ -75,8 +75,8 @@ def create_prompt_optimization_job(
 
     payload = {
         "experiment_id": experiment_id,
+        "source_prompt_uri": prompt_uri,
         "config": {
-            "target_prompt_uri": prompt_uri,
             "optimizer_type": optimizer_type_enum,
             "dataset_id": dataset_id,
             "scorers": scorers,

@@ -2246,19 +2246,21 @@ class GetSecretsConfig(_message.Message):
     def __init__(self) -> None: ...
 
 class CreatePromptOptimizationJob(_message.Message):
-    __slots__ = ("experiment_id", "config", "tags")
+    __slots__ = ("experiment_id", "source_prompt_uri", "config", "tags")
     class Response(_message.Message):
         __slots__ = ("job",)
         JOB_FIELD_NUMBER: _ClassVar[int]
         job: _prompt_optimization_pb2.PromptOptimizationJob
         def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
+    source_prompt_uri: str
     config: _prompt_optimization_pb2.PromptOptimizationJobConfig
     tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJobTag]
-    def __init__(self, experiment_id: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
+    def __init__(self, experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
 
 class GetPromptOptimizationJob(_message.Message):
     __slots__ = ("job_id",)

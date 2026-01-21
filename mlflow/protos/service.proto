@@ -4751,12 +4751,14 @@ message CreatePromptOptimizationJob {
   // ID of the MLflow experiment to track the optimization job in.
   optional string experiment_id = 1;
 
+  // URI of the source prompt to optimize (e.g., "prompts:/my-prompt/1").
+  optional string source_prompt_uri = 2;
+
   // Configuration for the optimization job.
-  // Must include target_prompt specifying the prompt to optimize.
-  optional PromptOptimizationJobConfig config = 2;
+  optional PromptOptimizationJobConfig config = 3;
 
   // Optional tags for the optimization job.
-  repeated PromptOptimizationJobTag tags = 3;
+  repeated PromptOptimizationJobTag tags = 4;
 
   message Response {
     // The created optimization job.

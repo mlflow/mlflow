@@ -1,3 +1,4 @@
+import jobs_pb2 as _jobs_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -7,46 +8,14 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class JobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    JOB_STATUS_UNSPECIFIED: _ClassVar[JobStatus]
-    JOB_STATUS_PENDING: _ClassVar[JobStatus]
-    JOB_STATUS_IN_PROGRESS: _ClassVar[JobStatus]
-    JOB_STATUS_COMPLETED: _ClassVar[JobStatus]
-    JOB_STATUS_FAILED: _ClassVar[JobStatus]
-    JOB_STATUS_CANCELED: _ClassVar[JobStatus]
-
 class OptimizerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     OPTIMIZER_TYPE_UNSPECIFIED: _ClassVar[OptimizerType]
     OPTIMIZER_TYPE_GEPA: _ClassVar[OptimizerType]
     OPTIMIZER_TYPE_METAPROMPT: _ClassVar[OptimizerType]
-JOB_STATUS_UNSPECIFIED: JobStatus
-JOB_STATUS_PENDING: JobStatus
-JOB_STATUS_IN_PROGRESS: JobStatus
-JOB_STATUS_COMPLETED: JobStatus
-JOB_STATUS_FAILED: JobStatus
-JOB_STATUS_CANCELED: JobStatus
 OPTIMIZER_TYPE_UNSPECIFIED: OptimizerType
 OPTIMIZER_TYPE_GEPA: OptimizerType
 OPTIMIZER_TYPE_METAPROMPT: OptimizerType
-
-class JobState(_message.Message):
-    __slots__ = ("status", "error_message", "metadata")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    status: JobStatus
-    error_message: str
-    metadata: _containers.ScalarMap[str, str]
-    def __init__(self, status: _Optional[_Union[JobStatus, str]] = ..., error_message: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class PromptOptimizationJobTag(_message.Message):
     __slots__ = ("key", "value")
@@ -57,18 +26,16 @@ class PromptOptimizationJobTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJobConfig(_message.Message):
-    __slots__ = ("target_prompt_uri", "optimizer_type", "dataset_id", "scorers", "optimizer_config_json")
-    TARGET_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("optimizer_type", "dataset_id", "scorers", "optimizer_config_json")
     OPTIMIZER_TYPE_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     SCORERS_FIELD_NUMBER: _ClassVar[int]
     OPTIMIZER_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
-    target_prompt_uri: str
     optimizer_type: OptimizerType
     dataset_id: str
     scorers: _containers.RepeatedScalarFieldContainer[str]
     optimizer_config_json: str
-    def __init__(self, target_prompt_uri: _Optional[str] = ..., optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
+    def __init__(self, optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJob(_message.Message):
     __slots__ = ("job_id", "run_id", "state", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "tags", "initial_eval_scores", "final_eval_scores")
@@ -100,7 +67,7 @@ class PromptOptimizationJob(_message.Message):
     FINAL_EVAL_SCORES_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     run_id: str
-    state: JobState
+    state: _jobs_pb2.JobState
     experiment_id: str
     source_prompt_uri: str
     optimized_prompt_uri: str
@@ -110,4 +77,4 @@ class PromptOptimizationJob(_message.Message):
     tags: _containers.RepeatedCompositeFieldContainer[PromptOptimizationJobTag]
     initial_eval_scores: _containers.ScalarMap[str, float]
     final_eval_scores: _containers.ScalarMap[str, float]
-    def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ..., state: _Optional[_Union[JobState, _Mapping]] = ..., experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., optimized_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[PromptOptimizationJobConfig, _Mapping]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[PromptOptimizationJobTag, _Mapping]]] = ..., initial_eval_scores: _Optional[_Mapping[str, float]] = ..., final_eval_scores: _Optional[_Mapping[str, float]] = ...) -> None: ...
+    def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ..., state: _Optional[_Union[_jobs_pb2.JobState, _Mapping]] = ..., experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., optimized_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[PromptOptimizationJobConfig, _Mapping]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[PromptOptimizationJobTag, _Mapping]]] = ..., initial_eval_scores: _Optional[_Mapping[str, float]] = ..., final_eval_scores: _Optional[_Mapping[str, float]] = ...) -> None: ...
