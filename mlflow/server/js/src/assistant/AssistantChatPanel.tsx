@@ -125,7 +125,7 @@ const ChatMessageBubble = ({
               }}
             >
               {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? activeTools[0].description
+                ? `Tool: ${activeTools[0].description}`
                 : 'Processing'}
             </span>
           </div>
@@ -342,11 +342,10 @@ const ChatPanelContent = () => {
         >
           <div css={{ display: 'flex', alignItems: 'center' }}>
             <input
-              placeholder="Ask a question about this trace..."
+              placeholder="Ask a question..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isStreaming}
               css={{
                 flex: 1,
                 border: 'none',
@@ -361,10 +360,6 @@ const ChatPanelContent = () => {
                 '&:focus': {
                   border: 'none',
                   outline: 'none',
-                },
-                '&:disabled': {
-                  cursor: 'not-allowed',
-                  opacity: 0.5,
                 },
               }}
             />
@@ -517,8 +512,8 @@ export const AssistantChatPanel = () => {
     return <ChatPanelContent />;
   };
 
-  // Determine if we should show the chat controls (new chat button)
-  const showChatControls = setupComplete && !isInSetupWizard;
+  // Only show chat button when setup is complete, not in wizard, and within an experiment context
+  const showChatControls = setupComplete && !isInSetupWizard && Boolean(experimentId);
 
   return (
     <div
