@@ -1950,6 +1950,10 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
+  "Cj58gM": {
+    "defaultMessage": "Setup MLflow Assistant",
+    "description": "Title for the MLflow Assistant setup wizard"
+  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
@@ -2033,6 +2037,10 @@
   "DMOaoR": {
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
+  },
+  "DQ3XQT": {
+    "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
+    "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -2997,6 +3005,10 @@
   "M1dwxx": {
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
+  },
+  "M2zr3g": {
+    "defaultMessage": "Automatically evaluate traces using this judge ({link})",
+    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
   },
   "M3c7bs": {
     "defaultMessage": "Tags",
@@ -5403,6 +5415,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
+  "enp602": {
+    "defaultMessage": "Automatic evaluation settings",
+    "description": "Section header for automatic evaluation settings"
+  },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
     "description": "Label for the evaluations tab in the MLflow experiment navbar"
@@ -5842,10 +5858,6 @@
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
-  },
-  "i30A98": {
-    "defaultMessage": "Evaluation settings",
-    "description": "Section header for evaluation settings"
   },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
@@ -6346,10 +6358,6 @@
   "loe2Ov": {
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
-  },
-  "lpptdR": {
-    "defaultMessage": "Automatically evaluate future traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
   },
   "ls3868": {
     "defaultMessage": "Guidelines",
@@ -7559,6 +7567,10 @@
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
   },
+  "vV8sXP": {
+    "defaultMessage": "learn more",
+    "description": "Link text for online evaluation documentation"
+  },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
@@ -7747,10 +7759,6 @@
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
   },
-  "x/rA/e": {
-    "defaultMessage": "Latency",
-    "description": "Column header for average latency"
-  },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
     "description": "Placeholder for stop sequences input"
@@ -7798,6 +7806,10 @@
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
+  },
+  "xRM/Eb": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Column header for average latency"
   },
   "xRw7H2": {
     "defaultMessage": "Created by",

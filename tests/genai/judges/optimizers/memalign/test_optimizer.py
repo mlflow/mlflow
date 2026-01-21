@@ -50,10 +50,16 @@ def mock_distillation_lm():
 
 
 @contextmanager
-def mock_apis(guidelines=None):
+def mock_apis(guidelines=None, batch_size=50):
     """Context manager for mocking API calls with optional guideline configuration."""
     if guidelines is None:
         guidelines = []
+
+    # _create_batches returns list of batches; mock returns single batch with all indices
+    # based on actual input size
+    def create_batches_side_effect(examples_data, indices, **kwargs):
+        # Return single batch containing all indices
+        return [list(indices)]
 
     with (
         patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
@@ -61,10 +67,19 @@ def mock_apis(guidelines=None):
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
         ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            side_effect=create_batches_side_effect,
+        ) as mock_create_batches,
     ):
-        # Mock distillation LM
+        # Mock distillation LM - include source_trace_ids for guidelines to be retained
         mock_lm = MagicMock()
-        guidelines_json = {"guidelines": [{"guideline_text": g} for g in guidelines]}
+        guidelines_json = {
+            "guidelines": [
+                {"guideline_text": g, "source_trace_ids": list(range(batch_size))}
+                for g in guidelines
+            ]
+        }
         mock_lm.return_value = [f"{guidelines_json}".replace("'", '"')]
         mock_construct_lm.return_value = mock_lm
 
@@ -81,6 +96,7 @@ def mock_apis(guidelines=None):
             "construct_lm": mock_construct_lm,
             "embedder_class": mock_embedder_class,
             "embeddings_class": mock_embeddings_class,
+            "create_batches": mock_create_batches,
         }
 
 
@@ -110,7 +126,7 @@ def sample_traces():
 def test_init_default_config():
     optimizer = MemAlignOptimizer()
     assert optimizer._retrieval_k == 5
-    assert optimizer._embedding_model == "openai/text-embedding-3-small"
+    assert optimizer._embedding_model == "openai:/text-embedding-3-small"
     assert optimizer._embedding_dim == 512
 
 
@@ -123,16 +139,6 @@ def test_init_custom_config():
     assert optimizer._reflection_lm == "openai:/gpt-4"
     assert optimizer._retrieval_k == 3
     assert optimizer._embedding_dim == 256
-
-
-def test_databricks_embedding_model_raises_error(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]):
-        optimizer = MemAlignOptimizer(embedding_model="databricks:/databricks-bge-large-en")
-        with pytest.raises(
-            MlflowException,
-            match="Databricks embedding models are not currently supported for MemAlign",
-        ):
-            optimizer.align(sample_judge, sample_traces[:1])
 
 
 def test_align_empty_traces_raises_error(sample_judge):
@@ -334,7 +340,7 @@ def test_memory_augmented_judge_model_dump(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer(
             reflection_lm="openai:/gpt-4o-mini",
             retrieval_k=3,
-            embedding_model="openai/text-embedding-3-small",
+            embedding_model="openai:/text-embedding-3-small",
             embedding_dim=256,
         )
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
@@ -353,7 +359,7 @@ def test_memory_augmented_judge_model_dump(sample_judge, sample_traces):
         # Verify config fields
         assert data["reflection_lm"] == "openai:/gpt-4o-mini"
         assert data["retrieval_k"] == 3
-        assert data["embedding_model"] == "openai/text-embedding-3-small"
+        assert data["embedding_model"] == "openai:/text-embedding-3-small"
         assert data["embedding_dim"] == 256
 
         # Verify episodic trace IDs are extracted
@@ -372,7 +378,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer(
             reflection_lm="openai:/gpt-4",
             retrieval_k=7,
-            embedding_model="openai/text-embedding-3-large",
+            embedding_model="openai:/text-embedding-3-large",
             embedding_dim=1024,
         )
         aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
@@ -384,7 +390,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         # Verify config fields are restored
         assert restored._reflection_lm == "openai:/gpt-4"
         assert restored._retrieval_k == 7
-        assert restored._embedding_model == "openai/text-embedding-3-large"
+        assert restored._embedding_model == "openai:/text-embedding-3-large"
         assert restored._embedding_dim == 1024
 
         # Verify semantic memory is restored
@@ -435,7 +441,7 @@ def test_memory_augmented_judge_round_trip_serialization(sample_judge, sample_tr
         optimizer = MemAlignOptimizer(
             reflection_lm="openai:/gpt-4o-mini",
             retrieval_k=5,
-            embedding_model="openai/text-embedding-3-small",
+            embedding_model="openai:/text-embedding-3-small",
             embedding_dim=512,
         )
         original_judge = optimizer.align(sample_judge, sample_traces[:3])
