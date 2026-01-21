@@ -392,22 +392,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   // Gateways
-  // TODO: Add MLflow AI Gateway integration
-  // {
-  //   id: 'mlflow-gateway',
-  //   name: 'MLflow AI Gateway',
-  //   logoPath: '/images/logos/mlflow-logo.svg',
-  //   link: '/genai/tracing/integrations/listing/mlflow-gateway',
-  //   category: 'Gateways',
-  // },
-  // TODO: Add Databricks integration
-  // {
-  //   id: 'databricks-gateway',
-  //   name: 'Databricks',
-  //   logoPath: '/images/logos/databricks-logo.png',
-  //   link: '/genai/tracing/integrations/listing/databricks-gateway',
-  //   category: 'Gateways',
-  // },
   {
     id: 'litellm-proxy',
     name: 'LiteLLM Proxy',
@@ -429,38 +413,41 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/openrouter',
     category: 'Gateways',
   },
-  // TODO: Add Kong Gateway integration
-  // {
-  //   id: 'kong-gateway',
-  //   name: 'Kong Gateway',
-  //   logoPath: '/images/logos/kong-logo.png',
-  //   link: '/genai/tracing/integrations/listing/kong-gateway',
-  //   category: 'Gateways',
-  // },
-  // TODO: Add Portkey integration
-  // {
-  //   id: 'portkey',
-  //   name: 'Portkey',
-  //   logoPath: '/images/logos/portkey-logo.png',
-  //   link: '/genai/tracing/integrations/listing/portkey',
-  //   category: 'Gateways',
-  // },
-  // TODO: Add Pydantic AI Gateway integration
-  // {
-  //   id: 'pydantic-ai-gateway',
-  //   name: 'Pydantic AI Gateway',
-  //   logoPath: '/images/logos/pydantic-ai-logo-only.png',
-  //   link: '/genai/tracing/integrations/listing/pydantic-ai-gateway',
-  //   category: 'Gateways',
-  // },
-  // TODO: Add Helicone integration
-  // {
-  //   id: 'helicone',
-  //   name: 'Helicone',
-  //   logoPath: '/images/logos/helicone-logo.png',
-  //   link: '/genai/tracing/integrations/listing/helicone',
-  //   category: 'Gateways',
-  // },
+  {
+    id: 'portkey',
+    name: 'Portkey',
+    logoPath: '/images/logos/portkey-logo.png',
+    link: '/genai/tracing/integrations/listing/portkey',
+    category: 'Gateways',
+  },
+  {
+    id: 'helicone',
+    name: 'Helicone',
+    logoPath: '/images/logos/helicone-logo.png',
+    link: '/genai/tracing/integrations/listing/helicone',
+    category: 'Gateways',
+  },
+  {
+    id: 'kong',
+    name: 'Kong AI Gateway',
+    logoPath: '/images/logos/kong-logo.png',
+    link: '/genai/tracing/integrations/listing/kong',
+    category: 'Gateways',
+  },
+  {
+    id: 'pydantic-ai-gateway',
+    name: 'Pydantic AI Gateway',
+    logoPath: '/images/logos/pydantic-ai-logo-only.png',
+    link: '/genai/tracing/integrations/listing/pydantic-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'truefoundry',
+    name: 'TrueFoundry',
+    logoPath: '/images/logos/truefoundry-logo.png',
+    link: '/genai/tracing/integrations/listing/truefoundry',
+    category: 'Gateways',
+  },
   {
     id: 'langflow',
     name: 'Langflow',

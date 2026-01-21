@@ -15,7 +15,7 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
 
 # Try to import litellm at module level
 try:
-    from litellm import get_max_tokens, token_counter
+    from litellm import get_model_info, token_counter
 
     _LITELLM_AVAILABLE = True
 except ImportError:
@@ -44,7 +44,7 @@ def _get_model_max_tokens(model: str) -> int:
         return _MAX_MODEL_TOKENS
 
     try:
-        max_tokens = get_max_tokens(model)
+        max_tokens = get_model_info(model)["max_input_tokens"]
         if max_tokens is not None:
             return max_tokens
     except Exception as e:

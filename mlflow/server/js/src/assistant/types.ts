@@ -26,6 +26,7 @@ export interface KnownAssistantContext {
   selectedTraceIds?: string[];
   runId?: string;
   selectedRunIds?: string[];
+  currentPage?: string;
 }
 
 /** All known context keys */
@@ -46,6 +47,10 @@ export interface AssistantAgentState {
   currentStatus: string | null;
   /** Active tools being used by the assistant */
   activeTools: ToolUseInfo[];
+  /** Whether setup is complete (provider selected in config) */
+  setupComplete: boolean;
+  /** Whether config is being loaded */
+  isLoadingConfig: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -59,6 +64,10 @@ export interface AssistantAgentActions {
   regenerateLastMessage: () => void;
   /** Reset the conversation */
   reset: () => void;
+  /** Fetch/refresh config from backend */
+  refreshConfig: () => Promise<void>;
+  /** Mark setup as complete (after wizard finishes) */
+  completeSetup: () => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;
@@ -102,3 +111,13 @@ export interface AssistantConfig {
   providers: Record<string, ProviderConfig>;
   projects: Record<string, ProjectConfig>;
 }
+
+/**
+ * Setup wizard step type.
+ */
+export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
+
+/**
+ * Authentication state for provider connection check.
+ */
+export type AuthState = 'checking' | 'cli_not_installed' | 'not_authenticated' | 'authenticated';
