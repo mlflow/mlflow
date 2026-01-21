@@ -46,15 +46,17 @@ describe('ExperimentViewRuns column utils', () => {
   test('it creates proper column definitions with basic attributes', () => {
     const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS);
 
-    // Assert existence of regular attribute columns
+    // Assert existence of regular attribute columns with colId for visibility control
     expect(columnDefinitions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
+          colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE),
           cellRenderer: 'DateCellRenderer',
         }),
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+          colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION),
         }),
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
