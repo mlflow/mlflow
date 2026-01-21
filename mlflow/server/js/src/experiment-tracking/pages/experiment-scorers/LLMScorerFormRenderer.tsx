@@ -18,14 +18,16 @@ import {
   DialogComboboxTrigger,
   PlusIcon,
 } from '@databricks/design-system';
+import { HighlightedTextArea } from './HighlightedTextArea';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
+import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
+import OutputTypeSection from './OutputTypeSection';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -40,6 +42,10 @@ export interface LLMScorerFormData {
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
   evaluationScope?: ScorerEvaluationScope;
+  outputTypeKind?: JudgeOutputTypeKind;
+  categoricalOptions?: string;
+  dictValueType?: JudgePrimitiveOutputType;
+  listElementType?: JudgePrimitiveOutputType;
 }
 
 interface LLMScorerFormRendererProps {
@@ -386,32 +392,34 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           }}
           render={({ field, fieldState }) => {
             const textArea = (
-              <Input.TextArea
-                {...field}
-                componentId={`${COMPONENT_ID_PREFIX}.instructions-text-area`}
-                id="mlflow-experiment-scorers-instructions"
-                readOnly={isReadOnly}
-                rows={7}
-                placeholder={
-                  isSessionLevelScorer
-                    ? intl.formatMessage(
-                        {
-                          defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
-                          description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
-                        },
-                        {
-                          br: '\n',
-                        },
-                      )
-                    : intl.formatMessage({
-                        defaultMessage:
-                          "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
-                        description: 'Example placeholder text for instructions textarea',
-                      })
-                }
-                css={{ resize: 'vertical', cursor: isReadOnly ? 'auto' : 'text' }}
-                onClick={stopPropagationClick}
-              />
+              <div onClick={stopPropagationClick}>
+                <HighlightedTextArea
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  id="mlflow-experiment-scorers-instructions"
+                  readOnly={isReadOnly}
+                  rows={7}
+                  placeholder={
+                    isSessionLevelScorer
+                      ? intl.formatMessage(
+                          {
+                            defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
+                            description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
+                          },
+                          {
+                            br: '\n',
+                          },
+                        )
+                      : intl.formatMessage({
+                          defaultMessage:
+                            "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
+                          description: 'Example placeholder text for instructions textarea',
+                        })
+                  }
+                />
+              </div>
             );
 
             return (
@@ -544,6 +552,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       {!isGuidelinesTemplate(selectedTemplate) && (
         <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
       )}
+      {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>

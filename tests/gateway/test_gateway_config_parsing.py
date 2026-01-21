@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
+    LiteLLMConfig,
     OpenAIConfig,
     _load_gateway_config,
     _resolve_api_key_from_input,
@@ -422,3 +423,17 @@ def test_duplicate_routes_in_config(tmp_path):
         MlflowException, match="Duplicate names found in endpoint / route configurations"
     ):
         _load_gateway_config(conf_path)
+
+
+def test_litellm_config_removes_auth_mode():
+    config = LiteLLMConfig(
+        litellm_provider="bedrock",
+        litellm_auth_config={
+            "auth_mode": "access_keys",
+            "aws_region_name": "us-west-2",
+            "api_key": "test-key",
+        },
+    )
+    assert "auth_mode" not in config.litellm_auth_config
+    assert config.litellm_auth_config["aws_region_name"] == "us-west-2"
+    assert config.litellm_auth_config["api_key"] == "test-key"

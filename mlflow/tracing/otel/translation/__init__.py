@@ -17,6 +17,7 @@ from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
+from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.otel.translation.voltagent import VoltAgentTranslator
@@ -27,10 +28,16 @@ _logger = logging.getLogger(__name__)
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GenAiTranslator(),
+    SpringAiTranslator(),
     TraceloopTranslator(),
     GoogleADKTranslator(),
     VercelAITranslator(),
     VoltAgentTranslator(),
+]
+
+# Event-based translators (for frameworks that use events for input/output)
+_EVENT_TRANSLATORS = [
+    SpringAiTranslator(),
 ]
 
 
@@ -40,7 +47,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     Supported translations:
     - Token usage attributes from various OTEL schemas
-    - Inputs and outputs attributes from various OTEL schemas
+    - Inputs and outputs attributes from various OTEL schemas (including from events)
     - Message format for chat UI rendering
 
     These attributes translation need to happen when storing spans because we need
@@ -54,13 +61,16 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     """
     span_dict = span.to_dict()
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
+    events = span_dict.get("events", [])
 
-    # Translate inputs and outputs
-    if SpanAttributeKey.INPUTS not in attributes and (input_value := _get_input_value(attributes)):
+    # Translate inputs and outputs (check both attributes and events)
+    if SpanAttributeKey.INPUTS not in attributes and (
+        input_value := _get_input_value(attributes, events)
+    ):
         attributes[SpanAttributeKey.INPUTS] = input_value
 
     if SpanAttributeKey.OUTPUTS not in attributes and (
-        output_value := _get_output_value(attributes)
+        output_value := _get_output_value(attributes, events)
     ):
         attributes[SpanAttributeKey.OUTPUTS] = output_value
 
@@ -80,55 +90,110 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     return span_dict
 
 
+def _parse_int_attribute(value: Any) -> int | None:
+    """
+    Parse an attribute value as an integer.
+
+    Handles both native Python types and JSON-encoded strings (from OTLP).
+    For example, both 26 and '"26"' should return 26.
+    """
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        # Try to parse as JSON first (handles '"26"' -> "26" -> 26)
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, int):
+                return parsed
+            if isinstance(parsed, str):
+                return int(parsed)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Try direct int conversion
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return None
+
+
 def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
     """
     Get token usage from various OTEL semantic conventions.
     """
     for translator in _TRANSLATORS:
-        input_tokens = translator.get_input_tokens(attributes)
-        output_tokens = translator.get_output_tokens(attributes)
-        total_tokens = translator.get_total_tokens(attributes)
+        input_tokens = _parse_int_attribute(translator.get_input_tokens(attributes))
+        output_tokens = _parse_int_attribute(translator.get_output_tokens(attributes))
+        total_tokens = _parse_int_attribute(translator.get_total_tokens(attributes))
 
         # Calculate total tokens if not provided but input/output are available
         if input_tokens and output_tokens and (total_tokens is None):
-            total_tokens = int(input_tokens) + int(output_tokens)
+            total_tokens = input_tokens + output_tokens
 
         if input_tokens and output_tokens and total_tokens:
             return {
-                TokenUsageKey.INPUT_TOKENS: int(input_tokens),
-                TokenUsageKey.OUTPUT_TOKENS: int(output_tokens),
-                TokenUsageKey.TOTAL_TOKENS: int(total_tokens),
+                TokenUsageKey.INPUT_TOKENS: input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: total_tokens,
             }
 
 
-def _get_input_value(attributes: dict[str, Any]) -> Any:
+def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:
     """
     Get input value from various OTEL semantic conventions.
 
+    Checks both span attributes and events (for frameworks like Spring AI
+    that store prompt content in events).
+
     Args:
         attributes: Dictionary of span attributes
+        events: Optional list of span events
 
     Returns:
         Input value or None if not found
     """
+    # First check attributes
     for translator in _TRANSLATORS:
         if value := translator.get_input_value(attributes):
             return value
 
+    # Then check events for frameworks that use event-based input/output
+    if events:
+        for translator in _EVENT_TRANSLATORS:
+            if hasattr(translator, "get_input_value_from_events"):
+                if value := translator.get_input_value_from_events(events):
+                    return value
 
-def _get_output_value(attributes: dict[str, Any]) -> Any:
+
+def _get_output_value(
+    attributes: dict[str, Any], events: list[dict[str, Any]] | None = None
+) -> Any:
     """
     Get output value from various OTEL semantic conventions.
 
+    Checks both span attributes and events (for frameworks like Spring AI
+    that store completion content in events).
+
     Args:
         attributes: Dictionary of span attributes
+        events: Optional list of span events
 
     Returns:
         Output value or None if not found
     """
+    # First check attributes
     for translator in _TRANSLATORS:
         if value := translator.get_output_value(attributes):
             return value
+
+    # Then check events for frameworks that use event-based input/output
+    if events:
+        for translator in _EVENT_TRANSLATORS:
+            if hasattr(translator, "get_output_value_from_events"):
+                if value := translator.get_output_value_from_events(events):
+                    return value
 
 
 def _get_message_format(attributes: dict[str, Any]) -> str | None:
