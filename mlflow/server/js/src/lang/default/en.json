@@ -1390,10 +1390,6 @@
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
   },
-  "8nHnwU": {
-    "defaultMessage": "Select sessions",
-    "description": "Option for selecting custom traces"
-  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -3777,10 +3773,6 @@
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
   },
-  "SUmLKb": {
-    "defaultMessage": "Last session",
-    "description": "Option for last session"
-  },
   "SVNXvf": {
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
@@ -3923,6 +3915,10 @@
   "TeN9hs": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab on the logged model details page"
+  },
+  "Tf8grA": {
+    "defaultMessage": "Select traces",
+    "description": "Button to select traces"
   },
   "TfuAgs": {
     "defaultMessage": "Hide group",
@@ -4679,6 +4675,10 @@
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
   },
+  "Zg0h0m": {
+    "defaultMessage": "Please select traces to run the judge",
+    "description": "Tooltip message when no traces are selected"
+  },
   "ZgAOhX": {
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
@@ -5107,6 +5107,10 @@
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
   },
+  "cSQJ9N": {
+    "defaultMessage": "Select sessions",
+    "description": "Button to select sessions"
+  },
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
@@ -5486,6 +5490,10 @@
   "faLIN+": {
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
+  },
+  "fb6ZYV": {
+    "defaultMessage": "Running the judge from the UI is only supported with gateway endpoints",
+    "description": "Tooltip message when model is not a gateway endpoint"
   },
   "fcIHyN": {
     "defaultMessage": "Medium",
@@ -6859,10 +6867,6 @@
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
   },
-  "pjluqu": {
-    "defaultMessage": "Select traces",
-    "description": "Option for selecting custom traces"
-  },
   "pl1bdY": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to models page under the header on the model version\n             view page"
@@ -6974,6 +6978,10 @@
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
+  },
+  "qcYoo4": {
+    "defaultMessage": "Please select sessions to run the judge",
+    "description": "Tooltip message when no sessions are selected"
   },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
@@ -7494,10 +7502,6 @@
   "uq6CTI": {
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
-  },
-  "urVshe": {
-    "defaultMessage": "Last trace",
-    "description": "Option for last trace"
   },
   "urvfNd": {
     "defaultMessage": "Cancel",
