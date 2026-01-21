@@ -39,7 +39,7 @@ const mockEndpoints: Endpoint[] = [
 ];
 
 const mockBindings: EndpointBinding[] = [
-  { endpoint_id: 'ep-1', resource_type: 'scorer_job', resource_id: 'job-1', created_at: 1000 },
+  { endpoint_id: 'ep-1', resource_type: 'scorer', resource_id: 'job-1', created_at: 1000 },
 ];
 
 const mockModelDefinitions: ModelDefinition[] = [

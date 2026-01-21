@@ -21,8 +21,8 @@ interface EndpointBindingsDrawerProps {
 
 const formatResourceTypePlural = (resourceType: ResourceType): string => {
   switch (resourceType) {
-    case 'scorer_job':
-      return 'Scorer Jobs';
+    case 'scorer':
+      return 'Scorers';
     default:
       return resourceType;
   }

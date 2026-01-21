@@ -333,7 +333,7 @@ def test_register_scorer_creates_endpoint_binding(monkeypatch):
 
     bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 1
-    assert bindings[0].resource_type == "scorer_job"
+    assert bindings[0].resource_type == "scorer"
     assert bindings[0].endpoint_id == endpoint.endpoint_id
 
     # Binding should persist even after stopping the scorer

@@ -2190,15 +2190,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if endpoint_exists is not None:
                     # Delete any existing binding for this scorer (in case of re-registration)
                     session.query(SqlGatewayEndpointBinding).filter(
-                        SqlGatewayEndpointBinding.resource_type
-                        == GatewayResourceType.SCORER_JOB.value,
-                        SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                        SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                        SqlGatewayEndpointBinding.resource_id == name,
                     ).delete()
 
                     binding = SqlGatewayEndpointBinding(
                         endpoint_id=endpoint_id,
-                        resource_type=GatewayResourceType.SCORER_JOB.value,
-                        resource_id=scorer.scorer_id,
+                        resource_type=GatewayResourceType.SCORER.value,
+                        resource_id=name,
                         created_at=get_current_time_millis(),
                         last_updated_at=get_current_time_millis(),
                     )
@@ -2407,10 +2406,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # If we're deleting all versions, also delete the scorer record
             # and clean up associated endpoint bindings
             if version is None:
-                # Delete endpoint bindings for this scorer
+                # Delete endpoint bindings for this scorer (resource_id stores scorer name)
                 session.query(SqlGatewayEndpointBinding).filter(
-                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER_JOB.value,
-                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                    SqlGatewayEndpointBinding.resource_id == name,
                 ).delete()
 
                 session.delete(scorer)

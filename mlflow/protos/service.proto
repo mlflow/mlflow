@@ -4246,7 +4246,7 @@ message GatewayEndpointTag {
 message GatewayEndpointBinding {
   // ID of the endpoint this binding references
   optional string endpoint_id = 1;
-  // Type of MLflow resource (e.g., "scorer_job")
+  // Type of MLflow resource (e.g., "scorer")
   optional string resource_type = 2;
   // ID of the specific resource instance
   optional string resource_id = 3;
@@ -4576,7 +4576,7 @@ message DeleteGatewayEndpointBinding {
 message ListGatewayEndpointBindings {
   // ID of the endpoint to list bindings for
   optional string endpoint_id = 1;
-  // Type of resource to filter bindings by (e.g., "scorer_job")
+  // Type of resource to filter bindings by (e.g., "scorer")
   optional string resource_type = 2;
   // ID of the resource to filter bindings by
   optional string resource_id = 3;

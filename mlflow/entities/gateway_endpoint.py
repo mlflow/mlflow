@@ -28,7 +28,7 @@ from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 class GatewayResourceType(str, Enum):
     """Valid MLflow resource types that can use gateway endpoints."""
 
-    SCORER_JOB = "scorer_job"
+    SCORER = "scorer"
 
 
 class RoutingStrategy(str, Enum):
@@ -407,7 +407,7 @@ class GatewayEndpointBinding(_MlflowObject):
 
     Args:
         endpoint_id: ID of the endpoint this binding references.
-        resource_type: Type of MLflow resource (e.g., "scorer_job").
+        resource_type: Type of MLflow resource (e.g., "scorer").
         resource_id: ID of the specific resource instance.
         created_at: Timestamp (milliseconds) when the binding was created.
         last_updated_at: Timestamp (milliseconds) when the binding was last updated.
