@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { Typography, useDesignSystemTheme, CheckCircleIcon } from '@databricks/design-system';
 
 import type { SetupStep, AuthState } from '../types';
@@ -60,14 +61,15 @@ const StepIndicator = ({ currentStep, completedSteps }: StepIndicatorProps) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor:
-                  isCompleted || isPast
+                  isCompleted || isPast || isCurrent
                     ? theme.colors.actionPrimaryBackgroundDefault
-                    : isCurrent
-                      ? theme.colors.actionPrimaryBackgroundDefault
-                      : theme.colors.backgroundSecondary,
+                    : theme.colors.backgroundSecondary,
                 border: isCurrent ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}` : 'none',
-                color: isCompleted || isPast || isCurrent ? theme.colors.white : theme.colors.textSecondary,
-                fontSize: 12,
+                color:
+                  isCompleted || isPast || isCurrent
+                    ? theme.colors.actionPrimaryTextDefault
+                    : theme.colors.textSecondary,
+                fontSize: theme.typography.fontSizeSm,
                 fontWeight: theme.typography.typographyBoldFontWeight,
               }}
             >
@@ -177,7 +179,10 @@ export const AssistantSetupWizard = ({ experimentId, onComplete }: AssistantSetu
       }}
     >
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        Setup MLflow Assistant
+        <FormattedMessage
+          defaultMessage="Setup MLflow Assistant"
+          description="Title for the MLflow Assistant setup wizard"
+        />
       </Typography.Title>
 
       {currentStep !== 'complete' && <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />}
