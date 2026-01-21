@@ -368,66 +368,59 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     const tableContent = (
-      <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
-        <div
-          css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <GenAITracesTableToolbar
-            experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            toggleColumns={toggleColumns}
-            setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
-            usesV4APIs={usesV4APIs}
-            addons={toolbarAddons}
-            isGroupedBySession={isGroupedBySession}
-            onToggleSessionGrouping={onToggleSessionGrouping}
-          />
-          {renderMainContent()}
-        </div>
-      </GenAITracesTableProvider>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={AssistantAwareDrawer}
+      >
+        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+          <div
+            css={{
+              overflowY: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <GenAITracesTableToolbar
+              experimentId={experimentId}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilters={setFilters}
+              assessmentInfos={assessmentInfos}
+              traceInfos={traceInfos}
+              tableFilterOptions={tableFilterOptions}
+              countInfo={countInfo}
+              traceActions={traceActions}
+              tableSort={tableSort}
+              setTableSort={setTableSort}
+              allColumns={allColumns}
+              selectedColumns={selectedColumns}
+              toggleColumns={toggleColumns}
+              setSelectedColumns={setSelectedColumns}
+              isMetadataLoading={isMetadataLoading}
+              metadataError={metadataError}
+              usesV4APIs={usesV4APIs}
+              addons={toolbarAddons}
+              isGroupedBySession={isGroupedBySession}
+              onToggleSessionGrouping={onToggleSessionGrouping}
+            />
+            {renderMainContent()}
+          </div>
+        </GenAITracesTableProvider>
+      </ModelTraceExplorerContextProvider>
     );
 
     // If we're already inside an external provider (e.g., from SelectTracesModal),
     // don't create a new provider to avoid shadowing the parent's selection state
     if (hasExternalProvider) {
-      return (
-        <ModelTraceExplorerContextProvider
-          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-          DrawerComponent={AssistantAwareDrawer}
-        >
-          {tableContent}
-        </ModelTraceExplorerContextProvider>
-      );
+      return tableContent;
     }
 
     return (
-      <ModelTraceExplorerContextProvider
-        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        DrawerComponent={AssistantAwareDrawer}
-      >
-        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-          {tableContent}
-        </GenAiTraceTableRowSelectionProvider>
-      </ModelTraceExplorerContextProvider>
+      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+        {tableContent}
+      </GenAiTraceTableRowSelectionProvider>
     );
   },
 );
