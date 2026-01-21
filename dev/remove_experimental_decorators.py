@@ -129,10 +129,16 @@ def remove_decorators_from_file(
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Remove @experimental decorators older than 6 months"
+        description="Remove @experimental decorators older than specified cutoff period"
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Show what would be removed without making changes"
+    )
+    parser.add_argument(
+        "--cutoff-days",
+        type=int,
+        default=180,
+        help="Number of days after which to remove decorators (default: 180)",
     )
     parser.add_argument(
         "files", nargs="*", help="Python files to process (defaults to all tracked Python files)"
@@ -140,9 +146,9 @@ def main() -> None:
 
     args = parser.parse_args()
     release_dates = get_mlflow_release_dates()
-    # Calculate cutoff date (6 months ago from now)
+    # Calculate cutoff date using configurable cutoff days
     now = datetime.now(timezone.utc)
-    cutoff_date = now - timedelta(days=6 * 30)  # Approximate 6 months
+    cutoff_date = now - timedelta(days=args.cutoff_days)
     print(f"Cutoff date: {cutoff_date.strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
     python_files = [Path(f) for f in args.files] if args.files else get_tracked_python_files()
@@ -155,8 +161,8 @@ def main() -> None:
         if not decorators:
             continue
 
-        # Filter to only decorators that should be removed (older than 6 months)
-        old_decorators = [d for d in decorators if d.age_days > 6 * 30]  # 6 months approx
+        # Filter to only decorators that should be removed (older than cutoff days)
+        old_decorators = [d for d in decorators if d.age_days > args.cutoff_days]
         if not old_decorators:
             continue
 
