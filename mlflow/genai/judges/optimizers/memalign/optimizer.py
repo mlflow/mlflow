@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-# Fields that map directly between serialized dict and instance attributes (with _ prefix)
 _CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
 
 _MODEL_API_DOC = {
@@ -74,17 +73,13 @@ def _search_traces_by_ids(
     if not trace_ids:
         return []
 
-    # Fetch each trace individually using get_trace, which works on both OSS and Databricks
     traces = []
     for trace_id in trace_ids:
         try:
-            trace = mlflow.get_trace(trace_id)
-            if trace is not None:
+            if trace := mlflow.get_trace(trace_id):
                 traces.append(trace)
         except Exception:
-            # Trace not found or error fetching - will be logged as missing later
             pass
-
     return traces
 
 
@@ -257,15 +252,12 @@ class MemoryAugmentedJudge(Judge):
         return ScorerKind.MEMORY_AUGMENTED
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        base_judge_data = self._base_judge.model_dump(**kwargs)
+        self._ensure_episodic_memory_initialized()
 
-        # For copies that haven't initialized episodic memory yet, use stored trace IDs
-        if self._episodic_memory:
-            episodic_trace_ids = [
-                ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
-            ]
-        else:
-            episodic_trace_ids = getattr(self, "_episodic_trace_ids", []) or []
+        base_judge_data = self._base_judge.model_dump(**kwargs)
+        episodic_trace_ids = [
+            ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
+        ]
 
         memory_augmented_data = {
             "base_judge": base_judge_data,
@@ -290,6 +282,7 @@ class MemoryAugmentedJudge(Judge):
         serialized: SerializedScorer,
         experiment_id: str | None = None,
     ) -> "MemoryAugmentedJudge":
+        # Import here to avoid circular dependency: base.py imports MemoryAugmentedJudge
         from mlflow.genai.scorers.base import Scorer
 
         data = serialized.memory_augmented_judge_data
@@ -313,11 +306,12 @@ class MemoryAugmentedJudge(Judge):
         for field in _CONFIG_FIELDS:
             setattr(instance, f"_{field}", data[field])
 
-        instance._episodic_trace_ids = data.get("episodic_trace_ids", [])
+        # Store trace IDs for lazy initialization (None means already initialized)
+        instance._pending_episodic_trace_ids = data.get("episodic_trace_ids") or None
         instance._episodic_memory = []
-        instance._episodic_memory_initialized = False
         instance._experiment_id = experiment_id
 
+        # DSPy objects will be created during lazy initialization
         instance._base_signature = None
         instance._embedder = None
         instance._retriever = None
@@ -326,27 +320,26 @@ class MemoryAugmentedJudge(Judge):
         return instance
 
     def _create_copy(self) -> "MemoryAugmentedJudge":
-        """Create a copy, nulling out DSPy objects for lazy reconstruction."""
+        self._ensure_episodic_memory_initialized()
+
         episodic_trace_ids = [
             ex._trace_id for ex in self._episodic_memory if hasattr(ex, "_trace_id")
         ]
 
         copy = self.model_copy(deep=False)
-
         # Null out DSPy objects (they contain thread locks that can't be pickled)
         copy._embedder = None
         copy._retriever = None
         copy._predict_module = None
-
-        # Set up lazy initialization for episodic memory
-        copy._episodic_trace_ids = episodic_trace_ids
+        copy._pending_episodic_trace_ids = episodic_trace_ids or None
         copy._episodic_memory = []
-        copy._episodic_memory_initialized = False
 
         return copy
 
     def _ensure_episodic_memory_initialized(self) -> None:
-        if getattr(self, "_episodic_memory_initialized", True):
+        # _pending_episodic_trace_ids is None when fully initialized, a list when needs lazy init
+        episodic_trace_ids = getattr(self, "_pending_episodic_trace_ids", None)
+        if episodic_trace_ids is None:
             return
 
         import dspy
@@ -362,31 +355,31 @@ class MemoryAugmentedJudge(Judge):
             self._predict_module = dspy.Predict(extended_signature)
             self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
-        if self._episodic_trace_ids:
-            traces = _search_traces_by_ids(
-                trace_ids=self._episodic_trace_ids,
-                experiment_id=self._experiment_id,
+        traces = _search_traces_by_ids(
+            trace_ids=episodic_trace_ids,
+            experiment_id=getattr(self, "_experiment_id", None),
+        )
+
+        found_trace_ids = {t.info.trace_id for t in traces}
+        if missing_ids := set(episodic_trace_ids) - found_trace_ids:
+            _logger.warning(
+                f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
+                f"Missing trace IDs: {list(missing_ids)[:5]}"
+                f"{'...' if len(missing_ids) > 5 else ''}. "
+                f"Judge will operate with partial memory "
+                f"({len(traces)}/{len(episodic_trace_ids)} traces)."
             )
 
-            found_trace_ids = {t.info.trace_id for t in traces}
-            if missing_ids := set(self._episodic_trace_ids) - found_trace_ids:
-                _logger.warning(
-                    f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
-                    f"Missing trace IDs: {list(missing_ids)[:5]}"
-                    f"{'...' if len(missing_ids) > 5 else ''}. "
-                    f"Judge will operate with partial memory "
-                    f"({len(traces)}/{len(self._episodic_trace_ids)} traces)."
-                )
+        for trace in traces:
+            if example := trace_to_dspy_example(trace, self._base_judge):
+                example._trace_id = trace.info.trace_id
+                self._episodic_memory.append(example)
 
-            for trace in traces:
-                if example := trace_to_dspy_example(trace, self._base_judge):
-                    example._trace_id = trace.info.trace_id
-                    self._episodic_memory.append(example)
+        if self._episodic_memory:
+            self._build_episodic_memory()
 
-            if self._episodic_memory:
-                self._build_episodic_memory()
-
-        self._episodic_memory_initialized = True
+        # Mark as initialized by setting to None
+        self._pending_episodic_trace_ids = None
 
     @experimental(version="3.9.0")
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":

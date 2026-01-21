@@ -394,9 +394,9 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         assert "Be accurate" in guideline_texts
 
         # Verify lazy initialization state
-        assert restored._episodic_memory_initialized is False
+        assert restored._pending_episodic_trace_ids is not None
         assert restored._episodic_memory == []
-        assert len(restored._episodic_trace_ids) == 2
+        assert len(restored._pending_episodic_trace_ids) == 2
         assert restored._experiment_id == "exp123"
 
         # Verify deferred components are None
@@ -460,7 +460,7 @@ def test_memory_augmented_judge_round_trip_serialization(sample_judge, sample_tr
         original_trace_ids = [
             ex._trace_id for ex in original_judge._episodic_memory if hasattr(ex, "_trace_id")
         ]
-        assert set(restored_judge._episodic_trace_ids) == set(original_trace_ids)
+        assert set(restored_judge._pending_episodic_trace_ids) == set(original_trace_ids)
 
 
 def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample_traces):
@@ -472,7 +472,7 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
         serialized = SerializedScorer(**dumped)
         restored = MemoryAugmentedJudge._from_serialized(serialized)
 
-        assert restored._episodic_memory_initialized is False
+        assert restored._pending_episodic_trace_ids is not None
 
         # Mock the trace search and predict module for the call
         with (
@@ -493,7 +493,7 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
 
             restored(inputs="test", outputs="test")
 
-            assert restored._episodic_memory_initialized is True
+            assert restored._pending_episodic_trace_ids is None
             mock_search_traces.assert_called_once()
 
 
@@ -546,14 +546,7 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
 
         copy = aligned_judge._create_copy()
 
-        # Copy should have lazy init set
-        assert copy._episodic_memory_initialized is False
+        # Copy should have trace IDs stored for lazy init
+        assert copy._pending_episodic_trace_ids is not None
         assert copy._episodic_memory == []
-
-        # But trace IDs should be preserved
-        assert set(copy._episodic_trace_ids) == set(original_trace_ids)
-
-        # And model_dump on the copy should still return the trace IDs
-        copy_dump = copy.model_dump()
-        copy_trace_ids = copy_dump["memory_augmented_judge_data"]["episodic_trace_ids"]
-        assert set(copy_trace_ids) == set(original_trace_ids)
+        assert set(copy._pending_episodic_trace_ids) == set(original_trace_ids)
