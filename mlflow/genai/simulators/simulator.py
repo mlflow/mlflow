@@ -18,9 +18,6 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     create_litellm_message_from_databricks_response,
     serialize_messages_to_databricks_prompts,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint,
-)
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
@@ -161,17 +158,7 @@ def _invoke_model_without_tracing(
 
         provider, model_name = _parse_model_uri(model_uri)
 
-        # Use Databricks serving endpoint for databricks:/<endpoint> URIs
-        if provider in {"databricks", "endpoints"}:
-            output = _invoke_databricks_serving_endpoint(
-                model_name=model_name,
-                prompt=messages,
-                num_retries=num_retries,
-                inference_params=inference_params,
-            )
-            return output.response
-
-        # Use LiteLLM for other providers
+        # Use LiteLLM for other providers (including Databricks served models)
         litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
         kwargs = {

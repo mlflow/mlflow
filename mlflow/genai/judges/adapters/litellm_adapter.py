@@ -5,6 +5,7 @@ import logging
 import re
 import threading
 from contextlib import ContextDecorator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pydantic
@@ -28,6 +29,10 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
+from mlflow.genai.judges.utils.telemetry_utils import (
+    _record_judge_model_usage_failure_databricks_telemetry,
+    _record_judge_model_usage_success_databricks_telemetry,
+)
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
@@ -42,6 +47,15 @@ _logger = logging.getLogger(__name__)
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
+
+
+@dataclass
+class InvokeLiteLLMOutput:
+    response: str
+    request_id: str | None
+    num_prompt_tokens: int | None
+    num_completion_tokens: int | None
+    cost: float | None
 
 
 class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
@@ -186,7 +200,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
-) -> tuple[str, float | None]:
+) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
 
@@ -203,7 +217,12 @@ def _invoke_litellm_and_handle_tools(
                        to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
-        Tuple of the model's response content and the total cost.
+        InvokeLiteLLMOutput containing:
+        - response: The model's response content
+        - request_id: The request ID for telemetry (if available)
+        - num_prompt_tokens: Number of prompt tokens used (if available)
+        - num_completion_tokens: Number of completion tokens used (if available)
+        - cost: The total cost of the request (if available)
 
     Raises:
         MlflowException: If the request fails after all retries.
@@ -333,7 +352,17 @@ def _invoke_litellm_and_handle_tools(
 
             message = response.choices[0].message
             if not message.tool_calls:
-                return message.content, total_cost
+                request_id = getattr(response, "id", None)
+                usage = getattr(response, "usage", None)
+                prompt_tokens = getattr(usage, "prompt_tokens", None) if usage else None
+                completion_tokens = getattr(usage, "completion_tokens", None) if usage else None
+                return InvokeLiteLLMOutput(
+                    response=message.content,
+                    request_id=request_id,
+                    num_prompt_tokens=prompt_tokens,
+                    num_completion_tokens=completion_tokens,
+                    cost=total_cost,
+                )
 
             messages.append(message)
             tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
@@ -522,39 +551,70 @@ class LiteLLMAdapter(BaseJudgeAdapter):
             else input_params.prompt
         )
 
-        response, total_cost = _invoke_litellm_and_handle_tools(
-            provider=input_params.model_provider,
-            model_name=input_params.model_name,
-            messages=messages,
-            trace=input_params.trace,
-            num_retries=input_params.num_retries,
-            response_format=input_params.response_format,
-            inference_params=input_params.inference_params,
-        )
-
-        cleaned_response = _strip_markdown_code_blocks(response)
-
+        is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
         try:
-            response_dict = json.loads(cleaned_response)
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                f"Failed to parse response from judge model. Response: {response}"
-            ) from e
+            output = _invoke_litellm_and_handle_tools(
+                provider=input_params.model_provider,
+                model_name=input_params.model_name,
+                messages=messages,
+                trace=input_params.trace,
+                num_retries=input_params.num_retries,
+                response_format=input_params.response_format,
+                inference_params=input_params.inference_params,
+            )
 
-        metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
+            cleaned_response = _strip_markdown_code_blocks(output.response)
 
-        if "error" in response_dict:
-            raise MlflowException(f"Judge evaluation failed with error: {response_dict['error']}")
+            try:
+                response_dict = json.loads(cleaned_response)
+            except json.JSONDecodeError as e:
+                raise MlflowException(
+                    f"Failed to parse response from judge model. Response: {output.response}"
+                ) from e
 
-        feedback = Feedback(
-            name=input_params.assessment_name,
-            value=response_dict["result"],
-            rationale=_sanitize_justification(response_dict.get("rationale", "")),
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
-            ),
-            trace_id=input_params.trace.info.trace_id if input_params.trace is not None else None,
-            metadata=metadata,
-        )
+            metadata = {AssessmentMetadataKey.JUDGE_COST: output.cost} if output.cost else None
 
-        return AdapterInvocationOutput(feedback=feedback, cost=total_cost)
+            if "error" in response_dict:
+                raise MlflowException(
+                    f"Judge evaluation failed with error: {response_dict['error']}"
+                )
+
+            feedback = Feedback(
+                name=input_params.assessment_name,
+                value=response_dict["result"],
+                rationale=_sanitize_justification(response_dict.get("rationale", "")),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
+                ),
+                trace_id=input_params.trace.info.trace_id
+                if input_params.trace is not None
+                else None,
+                metadata=metadata,
+            )
+
+            if is_model_provider_databricks:
+                try:
+                    _record_judge_model_usage_success_databricks_telemetry(
+                        request_id=output.request_id,
+                        model_provider=input_params.model_provider,
+                        endpoint_name=input_params.model_name,
+                        num_prompt_tokens=output.num_prompt_tokens,
+                        num_completion_tokens=output.num_completion_tokens,
+                    )
+                except Exception:
+                    _logger.debug("Failed to record judge model usage success telemetry")
+
+            return AdapterInvocationOutput(feedback=feedback, cost=output.cost)
+
+        except MlflowException as e:
+            if is_model_provider_databricks:
+                try:
+                    _record_judge_model_usage_failure_databricks_telemetry(
+                        model_provider=input_params.model_provider,
+                        endpoint_name=input_params.model_name,
+                        error_code=e.error_code or "UNKNOWN",
+                        error_message=str(e),
+                    )
+                except Exception:
+                    _logger.debug("Failed to record judge model usage failure telemetry")
+            raise
