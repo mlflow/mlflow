@@ -1,5 +1,6 @@
 import json
 import sys
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -482,6 +483,7 @@ def test_gepa_optimizer_logs_prompt_candidates(
     optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
     logged_artifacts = []
+    logged_tables = []
 
     with patch.dict(sys.modules, mock_modules):
         captured_adapter = None
@@ -499,6 +501,7 @@ def test_gepa_optimizer_logs_prompt_candidates(
         with (
             patch("mlflow.active_run") as mock_active_run,
             patch("mlflow.log_artifact") as mock_log_artifact,
+            patch("mlflow.log_table") as mock_log_table,
         ):
             mock_run = Mock()
             mock_active_run.return_value = mock_run
@@ -506,10 +509,14 @@ def test_gepa_optimizer_logs_prompt_candidates(
             def capture_artifact(path, artifact_path=None):
                 with open(path) as f:
                     logged_artifacts.append(
-                        {"path": path, "artifact_path": artifact_path, "content": json.load(f)}
+                        {"path": path, "artifact_path": artifact_path, "content": f.read()}
                     )
 
+            def capture_table(data, artifact_file):
+                logged_tables.append({"data": data, "artifact_file": artifact_file})
+
             mock_log_artifact.side_effect = capture_artifact
+            mock_log_table.side_effect = capture_table
 
             optimizer.optimize(
                 eval_fn=mock_eval_fn,
@@ -522,24 +529,38 @@ def test_gepa_optimizer_logs_prompt_candidates(
             minibatch = sample_train_data[:2]
             captured_adapter.evaluate(minibatch, {"system_prompt": "Test"}, capture_traces=False)
 
-            # Second: full dataset validation (should log an artifact)
+            # Second: full dataset validation (should log artifacts)
             candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
             captured_adapter.evaluate(sample_train_data, candidate, capture_traces=False)
 
-    # Verify only one artifact was logged (from full validation, not minibatch)
-    assert len(logged_artifacts) == 1
-    artifact = logged_artifacts[0]
-    assert artifact["artifact_path"] == "prompt_candidates"
-    assert "iteration_0.json" in artifact["path"]
+    # Verify scores.json was logged
+    scores_artifact = next((a for a in logged_artifacts if "scores.json" in a["path"]), None)
+    assert scores_artifact is not None
+    assert scores_artifact["artifact_path"] == "prompt_candidates/iteration_0"
+    scores_content = json.loads(scores_artifact["content"])
+    assert scores_content["aggregate"] == 0.8
+    assert scores_content["per_scorer"] == {"accuracy": 0.9, "relevance": 0.7}
 
-    content = artifact["content"]
-    assert content["iteration"] == 0
-    assert content["aggregate_score"] == 0.8
-    assert content["candidate_prompts"] == candidate
-    assert len(content["per_record_scores"]) == len(sample_train_data)
+    # Verify prompt text files were logged
+    prompt_artifacts = [a for a in logged_artifacts if a["path"].endswith(".txt")]
+    assert len(prompt_artifacts) == 2  # system_prompt.txt and instruction.txt
+    for a in prompt_artifacts:
+        assert a["artifact_path"] == "prompt_candidates/iteration_0"
+    prompt_contents = {Path(a["path"]).stem: a["content"] for a in prompt_artifacts}
+    assert prompt_contents["system_prompt"] == "Optimized prompt"
+    assert prompt_contents["instruction"] == "New instruction"
 
-    for record in content["per_record_scores"]:
-        assert "record_index" in record
-        assert "aggregate_score" in record
-        assert "individual_scores" in record
-        assert record["individual_scores"] == {"accuracy": 0.9, "relevance": 0.7}
+    # Verify eval results table was logged
+    assert len(logged_tables) == 1
+    table = logged_tables[0]
+    assert table["artifact_file"] == "prompt_candidates/iteration_0/eval_results.json"
+    data = table["data"]
+    assert "inputs" in data
+    assert "output" in data
+    assert "expectation" in data
+    assert "aggregate_score" in data
+    assert "accuracy" in data
+    assert "relevance" in data
+    assert len(data["inputs"]) == len(sample_train_data)
+    assert all(score == 0.9 for score in data["accuracy"])
+    assert all(score == 0.7 for score in data["relevance"])

@@ -202,37 +202,67 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 iteration = self.validation_iteration
                 self.validation_iteration += 1
 
+                # Compute aggregate score across all records
                 aggregate_score = (
                     sum(r.score for r in eval_results) / len(eval_results) if eval_results else 0.0
                 )
 
-                per_record_scores = []
-                for i, result in enumerate(eval_results):
-                    record_info = {
-                        "record_index": i,
-                        "aggregate_score": result.score,
-                        "individual_scores": result.individual_scores,
-                    }
-                    per_record_scores.append(record_info)
+                # Compute per-scorer average scores
+                scorer_names = set()
+                for result in eval_results:
+                    scorer_names.update(result.individual_scores.keys())
 
-                # Build the validation data structure
-                validation_data = {
-                    "iteration": iteration,
-                    "aggregate_score": aggregate_score,
-                    "candidate_prompts": candidate,
-                    "per_record_scores": per_record_scores,
+                per_scorer_scores = {}
+                for scorer_name in scorer_names:
+                    scores = [
+                        r.individual_scores.get(scorer_name)
+                        for r in eval_results
+                        if scorer_name in r.individual_scores
+                    ]
+                    if scores:
+                        per_scorer_scores[scorer_name] = sum(scores) / len(scores)
+
+                # Build eval results table as dict of columns
+                eval_results_table = {
+                    "inputs": [json.dumps(r.inputs) for r in eval_results],
+                    "output": [json.dumps(r.outputs) for r in eval_results],
+                    "expectation": [json.dumps(r.expectations) for r in eval_results],
+                    "aggregate_score": [r.score for r in eval_results],
+                }
+                for scorer_name in scorer_names:
+                    eval_results_table[scorer_name] = [
+                        r.individual_scores.get(scorer_name) for r in eval_results
+                    ]
+
+                iteration_dir = f"prompt_candidates/iteration_{iteration}"
+
+                # Log eval results as MLflow table
+                mlflow.log_table(
+                    data=eval_results_table,
+                    artifact_file=f"{iteration_dir}/eval_results.json",
+                )
+
+                # Log scores summary as JSON artifact
+                scores_data = {
+                    "aggregate": aggregate_score,
+                    "per_scorer": per_scorer_scores,
                 }
 
                 with tempfile.TemporaryDirectory() as tmp_dir:
-                    artifact_dir = Path(tmp_dir) / "prompt_candidates"
-                    artifact_dir.mkdir(parents=True, exist_ok=True)
+                    tmp_path = Path(tmp_dir)
 
-                    # Write JSON file with scores and prompts
-                    json_path = artifact_dir / f"iteration_{iteration}.json"
-                    with open(json_path, "w") as f:
-                        json.dump(validation_data, f, indent=2)
+                    # Write scores.json
+                    scores_path = tmp_path / "scores.json"
+                    with open(scores_path, "w") as f:
+                        json.dump(scores_data, f, indent=2)
+                    mlflow.log_artifact(str(scores_path), artifact_path=iteration_dir)
 
-                    mlflow.log_artifact(str(json_path), artifact_path="prompt_candidates")
+                    # Write each prompt as a separate text file
+                    for prompt_name, prompt_text in candidate.items():
+                        prompt_path = tmp_path / f"{prompt_name}.txt"
+                        with open(prompt_path, "w") as f:
+                            f.write(prompt_text)
+                        mlflow.log_artifact(str(prompt_path), artifact_path=iteration_dir)
 
             def make_reflective_dataset(
                 self,
