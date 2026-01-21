@@ -186,18 +186,8 @@ def optimize_prompts(
     if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
         train_data = train_data.to_df()
 
-    if train_data is None or len(train_data) == 0:
-        # Zero-shot mode: no training data provided
-        train_data_df = None
-        converted_train_data = []
-    else:
-        # Few-shot mode: convert and validate training data
-        train_data_df = _convert_eval_set_to_df(train_data)
-        converted_train_data = train_data_df.to_dict("records")
-        validate_train_data(train_data_df, scorers, predict_fn)
-
     # Validate that train_data and scorers are set together
-    has_train_data = len(converted_train_data) > 0
+    has_train_data = train_data is not None and len(train_data) > 0
     has_scorers = scorers is not None and len(scorers) > 0
 
     if has_train_data and not has_scorers:
@@ -212,6 +202,16 @@ def optimize_prompts(
             "Both `train_data` and `scorers` must be set together, "
             "or both must be None/empty for zero-shot mode."
         )
+
+    if not has_train_data:
+        # Zero-shot mode: no training data provided
+        train_data_df = None
+        converted_train_data = []
+    else:
+        # Few-shot mode: convert and validate training data
+        train_data_df = _convert_eval_set_to_df(train_data)
+        converted_train_data = train_data_df.to_dict("records")
+        validate_train_data(train_data_df, scorers, predict_fn)
 
     sample_input = converted_train_data[0]["inputs"] if len(converted_train_data) > 0 else None
     predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)

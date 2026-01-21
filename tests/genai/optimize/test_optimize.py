@@ -445,7 +445,7 @@ def test_optimize_prompts_validation_train_data_without_scorers(
 ):
     with pytest.raises(
         MlflowException,
-        match="train_data is provided but scorers is None or empty.*must be set together",
+        match="`train_data` is provided but `scorers` is None or empty.*must be set together",
     ):
         optimize_prompts(
             predict_fn=sample_predict_fn,
@@ -463,7 +463,7 @@ def test_optimize_prompts_validation_scorers_without_train_data(
 ):
     with pytest.raises(
         MlflowException,
-        match="scorers is provided but train_data is None or empty.*must be set together",
+        match="`scorers` is provided but `train_data` is None or empty.*must be set together",
     ):
         optimize_prompts(
             predict_fn=sample_predict_fn,
