@@ -165,14 +165,11 @@ def _count_tokens(text: str, litellm_model: str | None) -> int:
 
 
 def _make_json_serializable(value: Any) -> Any:
-    """Recursively convert values to JSON-serializable types."""
-    if isinstance(value, Trace):
-        return value_to_embedding_text(value)
     if isinstance(value, dict):
         return {k: _make_json_serializable(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_make_json_serializable(item) for item in value]
-    return value
+    return value_to_embedding_text(value)
 
 
 def _create_batches(
