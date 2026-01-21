@@ -13,9 +13,11 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
+    _remove_oldest_tool_call_pair,
+)
+from mlflow.genai.judges.utils.telemetry_utils import (
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
-    _remove_oldest_tool_call_pair,
 )
 from mlflow.types.llm import ChatMessage
 
@@ -520,7 +522,7 @@ def test_record_success_telemetry_with_databricks_agents():
 def test_record_success_telemetry_without_databricks_agents():
     with (
         mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}),
-        mock.patch("mlflow.genai.judges.adapters.litellm_adapter._logger") as mock_logger,
+        mock.patch("mlflow.genai.judges.utils.telemetry_utils._logger") as mock_logger,
     ):
         _record_judge_model_usage_success_databricks_telemetry(
             request_id="req-123",
@@ -587,7 +589,7 @@ def test_record_failure_telemetry_with_databricks_agents():
 def test_record_failure_telemetry_without_databricks_agents():
     with (
         mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}),
-        mock.patch("mlflow.genai.judges.adapters.litellm_adapter._logger") as mock_logger,
+        mock.patch("mlflow.genai.judges.utils.telemetry_utils._logger") as mock_logger,
     ):
         _record_judge_model_usage_failure_databricks_telemetry(
             model_provider="databricks",
