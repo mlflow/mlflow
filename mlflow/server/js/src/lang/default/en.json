@@ -1938,6 +1938,10 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
+  "Cj58gM": {
+    "defaultMessage": "Setup MLflow Assistant",
+    "description": "Title for the MLflow Assistant setup wizard"
+  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
