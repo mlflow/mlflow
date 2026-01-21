@@ -258,8 +258,7 @@ def terminate_session_process(session_id: str) -> bool:
     Returns:
         True if process was terminated, False otherwise
     """
-    pid = get_process_pid(session_id)
-    if pid:
+    if pid := get_process_pid(session_id):
         try:
             os.kill(pid, signal.SIGTERM)
             clear_process_pid(session_id)

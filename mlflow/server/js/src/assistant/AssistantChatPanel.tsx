@@ -18,6 +18,7 @@ import {
   useDesignSystemTheme,
   SendIcon,
   WrenchSparkleIcon,
+  Spinner,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -101,10 +102,10 @@ const ChatMessageBubble = ({
               marginTop: theme.spacing.sm,
               fontSize: theme.typography.fontSizeSm,
               fontStyle: 'italic',
-              color: theme.colors.textValidationDanger,
+              color: theme.colors.textSecondary,
             }}
           >
-            Assistant was interrupted
+            Interrupted by user
           </span>
         )}
         {/* Loading indicator */}
@@ -260,7 +261,8 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
+    useAssistant();
   const pageContext = useAssistantPageContext();
   const hasExperimentContext = Boolean(pageContext['experimentId']);
 

@@ -115,6 +115,7 @@ export interface SendMessageStreamCallbacks {
   onDone: () => void;
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
+  onToolUse?: (tools: ToolUseInfo[]) => void;
   onInterrupted?: () => void;
 }
 
