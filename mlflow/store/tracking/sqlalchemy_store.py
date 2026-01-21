@@ -2180,7 +2180,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.add(sql_scorer_version)
 
             # Create endpoint binding if scorer uses a gateway endpoint
-            # Verify the endpoint exists in the database before creating binding
+            # Verify endpoint exists in DB (handles mocked tests and race conditions)
             if endpoint_id is not None:
                 endpoint_exists = (
                     session.query(SqlGatewayEndpoint)
@@ -2189,15 +2189,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 if endpoint_exists is not None:
                     # Delete any existing binding for this scorer (in case of re-registration)
+                    # Use scorer_id for globally unique identification across experiments
                     session.query(SqlGatewayEndpointBinding).filter(
                         SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
-                        SqlGatewayEndpointBinding.resource_id == name,
+                        SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
                     ).delete()
 
                     binding = SqlGatewayEndpointBinding(
                         endpoint_id=endpoint_id,
                         resource_type=GatewayResourceType.SCORER.value,
-                        resource_id=name,
+                        resource_id=scorer.scorer_id,
+                        display_name=name,  # Store scorer name for UI display
                         created_at=get_current_time_millis(),
                         last_updated_at=get_current_time_millis(),
                     )
@@ -2406,10 +2408,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # If we're deleting all versions, also delete the scorer record
             # and clean up associated endpoint bindings
             if version is None:
-                # Delete endpoint bindings for this scorer (resource_id stores scorer name)
+                # Delete endpoint bindings for this scorer (resource_id stores scorer_id)
                 session.query(SqlGatewayEndpointBinding).filter(
                     SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
-                    SqlGatewayEndpointBinding.resource_id == name,
+                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
                 ).delete()
 
                 session.delete(scorer)

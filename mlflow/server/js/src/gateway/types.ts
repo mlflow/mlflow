@@ -242,6 +242,7 @@ export interface EndpointBinding {
   last_updated_at?: number;
   created_by?: string;
   last_updated_by?: string;
+  display_name?: string;
 }
 
 export interface CreateEndpointBindingRequest {
