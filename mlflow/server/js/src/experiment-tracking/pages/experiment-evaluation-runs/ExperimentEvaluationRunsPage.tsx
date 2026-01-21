@@ -62,6 +62,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     aggregateFunction: RunGroupingAggregateFunction.Average,
     groupByKeys: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset' }],
   });
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
@@ -87,9 +88,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
   });
 
   const runUuids = runs?.map((run) => run.info.runUuid) ?? [];
-  // set the selected run to the first run if we don't already have one
+  // In comparison mode, set the selected run to the first run if we don't already have one
   // or if the selected run went out of scope (e.g. was deleted)
-  if (runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
+  if (isComparisonMode && runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
     setSelectedRunUuid(runs[0].info.runUuid);
   }
 
@@ -212,6 +213,131 @@ const ExperimentEvaluationRunsPageImpl = () => {
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const renderTableControls = () => (
+    <ExperimentEvaluationRunsTableControls
+      runs={runs ?? []}
+      refetchRuns={refetch}
+      isFetching={isFetching || isLoading}
+      searchRunsError={error}
+      searchFilter={searchFilter}
+      setSearchFilter={setSearchFilter}
+      rowSelection={rowSelection}
+      setRowSelection={setRowSelection}
+      selectedColumns={selectedColumns}
+      setSelectedColumns={setSelectedColumns}
+      groupByConfig={groupBy}
+      setGroupByConfig={setGroupBy}
+      viewMode={viewMode}
+      setViewMode={setViewMode}
+      onCompare={handleCompare}
+      selectedRunUuid={selectedRunUuid}
+      compareToRunUuid={compareToRunUuid}
+      isComparisonMode={isComparisonMode}
+      setIsComparisonMode={setIsComparisonMode}
+    />
+  );
+
+  const renderTable = () => (
+    <ExperimentEvaluationRunsTable
+      data={runsAndGroupValues}
+      uniqueColumns={uniqueColumns}
+      selectedColumns={selectedColumns}
+      selectedRunUuid={
+        isComparisonMode && viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined
+      }
+      setSelectedRunUuid={(runUuid: string) => {
+        setSelectedRunUuid(runUuid);
+        setCompareToRunUuid(undefined);
+      }}
+      isLoading={isLoading}
+      hasNextPage={hasNextPage ?? false}
+      rowSelection={rowSelection}
+      setRowSelection={setRowSelection}
+      setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+      setIsDrawerOpen={setIsDrawerOpen}
+      viewMode={viewMode}
+      onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
+      ref={tableContainerRef}
+    />
+  );
+
+  const renderEmptyState = () => (
+    <div
+      css={{
+        display: 'flex',
+        flex: 1,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: theme.spacing.lg,
+        paddingLeft: theme.spacing.md,
+        maxWidth: '100%',
+      }}
+    >
+      <Typography.Title level={3} color="secondary">
+        <FormattedMessage
+          defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
+          description="Title of the empty state for the evaluation runs page"
+        />
+      </Typography.Title>
+      <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
+        <FormattedMessage
+          defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
+          description="Description of the empty state for the evaluation runs page"
+          values={{
+            learnMoreLink: (
+              <Typography.Link
+                componentId="mlflow.eval-runs.empty-state.learn-more-link"
+                href={getLearnMoreLink()}
+                css={{ whiteSpace: 'nowrap' }}
+                openInNewTab
+              >
+                {/* eslint-disable-next-line formatjs/enforce-description */}
+                <FormattedMessage defaultMessage="Learn more" />
+              </Typography.Link>
+            ),
+          }}
+        />
+      </Typography.Paragraph>
+      <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
+      <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
+        <RunEvaluationButton experimentId={experimentId} />
+      </div>
+    </div>
+  );
+
+  // Full-page list view (default, non-comparison mode)
+  if (!isComparisonMode) {
+    return (
+      <ExperimentEvaluationRunsRowVisibilityProvider>
+        <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '0px' }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              flex: 1,
+              minHeight: '0px',
+              overflow: 'hidden',
+            }}
+          >
+            {renderTableControls()}
+            {isEmpty ? renderEmptyState() : renderTable()}
+          </div>
+          {selectedDatasetWithRun && (
+            <ExperimentViewDatasetDrawer
+              isOpen={isDrawerOpen}
+              setIsOpen={setIsDrawerOpen}
+              selectedDatasetWithRun={selectedDatasetWithRun}
+              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+            />
+          )}
+        </div>
+      </ExperimentEvaluationRunsRowVisibilityProvider>
+    );
+  }
+
+  // Split view (comparison mode)
   return (
     <ExperimentEvaluationRunsRowVisibilityProvider>
       <div css={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: '0px' }}>
@@ -252,44 +378,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
               paddingRight: theme.spacing.sm,
             }}
           >
-            <ExperimentEvaluationRunsTableControls
-              runs={runs ?? []}
-              refetchRuns={refetch}
-              isFetching={isFetching || isLoading}
-              searchRunsError={error}
-              searchFilter={searchFilter}
-              setSearchFilter={setSearchFilter}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              groupByConfig={groupBy}
-              setGroupByConfig={setGroupBy}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              onCompare={handleCompare}
-              selectedRunUuid={selectedRunUuid}
-              compareToRunUuid={compareToRunUuid}
-            />
-            <ExperimentEvaluationRunsTable
-              data={runsAndGroupValues}
-              uniqueColumns={uniqueColumns}
-              selectedColumns={selectedColumns}
-              selectedRunUuid={viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined}
-              setSelectedRunUuid={(runUuid: string) => {
-                setSelectedRunUuid(runUuid);
-                setCompareToRunUuid(undefined);
-              }}
-              isLoading={isLoading}
-              hasNextPage={hasNextPage ?? false}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
-              setIsDrawerOpen={setIsDrawerOpen}
-              viewMode={viewMode}
-              onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
-              ref={tableContainerRef}
-            />
+            {renderTableControls()}
+            {renderTable()}
           </div>
         </ResizableBox>
         <div
@@ -314,48 +404,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
               {renderActiveTab(selectedRunUuid)}
             </div>
           ) : isEmpty ? (
-            <div
-              css={{
-                display: 'flex',
-                flex: 1,
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginTop: theme.spacing.lg,
-                paddingLeft: theme.spacing.md,
-                maxWidth: '100%',
-              }}
-            >
-              <Typography.Title level={3} color="secondary">
-                <FormattedMessage
-                  defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
-                  description="Title of the empty state for the evaluation runs page"
-                />
-              </Typography.Title>
-              <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
-                <FormattedMessage
-                  defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
-                  description="Description of the empty state for the evaluation runs page"
-                  values={{
-                    learnMoreLink: (
-                      <Typography.Link
-                        componentId="mlflow.eval-runs.empty-state.learn-more-link"
-                        href={getLearnMoreLink()}
-                        css={{ whiteSpace: 'nowrap' }}
-                        openInNewTab
-                      >
-                        {/* eslint-disable-next-line formatjs/enforce-description */}
-                        <FormattedMessage defaultMessage="Learn more" />
-                      </Typography.Link>
-                    ),
-                  }}
-                />
-              </Typography.Paragraph>
-              <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
-              <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-                <RunEvaluationButton experimentId={experimentId} />
-              </div>
-            </div>
+            renderEmptyState()
           ) : null}
         </div>
         {dragging && (
