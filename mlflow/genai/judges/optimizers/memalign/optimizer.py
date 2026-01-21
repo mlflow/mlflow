@@ -37,6 +37,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+# Fields that map directly between serialized dict and instance attributes (with _ prefix)
+_CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
+
 _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
 Supported formats:
@@ -263,10 +266,7 @@ class MemoryAugmentedJudge(Judge):
             "base_judge": base_judge_data,
             "episodic_trace_ids": episodic_trace_ids,
             "semantic_memory": [g.model_dump() for g in self._semantic_memory],
-            "reflection_lm": self._reflection_lm,
-            "retrieval_k": self._retrieval_k,
-            "embedding_model": self._embedding_model,
-            "embedding_dim": self._embedding_dim,
+            **{field: getattr(self, f"_{field}") for field in _CONFIG_FIELDS},
         }
 
         serialized = SerializedScorer(
@@ -304,11 +304,9 @@ class MemoryAugmentedJudge(Judge):
         )
 
         instance._base_judge = base_judge
-        instance._reflection_lm = data["reflection_lm"]
-        instance._retrieval_k = data["retrieval_k"]
-        instance._embedding_model = data["embedding_model"]
-        instance._embedding_dim = data["embedding_dim"]
         instance._semantic_memory = semantic_memory
+        for field in _CONFIG_FIELDS:
+            setattr(instance, f"_{field}", data[field])
 
         instance._episodic_trace_ids = data.get("episodic_trace_ids", [])
         instance._episodic_memory = []
