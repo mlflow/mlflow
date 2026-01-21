@@ -3,7 +3,7 @@
  * Provides Assistant functionality accessible from anywhere in MLflow.
  */
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
 import { sendMessageStream, getConfig } from './AssistantService';
@@ -95,6 +95,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     refreshConfig();
   }, [refreshConfig]);
 
+  // Fetch config on mount
+  useEffect(() => {
+    refreshConfig();
+  }, [refreshConfig]);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);
@@ -113,9 +118,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
-    // Refresh config when panel opens (intentionally not awaited)
-    refreshConfig();
-  }, [refreshConfig]);
+  }, []);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);

@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   CloseIcon,
-  PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -476,25 +475,22 @@ export const AssistantChatPanel = () => {
   // Track whether the user is in the setup wizard
   const [isInSetupWizard, setIsInSetupWizard] = useState(false);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     closePanel();
-  };
+  }, [closePanel]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     reset();
-  };
+  }, [reset]);
 
-  const handleStartSetup = () => {
+  const handleStartSetup = useCallback(() => {
     setIsInSetupWizard(true);
-  };
+  }, []);
 
-  const handleSetupComplete = () => {
+  const handleSetupComplete = useCallback(() => {
     setIsInSetupWizard(false);
     completeSetup();
-  };
-
-  // Determine if setup is needed
-  const needsSetup = !setupComplete;
+  }, [completeSetup]);
 
   // Determine what to show in the content area
   const renderContent = () => {
@@ -511,7 +507,7 @@ export const AssistantChatPanel = () => {
     }
 
     // Show setup prompt if setup is incomplete
-    if (needsSetup) {
+    if (!setupComplete) {
       return <SetupPrompt onSetup={handleStartSetup} />;
     }
 
@@ -558,13 +554,13 @@ export const AssistantChatPanel = () => {
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
-            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
+            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="Clear Chat">
               <Button
                 componentId={`${COMPONENT_ID}.reset`}
                 size="small"
-                icon={<PlusIcon />}
+                icon={<RefreshIcon />}
                 onClick={handleReset}
-                aria-label="New Chat"
+                aria-label="Clear Chat"
               />
             </Tooltip>
           )}
