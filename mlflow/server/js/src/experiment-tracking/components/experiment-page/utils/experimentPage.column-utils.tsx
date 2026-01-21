@@ -533,6 +533,14 @@ export const useRunsColumnDefinitions = ({
             headerTooltip: getQualifiedEntityName(COLUMN_TYPES.TAGS, tagKey),
             field: createTagFieldName(tagKey),
             tooltipField: createTagFieldName(tagKey),
+            sortable: true,
+            headerComponentParams: {
+              canonicalSortKey,
+            },
+            cellClassRules: {
+              'is-previewable-cell': () => true,
+              'is-ordered-by': cellClassIsOrderedBy,
+            },
           };
         }),
       });

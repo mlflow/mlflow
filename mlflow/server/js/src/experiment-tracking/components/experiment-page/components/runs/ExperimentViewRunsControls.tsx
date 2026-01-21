@@ -80,7 +80,7 @@ export const ExperimentViewRunsControls = React.memo(
       [filteredMetricKeys, filteredParamKeys, filteredTagKeys, runsData],
     );
 
-    const sortOptions = useRunSortOptions(filteredMetricKeys, filteredParamKeys);
+    const sortOptions = useRunSortOptions(filteredMetricKeys, filteredParamKeys, filteredTagKeys);
 
     const selectedRunsCount = Object.values(viewState.runsSelected).filter(Boolean).length;
     const canRestoreRuns = selectedRunsCount > 0;
