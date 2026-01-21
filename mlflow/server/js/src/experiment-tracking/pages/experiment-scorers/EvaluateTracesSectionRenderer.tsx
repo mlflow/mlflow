@@ -73,7 +73,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               onClick={stopPropagationClick}
             >
               <FormattedMessage
-                defaultMessage="Automatically evaluate future traces using this judge"
+                defaultMessage="Automatically evaluate traces using this judge"
                 description="Checkbox label for enabling automatic evaluation"
               />
             </Checkbox>
