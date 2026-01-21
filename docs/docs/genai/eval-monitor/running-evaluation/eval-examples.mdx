@@ -1,0 +1,235 @@
+# MLflow evaluation examples for GenAI
+
+This page presents some common usage patterns for the evaluation harness, including data patterns and `predict_fn` patterns.
+
+## Common data input patterns
+
+### Evaluate using an MLflow Evaluation Dataset (recommended)
+
+MLflow Evaluation Datasets are useful when you need to convert traces to evaluation records.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness, Safety
+from my_app import agent  # Your GenAI app with tracing
+
+# Load versioned evaluation dataset
+dataset = mlflow.genai.datasets.get_dataset(
+    dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b"
+)
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=agent,
+    scorers=[Correctness(), Safety()],
+)
+```
+
+To create datasets from traces or scratch, see [Build evaluation datasets](/genai/datasets/).
+
+### Evaluate using a list of dictionaries
+
+Use a simple list of dictionaries for quick prototyping without creating a formal evaluation dataset. This is useful for quick prototyping, small datasets (fewer than 100 examples), and informal development testing.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness, RelevanceToQuery
+from my_app import agent  # Your GenAI app with tracing
+
+# Define test data as a list of dictionaries
+eval_data = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {
+            "expected_facts": ["open-source platform", "ML lifecycle management"]
+        },
+    },
+    {
+        "inputs": {"question": "How do I track experiments?"},
+        "expectations": {
+            "expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]
+        },
+    },
+    {
+        "inputs": {"question": "What are MLflow's main components?"},
+        "expectations": {
+            "expected_facts": ["Tracking", "Projects", "Models", "Registry"]
+        },
+    },
+]
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=agent,
+    scorers=[Correctness(), RelevanceToQuery()],
+)
+```
+
+For production, convert to an [MLflow Evaluation Dataset](/genai/datasets/).
+
+### Evaluate using a Pandas DataFrame
+
+Use Pandas DataFrames for evaluation when working with CSV files or existing data science workflows. This is useful for quick prototyping, small datasets (fewer than 100 examples), and informal development testing.
+
+```python
+import mlflow
+import pandas as pd
+from mlflow.genai.scorers import Correctness, Safety
+from my_app import agent  # Your GenAI app with tracing
+
+# Create evaluation data as a Pandas DataFrame
+eval_df = pd.DataFrame(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {
+                "expected_response": "MLflow is an open-source platform for ML lifecycle management"
+            },
+        },
+        {
+            "inputs": {"question": "How do I log metrics?"},
+            "expectations": {
+                "expected_response": "Use mlflow.log_metric() to log metrics"
+            },
+        },
+    ]
+)
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=eval_df,
+    predict_fn=agent,
+    scorers=[Correctness(), Safety()],
+)
+```
+
+### Evaluate using a Spark DataFrame
+
+Use Spark DataFrames for large-scale evaluations or if you need to filter the records in an MLflow Evaluation Dataset before running the evaluation.
+
+The DataFrame must comply with the [evaluation dataset schema](/genai/datasets/sdk-guide#evaluation-dataset-schema).
+
+```python
+import mlflow
+from mlflow.genai.scorers import Safety, RelevanceToQuery
+from my_app import agent  # Your GenAI app with tracing
+
+# Load evaluation data from a Parquet file or any Spark-compatible source
+eval_df = spark.read.parquet("path/to/evaluation/data")
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=eval_df,
+    predict_fn=agent,
+    scorers=[Safety(), RelevanceToQuery()],
+)
+```
+
+## Common `predict_fn` patterns
+
+### Call your app directly
+
+Pass your app directly as `predict_fn` when parameter names match your evaluation dataset keys. This is useful for apps that have parameter names that match the `inputs` in your evaluation dataset.
+
+```python
+import mlflow
+from mlflow.genai.scorers import RelevanceToQuery, Safety
+
+
+# Your GenAI app that accepts 'question' as a parameter
+@mlflow.trace
+def my_chatbot_app(question: str) -> dict:
+    # Your app logic here
+    response = f"I can help you with: {question}"
+    return {"response": response}
+
+
+# Evaluation data with 'question' key matching the function parameter
+eval_data = [
+    {"inputs": {"question": "What is MLflow?"}},
+    {"inputs": {"question": "How do I track experiments?"}},
+]
+
+# Pass your app directly since parameter names match
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_chatbot_app,  # Direct reference, no wrapper needed
+    scorers=[RelevanceToQuery(), Safety()],
+)
+```
+
+### Wrap your app in a callable
+
+If your app expects different parameter names or data structures than your evaluation dataset's `inputs`, wrap it in a callable function. This is useful when there are parameter name mismatches between your app's parameters and evaluation dataset `input` keys (for example, `user_input` vs `question`), or when data format conversions are required (for example, string to list or JSON parsing).
+
+```python
+import mlflow
+from mlflow.genai.scorers import RelevanceToQuery, Safety
+
+
+# Your existing GenAI app with different parameter names
+@mlflow.trace
+def customer_support_bot(user_message: str, chat_history: list = None) -> dict:
+    # Your app logic here
+    context = f"History: {chat_history}" if chat_history else "New conversation"
+    return {
+        "bot_response": f"Helping with: {user_message}. {context}",
+        "confidence": 0.95,
+    }
+
+
+# Wrapper function to translate evaluation data to your app's interface
+def evaluate_support_bot(question: str, history: str = None) -> dict:
+    # Convert evaluation dataset format to your app's expected format
+    chat_history = history.split("|") if history else []
+
+    # Call your app with the translated parameters
+    result = customer_support_bot(user_message=question, chat_history=chat_history)
+
+    # Translate output to standard format if needed
+    return {
+        "response": result["bot_response"],
+        "confidence_score": result["confidence"],
+    }
+
+
+# Evaluation data with different key names
+eval_data = [
+    {"inputs": {"question": "Reset password", "history": "logged in|forgot email"}},
+    {"inputs": {"question": "Track my order"}},
+]
+
+# Use the wrapper function for evaluation
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=evaluate_support_bot,  # Wrapper handles translation
+    scorers=[RelevanceToQuery(), Safety()],
+)
+```
+
+### Evaluate a logged model
+
+Wrap logged MLflow models to translate between evaluation's named parameters and the model's single-parameter interface.
+
+Most logged models (such as those using PyFunc or logging flavors like LangChain) accept a single input parameter (for example, `model_inputs` for PyFunc), while `predict_fn` expects named parameters that correspond to the keys in your evaluation dataset.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Safety
+
+# Make sure to load your logged model outside of the predict_fn so MLflow only loads it once!
+model = mlflow.pyfunc.load_model("models:/chatbot/staging")
+
+
+def evaluate_model(question: str) -> dict:
+    return model.predict({"question": question})
+
+
+results = mlflow.genai.evaluate(
+    data=[{"inputs": {"question": "Tell me about MLflow"}}],
+    predict_fn=evaluate_model,
+    scorers=[Safety()],
+)
+```

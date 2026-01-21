@@ -40,7 +40,7 @@ dependencies = [
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "huey<3,>=2.5.0",
+  "huey<3,>=2.5.4",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
@@ -84,6 +84,7 @@ extras = [
   "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",

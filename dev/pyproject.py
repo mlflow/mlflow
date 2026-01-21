@@ -342,6 +342,12 @@ def build(package_type: PackageType) -> None:
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
                 ],
+                "db": [
+                    # Required to use MySQL, PostgreSQL, or SQL Server as the backend store
+                    "PyMySQL",
+                    "psycopg2-binary",
+                    "pymssql",
+                ],
                 "databricks": [
                     # Required to write model artifacts to unity catalog locations
                     "azure-storage-file-datalake>12",

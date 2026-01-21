@@ -160,6 +160,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock-agentcore',
+                  label: 'Amazon Bedrock AgentCore',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
                 },
@@ -185,8 +190,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/koog',
+                  label: 'Koog',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langchain',
                   label: 'LangChain',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
                 },
                 {
                   type: 'doc',
@@ -215,8 +230,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/pipecat',
+                  label: 'Pipecat',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/pydantic_ai',
                   label: 'PydanticAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/quarkus-langchain4j',
+                  label: 'Quarkus LangChain4j',
                 },
                 {
                   type: 'doc',
@@ -252,6 +277,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/voltagent',
                   label: 'VoltAgent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/watsonx-orchestrate',
+                  label: 'Watsonx Orchestrate',
                 },
               ],
             },
@@ -468,6 +498,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'category',
           label: 'Running Evaluations',
           items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
             {
               type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
