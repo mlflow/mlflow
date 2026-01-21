@@ -1,4 +1,8 @@
 import importlib.metadata
+import json
+import logging
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
@@ -9,6 +13,8 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import gepa
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
@@ -134,10 +140,13 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         provider, model = _parse_model_uri(self.reflection_model)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
-            def __init__(self, eval_function, prompts_dict):
+            def __init__(self, eval_function, prompts_dict, tracking_enabled, full_dataset_size):
                 self.eval_function = eval_function
                 self.prompts_dict = prompts_dict
                 self.prompt_names = list(prompts_dict.keys())
+                self.tracking_enabled = tracking_enabled
+                self.full_dataset_size = full_dataset_size
+                self.validation_iteration = 0
 
             def evaluate(
                 self,
@@ -151,7 +160,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 Args:
                     batch: List of data instances to evaluate
                     candidate: Proposed text components (prompts)
-                    capture_traces: Whether to capture execution traces
+                    capture_traces: Whether to capture execution traces.
 
                 Returns:
                     EvaluationBatch with outputs, scores, and optional trajectories
@@ -162,9 +171,68 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 scores = [result.score for result in eval_results]
                 trajectories = eval_results if capture_traces else None
 
+                # Track validation candidates only during full dataset validation
+                # (not during minibatch evaluation in reflective mutation)
+                is_full_validation = not capture_traces and len(batch) == self.full_dataset_size
+                if is_full_validation and self.tracking_enabled:
+                    self._log_validation_candidate(candidate, eval_results)
+
                 return gepa.EvaluationBatch(
                     outputs=outputs, scores=scores, trajectories=trajectories
                 )
+
+            def _log_validation_candidate(
+                self,
+                candidate: dict[str, str],
+                eval_results: list[EvaluationResultRecord],
+            ) -> None:
+                """
+                Log validation candidate prompts and scores as MLflow artifacts.
+
+                Args:
+                    candidate: The candidate prompts being validated
+                    eval_results: Evaluation results containing scores
+                """
+                import mlflow
+
+                active_run = mlflow.active_run()
+                if active_run is None:
+                    return
+
+                iteration = self.validation_iteration
+                self.validation_iteration += 1
+
+                aggregate_score = (
+                    sum(r.score for r in eval_results) / len(eval_results) if eval_results else 0.0
+                )
+
+                per_record_scores = []
+                for i, result in enumerate(eval_results):
+                    record_info = {
+                        "record_index": i,
+                        "aggregate_score": result.score,
+                        "individual_scores": result.individual_scores,
+                    }
+                    per_record_scores.append(record_info)
+
+                # Build the validation data structure
+                validation_data = {
+                    "iteration": iteration,
+                    "aggregate_score": aggregate_score,
+                    "candidate_prompts": candidate,
+                    "per_record_scores": per_record_scores,
+                }
+
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    artifact_dir = Path(tmp_dir) / "prompt_candidates"
+                    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Write JSON file with scores and prompts
+                    json_path = artifact_dir / f"iteration_{iteration}.json"
+                    with open(json_path, "w") as f:
+                        json.dump(validation_data, f, indent=2)
+
+                    mlflow.log_artifact(str(json_path), artifact_path="prompt_candidates")
 
             def make_reflective_dataset(
                 self,
@@ -221,7 +289,9 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
                 return reflective_datasets
 
-        adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
+        adapter = MlflowGEPAAdapter(
+            eval_fn, target_prompts, enable_tracking, full_dataset_size=len(train_data)
+        )
 
         kwargs = self.gepa_kwargs | {
             "seed_candidate": target_prompts,

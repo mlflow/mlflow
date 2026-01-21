@@ -93,9 +93,10 @@ class EvaluationResultRecord:
         inputs: The inputs of the evaluation.
         outputs: The outputs of the prediction function.
         expectations: The expected outputs.
-        score: The score of the evaluation result.
+        score: The aggregated score of the evaluation result.
         trace: The trace of the evaluation execution.
         rationales: The rationales of the evaluation result.
+        individual_scores: Individual scores from each scorer (scorer_name -> score).
     """
 
     inputs: dict[str, Any]
@@ -104,6 +105,7 @@ class EvaluationResultRecord:
     score: float
     trace: Trace
     rationales: dict[str, str]
+    individual_scores: dict[str, float] = field(default_factory=dict)
 
 
 @experimental(version="3.5.0")

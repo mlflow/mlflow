@@ -1,3 +1,4 @@
+import json
 import sys
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
@@ -50,6 +51,7 @@ def mock_eval_fn():
                 score=0.8,
                 trace={"info": "mock trace"},
                 rationales={"score": "mock rationale"},
+                individual_scores={"accuracy": 0.9, "relevance": 0.7},
             )
             for record in dataset
         ]
@@ -461,3 +463,83 @@ def test_gepa_optimizer_version_check(
     else:
         assert "use_mlflow" in call_kwargs
         assert call_kwargs["use_mlflow"] == enable_tracking
+
+
+def test_gepa_optimizer_logs_prompt_candidates(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    mock_gepa_module.GEPAAdapter = object
+
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    logged_artifacts = []
+
+    with patch.dict(sys.modules, mock_modules):
+        captured_adapter = None
+
+        def mock_optimize_fn(**kwargs):
+            nonlocal captured_adapter
+            captured_adapter = kwargs["adapter"]
+            mock_result = Mock()
+            mock_result.best_candidate = sample_target_prompts
+            mock_result.val_aggregate_scores = [0.8]
+            return mock_result
+
+        mock_gepa_module.optimize = mock_optimize_fn
+
+        with (
+            patch("mlflow.active_run") as mock_active_run,
+            patch("mlflow.log_artifact") as mock_log_artifact,
+        ):
+            mock_run = Mock()
+            mock_active_run.return_value = mock_run
+
+            def capture_artifact(path, artifact_path=None):
+                with open(path) as f:
+                    logged_artifacts.append(
+                        {"path": path, "artifact_path": artifact_path, "content": json.load(f)}
+                    )
+
+            mock_log_artifact.side_effect = capture_artifact
+
+            optimizer.optimize(
+                eval_fn=mock_eval_fn,
+                train_data=sample_train_data,
+                target_prompts=sample_target_prompts,
+                enable_tracking=True,
+            )
+
+            # First: minibatch evaluation (should NOT log any artifacts)
+            minibatch = sample_train_data[:2]
+            captured_adapter.evaluate(minibatch, {"system_prompt": "Test"}, capture_traces=False)
+
+            # Second: full dataset validation (should log an artifact)
+            candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
+            captured_adapter.evaluate(sample_train_data, candidate, capture_traces=False)
+
+    # Verify only one artifact was logged (from full validation, not minibatch)
+    assert len(logged_artifacts) == 1
+    artifact = logged_artifacts[0]
+    assert artifact["artifact_path"] == "prompt_candidates"
+    assert "iteration_0.json" in artifact["path"]
+
+    content = artifact["content"]
+    assert content["iteration"] == 0
+    assert content["aggregate_score"] == 0.8
+    assert content["candidate_prompts"] == candidate
+    assert len(content["per_record_scores"]) == len(sample_train_data)
+
+    for record in content["per_record_scores"]:
+        assert "record_index" in record
+        assert "aggregate_score" in record
+        assert "individual_scores" in record
+        assert record["individual_scores"] == {"accuracy": 0.9, "relevance": 0.7}

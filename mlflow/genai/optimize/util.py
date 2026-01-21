@@ -122,7 +122,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
 def create_metric_from_scorers(
     scorers: list[Scorer],
     objective: Callable[[dict[str, Any]], float] | None = None,
-) -> Callable[[Any, Any, dict[str, Any]], float]:
+) -> Callable[[Any, Any, dict[str, Any]], tuple[float, dict[str, str], dict[str, float]]]:
     """
     Create a metric function from scorers and an optional objective function.
 
@@ -134,8 +134,8 @@ def create_metric_from_scorers(
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
-        A callable that takes (inputs, outputs, expectations) and
-        returns a tuple of (float score, dict of rationales).
+        A callable that takes (inputs, outputs, expectations, trace) and
+        returns a tuple of (aggregated_score, rationales, individual_scores).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
@@ -160,7 +160,7 @@ def create_metric_from_scorers(
         outputs: Any,
         expectations: dict[str, Any],
         trace: Trace | None,
-    ) -> float:
+    ) -> tuple[float, dict[str, str], dict[str, float]]:
         scores = {}
         rationales = {}
 
@@ -173,9 +173,6 @@ def create_metric_from_scorers(
             if isinstance(score, Feedback):
                 rationales[key] = score.rationale
 
-        if objective is not None:
-            return objective(scores), rationales
-
         # Try to convert all scores to numeric
         numeric_scores = {}
         for name, score in scores.items():
@@ -183,10 +180,14 @@ def create_metric_from_scorers(
             if numeric_value is not None:
                 numeric_scores[name] = numeric_value
 
+        if objective is not None:
+            return objective(scores), rationales, numeric_scores
+
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
             # We average the scores to get the score between 0 and 1.
-            return sum(numeric_scores.values()) / len(numeric_scores), rationales
+            aggregated = sum(numeric_scores.values()) / len(numeric_scores)
+            return aggregated, rationales, numeric_scores
 
         # Otherwise, report error with actual types
         non_convertible = {

@@ -239,7 +239,8 @@ def optimize_prompts(
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
     metric_fn: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], tuple[float, dict[str, str]]
+        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None],
+        tuple[float, dict[str, str], dict[str, float]],
     ],
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
@@ -286,7 +287,7 @@ def _build_eval_fn(
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers
-            score, rationales = metric_fn(
+            score, rationales, individual_scores = metric_fn(
                 inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
             )
             return EvaluationResultRecord(
@@ -296,6 +297,7 @@ def _build_eval_fn(
                 score=score,
                 trace=trace,
                 rationales=rationales,
+                individual_scores=individual_scores,
             )
 
         try:
