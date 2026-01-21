@@ -1,6 +1,6 @@
 """
 Script to automatically remove @experimental decorators from functions
-that have been experimental for more than 6 months.
+that have been experimental for more than a configurable cutoff period (default: 6 months).
 """
 
 import argparse
