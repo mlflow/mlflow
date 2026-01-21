@@ -184,7 +184,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
         mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._prune_messages_exceeding_context_window_length"
         ) as mock_prune,
-        mock.patch("litellm.get_max_tokens", return_value=8000),
+        mock.patch("litellm.get_model_info", return_value={"max_input_tokens": 8000}),
     ):
         mock_prune.return_value = [litellm.Message(role="user", content="Pruned")]
 
