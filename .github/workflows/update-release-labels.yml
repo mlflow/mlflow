@@ -16,8 +16,8 @@ defaults:
 
 jobs:
   update-labels:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write

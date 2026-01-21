@@ -8,7 +8,12 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from mlflow.assistant.providers.base import AssistantProvider, ProviderConfig
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    ProviderConfig,
+)
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
@@ -142,12 +147,117 @@ def test_stream_returns_sse_events(client):
     assert "Hello from mock" in content
 
 
-def test_status_returns_provider_info(client):
-    response = client.get("/ajax-api/3.0/mlflow/assistant/status")
+def test_health_check_returns_ok_when_healthy(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
     assert response.status_code == 200
-    data = response.json()
-    assert data["provider"] == "mock_provider"
-    assert data["available"] is True
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_check_returns_404_for_unknown_provider(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/unknown_provider/health")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_health_check_returns_412_when_cli_not_installed():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class CLINotInstalledProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise CLINotInstalledError("CLI not installed")
+
+    with patch("mlflow.server.assistant.api._provider", CLINotInstalledProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 412
+        assert "CLI not installed" in response.json()["detail"]
+
+
+def test_health_check_returns_401_when_not_authenticated():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class NotAuthenticatedProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise NotAuthenticatedError("Not authenticated")
+
+    with patch("mlflow.server.assistant.api._provider", NotAuthenticatedProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 401
+        assert "Not authenticated" in response.json()["detail"]
+
+
+def test_get_config_returns_empty_config(client):
+    with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
+        from mlflow.assistant.config import AssistantConfig
+
+        mock_load.return_value = AssistantConfig()
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["providers"] == {}
+        assert data["projects"] == {}
+
+
+def test_get_config_returns_existing_config(client):
+    with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
+        from mlflow.assistant.config import AssistantConfig, ProjectConfig, ProviderConfig
+
+        mock_config = AssistantConfig(
+            providers={"claude_code": ProviderConfig(model="default", selected=True)},
+            projects={"exp-123": ProjectConfig(type="local", location="/path/to/project")},
+        )
+        mock_load.return_value = mock_config
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["providers"]["claude_code"]["model"] == "default"
+        assert data["providers"]["claude_code"]["selected"] is True
+        assert data["projects"]["exp-123"]["location"] == "/path/to/project"
+
+
+def test_update_config_sets_provider(client):
+    with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
+        from mlflow.assistant.config import AssistantConfig
+
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={"providers": {"claude_code": {"model": "opus", "selected": True}}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["providers"]["claude_code"]["selected"] is True
+
+
+def test_update_config_sets_project(client):
+    with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
+        from mlflow.assistant.config import AssistantConfig
+
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={"projects": {"exp-456": {"type": "local", "location": "/my/project"}}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["projects"]["exp-456"]["location"] == "/my/project"
 
 
 @pytest.mark.asyncio

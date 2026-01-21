@@ -40,7 +40,7 @@ dependencies = [
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "huey<3,>=2.5.0",
+  "huey<3,>=2.5.4",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
@@ -84,6 +84,7 @@ extras = [
   "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",
@@ -179,22 +180,29 @@ lint = [
   "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
   "toml==0.10.2",
+  "types-toml",
   "mypy==1.17.1",
   "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
+  "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
   "tiktoken",
   "claude-agent-sdk",
   "pytest",
+  "types-requests",
+  "ruamel.yaml",
 ]
-test = [
+pytest = [
   "pytest==9.0.2",
   "pytest-asyncio",
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
+]
+test = [
+  { include-group = "pytest" },
   "psutil",
   "pyspark",
   "opentelemetry-exporter-otlp-proto-grpc",

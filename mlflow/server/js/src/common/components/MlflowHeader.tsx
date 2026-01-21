@@ -3,6 +3,7 @@ import { Link } from '../utils/RoutingUtils';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
 import { Button, MenuIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { AssistantIconButton } from '../../assistant/AssistantIconButton';
 import { MlflowLogo } from './MlflowLogo';
 
 export const MlflowHeader = ({
@@ -17,6 +18,7 @@ export const MlflowHeader = ({
   toggleSidebar: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+
   return (
     <header
       css={{
@@ -65,7 +67,8 @@ export const MlflowHeader = ({
         </span>
       </div>
       <div css={{ flex: 1 }} />
-      <div css={{ display: 'flex', gap: theme.spacing.lg, alignItems: 'center' }}>
+      <div css={{ display: 'flex', gap: theme.spacing.md, alignItems: 'center' }}>
+        <AssistantIconButton componentId="mlflow.header.assistant_button" tooltipSide="bottom" iconSize={18} />
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>

@@ -15,6 +15,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from mlflow.assistant import get_project_path
+from mlflow.assistant.config import AssistantConfig, ProjectConfig
+from mlflow.assistant.providers.base import CLINotInstalledError, NotAuthenticatedError
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
@@ -71,9 +73,15 @@ class MessageResponse(BaseModel):
     stream_url: str
 
 
-class GetStatusResponse(BaseModel):
-    provider: str
-    available: bool
+# Config-related models
+class ConfigResponse(BaseModel):
+    providers: dict[str, Any] = Field(default_factory=dict)
+    projects: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConfigUpdateRequest(BaseModel):
+    providers: dict[str, Any] | None = None
+    projects: dict[str, Any] | None = None
 
 
 class SessionPatchRequest(BaseModel):
@@ -197,15 +205,84 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
 
 
-@assistant_router.get("/status")
-async def get_status() -> GetStatusResponse:
+@assistant_router.get("/providers/{provider}/health")
+async def provider_health_check(provider: str) -> dict[str, str]:
     """
-    Get the status of the assistant provider.
+    Check if a specific provider is ready (CLI installed and authenticated).
+
+    Args:
+        provider: The provider name (e.g., "claude_code").
 
     Returns:
-        Provider status including availability
+        200 with { status: "ok" } if ready.
+
+    Raises:
+        HTTPException 404: If provider is not found.
+        HTTPException 412: If preconditions not met (CLI not installed or not authenticated).
     """
-    return GetStatusResponse(
-        provider=_provider.name,
-        available=_provider.is_available(),
+    # TODO: Support multiple providers via registry
+    if provider != _provider.name:
+        raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
+
+    try:
+        _provider.check_connection()
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except NotAuthenticatedError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    return {"status": "ok"}
+
+
+@assistant_router.get("/config")
+async def get_config() -> ConfigResponse:
+    """
+    Get the current assistant configuration.
+
+    Returns:
+        Current configuration including providers and projects.
+    """
+    config = AssistantConfig.load()
+    return ConfigResponse(
+        providers={name: p.model_dump() for name, p in config.providers.items()},
+        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+    )
+
+
+@assistant_router.put("/config")
+async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
+    """
+    Update the assistant configuration.
+
+    Args:
+        request: Partial configuration update.
+
+    Returns:
+        Updated configuration.
+    """
+    config = AssistantConfig.load()
+
+    # Update providers
+    if request.providers:
+        for name, provider_data in request.providers.items():
+            model = provider_data.get("model", "default")
+            config.set_provider(name, model)
+
+    # Update projects
+    if request.projects:
+        for exp_id, project_data in request.projects.items():
+            if project_data is None:
+                # Remove project mapping
+                config.projects.pop(exp_id, None)
+            else:
+                config.projects[exp_id] = ProjectConfig(
+                    type=project_data.get("type", "local"),
+                    location=project_data.get("location", ""),
+                )
+
+    config.save()
+
+    return ConfigResponse(
+        providers={name: p.model_dump() for name, p in config.providers.items()},
+        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
     )

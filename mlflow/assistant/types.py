@@ -58,6 +58,9 @@ class EventType(str, Enum):
     ERROR = "error"
     INTERRUPTED = "interrupted"
 
+    def __str__(self):
+        return self.value
+
 
 class Event(BaseModel):
     """A common event format parsed from the raw assistant provider output."""

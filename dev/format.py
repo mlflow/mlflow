@@ -25,7 +25,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
     return "\n".join(transformed) + "\n"
 
 
-def main():
+def main() -> None:
     if "NO_FIX" in os.environ:
         with subprocess.Popen(
             [

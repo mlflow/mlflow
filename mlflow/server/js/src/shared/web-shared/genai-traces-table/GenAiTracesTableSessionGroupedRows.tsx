@@ -1,9 +1,10 @@
 import type { Row, RowSelectionState } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
-import { TableCell, TableRow, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, ChevronDownIcon, ChevronRightIcon, TableRow } from '@databricks/design-system';
 
+import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
 import type { TracesTableColumn, EvalTraceComparisonEntry } from './types';
 import type { GroupedTraceTableRowData } from './utils/SessionGroupingUtils';
@@ -18,6 +19,18 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   virtualizerTotalSize: number;
   virtualizerMeasureElement: (node: HTMLDivElement | null) => void;
   selectedColumns: TracesTableColumn[];
+  expandedSessions: Set<string>;
+  toggleSessionExpanded: (sessionId: string) => void;
+  experimentId: string;
+}
+
+interface SessionHeaderRowProps {
+  sessionId: string;
+  traceCount: number;
+  traces: any[];
+  selectedColumns: TracesTableColumn[];
+  experimentId: string;
+  isExpanded: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
 }
 
@@ -30,6 +43,9 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerTotalSize,
   virtualizerMeasureElement,
   selectedColumns,
+  experimentId,
+  expandedSessions,
+  toggleSessionExpanded,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
   // actual table row from the tanstack data model. When grouping by
@@ -72,7 +88,15 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 width: '100%',
               }}
             >
-              <SessionHeaderRow sessionId={groupedRow.sessionId} traceCount={groupedRow.traces.length} />
+              <SessionHeaderRow
+                sessionId={groupedRow.sessionId}
+                traceCount={groupedRow.traces.length}
+                traces={groupedRow.traces}
+                selectedColumns={selectedColumns}
+                experimentId={experimentId}
+                isExpanded={expandedSessions.has(groupedRow.sessionId)}
+                toggleSessionExpanded={toggleSessionExpanded}
+              />
             </div>
           );
         }
@@ -116,20 +140,37 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 // Session header component
 const SessionHeaderRow = React.memo(function SessionHeaderRow({
   sessionId,
-  traceCount,
-}: {
-  sessionId: string;
-  traceCount: number;
-}) {
-  const { theme } = useDesignSystemTheme();
+  traces,
+  selectedColumns,
+  experimentId,
+  isExpanded,
+  toggleSessionExpanded,
+}: SessionHeaderRowProps) {
+  // Handle toggle all rows in this session
+  const handleToggleExpanded = useCallback(() => {
+    toggleSessionExpanded(sessionId);
+  }, [toggleSessionExpanded, sessionId]);
 
   return (
     <TableRow isHeader>
-      <TableCell>
-        <span>
-          Session: {sessionId} ({traceCount} {traceCount === 1 ? 'trace' : 'traces'})
-        </span>
-      </TableCell>
+      <div css={{ display: 'flex', alignItems: 'center' }}>
+        <Button
+          componentId="mlflow.genai-traces-table.session-header.toggle-expanded"
+          size="small"
+          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          onClick={handleToggleExpanded}
+        />
+      </div>
+      {/* Render a cell for each visible column from the table */}
+      {selectedColumns.map((column) => (
+        <SessionHeaderCell
+          key={column.id}
+          column={column}
+          sessionId={sessionId}
+          traces={traces}
+          experimentId={experimentId}
+        />
+      ))}
     </TableRow>
   );
 });
