@@ -7719,10 +7719,6 @@
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
   },
-  "x/rA/e": {
-    "defaultMessage": "Latency",
-    "description": "Column header for average latency"
-  },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
     "description": "Placeholder for stop sequences input"
@@ -7770,6 +7766,10 @@
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
+  },
+  "xRM/Eb": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Column header for average latency"
   },
   "xRw7H2": {
     "defaultMessage": "Created by",
