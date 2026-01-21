@@ -1,4 +1,6 @@
 import sqlite3
+import subprocess
+import sys
 import uuid
 from unittest import mock
 
@@ -152,3 +154,37 @@ def test_database_operational_error(monkeypatch):
             "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
             for call in exception.mock_calls
         )
+
+
+def test_gc_experiment_with_logged_model_params_and_tags():
+    """Test that GC can delete experiments with logged models that have params and tags.
+
+    This tests the fix for https://github.com/mlflow/mlflow/issues/20184 where GC failed
+    with a foreign key constraint error when deleting experiments that had logged_model_params
+    or logged_model_tags records referencing the experiment.
+
+    This test runs against real databases (MySQL, PostgreSQL) via Docker to ensure FK
+    constraints are properly enforced.
+    """
+    client = MlflowClient()
+    exp_id = client.create_experiment("exp_with_logged_model_for_gc")
+    model = client.create_logged_model(experiment_id=exp_id)
+
+    client.log_model_params(
+        model_id=model.model_id,
+        params={"param1": "value1", "param2": "value2"},
+    )
+    client.set_logged_model_tags(
+        model_id=model.model_id,
+        tags={"tag1": "value1", "tag2": "value2"},
+    )
+
+    client.delete_experiment(exp_id)
+
+    subprocess.check_call([sys.executable, "-m", "mlflow", "gc"])
+
+    experiments = client.search_experiments()
+    assert exp_id not in [e.experiment_id for e in experiments]
+
+    with pytest.raises(mlflow.MlflowException, match=r".+ not found"):
+        client.get_logged_model(model.model_id)
