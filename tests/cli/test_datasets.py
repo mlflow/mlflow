@@ -87,20 +87,22 @@ def test_list_datasets_json_output(runner: CliRunner, mock_dataset: Any, mock_da
 
         assert result.exit_code == 0
 
-        output_json = json.loads(result.output)
-        assert "datasets" in output_json
-        assert "next_page_token" in output_json
-        assert len(output_json["datasets"]) == 1
-
-        ds = output_json["datasets"][0]
-        assert ds["dataset_id"] == "ds-12345"
-        assert ds["name"] == "qa_dataset"
-        assert ds["digest"] == "abc123"
-        assert ds["created_time"] == 1705312200000
-        assert ds["last_update_time"] == 1705412400000
-        assert ds["created_by"] == "user@example.com"
-        assert ds["last_updated_by"] == "editor@example.com"
-        assert ds["tags"] == {"env": "production"}
+        expected = {
+            "datasets": [
+                {
+                    "dataset_id": "ds-12345",
+                    "name": "qa_dataset",
+                    "digest": "abc123",
+                    "created_time": 1705312200000,
+                    "last_update_time": 1705412400000,
+                    "created_by": "user@example.com",
+                    "last_updated_by": "editor@example.com",
+                    "tags": {"env": "production"},
+                }
+            ],
+            "next_page_token": None,
+        }
+        assert json.loads(result.output) == expected
 
 
 def test_list_datasets_empty_results(runner: CliRunner):
@@ -265,8 +267,22 @@ def test_list_datasets_json_includes_pagination_token(runner: CliRunner, mock_da
         result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
 
         assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        assert output_json["next_page_token"] == "next-page-abc123"
+        expected = {
+            "datasets": [
+                {
+                    "dataset_id": "ds-12345",
+                    "name": "qa_dataset",
+                    "digest": "abc123",
+                    "created_time": 1705312200000,
+                    "last_update_time": 1705412400000,
+                    "created_by": "user@example.com",
+                    "last_updated_by": "editor@example.com",
+                    "tags": {"env": "production"},
+                }
+            ],
+            "next_page_token": "next-page-abc123",
+        }
+        assert json.loads(result.output) == expected
 
 
 def test_list_datasets_with_null_optional_fields(runner: CliRunner):
@@ -317,15 +333,22 @@ def test_list_datasets_json_with_null_optional_fields(runner: CliRunner):
         result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
 
         assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        ds_output = output_json["datasets"][0]
-        assert ds_output["dataset_id"] == "ds-99999"
-        assert ds_output["name"] == "sparse_dataset"
-        assert ds_output["created_time"] is None
-        assert ds_output["last_update_time"] is None
-        assert ds_output["created_by"] is None
-        assert ds_output["last_updated_by"] is None
-        assert ds_output["tags"] is None
+        expected = {
+            "datasets": [
+                {
+                    "dataset_id": "ds-99999",
+                    "name": "sparse_dataset",
+                    "digest": "xyz789",
+                    "created_time": None,
+                    "last_update_time": None,
+                    "created_by": None,
+                    "last_updated_by": None,
+                    "tags": None,
+                }
+            ],
+            "next_page_token": None,
+        }
+        assert json.loads(result.output) == expected
 
 
 def test_list_datasets_multiple_datasets(runner: CliRunner):
