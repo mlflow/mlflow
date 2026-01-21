@@ -41,7 +41,7 @@ mlflow server
    - **Name**: A unique identifier for your judge
    - **Instructions**: Define your evaluation criteria using [template variables](#template-format). Use the **Add variable** button to insert variables into your prompt.
    - **Output type**: Select the return type
-   - **Model**: Select an endpoint from the dropdown (recommended) or click "enter model manually" to specify a custom model URI. Endpoints can be configured using [AI Gateway](/genai/governance/ai-gateway/), which centralizes API key management. Judges using manually entered model URIs require local API keys and cannot be run directly from the UI. See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for details.
+   - **Model**: Select an endpoint from the dropdown (recommended) or click "enter model manually" to access models directly without AI Gateway. Endpoints can be configured using [AI Gateway](/genai/governance/ai-gateway/), which centralizes API key management. Judges using direct model access require local API keys and cannot be run directly from the UI. See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for details.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/scorers/judge-builder-dialog.png" alt="Judge Builder Dialog" />
 
@@ -49,7 +49,7 @@ mlflow server
 
 <ImageBox src="/images/mlflow-3/eval-monitor/scorers/test-judge-output.png" alt="Test Judge Output" />
 
-6. **Configure evaluation settings** (optional):
+6. **Schedule automatic evaluation** (optional):
    - **Automatically evaluate future traces**: Enable to run this judge on new traces automatically
    - **Sample rate**: Percentage of traces to evaluate (0-100%)
    - **Filter string**: Only evaluate traces matching this filter ([syntax](/genai/tracing/search-traces/))
