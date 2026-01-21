@@ -248,4 +248,19 @@ describe('ExperimentViewRuns column utils', () => {
       ['metrics.`metric_1`', 'metrics.`metric_2`'],
     );
   });
+
+  test('tag columns are sortable', () => {
+    const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS) as unknown as ColGroupDef[];
+
+    // Find the tags column group
+    const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS) as ColGroupDef;
+    expect(tagsGroup).toBeDefined();
+
+    // Verify each tag column has sortable: true and headerComponentParams with canonicalSortKey
+    tagsGroup.children?.forEach((tagCol: ColDef) => {
+      expect(tagCol.sortable).toBe(true);
+      expect(tagCol.headerComponentParams).toBeDefined();
+      expect(tagCol.headerComponentParams?.canonicalSortKey).toBeDefined();
+    });
+  });
 });
