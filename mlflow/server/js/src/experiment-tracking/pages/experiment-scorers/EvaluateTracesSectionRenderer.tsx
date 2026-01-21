@@ -73,8 +73,22 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               onClick={stopPropagationClick}
             >
               <FormattedMessage
-                defaultMessage="Automatically evaluate future traces using this judge"
-                description="Checkbox label for enabling automatic evaluation"
+                defaultMessage="Automatically evaluate traces using this judge ({link})"
+                description="Checkbox label for enabling automatic evaluation with link to documentation"
+                values={{
+                  link: (
+                    <Typography.Link
+                      componentId={`${COMPONENT_ID_PREFIX}.online-evaluation-docs-link`}
+                      href="https://mlflow.org/docs/latest/genai/eval-monitor/automatic-evaluations/"
+                      openInNewTab
+                    >
+                      {intl.formatMessage({
+                        defaultMessage: 'learn more',
+                        description: 'Link text for online evaluation documentation',
+                      })}
+                    </Typography.Link>
+                  ),
+                }}
               />
             </Checkbox>
           )}

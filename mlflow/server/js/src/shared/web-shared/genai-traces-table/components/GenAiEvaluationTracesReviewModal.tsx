@@ -493,7 +493,7 @@ const DrawerWrapper = ({
     >
       <AssistantAwareDrawer.Content
         componentId="mlflow.evaluations_review.modal"
-        width="90vw"
+        width="80vw"
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <Button

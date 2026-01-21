@@ -37,7 +37,7 @@ export function tracedAnthropic<T = any>(anthropicClient: T): T {
       }
 
       return original as T;
-    }
+    },
   });
 
   return tracedClient as T;
@@ -84,7 +84,7 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name, spanType }
+      { name, spanType },
     );
   };
 }
@@ -115,6 +115,6 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
   return {
     input_tokens: inputTokens ?? 0,
     output_tokens: outputTokens ?? 0,
-    total_tokens: totalTokens ?? 0
+    total_tokens: totalTokens ?? 0,
   };
 }

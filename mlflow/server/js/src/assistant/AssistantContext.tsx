@@ -3,10 +3,11 @@
  * Provides Assistant functionality accessible from anywhere in MLflow.
  */
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage } from './types';
-import { sendMessageStream } from './AssistantService';
+import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
+import { sendMessageStream, getConfig } from './AssistantService';
+import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
@@ -16,8 +17,12 @@ const generateMessageId = (): string => {
 };
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
-  // Panel state
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // Panel state - persisted to localStorage, open by default on first visit
+  const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
+    key: 'mlflow.assistant.panelOpen',
+    version: 1,
+    initialValue: true,
+  });
 
   // Chat state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -25,6 +30,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
+
+  // Setup state
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
@@ -54,6 +64,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
   }, []);
 
   const handleStatus = useCallback((status: string) => {
@@ -64,10 +75,41 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
+  const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
+    setActiveTools(tools);
+  }, []);
+
+  // Setup actions
+  const refreshConfig = useCallback(async () => {
+    setIsLoadingConfig(true);
+    try {
+      const config = await getConfig();
+      // Setup is complete if claude_code provider is selected
+      const isComplete = config.providers?.['claude_code']?.selected === true;
+      setSetupComplete(isComplete);
+    } catch {
+      // On error, assume setup is not complete
+      setSetupComplete(false);
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  }, []);
+
+  const completeSetup = useCallback(() => {
+    // Refresh config after setup completes to update the UI
+    refreshConfig();
+  }, [refreshConfig]);
+
+  // Fetch config on mount
+  useEffect(() => {
+    refreshConfig();
+  }, [refreshConfig]);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -140,6 +182,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           finalizeStreamingMessage,
           handleStatus,
           handleSessionId,
+          handleToolUse,
         );
       } catch (err) {
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
@@ -153,6 +196,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       finalizeStreamingMessage,
       handleStatus,
       handleSessionId,
+      handleToolUse,
     ],
   );
 
@@ -204,6 +248,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         finalizeStreamingMessage,
         handleStatus,
         handleSessionId,
+        handleToolUse,
       );
     },
     [
@@ -214,8 +259,79 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       finalizeStreamingMessage,
       handleStatus,
       handleSessionId,
+      handleToolUse,
     ],
   );
+
+  const regenerateLastMessage = useCallback(() => {
+    // Prevent regeneration while already streaming
+    if (isStreaming) {
+      return;
+    }
+
+    // Find the last user message from current state
+    const lastUserMessageIndex = messages.findLastIndex((msg) => msg.role === 'user');
+    if (lastUserMessageIndex === -1) {
+      return; // No user message to regenerate from
+    }
+
+    const userMessageContent = messages[lastUserMessageIndex].content;
+
+    // Set streaming state BEFORE modifying messages
+    setError(null);
+    setIsStreaming(true);
+    streamingMessageRef.current = '';
+
+    // Remove all messages after the last user message and add streaming placeholder
+    setMessages((prev) => {
+      const lastUserIdx = prev.findLastIndex((msg) => msg.role === 'user');
+
+      if (lastUserIdx === -1) {
+        return prev;
+      }
+
+      // Keep messages up to and including the last user message
+      const messagesUpToLastUser = prev.slice(0, lastUserIdx + 1);
+
+      // Add the new streaming placeholder
+      return [
+        ...messagesUpToLastUser,
+        {
+          id: generateMessageId(),
+          role: 'assistant' as const,
+          content: '',
+          timestamp: new Date(),
+          isStreaming: true,
+        },
+      ];
+    });
+
+    // Re-send the last user message
+    const pageContext = getPageContext();
+    sendMessageStream(
+      {
+        session_id: sessionId ?? undefined,
+        message: userMessageContent,
+        experiment_id: pageContext['experimentId'] as string | undefined,
+        context: pageContext,
+      },
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+    );
+  }, [
+    messages,
+    sessionId,
+    isStreaming,
+    getPageContext,
+    appendToStreamingMessage,
+    handleStreamError,
+    finalizeStreamingMessage,
+    handleStatus,
+    handleSessionId,
+  ]);
 
   const value: AssistantAgentContextType = {
     // State
@@ -225,11 +341,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isStreaming,
     error,
     currentStatus,
+    activeTools,
+    setupComplete,
+    isLoadingConfig,
     // Actions
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    regenerateLastMessage,
     reset,
+    refreshConfig,
+    completeSetup,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -243,10 +365,16 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isStreaming: false,
   error: null,
   currentStatus: null,
+  activeTools: [],
+  setupComplete: false,
+  isLoadingConfig: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  regenerateLastMessage: () => {},
   reset: () => {},
+  refreshConfig: () => Promise.resolve(),
+  completeSetup: () => {},
 };
 
 /**

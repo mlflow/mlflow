@@ -62,16 +62,13 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers requires `tf-keras` when keras 3.0 is installed.
-          # See https://github.com/huggingface/transformers/issues/27377 for more details.
-          # Installing pyarrow < 18 to prevent lightgbm test pip installation resolution conflicts.
-          python -m pip install langchain_experimental tf-keras "pyarrow<18"
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt \
+            langchain_experimental tf-keras "pyarrow<18"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/pyfunc/docker
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker tests/pyfunc/docker

@@ -8,8 +8,6 @@ import {
   Button,
   Card,
   CloseIcon,
-  CopyIcon,
-  PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -24,9 +22,12 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
+import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import type { ChatMessage } from './types';
+import type { ChatMessage, ToolUseInfo } from './types';
+import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
+import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
 
@@ -46,17 +47,24 @@ const DOTS_ANIMATION = {
 /**
  * Single chat message bubble.
  */
-const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; isLastMessage: boolean }) => {
+const ChatMessageBubble = ({
+  message,
+  isLastMessage,
+  activeTools,
+  onRegenerate,
+}: {
+  message: ChatMessage;
+  isLastMessage: boolean;
+  activeTools?: ToolUseInfo[];
+  onRegenerate?: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const isUser = message.role === 'user';
   const [isHovered, setIsHovered] = useState(false);
-
-  const handleCopy = () => {
-    // TODO: Implement copy functionality
-  };
+  const { actionIcon: copyIcon, tooltipMessage: copyTooltip, copy: handleCopy } = useCopyController(message.content);
 
   const handleRegenerate = () => {
-    // TODO: Implement regenerate functionality
+    onRegenerate?.();
   };
 
   return (
@@ -77,7 +85,7 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
             theme.spacing.md
           }px`,
           borderRadius: theme.borders.borderRadiusLg,
-          backgroundColor: isUser ? theme.colors.blue100 : 'transparent',
+          backgroundColor: isUser ? theme.colors.backgroundSecondary : 'transparent',
           color: theme.colors.textPrimary,
         }}
       >
@@ -117,7 +125,9 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
                 '@keyframes dots': DOTS_ANIMATION,
               }}
             >
-              Processing
+              {activeTools && activeTools.length > 0 && activeTools[0].description
+                ? activeTools[0].description
+                : 'Processing'}
             </span>
           </div>
         )}
@@ -135,8 +145,8 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
             transition: 'opacity 0.2s ease',
           }}
         >
-          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content="Copy">
-            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={<CopyIcon />} onClick={handleCopy} />
+          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copyTooltip}>
+            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={copyIcon} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
             <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
@@ -233,55 +243,13 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 };
 
 /**
- * Status indicator showing processing state.
- */
-const StatusIndicator = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: theme.spacing.md,
-        color: theme.colors.textSecondary,
-        flexShrink: 0,
-      }}
-    >
-      <SparkleIcon
-        color="ai"
-        css={{
-          fontSize: 18,
-          animation: 'pulse 1.5s ease-in-out infinite',
-          '@keyframes pulse': PULSE_ANIMATION,
-        }}
-      />
-      <span
-        css={{
-          fontSize: theme.typography.fontSizeBase,
-          color: theme.colors.textSecondary,
-          '&::after': {
-            content: '"..."',
-            animation: 'dots 1.5s steps(3, end) infinite',
-            display: 'inline-block',
-            width: '1.2em',
-          },
-          '@keyframes dots': DOTS_ANIMATION,
-        }}
-      >
-        Processing
-      </span>
-    </div>
-  );
-};
-
-/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
+  const pageContext = useAssistantPageContext();
+  const hasExperimentContext = Boolean(pageContext['experimentId']);
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -342,14 +310,19 @@ const ChatPanelContent = () => {
         {messages.map((message, index) => {
           // Check if this is the last assistant message
           const isLastAssistantMessage = message.role === 'assistant' && index === messages.length - 1;
-          return <ChatMessageBubble key={message.id} message={message} isLastMessage={isLastAssistantMessage} />;
+          return (
+            <ChatMessageBubble
+              key={message.id}
+              message={message}
+              isLastMessage={isLastAssistantMessage}
+              activeTools={message.isStreaming ? activeTools : undefined}
+              onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
+            />
+          );
         })}
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Status indicator */}
-      {currentStatus && <StatusIndicator />}
 
       {/* Input area */}
       <div
@@ -430,20 +403,121 @@ const ChatPanelContent = () => {
 };
 
 /**
+ * Loading state while fetching setup status.
+ */
+const SetupLoadingState = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: theme.spacing.md,
+      }}
+    >
+      <Spinner size="default" />
+      <Typography.Text color="secondary">Loading...</Typography.Text>
+    </div>
+  );
+};
+
+/**
+ * Setup prompt shown when assistant is not set up yet.
+ * Shows description and setup button.
+ */
+const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        padding: theme.spacing.lg,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        Ask questions about your experiments, traces, evaluations, and more.
+      </Typography.Text>
+
+      <Button componentId={`${COMPONENT_ID}.setup`} type="primary" onClick={onSetup}>
+        Get Started
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Assistant Chat Panel.
  * Shows the chat header and the chat interface.
+ * When setup is incomplete, shows a banner prompting the user to set up.
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, completeSetup } = useAssistant();
+  const context = useAssistantPageContext();
+  const experimentId = context['experimentId'] as string | undefined;
 
-  const handleClose = () => {
+  // Track whether the user is in the setup wizard
+  const [isInSetupWizard, setIsInSetupWizard] = useState(false);
+
+  const handleClose = useCallback(() => {
     closePanel();
+  }, [closePanel]);
+
+  const handleReset = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  const handleStartSetup = useCallback(() => {
+    setIsInSetupWizard(true);
+  }, []);
+
+  const handleSetupComplete = useCallback(() => {
+    setIsInSetupWizard(false);
+    completeSetup();
+  }, [completeSetup]);
+
+  // Determine what to show in the content area
+  const renderContent = () => {
+    // Show loading state while fetching config
+    if (isLoadingConfig) {
+      return <SetupLoadingState />;
+    }
+
+    // Show setup wizard if user clicked "Setup"
+    if (isInSetupWizard) {
+      return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+    }
+
+    // Show setup prompt if setup is incomplete
+    if (!setupComplete) {
+      return <SetupPrompt onSetup={handleStartSetup} />;
+    }
+
+    // Show chat panel content
+    return <ChatPanelContent />;
   };
 
-  const handleReset = () => {
-    reset();
-  };
+  // Determine if we should show the chat controls (new chat button)
+  const showChatControls = setupComplete && !isInSetupWizard;
 
   return (
     <div
@@ -480,15 +554,17 @@ export const AssistantChatPanel = () => {
           </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-          <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
-            <Button
-              componentId={`${COMPONENT_ID}.reset`}
-              size="small"
-              icon={<PlusIcon />}
-              onClick={handleReset}
-              aria-label="New Chat"
-            />
-          </Tooltip>
+          {showChatControls && (
+            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="Clear Chat">
+              <Button
+                componentId={`${COMPONENT_ID}.reset`}
+                size="small"
+                icon={<RefreshIcon />}
+                onClick={handleReset}
+                aria-label="Clear Chat"
+              />
+            </Tooltip>
+          )}
           <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
             <Button
               componentId={`${COMPONENT_ID}.close`}
@@ -500,7 +576,7 @@ export const AssistantChatPanel = () => {
           </Tooltip>
         </div>
       </div>
-      <ChatPanelContent />
+      {renderContent()}
     </div>
   );
 };

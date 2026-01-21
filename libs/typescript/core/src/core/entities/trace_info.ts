@@ -114,14 +114,14 @@ export class TraceInfo {
         type: this.traceLocation.type,
         mlflow_experiment: this.traceLocation.mlflowExperiment
           ? {
-              experiment_id: this.traceLocation.mlflowExperiment.experimentId
+              experiment_id: this.traceLocation.mlflowExperiment.experimentId,
             }
           : undefined,
         inference_table: this.traceLocation.inferenceTable
           ? {
-              full_table_name: this.traceLocation.inferenceTable.fullTableName
+              full_table_name: this.traceLocation.inferenceTable.fullTableName,
             }
-          : undefined
+          : undefined,
       },
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
@@ -131,7 +131,7 @@ export class TraceInfo {
       state: this.state,
       trace_metadata: this.traceMetadata,
       tags: this.tags,
-      assessments: this.assessments
+      assessments: this.assessments,
     };
   }
 
@@ -151,7 +151,7 @@ export class TraceInfo {
     return {
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
-      total_tokens: usage.total_tokens
+      total_tokens: usage.total_tokens,
     };
   }
 
@@ -172,7 +172,7 @@ export class TraceInfo {
           : undefined,
         inferenceTable: json.trace_location?.inference_table
           ? { fullTableName: json.trace_location.inference_table.full_table_name }
-          : undefined
+          : undefined,
       },
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
@@ -184,7 +184,7 @@ export class TraceInfo {
       state: json.state,
       traceMetadata: json.trace_metadata || {},
       tags: json.tags || {},
-      assessments: json.assessments || []
+      assessments: json.assessments || [],
     });
     /* eslint-enable @typescript-eslint/no-unsafe-member-access */
   }
