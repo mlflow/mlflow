@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
 import { sendMessageStream, getConfig } from './AssistantService';
+import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
@@ -16,8 +17,12 @@ const generateMessageId = (): string => {
 };
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
-  // Panel state
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // Panel state - persisted to localStorage, open by default on first visit
+  const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
+    key: 'mlflow.assistant.panelOpen',
+    version: 1,
+    initialValue: true,
+  });
 
   // Chat state
   const [sessionId, setSessionId] = useState<string | null>(null);

@@ -22,6 +22,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
+import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { useAssistantPageContext } from './AssistantPageContext';
@@ -247,6 +248,8 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
   const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
+  const pageContext = useAssistantPageContext();
+  const hasExperimentContext = Boolean(pageContext['experimentId']);
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
