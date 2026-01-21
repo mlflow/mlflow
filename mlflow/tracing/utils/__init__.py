@@ -90,6 +90,26 @@ class TraceJSONEncoder(json.JSONEncoder):
         if not self._is_safe_to_encode_str(obj):
             return type(obj)
 
+        # Handle pandas objects efficiently to avoid expensive __repr__() calls
+        # that trigger heavy string formatting operations
+        try:
+            import pandas as pd
+
+            if isinstance(obj, pd.DataFrame):
+                return {
+                    "type": "Pandas DataFrame",
+                    "shape": obj.shape,
+                    "sample_data": obj.head(1).to_dict(orient="records"),
+                }
+            if isinstance(obj, pd.Series):
+                return {
+                    "type": "Pandas Series",
+                    "length": len(obj),
+                    "sample_data": obj.head(1).to_dict(),
+                }
+        except ImportError:
+            pass
+
         try:
             return super().default(obj)
         except TypeError:
