@@ -30,6 +30,7 @@ from mlflow.utils.async_logging.async_artifacts_logging_queue import (
     AsyncArtifactsLoggingQueue,
 )
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
+from mlflow.utils.os import is_windows
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
@@ -67,6 +68,55 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         )
         new_creds = creds_func()
         return try_func(new_creds)
+
+
+def _sanitize_path_component_for_windows(component: str) -> str:
+    r"""
+    Sanitize a path component by replacing Windows-invalid characters with underscores.
+
+    Windows does not allow these characters in filenames: < > : " | ? *
+    (Note: / and \ are path separators and are handled separately)
+
+    This function does not handle Windows reserved names (CON, PRN, AUX, NUL, COM1-9,
+    LPT1-9, CONIN$, CONOUT$). Artifact paths with these names are rare in practice, but
+    would cause issues if encountered on Windows.
+
+    Args:
+        component: A single path component (filename or directory name).
+
+    Returns:
+        The sanitized path component safe for use on Windows.
+    """
+    if not is_windows():
+        return component
+
+    # Replace Windows-invalid characters with underscores
+    invalid_chars = '<>:"|?*'
+    for char in invalid_chars:
+        component = component.replace(char, "_")
+
+    return component
+
+
+def _sanitize_path_for_windows(path: str) -> str:
+    """
+    Sanitize a POSIX-style path by replacing Windows-invalid characters in each component.
+
+    Args:
+        path: A POSIX-style path (using / as separator).
+
+    Returns:
+        The sanitized path with invalid characters replaced.
+    """
+    if not is_windows() or not path:
+        return path
+
+    # Split by POSIX path separator, strip whitespace, sanitize each component, then rejoin
+    components = path.split("/")
+    sanitized_components = [
+        _sanitize_path_component_for_windows(comp.strip()) for comp in components
+    ]
+    return "/".join(sanitized_components)
 
 
 @developer_stable
@@ -201,6 +251,8 @@ class ArtifactRepository:
         resulting destination path is `<dst_local_dir_path>/dir1/file1.txt`. Local directories are
         created for the resulting destination location if they do not exist.
 
+        Note: On windows this method escapes/normalizes path seperators and invalid characters.
+
         Args:
             src_artifact_path: A relative, POSIX-style path referring to an artifact stored
                 within the repository's artifact root location. `src_artifact_path` should be
@@ -215,9 +267,15 @@ class ArtifactRepository:
             for downloading the artifact specified by `src_artifact_path`.
         """
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
+        # Sanitize path for Windows by replacing invalid characters (: < > " | ? *)
+        src_artifact_path = _sanitize_path_for_windows(src_artifact_path)
         dirpath = posixpath.dirname(src_artifact_path)
-        local_dir_path = os.path.join(dst_local_dir_path, dirpath)
-        local_file_path = os.path.join(dst_local_dir_path, src_artifact_path)
+        # os.path.normpath() converts forward slashes (/) to OS-specific separators (\\ on Windows)
+        if dirpath:
+            local_dir_path = os.path.join(dst_local_dir_path, os.path.normpath(dirpath))
+        else:
+            local_dir_path = dst_local_dir_path
+        local_file_path = os.path.join(dst_local_dir_path, os.path.normpath(src_artifact_path))
         if not os.path.exists(local_dir_path):
             os.makedirs(local_dir_path, exist_ok=True)
         return local_file_path
@@ -305,7 +363,9 @@ class ArtifactRepository:
         if is_dir:
             for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
-                    os.makedirs(os.path.join(dst_path, file_info.path), exist_ok=True)
+                    sanitized_path = _sanitize_path_for_windows(file_info.path)
+                    normalized_path = os.path.join(dst_path, os.path.normpath(sanitized_path))
+                    os.makedirs(normalized_path, exist_ok=True)
                 else:
                     fut = _download_file(file_info.path, dst_path)
                     futures[fut] = file_info.path
@@ -343,7 +403,10 @@ class ArtifactRepository:
                 )
             )
 
-        return os.path.join(dst_path, artifact_path)
+        if artifact_path:
+            sanitized_path = _sanitize_path_for_windows(artifact_path)
+            return os.path.join(dst_path, os.path.normpath(sanitized_path))
+        return dst_path
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
