@@ -509,7 +509,7 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
         for item in otel_resource_attributes.split(","):
             key, value = item.split("=", maxsplit=1)
             attributes[key.strip()] = value.strip()
-    except ValueError:
+    except Exception:
         _logger.debug("Failed to parse otel resource attributes, skipping", exc_info=True)
         return {}
     return attributes

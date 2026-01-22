@@ -21,7 +21,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
-from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
+from mlflow.tracing.utils.otlp import (
+    _decode_otel_proto_anyvalue,
+    _set_otel_proto_anyvalue,
+    resource_to_otel_proto,
+)
 
 
 def test_create_live_span():
@@ -599,21 +603,7 @@ def test_resource_to_otel_proto():
             "custom.bool": True,
         }
     )
-    otel_span = OTelReadableSpan(
-        name="test_span",
-        context=build_otel_context(
-            trace_id=0x12345678901234567890123456789012,
-            span_id=0x1234567890123456,
-        ),
-        parent=None,
-        start_time=1000000000,
-        end_time=2000000000,
-        attributes={"mlflow.traceRequestId": "tr-12345678901234567890123456789012"},
-        resource=resource,
-    )
-
-    mlflow_span = Span(otel_span)
-    resource_proto = mlflow_span.resource_to_otel_proto()
+    resource_proto = resource_to_otel_proto(resource)
 
     # Convert proto attributes to dict for easier verification
     attrs = {}
@@ -624,6 +614,11 @@ def test_resource_to_otel_proto():
     assert attrs["service.version"] == "1.0.0"
     assert attrs["custom.int"] == 42
     assert attrs["custom.bool"] is True
+
+
+def test_resource_to_otel_proto_none():
+    resource_proto = resource_to_otel_proto(None)
+    assert len(resource_proto.attributes) == 0
 
 
 def test_span_from_dict_old_format():
