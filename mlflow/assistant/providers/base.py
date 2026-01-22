@@ -92,7 +92,8 @@ class AssistantProvider(ABC):
             prompt: The prompt to send to the assistant
             session_id: Session ID for conversation continuity
             cwd: Working directory for the assistant
-            context: Page context (experimentId, traceId, selectedTraceIds, etc.)
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
             tracking_uri: MLflow tracking server URI for the assistant to use
 
         Yields:

@@ -45,6 +45,8 @@ DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
 CLAUDE_SYSTEM_PROMPT_BASE = """You are an MLflow assistant helping users with their MLflow projects.
 {connection_section}
+## User Context
+
 User messages may include a <context> block containing JSON that represents what the user is
 currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
 to understand what entities the user is referring to when they ask questions.
@@ -232,7 +234,8 @@ class ClaudeCodeProvider(AssistantProvider):
             prompt: The prompt to send to Claude
             session_id: Claude session ID for resume
             cwd: Working directory for Claude Code CLI
-            context: Page context (experimentId, traceId, selectedTraceIds, etc.)
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
             tracking_uri: MLflow tracking server URI for the assistant to use
 
         Yields:
