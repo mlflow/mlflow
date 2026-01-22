@@ -51,6 +51,13 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     }
   }, [hasExpectations, sampleRate, setValue]);
 
+  // Automatically uncheck automatic evaluation when using a non-gateway model
+  useEffect(() => {
+    if (isNonGatewayModel && sampleRate > 0 && setValue) {
+      setValue('sampleRate', 0);
+    }
+  }, [isNonGatewayModel, sampleRate, setValue]);
+
   const isAutomaticEvaluationEnabled = sampleRate > 0;
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
 
