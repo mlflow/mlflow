@@ -2543,7 +2543,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if not is_gateway_model(model):
                     raise MlflowException(
                         f"Scorer '{scorer_name}' does not use a gateway model. "
-                        "Online scoring is only supported for scorers that use gateway models.",
+                        "Automatic evaluation is only supported for scorers that use "
+                        "gateway models.",
                         INVALID_PARAMETER_VALUE,
                     )
 
