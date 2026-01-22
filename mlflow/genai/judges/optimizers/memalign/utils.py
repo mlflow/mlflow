@@ -349,7 +349,7 @@ def distill_guidelines(
     if not examples:
         return []
 
-    examples_data = [dict(example) for example in examples]
+    examples_data = [_make_json_serializable(dict(example)) for example in examples]
     # Create index to trace_id mapping
     indices = list(range(len(examples_data)))
     index_to_trace_id = {
