@@ -144,7 +144,7 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
 
 class Guideline(BaseModel):
     guideline_text: str
-    source_trace_ids: list[str] | None = None
+    source_trace_ids: list[str | int] | None = None
 
 
 class Guidelines(BaseModel):

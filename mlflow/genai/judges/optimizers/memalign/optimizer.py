@@ -163,7 +163,7 @@ class MemoryAugmentedJudge(Judge):
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
-            trace=trace,
+            trace=value_to_embedding_text(trace) if trace is not None else None,
         )
 
         return Feedback(
