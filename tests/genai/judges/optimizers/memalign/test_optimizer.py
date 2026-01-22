@@ -99,15 +99,12 @@ def mock_apis(guidelines=None, batch_size=50):
 
 @pytest.fixture
 def sample_traces():
-    trace_ids = []
+    traces = []
     for i in range(5):
         with mlflow.start_span(name=f"test_span_{i}") as span:
             span.set_inputs({"inputs": f"input_{i}"})
             span.set_outputs({"outputs": f"output_{i}"})
-            trace_ids.append(mlflow.get_last_active_trace_id())
-
-    traces = mlflow.search_traces(filter_string=None, return_type="list")
-    traces = [t for t in traces if t.info.trace_id in trace_ids]
+        traces.append(mlflow.get_trace(mlflow.get_last_active_trace_id()))
 
     for i, trace in enumerate(traces):
         assessment = Assessment(
@@ -150,9 +147,7 @@ def test_align_no_valid_feedback_raises_error(sample_judge):
         span.set_inputs({"inputs": "test input"})
         span.set_outputs({"outputs": "test output"})
 
-    trace_id = mlflow.get_last_active_trace_id()
-    traces = mlflow.search_traces(filter_string=None, return_type="list")
-    trace = [t for t in traces if t.info.trace_id == trace_id][0]
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     optimizer = MemAlignOptimizer()
     with pytest.raises(MlflowException, match="No valid feedback records found"):
@@ -315,5 +310,5 @@ def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
         # Guidelines without source_trace_ids are retained
         # Guidelines are deleted only if ALL source traces were removed
         # Since mock_apis doesn't provide source_trace_ids, all guidelines are retained
-        assert len(unaligned_judge._episodic_memory) == 2
+        assert len(unaligned_judge._episodic_memory) == 3  # 5 - 2 removed
         assert len(unaligned_judge._semantic_memory) == 2

@@ -13,6 +13,7 @@ try:
 except ImportError:
     _JINJA2_AVAILABLE = False
 
+from mlflow.entities.trace import Trace
 from mlflow.genai.judges.optimizers.dspy_utils import (
     construct_dspy_lm,
     convert_mlflow_uri_to_litellm,
@@ -21,6 +22,10 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
     create_examples_field,
     create_guidelines_field,
+)
+from mlflow.genai.utils.trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
 )
 
 # Try to import litellm at module level
@@ -46,7 +51,7 @@ _MAX_RECORDS_PER_BATCH = 50
 _FLEX_TOKENS = 5000
 
 # Priority list of fields to use for building corpus and retrieval queries
-_QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation"]
+_QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation", "trace"]
 
 
 def get_query_field(signature: "dspy.Signature") -> str | None:
@@ -139,7 +144,7 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
 
 class Guideline(BaseModel):
     guideline_text: str
-    source_trace_ids: list[str] | None = None
+    source_trace_ids: list[str | int] | None = None
 
 
 class Guidelines(BaseModel):
@@ -157,6 +162,14 @@ def _count_tokens(text: str, litellm_model: str | None) -> int:
     # Fallback: heuristic estimation based on character count
     # Approximate 4 characters per token (see https://platform.openai.com/tokenizer)
     return len(text) // 4
+
+
+def _make_json_serializable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _make_json_serializable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_make_json_serializable(item) for item in value]
+    return value_to_embedding_text(value)
 
 
 def _create_batches(
@@ -201,7 +214,7 @@ def _create_batches(
     # Compute token count for each example
     example_tokens = []
     for example in examples_data:
-        example_str = json.dumps(example)
+        example_str = json.dumps(_make_json_serializable(example))
         tokens = _count_tokens(example_str, litellm_model)
         example_tokens.append(tokens)
 
@@ -248,6 +261,20 @@ def _parse_batch_response(
     """
     response_data = json.loads(response)
     guidelines = []
+    trace_ids_set = set(index_to_trace_id.values())
+
+    def resolve_trace_id(idx: Any) -> str | None:
+        """Resolve an LLM-returned index to a trace ID."""
+        if isinstance(idx, int):
+            return index_to_trace_id.get(idx)
+        if isinstance(idx, str):
+            if idx in trace_ids_set:
+                return idx
+            try:
+                return index_to_trace_id.get(int(idx))
+            except ValueError:
+                return None
+        return None
 
     for guideline_data in response_data.get("guidelines", []):
         # Skip empty or duplicate guidelines
@@ -260,12 +287,11 @@ def _parse_batch_response(
         if source_trace_ids_raw is None:
             continue
 
-        # Map indices back to trace IDs, ignoring invalid indices
+        # Map indices back to trace IDs, filtering out invalid values
         trace_ids = [
-            trace_id
+            resolved
             for idx in source_trace_ids_raw
-            if (trace_id := index_to_trace_id.get(int(idx) if isinstance(idx, (int, str)) else idx))
-            is not None
+            if (resolved := resolve_trace_id(idx)) is not None
         ]
         # Only add guideline if there is at least one valid trace ID
         if trace_ids:
@@ -277,6 +303,24 @@ def _parse_batch_response(
             )
 
     return guidelines
+
+
+def value_to_embedding_text(value: Any) -> str:
+    """
+    Convert an arbitrary value to text suitable for embedding.
+
+    For Trace objects, extracts the request and response text. We do not use other attributes
+    of the trace because the size is generally unbounded.
+    For other types, returns the string representation.
+    """
+    if isinstance(value, Trace):
+        parts = []
+        if request := extract_request_from_trace(value):
+            parts.append(request)
+        if response := extract_response_from_trace(value):
+            parts.append(response)
+        return " ".join(parts) if parts else ""
+    return str(value)
 
 
 def distill_guidelines(
@@ -305,7 +349,7 @@ def distill_guidelines(
     if not examples:
         return []
 
-    examples_data = [dict(example) for example in examples]
+    examples_data = [_make_json_serializable(dict(example)) for example in examples]
     # Create index to trace_id mapping
     indices = list(range(len(examples_data)))
     index_to_trace_id = {
@@ -403,14 +447,13 @@ def retrieve_relevant_examples(
 
     query_field = get_query_field(signature)
     value = query_kwargs.get(query_field) if query_field else None
-    query = str(value) if value else ""
+    query = value_to_embedding_text(value) if value else ""
     if not query:
         return []
 
     search_results = retriever(query)
     indices = [int(i) for i in search_results.indices]
 
-    # Return list of tuples for safer API
     return [
         (
             examples[i],
