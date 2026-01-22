@@ -36,7 +36,7 @@ dependencies = [
   "docker<8,>=4.0.0",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "huey<3,>=2.5.0",
+  "huey<3,>=2.5.4",
   "matplotlib<4",
   "numpy<3",
   "pandas<3",

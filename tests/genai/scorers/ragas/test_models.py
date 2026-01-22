@@ -45,7 +45,7 @@ def test_create_ragas_model_databricks():
 
 def test_create_ragas_model_databricks_serving_endpoint():
     model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "DatabricksServingEndpointRagasLLM"
+    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
 
 
 def test_create_ragas_model_openai():

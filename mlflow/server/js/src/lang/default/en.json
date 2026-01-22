@@ -463,6 +463,10 @@
     "defaultMessage": "Duplicate run",
     "description": "Experiment page > artifact compare view > run column header > \"duplicate run\" button label"
   },
+  "1Yfc1Q": {
+    "defaultMessage": "Conversational safety",
+    "description": "LLM template option"
+  },
   "1a1+j5": {
     "defaultMessage": "Unfortunately, the trace could not be rendered due to an unknown error. You can reload the page to try again. If the problem persists, please contact support.",
     "description": "Description for the error state in the model trace explorer"
@@ -1173,6 +1177,10 @@
   "7KPJii": {
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
+  },
+  "7KTbHL": {
+    "defaultMessage": "Tool Call Correctness",
+    "description": "LLM template option"
   },
   "7MWbDM": {
     "defaultMessage": "Direct access to Google's Gemini API. Note: endpoint name is part of the URL path.",
@@ -1930,6 +1938,10 @@
     "defaultMessage": "Version",
     "description": "Column header for model versions in the evaluation runs table"
   },
+  "CamReV": {
+    "defaultMessage": "Does the response follow per-example guidelines from expectations?",
+    "description": "Hint for ExpectationsGuidelines template"
+  },
   "CbRDlp": {
     "defaultMessage": "Type",
     "description": "Row heading in a table that contains the type of a function parameter (e.g. string, boolean)"
@@ -1949,6 +1961,10 @@
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
+  },
+  "Cj58gM": {
+    "defaultMessage": "Setup MLflow Assistant",
+    "description": "Title for the MLflow Assistant setup wizard"
   },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
@@ -2033,6 +2049,10 @@
   "DMOaoR": {
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
+  },
+  "DQ3XQT": {
+    "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
+    "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -2998,6 +3018,10 @@
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
   },
+  "M2zr3g": {
+    "defaultMessage": "Automatically evaluate traces using this judge ({link})",
+    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
+  },
   "M3c7bs": {
     "defaultMessage": "Tags",
     "description": "Column label for tags"
@@ -3114,6 +3138,10 @@
     "defaultMessage": "Actions",
     "description": "Experiment evaluation runs table actions button"
   },
+  "N0r4Ab": {
+    "defaultMessage": "Completeness",
+    "description": "LLM template option"
+  },
   "N1G2a5": {
     "defaultMessage": "Expected facts",
     "description": "Evaluation review > Response section > expected facts > title"
@@ -3193,6 +3221,10 @@
   "NVsatz": {
     "defaultMessage": "Provider{count}",
     "description": "Provider filter button label with count"
+  },
+  "NWbmIK": {
+    "defaultMessage": "Is the text grammatically correct and naturally flowing?",
+    "description": "Hint for Fluency template"
   },
   "NhEmyj": {
     "defaultMessage": "Training runs",
@@ -3833,6 +3865,10 @@
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
   },
+  "SwvkMI": {
+    "defaultMessage": "Is the summary faithful, complete, and concise?",
+    "description": "Hint for Summarization template"
+  },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
     "description": "Placeholder for empty models table on the logged models list page"
@@ -4176,6 +4212,10 @@
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the experiment list table"
   },
+  "VkK38/": {
+    "defaultMessage": "Equivalence",
+    "description": "LLM template option"
+  },
   "Vkr4Bs": {
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
@@ -4307,6 +4347,10 @@
   "WiaEQ3": {
     "defaultMessage": "Model output",
     "description": "Evaluation review > Response section > model output > title"
+  },
+  "WlZLz9": {
+    "defaultMessage": "Expectations Guidelines",
+    "description": "LLM template option"
   },
   "Wm6dYs": {
     "defaultMessage": "Delete",
@@ -4827,6 +4871,10 @@
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
   },
+  "aSnHN9": {
+    "defaultMessage": "Tool Call Efficiency",
+    "description": "LLM template option"
+  },
   "aTnlkS": {
     "defaultMessage": "Search for a provider...",
     "description": "Placeholder for provider search input"
@@ -4850,6 +4898,10 @@
   "aZV8M7": {
     "defaultMessage": "Delete",
     "description": "Delete assessment menu item"
+  },
+  "aZiamv": {
+    "defaultMessage": "Is the tool usage free of redundancy and inefficiency?",
+    "description": "Hint for ToolCallEfficiency template"
   },
   "aaKoNq": {
     "defaultMessage": "Add section below",
@@ -4967,6 +5019,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "bcw06n": {
+    "defaultMessage": "Is the output semantically equivalent to the expected output?",
+    "description": "Hint for Equivalence template"
+  },
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
@@ -4986,6 +5042,10 @@
   "bmHBO7": {
     "defaultMessage": "Sessions",
     "description": "Label for the chat sessions tab in the MLflow experiment navbar"
+  },
+  "bmQatm": {
+    "defaultMessage": "Does the assistant maintain its assigned role throughout the conversation?",
+    "description": "Hint for ConversationalRoleAdherence template"
   },
   "bmd4rb": {
     "defaultMessage": "Latest version",
@@ -5402,6 +5462,10 @@
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
+  },
+  "enp602": {
+    "defaultMessage": "Automatic evaluation settings",
+    "description": "Section header for automatic evaluation settings"
   },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
@@ -5843,10 +5907,6 @@
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
   },
-  "i30A98": {
-    "defaultMessage": "Evaluation settings",
-    "description": "Section header for evaluation settings"
-  },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"
@@ -6046,6 +6106,10 @@
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
     "description": "Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
+  },
+  "jcJXyE": {
+    "defaultMessage": "Summarization",
+    "description": "LLM template option"
   },
   "jcSfl/": {
     "defaultMessage": "Open the {experimentsLink} page.",
@@ -6346,10 +6410,6 @@
   "loe2Ov": {
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
-  },
-  "lpptdR": {
-    "defaultMessage": "Automatically evaluate future traces using this judge",
-    "description": "Checkbox label for enabling automatic evaluation"
   },
   "ls3868": {
     "defaultMessage": "Guidelines",
@@ -6682,6 +6742,10 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "oKNOju": {
+    "defaultMessage": "Conversational tool call efficiency",
+    "description": "LLM template option"
   },
   "oKgZFA": {
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
@@ -7291,6 +7355,10 @@
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
   },
+  "syQ4eZ": {
+    "defaultMessage": "Are the tool calls and their arguments correct for the request?",
+    "description": "Hint for ToolCallCorrectness template"
+  },
   "syyEiR": {
     "defaultMessage": "Table",
     "description": "Experiment page > artifact compare view > table select dropdown label"
@@ -7306,6 +7374,10 @@
   "t3mHNt": {
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
+  },
+  "t4yUI0": {
+    "defaultMessage": "Conversational role adherence",
+    "description": "LLM template option"
   },
   "t8zXLd": {
     "defaultMessage": "Priority 1 (Traffic Split)",
@@ -7539,6 +7611,10 @@
     "defaultMessage": "datasets used",
     "description": "Text for dataset count in the experiment run dataset drawer"
   },
+  "vKEpSU": {
+    "defaultMessage": "Fluency",
+    "description": "LLM template option"
+  },
   "vM/qUz": {
     "defaultMessage": "Source",
     "description": "Column label for source"
@@ -7558,6 +7634,10 @@
   "vQa9lQ": {
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
+  },
+  "vV8sXP": {
+    "defaultMessage": "learn more",
+    "description": "Link text for online evaluation documentation"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
@@ -7699,6 +7779,10 @@
     "defaultMessage": "Create prompt",
     "description": "A header for the create prompt modal in the prompt management UI"
   },
+  "wj6XWT": {
+    "defaultMessage": "Did the response address all explicit requests in the prompt?",
+    "description": "Hint for Completeness template"
+  },
   "wjOGl2": {
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
@@ -7743,13 +7827,13 @@
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
   },
+  "x+e1xE": {
+    "defaultMessage": "Is tool usage efficient throughout the conversation?",
+    "description": "Hint for ConversationalToolCallEfficiency template"
+  },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
-  },
-  "x/rA/e": {
-    "defaultMessage": "Latency",
-    "description": "Column header for average latency"
   },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
@@ -7799,6 +7883,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
   },
+  "xRM/Eb": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Column header for average latency"
+  },
   "xRw7H2": {
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
@@ -7822,6 +7910,10 @@
   "xWcxhf": {
     "defaultMessage": "No items found",
     "description": "Message shown when no items match the search"
+  },
+  "xXI1zn": {
+    "defaultMessage": "Are the assistant's responses safe throughout the conversation?",
+    "description": "Hint for ConversationalSafety template"
   },
   "xYBwQl": {
     "defaultMessage": "Log traces",

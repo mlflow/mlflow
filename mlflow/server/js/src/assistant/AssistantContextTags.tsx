@@ -1,6 +1,7 @@
 /**
  * Context tags component for the Assistant chat panel.
- * Displays the current page context (traces, runs) as compact tags.
+ * Displays explicitly selected context (traces, runs) as compact tags.
+ * Implicit context like experimentId and currentPage is passed to the assistant but not displayed.
  */
 
 import { ForkHorizontalIcon, PlayIcon, Tag, TagColors, Tooltip, useDesignSystemTheme } from '@databricks/design-system';

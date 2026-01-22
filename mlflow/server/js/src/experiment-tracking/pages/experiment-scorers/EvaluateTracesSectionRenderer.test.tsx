@@ -26,7 +26,7 @@ describe('EvaluateTracesSectionRenderer', () => {
 
     it('should show section when disableMonitoring is false', () => {
       render(<TestWrapper defaultValues={{ disableMonitoring: false, sampleRate: 0 }} />);
-      expect(screen.getByText(/Automatically evaluate future traces/i)).toBeInTheDocument();
+      expect(screen.getByText(/Automatically evaluate traces using this judge/i)).toBeInTheDocument();
     });
   });
 

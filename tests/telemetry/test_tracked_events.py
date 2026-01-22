@@ -443,6 +443,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
     with (
         mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.builtin.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.instructions_judge.invoke_judge_model"),
     ):
         # Test with all scorer kinds and scopes, without predict_fn
         mlflow.genai.evaluate(
@@ -1186,28 +1188,18 @@ def test_invoke_custom_judge_model(
                     assessment_name="test_assessment",
                 )
         else:
-            with (
-                mock.patch(
-                    "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
-                    return_value=(mock_response, 10),
+            from mlflow.genai.judges.adapters.litellm_adapter import InvokeLiteLLMOutput
+
+            with mock.patch(
+                "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+                return_value=InvokeLiteLLMOutput(
+                    response=mock_response,
+                    request_id="req-123",
+                    num_prompt_tokens=5,
+                    num_completion_tokens=3,
+                    cost=10,
                 ),
-                mock.patch(
-                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
-                ) as mock_databricks,
             ):
-                # For databricks provider, mock the databricks model invocation
-                if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-                        InvokeDatabricksModelOutput,
-                    )
-
-                    mock_databricks.return_value = InvokeDatabricksModelOutput(
-                        response=mock_response,
-                        request_id="test-request-id",
-                        num_prompt_tokens=10,
-                        num_completion_tokens=20,
-                    )
-
                 invoke_judge_model(
                     model_uri=model_uri,
                     prompt="Test prompt",
