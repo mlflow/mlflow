@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import os
 import re
 import subprocess
@@ -8,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
+
+GRAPHQL_URL = "https://api.github.com/graphql"
 
 
 def get_token() -> str | None:
@@ -41,20 +44,52 @@ class Commit:
     pr_num: int
 
 
+def get_commit_count(branch: str, since: str) -> int:
+    """
+    Get the total count of commits in the branch since the given date using GraphQL API.
+    """
+    query = """
+    query($branch: String!, $since: GitTimestamp!) {
+      repository(owner: "mlflow", name: "mlflow") {
+        ref(qualifiedName: $branch) {
+          target {
+            ... on Commit {
+              history(since: $since) {
+                totalCount
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    response = requests.post(
+        GRAPHQL_URL,
+        json={"query": query, "variables": {"branch": branch, "since": since}},
+        headers=get_headers(),
+    )
+    response.raise_for_status()
+    data = response.json()
+    total_count: int = data["data"]["repository"]["ref"]["target"]["history"]["totalCount"]
+    return total_count
+
+
 def get_commits(branch: str) -> list[Commit]:
     """
     Get the commits in the release branch via GitHub API (last 90 days).
     """
-    commits = []
     per_page = 100
-    page = 1
     pr_rgx = re.compile(r".+\s+\(#(\d+)\)$")
     since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
 
-    while True:
-        print(f"Fetching commits from {branch} (page {page})...")
-        # dict[str, str | int] is a workaround for mypy
-        # https://github.com/python/mypy/issues/3176
+    # Get total commit count first
+    total_count = get_commit_count(branch, since)
+    total_pages = (total_count + per_page - 1) // per_page
+    print(f"Total commits: {total_count}, fetching {total_pages} page(s)...")
+
+    def fetch_page(page: int) -> list[Commit]:
+        """Fetch a single page of commits."""
+        print(f"Fetching page {page}/{total_pages}...")
         params: dict[str, str | int] = {
             "sha": branch,
             "per_page": per_page,
@@ -68,13 +103,19 @@ def get_commits(branch: str) -> list[Commit]:
         )
         response.raise_for_status()
         data = response.json()
+        page_commits = []
         for item in data:
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
-                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
-        if not data or len(data) < per_page:
-            break
-        page += 1
+                page_commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
+        return page_commits
+
+    # Fetch all pages in parallel
+    commits = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(fetch_page, page) for page in range(1, total_pages + 1)]
+        for future in concurrent.futures.as_completed(futures):
+            commits.extend(future.result())
 
     return commits
 
