@@ -27,6 +27,26 @@ export interface KnownAssistantContext {
   runId?: string;
   selectedRunIds?: string[];
   currentPage?: string;
+
+  // Sessions
+  sessionId?: string;
+  selectedSessionIds?: string[];
+
+  // Datasets
+  selectedDatasetId?: string;
+
+  // Prompts
+  promptName?: string;
+  promptVersion?: string;
+  comparedPromptVersion?: string;
+
+  // Models
+  modelName?: string;
+  modelVersion?: string;
+  selectedModelVersions?: string[];
+
+  // Scorers/Judges
+  selectedScorerName?: string;
 }
 
 /** All known context keys */
