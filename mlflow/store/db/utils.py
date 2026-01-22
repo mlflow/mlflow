@@ -355,6 +355,7 @@ def create_sqlalchemy_engine(db_uri):
             "StaticPool": StaticPool,
         }
         try:
+            # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
             from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
 
             pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
