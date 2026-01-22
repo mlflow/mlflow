@@ -5139,6 +5139,10 @@
     "defaultMessage": "API key",
     "description": "Label for API key selector"
   },
+  "cQNKMv": {
+    "defaultMessage": "MLflow Assistant is only available when the server is running locally. Remote server support is coming soon.",
+    "description": "Message explaining that Assistant only works with local servers"
+  },
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
@@ -5486,6 +5490,10 @@
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
+  },
+  "fBB0xR": {
+    "defaultMessage": "Assistant Not Available",
+    "description": "Title shown when Assistant is not available for remote servers"
   },
   "fKx4kG": {
     "defaultMessage": "Aggregation: {value}",
@@ -5866,6 +5874,10 @@
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
     "description": "Gateway > Bindings using key drawer > Empty state"
+  },
+  "hvKJ+r": {
+    "defaultMessage": "Close",
+    "description": "Button to close the assistant panel on remote servers"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
