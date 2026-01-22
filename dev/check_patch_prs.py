@@ -70,7 +70,10 @@ def get_commit_count(branch: str, since: str) -> int:
     )
     response.raise_for_status()
     data = response.json()
-    total_count: int = data["data"]["repository"]["ref"]["target"]["history"]["totalCount"]
+    ref = data["data"]["repository"]["ref"]
+    if ref is None:
+        raise ValueError(f"Branch '{branch}' not found")
+    total_count: int = ref["target"]["history"]["totalCount"]
     return total_count
 
 
@@ -84,11 +87,15 @@ def get_commits(branch: str) -> list[Commit]:
 
     # Get total commit count first
     total_count = get_commit_count(branch, since)
+    if total_count == 0:
+        print(f"No commits found in {branch} since {since}")
+        return []
+
     total_pages = (total_count + per_page - 1) // per_page
     print(f"Total commits: {total_count}, fetching {total_pages} page(s)...")
 
-    def fetch_page(page: int) -> list[Commit]:
-        """Fetch a single page of commits."""
+    def fetch_page(page: int) -> tuple[int, list[Commit]]:
+        """Fetch a single page of commits and return with page number to maintain order."""
         print(f"Fetching page {page}/{total_pages}...")
         params: dict[str, str | int] = {
             "sha": branch,
@@ -108,14 +115,20 @@ def get_commits(branch: str) -> list[Commit]:
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
                 page_commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
-        return page_commits
+        return (page, page_commits)
 
-    # Fetch all pages in parallel
-    commits = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(fetch_page, page) for page in range(1, total_pages + 1)]
+    # Fetch all pages in parallel (limit concurrent requests to avoid rate limits)
+    page_results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(fetch_page, page): page for page in range(1, total_pages + 1)}
         for future in concurrent.futures.as_completed(futures):
-            commits.extend(future.result())
+            page_results.append(future.result())  # noqa: PERF401
+
+    # Sort by page number to maintain original order
+    page_results.sort(key=lambda x: x[0])
+    commits = []
+    for _, page_commits in page_results:
+        commits.extend(page_commits)
 
     return commits
 
