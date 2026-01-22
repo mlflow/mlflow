@@ -100,6 +100,20 @@ describe('EvaluateTracesSectionRenderer', () => {
       expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
     });
 
+    it('should handle expectations with variable whitespace in template', () => {
+      render(
+        <TestWrapper
+          defaultValues={{
+            sampleRate: 100,
+            instructions: 'Compare {{ outputs }} against {{   expectations   }}',
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeDisabled();
+    });
+
     it('should disable automatic evaluation when using a non-gateway model', () => {
       render(
         <TestWrapper

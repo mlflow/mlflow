@@ -4,6 +4,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-hook-form';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { hasTemplateVariable } from './utils/templateUtils';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -38,7 +39,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
   });
 
   // Check if template contains {{ expectations }} - automatic evaluation not supported for scorers requiring expectations
-  const hasExpectations = instructions?.includes('{{ expectations }}') ?? false;
+  const hasExpectations = hasTemplateVariable(instructions, 'expectations');
 
   // Check if using a non-gateway model - automatic evaluation only works with gateway models
   const isNonGatewayModel = modelInputMode === ModelProvider.OTHER;
