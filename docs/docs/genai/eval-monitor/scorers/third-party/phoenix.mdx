@@ -69,13 +69,13 @@ results = mlflow.genai.evaluate(
 
 Phoenix scorers evaluate different aspects of LLM outputs:
 
-| Scorer                                                                              | What does it evaluate?                                               | Phoenix Docs                                                   |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.phoenix.Hallucination">Hallucination</APILink>    | Does the output contain fabricated information not in the context?   | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/hallucinations) |
-| <APILink fn="mlflow.genai.scorers.phoenix.Relevance">Relevance</APILink>            | Is the retrieved context relevant to the input query?                | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/relevance)      |
-| <APILink fn="mlflow.genai.scorers.phoenix.Toxicity">Toxicity</APILink>              | Does the output contain toxic or harmful content?                    | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/toxicity)       |
-| <APILink fn="mlflow.genai.scorers.phoenix.QA">QA</APILink>                          | Does the answer correctly address the question based on reference?   | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/q-and-a-on-retrieved-data) |
-| <APILink fn="mlflow.genai.scorers.phoenix.Summarization">Summarization</APILink>    | Is the summary accurate and complete relative to the original text?  | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/summarization)  |
+| Scorer                                                                           | What does it evaluate?                                              | Phoenix Docs                                                                                                      |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.phoenix.Hallucination">Hallucination</APILink> | Does the output contain fabricated information not in the context?  | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/hallucinations)            |
+| <APILink fn="mlflow.genai.scorers.phoenix.Relevance">Relevance</APILink>         | Is the retrieved context relevant to the input query?               | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/relevance)                 |
+| <APILink fn="mlflow.genai.scorers.phoenix.Toxicity">Toxicity</APILink>           | Does the output contain toxic or harmful content?                   | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/toxicity)                  |
+| <APILink fn="mlflow.genai.scorers.phoenix.QA">QA</APILink>                       | Does the answer correctly address the question based on reference?  | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/q-and-a-on-retrieved-data) |
+| <APILink fn="mlflow.genai.scorers.phoenix.Summarization">Summarization</APILink> | Is the summary accurate and complete relative to the original text? | [Link](https://docs.arize.com/phoenix/evaluation/how-to-evals/running-pre-tested-evals/summarization)             |
 
 ## Creating Scorers by Name
 
