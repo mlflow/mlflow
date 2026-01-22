@@ -5173,6 +5173,27 @@ def post_ui_telemetry_handler():
         return jsonify({"status": "disabled"})
 
 
+def _parse_prompt_uri(prompt_uri: str) -> tuple[str, str]:
+    """
+    Parse a prompt URI to extract the prompt name and version.
+
+    Args:
+        prompt_uri: Prompt URI in the format "prompts:/prompt_name/version"
+
+    Returns:
+        A tuple of (prompt_name, version). Returns empty strings if parsing fails.
+    """
+    try:
+        # Format: "prompts:/prompt_name/version"
+        if prompt_uri.startswith("prompts:/"):
+            parts = prompt_uri.replace("prompts:/", "").split("/")
+            if len(parts) >= 2:
+                return parts[0], parts[1]
+    except Exception:
+        pass
+    return "", ""
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_prompt_optimization_job():
@@ -5228,12 +5249,17 @@ def _create_prompt_optimization_job():
     # The job will resume this run when it starts executing
     tracking_store = _get_tracking_store()
     start_time = int(time.time() * 1000)
+
+    # Parse prompt name and version from URI for more descriptive run name
+    prompt_name, prompt_version = _parse_prompt_uri(prompt_uri)
+    run_name = f"optimize_prompt_{optimizer_type}_{prompt_name}_{prompt_version}_{start_time}"
+
     run = tracking_store.create_run(
         experiment_id=experiment_id,
         user_id=_get_user(),
         start_time=start_time,
         tags=[],
-        run_name=f"optimize_prompt_{optimizer_type}_{start_time}",
+        run_name=run_name,
     )
     run_id = run.info.run_id
 
@@ -5250,23 +5276,12 @@ def _create_prompt_optimization_job():
 
     # Link the evaluation dataset to the run for lineage tracking (if dataset_id is provided)
     if dataset_id:
-        try:
-            dataset = get_genai_dataset(dataset_id=dataset_id)
-            dataset_input = DatasetInput(
-                dataset=dataset._to_mlflow_entity(),
-                tags=[InputTag(key="mlflow.data.context", value="optimization")],
-            )
-            tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
-        except Exception as e:
-            # Dataset linking is best-effort; don't fail job creation if it fails,
-            # but log the exception for observability and debugging.
-            _logger.warning(
-                "Failed to link evaluation dataset '%s' to run '%s': %s",
-                dataset_id,
-                run_id,
-                e,
-                exc_info=True,
-            )
+        dataset = get_genai_dataset(dataset_id=dataset_id)
+        dataset_input = DatasetInput(
+            dataset=dataset._to_mlflow_entity(),
+            tags=[InputTag(key="mlflow.data.context", value="optimization")],
+        )
+        tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
 
     params = {
         "run_id": run_id,
