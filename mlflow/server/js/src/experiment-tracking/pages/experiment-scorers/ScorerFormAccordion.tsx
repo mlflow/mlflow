@@ -31,8 +31,11 @@ const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  // Note: Using HTML button here instead of DuBois Button because accordion headers
-  // require full-width, space-between layout that Button doesn't support well
+  // Using HTML button instead of DuBois Button because accordion headers need:
+  // - Full-width with space-between layout (text left, chevron right)
+  // - Dark text color (Button tertiary uses blue link color)
+  // - No hover background change
+  // DuBois Button doesn't support this layout without significant CSS overrides.
   return (
     <div
       css={{

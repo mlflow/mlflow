@@ -12,7 +12,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, useWatch } from 'react-hook-form';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -82,7 +82,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
           control={control}
           render={({ field }) => (
             <Switch
-              componentId={`${COMPONENT_ID_PREFIX}.auto-evaluate-toggle`}
+              componentId="mlflow.experiment_page.scorers.auto_evaluate_toggle"
               checked={isAutomaticEvaluationEnabled}
               onChange={(checked) => {
                 // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
@@ -97,7 +97,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
       {isAutomaticEvaluationEnabled && (
         <div>
           <Button
-            componentId={`${COMPONENT_ID_PREFIX}.advanced-settings-toggle`}
+            componentId="mlflow.experiment_page.scorers.advanced_settings_toggle"
             type="link"
             size="small"
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
@@ -192,7 +192,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                       values={{
                         link: (
                           <Typography.Link
-                            componentId={`${COMPONENT_ID_PREFIX}.search-traces-syntax-link`}
+                            componentId="mlflow.experiment_page.scorers.search_traces_syntax_link"
                             href="https://mlflow.org/docs/latest/genai/tracing/search-traces/"
                             openInNewTab
                           >
@@ -211,7 +211,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                       values={{
                         link: (
                           <Typography.Link
-                            componentId={`${COMPONENT_ID_PREFIX}.filter-string-syntax-link`}
+                            componentId="mlflow.experiment_page.scorers.filter_string_syntax_link"
                             href="https://mlflow.org/docs/latest/genai/tracing/search-traces/"
                             openInNewTab
                           >
@@ -231,7 +231,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                   render={({ field }) => (
                     <Input
                       {...field}
-                      componentId={`${COMPONENT_ID_PREFIX}.filter-string-input`}
+                      componentId="mlflow.experiment_page.scorers.filter_string_input"
                       id="mlflow-experiment-scorers-filter-string"
                       readOnly={mode === SCORER_FORM_MODE.DISPLAY}
                       placeholder={
