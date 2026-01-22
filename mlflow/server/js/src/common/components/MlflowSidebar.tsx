@@ -362,7 +362,7 @@ export function MlflowSidebar() {
               icon: <CloudModelIcon />,
               linkProps: {
                 to: GatewayRoutes.gatewayPageRoute,
-                isActive: isGatewayActive,
+                isActive: (location: Location) => !enableWorkflowBasedNavigation && isGatewayActive(location),
                 children: (
                   <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
                 ),
