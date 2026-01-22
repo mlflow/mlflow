@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -9,8 +10,22 @@ from typing import Any
 import requests
 
 
-def get_headers() -> dict[str, str]:
+def get_token() -> str | None:
     if token := os.environ.get("GH_TOKEN"):
+        return token
+    try:
+        token = subprocess.check_output(
+            ["gh", "auth", "token"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if token:
+            return token
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return None
+
+
+def get_headers() -> dict[str, str]:
+    if token := get_token():
         return {"Authorization": f"token {token}"}
     return {}
 
