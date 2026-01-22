@@ -450,7 +450,7 @@ example-rules = [
 "^(?!mlflow/).*$" = [
   "forbidden-set-active-model-usage",
   "unnamed-thread",
-  "thread-pool-executor-without-thread-name-prefix",
+  "unnamed-thread-pool",
 ]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
