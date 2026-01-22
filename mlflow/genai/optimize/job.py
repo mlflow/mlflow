@@ -15,6 +15,12 @@ from mlflow.genai.prompts import load_prompt
 from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.registry import get_scorer
+from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_GEPA,
+    OPTIMIZER_TYPE_METAPROMPT,
+    OPTIMIZER_TYPE_UNSPECIFIED,
+)
+from mlflow.protos.prompt_optimization_pb2 import OptimizerType as ProtoOptimizerType
 from mlflow.server.jobs import job
 from mlflow.telemetry.events import OptimizePromptsJobEvent
 from mlflow.telemetry.track import record_usage_event
@@ -46,15 +52,6 @@ class OptimizerType(str, Enum):
         Raises:
             MlflowException: If the proto value is unspecified or unsupported.
         """
-        from mlflow.protos.prompt_optimization_pb2 import (
-            OPTIMIZER_TYPE_GEPA,
-            OPTIMIZER_TYPE_METAPROMPT,
-            OPTIMIZER_TYPE_UNSPECIFIED,
-        )
-        from mlflow.protos.prompt_optimization_pb2 import (
-            OptimizerType as ProtoOptimizerType,
-        )
-
         if proto_value == OPTIMIZER_TYPE_UNSPECIFIED:
             supported_types = [
                 name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
