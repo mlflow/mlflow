@@ -237,59 +237,53 @@ export const GenAiTracesTableBody = React.memo(
       },
     );
 
-    const getRowSelectionChangeHandler = useCallback(
-      (row: Row<EvalTraceComparisonEntry>) => {
+    const rowSelectionChangeHandler = useCallback(
+      (row: Row<EvalTraceComparisonEntry>, event: unknown) => {
         const defaultHandler = row.getToggleSelectedHandler();
+        const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
+        const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+        const currentSelectionState = table.getState().rowSelection ?? {};
+        const isDeselecting = row.getIsSelected();
+        const isOnlySelectedRow =
+          isDeselecting && Object.keys(currentSelectionState).length === 1 && currentSelectionState[row.id];
 
-        return (event: unknown) => {
-          if (!enableRowSelection) {
-            defaultHandler(event);
-            return;
+        if (!isShiftPressed || !lastSelectedRowIdRef.current) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const allRows = table.getRowModel().rows;
+        const anchorIndex = allRows.findIndex((tableRow) => tableRow.id === lastSelectedRowIdRef.current);
+        const currentIndex = allRows.findIndex((tableRow) => tableRow.id === row.id);
+
+        if (anchorIndex === -1 || currentIndex === -1) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const [start, end] = anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+        const updatedSelection: RowSelectionState = { ...currentSelectionState };
+
+        for (let index = start; index <= end; index += 1) {
+          const targetRow = allRows[index];
+
+          if (!targetRow.getCanSelect()) {
+            continue;
           }
 
-          const safeEvent = event as Event;
-          const eventWithShiftKey = safeEvent as KeyboardEvent & MouseEvent;
-          const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
-          const currentSelectionState = table.getState().rowSelection ?? {};
-
-          if (!isShiftPressed || !lastSelectedRowIdRef.current) {
-            defaultHandler(event);
-            lastSelectedRowIdRef.current = row.id;
-            return;
+          if (isDeselecting) {
+            delete updatedSelection[targetRow.id];
+          } else {
+            updatedSelection[targetRow.id] = true;
           }
+        }
 
-          const allRows = table.getRowModel().rows;
-          const anchorIndex = allRows.findIndex((tableRow) => tableRow.id === lastSelectedRowIdRef.current);
-          const currentIndex = allRows.findIndex((tableRow) => tableRow.id === row.id);
-
-          if (anchorIndex === -1 || currentIndex === -1) {
-            defaultHandler(event);
-            lastSelectedRowIdRef.current = row.id;
-            return;
-          }
-
-          const [start, end] = anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
-          const updatedSelection: RowSelectionState = { ...currentSelectionState };
-
-          for (let index = start; index <= end; index += 1) {
-            const targetRow = allRows[index];
-
-            if (!targetRow.getCanSelect()) {
-              continue;
-            }
-
-            if (row.getIsSelected()) {
-              delete updatedSelection[targetRow.id];
-            } else {
-              updatedSelection[targetRow.id] = true;
-            }
-          }
-
-          table.setRowSelection(updatedSelection);
-          lastSelectedRowIdRef.current = row.id;
-        };
+        table.setRowSelection(updatedSelection);
+        lastSelectedRowIdRef.current = Object.keys(updatedSelection).length === 0 ? null : row.id;
       },
-      [enableRowSelection, table],
+      [table],
     );
 
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
@@ -307,17 +301,6 @@ export const GenAiTracesTableBody = React.memo(
         setSelectedRowIds(table.getSelectedRowModel().rows.map((r) => r.id));
       }
     }, [table, rowSelection, setSelectedRowIds, enableRowSelection]);
-
-    useEffect(() => {
-      if (!enableRowSelection) {
-        lastSelectedRowIdRef.current = null;
-        return;
-      }
-
-      if (!rowSelection || Object.keys(rowSelection).length === 0) {
-        lastSelectedRowIdRef.current = null;
-      }
-    }, [rowSelection, enableRowSelection]);
 
     // When the table is empty.
     const emptyDescription = intl.formatMessage({
@@ -518,7 +501,7 @@ export const GenAiTracesTableBody = React.memo(
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
-                getRowSelectionChangeHandler={getRowSelectionChangeHandler}
+                rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             )}
           </Table>

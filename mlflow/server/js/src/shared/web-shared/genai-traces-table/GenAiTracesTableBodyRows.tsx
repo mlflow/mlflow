@@ -19,7 +19,7 @@ interface GenAiTracesTableBodyRowsProps {
   // eslint-disable-next-line react/no-unused-prop-types
   rowSelectionState: RowSelectionState | undefined;
   selectedColumns: TracesTableColumn[];
-  getRowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>) => (event: unknown) => void;
+  rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
 }
 
 export const GenAiTracesTableBodyRows = React.memo(
@@ -32,7 +32,7 @@ export const GenAiTracesTableBodyRows = React.memo(
     virtualizerTotalSize,
     virtualizerMeasureElement,
     selectedColumns,
-    getRowSelectionChangeHandler,
+    rowSelectionChangeHandler,
   }: GenAiTracesTableBodyRowsProps) => {
     return (
       <div
@@ -64,7 +64,7 @@ export const GenAiTracesTableBodyRows = React.memo(
                 isSelected={enableRowSelection ? row.getIsSelected() : undefined}
                 isComparing={isComparing}
                 selectedColumns={selectedColumns}
-                getRowSelectionChangeHandler={getRowSelectionChangeHandler}
+                rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             </div>
           );
@@ -87,7 +87,7 @@ export const GenAiTracesTableBodyRow = React.memo(
     isSelected,
     // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
-    getRowSelectionChangeHandler,
+    rowSelectionChangeHandler,
   }: {
     row: Row<EvalTraceComparisonEntry>;
     exportableTrace?: boolean;
@@ -95,14 +95,13 @@ export const GenAiTracesTableBodyRow = React.memo(
     isComparing: boolean;
     isSelected?: boolean;
     selectedColumns: TracesTableColumn[];
-    getRowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>) => (event: unknown) => void;
+    rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
   }) => {
     const cells = row.getVisibleCells();
     const intl = useIntl();
-    const rowSelectHandler = React.useMemo(
-      () => (getRowSelectionChangeHandler ? getRowSelectionChangeHandler(row) : row.getToggleSelectedHandler()),
-      [getRowSelectionChangeHandler, row],
-    );
+    const rowSelectHandler = rowSelectionChangeHandler
+      ? (event: unknown) => rowSelectionChangeHandler(row, event)
+      : row.getToggleSelectedHandler();
     return (
       <>
         <TableRow>
