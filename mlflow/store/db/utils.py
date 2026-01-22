@@ -24,12 +24,6 @@ from sqlalchemy.pool import (
     StaticPool,
 )
 
-# FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
-try:
-    from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
-except ImportError:
-    FallbackAsyncAdaptedQueuePool = None
-
 from mlflow.environment_variables import (
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
@@ -360,9 +354,12 @@ def create_sqlalchemy_engine(db_uri):
             "SingletonThreadPool": SingletonThreadPool,
             "StaticPool": StaticPool,
         }
-        # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
-        if FallbackAsyncAdaptedQueuePool is not None:
+        try:
+            from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
+
             pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
+        except ImportError:
+            pass
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
