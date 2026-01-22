@@ -1,5 +1,6 @@
 import argparse
 import concurrent.futures
+import itertools
 import os
 import re
 import subprocess
@@ -9,8 +10,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
-
-GRAPHQL_URL = "https://api.github.com/graphql"
 
 
 def get_token() -> str | None:
@@ -64,7 +63,7 @@ def get_commit_count(branch: str, since: str) -> int:
     }
     """
     response = requests.post(
-        GRAPHQL_URL,
+        "https://api.github.com/graphql",
         json={"query": query, "variables": {"branch": branch, "since": since}},
         headers=get_headers(),
     )
@@ -94,8 +93,7 @@ def get_commits(branch: str) -> list[Commit]:
     total_pages = (total_count + per_page - 1) // per_page
     print(f"Total commits: {total_count}, fetching {total_pages} page(s)...")
 
-    def fetch_page(page: int) -> tuple[int, list[Commit]]:
-        """Fetch a single page of commits and return with page number to maintain order."""
+    def fetch_page(page: int) -> list[Commit]:
         print(f"Fetching page {page}/{total_pages}...")
         params: dict[str, str | int] = {
             "sha": branch,
@@ -109,28 +107,18 @@ def get_commits(branch: str) -> list[Commit]:
             headers=get_headers(),
         )
         response.raise_for_status()
-        data = response.json()
-        page_commits = []
-        for item in data:
+        commits = []
+        for item in response.json():
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
-                page_commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
-        return (page, page_commits)
+                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
+        return commits
 
-    # Fetch all pages in parallel (limit concurrent requests to avoid rate limits)
-    page_results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(fetch_page, page): page for page in range(1, total_pages + 1)}
-        for future in concurrent.futures.as_completed(futures):
-            page_results.append(future.result())  # noqa: PERF401
+    # Fetch all pages in parallel. executor.map preserves order.
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = executor.map(fetch_page, range(1, total_pages + 1))
 
-    # Sort by page number to maintain original order
-    page_results.sort(key=lambda x: x[0])
-    commits = []
-    for _, page_commits in page_results:
-        commits.extend(page_commits)
-
-    return commits
+    return list(itertools.chain.from_iterable(results))
 
 
 @dataclass(frozen=True)
