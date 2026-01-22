@@ -78,7 +78,7 @@ mlflow.set_tracking_uri("{tracking_uri}")
 
 ## User Context
 
--The user has already installed MLflow and is working within the MLflow UI. Never instruct the
+The user has already installed MLflow and is working within the MLflow UI. Never instruct the
 user to install MLflow or start the MLflow UI/server - these are already set up and running.
 Under normal conditions, never verify that the server is running; if the user is using the
 MLflow UI, the server is clearly operational. Only check server status when debugging or
