@@ -69,6 +69,8 @@ class SpanAttributeKey:
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
+    # This attribute stores the model name extracted from span inputs/attributes.
+    MODEL = "mlflow.model"
     # This attribute indicates which flavor/format generated the LLM span. This is
     # used by downstream (e.g., UI) to determine the message format for parsing.
     MESSAGE_FORMAT = "mlflow.message.format"
