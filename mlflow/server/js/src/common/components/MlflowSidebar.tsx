@@ -8,10 +8,13 @@ import {
   HomeIcon,
   ModelsIcon,
   PlusIcon,
+  SegmentedControlGroup,
+  SegmentedControlButton,
   TextBoxIcon,
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
+  Typography,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
@@ -29,6 +32,8 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
+import { shouldEnableWorkflowBasedNavigation } from '../utils/FeatureUtils';
 
 const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 const isExperimentsActive = (location: Location) =>
@@ -44,6 +49,8 @@ export function MlflowSidebar() {
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
   const viewId = useMemo(() => uuidv4(), []);
+  const { workflowType, setWorkflowType } = useWorkflowType();
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
@@ -145,7 +152,7 @@ export function MlflowSidebar() {
   return (
     <aside
       css={{
-        width: 200,
+        width: enableWorkflowBasedNavigation ? 230 : 200,
         flexShrink: 0,
         padding: theme.spacing.sm,
         display: 'inline-flex',
@@ -153,6 +160,44 @@ export function MlflowSidebar() {
         gap: theme.spacing.md,
       }}
     >
+      {enableWorkflowBasedNavigation && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Title level={4} withoutMargins color="info" css={{ textTransform: 'uppercase' }}>
+            <FormattedMessage
+              defaultMessage="Workflow type"
+              description="Label for the workflow type selector in the sidebar"
+            />
+          </Typography.Title>
+          <SegmentedControlGroup
+            value={workflowType}
+            onChange={(e) => {
+              if (e.target.value) {
+                setWorkflowType(e.target.value as WorkflowType);
+              }
+            }}
+            name="workflow-type-selector"
+            componentId="mlflow.sidebar.workflow_type_selector"
+            css={{ width: '100%', display: 'flex' }}
+          >
+            <SegmentedControlButton value={WorkflowType.GENAI}>
+              <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
+            </SegmentedControlButton>
+            <SegmentedControlButton value={WorkflowType.MACHINE_LEARNING} css={{ whiteSpace: 'nowrap' }}>
+              <FormattedMessage
+                defaultMessage="Machine Learning"
+                description="Label for Machine Learning workflow type option"
+              />
+            </SegmentedControlButton>
+          </SegmentedControlGroup>
+        </div>
+      )}
+
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
           <Button componentId="mlflow.sidebar.new_button" icon={<PlusIcon />}>

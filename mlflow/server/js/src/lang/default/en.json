@@ -2022,6 +2022,10 @@
     "defaultMessage": "An error occurred while rendering chat sessions.",
     "description": "Description for default error message in the MLflow experiment chat sessions page"
   },
+  "DCC164": {
+    "defaultMessage": "GenAI",
+    "description": "Label for GenAI workflow type option"
+  },
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
@@ -4919,6 +4923,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "amFk5F": {
+    "defaultMessage": "Workflow type",
+    "description": "Label for the workflow type selector in the sidebar"
+  },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
     "description": "Home page quick action description for registering prompts"
@@ -5166,6 +5174,10 @@
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
+  },
+  "cSEpGa": {
+    "defaultMessage": "Machine Learning",
+    "description": "Label for Machine Learning workflow type option"
   },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
