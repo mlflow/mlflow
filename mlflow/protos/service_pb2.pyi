@@ -1596,6 +1596,21 @@ class UpsertDatasetRecords(_message.Message):
     updated_by: str
     def __init__(self, dataset_id: _Optional[str] = ..., records: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
 
+class DeleteDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "dataset_record_ids", "deleted_by")
+    class Response(_message.Message):
+        __slots__ = ("deleted_count",)
+        DELETED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        deleted_count: int
+        def __init__(self, deleted_count: _Optional[int] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_RECORD_IDS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_BY_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    dataset_record_ids: _containers.RepeatedScalarFieldContainer[str]
+    deleted_by: str
+    def __init__(self, dataset_id: _Optional[str] = ..., dataset_record_ids: _Optional[_Iterable[str]] = ..., deleted_by: _Optional[str] = ...) -> None: ...
+
 class GetDatasetExperimentIds(_message.Message):
     __slots__ = ("dataset_id",)
     class Response(_message.Message):

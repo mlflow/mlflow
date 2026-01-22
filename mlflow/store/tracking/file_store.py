@@ -2875,3 +2875,28 @@ class FileStore(AbstractStore):
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )
+    
+    @filestore_not_supported
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+        deleted_by: str | None = None,
+    ) -> int:
+        """
+        Delete dataset records by their IDs.
+
+        Note: This feature is not supported in FileStore.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+            deleted_by: Optional user who is performing the deletion.
+
+        Returns:
+            Number of records deleted.
+
+        Raises:
+            MlflowException: Always raises, as this feature is not supported in FileStore.
+        """
+        pass
