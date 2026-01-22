@@ -12,7 +12,7 @@ import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experime
 import { useUserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 
 /**
  * Temporary "in construction" placeholder box, to be removed after implementing the actual content.
@@ -64,6 +64,9 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
 
   const experimentLoadError = experimentApiError ?? experimentApolloError;
 
+  const experiment = experimentData;
+  const experimentKind = useExperimentKind(experiment?.tags);
+
   const renderSelectedTab = () => {
     if (loggedModelLoading) {
       return <TableSkeleton lines={12} />;
@@ -73,8 +76,6 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     if (!loggedModel) {
       return null;
     }
-
-    const experiment = experimentData;
 
     if (tabName === 'traces') {
       return (
@@ -87,8 +88,6 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     } else if (tabName === 'artifacts') {
       return <ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />;
     }
-
-    const experimentKind = getExperimentKindFromTags(experiment?.tags);
 
     return (
       <ExperimentLoggedModelDetailsOverview

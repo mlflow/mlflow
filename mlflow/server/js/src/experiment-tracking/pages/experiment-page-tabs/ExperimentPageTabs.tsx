@@ -15,7 +15,7 @@ import {
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
@@ -61,11 +61,11 @@ const ExperimentPageTabsImpl = () => {
   const experimentTags = experiment && 'tags' in experiment ? experiment?.tags : [];
   const canUpdateExperimentKind = true;
 
-  const experimentKind = getExperimentKindFromTags(experimentTags);
+  const experimentKind = useExperimentKind(experimentTags);
   // We won't try to infer the experiment kind if it's already set, but we also wait for experiment to load
   const isExperimentKindInferenceEnabled = Boolean(experiment && !experimentKind);
-  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
   const shouldShowExperimentPageSideTabs = shouldEnableExperimentPageSideTabs();
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   const {
     inferredExperimentKind,
@@ -103,7 +103,11 @@ const ExperimentPageTabsImpl = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId, inferredExperimentPageTab]);
 
-  if (inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE && canUpdateExperimentKind) {
+  if (
+    !enableWorkflowBasedNavigation &&
+    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
+    canUpdateExperimentKind
+  ) {
     return (
       <ExperimentViewInferredKindModal
         onConfirm={(kind) => {
@@ -163,14 +167,16 @@ const ExperimentPageTabsImpl = () => {
         inferredExperimentKind={inferredExperimentKind}
         refetchExperiment={refetchExperiment}
         experimentKindSelector={
-          <ExperimentViewHeaderKindSelector
-            value={experimentKind}
-            inferredExperimentKind={inferredExperimentKind}
-            onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-            isUpdating={updatingExperimentKind || inferringExperimentType}
-            key={inferredExperimentKind}
-            readOnly={!canUpdateExperimentKind}
-          />
+          !enableWorkflowBasedNavigation ? (
+            <ExperimentViewHeaderKindSelector
+              value={experimentKind}
+              inferredExperimentKind={inferredExperimentKind}
+              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+              isUpdating={updatingExperimentKind || inferringExperimentType}
+              key={inferredExperimentKind}
+              readOnly={!canUpdateExperimentKind}
+            />
+          ) : null
         }
       />
       {!shouldShowExperimentPageSideTabs && (
