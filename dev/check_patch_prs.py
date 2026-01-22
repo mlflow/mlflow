@@ -10,17 +10,23 @@ from typing import Any
 import requests
 
 
-def get_headers() -> dict[str, str]:
+def get_token() -> str | None:
     if token := os.environ.get("GH_TOKEN"):
-        return {"Authorization": f"token {token}"}
+        return token
     try:
         token = subprocess.check_output(
             ["gh", "auth", "token"], text=True, stderr=subprocess.DEVNULL
         ).strip()
         if token:
-            return {"Authorization": f"token {token}"}
+            return token
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
+    return None
+
+
+def get_headers() -> dict[str, str]:
+    if token := get_token():
+        return {"Authorization": f"token {token}"}
     return {}
 
 
