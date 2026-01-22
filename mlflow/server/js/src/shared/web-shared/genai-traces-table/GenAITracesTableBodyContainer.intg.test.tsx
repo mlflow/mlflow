@@ -1,5 +1,6 @@
 import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -199,6 +200,39 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     expect(screen.getByText('Hello world 2')).toBeInTheDocument();
     expect(screen.getByText('trace-1')).toBeInTheDocument();
     expect(screen.getByText('trace-2')).toBeInTheDocument();
+  });
+
+  it('supports selecting a range of traces with Shift+click', async () => {
+    const traceInfos = [
+      createTestTraceInfoV3('trace-1', 'request-1', 'Hello world 1', [], testExperimentId),
+      createTestTraceInfoV3('trace-2', 'request-2', 'Hello world 2', [], testExperimentId),
+      createTestTraceInfoV3('trace-3', 'request-3', 'Hello world 3', [], testExperimentId),
+    ];
+
+    renderTestComponent(traceInfos, [], { compareToRunUuid: undefined, compareToRunDisplayName: undefined });
+
+    await waitForViewToBeReady();
+
+    const user = userEvent.setup();
+    const allCheckboxes = screen.getAllByRole('checkbox');
+
+    // Expect 4 checkboxes: 1 "Select All" + 3 row checkboxes
+    expect(allCheckboxes).toHaveLength(4);
+
+    // rowCheckboxes[0] is "Select All", rowCheckboxes[1-3] are row checkboxes
+    // Click first row checkbox to set anchor
+    await user.click(allCheckboxes[1]);
+    // Shift+click third row checkbox to select range
+    await user.keyboard('{Shift>}');
+    await user.click(allCheckboxes[3]);
+    await user.keyboard('{/Shift}');
+
+    // All row checkboxes (indices 1, 2, 3) should be checked
+    expect(allCheckboxes[1]).toBeChecked();
+    expect(allCheckboxes[2]).toBeChecked();
+    expect(allCheckboxes[3]).toBeChecked();
+    // "Select All" checkbox should also be checked since all rows are selected
+    expect(allCheckboxes[0]).toBeChecked();
   });
 
   it('renders table with comparison data', async () => {
