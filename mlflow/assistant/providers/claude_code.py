@@ -76,6 +76,15 @@ relevant pages to get more information.
 
 IMPORTANT: When accessing documentation pages or returning documentation links to users, always use
 the latest version URL (https://mlflow.org/docs/latest/...) instead of version-specific URLs.
+
+IMPORTANT: When presenting information from documentation, you MUST adapt it to the user's
+context (see "User Context" section above). Always consider what the user already has set up
+and running. For example:
+- Do NOT tell the user to install MLflow - it is already installed.
+- Do NOT tell the user to start the MLflow server or UI - they are already running.
+- Do NOT tell the user to open a browser to view the MLflow UI - they are already using it.
+- Skip any setup/installation steps that are already complete for this user.
+Focus on the substantive content that is relevant to the user's actual question.
 """
 
 
