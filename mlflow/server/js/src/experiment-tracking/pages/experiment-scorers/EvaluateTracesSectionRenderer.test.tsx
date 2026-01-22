@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { IntlProvider } from '@databricks/i18n';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { useForm } from 'react-hook-form';
@@ -26,12 +27,12 @@ describe('EvaluateTracesSectionRenderer', () => {
 
     it('should show section when disableMonitoring is false', () => {
       render(<TestWrapper defaultValues={{ disableMonitoring: false, sampleRate: 0 }} />);
-      expect(screen.getByText(/Automatically evaluate traces using this judge/i)).toBeInTheDocument();
+      expect(screen.getByText(/Automatically evaluate new traces using this scorer/i)).toBeInTheDocument();
     });
   });
 
   describe('Filter box for different evaluation scopes', () => {
-    it('should show filter input with session-specific help text when evaluationScope is SESSIONS', () => {
+    it('should show filter input with session-specific help text when evaluationScope is SESSIONS', async () => {
       render(
         <TestWrapper
           defaultValues={{
@@ -41,11 +42,14 @@ describe('EvaluateTracesSectionRenderer', () => {
         />,
       );
 
+      // Click the Advanced settings toggle to reveal filter fields
+      await userEvent.click(screen.getByText(/Advanced settings/i));
+
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
       expect(screen.getByText(/Filter applies to the first trace in each session/i)).toBeInTheDocument();
     });
 
-    it('should show filter input with trace-specific help text when evaluationScope is TRACES', () => {
+    it('should show filter input with trace-specific help text when evaluationScope is TRACES', async () => {
       render(
         <TestWrapper
           defaultValues={{
@@ -54,6 +58,9 @@ describe('EvaluateTracesSectionRenderer', () => {
           }}
         />,
       );
+
+      // Click the Advanced settings toggle to reveal filter fields
+      await userEvent.click(screen.getByText(/Advanced settings/i));
 
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
       expect(screen.getByText(/Only run on traces matching this filter/i)).toBeInTheDocument();
@@ -68,7 +75,7 @@ describe('EvaluateTracesSectionRenderer', () => {
       expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
     });
 
-    it('should show sample rate and filter when sampleRate > 0', () => {
+    it('should show sample rate and filter when sampleRate > 0', async () => {
       render(
         <TestWrapper
           defaultValues={{
@@ -77,6 +84,9 @@ describe('EvaluateTracesSectionRenderer', () => {
           }}
         />,
       );
+
+      // Click the Advanced settings toggle to reveal sample rate and filter fields
+      await userEvent.click(screen.getByText(/Advanced settings/i));
 
       expect(screen.getByText(/Sample rate/i)).toBeInTheDocument();
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
