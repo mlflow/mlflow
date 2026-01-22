@@ -289,7 +289,7 @@ To get reliable scorers, iterative refinement is necessary. [Tracking scorer ver
 
 ## Optimizing Instructions with Human Feedback
 
-LLMs have biases and errors. Relying on biased evaluation will lead to incorrect decision making. Use [Automatic Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) feature to optimize the instruction to align with human feedback, powered by the state-of-the-art algorithm from [DSPy](https://dspy.ai/).
+LLMs have biases and errors. Relying on biased evaluation will lead to incorrect decision making. Use [Automatic Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) to optimize instructions using human feedback, powered by the state-of-the-art [SIMBA algorithm from DSPy](https://dspy.ai/api/optimizers/SIMBA/). For rapid iteration during development, the experimental [**MemAlign**](/genai/eval-monitor/scorers/llm-judge/memalign) optimizer achieves competitive quality with up to 100× faster and 10× cheaper alignment using just a handful of examples.
 
 ## Next Steps
 
