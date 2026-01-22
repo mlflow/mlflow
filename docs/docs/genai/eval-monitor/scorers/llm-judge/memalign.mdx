@@ -37,9 +37,9 @@ MemAlign is an experimental optimizer. The API may change in future releases.
 
 For alignment to work:
 
-- Each trace must have BOTH judge assessments AND human feedback **with the same assessment name**
-- The assessment name must exactly match the judge name
-- A mix of agreements and disagreements between judge and human is recommended
+- Traces must contain human assessments (labels) with the same name as the judge
+- Natural language feedback (rationale) is highly recommended for better alignment
+- A mix of positive and negative labels is recommended
 
 ## How MemAlign Works
 
@@ -90,7 +90,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 |-----------|------|---------|-------------|
 | `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. We recommend using a stronger model for better guideline extraction. |
 | `retrieval_k` | `int` | `5` | Number of relevant examples to retrieve from episodic memory during inference. |
-| `embedding_model` | `str` | `None` | Optional custom embedding model for episodic memory retrieval. Uses default embeddings if not specified. |
+| `embedding_model` | `str` | `"openai/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>/<model-name>` format. |
 
 ## Inspecting Learned Knowledge
 

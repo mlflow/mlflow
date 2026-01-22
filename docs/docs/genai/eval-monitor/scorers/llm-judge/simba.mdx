@@ -8,10 +8,10 @@ MLflow provides the **default alignment optimizer** using [DSPy's implementation
 
 For alignment to work:
 
-- Each trace must have BOTH judge assessments AND human feedback **with the same assessment name**
-- The assessment name must exactly match the judge name
-- Minimum of 10 traces with both judge and human assessments required
-- A mix of agreements and disagreements between judge and human is recommended
+- Traces must contain human assessments (labels) with the same name as the judge
+- Natural language feedback (rationale) is highly recommended for better alignment
+- Minimum of 10 traces with human assessments required
+- A mix of positive and negative labels is recommended
 
 ## Basic Usage
 
