@@ -195,6 +195,16 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
     return df
 
 
+def _deserialize_trace(t):
+    match t:
+        case str():
+            return Trace.from_json(t)
+        case dict():
+            return Trace.from_dict(t)
+        case _:
+            return t
+
+
 def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     """
     Deserialize the `trace` column from the dataframe if it is a string or dict.
@@ -207,19 +217,8 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     to pandas via .toPandas(), the trace column becomes a dict. This function handles
     that case as well by calling Trace.from_dict().
     """
-    if "trace" not in df.columns:
-        return df
-
-    def deserialize_trace(t):
-        if isinstance(t, Trace):
-            return t
-        if isinstance(t, str):
-            return Trace.from_json(t)
-        if isinstance(t, dict):
-            return Trace.from_dict(t)
-        return t
-
-    df["trace"] = df["trace"].apply(deserialize_trace)
+    if "trace" in df.columns:
+        df["trace"] = df["trace"].apply(_deserialize_trace)
     return df
 
 
