@@ -44,6 +44,7 @@ The following example shows how to combine MLflow's OpenAI auto-tracing with Ope
 ```python
 import os
 import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from openai import OpenAI
@@ -57,7 +58,9 @@ os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("FastAPI")
+    exp_id = mlflow.set_experiment("FastAPI")
+    # this ensures mlflow spans and FastAPI instrumentation spans are combined
+    mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
     mlflow.openai.autolog()
     yield
 
