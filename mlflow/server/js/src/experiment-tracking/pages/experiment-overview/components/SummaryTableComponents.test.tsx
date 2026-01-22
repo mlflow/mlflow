@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderHook, act } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { useSortState, SortableHeader, NameCellWithColor, useSummaryTableStyles } from './SummaryTableComponents';
+import { useSortState, SortableHeader, LinkableNameCell, useSummaryTableStyles } from './SummaryTableComponents';
 
 // Wrapper for hooks that need DesignSystemProvider
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -136,15 +136,56 @@ describe('SummaryTableComponents', () => {
     });
   });
 
-  describe('NameCellWithColor', () => {
-    it('should render name with color indicator', () => {
+  describe('LinkableNameCell', () => {
+    it('should render name with color indicator as clickable', () => {
       renderWithIntl(
         <DesignSystemProvider>
-          <NameCellWithColor name="test_tool" color="#ff0000" />
+          <LinkableNameCell name="test_item" color="#00ff00" scrollToElementId="test-element" />
         </DesignSystemProvider>,
       );
 
-      expect(screen.getByText('test_tool')).toBeInTheDocument();
+      expect(screen.getByText('test_item')).toBeInTheDocument();
+      expect(screen.getByRole('button')).toBeInTheDocument();
+    });
+
+    it('should scroll to element when clicked', async () => {
+      const mockElement = document.createElement('div');
+      mockElement.id = 'scroll-target';
+      mockElement.scrollIntoView = jest.fn();
+      document.body.appendChild(mockElement);
+
+      renderWithIntl(
+        <DesignSystemProvider>
+          <LinkableNameCell name="clickable_item" color="#0000ff" scrollToElementId="scroll-target" />
+        </DesignSystemProvider>,
+      );
+
+      await userEvent.click(screen.getByRole('button'));
+
+      expect(mockElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+      document.body.removeChild(mockElement);
+    });
+
+    it('should scroll to element on Enter key', async () => {
+      const mockElement = document.createElement('div');
+      mockElement.id = 'keyboard-target';
+      mockElement.scrollIntoView = jest.fn();
+      document.body.appendChild(mockElement);
+
+      renderWithIntl(
+        <DesignSystemProvider>
+          <LinkableNameCell name="keyboard_item" color="#ff00ff" scrollToElementId="keyboard-target" />
+        </DesignSystemProvider>,
+      );
+
+      const button = screen.getByRole('button');
+      button.focus();
+      await userEvent.keyboard('{Enter}');
+
+      expect(mockElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+      document.body.removeChild(mockElement);
     });
   });
 
