@@ -7,8 +7,13 @@ import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    _sanitize_path_component_for_windows,
+    _sanitize_path_for_windows,
+)
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.os import is_windows
 
 from tests.utils.test_logging_utils import logger, reset_logging_level  # noqa F401
 
@@ -247,3 +252,102 @@ def test_download_artifacts_provides_traceback_info(debug, reset_logging_level):
                 assert "Traceback" in err_msg
             else:
                 assert "Traceback" not in err_msg
+
+
+@pytest.mark.parametrize(
+    ("input_path", "expected_output"),
+    [
+        ("simple/path", "simple/path"),
+        ("path/with:colon", "path/with_colon"),
+        ("path/with<bracket", "path/with_bracket"),
+        ("path/with>bracket", "path/with_bracket"),
+        ('path/with"quote', "path/with_quote"),
+        ("path/with|pipe", "path/with_pipe"),
+        ("path/with?question", "path/with_question"),
+        ("path/with*asterisk", "path/with_asterisk"),
+        ("multiple:invalid<chars>in|path?", "multiple_invalid_chars_in_path_"),
+        ("Subagent BonzaiSubAgent: Admin Area", "Subagent BonzaiSubAgent_ Admin Area"),
+        # Test paths with spaces (should be preserved)
+        ("path /with spaces", "path /with spaces"),
+        ("leading / space", "leading / space"),
+        ("trailing/ space", "trailing/ space"),
+        ("spans/Component: Name /Other", "spans/Component_ Name /Other"),
+    ],
+)
+def test_sanitize_path_for_windows(input_path, expected_output):
+    result = _sanitize_path_for_windows(input_path)
+    if is_windows():
+        assert result == expected_output
+    else:
+        assert result == input_path
+
+
+def test_sanitize_path_component_for_windows():
+    if is_windows():
+        assert _sanitize_path_component_for_windows("file:name") == "file_name"
+        assert _sanitize_path_component_for_windows("simple") == "simple"
+        assert _sanitize_path_component_for_windows("multi<>:|?*chars") == "multi______chars"
+    else:
+        assert _sanitize_path_component_for_windows("file:name") == "file:name"
+
+
+def test_create_download_destination_sanitizes_windows_paths():
+    class TestRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            pass
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            pass
+
+        def list_artifacts(self, path):
+            pass
+
+        def _download_file(self, remote_file_path, local_path):
+            pass
+
+    with TempDir() as tmp:
+        repo = TestRepo("test://")
+        artifact_path = "spans/Subagent placeholder name: placeholder name"
+        result = repo._create_download_destination(artifact_path, tmp.path())
+
+        if is_windows():
+            # Verify the path uses backslashes and has sanitized the colon
+            assert ":" not in result.split(tmp.path())[1]  # Check only the artifact part
+            assert "\\" in result or "/" not in result  # Should use backslashes on Windows
+        # The file should always be created successfully regardless of platform
+        assert result.startswith(tmp.path())
+
+
+def test_create_download_destination_prevents_path_traversal():
+    """Test that path traversal attacks are prevented."""
+
+    class TestRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            pass
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            pass
+
+        def list_artifacts(self, path):
+            pass
+
+        def _download_file(self, remote_file_path, local_path):
+            pass
+
+    with TempDir() as tmp:
+        repo = TestRepo("test://")
+
+        # Test various path traversal attempts
+        malicious_paths = [
+            "../../../etc/passwd",
+            "../../etc/passwd",
+            "../sensitive",
+            "subdir/../../etc/passwd",
+        ]
+
+        for malicious_path in malicious_paths:
+            with pytest.raises(
+                MlflowException,
+                match="Invalid artifact path.*",
+            ):
+                repo._create_download_destination(malicious_path, tmp.path())
