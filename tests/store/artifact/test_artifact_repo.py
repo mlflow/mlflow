@@ -104,6 +104,18 @@ def test_download_artifacts_download_file():
         repo.download_artifacts(_MODEL_FILE)
 
 
+def test_download_artifacts_empty_root_returns_dst_path(tmp_path):
+    with (
+        mock.patch.object(ArtifactRepositoryImpl, "list_artifacts", return_value=[]),
+        mock.patch.object(ArtifactRepositoryImpl, "_download_file") as download_mock,
+    ):
+        repo = ArtifactRepositoryImpl(_PARENT_DIR)
+        result = repo.download_artifacts("", dst_path=tmp_path)
+
+        assert result == str(tmp_path)
+        download_mock.assert_not_called()
+
+
 def test_download_artifacts_dst_path_does_not_exist(tmp_path):
     repo = ArtifactRepositoryImpl(_PARENT_DIR)
     dst_path = tmp_path.joinpath("does_not_exist")

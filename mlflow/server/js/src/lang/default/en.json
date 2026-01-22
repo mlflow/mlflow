@@ -279,6 +279,10 @@
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
   },
+  "/yjgDc": {
+    "defaultMessage": "{formattedAverage} (AVG)",
+    "description": "Label showing the average value of numeric assessments"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -342,6 +346,10 @@
   "0XZ2zu": {
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
+  },
+  "0eoz8L": {
+    "defaultMessage": "Hour",
+    "description": "Time unit: hour"
   },
   "0gGMZm": {
     "defaultMessage": "Name",
@@ -681,10 +689,6 @@
   "3YddwH": {
     "defaultMessage": "Traffic split percentages must total 100%",
     "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
-  },
-  "3Z6K+n": {
-    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace.",
-    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example."
   },
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
@@ -1330,6 +1334,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8Pb2Gx": {
+    "defaultMessage": "PASS",
+    "description": "Label for an aggregate display showing how many assessments have passed or failed"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1474,6 +1482,10 @@
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
   },
+  "9UmYIH": {
+    "defaultMessage": "Month",
+    "description": "Time unit: month"
+  },
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
@@ -1513,6 +1525,10 @@
   "9pJlQd": {
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
+  },
+  "9qUuQ6": {
+    "defaultMessage": "Average of {count} values",
+    "description": "Tooltip for numeric assessment average in session header"
   },
   "9tCd/m": {
     "defaultMessage": "AI Gateway",
@@ -1934,6 +1950,10 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
+  "Cj58gM": {
+    "defaultMessage": "Setup MLflow Assistant",
+    "description": "Title for the MLflow Assistant setup wizard"
+  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
@@ -2017,6 +2037,10 @@
   "DMOaoR": {
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
+  },
+  "DQ3XQT": {
+    "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
+    "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -2382,6 +2406,10 @@
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
   },
+  "HF6L/f": {
+    "defaultMessage": "Monitor quality metrics from scorers",
+    "description": "Empty state title for the quality tab in overview page"
+  },
   "HFavpn": {
     "defaultMessage": "Max input: {tokens}",
     "description": "Max input tokens"
@@ -2578,6 +2606,10 @@
     "defaultMessage": "Tokens per Trace",
     "description": "Title for the token stats chart"
   },
+  "ImBtKi": {
+    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
+    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -2585,6 +2617,10 @@
   "Isig6r": {
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
+  },
+  "J/srtP": {
+    "defaultMessage": "{count} {count, plural, one {value} other {values}}",
+    "description": "Tag showing the number of unique string values in session assessment"
   },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
@@ -2994,6 +3030,10 @@
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
   },
+  "MHWark": {
+    "defaultMessage": "Year",
+    "description": "Time unit: year"
+  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -3174,6 +3214,10 @@
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
   },
+  "NjTPKb": {
+    "defaultMessage": "Second",
+    "description": "Time unit: second"
+  },
   "NjV5NM": {
     "defaultMessage": "Search providers...",
     "description": "Search placeholder in provider modal"
@@ -3189,6 +3233,10 @@
   "Nm/Pjx": {
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
+  },
+  "NnO0Lz": {
+    "defaultMessage": "MLflow allows you to evaluate your GenAI applications using scorers. Scorers compute quality metrics like relevance, correctness, and custom assessments. Copy the code snippet below to run an evaluation, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the quality tab in overview page"
   },
   "Nnsm0p": {
     "defaultMessage": "All runs in this experiment have been filtered. Change or clear filters to view runs.",
@@ -3773,6 +3821,10 @@
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
   },
+  "Smixdu": {
+    "defaultMessage": "Day",
+    "description": "Time unit: day"
+  },
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
@@ -3840,6 +3892,10 @@
   "TLHzWu": {
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
+  },
+  "TLfh74": {
+    "defaultMessage": "Minute",
+    "description": "Time unit: minute"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -4219,10 +4275,6 @@
   "WM5IeI": {
     "defaultMessage": "Use \"Create prompt\" button in order to create a new prompt",
     "description": "Guidelines for the user on how to create a new prompt in the prompts list page"
-  },
-  "WNz02j": {
-    "defaultMessage": "For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing.",
-    "description": "Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
   },
   "WP1pyQ": {
     "defaultMessage": "Created by",
@@ -4910,6 +4962,10 @@
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
+  },
+  "bUdkau": {
+    "defaultMessage": "Try selecting a longer time range.",
+    "description": "Suggestion to select a longer time range"
   },
   "bXA79t": {
     "defaultMessage": "On",
@@ -6147,6 +6203,10 @@
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt modal"
   },
+  "ki5dBO": {
+    "defaultMessage": "Time Unit",
+    "description": "Label for time unit selector"
+  },
   "kjltRf": {
     "defaultMessage": "Click a cell to preview data",
     "description": "Run page > artifact view > logged table view > preview box > CTA"
@@ -7319,6 +7379,10 @@
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
   },
+  "tiQptW": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for GenAI evaluation"
+  },
   "tkAOSa": {
     "defaultMessage": "Custom expression",
     "description": "Experiment tracking > runs charts > line chart configuration > custom expression label"
@@ -7691,10 +7755,6 @@
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
   },
-  "x/rA/e": {
-    "defaultMessage": "Latency",
-    "description": "Column header for average latency"
-  },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
     "description": "Placeholder for stop sequences input"
@@ -7742,6 +7802,10 @@
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
+  },
+  "xRM/Eb": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Column header for average latency"
   },
   "xRw7H2": {
     "defaultMessage": "Created by",
@@ -7922,6 +7986,10 @@
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
     "description": "Description for outputs variable"
+  },
+  "yzf17M": {
+    "defaultMessage": "Some assessments are hidden by your time range filter: \"{filterLabel}\".",
+    "description": "Message shown when assessments are hidden by time filter"
   },
   "yzxYIm": {
     "defaultMessage": "Points:",

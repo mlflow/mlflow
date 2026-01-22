@@ -1,0 +1,179 @@
+from importlib import reload
+from unittest.mock import MagicMock, patch
+
+import dspy
+import pytest
+
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.optimizers import GEPAAlignmentOptimizer
+
+from tests.genai.judges.optimizers.conftest import create_mock_judge_invocator
+
+
+def test_dspy_optimize_no_dspy():
+    # Since dspy import is now at module level, we need to test this differently
+    # The error should be raised when importing the module, not when calling methods
+
+    def _reload_module():
+        import mlflow.genai.judges.optimizers.gepa as gepa_module
+
+        reload(gepa_module)
+
+    with patch.dict("sys.modules", {"dspy": None}):
+        with pytest.raises(MlflowException, match="DSPy library is required"):
+            _reload_module()
+
+
+def test_alignment_results(mock_judge, sample_traces_with_assessments):
+    mock_gepa = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
+    mock_compiled_program.signature.instructions = (
+        "Optimized instructions with {{inputs}} and {{outputs}}"
+    )
+    mock_gepa.compile.return_value = mock_compiled_program
+
+    with (
+        patch("dspy.GEPA", MagicMock(), create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
+        mock_gepa_class.return_value = mock_gepa
+        optimizer = GEPAAlignmentOptimizer()
+        # Mock get_min_traces_required to work with 5 traces from fixture
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
+
+    assert result is not None
+    assert result.model == mock_judge.model
+    # The judge instructions should include the optimized instructions
+    assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
+
+
+def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
+    mock_gepa = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
+    mock_compiled_program.signature.instructions = (
+        "Optimized instructions with {{inputs}} and {{outputs}}"
+    )
+    mock_gepa.compile.return_value = mock_compiled_program
+
+    with (
+        patch("dspy.GEPA", create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
+        mock_gepa_class.return_value = mock_gepa
+        optimizer = GEPAAlignmentOptimizer(
+            max_metric_calls=50,
+            gepa_kwargs={
+                "candidate_pool_size": 10,
+                "num_threads": 4,
+            },
+        )
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
+            optimizer.align(mock_judge, sample_traces_with_assessments)
+
+        # Verify GEPA was initialized with custom parameters
+        mock_gepa_class.assert_called_once()
+        call_kwargs = mock_gepa_class.call_args.kwargs
+        # max_metric_calls comes from the direct constructor parameter
+        assert call_kwargs["max_metric_calls"] == 50
+        # gepa_kwargs pass through non-critical parameters
+        assert call_kwargs["candidate_pool_size"] == 10
+        assert call_kwargs["num_threads"] == 4
+        # metric is controlled internally, not from gepa_kwargs
+        assert callable(call_kwargs["metric"])
+
+
+def test_default_parameters(mock_judge, sample_traces_with_assessments):
+    mock_gepa = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
+    mock_compiled_program.signature.instructions = (
+        "Optimized instructions with {{inputs}} and {{outputs}}"
+    )
+    mock_gepa.compile.return_value = mock_compiled_program
+
+    with (
+        patch("dspy.GEPA", create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
+        mock_gepa_class.return_value = mock_gepa
+        optimizer = GEPAAlignmentOptimizer()
+        with patch.object(GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5):
+            optimizer.align(mock_judge, sample_traces_with_assessments)
+
+        # Verify only required parameters are passed with defaults
+        mock_gepa_class.assert_called_once()
+        call_kwargs = mock_gepa_class.call_args.kwargs
+        assert "metric" in call_kwargs
+        assert "max_metric_calls" in call_kwargs
+        assert "reflection_lm" in call_kwargs
+        # Default is 4x number of examples (5 traces * 4 = 20)
+        assert call_kwargs["max_metric_calls"] == 20
+        assert len(call_kwargs) == 3  # metric, max_metric_calls, reflection_lm
+
+
+def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
+    try:
+        import dspy
+        from dspy.utils.dummies import DummyLM
+
+        if not hasattr(dspy, "GEPA"):
+            pytest.skip("dspy.GEPA not available in installed dspy version")
+    except ImportError:
+        pytest.skip("dspy not installed")
+
+    from mlflow.genai.judges.base import Judge
+
+    # Configure DummyLM with deterministic instruction proposals
+    # GEPA will request new instructions during reflection phase
+    dummy_lm = DummyLM(
+        [
+            "Carefully evaluate whether the {{outputs}} effectively addresses {{inputs}}",
+            "Assess if the {{outputs}} properly responds to the {{inputs}} query",
+            "Determine whether {{outputs}} satisfactorily answers {{inputs}}",
+            "Judge if {{outputs}} adequately resolves {{inputs}}",
+            "Evaluate the quality of {{outputs}} in addressing {{inputs}}",
+        ]
+    )
+
+    # Create optimizer with minimal budget for fast test
+    # Note: Using max_metric_calls=10 to give GEPA enough budget to actually
+    # run optimization iterations and modify instructions
+    optimizer = GEPAAlignmentOptimizer(
+        model="openai:/gpt-4o-mini",
+        max_metric_calls=10,
+    )
+
+    mock_invoke_judge_model = create_mock_judge_invocator()
+
+    with (
+        dspy.context(lm=dummy_lm),
+        patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            side_effect=mock_invoke_judge_model,
+        ) as mock_invoke,
+        patch.object(
+            GEPAAlignmentOptimizer, "get_min_traces_required", return_value=5
+        ) as mock_min_traces,
+    ):
+        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+
+    mock_invoke.assert_called()
+    mock_min_traces.assert_called_once_with()
+
+    # Verify optimization completed without errors
+    assert result is not None
+    assert isinstance(result, Judge)
+    assert result.name == mock_judge.name
+    assert result.model == mock_judge.model
+
+    # Verify instructions are valid
+    assert result.instructions is not None
+    assert len(result.instructions) > 0
+
+    # Verify input fields are referenced in instructions (either as template variables
+    # or in fields section). DummyLM returns instructions with {{inputs}} and {{outputs}},
+    # so fields section is not appended.
+    assert "inputs" in result.instructions
+    assert "outputs" in result.instructions
