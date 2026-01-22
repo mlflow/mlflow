@@ -2,29 +2,55 @@
  * Final step: Project configuration for MLflow Assistant setup.
  */
 
-import { useState, useCallback } from 'react';
-import { Typography, useDesignSystemTheme, Input, Checkbox } from '@databricks/design-system';
+import { useState, useCallback, useEffect } from 'react';
+import { Typography, useDesignSystemTheme, Input, Checkbox, Spinner } from '@databricks/design-system';
 
 import { updateConfig } from '../AssistantService';
+import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
 import { WizardFooter } from './WizardFooter';
-
-const COMPONENT_ID = 'mlflow.assistant.setup.project';
 
 interface SetupStepProjectProps {
   experimentId?: string;
   onBack: () => void;
   onComplete: () => void;
+  /** Custom label for the save/finish button */
+  nextLabel?: string;
+  /** Custom label for the back button */
+  backLabel?: string;
 }
 
-export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStepProjectProps) => {
+export const SetupStepProject = ({
+  experimentId,
+  onBack,
+  onComplete,
+  nextLabel = 'Finish',
+  backLabel,
+}: SetupStepProjectProps) => {
   const { theme } = useDesignSystemTheme();
+  const { config, isLoading: isLoadingConfig } = useAssistantConfigQuery();
 
   const [projectPath, setProjectPath] = useState<string>('');
-  // Permissions state (UI only for now, will be saved in a future PR)
+  // Permissions state
   const [editFiles, setEditFiles] = useState(true);
+  const [readDocs, setReadDocs] = useState(true);
   const [fullPermission, setFullPermission] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize form state from loaded config
+  useEffect(() => {
+    if (!config) return;
+
+    const provider = config.providers?.['claude_code'];
+    if (provider?.permissions) {
+      setEditFiles(provider.permissions.allow_edit_files ?? true);
+      setReadDocs(provider.permissions.allow_read_docs ?? true);
+      setFullPermission(provider.permissions.full_access ?? false);
+    }
+    if (experimentId && config.projects?.[experimentId]) {
+      setProjectPath(config.projects[experimentId].location || '');
+    }
+  }, [config, experimentId]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -32,10 +58,17 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
     try {
       // Build config update - always mark provider as selected (setup complete)
-      // TODO: Save permissions in a future PR
       const configUpdate: Parameters<typeof updateConfig>[0] = {
         providers: {
-          claude_code: { model: 'default', selected: true },
+          claude_code: {
+            model: 'default',
+            selected: true,
+            permissions: {
+              allow_edit_files: editFiles,
+              allow_read_docs: readDocs,
+              full_access: fullPermission,
+            },
+          },
         },
       };
 
@@ -52,7 +85,15 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
       setIsSaving(false);
     }
-  }, [experimentId, projectPath, onComplete]);
+  }, [experimentId, projectPath, editFiles, readDocs, fullPermission, onComplete]);
+
+  if (isLoadingConfig) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Spinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -69,7 +110,12 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               <div>
-                <Checkbox componentId={`${COMPONENT_ID}.perm_mlflow_cli`} isChecked disabled onChange={() => {}}>
+                <Checkbox
+                  componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`}
+                  isChecked
+                  disabled
+                  onChange={() => {}}
+                >
                   <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
                 </Checkbox>
                 <Typography.Text
@@ -82,7 +128,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
               <div>
                 <Checkbox
-                  componentId={`${COMPONENT_ID}.perm_edit_files`}
+                  componentId="mlflow.assistant.setup.project.perm_edit_files"
                   isChecked={editFiles}
                   onChange={(checked) => setEditFiles(checked)}
                 >
@@ -98,7 +144,23 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
               <div>
                 <Checkbox
-                  componentId={`${COMPONENT_ID}.perm_full`}
+                  componentId="mlflow.assistant.setup.project.perm_read_docs"
+                  isChecked={readDocs}
+                  onChange={(checked) => setReadDocs(checked)}
+                >
+                  <Typography.Text>Read MLflow documentation</Typography.Text>
+                </Checkbox>
+                <Typography.Text
+                  color="secondary"
+                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                >
+                  Allow fetching content from mlflow.org documentation.
+                </Typography.Text>
+              </div>
+
+              <div>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_full"
                   isChecked={fullPermission}
                   onChange={(checked) => setFullPermission(checked)}
                 >
@@ -126,7 +188,7 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
 
             {experimentId ? (
               <Input
-                componentId={`${COMPONENT_ID}.path_input`}
+                componentId="mlflow.assistant.setup.project.path_input"
                 value={projectPath}
                 onChange={(e) => setProjectPath(e.target.value)}
                 placeholder="/Users/me/projects/my-llm-project"
@@ -151,7 +213,13 @@ export const SetupStepProject = ({ experimentId, onBack, onComplete }: SetupStep
         </div>
       </div>
 
-      <WizardFooter onBack={onBack} onNext={handleSave} nextLabel="Finish" isLoading={isSaving} />
+      <WizardFooter
+        onBack={onBack}
+        onNext={handleSave}
+        nextLabel={nextLabel}
+        backLabel={backLabel}
+        isLoading={isSaving}
+      />
     </div>
   );
 };

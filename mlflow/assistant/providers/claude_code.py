@@ -34,9 +34,14 @@ _logger = logging.getLogger(__name__)
 
 # Allowed tools for Claude Code CLI
 # Restrict to only Bash commands that use MLflow CLI
-ALLOWED_TOOLS = [
+BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
 ]
+FILE_EDIT_TOOLS = [
+    "Edit(*)",
+    "Read(*)",
+]
+DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
@@ -52,6 +57,18 @@ to understand what entities the user is referring to when they ask questions.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
 * When using MLflow CLI, always use `--help` to discover all available
 options. Do not skip this step or you will not get the correct command.
+
+## MLflow Documentation
+
+If you have a permission to fetch MLflow documentation, use the WebFetch tool to fetch
+pages from mlflow.org to provide accurate information about MLflow.
+
+When reading documentation, ALWAYS start from https://mlflow.org/docs/latest/llms.txt page that
+lists links to each pages of the documentation. Start with that page and follow the links to the
+relevant pages to get more information.
+
+IMPORTANT: When accessing documentation pages or returning documentation links to users, always use
+the latest version URL (https://mlflow.org/docs/latest/...) instead of version-specific URLs.
 """
 
 
@@ -203,11 +220,23 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
-        # Add allowed tools restriction
-        for tool in ALLOWED_TOOLS:
-            cmd.extend(["--allowed-tools", tool])
-
         config = load_config(self.name)
+
+        # Handle permission mode
+        if config.permissions.full_access:
+            # Full access mode - bypass all permission checks
+            cmd.extend(["--permission-mode", "bypassPermissions"])
+        else:
+            # Build allowed tools list based on permissions
+            allowed_tools = list(BASE_ALLOWED_TOOLS)
+            if config.permissions.allow_edit_files:
+                allowed_tools.extend(FILE_EDIT_TOOLS)
+            if config.permissions.allow_read_docs:
+                allowed_tools.extend(DOCS_TOOLS)
+
+            for tool in allowed_tools:
+                cmd.extend(["--allowed-tools", tool])
+
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 
