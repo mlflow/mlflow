@@ -41,6 +41,7 @@ def get_release_branch(version: str) -> str:
 class Commit:
     sha: str
     pr_num: int
+    date: str
 
 
 def get_commit_count(branch: str, since: str) -> int:
@@ -79,6 +80,7 @@ def get_commit_count(branch: str, since: str) -> int:
 def get_commits(branch: str) -> list[Commit]:
     """
     Get the commits in the release branch via GitHub API (last 90 days).
+    Returns commits sorted by date (oldest first).
     """
     per_page = 100
     pr_rgx = re.compile(r".+\s+\(#(\d+)\)$")
@@ -111,14 +113,15 @@ def get_commits(branch: str) -> list[Commit]:
         for item in response.json():
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
-                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
+                date = item["commit"]["committer"]["date"]
+                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1)), date=date))
         return commits
 
     # Fetch all pages in parallel. executor.map preserves order.
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = executor.map(fetch_page, range(1, total_pages + 1))
 
-    return list(itertools.chain.from_iterable(results))
+    return sorted(itertools.chain.from_iterable(results), key=lambda c: c.date)
 
 
 @dataclass(frozen=True)
@@ -171,7 +174,6 @@ def main(version: str, dry_run: bool) -> None:
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
-        # reverse the order of cherry-picks to maintain the order of PRs
         print("\n# Steps to cherry-pick the patch PRs:")
         print(
             f"1. Make sure your local master and {release_branch} branches are synced with "
@@ -179,7 +181,7 @@ def main(version: str, dry_run: bool) -> None:
         )
         print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
         print("3. Run the following command on the new branch:\n")
-        print("git cherry-pick " + " ".join(cherry_picks[::-1]))
+        print("git cherry-pick " + " ".join(cherry_picks))
         print(f"\n4. File a PR against {release_branch}.")
         sys.exit(0 if dry_run else 1)
 
