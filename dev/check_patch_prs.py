@@ -28,7 +28,7 @@ class Commit:
 
 def get_commits(branch: str) -> list[Commit]:
     """
-    Get the commits in the release branch via GitHub API (last 3 months).
+    Get the commits in the release branch via GitHub API (last 90 days).
     """
     commits = []
     per_page = 100
@@ -57,7 +57,7 @@ def get_commits(branch: str) -> list[Commit]:
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
                 commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
-        if len(data) < per_page:
+        if not data or len(data) < per_page:
             break
         page += 1
 
