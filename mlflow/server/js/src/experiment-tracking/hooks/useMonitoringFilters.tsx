@@ -14,7 +14,7 @@ export type START_TIME_LABEL =
   | 'LAST_YEAR'
   | 'ALL'
   | 'CUSTOM';
-export const DEFAULT_START_TIME_LABEL: START_TIME_LABEL = 'LAST_7_DAYS';
+export const DEFAULT_START_TIME_LABEL: START_TIME_LABEL = 'LAST_30_DAYS';
 
 export interface MonitoringFilters {
   startTimeLabel?: START_TIME_LABEL;

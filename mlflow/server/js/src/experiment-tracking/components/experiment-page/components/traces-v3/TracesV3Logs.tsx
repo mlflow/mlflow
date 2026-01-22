@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
-import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import { Empty, ParagraphSkeleton, DangerIcon, Button, SparkleDoubleIcon } from '@databricks/design-system';
 import type {
   TracesTableColumn,
   TraceActions,
   GetTraceFunction,
   TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
-import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
+import {
+  ModelTraceExplorerUpdateTraceContextProvider,
+  shouldUseTracesV4API,
+  useUnifiedTraceTagsModal,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -49,6 +53,8 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { useRunJudgeButtonForTrace } from '../../../../pages/experiment-scorers/RunJudgeButtonForTrace';
+import { useActiveEvaluation } from '../../../../../shared/web-shared/genai-traces-table/hooks/useActiveEvaluation';
 
 const ContextProviders = ({
   children,
@@ -59,10 +65,13 @@ const ContextProviders = ({
   experimentId?: string;
   children: React.ReactNode;
 }) => {
+  const runJudgeButtonContext = useRunJudgeButtonForTrace({ experimentId });
   return (
-    <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {children}
-    </GenAiTracesMarkdownConverterProvider>
+    <ModelTraceExplorerUpdateTraceContextProvider runJudgeContext={runJudgeButtonContext}>
+      <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+        {children}
+      </GenAiTracesMarkdownConverterProvider>
+    </ModelTraceExplorerUpdateTraceContextProvider>
   );
 };
 
@@ -93,6 +102,7 @@ const TracesV3LogsImpl = React.memo(
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [, setSelectedEvaluationId] = useActiveEvaluation();
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -397,7 +407,27 @@ const TracesV3LogsImpl = React.memo(
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
             usesV4APIs={usesV4APIs}
-            addons={toolbarAddons}
+            addons={
+              <>
+                {toolbarAddons}
+                <Button
+                  componentId="TODO"
+                  icon={<SparkleDoubleIcon />}
+                  type="primary"
+                  onClick={() => {
+                    //
+                    if (!traceInfos) {
+                      return;
+                    }
+                    setSelectedEvaluationId(traceInfos[0].trace_id, traceInfos[0], {
+                      runJudge: 'true',
+                    });
+                  }}
+                >
+                  Run LLM judge
+                </Button>
+              </>
+            }
             isGroupedBySession={isGroupedBySession}
             onToggleSessionGrouping={onToggleSessionGrouping}
           />

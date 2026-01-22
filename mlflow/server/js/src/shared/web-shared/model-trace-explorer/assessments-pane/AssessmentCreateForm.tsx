@@ -34,6 +34,7 @@ const ComponentMap: Record<AssessmentFormInputDataType, React.ComponentType<Asse
 
 type AssessmentCreateFormProps = {
   assessmentName?: string;
+  initialAssessmentType?: 'feedback' | 'expectation';
   spanId?: string;
   traceId: string;
   setExpanded: (expanded: boolean) => void;
@@ -46,6 +47,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
       assessmentName,
       spanId,
       traceId,
+      initialAssessmentType,
       // used to close the form
       // after the assessment is created
       setExpanded,
@@ -56,7 +58,9 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
     const { schemas } = useAssessmentSchemas();
 
     const [name, setName] = useState('');
-    const [assessmentType, setAssessmentType] = useState<'feedback' | 'expectation'>('feedback');
+    const [assessmentType, setAssessmentType] = useState<'feedback' | 'expectation'>(
+      initialAssessmentType ?? 'feedback',
+    );
     const [dataType, setDataType] = useState<AssessmentFormInputDataType>('boolean');
     const [value, setValue] = useState<string | boolean | number>(true);
     const [rationale, setRationale] = useState('');

@@ -18,7 +18,7 @@ type PaneSizeRatios = {
 // Default ratios of pane sizes in the model trace explorer.
 const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
   // Summary sidebar
-  summarySidebar: 0.75,
+  summarySidebar: 0.66,
   // Details sidebar
   detailsSidebar: 0.7,
   // Details pane (based on the window width)

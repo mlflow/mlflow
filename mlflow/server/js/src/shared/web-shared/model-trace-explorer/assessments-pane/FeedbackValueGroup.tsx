@@ -1,11 +1,19 @@
 import { useState } from 'react';
 
-import { Button, ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  SparkleDoubleIcon,
+  Tag,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { FeedbackItem } from './FeedbackItem';
 import { FeedbackValueGroupSourceCounts } from './FeedbackValueGroupSourceCounts';
 import type { FeedbackAssessment } from '../ModelTrace.types';
+import { FormattedMessage } from 'react-intl';
 
 export const FeedbackValueGroup = ({
   jsonValue,
@@ -30,6 +38,11 @@ export const FeedbackValueGroup = ({
         />
         <AssessmentDisplayValue jsonValue={jsonValue} assessmentName={assessmentName} />
         <FeedbackValueGroupSourceCounts feedbacks={feedbacks} />
+        {feedbacks.find((x) => x.source.source_type === 'LLM_JUDGE') && (
+          <Tag componentId="TODO" color="purple" icon={<SparkleDoubleIcon />}>
+            <FormattedMessage defaultMessage="LLM-as-a-judge" description="Label for LLM scorer type" />
+          </Tag>
+        )}
       </div>
       {expanded && (
         <div

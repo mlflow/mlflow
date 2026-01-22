@@ -77,6 +77,7 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
         experiment_id: evaluateParams.experimentId,
         serialized_scorer: evaluateParams.serializedScorer,
         trace_ids: traceIds,
+        log_assessments: true,
       });
       return responseData;
     },
