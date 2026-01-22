@@ -1354,6 +1354,7 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
   assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+
 export const isValidException = (
   event: ModelTraceEvent,
 ): event is ModelTraceEvent & {
