@@ -165,6 +165,7 @@ def test_generate_content_enable_disable_autolog(is_async):
             "config": None,
         }
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+        assert span.model_name == "gemini-1.5-flash"
 
         span1 = traces[0].data.spans[1]
         assert span1.name == f"{cls}._generate_content"
@@ -254,6 +255,7 @@ def test_generate_content_image_autolog():
     }
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -335,6 +337,7 @@ def test_generate_content_tool_calling_autolog(is_async):
     )
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -448,6 +451,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -492,6 +496,7 @@ def test_chat_session_autolog(is_async):
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+        assert span.model_name == "gemini-1.5-flash"
 
         mlflow.gemini.autolog(disable=True)
         _create_chat_and_send_message(is_async, "test content")
@@ -516,6 +521,7 @@ def test_count_tokens_autolog():
         assert span.span_type == SpanType.LLM
         assert span.inputs == {"contents": "test content", "model": "gemini-1.5-flash"}
         assert span.outputs == _DUMMY_COUNT_TOKENS_RESPONSE
+        assert span.model_name == "gemini-1.5-flash"
 
         mlflow.gemini.autolog(disable=True)
         client = genai.Client(api_key="dummy")
@@ -541,6 +547,7 @@ def test_embed_content_autolog():
         assert span.span_type == SpanType.EMBEDDING
         assert span.inputs == {"content": "Hello World", "model": "text-embedding-004"}
         assert span.outputs == _DUMMY_EMBEDDING_RESPONSE
+        assert span.model_name == "text-embedding-004"
 
         mlflow.gemini.autolog(disable=True)
         client.models.embed_content(model="text-embedding-004", content="Hello World")

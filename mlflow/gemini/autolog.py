@@ -9,7 +9,12 @@ from mlflow.gemini.chat import (
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import construct_full_inputs, set_span_chat_tools
+from mlflow.tracing.utils import (
+    construct_full_inputs,
+    parse_model_from_inputs,
+    set_span_chat_tools,
+    set_span_model_attribute,
+)
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 try:
@@ -112,6 +117,15 @@ class TracingSession:
             self.span.record_exception(exc_val)
 
         try:
+            # Chat instances store model in _model attribute
+            if model := (
+                parse_model_from_inputs(self.inputs) or getattr(self.instance, "_model", None)
+            ):
+                self.span.set_attribute(SpanAttributeKey.MODEL, model)
+        except Exception as e:
+            _logger.debug(f"Failed to extract model for span {self.span.name}: {e}", exc_info=True)
+
+        try:
             if usage := _parse_usage(self.output):
                 self.span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         except Exception as e:
@@ -153,6 +167,7 @@ def patched_module_call(original, *args, **kwargs):
         span.set_inputs(inputs)
         span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
         result = original(*args, **kwargs)
+        set_span_model_attribute(span, inputs)
         try:
             if usage := _parse_usage(result):
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
