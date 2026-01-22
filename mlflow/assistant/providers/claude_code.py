@@ -99,11 +99,12 @@ where the user wants to log (write) or update information.
 ### MLflow Read-Only Operations
 
 For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
-* ALWAYS use MLflow CLI commands directly.
+* STRONGLY PREFER MLflow CLI commands directly.
 * When using MLflow CLI, always use `--help` to discover all available options.
   Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
 * Never combine two bash commands with `&&` or `||`. That will error out.
+* If the CLI cannot accomplish the task, fall back to the MLflow SDK.
 
 ### MLflow Write Operations
 
