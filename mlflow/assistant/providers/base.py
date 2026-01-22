@@ -81,6 +81,9 @@ class AssistantProvider(ABC):
         self,
         prompt: str,
         session_id: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+        tracking_uri: str | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream responses from the assistant asynchronously.
@@ -88,6 +91,9 @@ class AssistantProvider(ABC):
         Args:
             prompt: The prompt to send to the assistant
             session_id: Session ID for conversation continuity
+            cwd: Working directory for the assistant
+            context: Page context (experimentId, traceId, selectedTraceIds, etc.)
+            tracking_uri: MLflow tracking server URI for the assistant to use
 
         Yields:
             Event dictionaries with 'type' and 'data' keys.

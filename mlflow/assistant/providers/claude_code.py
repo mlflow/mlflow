@@ -43,9 +43,8 @@ FILE_EDIT_TOOLS = [
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
-# TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
-
+{connection_section}
 User messages may include a <context> block containing JSON that represents what the user is
 currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
 to understand what entities the user is referring to when they ask questions.
@@ -70,6 +69,43 @@ relevant pages to get more information.
 IMPORTANT: When accessing documentation pages or returning documentation links to users, always use
 the latest version URL (https://mlflow.org/docs/latest/...) instead of version-specific URLs.
 """
+
+
+def _build_system_prompt(tracking_uri: str | None = None) -> str:
+    """
+    Build the system prompt for the Claude Code assistant.
+
+    Args:
+        tracking_uri: The MLflow tracking server URI (e.g., "http://localhost:5000").
+            If provided, this will be included in the prompt so the assistant knows
+            where to connect for MLflow operations.
+
+    Returns:
+        The complete system prompt string.
+    """
+    if tracking_uri:
+        connection_section = f"""
+## MLflow Server Connection (Pre-configured)
+
+The MLflow tracking server is running at: `{tracking_uri}`
+
+**CRITICAL**:
+- The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
+- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands:
+```bash
+export MLFLOW_TRACKING_URI={tracking_uri}
+```
+```python
+import mlflow
+mlflow.set_tracking_uri("{tracking_uri}")
+```
+- Do NOT ask the user to configure MLFLOW_TRACKING_URI - it is already configured.
+- Assume the server is available and operational at all times.
+"""
+    else:
+        connection_section = ""
+
+    return CLAUDE_SYSTEM_PROMPT.format(connection_section=connection_section)
 
 
 class ClaudeCodeProvider(AssistantProvider):
@@ -187,6 +223,7 @@ class ClaudeCodeProvider(AssistantProvider):
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
+        tracking_uri: str | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
@@ -196,6 +233,7 @@ class ClaudeCodeProvider(AssistantProvider):
             session_id: Claude session ID for resume
             cwd: Working directory for Claude Code CLI
             context: Page context (experimentId, traceId, selectedTraceIds, etc.)
+            tracking_uri: MLflow tracking server URI for the assistant to use
 
         Yields:
             Event objects
@@ -217,8 +255,9 @@ class ClaudeCodeProvider(AssistantProvider):
         # Note: --verbose is required when using --output-format=stream-json with -p
         cmd = [claude_path, "-p", user_message, "--output-format", "stream-json", "--verbose"]
 
-        # Add system prompt
-        cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
+        # Add system prompt with tracking URI context
+        system_prompt = _build_system_prompt(tracking_uri)
+        cmd.extend(["--append-system-prompt", system_prompt])
 
         config = load_config(self.name)
 
