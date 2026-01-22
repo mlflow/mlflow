@@ -385,7 +385,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
 
         dumped = aligned_judge.model_dump()
         serialized = SerializedScorer(**dumped)
-        restored = MemoryAugmentedJudge._from_serialized(serialized, experiment_id="exp123")
+        restored = MemoryAugmentedJudge._from_serialized(serialized)
 
         # Verify config fields are restored
         assert restored._reflection_lm == "openai:/gpt-4"
@@ -399,15 +399,13 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         assert "Be concise" in guideline_texts
         assert "Be accurate" in guideline_texts
 
-        # Verify lazy initialization state
-        assert restored._pending_episodic_trace_ids is not None
+        # Verify lazy initialization state (_embedder is None means deferred)
+        assert restored._embedder is None
         assert restored._episodic_memory == []
-        assert len(restored._pending_episodic_trace_ids) == 2
-        assert restored._experiment_id == "exp123"
+        assert len(restored._episodic_trace_ids) == 2
 
         # Verify deferred components are None
         assert restored._base_signature is None
-        assert restored._embedder is None
         assert restored._retriever is None
         assert restored._predict_module is None
 
@@ -463,10 +461,7 @@ def test_memory_augmented_judge_round_trip_serialization(sample_judge, sample_tr
         assert original_guidelines == restored_guidelines
 
         # Verify episodic trace IDs match
-        original_trace_ids = [
-            ex._trace_id for ex in original_judge._episodic_memory if hasattr(ex, "_trace_id")
-        ]
-        assert set(restored_judge._pending_episodic_trace_ids) == set(original_trace_ids)
+        assert set(restored_judge._episodic_trace_ids) == set(original_judge._episodic_trace_ids)
 
 
 def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample_traces):
@@ -478,7 +473,8 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
         serialized = SerializedScorer(**dumped)
         restored = MemoryAugmentedJudge._from_serialized(serialized)
 
-        assert restored._pending_episodic_trace_ids is not None
+        # Verify deferred state (_embedder is None means not initialized)
+        assert restored._embedder is None
 
         # Mock mlflow.get_trace and predict module for the call
         trace_map = {t.info.trace_id: t for t in sample_traces[:2]}
@@ -487,10 +483,11 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
                 "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
                 side_effect=lambda tid, **kwargs: trace_map.get(tid),
             ) as mock_get_trace,
-            patch("dspy.Embedder"),
+            patch("dspy.Embedder") as mock_embedder_class,
             patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
         ):
+            mock_embedder_class.return_value = MagicMock()
             mock_prediction = MagicMock()
             mock_prediction.result = "yes"
             mock_prediction.rationale = "Test"
@@ -499,7 +496,8 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
 
             restored(inputs="test", outputs="test")
 
-            assert restored._pending_episodic_trace_ids is None
+            # Verify initialization happened
+            assert restored._embedder is not None
             assert mock_get_trace.call_count == 2
 
 
@@ -551,14 +549,11 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
 
-        original_trace_ids = [
-            ex._trace_id for ex in aligned_judge._episodic_memory if hasattr(ex, "_trace_id")
-        ]
-        assert len(original_trace_ids) == 3
+        assert len(aligned_judge._episodic_trace_ids) == 3
 
-        copy = aligned_judge._create_copy()
+        judge_copy = aligned_judge._create_copy()
 
-        # Copy should have trace IDs stored for lazy init
-        assert copy._pending_episodic_trace_ids is not None
-        assert copy._episodic_memory == []
-        assert set(copy._pending_episodic_trace_ids) == set(original_trace_ids)
+        # Copy should have trace IDs and be in deferred state
+        assert judge_copy._embedder is None
+        assert judge_copy._episodic_memory == []
+        assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
