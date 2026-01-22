@@ -94,10 +94,10 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 
 ## Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. |
-| `retrieval_k` | `int` | `5` | Number of relevant examples to retrieve from episodic memory during inference. |
+| Parameter         | Type  | Default                            | Description                                                                        |
+| ----------------- | ----- | ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `reflection_lm`   | `str` | Required                           | Model used for extracting guidelines from feedback.                                |
+| `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.     |
 | `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format. |
 
 ## Inspecting Learned Knowledge
