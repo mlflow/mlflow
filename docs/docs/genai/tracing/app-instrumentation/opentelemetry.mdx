@@ -58,7 +58,7 @@ os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mlflow.set_tracking_uri("http://localhost:5000")
-    exp_id = mlflow.set_experiment("FastAPI")
+    exp_id = mlflow.set_experiment("FastAPI").experiment_id
     # this ensures mlflow spans and FastAPI instrumentation spans are combined
     mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
     mlflow.openai.autolog()
