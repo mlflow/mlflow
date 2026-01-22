@@ -10,8 +10,6 @@ import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg'
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
 
-const COMPONENT_ID = 'mlflow.assistant.setup.provider';
-
 interface Provider {
   id: string;
   name: string;
@@ -152,7 +150,7 @@ export const SetupStepProvider = ({ selectedProvider, onContinue }: SetupStepPro
 
       <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: theme.spacing.md }}>
         <Button
-          componentId={`${COMPONENT_ID}.continue`}
+          componentId="mlflow.assistant.setup.provider.continue"
           type="primary"
           onClick={handleContinue}
           disabled={!selected || !PROVIDERS.find((p) => p.id === selected)?.available}

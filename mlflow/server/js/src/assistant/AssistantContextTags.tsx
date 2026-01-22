@@ -8,7 +8,6 @@ import { ForkHorizontalIcon, PlayIcon, Tag, TagColors, Tooltip, useDesignSystemT
 
 import { useAssistantPageContext } from './AssistantPageContext';
 
-const COMPONENT_ID = 'mlflow.assistant.chat_panel.context';
 const MAX_VISIBLE_ITEMS = 3;
 
 function truncateId(id: string, maxLen = 8): string {
@@ -19,18 +18,28 @@ interface ContextTagGroupProps {
   ids: string[];
   color: TagColors;
   label: string;
-  componentIdPrefix: string;
+  type: 'trace' | 'run';
   Icon: typeof ForkHorizontalIcon;
 }
 
-function ContextTagGroup({
-  ids,
-  color,
-  label,
-  componentIdPrefix,
-  Icon,
-}: ContextTagGroupProps): React.ReactElement | null {
+const COMPONENT_IDS = {
+  trace: {
+    tag: 'mlflow.assistant.chat_panel.context.trace',
+    tooltip: 'mlflow.assistant.chat_panel.context.trace.tooltip',
+    more: 'mlflow.assistant.chat_panel.context.trace.more',
+    moreTooltip: 'mlflow.assistant.chat_panel.context.trace.more.tooltip',
+  },
+  run: {
+    tag: 'mlflow.assistant.chat_panel.context.run',
+    tooltip: 'mlflow.assistant.chat_panel.context.run.tooltip',
+    more: 'mlflow.assistant.chat_panel.context.run.more',
+    moreTooltip: 'mlflow.assistant.chat_panel.context.run.more.tooltip',
+  },
+} as const;
+
+function ContextTagGroup({ ids, color, label, type, Icon }: ContextTagGroupProps): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
+  const componentIds = COMPONENT_IDS[type];
 
   if (ids.length === 0) return null;
 
@@ -40,8 +49,8 @@ function ContextTagGroup({
   return (
     <>
       {visibleIds.map((id) => (
-        <Tooltip key={id} componentId={`${componentIdPrefix}.tooltip`} content={`${label}: ${id}`}>
-          <Tag componentId={componentIdPrefix} color={color}>
+        <Tooltip key={id} componentId={componentIds.tooltip} content={`${label}: ${id}`}>
+          <Tag componentId={componentIds.tag} color={color}>
             <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <Icon css={{ fontSize: 12 }} />
               <span>{truncateId(id)}</span>
@@ -50,11 +59,8 @@ function ContextTagGroup({
         </Tooltip>
       ))}
       {hiddenCount > 0 && (
-        <Tooltip
-          componentId={`${componentIdPrefix}.more.tooltip`}
-          content={`${hiddenCount} more ${label.toLowerCase()}s`}
-        >
-          <Tag componentId={`${componentIdPrefix}.more`} color={color}>
+        <Tooltip componentId={componentIds.moreTooltip} content={`${hiddenCount} more ${label.toLowerCase()}s`}>
+          <Tag componentId={componentIds.more} color={color}>
             +{hiddenCount}
           </Tag>
         </Tooltip>
@@ -83,20 +89,8 @@ export function AssistantContextTags(): React.ReactElement | null {
 
   return (
     <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
-      <ContextTagGroup
-        ids={traceIds}
-        color="indigo"
-        label="Trace"
-        componentIdPrefix={`${COMPONENT_ID}.trace`}
-        Icon={ForkHorizontalIcon}
-      />
-      <ContextTagGroup
-        ids={runIds}
-        color="turquoise"
-        label="Run"
-        componentIdPrefix={`${COMPONENT_ID}.run`}
-        Icon={PlayIcon}
-      />
+      <ContextTagGroup ids={traceIds} color="indigo" label="Trace" type="trace" Icon={ForkHorizontalIcon} />
+      <ContextTagGroup ids={runIds} color="turquoise" label="Run" type="run" Icon={PlayIcon} />
     </div>
   );
 }
