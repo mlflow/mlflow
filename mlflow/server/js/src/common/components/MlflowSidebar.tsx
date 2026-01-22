@@ -56,7 +56,7 @@ const isExperimentsActive = (location: Location) =>
   );
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
-const isGatewayActive = (location: Location) => Boolean(matchPath({ path: '/gateway', end: true }, location.pathname));
+const isGatewayActive = (location: Location) => Boolean(matchPath({ path: '/gateway/*' }, location.pathname));
 const isSettingsActive = (location: Location) => Boolean(matchPath('/settings/*', location.pathname));
 
 type MlFlowSidebarMenuDropdownComponentId =
