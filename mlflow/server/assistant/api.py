@@ -156,10 +156,10 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
         nonlocal session
         async for event in _provider.astream(
             prompt=pending_message.content,
+            tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
             cwd=session.working_dir,
             context=session.context,
-            tracking_uri=tracking_uri,
         ):
             # Store provider session ID if returned (for conversation continuity)
             if event.type == EventType.DONE:

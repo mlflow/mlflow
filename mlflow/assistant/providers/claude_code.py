@@ -43,8 +43,25 @@ FILE_EDIT_TOOLS = [
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
-CLAUDE_SYSTEM_PROMPT_BASE = """You are an MLflow assistant helping users with their MLflow projects.
-{connection_section}
+CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
+
+## MLflow Server Connection (Pre-configured)
+
+The MLflow tracking server is running at: `{tracking_uri}`
+
+**CRITICAL**:
+- The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
+- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands:
+```bash
+export MLFLOW_TRACKING_URI={tracking_uri}
+```
+```python
+import mlflow
+mlflow.set_tracking_uri("{tracking_uri}")
+```
+- Do NOT ask the user to configure MLFLOW_TRACKING_URI - it is already configured.
+- Assume the server is available and operational at all times.
+
 ## User Context
 
 The user has already installed MLflow and is working within the MLflow UI. Never instruct the
@@ -59,11 +76,33 @@ to understand what entities the user is referring to when they ask questions.
 
 ## Command Preferences (IMPORTANT)
 
-* When working with MLflow data and operations, ALWAYS use MLflow CLI commands directly.
-* Never combine two bash command with `&&` or `||`. That will error out.
+### Read-Only Operations
+
+For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
+* ALWAYS use MLflow CLI commands directly.
+* When using MLflow CLI, always use `--help` to discover all available options.
+  Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
-* When using MLflow CLI, always use `--help` to discover all available
-options. Do not skip this step or you will not get the correct command.
+* Never combine two bash commands with `&&` or `||`. That will error out.
+
+### Write Operations
+
+For logging new data to MLflow (traces, runs, metrics, artifacts, etc.):
+* The CLI does not support all write operations, so use an MLflow SDK instead.
+* If a project is configured, use the appropriate SDK for the project's language
+  (Python, TypeScript, etc.).
+* If no project is configured, fall back to Python.
+* Always set the tracking URI before logging (see "MLflow Server Connection" section above).
+
+### Data Access
+
+NEVER access the MLflow server's backend storage directly. Always use MLflow APIs or CLIs and
+let the server handle storage. Specifically:
+- NEVER use the MLflow CLI or API with a database or file tracking URI - only use the configured
+  HTTP tracking URI (`{tracking_uri}`).
+- NEVER use database CLI tools (e.g., sqlite3, psql) to connect directly to the MLflow database.
+- NEVER read the filesystem or cloud storage to access MLflow artifact storage directly.
+- ALWAYS let the MLflow server handle all storage operations through its APIs.
 
 ## MLflow Documentation
 
@@ -88,41 +127,17 @@ Focus on the substantive content that is relevant to the user's actual question.
 """
 
 
-def _build_system_prompt(tracking_uri: str | None = None) -> str:
+def _build_system_prompt(tracking_uri: str) -> str:
     """
     Build the system prompt for the Claude Code assistant.
 
     Args:
         tracking_uri: The MLflow tracking server URI (e.g., "http://localhost:5000").
-            If provided, this will be included in the prompt so the assistant knows
-            where to connect for MLflow operations.
 
     Returns:
         The complete system prompt string.
     """
-    if tracking_uri:
-        connection_section = f"""
-## MLflow Server Connection (Pre-configured)
-
-The MLflow tracking server is running at: `{tracking_uri}`
-
-**CRITICAL**:
-- The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
-- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands:
-```bash
-export MLFLOW_TRACKING_URI={tracking_uri}
-```
-```python
-import mlflow
-mlflow.set_tracking_uri("{tracking_uri}")
-```
-- Do NOT ask the user to configure MLFLOW_TRACKING_URI - it is already configured.
-- Assume the server is available and operational at all times.
-"""
-    else:
-        connection_section = ""
-
-    return CLAUDE_SYSTEM_PROMPT_BASE.format(connection_section=connection_section)
+    return CLAUDE_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
 
 
 class ClaudeCodeProvider(AssistantProvider):
@@ -237,21 +252,21 @@ class ClaudeCodeProvider(AssistantProvider):
     async def astream(
         self,
         prompt: str,
+        tracking_uri: str,
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-        tracking_uri: str | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
 
         Args:
             prompt: The prompt to send to Claude
+            tracking_uri: MLflow tracking server URI for the assistant to use
             session_id: Claude session ID for resume
             cwd: Working directory for Claude Code CLI
             context: Additional context for the assistant, such as information from
                 the current UI page the user is viewing (e.g., experimentId, traceId)
-            tracking_uri: MLflow tracking server URI for the assistant to use
 
         Yields:
             Event objects
