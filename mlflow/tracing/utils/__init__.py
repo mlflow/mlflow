@@ -655,3 +655,40 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     Construct a trace ID for the given location and trace ID.
     """
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+
+def parse_model_from_inputs(inputs: dict[str, Any]) -> str | None:
+    """
+    Parse model name from request inputs.
+
+    This utility function is used by autologging implementations to extract
+    model names from API call inputs.
+
+    Args:
+        inputs: The request inputs dictionary
+
+    Returns:
+        Model name string or None if not found
+    """
+    if model := inputs.get("model"):
+        return model if isinstance(model, str) and model else None
+    return None
+
+
+def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
+    """
+    Set the model attribute on a span using parsed model information.
+
+    This utility function extracts the model name from inputs and
+    sets it as a span attribute. It's used by autologging implementations to
+    consistently set model information across different LLM providers.
+
+    Args:
+        span: The LiveSpan to set the model attribute on
+        inputs: The request inputs dictionary
+    """
+    try:
+        if model := parse_model_from_inputs(inputs):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
+    except Exception as e:
+        _logger.debug(f"Failed to set model for {span}. Error: {e}")

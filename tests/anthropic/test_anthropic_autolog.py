@@ -197,6 +197,7 @@ def test_messages_autolog(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -258,6 +259,7 @@ def test_messages_autolog_multi_modal(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -331,6 +333,7 @@ def test_messages_autolog_tool_calling(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
@@ -370,6 +373,7 @@ def test_messages_autolog_with_thinking(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {

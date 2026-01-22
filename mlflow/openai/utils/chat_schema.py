@@ -6,6 +6,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import set_span_model_attribute
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 _logger = logging.getLogger(__name__)
@@ -30,6 +31,9 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
             set_span_chat_tools(span, tools)
     except MlflowException:
         _logger.debug("Failed to set chat tools on span", exc_info=True)
+
+    # Set model name if available
+    set_span_model_attribute(span, inputs)
 
     # Extract and set usage information if available
     if usage := _parse_usage(output):

@@ -10,6 +10,7 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
     set_span_chat_tools,
+    set_span_model_attribute,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -104,6 +105,7 @@ class TracingSession:
             if exc_val:
                 self.span.record_exception(exc_val)
 
+            set_span_model_attribute(self.span, self.inputs)
             _set_token_usage_attribute(self.span, self.output)
             self.span.end(outputs=self.output)
 
