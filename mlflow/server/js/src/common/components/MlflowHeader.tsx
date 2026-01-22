@@ -68,7 +68,7 @@ export const MlflowHeader = ({
       </div>
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: theme.spacing.md, alignItems: 'center' }}>
-        <AssistantIconButton componentId="mlflow.header.assistant_button" tooltipSide="bottom" iconSize={18} />
+        <AssistantIconButton tooltipSide="bottom" iconSize={18} />
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>

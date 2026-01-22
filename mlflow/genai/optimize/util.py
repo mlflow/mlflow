@@ -74,14 +74,16 @@ def prompt_optimization_autolog(
 
 
 def validate_train_data(
-    train_data: "pd.DataFrame", scorers: list[Scorer], predict_fn: Callable[..., Any] | None = None
+    train_data: "pd.DataFrame",
+    scorers: list[Scorer] | None,
+    predict_fn: Callable[..., Any] | None = None,
 ) -> None:
     """
     Validate that training data has required fields for prompt optimization.
 
     Args:
         train_data: Training data as a pandas DataFrame.
-        scorers: Scorers to validate the training data for.
+        scorers: Scorers to validate the training data for. Can be None for zero-shot mode.
         predict_fn: The predict function to validate the training data for.
 
     Raises:
@@ -93,8 +95,9 @@ def validate_train_data(
                 f"Record {i} is missing required 'inputs' field or it is empty"
             )
 
-    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
-    valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
+    if scorers is not None:
+        builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+        valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
 
 
 def infer_type_from_value(value: Any, model_name: str = "Output") -> type:

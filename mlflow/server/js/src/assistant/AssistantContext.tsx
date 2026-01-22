@@ -43,6 +43,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
   const appendToStreamingMessage = useCallback((text: string) => {
+    // Add newline separator if there's already content (e.g. reasoning)
+    if (streamingMessageRef.current && !streamingMessageRef.current.endsWith('\n') && !text.startsWith('\n')) {
+      streamingMessageRef.current += '\n\n';
+    }
     streamingMessageRef.current += text;
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -123,7 +127,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
-  }, []);
+    // Refresh config when panel opens (intentionally not awaited)
+    refreshConfig();
+  }, [refreshConfig]);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
