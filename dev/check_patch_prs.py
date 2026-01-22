@@ -113,6 +113,8 @@ def get_commits(branch: str) -> list[Commit]:
         for item in response.json():
             msg = item["commit"]["message"].split("\n")[0]
             if m := pr_rgx.search(msg):
+                # Use committer date (not author date) because cherry-picked commits
+                # retain the original author date but get a new committer date.
                 date = item["commit"]["committer"]["date"]
                 commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1)), date=date))
         return commits
