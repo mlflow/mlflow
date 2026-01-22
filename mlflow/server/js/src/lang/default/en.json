@@ -327,6 +327,10 @@
     "defaultMessage": "Delete logged model",
     "description": "A header of the modal used for deleting logged models"
   },
+  "0LfePE": {
+    "defaultMessage": "Automatically evaluate new traces using this scorer",
+    "description": "Hint text for automatic evaluation toggle"
+  },
   "0M7VVC": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -486,6 +490,10 @@
   "1i/Bac": {
     "defaultMessage": "Edit",
     "description": "Edit button for judge"
+  },
+  "1iNSKM": {
+    "defaultMessage": "Advanced settings",
+    "description": "Collapsible header for advanced scoring job settings"
   },
   "1jPG5D": {
     "defaultMessage": "Creator",
@@ -1469,6 +1477,10 @@
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
+  },
+  "9I8EpX": {
+    "defaultMessage": "Automatic evaluation",
+    "description": "Accordion section header for automatic evaluation settings"
   },
   "9IN1I8": {
     "defaultMessage": "Select as compared version",
@@ -3018,10 +3030,6 @@
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
   },
-  "M2zr3g": {
-    "defaultMessage": "Automatically evaluate traces using this judge ({link})",
-    "description": "Checkbox label for enabling automatic evaluation with link to documentation"
-  },
   "M3c7bs": {
     "defaultMessage": "Tags",
     "description": "Column label for tags"
@@ -3285,6 +3293,10 @@
   "NwNrl4": {
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
+  },
+  "Nwo21E": {
+    "defaultMessage": "Scoring criteria",
+    "description": "Accordion section header for scoring criteria (judge type, guidelines/instructions, and output type)"
   },
   "NyzPHY": {
     "defaultMessage": "Expand description",
@@ -4172,6 +4184,10 @@
     "defaultMessage": "Requested experiment was not found.",
     "description": "A message shown on the experiment page if the experiment is not found"
   },
+  "VN5B4N": {
+    "defaultMessage": "General",
+    "description": "Accordion section header for general settings"
+  },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
     "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
@@ -4550,6 +4566,10 @@
   "YEN2Ll": {
     "defaultMessage": "Used by ({count})",
     "description": "Gateway > Endpoint bindings drawer > Title"
+  },
+  "YG2DsC": {
+    "defaultMessage": "Collapse section",
+    "description": "Aria label for collapse"
   },
   "YGo9ni": {
     "defaultMessage": "Select a provider to configure API key",
@@ -5462,10 +5482,6 @@
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
-  },
-  "enp602": {
-    "defaultMessage": "Automatic evaluation settings",
-    "description": "Section header for automatic evaluation settings"
   },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
@@ -6466,6 +6482,10 @@
   "mMR/YQ": {
     "defaultMessage": "Select a provider to configure your API key",
     "description": "Placeholder message when no provider selected"
+  },
+  "mMd7cr": {
+    "defaultMessage": "Expand section",
+    "description": "Aria label for expand"
   },
   "mN6m2e": {
     "defaultMessage": "Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range",
@@ -7635,10 +7655,6 @@
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
   },
-  "vV8sXP": {
-    "defaultMessage": "learn more",
-    "description": "Link text for online evaluation documentation"
-  },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
@@ -7938,6 +7954,10 @@
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
     "description": "Trace actions dropdown group label"
+  },
+  "xiiaIF": {
+    "defaultMessage": "Run on all future traces",
+    "description": "Label for toggle to enable automatic evaluation"
   },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
