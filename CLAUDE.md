@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Knowledge Cutoff Note
 
-Claude's training data may lag behind current model releases. When reviewing docs or code, don't flag unfamiliar model names as speculative or non-existent. Assume the authors are referencing newer, valid models (e.g., GPT-5, Claude 4.5).
+Claude's training data may lag behind current releases. When reviewing docs or code, don't flag unfamiliar names as speculative or non-existent. Assume the authors are referencing newer, valid resources (e.g., model names like GPT-5, GitHub runner types like ubuntu-slim, library versions, etc.).
 
 ## Code Style Principles
 

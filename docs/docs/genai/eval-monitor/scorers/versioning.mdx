@@ -1,3 +1,6 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
 # Registering and Versioning Scorers
 
 Scorers can be registered to MLflow experiments for version control and team collaboration.
@@ -8,11 +11,31 @@ Scorers can be registered to MLflow experiments for version control and team col
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [Agent-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview)       | ✅                                                                |
 | [Template-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge)   | ✅                                                                |
-| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                         | ✅                                                                |
+| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                         | ❌                                                                |
 | [Guidelines-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/guidelines) | ❌ (Use [MLflow Prompt Registry](/genai/prompt-registry) instead) |
-| [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)           | ❌ (Prompts are hard-coded in MLflow)                             |
+| [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)           | ✅                                                                |
 
-## Usage
+<Tabs groupId="method">
+  <TabItem value="ui" label="UI" default>
+
+### Registering a Scorer
+
+When you create a judge using the [Judge Builder UI](/genai/eval-monitor/scorers/llm-judge/make-judge), it is automatically registered to the current experiment as version 1.
+
+### Updating a Scorer
+
+1. Navigate to the **Judges** tab in your experiment
+2. Click the **Edit** button on the scorer you want to update
+3. Modify the scorer configuration (instructions, model, output type, etc.)
+4. Click **Save**. This will create a new version of the scorer.
+
+### Deleting a Scorer
+
+1. Navigate to the **Judges** tab in your experiment
+2. Click the **Delete** button on the scorer you want to remove
+
+  </TabItem>
+  <TabItem value="sdk" label="SDK">
 
 ### Prerequisite
 
@@ -94,6 +117,5 @@ for scorer in all_scorers:
     print(f"Scorer: {scorer.name}, Model: {scorer.model}")
 ```
 
-## UI Support
-
-Coming soon!
+  </TabItem>
+</Tabs>

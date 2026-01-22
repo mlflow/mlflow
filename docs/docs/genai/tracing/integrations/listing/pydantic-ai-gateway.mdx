@@ -1,0 +1,184 @@
+---
+sidebar_position: 107
+sidebar_label: Pydantic AI Gateway
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import ImageBox from "@site/src/components/ImageBox";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
+
+# Tracing Pydantic AI Gateway
+
+[Pydantic AI Gateway](https://ai.pydantic.dev/gateway/) is a unified interface for accessing multiple AI providers with a single key. It supports models from OpenAI, Anthropic, Google Vertex, Groq, AWS Bedrock, and more. Key features include spending limits, failover management, and zero translation—requests flow through directly in each provider's native format, giving you immediate access to new model features as soon as they are released.
+
+Since Pydantic AI Gateway exposes OpenAI and Anthropic-compatible APIs, you can use MLflow's automatic tracing integrations to capture detailed traces of your LLM interactions.
+
+<ImageBox src="/images/llms/pydantic-ai/pydanticai-gateway-tracing.png" alt="Pydantic AI Gateway Tracing" />
+
+:::tip Looking for PydanticAI Agent Framework?
+This guide covers tracing LLM calls through **Pydantic AI Gateway**. If you're building agents using the Pydantic AI framework directly, see the <ins>[PydanticAI Integration](/genai/tracing/integrations/listing/pydantic_ai)</ins> guide instead.
+:::
+
+## Prerequisite
+
+### Start MLflow Server
+
+<ServerSetup />
+
+### Get Pydantic AI Gateway API Key
+
+Create an account on [Pydantic AI Gateway](https://gateway.pydantic.dev/) to get your API key, or bring your own API key from a supported LLM provider.
+
+## Query Gateway
+
+You can trace LLM calls through Pydantic AI Gateway using any of the following approaches:
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="openai" label="OpenAI SDK" default>
+
+Since Pydantic AI Gateway exposes an OpenAI-compatible API, you can use MLflow's [OpenAI automatic tracing](/genai/tracing/integrations/listing/openai) integration to trace calls.
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+# Set MLflow tracking URI and experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Pydantic AI Gateway")
+
+# Point OpenAI client to Pydantic AI Gateway
+client = OpenAI(
+    base_url="https://gateway.pydantic.dev/proxy/chat/",
+    api_key="<PYDANTIC_AI_GATEWAY_API_KEY>",
+)
+
+# Make API calls - traces will be captured automatically
+response = client.chat.completions.create(
+    model="gpt-5",
+    messages=[{"role": "user", "content": "Hello world"}],
+)
+print(response.choices[0].message.content)
+```
+
+  </TabItem>
+  <TabItem value="anthropic" label="Anthropic SDK">
+
+If your Pydantic AI Gateway is configured to expose an Anthropic-compatible API, you can use MLflow's [Anthropic automatic tracing](/genai/tracing/integrations/listing/anthropic) integration to trace calls.
+
+```python
+import mlflow
+import anthropic
+
+# Enable auto-tracing for Anthropic
+mlflow.anthropic.autolog()
+
+# Set tracking URI and experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Pydantic AI Gateway")
+
+# Point Anthropic client to Pydantic AI Gateway
+client = anthropic.Anthropic(
+    base_url="https://gateway.pydantic.dev/proxy/chat/",
+    api_key="<PYDANTIC_AI_GATEWAY_API_KEY>",
+)
+
+# Make API calls - traces will be captured automatically
+response = client.messages.create(
+    max_tokens=1000,
+    model="claude-sonnet-4-5",
+    messages=[{"role": "user", "content": "Hello world"}],
+)
+print(response.content[0].text)
+```
+
+  </TabItem>
+  <TabItem value="pydantic-ai" label="Pydantic AI Agents">
+
+You can also use the PydanticAI agent framework to interact with models through the gateway, with full tracing support.
+
+```export
+PYDANTIC_AI_GATEWAY_API_KEY=your-pydantic-ai-gateway-api-key
+MLFLOW_TRACKING_URI=http://localhost:5000
+MLFLOW_EXPERIMENT_NAME=Pydantic AI Gateway
+```
+
+```python
+import mlflow
+from pydantic_ai import Agent
+
+# Enable auto-tracing for PydanticAI
+mlflow.pydantic_ai.autolog()
+
+# Create an agent with the gateway model
+# Use the appropriate model identifier for your gateway configuration
+agent = Agent(
+    "gateway/openai:gpt-4o",  # or your gateway model identifier
+    system_prompt="You are a helpful assistant.",
+    instrument=True,
+)
+
+
+# Run the agent - traces will be captured automatically
+async def main():
+    result = await agent.run("What is the capital of France?")
+    print(result.output)
+
+
+# If running in a notebook
+await main()
+
+# If running as a script
+# import asyncio
+# asyncio.run(main())
+```
+
+For more advanced PydanticAI features like tool calling, MCP servers, and streaming, see the [PydanticAI Integration](/genai/tracing/integrations/listing/pydantic_ai) guide.
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## View Traces in MLflow UI
+
+Open the MLflow UI at http://localhost:5000 (or your custom MLflow server URL) to see the traces from your Pydantic AI Gateway calls.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

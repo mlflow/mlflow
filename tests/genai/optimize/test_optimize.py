@@ -31,8 +31,9 @@ class MockPromptOptimizer(BasePromptOptimizer):
             # Simple optimization: add "Be precise and accurate. " prefix
             optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
 
-        # Verify the optimization by calling eval_fn
-        eval_fn(optimized_prompts, train_data)
+        # Verify the optimization by calling eval_fn (only if provided)
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
 
         return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,

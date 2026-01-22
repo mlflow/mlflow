@@ -285,9 +285,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, credential=TEST_CREDENTIAL)
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{ADLS_ARTIFACT_REPOSITORY}.list_artifacts",

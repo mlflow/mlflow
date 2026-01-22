@@ -60,7 +60,7 @@ export const OpenAICompatibleTracingDoc: React.FC<Props> = ({ providerId }) => {
       <TabsWrapper>
         <Tabs>
           <TabItem value="python" label="Python" default>
-            <CodeBlock language="bash">pip install mlflow openai</CodeBlock>
+            <CodeBlock language="bash">pip install 'mlflow[genai]' openai</CodeBlock>
           </TabItem>
           <TabItem value="typescript" label="JS / TS">
             <CodeBlock language="bash">npm install mlflow-openai openai</CodeBlock>

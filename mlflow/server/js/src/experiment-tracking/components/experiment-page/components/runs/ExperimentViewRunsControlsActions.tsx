@@ -13,6 +13,7 @@ import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPag
 import type { RunInfoEntity } from '../../../../types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 export type ExperimentViewRunsControlsActionsProps = {
   viewState: ExperimentPageViewState;
@@ -32,6 +33,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
     const navigate = useNavigate();
     const { theme } = useDesignSystemTheme();
+
+    // Register selected runs with the Assistant context
+    useRegisterSelectedIds('selectedRunIds', runsSelected);
 
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);

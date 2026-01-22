@@ -3,6 +3,8 @@
 # The --platform flag ensures consistent behavior across environments
 FROM --platform=linux/amd64 python:3.10
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 ARG DEPENDENCIES
 
 # apt-get and system utilities
@@ -18,6 +20,8 @@ RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 
-RUN pip install pyodbc pytest pytest-cov pytest-asyncio
-RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && pip install -r /tmp/requirements.txt
-RUN pip list
+RUN uv pip install --system pyodbc pytest pytest-cov pytest-asyncio
+RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && \
+    uv pip install --system -r /tmp/requirements.txt
+
+RUN uv pip list

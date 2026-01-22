@@ -189,6 +189,11 @@ class InstructionsJudge(Judge):
         return self._instructions
 
     @property
+    def feedback_value_type(self) -> Any:
+        """Get the type of the feedback value."""
+        return self._feedback_value_type
+
+    @property
     def inference_params(self) -> dict[str, Any] | None:
         """Get the inference parameters for this judge."""
         return self._inference_params

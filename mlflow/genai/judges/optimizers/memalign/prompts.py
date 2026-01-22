@@ -42,8 +42,8 @@ format:
     {
       "guideline_text": str, # a short sentence describing one aspect of user belief / \
 preference / expectation
-      "source_ids": list[int] # a list of ids of the judgement examples which the above \
-guideline is distilled from
+      "source_trace_ids": list[int] # a list of ids of the judgement examples which the \
+above guideline is distilled from
     },
     ...
   ]

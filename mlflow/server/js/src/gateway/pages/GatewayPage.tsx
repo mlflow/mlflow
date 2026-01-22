@@ -22,6 +22,7 @@ import { DefaultPassphraseBanner } from '../components/DefaultPassphraseBanner';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
 import GatewayRoutes from '../routes';
+import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
 
 const GatewayPageTitle = () => {
   const { theme } = useDesignSystemTheme();
@@ -90,13 +91,15 @@ const GatewayPage = () => {
     );
   }
 
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header title={<GatewayPageTitle />} />
       {isUsingDefaultPassphrase && <DefaultPassphraseBanner />}
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <GatewaySideNav activeTab={activeTab} />
+        {!enableWorkflowBasedNavigation && <GatewaySideNav activeTab={activeTab} />}
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {isNestedRoute ? (
             <Outlet />

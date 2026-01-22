@@ -174,14 +174,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
               {/* Tool performance summary */}
               <LazyToolPerformanceSummary />
 
-              {/* Tool error rate charts - dynamically rendered based on available tools */}
-              <ToolCallChartsSection />
-
               {/* Tool usage and latency charts - side by side */}
               <ChartGrid>
                 <LazyToolUsageChart />
                 <LazyToolLatencyChart />
               </ChartGrid>
+
+              {/* Tool error rate charts - dynamically rendered based on available tools */}
+              <ToolCallChartsSection />
             </TabContentContainer>
           </Tabs.Content>
         </OverviewChartProvider>

@@ -2265,7 +2265,7 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
 
     monkeypatch.setattr("litellm.completion", mock_completion)
     monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
-    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
+    monkeypatch.setattr("litellm.get_model_info", lambda model: {"max_input_tokens": 120})
 
     judge = make_judge(
         name="test", instructions="test {{inputs}}", feedback_value_type=str, model="openai:/gpt-4"

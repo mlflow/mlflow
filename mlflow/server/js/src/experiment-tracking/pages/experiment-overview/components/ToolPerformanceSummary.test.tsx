@@ -172,7 +172,7 @@ describe('ToolPerformanceSummary', () => {
         expect(screen.getByText('Tool')).toBeInTheDocument();
         expect(screen.getByText('Calls')).toBeInTheDocument();
         expect(screen.getByText('Success')).toBeInTheDocument();
-        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Latency (AVG)')).toBeInTheDocument();
       });
     });
 
@@ -378,7 +378,7 @@ describe('ToolPerformanceSummary', () => {
       });
 
       // Click Latency header
-      const latencyHeader = screen.getByRole('button', { name: /Latency/i });
+      const latencyHeader = screen.getByRole('button', { name: /Latency \(AVG\)/i });
       await userEvent.click(latencyHeader);
 
       // Should sort by latency descending

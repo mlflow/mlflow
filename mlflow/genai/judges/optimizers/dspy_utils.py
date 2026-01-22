@@ -1,7 +1,9 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+import os
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
 from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -11,7 +13,10 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.base import Judge
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL, USE_CASE_JUDGE_ALIGNMENT
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
+    USE_CASE_JUDGE_ALIGNMENT,
+)
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -30,6 +35,66 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def suppress_verbose_logging(
+    logger_name: str, threshold_level: int = logging.DEBUG
+) -> Iterator[None]:
+    """
+    Context manager to suppress verbose logging from a specific logger.
+
+    This is useful when running optimization algorithms that produce verbose output
+    by default. The suppression only applies if the parent MLflow logger is above
+    the threshold level, allowing users to see detailed output when they explicitly
+    set logging to DEBUG.
+
+    Args:
+        logger_name: Name of the logger to control.
+        threshold_level: Only suppress if MLflow logger is above this level.
+            Defaults to logging.DEBUG.
+
+    Example:
+        >>> with suppress_verbose_logging("some.verbose.library"):
+        ...     # Run operations that would normally log verbosely
+        ...     result = run_optimization()
+    """
+    logger = logging.getLogger(logger_name)
+    original_level = logger.level
+    try:
+        if _logger.getEffectiveLevel() > threshold_level:
+            logger.setLevel(logging.WARNING)
+        yield
+    finally:
+        logger.setLevel(original_level)
+
+
+def create_gepa_metric_adapter(
+    metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
+) -> Any:
+    """
+    Create a metric adapter that bridges DSPy's standard metric to GEPA's format.
+
+    GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
+    but our standard metric_fn has signature: (example, pred, trace).
+    This function creates an adapter that bridges the two signatures.
+
+    Args:
+        metric_fn: Standard metric function with signature (example, pred, trace)
+
+    Returns:
+        Adapter function with GEPA's expected signature
+    """
+
+    def gepa_metric_adapter(gold, pred, trace=None, pred_name=None, pred_trace=None):
+        """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
+        # gold is the dspy.Example
+        # pred is the prediction output
+        # trace/pred_name/pred_trace are optional GEPA-specific args
+        # We pass None for our metric's trace parameter since GEPA's trace is different
+        return metric_fn(gold, pred, trace=None)
+
+    return gepa_metric_adapter
 
 
 def _check_dspy_installed():
@@ -56,7 +121,72 @@ def construct_dspy_lm(model: str):
         return AgentEvalLM()
     else:
         model_litellm = convert_mlflow_uri_to_litellm(model)
+        api_base, api_key = _get_api_base_key(model)
+        if api_base:
+            return dspy.LM(model=model_litellm, api_base=api_base, api_key=api_key)
         return dspy.LM(model=model_litellm)
+
+
+def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
+    """
+    Get the api_base URL and api_key for a model.
+
+    Args:
+        model: MLflow model URI (e.g., 'endpoints:/my-endpoint', 'databricks:/my-endpoint')
+
+    Returns:
+        Tuple of (api_base, api_key) - both None if not applicable
+    """
+    try:
+        scheme, _ = _parse_model_uri(model)
+        if scheme in ("endpoints", "databricks"):
+            return _get_databricks_api_base_key()
+        return None, None
+    except Exception:
+        return None, None
+
+
+def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
+    """
+    Get the api_base URL and api_key for Databricks serving endpoints.
+
+    For Databricks endpoints with OpenAI-compatible API, the URL format is:
+    - api_base: https://host/serving-endpoints
+    - model: endpoint-name (passed in request body)
+
+    LiteLLM appends /chat/completions to api_base, making the final URL:
+    https://host/serving-endpoints/chat/completions with model=endpoint-name in body.
+
+    Returns:
+        Tuple of (api_base, api_key) - both None if credentials cannot be determined
+    """
+    # Get Databricks host and token from environment or SDK
+    host = os.environ.get("DATABRICKS_HOST")
+    api_key = os.environ.get("DATABRICKS_TOKEN")
+
+    if not host or not api_key:
+        try:
+            from databricks.sdk import WorkspaceClient
+        except ImportError:
+            _logger.warning(
+                "Could not determine Databricks credentials. "
+                "Set DATABRICKS_HOST and DATABRICKS_TOKEN environment variables."
+            )
+            return None, None
+
+        client = WorkspaceClient()
+        if not host:
+            host = client.config.host
+        if not api_key:
+            # Get token from SDK authentication (supports OAuth, PAT, etc.)
+            headers = client.config.authenticate()
+            if "Authorization" in headers:
+                api_key = headers["Authorization"].replace("Bearer ", "")
+
+    host = host.rstrip("/")
+    # Return api_base with just /serving-endpoints
+    # LiteLLM will append /chat/completions and pass the endpoint name as model
+    return f"{host}/serving-endpoints", api_key
 
 
 def _to_attrdict(obj):
@@ -126,7 +256,10 @@ class AgentEvalLM(dspy.BaseLM):
         pass
 
     def forward(
-        self, prompt: str | None = None, messages: list[dict[str, Any]] | None = None, **kwargs
+        self,
+        prompt: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        **kwargs,
     ) -> AttrDict[str, Any]:
         """Forward pass for the language model."""
         user_prompt = None
@@ -157,15 +290,22 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     Convert MLflow model URI format to LiteLLM format.
 
     MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
+    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
 
     Args:
-        model_uri: MLflow model URI (e.g., 'openai:/gpt-4')
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
 
     Returns:
-        LiteLLM-compatible model string (e.g., 'openai/gpt-4')
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
     """
     try:
         scheme, path = _parse_model_uri(model_uri)
+        # MLflow's "endpoints:/my-endpoint" is a Databricks serving endpoint URI.
+        # LiteLLM expects "databricks/{endpoint-name}" for Databricks endpoints,
+        # so we normalize both "endpoints" and "databricks" schemes to "databricks".
+        if scheme in ("endpoints", "databricks"):
+            return f"databricks/{path}"
         return f"{scheme}/{path}"
     except Exception as e:
         raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
@@ -376,3 +516,91 @@ def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = Non
     except Exception as e:
         _logger.warning(f"Error in agreement_metric: {e}")
         return False
+
+
+def append_input_fields_section(instructions: str, judge: "Judge") -> str:
+    """
+    Append a section listing the input fields for assessment to the instructions.
+
+    DSPy optimizers may modify instructions during optimization. This function
+    ensures that the input field names are clearly documented at the end of
+    the instructions, but only if they're not already present.
+
+    Args:
+        instructions: The optimized instructions
+        judge: The original judge (to get field names)
+
+    Returns:
+        Instructions with input fields section appended, or original instructions
+        if all input fields are already present
+    """
+    input_fields = judge.get_input_fields()
+    field_names = [f.name for f in input_fields]
+
+    if not field_names:
+        return instructions
+
+    # Check if all input fields are already present in mustached format
+    # Support both {{field}} and {{ field }} formats
+    def has_mustached_field(name: str) -> bool:
+        return f"{{{{{name}}}}}" in instructions or f"{{{{ {name} }}}}" in instructions
+
+    if all(has_mustached_field(name) for name in field_names):
+        return instructions
+
+    fields_list = ", ".join(f"{{{{ {name} }}}}" for name in field_names)
+    return f"{instructions}\n\nInputs for assessment: {fields_list}"
+
+
+def format_demos_as_examples(demos: list[Any], judge: "Judge") -> str:
+    """Format demos as few-shot examples to include in judge instructions.
+
+    SIMBA optimization adds successful examples to program.demos. This function
+    converts them to a text format suitable for inclusion in the judge prompt.
+
+    Args:
+        demos: List of dspy.Example objects containing successful judge evaluations
+        judge: The original judge (to get field names)
+
+    Returns:
+        Formatted text with examples, or empty string if no valid demos
+    """
+    if not demos:
+        return ""
+
+    # Get field names from the judge
+    input_fields = [f.name for f in judge.get_input_fields()]
+    output_fields = [f.name for f in judge.get_output_fields()]
+
+    examples_text = []
+    for i, demo in enumerate(demos):
+        example_parts = []
+
+        # Access demo fields using dict-style access
+        # (getattr conflicts with dspy.Example's built-in methods like inputs())
+        if not hasattr(demo, "items"):
+            raise MlflowException(
+                f"Demo at index {i} cannot be converted to dict. "
+                f"Expected dspy.Example, got {type(demo).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        demo_dict = dict(demo)
+
+        # Format input fields
+        for field in input_fields:
+            if field in demo_dict:
+                value = demo_dict[field]
+                example_parts.append(f"{field}: {value}")
+
+        # Format output fields
+        for field in output_fields:
+            if field in demo_dict:
+                value = demo_dict[field]
+                example_parts.append(f"{field}: {value}")
+
+        if example_parts:
+            examples_text.append(f"Example {i + 1}:\n" + "\n".join(example_parts))
+
+    if examples_text:
+        return "Here are some examples of good assessments:\n\n" + "\n\n".join(examples_text)
+    return ""

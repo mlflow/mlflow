@@ -1,11 +1,13 @@
 """SIMBA alignment optimizer implementation."""
 
 import logging
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Iterator
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection
 
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import _check_dspy_installed
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    _check_dspy_installed,
+    suppress_verbose_logging,
+)
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -14,27 +16,6 @@ if TYPE_CHECKING:
 _check_dspy_installed()
 
 _logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def _suppress_verbose_logging(
-    logger_name: str, threshold_level: int = logging.DEBUG
-) -> Iterator[None]:
-    """
-    Context manager to suppress verbose logging from a specific logger.
-
-    Args:
-        logger_name: Name of the logger to control
-        threshold_level: Only suppress if MLflow logger is above this level
-    """
-    logger = logging.getLogger(logger_name)
-    original_level = logger.level
-    try:
-        if _logger.getEffectiveLevel() > threshold_level:
-            logger.setLevel(logging.WARNING)
-        yield
-    finally:
-        logger.setLevel(original_level)
 
 
 @experimental(version="3.4.0")
@@ -116,9 +97,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         """
         import dspy
 
-        with _suppress_verbose_logging("dspy.teleprompt.simba"):
-            # Build SIMBA optimizer kwargs starting with required parameters
-            # If metric is in simba_kwargs, it will override the default metric_fn
+        with suppress_verbose_logging("dspy.teleprompt.simba"):
             optimizer_kwargs = {
                 "metric": metric_fn,
                 "bsize": self._get_batch_size(),
@@ -132,7 +111,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
                 f"(set logging to DEBUG for detailed output)"
             )
 
-            # Compile with SIMBA-specific parameters
             result = optimizer.compile(
                 student=program,
                 trainset=examples,

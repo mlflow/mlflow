@@ -310,7 +310,8 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         _logger.info("Evaluating baseline prompts on training data...")
         baseline_results = eval_fn(target_prompts, train_data)
         initial_score = self._compute_aggregate_score(baseline_results)
-        _logger.info(f"Baseline score: {initial_score:.4f}")
+        if initial_score is not None:
+            _logger.info(f"Baseline score: {initial_score:.4f}")
 
         # Build meta-prompt with evaluation feedback
         _logger.info("Generating optimized prompts...")
@@ -319,7 +320,6 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             template_variables,
             baseline_results,
         )
-
         # Call LLM to generate improved prompts
         try:
             improved_prompts = self._call_reflection_model(meta_prompt, enable_tracking)
@@ -337,15 +337,17 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 final_eval_score=None,
             )
 
-        _logger.info(
-            "Evaluating optimized prompts on training data, please note that this is more of a "
-            "sanity check than a final evaluation because the data has already been used for "
-            "meta-prompting. To accurately evaluate the optimized prompts, please use a "
-            "separate validation dataset and run mlflow.genai.evaluate() on it."
-        )
-        final_results = eval_fn(improved_prompts, train_data)
-        final_score = self._compute_aggregate_score(final_results)
-        _logger.info(f"Final score: {final_score:.4f}")
+        final_score = None
+        if initial_score is not None:
+            _logger.info(
+                "Evaluating optimized prompts on training data, please note that this is more of "
+                "a sanity check than a final evaluation because the data has already been used "
+                "for meta-prompting. To accurately evaluate the optimized prompts, please use a "
+                "separate validation dataset and run mlflow.genai.evaluate() on it."
+            )
+            final_results = eval_fn(improved_prompts, train_data)
+            final_score = self._compute_aggregate_score(final_results)
+            _logger.info(f"Final score: {final_score:.4f}")
 
         return PromptOptimizerOutput(
             optimized_prompts=improved_prompts,
@@ -476,13 +478,14 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             ]
         )
 
-        # Calculate current score from evaluation results
         if not eval_results:
             raise MlflowException(
                 "Few-shot metaprompting requires evaluation results. "
                 "No evaluation results were provided to _build_few_shot_meta_prompt."
             )
-        current_score = sum(result.score for result in eval_results) / len(eval_results)
+
+        # Calculate current score from evaluation results (if scores are available)
+        current_score = self._compute_aggregate_score(eval_results)
 
         # Format examples and their evaluation results in the meta-prompt
         examples_formatted = self._format_examples(eval_results)
@@ -506,12 +509,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             ]
         )
 
-        evaluation_examples = f"""EVALUATION EXAMPLES (Current Score: {current_score:.3f}):
-Below are examples showing how the current prompts performed. Study these to identify
-patterns in what worked and what failed.
-
-{examples_formatted}
-
+        # Build evaluation examples section (with or without score)
+        if current_score is not None:
+            score_info = f" (Current Score: {current_score:.3f})"
+            analysis_instructions = """
 Before applying best practices, analyze the examples to identify:
 1. **Common Failure Patterns**: What mistakes appear repeatedly? (wrong format,
    missing steps, calculation errors, etc.)
@@ -521,11 +522,26 @@ Before applying best practices, analyze the examples to identify:
    needed improvements?
 4. **Task Requirements**: What output format, explanation level, and edge cases
    are expected?"""
+        else:
+            score_info = ""
+            analysis_instructions = """
+Before applying best practices, analyze the examples to identify:
+1. **Output Patterns**: What are the expected outputs for different inputs?
+2. **Task Requirements**: What output format, explanation level, and edge cases
+   are expected?
+3. **Common Themes**: What patterns do you see in the input-output relationships?"""
+
+        evaluation_examples = f"""EVALUATION EXAMPLES{score_info}:
+Below are examples showing how the current prompts performed. Study these to identify
+patterns in what worked and what failed.
+
+{examples_formatted}
+{analysis_instructions}"""
 
         extra_instructions = """
-Focus on applying best practices that directly address the observed failure patterns.
+Focus on applying best practices that directly address the observed patterns.
 Add specific instructions, format specifications, or verification steps that would
-have prevented the failures you identified."""
+improve the prompt's effectiveness."""
 
         return META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
@@ -546,16 +562,18 @@ have prevented the failures you identified."""
                 else "  None"
             )
 
-            formatted.append(
-                f"""Example {i}:
-  Input: {json.dumps(result.inputs)}
-  Output: {result.outputs}
-  Expected: {result.expectations}
-  Score: {result.score:.3f}
-  Rationales:
-{rationale_str}
-"""
-            )
+            # Build example with optional score
+            example_lines = [
+                f"Example {i}:",
+                f"  Input: {json.dumps(result.inputs)}",
+                f"  Output: {result.outputs}",
+                f"  Expected: {result.expectations}",
+            ]
+            if result.score is not None:
+                example_lines.append(f"  Score: {result.score:.3f}")
+                example_lines.append(f"  Rationales:\n{rationale_str}")
+
+            formatted.append("\n".join(example_lines) + "\n")
         return "\n".join(formatted)
 
     def _call_reflection_model(
@@ -637,7 +655,7 @@ have prevented the failures you identified."""
                     f"Failed to call reflection model {litellm_model}: {e}"
                 ) from e
 
-    def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float:
+    def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float | None:
         """
         Compute aggregate score from evaluation results.
 
@@ -645,9 +663,14 @@ have prevented the failures you identified."""
             results: List of evaluation results
 
         Returns:
-            Average score across all examples, or NaN if no results
+            Average score across all examples, or None if no results or scores are None
         """
         if not results:
-            return float("nan")
+            return None
 
-        return sum(r.score for r in results) / len(results)
+        # If any score is None, return None (no scorers were provided)
+        scores = [r.score for r in results]
+        if any(s is None for s in scores):
+            return None
+
+        return sum(scores) / len(scores)

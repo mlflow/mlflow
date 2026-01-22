@@ -1598,11 +1598,13 @@ mlflow.tracing.disable
 mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
+mlflow.tracing.get_tracing_context_headers_for_http_request
 mlflow.tracing.reset
 mlflow.tracing.set_databricks_monitoring_sql_warehouse_id
 mlflow.tracing.set_destination
 mlflow.tracing.set_experiment_trace_location
 mlflow.tracing.set_span_chat_tools
+mlflow.tracing.set_tracing_context_from_http_request_headers
 mlflow.tracing.unset_experiment_trace_location
 mlflow.tracking.client.MlflowClient
 mlflow.tracking.fluent.ActiveModel

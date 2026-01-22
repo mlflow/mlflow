@@ -4,6 +4,10 @@ import { CardGroup, TitleCard } from "@site/src/components/Card";
 
 LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness and safety, which are hard to measure with heuristic metrics. On the other hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation.
 
+:::tip[Try the Judge Builder UI]
+The fastest way to create LLM judges is through the **Judge Builder UI** - no code required. Navigate to your experiment's **Judges** tab to create and test judges visually. See the [Template-based Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge) page for details. Requires MLflow >= 3.9.0.
+:::
+
 ## Approaches for Creating LLM Scorers
 
 MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. Click on the card below to see the detailed guide for each approach.
@@ -50,7 +54,19 @@ Correctness(model="google:/gemini-2.0-flash")
 
 ### Supported Models
 
-MLflow supports all major LLM providers:
+#### AI Gateway Endpoints
+
+[AI Gateway](/genai/governance/ai-gateway/) endpoints are the recommended way to configure judge models, especially when creating judges from the UI. Benefits include:
+
+- **Run judges directly from the UI** - Test and execute judges without leaving the browser
+- **Centralized API key management** - No need to configure API keys locally
+- **Traffic routing and fallbacks** - Configure load balancing and provider fallbacks
+
+To use AI Gateway endpoints, select the endpoint from the UI dropdown or specify the endpoint name from the SDK with the `gateway:/` prefix, e.g., `gateway:/my-chat-endpoint`.
+
+#### Direct Model Providers
+
+MLflow also supports calling model providers directly:
 
 - OpenAI / Azure OpenAI
 - Anthropic
@@ -58,6 +74,10 @@ MLflow supports all major LLM providers:
 - Cohere
 - Together AI
 - Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+
+:::warning
+Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
+:::
 
 To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
 

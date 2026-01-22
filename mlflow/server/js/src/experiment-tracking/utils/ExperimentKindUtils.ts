@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { ExperimentKind } from '../constants';
 import type { MessageDescriptor } from 'react-intl';
 import { defineMessage } from 'react-intl';
 import type { KeyValueEntity } from '../../common/types';
+import { WorkflowType, useWorkflowType } from '../../common/contexts/WorkflowTypeContext';
+import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
 
 export const EXPERIMENT_KIND_TAG_KEY = 'mlflow.experimentKind';
 
@@ -11,6 +14,26 @@ export const getExperimentKindFromTags = (
     | KeyValueEntity[],
 ): ExperimentKind | undefined =>
   experimentTags?.find((tag) => tag.key === EXPERIMENT_KIND_TAG_KEY)?.value as ExperimentKind;
+
+/**
+ * Hook to get experiment kind from WorkflowType context (when feature flag enabled) or from tags (fallback).
+ * This replaces direct usage of getExperimentKindFromTags in React components when workflow-based navigation is enabled.
+ */
+export const useExperimentKind = (
+  experimentTags?:
+    | ({ __typename: 'MlflowExperimentTag'; key: string | null; value: string | null }[] | null)
+    | KeyValueEntity[],
+): ExperimentKind | undefined => {
+  const { workflowType } = useWorkflowType();
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+
+  return useMemo(() => {
+    if (enableWorkflowBasedNavigation) {
+      return getExperimentKindForWorkflowType(workflowType);
+    }
+    return getExperimentKindFromTags(experimentTags);
+  }, [enableWorkflowBasedNavigation, workflowType, experimentTags]);
+};
 
 export const isEditableExperimentKind = (experimentKind: ExperimentKind): boolean =>
   experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED ||
@@ -133,3 +156,14 @@ export const getSelectableExperimentKinds = () => [
   ExperimentKind.GENAI_DEVELOPMENT,
   ExperimentKind.CUSTOM_MODEL_DEVELOPMENT,
 ];
+
+/**
+ * Maps WorkflowType to a single ExperimentKind value (non-inferred type).
+ * Used for setting experiment kind tags when creating experiments.
+ */
+export const getExperimentKindForWorkflowType = (workflowType: WorkflowType): ExperimentKind => {
+  if (workflowType === WorkflowType.GENAI) {
+    return ExperimentKind.GENAI_DEVELOPMENT;
+  }
+  return ExperimentKind.CUSTOM_MODEL_DEVELOPMENT;
+};

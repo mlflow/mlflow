@@ -1052,7 +1052,7 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
             ),
             {
                 "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
+                "SSEKMSKeyId": "some:arn:test:key/key_id",
             },
         ),
     ],
@@ -1137,7 +1137,7 @@ def test_create_model_version_with_sse_kms_client(
             ),
             {
                 "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
+                "SSEKMSKeyId": "some:arn:test:key/key_id",
             },
         ),
     ],

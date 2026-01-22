@@ -9,16 +9,19 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     agreement_metric,
+    append_input_fields_section,
     construct_dspy_lm,
-    convert_litellm_to_mlflow_uri,
     create_dspy_signature,
+    format_demos_as_examples,
     trace_to_dspy_example,
 )
-from mlflow.genai.judges.utils import _suppress_litellm_nonfatal_errors, get_default_model
+from mlflow.genai.judges.utils import (
+    _suppress_litellm_nonfatal_errors,
+    get_default_model,
+)
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -71,65 +74,103 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     @abstractmethod
     def _dspy_optimize(
         self,
-        program: "dspy.Module",
+        program: "dspy.Predict",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
-    ) -> "dspy.Module":
+    ) -> "dspy.Predict":
         """
         Perform DSPy optimization with algorithm-specific parameters.
 
         Each implementation can decide how to split the data internally if needed.
 
         Args:
-            program: The DSPy program to optimize
+            program: The DSPy Predict program to optimize
             examples: Examples for optimization (implementations decide how to split)
             metric_fn: Metric function for optimization
 
         Returns:
-            Optimized DSPy program
+            Optimized DSPy Predict program
         """
+
+    def _create_judge_from_dspy_program(
+        self,
+        optimized_program: "dspy.Predict",
+        original_judge: Judge,
+    ) -> Judge:
+        """
+        Create a judge from an optimized DSPy program.
+
+        This method combines instruction post-processing (appending input fields section)
+        and demo formatting into a single operation that returns a ready-to-use judge.
+
+        Args:
+            optimized_program: The optimized DSPy Predict program
+            original_judge: The original judge (to get name, model, field names, etc.)
+
+        Returns:
+            A new Judge instance with processed instructions and demos included
+        """
+        optimized_instructions = optimized_program.signature.instructions
+
+        instructions = append_input_fields_section(optimized_instructions, original_judge)
+
+        demos = getattr(optimized_program, "demos", [])
+        if demos_text := format_demos_as_examples(demos, original_judge):
+            instructions = demos_text + "\n\n" + instructions
+            self._logger.info(f"Including {len(demos)} demos from optimization")
+
+        return make_judge(
+            name=original_judge.name,
+            instructions=instructions,
+            model=original_judge.model,
+            feedback_value_type=original_judge.feedback_value_type,
+        )
 
     def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
         """Convert a judge into a DSPy Predict module."""
+        create_judge_from_dspy_program = self._create_judge_from_dspy_program
 
         class CustomPredict(dspy.Predict):
             """
-            Custom DSPy Predict class that allows passing an LM to the forward method.
-            This is necessary to ensure that the optimized dspy program uses the judge's model,
-            while we allow for the optimizer itself to use a different model.
+            Custom DSPy Predict class that uses the judge's model for evaluations.
+
+            This ensures the optimized DSPy program uses the judge's model,
+            while allowing the optimizer itself to use a different model.
             """
 
-            def __init__(self, judge):
-                super().__init__(create_dspy_signature(judge))
-                self._judge_model: str = judge.model
-                self._judge_name: str = judge.name
-                self._judge_feedback_value_type: Any = getattr(judge, "_feedback_value_type", str)
+            def __init__(self, original_judge: Judge):
+                super().__init__(create_dspy_signature(original_judge))
+                self._original_judge: Judge = original_judge
 
             def forward(self, *args, **kwargs):
-                # If an LLM is supplied via kwargs, extract the model URI and use it,
-                # else use self._judge_model
-                dspy_lm: dspy.LM = kwargs.pop("lm", None)
-                if dspy_lm is not None:
-                    if dspy_lm.model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-                        # The databricks default judge model is a special sentinel value
-                        # and is not a valid LiteLLM model identifier
-                        judge_model = _DATABRICKS_DEFAULT_JUDGE_MODEL
-                    else:
-                        judge_model = convert_litellm_to_mlflow_uri(dspy_lm.model)
-                else:
-                    judge_model = self._judge_model
+                # Extract _trace before filtering (DSPy convention for disabling trace)
+                should_trace = kwargs.pop("_trace", True)
 
-                judge: Judge = make_judge(
-                    name=self._judge_name,
-                    instructions=self.signature.instructions,
-                    model=judge_model,
-                    feedback_value_type=self._judge_feedback_value_type,
+                # Filter kwargs to only include the judge's input fields
+                input_field_names = {f.name for f in self._original_judge.get_input_fields()}
+                judge_kwargs = {k: v for k, v in kwargs.items() if k in input_field_names}
+
+                created_judge: Judge = create_judge_from_dspy_program(
+                    optimized_program=self,
+                    original_judge=self._original_judge,
                 )
-                feedback: Feedback = judge(**kwargs)
-                return dspy.Prediction(
+                feedback: Feedback = created_judge(**judge_kwargs)
+
+                pred = dspy.Prediction(
                     result=feedback.value,
                     rationale=feedback.rationale,
                 )
+
+                # Manually record a consistent trace for optimizers that depend on it (e.g., GEPA)
+                if should_trace and dspy.settings.trace is not None:
+                    trace = dspy.settings.trace
+                    max_trace_size = getattr(dspy.settings, "max_trace_size", float("inf"))
+                    if max_trace_size > 0:
+                        if len(trace) >= max_trace_size:
+                            trace.pop(0)
+                        trace.append((self, {**kwargs}, pred))
+
+                return pred
 
         return CustomPredict(judge)
 
@@ -205,14 +246,17 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 self._logger.debug("DSPy optimization completed")
 
-                # Create optimized judge with DSPy-optimized instructions
+                if not isinstance(optimized_program, dspy.Predict):
+                    raise MlflowException(
+                        f"Optimizer returned {type(optimized_program).__name__}, "
+                        "expected dspy.Predict. Custom optimizers must return a "
+                        "Predict instance from _dspy_optimize().",
+                        error_code=INTERNAL_ERROR,
+                    )
 
-                optimized_instructions = optimized_program.signature.instructions
-                return make_judge(
-                    name=judge.name,
-                    instructions=optimized_instructions,
-                    model=judge.model,
-                    feedback_value_type=getattr(judge, "_feedback_value_type", str),
+                return self._create_judge_from_dspy_program(
+                    optimized_program=optimized_program,
+                    original_judge=judge,
                 )
 
         except Exception as e:
