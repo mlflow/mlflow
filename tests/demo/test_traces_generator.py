@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow import MlflowClient, get_experiment_by_name, set_experiment
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.generators.traces import (
@@ -5,6 +7,14 @@ from mlflow.demo.generators.traces import (
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
+
+
+@pytest.fixture
+def traces_generator():
+    generator = TracesDemoGenerator()
+    original_version = generator.version
+    yield generator
+    TracesDemoGenerator.version = original_version
 
 
 def test_generator_attributes():
@@ -130,14 +140,11 @@ def test_traces_have_type_metadata():
     assert len(session_traces) == 14
 
 
-def test_is_generated_checks_version():
-    generator = TracesDemoGenerator()
-    generator.generate()
-    generator.store_version()
+def test_is_generated_checks_version(traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
 
-    assert generator.is_generated() is True
+    assert traces_generator.is_generated() is True
 
     TracesDemoGenerator.version = 99
-    assert generator.is_generated() is False
-
-    TracesDemoGenerator.version = 2
+    assert traces_generator.is_generated() is False
