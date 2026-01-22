@@ -5,6 +5,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { useForm } from 'react-hook-form';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 describe('EvaluateTracesSectionRenderer', () => {
   const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
@@ -97,6 +98,20 @@ describe('EvaluateTracesSectionRenderer', () => {
       // sampleRate is set to 0, so sample rate and filter controls should be hidden
       expect(screen.queryByText(/Sample rate/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
+    });
+
+    it('should disable automatic evaluation when using a non-gateway model', () => {
+      render(
+        <TestWrapper
+          defaultValues={{
+            sampleRate: 0,
+            modelInputMode: ModelProvider.OTHER,
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/only available for judges that use gateway endpoints/i)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeDisabled();
     });
   });
 });

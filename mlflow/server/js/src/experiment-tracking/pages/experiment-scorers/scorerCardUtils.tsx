@@ -10,6 +10,7 @@ import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 import { ScorerFormData, outputTypeSpecToFormData } from './utils/scorerTransformUtils';
 import { ScorerEvaluationScope } from './constants';
+import { getModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
   if (scorer.type === 'custom-code') {
@@ -86,6 +87,8 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
 
   const outputTypeFormFields = scorer.type === 'llm' ? outputTypeSpecToFormData((scorer as LLMScorer).outputType) : {};
 
+  const model = scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '';
+
   return {
     llmTemplate: scorer.type === 'llm' ? (scorer as LLMScorer).llmTemplate || '' : '',
     name: scorer.name || '',
@@ -95,7 +98,8 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     guidelines: scorer.type === 'llm' ? (scorer as LLMScorer).guidelines?.join('\n') || '' : '',
     instructions,
     filterString: scorer.filterString || '',
-    model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
+    model,
+    modelInputMode: scorer.type === 'llm' ? getModelProvider(model) : undefined,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
     evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,

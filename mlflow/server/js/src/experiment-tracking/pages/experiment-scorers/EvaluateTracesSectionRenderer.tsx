@@ -3,6 +3,7 @@ import { useDesignSystemTheme, Typography, FormUI, Slider, Input, Checkbox } fro
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-hook-form';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -31,9 +32,16 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'instructions',
   });
+  const modelInputMode = useWatch({
+    control,
+    name: 'modelInputMode',
+  });
 
   // Check if template contains {{ expectations }} - automatic evaluation not supported for scorers requiring expectations
   const hasExpectations = instructions?.includes('{{ expectations }}') ?? false;
+
+  // Check if using a non-gateway model - automatic evaluation only works with gateway models
+  const isNonGatewayModel = modelInputMode === ModelProvider.OTHER;
 
   // Automatically uncheck automatic evaluation when expectations is added to template
   useEffect(() => {
@@ -84,7 +92,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                 // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
                 field.onChange(checked ? 100 : 0);
               }}
-              disabled={mode === SCORER_FORM_MODE.DISPLAY || hasExpectations}
+              disabled={mode === SCORER_FORM_MODE.DISPLAY || hasExpectations || isNonGatewayModel}
               onClick={stopPropagationClick}
             >
               <FormattedMessage
@@ -113,6 +121,14 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
             <FormattedMessage
               defaultMessage="Automatic evaluation is not available for judges that use expectations."
               description="Hint text explaining why automatic evaluation is disabled for judges with expectations"
+            />
+          </FormUI.Hint>
+        )}
+        {isNonGatewayModel && !hasExpectations && (
+          <FormUI.Hint css={{ marginTop: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="Automatic evaluation is only available for judges that use gateway endpoints."
+              description="Hint text explaining why automatic evaluation is disabled for non-gateway models"
             />
           </FormUI.Hint>
         )}

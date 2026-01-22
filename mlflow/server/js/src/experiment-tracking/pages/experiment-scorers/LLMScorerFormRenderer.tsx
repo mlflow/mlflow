@@ -28,6 +28,7 @@ import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
+import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -39,6 +40,7 @@ export interface LLMScorerFormData {
   guidelines?: string;
   instructions?: string;
   model: string;
+  modelInputMode?: ModelProvider;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
   evaluationScope?: ScorerEvaluationScope;
