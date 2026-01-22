@@ -7,12 +7,12 @@ import { ExperimentLoggedModelDetailsNav } from '../../components/experiment-log
 import { ExperimentLoggedModelDetailsOverview } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsOverview';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import React from 'react';
 import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsArtifacts';
+import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
 import { useUserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 /**
@@ -68,6 +68,9 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
 
   const experimentLoadError = experimentApiError ?? experimentApolloError;
 
+  const experiment = experimentData;
+  const experimentKind = useExperimentKind(experiment?.tags);
+
   const renderSelectedTab = () => {
     if (loggedModelLoading) {
       return <TableSkeleton lines={12} />;
@@ -77,8 +80,6 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     if (!loggedModel) {
       return null;
     }
-
-    const experiment = experimentData;
 
     if (tabName === 'traces') {
       return (
@@ -91,8 +92,6 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     } else if (tabName === 'artifacts') {
       return <ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />;
     }
-
-    const experimentKind = getExperimentKindFromTags(experiment?.tags);
 
     return (
       <ExperimentLoggedModelDetailsOverview

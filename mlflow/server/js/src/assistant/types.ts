@@ -71,6 +71,8 @@ export interface AssistantAgentState {
   setupComplete: boolean;
   /** Whether config is being loaded */
   isLoadingConfig: boolean;
+  /** Whether the server is running locally (localhost) */
+  isLocalServer: boolean;
 }
 
 export interface AssistantAgentActions {
