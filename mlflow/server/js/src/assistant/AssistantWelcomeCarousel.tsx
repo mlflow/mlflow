@@ -3,10 +3,10 @@
  * Displays a carousel of feature images with dot navigation.
  */
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
-import assistantDebugImg from '../common/static/assistant-empty.svg';
+import assistantDebugImg from '../common/static/assistant-debug.svg';
 import assistantEvalImg from '../common/static/assistant-evaluation.svg';
 import assistantTrendsImg from '../common/static/assistant-trends.svg';
 
@@ -38,17 +38,13 @@ export const AssistantWelcomeCarousel = () => {
   const { theme } = useDesignSystemTheme();
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const handleDotClick = useCallback((index: number) => {
-    setCurrentSlide(index);
-  }, []);
-
-  const handleNextSlide = useCallback(() => {
+  const handleNextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
-  }, []);
+  };
 
-  const handlePrevSlide = useCallback(() => {
+  const handlePrevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  }, []);
+  };
 
   const currentSlideData = slides[currentSlide];
 
@@ -101,8 +97,8 @@ export const AssistantWelcomeCarousel = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 32,
-              height: 32,
+              width: theme.spacing.lg * 1.5,
+              height: theme.spacing.lg * 1.5,
               borderRadius: '50%',
               border: 'none',
               backgroundColor: 'transparent',
@@ -132,8 +128,6 @@ export const AssistantWelcomeCarousel = () => {
                 key={slide.title}
                 css={{
                   display: index === currentSlide ? 'block' : 'none',
-                  opacity: index === currentSlide ? 1 : 0,
-                  transition: 'opacity 0.3s ease-in-out',
                 }}
               >
                 <img
@@ -156,8 +150,8 @@ export const AssistantWelcomeCarousel = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 32,
-              height: 32,
+              width: theme.spacing.lg * 1.5,
+              height: theme.spacing.lg * 1.5,
               borderRadius: '50%',
               border: 'none',
               backgroundColor: 'transparent',
@@ -180,16 +174,10 @@ export const AssistantWelcomeCarousel = () => {
           css={{
             textAlign: 'center',
             marginTop: theme.spacing.md,
-            padding: `0 ${theme.spacing.lg}px`,
+            padding: `0 32px`,
           }}
         >
-          <Typography.Text
-            bold
-            css={{
-              display: 'block',
-              marginBottom: theme.spacing.xs,
-            }}
-          >
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
             {currentSlide + 1}. {currentSlideData.title}
           </Typography.Text>
           <Typography.Text color="secondary">{currentSlideData.description}</Typography.Text>
@@ -207,11 +195,11 @@ export const AssistantWelcomeCarousel = () => {
         {slides.map((slide, index) => (
           <button
             key={slide.title}
-            onClick={() => handleDotClick(index)}
+            onClick={() => setCurrentSlide(index)}
             aria-label={`Go to slide ${index + 1}: ${slide.title}`}
             css={{
-              width: 8,
-              height: 8,
+              width: theme.spacing.sm,
+              height: theme.spacing.sm,
               borderRadius: '50%',
               border: 'none',
               backgroundColor: theme.colors.textSecondary,

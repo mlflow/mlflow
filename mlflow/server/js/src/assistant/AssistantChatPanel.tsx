@@ -523,8 +523,6 @@ const NoExperimentPrompt = () => {
     >
       <AssistantWelcomeCarousel />
 
-      <div css={{ height: theme.spacing.md }} />
-
       <Typography.Text
         color="secondary"
         css={{
