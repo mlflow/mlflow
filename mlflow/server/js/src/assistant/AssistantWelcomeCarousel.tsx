@@ -3,7 +3,7 @@
  * Displays a carousel of feature images with dot navigation.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import assistantDebugImg from '../common/static/assistant-debug.svg';
@@ -34,19 +34,51 @@ const slides: CarouselSlide[] = [
   },
 ];
 
+const TRANSITION_DURATION_MS = 400;
+
 export const AssistantWelcomeCarousel = () => {
   const { theme } = useDesignSystemTheme();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const extendedSlides = [...slides, slides[0]];
+  const displaySlideIndex = currentIndex % slides.length;
+
+  // Reset transitioning state after animation completes
+  useEffect(() => {
+    if (!isTransitioning) return;
+
+    const timeout = setTimeout(() => {
+      // If we're at the clone (index 3), reset to first slide instantly
+      if (currentIndex === slides.length) {
+        setIsTransitioning(false);
+        setCurrentIndex(0);
+      } else {
+        setIsTransitioning(false);
+      }
+    }, TRANSITION_DURATION_MS);
+    return () => clearTimeout(timeout);
+  }, [isTransitioning, currentIndex]);
 
   const handleNextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => prev + 1);
   };
 
   const handlePrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
-  const currentSlideData = slides[currentSlide];
+  const handleDotClick = (index: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrentIndex(index);
+  };
+
+  const currentSlideData = slides[displaySlideIndex];
 
   return (
     <div
@@ -118,28 +150,36 @@ export const AssistantWelcomeCarousel = () => {
           {/* Slides */}
           <div
             css={{
-              position: 'relative',
               flex: 1,
               overflow: 'hidden',
             }}
           >
-            {slides.map((slide, index) => (
-              <div
-                key={slide.title}
-                css={{
-                  display: index === currentSlide ? 'block' : 'none',
-                }}
-              >
-                <img
-                  src={slide.image}
-                  alt={slide.title}
+            <div
+              css={{
+                display: 'flex',
+                transition: isTransitioning ? `transform ${TRANSITION_DURATION_MS}ms ease-in-out` : 'none',
+                transform: `translateX(-${currentIndex * 100}%)`,
+              }}
+            >
+              {extendedSlides.map((slide, index) => (
+                <div
+                  key={`${slide.title}-${index}`}
                   css={{
+                    flexShrink: 0,
                     width: '100%',
-                    height: 'auto',
                   }}
-                />
-              </div>
-            ))}
+                >
+                  <img
+                    src={slide.image}
+                    alt={slide.title}
+                    css={{
+                      width: '100%',
+                      height: 'auto',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Right arrow */}
@@ -178,7 +218,7 @@ export const AssistantWelcomeCarousel = () => {
           }}
         >
           <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-            {currentSlide + 1}. {currentSlideData.title}
+            {displaySlideIndex + 1}. {currentSlideData.title}
           </Typography.Text>
           <Typography.Text color="secondary">{currentSlideData.description}</Typography.Text>
         </div>
@@ -195,7 +235,7 @@ export const AssistantWelcomeCarousel = () => {
         {slides.map((slide, index) => (
           <button
             key={slide.title}
-            onClick={() => setCurrentSlide(index)}
+            onClick={() => handleDotClick(index)}
             aria-label={`Go to slide ${index + 1}: ${slide.title}`}
             css={{
               width: theme.spacing.sm,
@@ -203,7 +243,7 @@ export const AssistantWelcomeCarousel = () => {
               borderRadius: '50%',
               border: 'none',
               backgroundColor: theme.colors.textSecondary,
-              opacity: index === currentSlide ? 0.7 : 0.3,
+              opacity: index === displaySlideIndex ? 0.7 : 0.3,
               padding: 0,
               cursor: 'pointer',
               transition: 'all 0.2s ease',
