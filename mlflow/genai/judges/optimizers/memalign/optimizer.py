@@ -22,6 +22,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     get_query_field,
     retrieve_relevant_examples,
     truncate_to_token_limit,
+    value_to_embedding_text,
 )
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -162,7 +163,7 @@ class MemoryAugmentedJudge(Judge):
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
-            trace=trace,
+            trace=value_to_embedding_text(trace) if trace is not None else None,
         )
 
         return Feedback(
@@ -309,7 +310,7 @@ class MemoryAugmentedJudge(Judge):
             raise MlflowException(
                 "Unable to build episodic memory: no suitable input field found in judge "
                 "instructions. Please ensure the judge instructions reference at least one of "
-                "the following fields: inputs, outputs, expectations, conversation.",
+                "the following fields: inputs, outputs, expectations, conversation, trace.",
                 error_code=INTERNAL_ERROR,
             )
 
@@ -319,7 +320,7 @@ class MemoryAugmentedJudge(Judge):
         for example in self._episodic_memory:
             if value := getattr(example, query_field, None):
                 query = truncate_to_token_limit(
-                    str(value), self._embedding_model, model_type="embedding"
+                    value_to_embedding_text(value), self._embedding_model, model_type="embedding"
                 )
                 corpus.append(query)
                 filtered_memory.append(example)
