@@ -22,6 +22,7 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
+    _extract_tool_name_from_span,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
     clean_up_extra_traces,
@@ -911,6 +912,38 @@ def test_parse_tool_call_messages_from_trace_tool_without_outputs():
         "role": "tool",
         "content": "Tool: my_tool\nInputs: {'param': 'value'}",
     }
+
+
+def test_extract_tool_name_from_span_uses_span_name_by_default():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"query": "test"})
+
+        with mlflow.start_span(name="my_tool", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"arg": "value"})
+
+        root_span.set_outputs("result")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "my_tool"
+
+
+def test_extract_tool_name_from_span_extracts_from_call_tool_name():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"query": "test"})
+
+        with mlflow.start_span(
+            name="ToolManager.handle_call", span_type=SpanType.TOOL
+        ) as tool_span:
+            tool_span.set_inputs({"call": {"tool_name": "list_client", "args": {"param": "value"}}})
+
+        root_span.set_outputs("result")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "list_client"
 
 
 def test_resolve_conversation_from_session():
