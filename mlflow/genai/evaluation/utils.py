@@ -197,14 +197,29 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
 
 def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Deserialize the `trace` column from the dataframe if it is a string.
+    Deserialize the `trace` column from the dataframe if it is a string or dict.
 
     Since MLflow 3.2.0, mlflow.search_traces() returns a pandas DataFrame with a `trace`
     column that is a trace json representation rather than the Trace object itself. This
     function deserializes the `trace` column into a Trace object.
+
+    Additionally, when a Spark DataFrame with a trace column (StructType) is converted
+    to pandas via .toPandas(), the trace column becomes a dict. This function handles
+    that case as well by calling Trace.from_dict().
     """
-    if "trace" in df.columns:
-        df["trace"] = df["trace"].apply(lambda t: Trace.from_json(t) if isinstance(t, str) else t)
+    if "trace" not in df.columns:
+        return df
+
+    def deserialize_trace(t):
+        if isinstance(t, Trace):
+            return t
+        if isinstance(t, str):
+            return Trace.from_json(t)
+        if isinstance(t, dict):
+            return Trace.from_dict(t)
+        return t
+
+    df["trace"] = df["trace"].apply(deserialize_trace)
     return df
 
 

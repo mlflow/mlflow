@@ -16,6 +16,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    _deserialize_trace_column_if_needed,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -318,6 +319,45 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     )
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
+
+
+@pytest.fixture
+def sample_trace_dict():
+    return {
+        "info": {
+            "trace_id": "test-trace-id",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
+            },
+            "request_time": "2024-01-21T12:00:00Z",
+            "state": "OK",
+            "trace_metadata": {},
+            "tags": {},
+            "assessments": [],
+        },
+        "data": {"spans": []},
+    }
+
+
+@pytest.mark.parametrize("trace_format", ["dict", "string", "trace_object"])
+def test_deserialize_trace_column(sample_trace_dict, trace_format):
+    if trace_format == "dict":
+        trace_value = sample_trace_dict
+        expected_input_type = dict
+    elif trace_format == "string":
+        trace_value = json.dumps(sample_trace_dict)
+        expected_input_type = str
+    else:
+        trace_value = Trace.from_dict(sample_trace_dict)
+        expected_input_type = Trace
+
+    df = pd.DataFrame([{"trace": trace_value, "inputs": {"question": "test"}}])
+    assert isinstance(df["trace"].iloc[0], expected_input_type)
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert isinstance(result["trace"].iloc[0], Trace)
+    assert result["trace"].iloc[0].info.trace_id == "test-trace-id"
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
