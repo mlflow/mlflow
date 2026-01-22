@@ -84,12 +84,10 @@ def _get_query_string_for_traces(traces: list["Trace"]):
 
 
 def _is_jupyter():
-    try:
-        from IPython import get_ipython
+    # Lazy import to avoid circular dependency
+    from mlflow.tracking.context.jupyter_notebook_context import _is_in_jupyter_notebook
 
-        return get_ipython() is not None
-    except ImportError:
-        return False
+    return _is_in_jupyter_notebook()
 
 
 def is_using_tracking_server():
