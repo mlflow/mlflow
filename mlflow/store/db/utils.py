@@ -18,7 +18,6 @@ from sqlalchemy import event, sql
 from sqlalchemy.pool import (
     AssertionPool,
     AsyncAdaptedQueuePool,
-    FallbackAsyncAdaptedQueuePool,
     NullPool,
     QueuePool,
     SingletonThreadPool,
@@ -350,12 +349,18 @@ def create_sqlalchemy_engine(db_uri):
         pool_class_map = {
             "AssertionPool": AssertionPool,
             "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
-            "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
             "NullPool": NullPool,
             "QueuePool": QueuePool,
             "SingletonThreadPool": SingletonThreadPool,
             "StaticPool": StaticPool,
         }
+        try:
+            # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
+            from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
+
+            pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
+        except ImportError:
+            pass
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
