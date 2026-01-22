@@ -11,6 +11,9 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     ExperimentTag,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
+    GatewayResourceType,
     InputTag,
     LoggedModelParameter,
     LoggedModelStatus,
@@ -31,8 +34,13 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
     SqlTraceTag,
 )
+from mlflow.store.tracking.gateway.config_resolver import (
+    get_endpoint_config,
+    get_resource_endpoint_configs,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -41,7 +49,12 @@ from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.store.tracking.test_sqlalchemy_store import create_test_span
+from tests.store.tracking.test_sqlalchemy_store import (
+    _create_trace,
+    _gateway_model_scorer_json,
+    _mock_gateway_endpoint,
+    create_test_span,
+)
 
 
 def _now_ms() -> int:
@@ -805,7 +818,7 @@ def test_workspace_startup_rejects_root_ending_with_workspaces(tmp_path, monkeyp
     ) as excinfo:
         tracking_utils._get_sqlalchemy_store(backend_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
 
 def test_workspace_startup_rejects_root_already_scoped(tmp_path, monkeypatch):
@@ -820,7 +833,7 @@ def test_workspace_startup_rejects_root_already_scoped(tmp_path, monkeypatch):
     ) as excinfo:
         tracking_utils._get_sqlalchemy_store(backend_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
 
 def test_workspace_startup_detects_existing_reserved_artifact(tmp_path, monkeypatch):
@@ -843,7 +856,7 @@ def test_workspace_startup_detects_existing_reserved_artifact(tmp_path, monkeypa
     ) as excinfo:
         tracking_utils._get_sqlalchemy_store(backend_uri, base_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
 
 def test_workspace_startup_ignores_default_experiment_reserved_location(tmp_path, monkeypatch):
@@ -871,7 +884,7 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(tmp_path
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     workspace_store = tracking_utils._get_sqlalchemy_store(backend_uri, base_root.as_uri())
     workspace_store._dispose_engine()
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
 
 def test_single_tenant_startup_rejects_non_default_workspace_experiments(tmp_path, monkeypatch):
@@ -886,7 +899,7 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(tmp_pat
         workspace_store.create_experiment("team-exp")
 
     workspace_store._dispose_engine()
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     with pytest.raises(
@@ -896,7 +909,7 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(tmp_pat
         SqlAlchemyStore(backend_uri, artifact_root.as_uri())
 
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._db_uri_sql_alchemy_engine_map.pop(backend_uri, None)
+    SqlAlchemyStore._engine_map.pop(backend_uri, None)
 
 
 def test_metric_bulk_operations_are_workspace_scoped(workspace_tracking_store):
@@ -1448,16 +1461,16 @@ def gateway_workspace_store(workspace_tracking_store, monkeypatch):
 
 def test_secrets_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-secret-a"):
-        secret_a = gateway_workspace_store.create_secret(
+        secret_a = gateway_workspace_store.create_gateway_secret(
             secret_name="my-secret",
-            secret_value="secret-a-value",
+            secret_value={"api_key": "secret-a-value"},
             provider="openai",
         )
 
     with WorkspaceContext("team-secret-b"):
-        secret_b = gateway_workspace_store.create_secret(
+        secret_b = gateway_workspace_store.create_gateway_secret(
             secret_name="my-secret",
-            secret_value="secret-b-value",
+            secret_value={"api_key": "secret-b-value"},
             provider="anthropic",
         )
 
@@ -1469,10 +1482,12 @@ def test_secrets_are_workspace_scoped(gateway_workspace_store):
             gateway_workspace_store.get_secret_info(secret_id=secret_a.secret_id)
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.update_secret(secret_id=secret_a.secret_id, secret_value="new")
+            gateway_workspace_store.update_gateway_secret(
+                secret_id=secret_a.secret_id, secret_value={"api_key": "new"}
+            )
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.delete_secret(secret_id=secret_a.secret_id)
+            gateway_workspace_store.delete_gateway_secret(secret_id=secret_a.secret_id)
 
     with WorkspaceContext("team-secret-a"):
         secrets = gateway_workspace_store.list_secret_infos()
@@ -1483,64 +1498,76 @@ def test_secrets_are_workspace_scoped(gateway_workspace_store):
 
 def test_endpoints_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-endpoint-a"):
-        secret_a = gateway_workspace_store.create_secret(
-            secret_name="secret-a", secret_value="val-a"
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
-        def_a = gateway_workspace_store.create_model_definition(
+        def_a = gateway_workspace_store.create_gateway_model_definition(
             name="def-a",
             secret_id=secret_a.secret_id,
             provider="openai",
             model_name="gpt-4",
         )
-        endpoint_a = gateway_workspace_store.create_endpoint(
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
             name="my-endpoint",
-            model_definition_ids=[def_a.model_definition_id],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
             created_by="user-a",
         )
 
     with WorkspaceContext("team-endpoint-b"):
-        secret_b = gateway_workspace_store.create_secret(
-            secret_name="secret-b", secret_value="val-b"
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
-        def_b = gateway_workspace_store.create_model_definition(
+        def_b = gateway_workspace_store.create_gateway_model_definition(
             name="def-b",
             secret_id=secret_b.secret_id,
             provider="anthropic",
             model_name="claude-3",
         )
-        endpoint_b = gateway_workspace_store.create_endpoint(
+        endpoint_b = gateway_workspace_store.create_gateway_endpoint(
             name="my-endpoint",
-            model_definition_ids=[def_b.model_definition_id],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_b.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
             created_by="user-b",
         )
 
-        endpoints = gateway_workspace_store.list_endpoints()
+        endpoints = gateway_workspace_store.list_gateway_endpoints()
         assert len(endpoints) == 1
         assert endpoints[0].endpoint_id == endpoint_b.endpoint_id
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.get_endpoint(endpoint_id=endpoint_a.endpoint_id)
+            gateway_workspace_store.get_gateway_endpoint(endpoint_id=endpoint_a.endpoint_id)
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.update_endpoint(
+            gateway_workspace_store.update_gateway_endpoint(
                 endpoint_id=endpoint_a.endpoint_id, name="renamed"
             )
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.delete_endpoint(endpoint_id=endpoint_a.endpoint_id)
+            gateway_workspace_store.delete_gateway_endpoint(endpoint_id=endpoint_a.endpoint_id)
 
     with WorkspaceContext("team-endpoint-a"):
-        endpoints = gateway_workspace_store.list_endpoints()
+        endpoints = gateway_workspace_store.list_gateway_endpoints()
         assert len(endpoints) == 1
         assert endpoints[0].endpoint_id == endpoint_a.endpoint_id
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
-        secret_a = gateway_workspace_store.create_secret(
-            secret_name="secret-a", secret_value="val-a"
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
-        definition_a = gateway_workspace_store.create_model_definition(
+        definition_a = gateway_workspace_store.create_gateway_model_definition(
             name="my-model",
             secret_id=secret_a.secret_id,
             provider="openai",
@@ -1549,10 +1576,10 @@ def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
         )
 
     with WorkspaceContext("team-def-b"):
-        secret_b = gateway_workspace_store.create_secret(
-            secret_name="secret-b", secret_value="val-b"
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
-        definition_b = gateway_workspace_store.create_model_definition(
+        definition_b = gateway_workspace_store.create_gateway_model_definition(
             name="my-model",
             secret_id=secret_b.secret_id,
             provider="anthropic",
@@ -1560,28 +1587,28 @@ def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
             created_by="user-b",
         )
 
-        definitions = gateway_workspace_store.list_model_definitions()
+        definitions = gateway_workspace_store.list_gateway_model_definitions()
         assert len(definitions) == 1
         assert definitions[0].model_definition_id == definition_b.model_definition_id
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.get_model_definition(
+            gateway_workspace_store.get_gateway_model_definition(
                 model_definition_id=definition_a.model_definition_id
             )
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.update_model_definition(
+            gateway_workspace_store.update_gateway_model_definition(
                 model_definition_id=definition_a.model_definition_id,
                 name="renamed",
             )
 
         with pytest.raises(MlflowException, match="not found"):
-            gateway_workspace_store.delete_model_definition(
+            gateway_workspace_store.delete_gateway_model_definition(
                 model_definition_id=definition_a.model_definition_id
             )
 
     with WorkspaceContext("team-def-a"):
-        definitions = gateway_workspace_store.list_model_definitions()
+        definitions = gateway_workspace_store.list_gateway_model_definitions()
         assert len(definitions) == 1
         assert definitions[0].model_definition_id == definition_a.model_definition_id
         assert definitions[0].provider == "openai"
@@ -1590,46 +1617,58 @@ def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
 def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-bind-a"):
         gateway_workspace_store.create_experiment("exp-bind-a")
-        secret_a = gateway_workspace_store.create_secret(
-            secret_name="secret-a", secret_value="val-a"
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
-        def_a = gateway_workspace_store.create_model_definition(
+        def_a = gateway_workspace_store.create_gateway_model_definition(
             name="def-a",
             secret_id=secret_a.secret_id,
             provider="openai",
             model_name="gpt-4",
         )
-        endpoint_a = gateway_workspace_store.create_endpoint(
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
             name="bound-endpoint",
-            model_definition_ids=[def_a.model_definition_id],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
             created_by="a",
         )
         gateway_workspace_store.create_endpoint_binding(
             endpoint_id=endpoint_a.endpoint_id,
-            resource_type="logged_model",
+            resource_type=GatewayResourceType.SCORER_JOB.value,
             resource_id="model-a",
             created_by="user-a",
         )
 
     with WorkspaceContext("team-bind-b"):
         gateway_workspace_store.create_experiment("exp-bind-b")
-        secret_b = gateway_workspace_store.create_secret(
-            secret_name="secret-b", secret_value="val-b"
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
-        def_b = gateway_workspace_store.create_model_definition(
+        def_b = gateway_workspace_store.create_gateway_model_definition(
             name="def-b",
             secret_id=secret_b.secret_id,
             provider="anthropic",
             model_name="claude-3",
         )
-        endpoint_b = gateway_workspace_store.create_endpoint(
+        endpoint_b = gateway_workspace_store.create_gateway_endpoint(
             name="bound-endpoint",
-            model_definition_ids=[def_b.model_definition_id],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_b.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
             created_by="b",
         )
         gateway_workspace_store.create_endpoint_binding(
             endpoint_id=endpoint_b.endpoint_id,
-            resource_type="logged_model",
+            resource_type=GatewayResourceType.SCORER_JOB.value,
             resource_id="model-b",
             created_by="user-b",
         )
@@ -1642,3 +1681,373 @@ def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
         bindings = gateway_workspace_store.list_endpoint_bindings()
         assert len(bindings) == 1
         assert bindings[0].endpoint_id == endpoint_a.endpoint_id
+
+
+def test_detach_model_from_endpoint_workspace_scoped(gateway_workspace_store):
+    # Create endpoint and model definition in workspace-a
+    with WorkspaceContext("workspace-a"):
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a",
+            secret_value={"api_key": "sk-test123"},
+            provider="openai",
+        )
+        model_def_a = gateway_workspace_store.create_gateway_model_definition(
+            name="model-def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-a",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=model_def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+
+    # Create endpoint and model definition in workspace-b
+    with WorkspaceContext("workspace-b"):
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b",
+            secret_value={"api_key": "sk-test456"},
+            provider="openai",
+        )
+        model_def_b = gateway_workspace_store.create_gateway_model_definition(
+            name="model-def-b",
+            secret_id=secret_b.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_b = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-b",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=model_def_b.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+
+    # Try to detach model from endpoint-b while in workspace-a - should fail
+    with WorkspaceContext("workspace-a"):
+        with pytest.raises(MlflowException, match="GatewayEndpoint not found"):
+            gateway_workspace_store.detach_model_from_endpoint(
+                endpoint_id=endpoint_b.endpoint_id,
+                model_definition_id=model_def_b.model_definition_id,
+            )
+
+    # Detach model from endpoint-a while in workspace-a - should succeed
+    with WorkspaceContext("workspace-a"):
+        gateway_workspace_store.detach_model_from_endpoint(
+            endpoint_id=endpoint_a.endpoint_id,
+            model_definition_id=model_def_a.model_definition_id,
+        )
+        # Verify the mapping was removed
+        endpoint = gateway_workspace_store.get_gateway_endpoint(endpoint_id=endpoint_a.endpoint_id)
+        assert len(endpoint.model_mappings) == 0
+
+    # Detach model from endpoint-b while in workspace-b - should succeed
+    with WorkspaceContext("workspace-b"):
+        gateway_workspace_store.detach_model_from_endpoint(
+            endpoint_id=endpoint_b.endpoint_id,
+            model_definition_id=model_def_b.model_definition_id,
+        )
+        # Verify the mapping was removed
+        endpoint = gateway_workspace_store.get_gateway_endpoint(endpoint_id=endpoint_b.endpoint_id)
+        assert len(endpoint.model_mappings) == 0
+
+
+def test_get_online_scoring_configs_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-online-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-online-a")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_a, "scorer-a", _gateway_model_scorer_json()
+            )
+        config_a = workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a,
+            scorer_name="scorer-a",
+            sample_rate=0.2,
+        )
+
+    with WorkspaceContext("team-online-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-online-b")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_b, "scorer-b", _gateway_model_scorer_json()
+            )
+        config_b = workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_b,
+            scorer_name="scorer-b",
+            sample_rate=0.4,
+        )
+
+        configs = workspace_tracking_store.get_online_scoring_configs(
+            [config_a.scorer_id, config_b.scorer_id]
+        )
+        assert len(configs) == 1
+        assert configs[0].scorer_id == config_b.scorer_id
+        assert configs[0].sample_rate == 0.4
+
+    with WorkspaceContext("team-online-a"):
+        configs = workspace_tracking_store.get_online_scoring_configs(
+            [config_a.scorer_id, config_b.scorer_id]
+        )
+        assert len(configs) == 1
+        assert configs[0].scorer_id == config_a.scorer_id
+        assert configs[0].sample_rate == 0.2
+
+
+def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-active-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-active-a")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_a, "scorer-a", _gateway_model_scorer_json()
+            )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a,
+            scorer_name="scorer-a",
+            sample_rate=0.25,
+        )
+
+    with WorkspaceContext("team-active-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-active-b")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_b, "scorer-b", _gateway_model_scorer_json()
+            )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_b,
+            scorer_name="scorer-b",
+            sample_rate=0.5,
+        )
+
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert len(active_scorers) == 1
+        assert active_scorers[0].name == "scorer-b"
+        assert active_scorers[0].online_config.experiment_id == exp_b
+
+    with WorkspaceContext("team-active-a"):
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert len(active_scorers) == 1
+        assert active_scorers[0].name == "scorer-a"
+        assert active_scorers[0].online_config.experiment_id == exp_a
+
+
+def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-sessions-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-sessions-a")
+        _create_trace(
+            workspace_tracking_store,
+            "trace-a1",
+            exp_a,
+            request_time=1000,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        )
+        _create_trace(
+            workspace_tracking_store,
+            "trace-a2",
+            exp_a,
+            request_time=2000,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        )
+
+    with WorkspaceContext("team-sessions-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-sessions-b")
+        _create_trace(
+            workspace_tracking_store,
+            "trace-b1",
+            exp_b,
+            request_time=1500,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+        )
+        _create_trace(
+            workspace_tracking_store,
+            "trace-b2",
+            exp_b,
+            request_time=2500,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+        )
+
+        completed = workspace_tracking_store.find_completed_sessions(
+            experiment_id=exp_a,
+            min_last_trace_timestamp_ms=0,
+            max_last_trace_timestamp_ms=3000,
+        )
+        assert completed == []
+
+    with WorkspaceContext("team-sessions-a"):
+        completed = workspace_tracking_store.find_completed_sessions(
+            experiment_id=exp_a,
+            min_last_trace_timestamp_ms=0,
+            max_last_trace_timestamp_ms=3000,
+        )
+        assert len(completed) == 1
+        assert completed[0].session_id == "session-a"
+
+    with WorkspaceContext("team-sessions-b"):
+        completed = workspace_tracking_store.find_completed_sessions(
+            experiment_id=exp_b,
+            min_last_trace_timestamp_ms=0,
+            max_last_trace_timestamp_ms=3000,
+        )
+        assert len(completed) == 1
+        assert completed[0].session_id == "session-b"
+
+
+def test_gateway_config_resolver_scopes_bindings(gateway_workspace_store):
+    resource_type = GatewayResourceType.SCORER_JOB.value
+    resource_id = "job-42"
+
+    with WorkspaceContext("team-resolver-a"):
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a", secret_value={"api_key": "val-a"}, provider="openai"
+        )
+        def_a = gateway_workspace_store.create_gateway_model_definition(
+            name="def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-a",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+        gateway_workspace_store.create_endpoint_binding(
+            endpoint_id=endpoint_a.endpoint_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            created_by="user-a",
+        )
+
+    with WorkspaceContext("team-resolver-b"):
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b", secret_value={"api_key": "val-b"}, provider="anthropic"
+        )
+        def_b = gateway_workspace_store.create_gateway_model_definition(
+            name="def-b",
+            secret_id=secret_b.secret_id,
+            provider="anthropic",
+            model_name="claude-3",
+        )
+        endpoint_b = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-b",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_b.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+        gateway_workspace_store.create_endpoint_binding(
+            endpoint_id=endpoint_b.endpoint_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            created_by="user-b",
+        )
+
+        configs = get_resource_endpoint_configs(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            store=gateway_workspace_store,
+        )
+        assert len(configs) == 1
+        assert configs[0].endpoint_id == endpoint_b.endpoint_id
+        assert configs[0].models[0].secret_value["api_key"] == "val-b"
+
+    with WorkspaceContext("team-resolver-a"):
+        configs = get_resource_endpoint_configs(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            store=gateway_workspace_store,
+        )
+        assert len(configs) == 1
+        assert configs[0].endpoint_id == endpoint_a.endpoint_id
+        assert configs[0].models[0].secret_value["api_key"] == "val-a"
+
+
+def test_gateway_config_resolver_scopes_endpoints(gateway_workspace_store):
+    with WorkspaceContext("team-endpoint-a"):
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-a", secret_value={"api_key": "val-a"}, provider="openai"
+        )
+        def_a = gateway_workspace_store.create_gateway_model_definition(
+            name="def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-shared",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+
+    with WorkspaceContext("team-endpoint-b"):
+        secret_b = gateway_workspace_store.create_gateway_secret(
+            secret_name="secret-b", secret_value={"api_key": "val-b"}, provider="anthropic"
+        )
+        def_b = gateway_workspace_store.create_gateway_model_definition(
+            name="def-b",
+            secret_id=secret_b.secret_id,
+            provider="anthropic",
+            model_name="claude-3",
+        )
+        endpoint_b = gateway_workspace_store.create_gateway_endpoint(
+            name="endpoint-shared",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_b.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+        config_b = get_endpoint_config(
+            endpoint_name="endpoint-shared", store=gateway_workspace_store
+        )
+        assert config_b.endpoint_id == endpoint_b.endpoint_id
+        assert config_b.models[0].secret_value["api_key"] == "val-b"
+
+        with pytest.raises(MlflowException, match="GatewayEndpoint not found"):
+            get_endpoint_config(endpoint_name="endpoint-a", store=gateway_workspace_store)
+
+    with WorkspaceContext("team-endpoint-a"):
+        config_a = get_endpoint_config(
+            endpoint_name="endpoint-shared", store=gateway_workspace_store
+        )
+        assert config_a.endpoint_id == endpoint_a.endpoint_id
+        assert config_a.models[0].secret_value["api_key"] == "val-a"

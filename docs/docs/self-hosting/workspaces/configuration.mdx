@@ -1,0 +1,73 @@
+# Workspace Configuration
+
+Reference for the core flags, env vars, and startup checks for workspace mode. For setup and end-to-end flows, see [Getting Started](/self-hosting/workspaces/getting-started). For provider details and artifact routing options, see [Workspace Providers](/self-hosting/workspaces/workspace-providers).
+
+## Server Configuration (enable/disable)
+
+Enable workspaces with the flag:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces
+```
+
+Or with env vars:
+
+```bash
+export MLFLOW_ENABLE_WORKSPACES=true
+mlflow server \
+  --backend-store-uri ... \
+  --default-artifact-root ...
+```
+
+Disable by restarting without `--enable-workspaces` after moving all resources into the `default` workspace.
+
+## Client Workspace Selection (summary)
+
+- Explicit: `mlflow.set_workspace("team-a")`
+- Env var: `MLFLOW_WORKSPACE=team-a`
+- Provider default: `get_default_workspace()` (SQL provider returns `default`)
+
+Clients send `X-MLFLOW-WORKSPACE` on REST calls; UI AJAX routes remain the same (`/api`, `/ajax-api`).
+
+## Startup Validation (when `--enable-workspaces`)
+
+- Tracking and registry stores must report `supports_workspaces() == True`
+- Workspace provider resolved (defaults to SQL-backed provider if none given)
+- Reserved `default` workspace exists (created by migration)
+- Artifact path checks: ensure no conflicts under `<default_artifact_root>/workspaces/...` and that the root is not already workspace-prefixed
+- With `--serve-artifacts`, proxied artifact paths for non-default workspaces must include `workspaces/<workspace>/...`; legacy unprefixed paths remain valid for `default`.
+
+## Artifact Behavior
+
+- By default, new experiments land under `<default_artifact_root>/workspaces/<workspace>/<experiment_id>`; runs inherit that path.
+- Existing experiments/runs keep their stored locations (legacy unprefixed paths under `default` continue to work).
+- To override the artifact root for a specific workspace, set `default_artifact_root` on the workspace (via `mlflow.create_workspace(...)` / `mlflow.update_workspace(...)` or the workspace REST API). When set, MLflow uses `<workspace_default_artifact_root>/<experiment_id>` (no `/workspaces/<workspace>` prefix) for new experiments in that workspace.
+
+## API Limitations
+
+- `create_experiment()` disallows `artifact_location` while workspaces are enabled; MLflow assigns workspace-scoped locations.
+
+## Detecting Workspace Support Programmatically
+
+- Call `GET /api/2.0/mlflow/server-features` to check `workspaces_enabled`.
+- The endpoint is reachable without a workspace header; a `404` indicates an older server without workspace support.
+
+## Environment Variables
+
+| Variable                   | Description                                                                  | Default                                    |
+| -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| `MLFLOW_ENABLE_WORKSPACES` | Enable workspace mode                                                        | `false`                                    |
+| `MLFLOW_WORKSPACE`         | Active workspace for client operations                                       | None                                       |
+| `MLFLOW_WORKSPACE_URI`     | Override the workspace provider URI; falls back to the resolved tracking URI | None (falls back to resolved tracking URI) |
+
+`MLFLOW_WORKSPACE` chooses the target workspace. `MLFLOW_WORKSPACE_URI` selects where the workspace catalog lives (and which provider to use), not which workspace; if unset, the tracking URI is reused. Providers are discovered via the `mlflow.workspace_provider` entry point.
+
+## Next Steps
+
+- [Getting Started](/self-hosting/workspaces/getting-started) - Step-by-step enablement
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers) - Provider selection and artifact routing
+- [Permissions](/self-hosting/workspaces/permissions) - Configure access control
+- [Troubleshooting](/self-hosting/troubleshooting) - Common issues and fixes

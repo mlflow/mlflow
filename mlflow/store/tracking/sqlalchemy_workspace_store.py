@@ -25,9 +25,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
+    SqlGatewayEndpointModelMapping,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlLoggedModel,
+    SqlOnlineScoringConfig,
     SqlRun,
     SqlTraceInfo,
 )
@@ -84,6 +86,11 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 SqlLoggedModel.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
             )
 
+        if model is SqlOnlineScoringConfig:
+            return query.join(
+                SqlExperiment, SqlOnlineScoringConfig.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
 
@@ -91,6 +98,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query.filter(model.workspace == workspace)
 
         if model is SqlGatewayEndpointBinding:
+            return self._filter_endpoint_binding_query(session, query)
+
+        if model is SqlGatewayEndpointModelMapping:
             return query.join(SqlGatewayEndpoint).filter(SqlGatewayEndpoint.workspace == workspace)
 
         return query
@@ -225,6 +235,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query
 
         return query.filter(id_column.in_(select(id_source)))
+
+    def _filter_endpoint_binding_query(self, session, query):
+        endpoint_ids_subquery = (
+            self._get_query(session, SqlGatewayEndpoint)
+            .with_entities(SqlGatewayEndpoint.endpoint_id)
+            .subquery()
+        )
+        return query.filter(
+            SqlGatewayEndpointBinding.endpoint_id.in_(select(endpoint_ids_subquery.c.endpoint_id))
+        )
 
     def _validate_run_accessible(self, session, run_id: str) -> None:
         workspace = self._get_active_workspace()

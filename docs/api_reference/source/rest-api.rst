@@ -1,4 +1,3 @@
-
 .. _rest-api:
 
 ========
@@ -54,6 +53,7 @@ Request Structure
 
 
 
+<<<<<<< HEAD
 +-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 |    Field Name     |                  Type                  |                                                               Description                                                               |
 +===================+========================================+=========================================================================================================================================+
@@ -65,6 +65,26 @@ Request Structure
 |                   |                                        | storage backends are guaranteed to support tag keys up to 250 bytes in size and tag values up to 5000 bytes in size. All storage        |
 |                   |                                        | backends are also guaranteed to support up to 20 tags per request.                                                                      |
 +-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+=======
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
+|    Field Name     |                  Type                  |                                          Description                                           |
++===================+========================================+================================================================================================+
+| name              | ``STRING``                             | Experiment name.                                                                               |
+|                   |                                        | This field is required.                                                                        |
+|                   |                                        |                                                                                                |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
+| artifact_location | ``STRING``                             | Location where all artifacts for the experiment are stored.                                    |
+|                   |                                        | If not provided, the remote server will select an appropriate default.                         |
+|                   |                                        | When workspaces are enabled, artifact_location must be omitted. The                            |
+|                   |                                        | server uses the workspace's default artifact location and returns                              |
+|                   |                                        | ``INVALID_PARAMETER_VALUE`` if provided.                                                       |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
+| tags              | An array of :ref:`mlflowexperimenttag` | A collection of tags to set on the experiment. Maximum tag size and number of tags per request |
+|                   |                                        | depends on the storage backend. All storage backends are guaranteed to support tag keys up     |
+|                   |                                        | to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also    |
+|                   |                                        | guaranteed to support up to 20 tags per request.                                               |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
+>>>>>>> 208e1604e ([Workspace] Document the workspace feature (#19778))
 
 .. _mlflowCreateExperimentResponse:
 

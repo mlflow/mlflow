@@ -35,6 +35,24 @@ _WORKSPACE_TABLES = [
     "jobs",
 ]
 
+# SQLite trigger to enforce immutability of secret_id and secret_name after batch table rebuilds.
+_SQLITE_SECRETS_IMMUTABILITY_TRIGGER = """
+CREATE TRIGGER prevent_secrets_aad_mutation
+BEFORE UPDATE ON secrets
+FOR EACH ROW
+WHEN OLD.secret_id != NEW.secret_id OR OLD.secret_name != NEW.secret_name
+BEGIN
+    SELECT RAISE(ABORT, 'secret_id and secret_name are immutable (used as AAD in encryption)');
+END;
+"""
+
+
+def _recreate_secrets_immutability_trigger(dialect_name: str) -> None:
+    if dialect_name == "sqlite":
+        op.execute("DROP TRIGGER IF EXISTS prevent_secrets_aad_mutation;")
+        op.execute(_SQLITE_SECRETS_IMMUTABILITY_TRIGGER)
+
+
 # Older SQLite migrations emitted unnamed foreign keys. When batch-altering tables we need the
 # legacy names so we can drop the constraints deterministically; this mapping gives us the
 # aliases for those historical definitions.
@@ -383,6 +401,7 @@ def upgrade():
                 "uq_secrets_workspace_secret_name",
                 ["workspace", "secret_name"],
             )
+        _recreate_secrets_immutability_trigger(dialect_name)
 
         with _with_batch("endpoints") as batch_op:
             if endpoints_unique_constraint:
@@ -755,6 +774,7 @@ def downgrade():
             batch_op.drop_constraint("uq_secrets_workspace_secret_name", type_="unique")
             batch_op.drop_column("workspace")
             batch_op.create_index("unique_secret_name", ["secret_name"], unique=True)
+        _recreate_secrets_immutability_trigger(dialect_name)
 
         with _with_batch("jobs") as batch_op:
             batch_op.drop_index("index_jobs_name_status_creation_time")

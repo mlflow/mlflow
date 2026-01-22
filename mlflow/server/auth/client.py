@@ -937,7 +937,7 @@ class AuthServiceClient:
         Args:
             workspace_name: The workspace name.
             username: The username receiving the permission.
-            permission: Permission to grant. Must be one of "READ", "EDIT",
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT",
                 "MANAGE", "NO_PERMISSIONS".
 
         Returns:

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import click
 from click import UsageError
+from click.core import ParameterSource
 from dotenv import load_dotenv
 
 import mlflow.db
@@ -502,7 +503,6 @@ def _validate_static_prefix(ctx, param, value):
 )
 @click.option(
     "--enable-workspaces/--disable-workspaces",
-    envvar=MLFLOW_ENABLE_WORKSPACES.name,
     default=False,
     show_default=True,
     help="Enable backwards compatible workspaces mode for logical isolation of experiments, "
@@ -578,6 +578,16 @@ def server(
         x_frame_options=x_frame_options,
         disable_security_middleware=disable_security_middleware,
     )
+
+    # click treats any non-empty env var as "set" for flag options, which would interpret
+    # MLFLOW_ENABLE_WORKSPACES="false" as True. If the flag wasn't set explicitly and
+    # resolved to False, fall back to the env var parser to preserve "false"/"0".
+    if (
+        ctx
+        and not enable_workspaces
+        and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
+    ):
+        enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
 
     assert_server_workspace_env_unset()
 

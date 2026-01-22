@@ -2292,6 +2292,7 @@ class SqlGatewaySecret(Base):
             last_updated_at=self.last_updated_at,
             provider=self.provider,
             auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
         )
@@ -2400,8 +2401,12 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+<<<<<<< HEAD
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
+=======
+            workspace=self.workspace,
+>>>>>>> 208e1604e ([Workspace] Document the workspace feature (#19778))
         )
 
 
@@ -2496,6 +2501,7 @@ class SqlGatewayModelDefinition(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
         )
 
 
