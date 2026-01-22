@@ -199,10 +199,14 @@ export const AssistantSetupWizard = ({
       }}
     >
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        {
-          isSettingsMode
-          ? <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings wizard" /> : <FormattedMessage defaultMessage="Setup MLflow Assistant" description="Title for the MLflow Assistant setup wizard" />
-        }
+        {isSettingsMode ? (
+          <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings wizard" />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Setup MLflow Assistant"
+            description="Title for the MLflow Assistant setup wizard"
+          />
+        )}
       </Typography.Title>
 
       {!isSettingsMode && currentStep !== 'complete' && (

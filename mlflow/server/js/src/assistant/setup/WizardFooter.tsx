@@ -41,7 +41,12 @@ export const WizardFooter = ({
         </Button>
       )}
 
-      <Button componentId="mlflow.assistant.setup.footer.next" type="primary" onClick={onNext} disabled={nextDisabled || isLoading}>
+      <Button
+        componentId="mlflow.assistant.setup.footer.next"
+        type="primary"
+        onClick={onNext}
+        disabled={nextDisabled || isLoading}
+      >
         {isLoading ? <Spinner size="small" /> : nextLabel}
       </Button>
     </div>

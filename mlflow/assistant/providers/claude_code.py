@@ -67,7 +67,8 @@ When reading documentation, ALWAYS start from https://mlflow.org/docs/latest/llm
 lists links to each pages of the documentation. Start with that page and follow the links to the
 relevant pages to get more information.
 
-IMPORTANT: When accessing documentation pages or returning documentation link to users, always use
+IMPORTANT: When accessing documentation pages or returning documentation links to users, always use
+the latest version URL (https://mlflow.org/docs/latest/...) instead of version-specific URLs.
 """
 
 

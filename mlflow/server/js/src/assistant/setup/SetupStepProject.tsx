@@ -5,7 +5,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Typography, useDesignSystemTheme, Input, Checkbox, Spinner } from '@databricks/design-system';
 
-import { getConfig, updateConfig } from '../AssistantService';
+import { updateConfig } from '../AssistantService';
+import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
 import { WizardFooter } from './WizardFooter';
 
 interface SetupStepProjectProps {
@@ -26,8 +27,8 @@ export const SetupStepProject = ({
   backLabel,
 }: SetupStepProjectProps) => {
   const { theme } = useDesignSystemTheme();
+  const { config, isLoading: isLoadingConfig } = useAssistantConfigQuery();
 
-  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [projectPath, setProjectPath] = useState<string>('');
   // Permissions state
   const [editFiles, setEditFiles] = useState(true);
@@ -36,28 +37,20 @@ export const SetupStepProject = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load existing config on mount
+  // Initialize form state from loaded config
   useEffect(() => {
-    const loadExistingConfig = async () => {
-      try {
-        const config = await getConfig();
-        const provider = config.providers?.['claude_code'];
-        if (provider?.permissions) {
-          setEditFiles(provider.permissions.allow_edit_files ?? true);
-          setReadDocs(provider.permissions.allow_read_docs ?? true);
-          setFullPermission(provider.permissions.full_access ?? false);
-        }
-        if (experimentId && config.projects?.[experimentId]) {
-          setProjectPath(config.projects[experimentId].location || '');
-        }
-      } catch {
-        // Ignore errors - use defaults
-      } finally {
-        setIsLoadingConfig(false);
-      }
-    };
-    loadExistingConfig();
-  }, [experimentId]);
+    if (!config) return;
+
+    const provider = config.providers?.['claude_code'];
+    if (provider?.permissions) {
+      setEditFiles(provider.permissions.allow_edit_files ?? true);
+      setReadDocs(provider.permissions.allow_read_docs ?? true);
+      setFullPermission(provider.permissions.full_access ?? false);
+    }
+    if (experimentId && config.projects?.[experimentId]) {
+      setProjectPath(config.projects[experimentId].location || '');
+    }
+  }, [config, experimentId]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -117,7 +110,12 @@ export const SetupStepProject = ({
 
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               <div>
-                <Checkbox componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`} isChecked disabled onChange={() => {}}>
+                <Checkbox
+                  componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`}
+                  isChecked
+                  disabled
+                  onChange={() => {}}
+                >
                   <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
                 </Checkbox>
                 <Typography.Text

@@ -2,9 +2,13 @@
  * Setup complete screen for MLflow Assistant.
  */
 
-import { Button, Typography, useDesignSystemTheme, CheckCircleIcon, WrenchSparkleIcon } from '@databricks/design-system';
-
-
+import {
+  Button,
+  Typography,
+  useDesignSystemTheme,
+  CheckCircleIcon,
+  WrenchSparkleIcon,
+} from '@databricks/design-system';
 
 interface SetupCompleteProps {
   onStartChatting: () => void;

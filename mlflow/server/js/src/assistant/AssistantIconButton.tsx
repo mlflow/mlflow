@@ -51,11 +51,7 @@ interface AssistantIconButtonProps {
   className?: string;
 }
 
-export const AssistantIconButton = ({
-  tooltipSide = 'bottom',
-  iconSize,
-  className,
-}: AssistantIconButtonProps) => {
+export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, className }: AssistantIconButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, closePanel, isPanelOpen } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();

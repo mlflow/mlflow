@@ -30,6 +30,8 @@ import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 
+type CurrentView = 'chat' | 'setup-wizard' | 'settings';
+
 // Shared animation keyframes
 const PULSE_ANIMATION = {
   '0%, 100%': { transform: 'scale(1)' },
@@ -475,10 +477,7 @@ export const AssistantChatPanel = () => {
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
-  // Track whether the user is in the setup wizard
-  const [isInSetupWizard, setIsInSetupWizard] = useState(false);
-  // Track whether the user is viewing settings
-  const [showSettings, setShowSettings] = useState(false);
+  const [currentView, setCurrentView] = useState<CurrentView>('chat');
 
   const handleClose = useCallback(() => {
     closePanel();
@@ -489,58 +488,47 @@ export const AssistantChatPanel = () => {
   }, [reset]);
 
   const handleStartSetup = useCallback(() => {
-    setIsInSetupWizard(true);
+    setCurrentView('setup-wizard');
   }, []);
 
   const handleSetupComplete = useCallback(() => {
-    setIsInSetupWizard(false);
-    setShowSettings(false);
+    setCurrentView('chat');
     completeSetup();
   }, [completeSetup]);
 
-  const handleOpenSettings = () => {
-    setShowSettings(true);
-    setIsInSetupWizard(true);
-  };
+  const handleOpenSettings = useCallback(() => {
+    setCurrentView('settings');
+  }, []);
 
-  const handleBackFromSettings = () => {
-    setShowSettings(false);
-    setIsInSetupWizard(false);
-  };
+  const handleBackFromSettings = useCallback(() => {
+    setCurrentView('chat');
+  }, []);
 
-  // Determine if setup is needed
-  const needsSetup = !setupComplete;
-
-  // Determine what to show in the content area
   const renderContent = () => {
-    // Show loading state while fetching config
     if (isLoadingConfig) {
       return <SetupLoadingState />;
     }
 
-    // Show setup wizard if user clicked "Setup" or viewing settings
-    if (isInSetupWizard) {
-      return (
-        <AssistantSetupWizard
-          experimentId={experimentId}
-          onComplete={handleSetupComplete}
-          initialStep={showSettings ? 'project' : undefined}
-          onBack={showSettings ? handleBackFromSettings : undefined}
-        />
-      );
+    switch (currentView) {
+      case 'setup-wizard':
+        return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+      case 'settings':
+        return (
+          <AssistantSetupWizard
+            experimentId={experimentId}
+            onComplete={handleSetupComplete}
+            initialStep="project"
+            onBack={handleBackFromSettings}
+          />
+        );
+      case 'chat':
+      default:
+        return setupComplete ? <ChatPanelContent /> : <SetupPrompt onSetup={handleStartSetup} />;
     }
-
-    // Show setup prompt if setup is incomplete
-    if (!setupComplete) {
-      return <SetupPrompt onSetup={handleStartSetup} />;
-    }
-
-    // Show chat panel content
-    return <ChatPanelContent />;
   };
 
   // Determine if we should show the chat controls (new chat button)
-  const showChatControls = setupComplete && !isInSetupWizard;
+  const showChatControls = setupComplete && currentView === 'chat';
 
   return (
     <div
