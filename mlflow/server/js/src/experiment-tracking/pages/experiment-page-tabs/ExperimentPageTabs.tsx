@@ -11,6 +11,7 @@ import { ExperimentKind, ExperimentPageTabName } from '../../constants';
 import {
   shouldEnableExperimentPageSideTabs,
   shouldEnableExperimentOverviewTab,
+  shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
@@ -63,6 +64,8 @@ const ExperimentPageTabsImpl = () => {
   const experimentKind = getExperimentKindFromTags(experimentTags);
   // We won't try to infer the experiment kind if it's already set, but we also wait for experiment to load
   const isExperimentKindInferenceEnabled = Boolean(experiment && !experimentKind);
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+  const shouldShowExperimentPageSideTabs = shouldEnableExperimentPageSideTabs();
 
   const {
     inferredExperimentKind,
@@ -141,6 +144,15 @@ const ExperimentPageTabsImpl = () => {
     </React.Suspense>
   );
 
+  const contentWrapperCss = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    padding: theme.spacing.sm,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  };
+
   return (
     <>
       <ExperimentPageHeaderWithDescription
@@ -161,13 +173,13 @@ const ExperimentPageTabsImpl = () => {
           />
         }
       />
-      {!shouldEnableExperimentPageSideTabs() && (
+      {!shouldShowExperimentPageSideTabs && (
         <>
           <ExperimentPageSubTabSelector experimentId={experimentId} activeTab={activeTab} />
           <Spacer size="sm" shrinks={false} />
         </>
       )}
-      {shouldEnableExperimentPageSideTabs() ? (
+      {shouldShowExperimentPageSideTabs && !enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
             <ExperimentPageSideNavSkeleton />
@@ -177,21 +189,10 @@ const ExperimentPageTabsImpl = () => {
               activeTab={activeTab}
             />
           )}
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              padding: theme.spacing.sm,
-              flex: 1,
-              minWidth: 0,
-              minHeight: 0,
-            }}
-          >
-            {outletComponent}
-          </div>
+          <div css={contentWrapperCss}>{outletComponent}</div>
         </div>
       ) : (
-        outletComponent
+        <div css={contentWrapperCss}>{outletComponent}</div>
       )}
     </>
   );
