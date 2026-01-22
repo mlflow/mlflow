@@ -1,0 +1,114 @@
+import FeatureHighlights from "@site/src/components/FeatureHighlights"
+import { Brain, Target, Zap, TrendingUp } from "lucide-react"
+
+# GEPA Alignment Optimizer
+
+**GEPA** (Genetic-Pareto) is an alignment optimizer that uses [DSPy's GEPA algorithm](https://dspy.ai/api/optimizers/GEPA/overview/) to refine judge instructions through LLM-driven reflection. GEPA analyzes execution traces and feedback in natural language to iteratively propose improved instructions.
+
+<FeatureHighlights features={[
+  {
+    icon: Brain,
+    title: "Natural Language Reflection",
+    description: "Leverages LLMs to reflect on judge behavior, identifying what worked and what didn't to propose targeted improvements."
+  },
+  {
+    icon: TrendingUp,
+    title: "High Sample Efficiency",
+    description: "Achieves strong alignment with fewer iterations compared to traditional optimization methods."
+  },
+  {
+    icon: Target,
+    title: "Pareto-Aware Selection",
+    description: "Intelligently selects which past instructions to mutate and improve based on Pareto optimality."
+  },
+  {
+    icon: Zap,
+    title: "Domain Feedback Integration",
+    description: "Leverages domain-specific textual feedback to rapidly improve judge alignment with human preferences."
+  }
+]} />
+
+## Requirements
+
+For alignment to work:
+
+- Traces must contain human assessments (labels) with the same name as the judge
+- Natural language feedback (rationale) is highly recommended for better alignment
+- Minimum of 10 traces with human assessments required
+- A mix of positive and negative labels is recommended
+
+## Installation
+
+GEPA requires additional dependencies:
+
+```bash
+pip install mlflow[genai] dspy
+```
+
+## Basic Usage
+
+See [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for details on creating judges.
+
+```python
+import mlflow
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import GEPAAlignmentOptimizer
+
+judge = make_judge(
+    name="politeness",
+    instructions=(
+        "Given a user question, evaluate if the chatbot's response is polite and respectful. "
+        "Consider the tone, language, and context of the response.\n\n"
+        "Question: {{ inputs }}\n"
+        "Response: {{ outputs }}"
+    ),
+    feedback_value_type=bool,
+    model="openai:/gpt-5-mini",
+)
+
+optimizer = GEPAAlignmentOptimizer(
+    model="openai:/gpt-5-mini",
+    max_metric_calls=100,
+)
+
+traces = mlflow.search_traces(return_type="list")
+aligned_judge = judge.align(traces=traces, optimizer=optimizer)
+```
+
+## Parameters
+
+| Parameter          | Type   | Default    | Description                                                     |
+| ------------------ | ------ | ---------- | --------------------------------------------------------------- |
+| `model`            | `str`  | Required   | Model used for reflection and proposing improved instructions.  |
+| `max_metric_calls` | `int`  | `100`      | Maximum number of evaluation calls during optimization.         |
+| `seed`             | `int`  | `42`       | Random seed for reproducibility.                                |
+| `gepa_kwargs`      | `dict` | `None`     | Additional keyword arguments passed directly to GEPA.           |
+
+## When to Use GEPA
+
+GEPA is particularly effective when:
+
+- **Complex evaluation criteria**: Your judge needs to understand nuanced, context-dependent quality standards
+- **Rich textual feedback**: Human reviewers provide detailed explanations for their assessments
+- **Limited training data**: You need high-quality alignment with fewer labeled examples
+- **Iterative refinement**: You want the optimizer to learn from failures and propose targeted improvements
+
+For simpler alignment tasks with larger datasets, consider using the default [SIMBA optimizer](/genai/eval-monitor/scorers/llm-judge/simba).
+
+## Debugging
+
+To debug the optimization process, enable DEBUG logging:
+
+```python
+import logging
+
+logging.getLogger("mlflow.genai.judges.optimizers.gepa").setLevel(logging.DEBUG)
+aligned_judge = judge.align(traces=traces, optimizer=optimizer)
+```
+
+This will show:
+
+- Reflection analysis for each iteration
+- Proposed instruction improvements
+- Pareto front updates
+- Score improvements at each step
