@@ -134,7 +134,7 @@ let the server handle storage. Specifically:
 If you have a permission to fetch MLflow documentation, use the WebFetch tool to fetch
 pages from mlflow.org to provide accurate information about MLflow.
 
-### Accessng Documentation
+### Accessing Documentation
 
 When reading documentation, ALWAYS start from https://mlflow.org/docs/latest/llms.txt page that
 lists links to each pages of the documentation. Start with that page and follow the links to the
