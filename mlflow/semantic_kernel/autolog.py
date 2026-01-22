@@ -81,6 +81,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
         # NB: Dummy NoOp exporter, because OTel span processor requires an exporter
         self.span_exporter = SpanExporter()
+        # Store context tokens for each span so we can detach them in on_end
+        self._context_tokens: dict[int, object] = {}
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         # Trigger MLflow's span processor
@@ -93,7 +95,24 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # Register new span in the in-memory trace manager
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
+        # Also set this span in MLflow's runtime context so that other autolog integrations
+        # (like OpenAI) can correctly parent their spans to Semantic Kernel spans.
+        from opentelemetry import trace as otel_trace
+
+        from mlflow.tracing.provider import mlflow_runtime_context
+
+        context = otel_trace.set_span_in_context(span)
+        token = mlflow_runtime_context.attach(context)
+        self._context_tokens[span.context.span_id] = token
+
     def on_end(self, span: OTelReadableSpan) -> None:
+        # Detach the span from MLflow's runtime context
+        from mlflow.tracing.provider import mlflow_runtime_context
+
+        token = self._context_tokens.pop(span.context.span_id, None)
+        if token is not None:
+            mlflow_runtime_context.detach(token)
+
         mlflow_span = get_mlflow_span_for_otel_span(span)
         if mlflow_span is None:
             _logger.debug("Span not found in the map. Skipping end.")

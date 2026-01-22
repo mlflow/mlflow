@@ -83,6 +83,9 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
 
 
 async def patched_kernel_entry_point(original, self, *args, **kwargs):
+    from opentelemetry import context as otel_context_api
+    from opentelemetry import trace as otel_trace
+
     with mlflow.start_span(
         name=f"{self.__class__.__name__}.{original.__name__}",
         span_type=SpanType.AGENT,
@@ -90,7 +93,15 @@ async def patched_kernel_entry_point(original, self, *args, **kwargs):
         inputs = construct_full_inputs(original, self, *args, **kwargs)
         mlflow_span.set_inputs(_parse_content(inputs))
 
-        result = await original(self, *args, **kwargs)
+        # Attach the MLflow span to the global OTel context so that Semantic Kernel's
+        # internal OTel spans (e.g., execute_tool, chat.completions) will inherit the
+        # same trace_id and be properly linked as child spans.
+        global_ctx = otel_trace.set_span_in_context(mlflow_span._span)
+        token = otel_context_api.attach(global_ctx)
+        try:
+            result = await original(self, *args, **kwargs)
+        finally:
+            otel_context_api.detach(token)
 
         mlflow_span.set_outputs(_parse_content(result))
 
