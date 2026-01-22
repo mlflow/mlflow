@@ -100,6 +100,8 @@ where the user wants to log (write) or update information.
 
 For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * STRONGLY PREFER MLflow CLI commands directly.
+* When running CLI commands, ALWAYS prefix with `MLFLOW_TRACKING_URI="{tracking_uri}"`
+  to ensure commands target the correct server.
 * When using MLflow CLI, always use `--help` to discover all available options.
   Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
@@ -118,6 +120,24 @@ For logging new data to MLflow (traces, runs, metrics, artifacts, etc.):
 IMPORTANT: After writing data, always tell the user how to access it. Prefer directing them
 to the MLflow UI (provide specific URLs where possible, e.g., `{tracking_uri}/#/experiments/123`).
 If the data is not viewable in the UI, explain how to access it via MLflow CLI or API.
+
+### Handling permissions issues
+
+If you require additional permissions to execute a command or perform an action, ALWAYS tell the
+user what specific permission(s) you need.
+
+If the permissions are for the MLflow CLI, then the user likely has a permissions override in
+their Claude Code settings JSON file or Claude Code hooks. In this case, tell the user to edit
+their settings files or hooks to provide the exact permission(s) needed in order to proceed. Give
+them the exact permission(s) require in Claude Code syntax.
+
+Otherwise, tell the user to enable full access permissions from the Assistant Settings UI. Also tell
+the user that, if full access permissions are already enabled, then they need to check their
+Claude Code settings JSON file or Claude Code hooks to ensure there are no permission overrides that
+conflict with full access (Claude Code's 'bypassPermissions' mode). Finally, tell the user how to
+edit their Claude Code settings or hooks to enable the specific permission(s) needed to proceed.
+This gives the user all of the available options and necessary information to resolve permission
+issues.
 
 ### Data Access
 
