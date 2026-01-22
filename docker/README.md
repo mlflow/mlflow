@@ -18,7 +18,8 @@ This image contains MLflow with all extra dependencies, including:
 - Cloud storage integrations (AWS S3, Azure Blob, GCS)
 - AI Gateway and GenAI capabilities
 
-**Note:** The `-full` image variant is only available starting from **MLflow v3.9.0** and later versions. Earlier versions only provide the default `mlflow:VERSION` image.
+> [!NOTE]
+> The `-full` image variant is only available starting from **MLflow v3.9.0** and later versions. Earlier versions only provide the default `mlflow:VERSION` image.
 
 Use this image when you need comprehensive MLflow functionality with multiple integrations.
 
