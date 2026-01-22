@@ -3,14 +3,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Typography,
-  useDesignSystemTheme,
-  Spinner,
-  CheckCircleIcon,
-  WarningIcon,
-} from '@databricks/design-system';
+import { Button, Typography, useDesignSystemTheme, Spinner, CheckCircleIcon } from '@databricks/design-system';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { checkProviderHealth } from '../AssistantService';
@@ -117,8 +110,10 @@ export const SetupStepAuth = ({
       return (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <WarningIcon css={{ color: theme.colors.textValidationWarning, fontSize: 20 }} />
-            <Typography.Title level={5}>Claude Code CLI Not Found</Typography.Title>
+            <CheckCircleIcon css={{ color: theme.colors.grey300, fontSize: 18 }} />
+            <span css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}>
+              Install Claude Code CLI
+            </span>
           </div>
 
           <Typography.Text color="secondary">
@@ -151,8 +146,10 @@ export const SetupStepAuth = ({
           </div>
 
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <WarningIcon css={{ color: theme.colors.textValidationWarning, fontSize: 20 }} />
-            <Typography.Title level={5}>Authentication Required</Typography.Title>
+            <CheckCircleIcon css={{ color: theme.colors.grey300, fontSize: 18 }} />
+            <span css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}>
+              Authenticate
+            </span>
           </div>
 
           <Typography.Text color="secondary">
@@ -164,8 +161,6 @@ export const SetupStepAuth = ({
           <Typography.Text color="secondary">This will open your browser to complete authentication.</Typography.Text>
 
           <Typography.Text color="secondary">After logging in, click "Check Again" to verify.</Typography.Text>
-
-          {error && <Typography.Text css={{ color: theme.colors.textValidationDanger }}>{error}</Typography.Text>}
         </div>
       );
     }
