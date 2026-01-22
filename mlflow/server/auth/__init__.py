@@ -374,9 +374,14 @@ def _get_resource_workspace(
     """
     # Use a cache key that includes the resource_label to avoid collisions between
     # experiments and registered models that might have the same ID/name.
-    cache_key = f"{resource_label}:{resource_id}"
+    workspace_scope = (
+        workspace_context.get_request_workspace() if MLFLOW_ENABLE_WORKSPACES.get() else None
+    )
+    cache_key = (
+        f"{resource_label}:{workspace_scope}:{resource_id}" if workspace_scope is not None else None
+    )
 
-    if cache_key in _RESOURCE_WORKSPACE_CACHE:
+    if cache_key is not None and cache_key in _RESOURCE_WORKSPACE_CACHE:
         return _RESOURCE_WORKSPACE_CACHE[cache_key]
 
     try:
@@ -390,6 +395,13 @@ def _get_resource_workspace(
             e,
         )
         workspace_name = None
+
+    if cache_key is None:
+        cache_key = (
+            f"{resource_label}:{workspace_name}:{resource_id}"
+            if workspace_name is not None
+            else f"{resource_label}:{resource_id}"
+        )
 
     _RESOURCE_WORKSPACE_CACHE[cache_key] = workspace_name
     return workspace_name
@@ -637,11 +649,71 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
+def _workspace_permission_for_gateway_secret(
+    username: str | None, secret_id: str
+) -> Permission | None:
+    """
+    Get workspace-level permission for accessing a gateway secret.
+
+    Returns:
+        Permission object if workspace permissions apply, None if workspace permissions
+        are not supported. Returns NO_PERMISSIONS if the secret lookup fails
+        (security: deny on error).
+    """
+    return _workspace_permission_for_resource(
+        username,
+        secret_id,
+        lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+        "gateway secret",
+    )
+
+
+def _workspace_permission_for_gateway_endpoint(
+    username: str | None, endpoint_id: str
+) -> Permission | None:
+    """
+    Get workspace-level permission for accessing a gateway endpoint.
+
+    Returns:
+        Permission object if workspace permissions apply, None if workspace permissions
+        are not supported. Returns NO_PERMISSIONS if the endpoint lookup fails
+        (security: deny on error).
+    """
+    return _workspace_permission_for_resource(
+        username,
+        endpoint_id,
+        lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
+        "gateway endpoint",
+    )
+
+
+def _workspace_permission_for_gateway_model_definition(
+    username: str | None, model_definition_id: str
+) -> Permission | None:
+    """
+    Get workspace-level permission for accessing a gateway model definition.
+
+    Returns:
+        Permission object if workspace permissions apply, None if workspace permissions
+        are not supported. Returns NO_PERMISSIONS if the model definition lookup fails
+        (security: deny on error).
+    """
+    return _workspace_permission_for_resource(
+        username,
+        model_definition_id,
+        lambda mdid: _get_tracking_store().get_gateway_model_definition(model_definition_id=mdid),
+        "gateway model definition",
+    )
+
+
 def _get_permission_from_gateway_secret_id() -> Permission:
     secret_id = _get_request_param("secret_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
+            username, secret_id
+        ),
     )
 
 
@@ -649,7 +721,10 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
     endpoint_id = _get_request_param("endpoint_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission
+        lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
+            username, endpoint_id
+        ),
     )
 
 
@@ -659,7 +734,10 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     return _get_permission_from_store_or_default(
         lambda: store.get_gateway_model_definition_permission(
             model_definition_id, username
-        ).permission
+        ).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_model_definition(
+            username, model_definition_id
+        ),
     )
 
 
@@ -1000,7 +1078,10 @@ def validate_can_create_gateway_model_definition():
 
     username = authenticate_request().username
     permission = _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
+            username, secret_id
+        ),
     )
     return permission.can_use
 
@@ -1024,7 +1105,10 @@ def validate_can_update_gateway_model_definition():
 
     username = authenticate_request().username
     permission = _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission
+        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
+            username, secret_id
+        ),
     )
     return permission.can_use
 
@@ -1047,16 +1131,37 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
         return True
 
     username = authenticate_request().username
+    # Reassign to a shorter name for line length limits
+    ws_func = _workspace_permission_for_gateway_model_definition
     for model_def_id in model_def_ids:
         permission = _get_permission_from_store_or_default(
             lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
                 md_id, username
-            ).permission
+            ).permission,
+            workspace_level_permission_func=lambda md_id=model_def_id: ws_func(username, md_id),
         )
         if not permission.can_use:
             return False
 
     return True
+
+
+def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
+    """
+    Create-only helper that enforces workspace USE permission when no model definitions
+    are provided, otherwise validates USE permission on referenced model definitions.
+    """
+    if not model_configs or not any(config.get("model_definition_id") for config in model_configs):
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return True
+        workspace_name = workspace_context.get_request_workspace()
+        if workspace_name is None:
+            return False
+        username = authenticate_request().username
+        workspace_perm = _workspace_permission(username, workspace_name)
+        return workspace_perm is not None and workspace_perm.can_use
+
+    return _validate_can_use_model_definitions(model_configs)
 
 
 def validate_can_create_gateway_endpoint():
@@ -1066,7 +1171,7 @@ def validate_can_create_gateway_endpoint():
     """
     body = request.json or {}
     model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions(model_configs)
+    return _validate_can_use_model_definitions_for_create(model_configs)
 
 
 def validate_can_update_gateway_endpoint():

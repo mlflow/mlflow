@@ -53,7 +53,6 @@ _LEGACY_SECRETS = sa.table(
     sa.column("kek_version"),
     sa.column("masked_value"),
     sa.column("provider"),
-    sa.column("credential_name"),
     sa.column("auth_config"),
     sa.column("description"),
     sa.column("created_by"),
@@ -140,7 +139,7 @@ _EVALUATION_DATASETS = sa.table(
 )
 
 REVISION = "1b5f0d9ad7c1"
-PREVIOUS_REVISION = "1bd49d398cd23"
+PREVIOUS_REVISION = "2c33131f4dae"
 
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
@@ -630,15 +629,6 @@ def _insert_model_version(
     )
 
 
-_REGISTERED_MODEL_TAGS = sa.table(
-    "registered_model_tags",
-    sa.column("workspace"),
-    sa.column("key"),
-    sa.column("value"),
-    sa.column("name"),
-)
-
-
 def _insert_registered_model_tag(
     conn,
     *,
@@ -655,16 +645,6 @@ def _insert_registered_model_tag(
         value=value,
         name=name,
     )
-
-
-_MODEL_VERSION_TAGS = sa.table(
-    "model_version_tags",
-    sa.column("workspace"),
-    sa.column("key"),
-    sa.column("value"),
-    sa.column("name"),
-    sa.column("version"),
-)
 
 
 def _insert_model_version_tag(
@@ -687,15 +667,6 @@ def _insert_model_version_tag(
     )
 
 
-_REGISTERED_MODEL_ALIASES = sa.table(
-    "registered_model_aliases",
-    sa.column("workspace"),
-    sa.column("name"),
-    sa.column("alias"),
-    sa.column("version"),
-)
-
-
 def _insert_registered_model_alias(
     conn,
     *,
@@ -712,21 +683,6 @@ def _insert_registered_model_alias(
         alias=alias,
         version=version,
     )
-
-
-_EVALUATION_DATASETS = sa.table(
-    "evaluation_datasets",
-    sa.column("dataset_id"),
-    sa.column("name"),
-    sa.column("schema"),
-    sa.column("profile"),
-    sa.column("digest"),
-    sa.column("created_time"),
-    sa.column("last_update_time"),
-    sa.column("created_by"),
-    sa.column("last_updated_by"),
-    sa.column("workspace"),
-)
 
 
 def _insert_evaluation_dataset(
@@ -762,7 +718,6 @@ _SECRETS = sa.table(
     sa.column("kek_version"),
     sa.column("masked_value"),
     sa.column("provider"),
-    sa.column("credential_name"),
     sa.column("auth_config"),
     sa.column("description"),
     sa.column("created_by"),
@@ -789,7 +744,6 @@ def _insert_secret(
             kek_version=1,
             masked_value="***",
             provider="openai",
-            credential_name=None,
             auth_config=None,
             description=None,
             created_by="user",

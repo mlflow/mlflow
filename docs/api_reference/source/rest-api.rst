@@ -1,4 +1,3 @@
-
 .. _rest-api:
 
 ========
@@ -62,6 +61,9 @@ Request Structure
 +-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
 | artifact_location | ``STRING``                             | Location where all artifacts for the experiment are stored.                                    |
 |                   |                                        | If not provided, the remote server will select an appropriate default.                         |
+|                   |                                        | When workspaces are enabled, artifact_location must be omitted. The                            |
+|                   |                                        | server uses the workspace's default artifact location and returns                              |
+|                   |                                        | ``INVALID_PARAMETER_VALUE`` if provided.                                                       |
 +-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
 | tags              | An array of :ref:`mlflowexperimenttag` | A collection of tags to set on the experiment. Maximum tag size and number of tags per request |
 |                   |                                        | depends on the storage backend. All storage backends are guaranteed to support tag keys up     |

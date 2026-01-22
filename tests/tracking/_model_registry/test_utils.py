@@ -285,7 +285,7 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch("mlflow.store.model_registry.sqlalchemy_store._all_tables_exist"),
         mock.patch(
-            "mlflow.store.db.utils._get_managed_session_maker",
+            "mlflow.store.model_registry.sqlalchemy_store._get_managed_session_maker",
             new=mock_get_managed_session_maker,
         ),
         mock.patch(

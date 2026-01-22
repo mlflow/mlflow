@@ -913,7 +913,7 @@ class SqlAlchemyGatewayStoreMixin:
             MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointModelMapping).filter(
+            query = self._get_query(session, SqlGatewayEndpointModelMapping).filter(
                 SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
                 SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
             )
@@ -922,6 +922,16 @@ class SqlAlchemyGatewayStoreMixin:
 
             sql_mapping = query.first()
             if not sql_mapping:
+                sql_endpoint = (
+                    self._get_query(session, SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if not sql_endpoint:
+                    raise MlflowException(
+                        f"GatewayEndpoint not found (endpoint_id='{endpoint_id}')",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
                 linkage_str = f" with linkage type '{linkage_type}'" if linkage_type else ""
                 raise MlflowException(
                     f"Model definition '{model_definition_id}' is not attached to "

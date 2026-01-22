@@ -1,11 +1,14 @@
 import json
+from contextlib import contextmanager
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from flask import Response, request
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.routes import (
@@ -54,12 +57,22 @@ class _TrackingStore:
         trace_experiments: dict[str, str],
         experiment_names: dict[str, str] | None = None,
         logged_model_experiments: dict[str, str] | None = None,
+        gateway_secret_workspaces: dict[str, str] | None = None,
+        gateway_endpoint_workspaces: dict[str, str] | None = None,
+        gateway_model_def_workspaces: dict[str, str] | None = None,
+        engine=None,
+        ManagedSessionMaker=None,
     ):
         self._experiment_workspaces = experiment_workspaces
         self._run_experiments = run_experiments
         self._trace_experiments = trace_experiments
         self._experiment_names = experiment_names or {}
         self._logged_model_experiments = logged_model_experiments or {}
+        self._gateway_secret_workspaces = gateway_secret_workspaces or {}
+        self._gateway_endpoint_workspaces = gateway_endpoint_workspaces or {}
+        self._gateway_model_def_workspaces = gateway_model_def_workspaces or {}
+        self.engine = engine
+        self.ManagedSessionMaker = ManagedSessionMaker
 
     def get_experiment(self, experiment_id: str):
         return SimpleNamespace(workspace=self._experiment_workspaces[experiment_id])
@@ -82,6 +95,113 @@ class _TrackingStore:
     def get_logged_model(self, model_id: str):
         experiment_id = self._logged_model_experiments[model_id]
         return SimpleNamespace(experiment_id=experiment_id)
+
+    def get_secret_info(self, secret_id: str | None = None, secret_name: str | None = None):
+        if secret_id:
+            if secret_id not in self._gateway_secret_workspaces:
+                raise MlflowException(
+                    f"GatewaySecret not found ({secret_id})",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            # Add workspace attribute so _get_resource_workspace can extract it
+            return SimpleNamespace(
+                secret_id=secret_id, workspace=self._gateway_secret_workspaces[secret_id]
+            )
+        raise ValueError("Must provide secret_id or secret_name")
+
+    def get_gateway_endpoint(self, endpoint_id: str | None = None, name: str | None = None):
+        if endpoint_id:
+            if endpoint_id not in self._gateway_endpoint_workspaces:
+                raise MlflowException(
+                    f"GatewayEndpoint not found ({endpoint_id})",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            # Add workspace attribute so _get_resource_workspace can extract it
+            return SimpleNamespace(
+                endpoint_id=endpoint_id, workspace=self._gateway_endpoint_workspaces[endpoint_id]
+            )
+        raise ValueError("Must provide endpoint_id or name")
+
+    def get_gateway_model_definition(
+        self, model_definition_id: str | None = None, name: str | None = None
+    ):
+        if model_definition_id:
+            if model_definition_id not in self._gateway_model_def_workspaces:
+                raise MlflowException(
+                    f"GatewayModelDefinition not found ({model_definition_id})",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            # Add workspace attribute so _get_resource_workspace can extract it
+            return SimpleNamespace(
+                model_definition_id=model_definition_id,
+                workspace=self._gateway_model_def_workspaces[model_definition_id],
+            )
+        raise ValueError("Must provide model_definition_id or name")
+
+    def _create_mock_session(self):
+        """Create a mock session that can query gateway SQL models."""
+        mock_session = MagicMock()
+
+        def _filter_by_secret_id(secret_id):
+            if secret_id in self._gateway_secret_workspaces:
+                mock_result = MagicMock()
+                mock_result.first.return_value = SimpleNamespace(
+                    workspace=self._gateway_secret_workspaces[secret_id]
+                )
+                return mock_result
+            mock_result = MagicMock()
+            mock_result.first.return_value = None
+            return mock_result
+
+        def _filter_by_endpoint_id(endpoint_id):
+            if endpoint_id in self._gateway_endpoint_workspaces:
+                mock_result = MagicMock()
+                mock_result.first.return_value = SimpleNamespace(
+                    workspace=self._gateway_endpoint_workspaces[endpoint_id]
+                )
+                return mock_result
+            mock_result = MagicMock()
+            mock_result.first.return_value = None
+            return mock_result
+
+        def _filter_by_model_def_id(model_definition_id):
+            if model_definition_id in self._gateway_model_def_workspaces:
+                mock_result = MagicMock()
+                mock_result.first.return_value = SimpleNamespace(
+                    workspace=self._gateway_model_def_workspaces[model_definition_id]
+                )
+                return mock_result
+            mock_result = MagicMock()
+            mock_result.first.return_value = None
+            return mock_result
+
+        def _query(model_class):
+            mock_query_result = MagicMock()
+            # Mock the filter method to return different results based on the filter
+
+            def _mock_filter(*args, **kwargs):
+                if "secret_id" in kwargs:
+                    return _filter_by_secret_id(kwargs["secret_id"])
+                elif "endpoint_id" in kwargs:
+                    return _filter_by_endpoint_id(kwargs["endpoint_id"])
+                elif "model_definition_id" in kwargs:
+                    return _filter_by_model_def_id(kwargs["model_definition_id"])
+                return mock_query_result
+
+            mock_query_result.filter = _mock_filter
+            return mock_query_result
+
+        mock_session.query = _query
+        return mock_session
+
+    def _create_mock_session_maker(self):
+        """Create a mock ManagedSessionMaker context manager."""
+
+        @contextmanager
+        def _mock_session_maker():
+            yield self._create_mock_session()
+
+        return _mock_session_maker
 
 
 class _RegistryStore:
@@ -115,7 +235,13 @@ def workspace_permission_setup(tmp_path, monkeypatch):
         trace_experiments={"trace-1": "exp-1"},
         experiment_names={"Primary Experiment": "exp-1"},
         logged_model_experiments={"model-1": "exp-1"},
+        gateway_secret_workspaces={"secret-1": "team-a", "secret-2": "team-a"},
+        gateway_endpoint_workspaces={"endpoint-1": "team-a", "endpoint-2": "team-a"},
+        gateway_model_def_workspaces={"model-def-1": "team-a", "model-def-2": "team-a"},
+        engine=MagicMock(),  # Mock engine for SQL model queries
     )
+    # Set ManagedSessionMaker after creating the store
+    tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
     registry_store = _RegistryStore({"model-xyz": "team-a"})
@@ -627,8 +753,8 @@ def test_metric_history_bulk_interval_validator_uses_workspace_permissions(
         GET_METRIC_HISTORY_BULK_INTERVAL,
         method="GET",
         query_string=[
-            ("run_id", "run-1"),
-            ("run_id", "run-2"),
+            ("run_ids", "run-1"),
+            ("run_ids", "run-2"),
             ("metric_key", "loss"),
         ],
     ):
@@ -745,8 +871,8 @@ def test_metric_history_bulk_interval_validator_denied_without_workspace_permiss
         GET_METRIC_HISTORY_BULK_INTERVAL,
         method="GET",
         query_string=[
-            ("run_id", "run-1"),
-            ("run_id", "run-2"),
+            ("run_ids", "run-1"),
+            ("run_ids", "run-2"),
             ("metric_key", "loss"),
         ],
     ):
@@ -861,3 +987,105 @@ def test_explicit_experiment_permission_overrides_workspace(
         query_string={"experiment_id": "exp-2"},
     ):
         assert not auth_module.validate_can_read_experiment()
+
+
+def test_cross_workspace_gateway_secret_access_denied(workspace_permission_setup, monkeypatch):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-1": "team-a"},
+        run_experiments={},
+        trace_experiments={},
+        gateway_secret_workspaces={"secret-other-ws": "team-b"},
+        engine=MagicMock(),
+    )
+    tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/secrets/get",
+        method="GET",
+        query_string={"secret_id": "secret-other-ws"},
+    ):
+        assert not auth_module.validate_can_read_gateway_secret()
+        assert not auth_module.validate_can_update_gateway_secret()
+        assert not auth_module.validate_can_delete_gateway_secret()
+
+
+def test_cross_workspace_gateway_endpoint_access_denied(workspace_permission_setup, monkeypatch):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-1": "team-a"},
+        run_experiments={},
+        trace_experiments={},
+        gateway_endpoint_workspaces={"endpoint-other-ws": "team-b"},
+        engine=MagicMock(),
+    )
+    tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-other-ws"},
+    ):
+        assert not auth_module.validate_can_read_gateway_endpoint()
+        assert not auth_module.validate_can_update_gateway_endpoint()
+        assert not auth_module.validate_can_delete_gateway_endpoint()
+
+
+def test_cross_workspace_gateway_model_definition_access_denied(
+    workspace_permission_setup, monkeypatch
+):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-1": "team-a"},
+        run_experiments={},
+        trace_experiments={},
+        gateway_model_def_workspaces={"model-def-other-ws": "team-b"},
+        engine=MagicMock(),
+    )
+    tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/model-definitions/get",
+        method="GET",
+        query_string={"model_definition_id": "model-def-other-ws"},
+    ):
+        assert not auth_module.validate_can_read_gateway_model_definition()
+        assert not auth_module.validate_can_update_gateway_model_definition()
+        assert not auth_module.validate_can_delete_gateway_model_definition()
+
+
+def test_workspace_permission_required_for_gateway_creation(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Remove workspace permission
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/create",
+        method="POST",
+        json={"name": "test-endpoint", "model_configs": []},
+    ):
+        assert not auth_module.validate_can_create_gateway_endpoint()
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/model-definitions/create",
+        method="POST",
+        json={
+            "name": "test-model",
+            "secret_id": "secret-1",
+            "provider": "openai",
+            "model_name": "gpt-4",
+        },
+    ):
+        assert not auth_module.validate_can_create_gateway_model_definition()
+
+    # Restore workspace permission
+    store.set_workspace_permission("team-a", username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/create",
+        method="POST",
+        json={"name": "test-endpoint", "model_configs": []},
+    ):
+        assert auth_module.validate_can_create_gateway_endpoint()

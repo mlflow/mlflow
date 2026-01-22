@@ -1375,6 +1375,10 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
       <td>Default permission on all resources</td>
     </tr>
     <tr>
+      <td>`grant_default_workspace_access`</td>
+      <td>When workspaces are enabled: if `false`, the `default` workspace ignores `default_permission` and new users need explicit workspace ACLs; if `true`, the `default` workspace inherits `default_permission` for all users (pre-workspaces behavior).</td>
+    </tr>
+    <tr>
       <td>`database_uri`</td>
       <td>Database location to store permission and user data</td>
     </tr>

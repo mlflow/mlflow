@@ -52,6 +52,7 @@ def workspaces_enabled(request):
             WorkspaceContext(DEFAULT_WORKSPACE_NAME),
             mock.patch(
                 "mlflow.store.workspace_rest_store_mixin.WorkspaceRestStoreMixin.supports_workspaces",
+                new_callable=mock.PropertyMock,
                 return_value=True,
             ),
         ):

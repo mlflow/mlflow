@@ -2292,6 +2292,7 @@ class SqlGatewaySecret(Base):
             last_updated_at=self.last_updated_at,
             provider=self.provider,
             auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
         )
@@ -2387,6 +2388,7 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            workspace=self.workspace,
         )
 
 
@@ -2481,6 +2483,7 @@ class SqlGatewayModelDefinition(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
         )
 
 
