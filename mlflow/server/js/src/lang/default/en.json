@@ -3294,10 +3294,6 @@
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
   },
-  "Nwo21E": {
-    "defaultMessage": "Scoring criteria",
-    "description": "Accordion section header for scoring criteria (judge type, guidelines/instructions, and output type)"
-  },
   "NyzPHY": {
     "defaultMessage": "Expand description",
     "description": "Aria label for button that expands a collapsed long description"
@@ -7474,6 +7470,10 @@
   "tkc+sv": {
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
+  },
+  "tqw27y": {
+    "defaultMessage": "Evaluation criteria",
+    "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
   },
   "trW0O+": {
     "defaultMessage": "Back to providers",

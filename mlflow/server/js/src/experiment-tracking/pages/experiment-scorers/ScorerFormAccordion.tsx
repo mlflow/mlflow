@@ -145,8 +145,8 @@ export const ScorerFormAccordion = forwardRef<ScorerFormAccordionHandle, ScorerF
           sectionKey={AccordionSection.SCORING_CRITERIA}
           header={
             <FormattedMessage
-              defaultMessage="Scoring criteria"
-              description="Accordion section header for scoring criteria (judge type, guidelines/instructions, and output type)"
+              defaultMessage="Evaluation criteria"
+              description="Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
             />
           }
           isExpanded={activeSection === AccordionSection.SCORING_CRITERIA}
