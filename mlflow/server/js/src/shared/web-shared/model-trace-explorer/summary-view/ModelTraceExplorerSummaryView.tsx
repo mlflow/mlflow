@@ -33,9 +33,6 @@ export const ModelTraceExplorerSummaryView = () => {
     [updatePaneSizeRatios],
   );
 
-  // Get only the trace-level assessments (exclude session-level assessments)
-  const displayedAssessments = useMemo(() => getTraceLevelAssessments(allAssessments), [allAssessments]);
-
   const intermediateNodes = useIntermediateNodes(rootNode);
 
   if (!rootNode) {
@@ -53,7 +50,7 @@ export const ModelTraceExplorerSummaryView = () => {
     );
   }
   const AssessmentsPaneComponent = (
-    <AssessmentsPane assessments={displayedAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
+    <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
   );
 
   return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (

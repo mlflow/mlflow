@@ -738,6 +738,10 @@
     "defaultMessage": "Chart view",
     "description": "Label for the table view toggle button in the logged model list page"
   },
+  "451ETc": {
+    "defaultMessage": "Session",
+    "description": "Label for the session to which an assessment belongs"
+  },
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
