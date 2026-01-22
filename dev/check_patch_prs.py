@@ -1,13 +1,18 @@
 import argparse
 import os
 import re
-import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
+
+
+def get_headers() -> dict[str, str]:
+    if token := os.environ.get("GH_TOKEN"):
+        return {"Authorization": f"token {token}"}
+    return {}
 
 
 def get_release_branch(version: str) -> str:
@@ -23,35 +28,40 @@ class Commit:
 
 def get_commits(branch: str) -> list[Commit]:
     """
-    Get the commits in the release branch.
+    Get the commits in the release branch via GitHub API (last 3 months).
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.check_call(
-            [
-                "git",
-                "clone",
-                "--shallow-since=3 months ago",
-                "--branch",
-                branch,
-                "https://github.com/mlflow/mlflow.git",
-                tmpdir,
-            ],
+    commits = []
+    per_page = 100
+    page = 1
+    pr_rgx = re.compile(r".+\s+\(#(\d+)\)$")
+    since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+
+    while True:
+        print(f"Fetching commits from {branch} (page {page})...")
+        # dict[str, str | int] is a workaround for mypy
+        # https://github.com/python/mypy/issues/3176
+        params: dict[str, str | int] = {
+            "sha": branch,
+            "per_page": per_page,
+            "page": page,
+            "since": since,
+        }
+        response = requests.get(
+            "https://api.github.com/repos/mlflow/mlflow/commits",
+            params=params,
+            headers=get_headers(),
         )
-        log_stdout = subprocess.check_output(
-            [
-                "git",
-                "log",
-                "--pretty=format:%H %s",
-            ],
-            text=True,
-            cwd=tmpdir,
-        )
-        pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
-        return [
-            Commit(sha=m.group(1), pr_num=int(m.group(2)))
-            for commit in log_stdout.splitlines()
-            if (m := pr_rgx.search(commit.rstrip()))
-        ]
+        response.raise_for_status()
+        data = response.json()
+        for item in data:
+            msg = item["commit"]["message"].split("\n")[0]
+            if m := pr_rgx.search(msg):
+                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1))))
+        if len(data) < per_page:
+            break
+        page += 1
+
+    return commits
 
 
 @dataclass(frozen=True)
@@ -75,6 +85,7 @@ def fetch_patch_prs(version: str) -> dict[int, bool]:
     while True:
         response = requests.get(
             f'https://api.github.com/search/issues?q=is:pr+repo:mlflow/mlflow+label:"{label}"&per_page={per_page}&page={page}',
+            headers=get_headers(),
         )
         response.raise_for_status()
         data = response.json()
