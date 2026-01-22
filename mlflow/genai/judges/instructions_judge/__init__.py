@@ -47,6 +47,14 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
+# JudgeField constants for standard instructions judge invocation fields
+INPUTS_FIELD = JudgeField(name="inputs", description="Input data to evaluate")
+OUTPUTS_FIELD = JudgeField(name="outputs", description="Output data to evaluate")
+EXPECTATIONS_FIELD = JudgeField(
+    name="expectations", description="Expected outcomes or ground truth"
+)
+TRACE_FIELD = JudgeField(name="trace", description="Trace to evaluate")
+
 
 class InstructionsJudge(Judge):
     """
@@ -208,18 +216,16 @@ class InstructionsJudge(Judge):
         fields = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            fields.append(JudgeField(name="inputs", description="Input data to evaluate"))
+            fields.append(INPUTS_FIELD)
 
         if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            fields.append(JudgeField(name="outputs", description="Output data to evaluate"))
+            fields.append(OUTPUTS_FIELD)
 
         if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
-            fields.append(
-                JudgeField(name="expectations", description="Expected outcomes or ground truth")
-            )
+            fields.append(EXPECTATIONS_FIELD)
 
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
-            fields.append(JudgeField(name="trace", description="Trace to evaluate"))
+            fields.append(TRACE_FIELD)
 
         return fields
 
