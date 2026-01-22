@@ -63,24 +63,29 @@ PGBAR_FORMAT = (
 @dataclass
 class SimulationTimingTracker:
     _lock: Lock = field(default_factory=Lock, repr=False)
-    predict_fn: float = 0.0
-    generate_message: float = 0.0
-    check_goal: float = 0.0
+    predict_fn_seconds: float = 0.0
+    generate_message_seconds: float = 0.0
+    check_goal_seconds: float = 0.0
 
-    def add(self, predict_fn: float = 0, generate_message: float = 0, check_goal: float = 0):
+    def add(
+        self,
+        predict_fn_seconds: float = 0,
+        generate_message_seconds: float = 0,
+        check_goal_seconds: float = 0,
+    ):
         with self._lock:
-            self.predict_fn += predict_fn
-            self.generate_message += generate_message
-            self.check_goal += check_goal
+            self.predict_fn_seconds += predict_fn_seconds
+            self.generate_message_seconds += generate_message_seconds
+            self.check_goal_seconds += check_goal_seconds
 
     def format_postfix(self) -> str:
         with self._lock:
-            simulator_time = self.generate_message + self.check_goal
-            total = self.predict_fn + simulator_time
+            simulator_seconds = self.generate_message_seconds + self.check_goal_seconds
+            total = self.predict_fn_seconds + simulator_seconds
             if total == 0:
                 return "(predict: 0%, simulator: 0%)"
-            predict_pct = 100 * self.predict_fn / total
-            simulator_pct = 100 * simulator_time / total
+            predict_pct = 100 * self.predict_fn_seconds / total
+            simulator_pct = 100 * simulator_seconds / total
             return f"(predict: {predict_pct:.1f}%, simulator: {simulator_pct:.1f}%)"
 
 
@@ -496,7 +501,7 @@ class ConversationSimulator:
             try:
                 start_time = time.perf_counter()
                 user_message_content = user_agent.generate_message(conversation_history, turn)
-                timings.add(generate_message=time.perf_counter() - start_time)
+                timings.add(generate_message_seconds=time.perf_counter() - start_time)
 
                 user_message = {"role": "user", "content": user_message_content}
                 conversation_history.append(user_message)
@@ -512,7 +517,7 @@ class ConversationSimulator:
                     expectations=expectations if turn == 0 else None,
                     turn=turn,
                 )
-                timings.add(predict_fn=time.perf_counter() - start_time)
+                timings.add(predict_fn_seconds=time.perf_counter() - start_time)
 
                 if trace_id:
                     trace_ids.append(trace_id)
@@ -527,7 +532,7 @@ class ConversationSimulator:
                 goal_achieved = self._check_goal_achieved(
                     conversation_history, assistant_content, goal
                 )
-                timings.add(check_goal=time.perf_counter() - start_time)
+                timings.add(check_goal_seconds=time.perf_counter() - start_time)
 
                 if goal_achieved:
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
