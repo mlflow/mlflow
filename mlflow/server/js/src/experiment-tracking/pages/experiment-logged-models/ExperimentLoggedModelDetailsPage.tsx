@@ -7,12 +7,14 @@ import { ExperimentLoggedModelDetailsNav } from '../../components/experiment-log
 import { ExperimentLoggedModelDetailsOverview } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsOverview';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import React from 'react';
 import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsArtifacts';
+import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
 import { useUserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
 import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 /**
  * Temporary "in construction" placeholder box, to be removed after implementing the actual content.
@@ -56,6 +58,9 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     apiError: experimentApiError,
     apolloError: experimentApolloError,
   } = useGetExperimentQuery({ experimentId });
+
+  // Register model name context for Assistant
+  useRegisterAssistantContext('modelName', loggedModel?.info?.name);
 
   // If there is an unrecoverable error loading the model, throw it to be handled by the error boundary
   if (loggedModelLoadError) {
