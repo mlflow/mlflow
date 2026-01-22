@@ -68,6 +68,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/app-instrumentation/opentelemetry',
                   label: 'Tracing with OpenTelemetry',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
+                },
               ],
             },
             {
