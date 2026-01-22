@@ -79,7 +79,7 @@ def fetch_patch_prs(version):
         data = response.json()
         # Exclude closed PRs that are not merged
         pulls.extend(pr for pr in data["items"] if not is_closed(pr))
-        if len(data) < per_page:
+        if len(data["items"]) < per_page:
             break
         page += 1
 
