@@ -260,9 +260,7 @@ Tags allow you to categorize and filter models by custom metadata. Use the `tags
 
 ```python
 # Find models tagged for classification tasks
-models = mlflow.search_logged_models(
-    filter_string="tags.task = 'classification'"
-)
+models = mlflow.search_logged_models(filter_string="tags.task = 'classification'")
 
 # Find models in production environment
 models = mlflow.search_logged_models(
