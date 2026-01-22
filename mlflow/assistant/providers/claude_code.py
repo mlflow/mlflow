@@ -43,7 +43,7 @@ FILE_EDIT_TOOLS = [
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
-CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
+CLAUDE_SYSTEM_PROMPT_BASE = """You are an MLflow assistant helping users with their MLflow projects.
 {connection_section}
 User messages may include a <context> block containing JSON that represents what the user is
 currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
@@ -105,7 +105,7 @@ mlflow.set_tracking_uri("{tracking_uri}")
     else:
         connection_section = ""
 
-    return CLAUDE_SYSTEM_PROMPT.format(connection_section=connection_section)
+    return CLAUDE_SYSTEM_PROMPT_BASE.format(connection_section=connection_section)
 
 
 class ClaudeCodeProvider(AssistantProvider):

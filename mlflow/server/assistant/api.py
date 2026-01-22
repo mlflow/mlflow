@@ -125,13 +125,13 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
-async def stream_response(session_id: str, request: Request) -> StreamingResponse:
+async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
 
     Args:
-        session_id: The session ID returned from /message
         request: The FastAPI request object
+        session_id: The session ID returned from /message
 
     Returns:
         StreamingResponse with SSE events
@@ -146,7 +146,10 @@ async def stream_response(session_id: str, request: Request) -> StreamingRespons
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
 
-    # Extract the MLflow server URL from the request for the assistant to use
+    # Extract the MLflow server URL from the request for the assistant to use.
+    # This assumes the assistant is accessing the same MLflow server that serves this API,
+    # which works because the assistant endpoint is localhost-only.
+    # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = str(request.base_url).rstrip("/")
 
     async def event_generator() -> AsyncGenerator[str, None]:
