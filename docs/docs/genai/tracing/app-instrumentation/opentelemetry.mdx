@@ -3,6 +3,7 @@ sidebar_position: 4
 ---
 
 import ImageBox from '@site/src/components/ImageBox';
+import { APILink } from "@site/src/components/APILink";
 
 # Tracing with OpenTelemetry
 
@@ -37,7 +38,7 @@ For more details about the MLflow OpenTelemetry integration, see [Collect OpenTe
 
 ## Combining the OpenTelemetry SDK and the MLflow Tracing SDK
 
-Since the MLflow Tracing SDK is built on top of the OpenTelemetry SDK, you can combine them to get the best of both worlds. To use both SDKs in a single application, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false`.
+Since the MLflow Tracing SDK is built on top of the OpenTelemetry SDK, you can combine them to get the best of both worlds. To use both SDKs in a single application, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false`. Then, you should invoke <APILink fn="mlflow.tracing.set_destination" /> to add MLflow's span processors to the existing trace provider, ensuring spans from both OpenTelemetry and MLflow to be combined into a single trace.
 
 The following example shows how to combine MLflow's OpenAI auto-tracing with OpenTelemetry's native FastAPI instrumentation.
 
@@ -86,7 +87,11 @@ Spans generated from both SDKs will be merged into a single trace.
 
 ### Using an Explicit TracerProvider
 
-If you need to set up your own `TracerProvider` explicitly (e.g., to configure custom processors or exporters), you can use `mlflow.tracing.set_destination` to add MLflow's span processors to your existing provider. This ensures that spans from both OpenTelemetry and MLflow are merged into a single trace.
+You can explicitly configure your own `TracerProvider` (for example, to add custom processors or exporters). Setting `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` to `false` and calling <APILink fn="mlflow.tracing.set_destination" /> ensures MLflow and OpenTelemetry spans are combined into a single trace.
+
+:::important
+<APILink fn="mlflow.tracing.set_destination" /> must be invoked after you explicitly configured the trace provider.
+:::
 
 ```python
 import os
