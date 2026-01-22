@@ -121,10 +121,10 @@ export const usePageTitle = () => {
   return title;
 };
 
-const DEFAULT_ASSISTANT_PROMPTS = [
-  'What can you help me with?',
+export const DEFAULT_ASSISTANT_PROMPTS = [
   'How do I get started with MLflow?',
-  'Explain how experiment tracking works.',
+  'What should I know about MLflow?',
+  'Explain how MLflow Tracing works.',
 ];
 
 /**

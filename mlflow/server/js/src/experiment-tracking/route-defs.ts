@@ -1,4 +1,4 @@
-import { createLazyRouteElement, RouteHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, RouteHandle, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 
@@ -221,11 +221,7 @@ export const getRouteDefs = () => [
     pageId: PageId.home,
     handle: {
       getPageTitle: () => 'Home',
-      getAssistantPrompts: () => [
-        'How do I get started with MLflow?',
-        'What can MLflow help me with?',
-        'Show me how to track my first experiment.',
-      ],
+      getAssistantPrompts: () => DEFAULT_ASSISTANT_PROMPTS,
     } satisfies RouteHandle,
   },
   {
