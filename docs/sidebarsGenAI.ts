@@ -594,6 +594,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/ragas',
                       label: 'RAGAS',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
                   ],
                   collapsed: false,
                   link: {
