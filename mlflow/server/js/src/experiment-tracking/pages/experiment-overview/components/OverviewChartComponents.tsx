@@ -289,7 +289,7 @@ export function isIsolatedPoint<T>(values: (T | null)[], index: number): boolean
 export function useIsolatedDotRenderer(color: string, fieldName = 'isIsolated') {
   return useCallback(
     ({ cx, cy, payload }: { cx?: number; cy?: number; payload?: Record<string, unknown> }) =>
-      payload?.[fieldName] ? <circle cx={cx} cy={cy} r={2} fill={color} /> : <></>,
+      payload?.[fieldName] ? <circle cx={cx} cy={cy} r={4} fill={color} /> : <></>,
     [color, fieldName],
   );
 }
