@@ -1,3 +1,4 @@
+import math
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,34 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+_TAR_CHUNK_SIZE_BYTES = 1024 * 1024 * 1024
+
+
+def _split_tar_file(tar_path: Path, chunk_size: int = _TAR_CHUNK_SIZE_BYTES) -> None:
+    """
+    Split a tar file into lexicographically ordered chunks of specified size.
+    If tar is smaller than chunk_size, does nothing.
+    """
+    file_size = tar_path.stat().st_size
+
+    if file_size <= chunk_size:
+        return
+
+    # Calculate number of chunks needed and determine suffix width
+    num_chunks = math.ceil(file_size / chunk_size)
+    suffix_width = len(str(num_chunks - 1))
+
+    # Split into chunks
+    with open(tar_path, "rb") as source:
+        for chunk_index in range(num_chunks):
+            chunk_path = Path(f"{tar_path}.part{chunk_index:0{suffix_width}d}")
+            chunk_data = source.read(chunk_size)
+
+            with open(chunk_path, "wb") as chunk_file:
+                chunk_file.write(chunk_data)
+
+    # Delete original tar file after successful split
+    tar_path.unlink()
 
 
 def _validate_env_pack(env_pack):
@@ -70,10 +99,12 @@ def _validate_env_pack(env_pack):
     )
 
 
-def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
+def _tar(root_path: Path, tar_path: Path) -> None:
     """
     Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
     wheels_info.json.
+
+    Large tars will be split into multiple, lexicographically ordered chunks.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -86,7 +117,9 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     # Pull in symlinks
     with tarfile.open(tar_path, "w", dereference=True) as tar:
         tar.add(root_path, arcname=".", filter=exclude)
-    return tar
+
+    # Split into chunks if necessary
+    _split_tar_file(tar_path)
 
 
 @contextmanager
