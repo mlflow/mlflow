@@ -56,8 +56,7 @@ _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 PGBAR_FORMAT = (
-    "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} "
-    "[Elapsed: {elapsed}, Remaining: {remaining}]{postfix}"
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
 )
 
 
@@ -77,7 +76,12 @@ class SimulationTimingTracker:
     def format_postfix(self) -> str:
         with self._lock:
             simulator_time = self.generate_message + self.check_goal
-            return f" (predict: {self.predict_fn:.1f}s, simulator: {simulator_time:.1f}s)"
+            total = self.predict_fn + simulator_time
+            if total == 0:
+                return "(predict: 0%, simulator: 0%)"
+            predict_pct = 100 * self.predict_fn / total
+            simulator_pct = 100 * simulator_time / total
+            return f"(predict: {predict_pct:.1f}%, simulator: {simulator_pct:.1f}%)"
 
 
 _MODEL_API_DOC = {
