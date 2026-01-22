@@ -89,9 +89,9 @@ For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 
 For logging new data to MLflow (traces, runs, metrics, artifacts, etc.):
 * The CLI does not support all write operations, so use an MLflow SDK instead.
-* If a project is configured, use the appropriate SDK for the project's language
-  (Python, TypeScript, etc.).
-* If no project is configured, fall back to Python.
+* Use the appropriate SDK for your working directory's project language
+  (Python, TypeScript, etc.). Fall back to Python if no project is detected or if
+  MLflow does not offer an SDK for the detected language.
 * Always set the tracking URI before logging (see "MLflow Server Connection" section above).
 
 ### Data Access
