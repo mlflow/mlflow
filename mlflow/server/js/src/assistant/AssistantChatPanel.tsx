@@ -30,6 +30,7 @@ import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
+import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
 type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
@@ -470,7 +471,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
 
 /**
  * Setup prompt shown when assistant is not set up yet.
- * Shows description and setup button.
+ * Shows empty state illustration and setup button.
  */
 const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -483,23 +484,11 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        padding: theme.spacing.lg,
-        paddingBottom: theme.spacing.lg * 4,
-        gap: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
-      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
-
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        Ask questions about your experiments, traces, evaluations, and more.
-      </Typography.Text>
+      <AssistantWelcomeCarousel />
 
       <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
         Get Started
