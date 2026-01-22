@@ -72,8 +72,9 @@ from mlflow.genai.judges.optimizers import MemAlignOptimizer
 judge = make_judge(
     name="politeness",
     instructions=(
-        "Evaluate if the response is polite and respectful. "
+        "Given a user question, evaluate if the chatbot's response is polite and respectful. "
         "Consider the tone, language, and context of the response.\n\n"
+        "Question: {{ inputs }}\n"
         "Response: {{ outputs }}"
     ),
     feedback_value_type=bool,
@@ -98,7 +99,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 |-----------|------|---------|-------------|
 | `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. |
 | `retrieval_k` | `int` | `5` | Number of relevant examples to retrieve from episodic memory during inference. |
-| `embedding_model` | `str` | `"openai/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>/<model-name>` format. |
+| `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format. |
 
 ## Inspecting Learned Knowledge
 
