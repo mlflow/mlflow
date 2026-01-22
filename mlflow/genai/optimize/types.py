@@ -93,7 +93,7 @@ class EvaluationResultRecord:
         inputs: The inputs of the evaluation.
         outputs: The outputs of the prediction function.
         expectations: The expected outputs.
-        score: The score of the evaluation result.
+        score: The score of the evaluation result. None if no scorers are provided.
         trace: The trace of the evaluation execution.
         rationales: The rationales of the evaluation result.
     """
@@ -101,7 +101,7 @@ class EvaluationResultRecord:
     inputs: dict[str, Any]
     outputs: Any
     expectations: Any
-    score: float
+    score: float | None
     trace: Trace
     rationales: dict[str, str]
 

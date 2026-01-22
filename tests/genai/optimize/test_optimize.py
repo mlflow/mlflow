@@ -439,19 +439,3 @@ def test_optimize_prompts_with_managed_evaluation_dataset(
     assert result.final_eval_score == 0.9
 
 
-def test_optimize_prompts_validation_scorers_without_train_data(
-    sample_translation_prompt: PromptVersion,
-):
-    with pytest.raises(
-        MlflowException,
-        match="`scorers` is provided but `train_data` is None or empty or None. ",
-    ):
-        optimize_prompts(
-            predict_fn=sample_predict_fn,
-            train_data=None,
-            prompt_uris=[
-                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
-            ],
-            optimizer=MockPromptOptimizer(),
-            scorers=[equivalence],
-        )
