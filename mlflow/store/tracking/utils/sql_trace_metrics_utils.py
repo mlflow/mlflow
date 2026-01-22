@@ -13,6 +13,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlSpan,
@@ -113,33 +114,59 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 TIME_BUCKET_LABEL = "time_bucket"
 
 
-def get_percentile_aggregation(db_type: str, percentile_value: float, column):
+def get_percentile_aggregation(
+    db_type: str, percentile_value: float, column, partition_by_columns: list[Column] | None = None
+):
     """
     Get percentile aggregation function based on database type.
+
+    PostgreSQL, MSSQL, and SQLite use linear interpolation via PERCENTILE_CONT (or custom
+    aggregate for SQLite), equivalent to numpy.quantile's default method='linear' (H&F
+    method 7). The formula is: (1-g)*y[j] + g*y[j+1], where j and g are integral and
+    fractional parts of q*(n-1).
+    See: https://numpy.org/doc/stable/reference/generated/numpy.quantile.html
+
+    MySQL uses PERCENT_RANK() which calculates relative rank rather than interpolated values.
 
     Args:
         db_type: Database type (e.g., "postgresql", "mssql", "mysql", "sqlite")
         percentile_value: Percentile value between 0 and 100 (e.g., 50 for median)
         column: SQLAlchemy column to compute percentile on
+        partition_by_columns: For MSSQL and MySQL, columns to partition by in the OVER clause.
+            MSSQL and MySQL require PERCENTILE_CONT to have an OVER clause since it's a window
+            function, not a true aggregate. Pass the GROUP BY columns here.
 
     Returns:
         SQLAlchemy aggregation function for percentile
-
-    Note:
-        - PostgreSQL and MSSQL use native PERCENTILE_CONT functions
-        - MySQL/SQLite uses an approximation with MAX/MIN weighted calculation
     """
-    percentile_value = percentile_value / 100
+    percentile_fraction = percentile_value / 100  # Convert to 0-1 range
+
     match db_type:
-        case "postgresql":
-            return func.percentile_cont(percentile_value).within_group(column)
-        # MSSQL contains PERCENTILE_CONT function, but it's easier to use the
-        # approximation formula since the function requires a window function.
-        case "mssql" | "mysql" | "sqlite":
-            # MySQL and SQLite don't have PERCENTILE_CONT, so we use an approximation
-            # For grouped data, we use a weighted average of min and max
-            # This is a rough approximation: P = min + percentile * (max - min)
-            return func.min(column) + percentile_value * (func.max(column) - func.min(column))
+        case db_types.POSTGRES:
+            # PostgreSQL PERCENTILE_CONT: ordered-set aggregate for exact percentile
+            return func.percentile_cont(percentile_fraction).within_group(column)
+        case db_types.MSSQL:
+            # MSSQL PERCENTILE_CONT: window function that REQUIRES an OVER clause.
+            # Unlike PostgreSQL, MSSQL's PERCENTILE_CONT is not a true aggregate function.
+            # We use OVER (PARTITION BY group_columns) to compute percentile per group.
+            # The result is a value for each row; the caller must handle deduplication
+            # (typically by wrapping in MAX/MIN in a subquery approach).
+            partition_by = partition_by_columns or []
+            return (
+                func.percentile_cont(percentile_fraction)
+                .within_group(column)
+                .over(partition_by=partition_by)
+            )
+        case db_types.SQLITE:
+            # Custom percentile aggregate function registered in mlflow/store/db/utils.py
+            # Expects percentile as 0-100
+            return func.percentile(column, percentile_value)
+        case db_types.MYSQL:
+            # MySQL 8.0+ supports PERCENT_RANK() function.
+            # We use PERCENT_RANK() OVER (PARTITION BY ... ORDER BY column) to get
+            # each row's percentile rank, then find values at the target percentile.
+            partition_by = partition_by_columns or []
+            return func.percent_rank().over(partition_by=partition_by, order_by=column)
 
 
 def get_time_bucket_expression(
@@ -158,7 +185,7 @@ def get_time_bucket_expression(
     # Convert time_interval_seconds to milliseconds
     bucket_size_ms = time_interval_seconds * 1000
 
-    if db_type == "mssql":
+    if db_type == db_types.MSSQL:
         # MSSQL requires the exact same SQL text in SELECT, GROUP BY, and ORDER BY clauses.
         # We use literal_column to generate identical SQL text across all clauses.
         match view_type:
@@ -186,7 +213,12 @@ def get_time_bucket_expression(
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
 
-def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, column) -> Column:
+def _get_aggregation_expression(
+    aggregation: MetricAggregation,
+    db_type: str,
+    column,
+    partition_by_columns: list[Column] | None = None,
+) -> Column:
     """
     Get the SQL aggregation expression for the given aggregation type and column.
 
@@ -194,6 +226,7 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
         aggregation: The aggregation of the metric
         db_type: Database type (for percentile calculations)
         column: The column to aggregate
+        partition_by_columns: For MSSQL and MySQL percentile, columns to partition by in OVER clause
 
     Returns:
         SQLAlchemy column expression for the aggregation
@@ -206,7 +239,9 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
         case AggregationType.AVG:
             return func.avg(column)
         case AggregationType.PERCENTILE:
-            return get_percentile_aggregation(db_type, aggregation.percentile_value, column)
+            return get_percentile_aggregation(
+                db_type, aggregation.percentile_value, column, partition_by_columns
+            )
         case _:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported aggregation type: {aggregation.aggregation_type}",
@@ -447,6 +482,116 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
     return query
 
 
+def _has_percentile_aggregation(aggregations: list[MetricAggregation]) -> bool:
+    return any(agg.aggregation_type == AggregationType.PERCENTILE for agg in aggregations)
+
+
+def _build_query_with_percentile_subquery(
+    db_type: str,
+    query: Query,
+    aggregations: list[MetricAggregation],
+    dimension_columns: list[Column],
+    agg_column: Column,
+) -> tuple[Query, list[Column]]:
+    """
+    Build query with percentile window functions using a subquery approach.
+
+    Both MSSQL and MySQL require window functions for percentile calculations, which don't
+    work directly with GROUP BY. This function uses a two-level query pattern:
+    - Inner: compute window function values (percentile or percent_rank)
+    - Outer: GROUP BY dimensions and aggregate the window function results
+
+    MSSQL uses PERCENTILE_CONT(...) OVER (PARTITION BY ...) directly.
+    MySQL uses PERCENT_RANK() with linear interpolation to emulate PERCENTILE_CONT.
+
+    Args:
+        db_type: Database type ("mssql" or "mysql")
+        query: Base SQLAlchemy query with joins and filters applied
+        aggregations: List of aggregations to compute
+        dimension_columns: Labeled dimension columns for grouping
+        agg_column: Column to aggregate on
+
+    Returns:
+        Tuple of (outer_query, select_columns)
+    """
+    partition_by_columns = [col.element for col in dimension_columns] if dimension_columns else []
+
+    # Build inner subquery columns: dimensions + value + window function columns
+    inner_columns = list(dimension_columns)
+    inner_columns.append(agg_column.label("_agg_value"))
+
+    # Add db-specific window function columns
+    percentile_labels = {}
+    match db_type:
+        case db_types.MSSQL:
+            # add PERCENTILE_CONT window function for each percentile aggregation
+            for agg in aggregations:
+                if agg.aggregation_type == AggregationType.PERCENTILE:
+                    label = f"_p{int(agg.percentile_value)}"
+                    expr = get_percentile_aggregation(
+                        db_type, agg.percentile_value, agg_column, partition_by_columns
+                    )
+                    inner_columns.append(expr.label(label))
+                    percentile_labels[str(agg)] = label
+        case db_types.MYSQL:
+            # add single PERCENT_RANK column for interpolation
+            inner_columns.append(
+                func.percent_rank()
+                .over(partition_by=partition_by_columns, order_by=agg_column)
+                .label("_pct_rank")
+            )
+        case _:
+            raise ValueError(
+                f"Unsupported database type: {db_type}",
+            )
+
+    subquery = query.with_entities(*inner_columns).subquery()
+
+    # Build outer query percentile expression based on db type
+    def _build_outer_percentile_expr(agg):
+        match db_type:
+            case db_types.MSSQL:
+                # MAX picks the pre-computed percentile (same value for all rows in partition)
+                return func.max(subquery.c[percentile_labels[str(agg)]])
+            case db_types.MYSQL:
+                # linear interpolation
+                pct_fraction = agg.percentile_value / 100
+                val_col = subquery.c["_agg_value"]
+                rank_col = subquery.c["_pct_rank"]
+
+                # Boundary values and ranks for interpolation
+                low_val = func.max(case((rank_col <= pct_fraction, val_col)))
+                hi_val = func.min(case((rank_col >= pct_fraction, val_col)))
+                low_rank = func.max(case((rank_col <= pct_fraction, rank_col)))
+                hi_rank = func.min(case((rank_col >= pct_fraction, rank_col)))
+
+                # Interpolate: low + (hi - low) * (target - low_rank) / (hi_rank - low_rank)
+                rank_diff = func.nullif(hi_rank - low_rank, 0)
+                interpolation = low_val + (hi_val - low_val) * (pct_fraction - low_rank) / rank_diff
+                return func.coalesce(interpolation, low_val)
+
+    def _outer_agg_column(agg: MetricAggregation) -> Column:
+        agg_label = str(agg)
+        match agg.aggregation_type:
+            case AggregationType.PERCENTILE:
+                return _build_outer_percentile_expr(agg).label(agg_label)
+            case _:
+                return _get_aggregation_expression(agg, db_type, subquery.c["_agg_value"]).label(
+                    agg_label
+                )
+
+    select_columns = [subquery.c[col.name].label(col.name) for col in dimension_columns]
+    select_columns.extend(_outer_agg_column(agg) for agg in aggregations)
+
+    outer_query = query.session.query(*select_columns).select_from(subquery)
+
+    if dimension_columns:
+        group_by_cols = [subquery.c[col.name] for col in dimension_columns]
+        outer_query = outer_query.group_by(*group_by_cols).order_by(*group_by_cols)
+
+    return outer_query, select_columns
+
+
 def query_metrics(
     view_type: MetricViewType,
     db_type: str,
@@ -490,28 +635,30 @@ def query_metrics(
         query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
         dimension_columns.append(dimension_column)
 
-    # Apply metric-specific joins
+    # Apply metric-specific joins and get aggregation column
     query = _apply_metric_specific_joins(query, metric_name, view_type)
-
-    # Build aggregation expressions
     agg_column = _get_column_to_aggregate(view_type, metric_name)
-    aggregation_results = {
-        str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
-        for aggregation in aggregations
-    }
 
-    # select columns: dimensions first, then aggregations
-    select_columns = dimension_columns.copy()
-    for agg_label, agg_func in aggregation_results.items():
-        select_columns.append(agg_func.label(agg_label))
-    query = query.with_entities(*select_columns)
+    # MSSQL and MySQL with percentile need special handling (window function requires subquery)
+    if db_type in (db_types.MSSQL, db_types.MYSQL) and _has_percentile_aggregation(aggregations):
+        query, select_columns = _build_query_with_percentile_subquery(
+            db_type, query, aggregations, dimension_columns, agg_column
+        )
+    else:
+        # Standard path for PostgreSQL, SQLite
+        select_columns = list(dimension_columns)
+        for agg in aggregations:
+            expr = _get_aggregation_expression(agg, db_type, agg_column)
+            select_columns.append(expr.label(str(agg)))
 
-    # Extract underlying column expressions from labeled columns for GROUP BY/ORDER BY
-    if dimension_columns:
-        group_by_columns = [col.element for col in dimension_columns]
-        query = query.group_by(*group_by_columns)
-        # order by time bucket first, then by other dimensions
-        query = query.order_by(*group_by_columns)
+        query = query.with_entities(*select_columns)
+
+        # Extract underlying column expressions from labeled columns for GROUP BY/ORDER BY
+        if dimension_columns:
+            group_by_columns = [col.element for col in dimension_columns]
+            query = query.group_by(*group_by_columns)
+            # order by time bucket first, then by other dimensions
+            query = query.order_by(*group_by_columns)
 
     results = query.limit(max_results).all()
 
