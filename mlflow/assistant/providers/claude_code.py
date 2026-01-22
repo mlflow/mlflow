@@ -47,6 +47,9 @@ CLAUDE_SYSTEM_PROMPT_BASE = """You are an MLflow assistant helping users with th
 {connection_section}
 ## User Context
 
+The user has already installed MLflow and is working within the MLflow UI. Never instruct the
+user to install MLflow or start the MLflow UI - these are already set up and running.
+
 User messages may include a <context> block containing JSON that represents what the user is
 currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
 to understand what entities the user is referring to when they ask questions.
