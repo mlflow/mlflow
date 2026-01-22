@@ -215,18 +215,25 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     await waitForViewToBeReady();
 
     const user = userEvent.setup();
-    const rowCheckboxes = screen.getAllByRole('checkbox');
+    const allCheckboxes = screen.getAllByRole('checkbox');
 
-    expect(rowCheckboxes).toHaveLength(4);
+    // Expect 4 checkboxes: 1 "Select All" + 3 row checkboxes
+    expect(allCheckboxes).toHaveLength(4);
 
-    await user.click(rowCheckboxes[0]);
+    // rowCheckboxes[0] is "Select All", rowCheckboxes[1-3] are row checkboxes
+    // Click first row checkbox to set anchor
+    await user.click(allCheckboxes[1]);
+    // Shift+click third row checkbox to select range
     await user.keyboard('{Shift>}');
-    await user.click(rowCheckboxes[2]);
+    await user.click(allCheckboxes[3]);
     await user.keyboard('{/Shift}');
 
-    rowCheckboxes.forEach((checkbox) => {
-      expect(checkbox).toBeChecked();
-    });
+    // All row checkboxes (indices 1, 2, 3) should be checked
+    expect(allCheckboxes[1]).toBeChecked();
+    expect(allCheckboxes[2]).toBeChecked();
+    expect(allCheckboxes[3]).toBeChecked();
+    // "Select All" checkbox should also be checked since all rows are selected
+    expect(allCheckboxes[0]).toBeChecked();
   });
 
   it('renders table with comparison data', async () => {
