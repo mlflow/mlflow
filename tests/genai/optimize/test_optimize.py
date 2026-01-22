@@ -437,5 +437,3 @@ def test_optimize_prompts_with_managed_evaluation_dataset(
     assert len(result.optimized_prompts) == 1
     assert result.initial_eval_score == 0.5
     assert result.final_eval_score == 0.9
-
-
