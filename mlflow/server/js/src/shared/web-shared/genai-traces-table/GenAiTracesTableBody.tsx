@@ -2,7 +2,7 @@ import type { RowSelectionState, OnChangeFn, ColumnDef, Row } from '@tanstack/re
 import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
@@ -107,6 +107,7 @@ export const GenAiTracesTableBody = React.memo(
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
+    const lastSelectedRowIdRef = useRef<string | null>(null);
 
     const isComparing = !isNil(compareToRunUuid);
 
@@ -208,6 +209,55 @@ export const GenAiTracesTableBody = React.memo(
         onRowSelectionChange: setRowSelection,
         getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
       },
+    );
+
+    const rowSelectionChangeHandler = useCallback(
+      (row: Row<EvalTraceComparisonEntry>, event: unknown) => {
+        const defaultHandler = row.getToggleSelectedHandler();
+        const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
+        const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+        const currentSelectionState = table.getState().rowSelection ?? {};
+        const isDeselecting = row.getIsSelected();
+        const isOnlySelectedRow =
+          isDeselecting && Object.keys(currentSelectionState).length === 1 && currentSelectionState[row.id];
+
+        if (!isShiftPressed || !lastSelectedRowIdRef.current) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const allRows = table.getRowModel().rows;
+        const anchorIndex = allRows.findIndex((tableRow) => tableRow.id === lastSelectedRowIdRef.current);
+        const currentIndex = allRows.findIndex((tableRow) => tableRow.id === row.id);
+
+        if (anchorIndex === -1 || currentIndex === -1) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const [start, end] = anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+        const updatedSelection: RowSelectionState = { ...currentSelectionState };
+
+        for (let index = start; index <= end; index += 1) {
+          const targetRow = allRows[index];
+
+          if (!targetRow.getCanSelect()) {
+            continue;
+          }
+
+          if (isDeselecting) {
+            delete updatedSelection[targetRow.id];
+          } else {
+            updatedSelection[targetRow.id] = true;
+          }
+        }
+
+        table.setRowSelection(updatedSelection);
+        lastSelectedRowIdRef.current = Object.keys(updatedSelection).length === 0 ? null : row.id;
+      },
+      [table],
     );
 
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
@@ -399,6 +449,7 @@ export const GenAiTracesTableBody = React.memo(
               virtualizerMeasureElement={rowVirtualizer.measureElement}
               rowSelectionState={rowSelection}
               selectedColumns={selectedColumns}
+              rowSelectionChangeHandler={rowSelectionChangeHandler}
             />
           </Table>
         </div>
