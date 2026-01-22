@@ -2,7 +2,7 @@
  * Service layer for Assistant Agent API calls.
  */
 
-import type { MessageRequest, ToolUseInfo, AssistantConfig, HealthCheckResult } from './types';
+import type { MessageRequest, ToolUseInfo, AssistantConfig, HealthCheckResult, InstallSkillsResponse } from './types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
@@ -208,4 +208,26 @@ export const sendMessageStream = async (
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
   }
+};
+
+/**
+ * Install skills from the MLflow skills repository.
+ * Returns { installed_skills, skills_directory } on success.
+ * Throws with error.status for:
+ *   412 = git not installed
+ *   500 = clone failed
+ */
+export const installSkills = async (skillsLocation: string): Promise<InstallSkillsResponse> => {
+  const response = await fetch(`${API_BASE}/skills/install`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ skills_location: skillsLocation }),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    const error = new Error(data.detail || 'Failed to install skills');
+    (error as any).status = response.status;
+    throw error;
+  }
+  return response.json();
 };

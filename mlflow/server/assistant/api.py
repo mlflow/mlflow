@@ -22,6 +22,12 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.skills_installer import (
+    CloneFailedError,
+    check_git_available,
+    install_skills,
+    list_installed_skills,
+)
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager
 
@@ -81,11 +87,22 @@ class MessageResponse(BaseModel):
 class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
+    skills_location: str | None = None
 
 
 class ConfigUpdateRequest(BaseModel):
     providers: dict[str, Any] | None = None
     projects: dict[str, Any] | None = None
+
+
+# Skills-related models
+class SkillsInstallRequest(BaseModel):
+    skills_location: str
+
+
+class SkillsInstallResponse(BaseModel):
+    installed_skills: list[str]
+    skills_directory: str
 
 
 @assistant_router.post("/message")
@@ -206,12 +223,13 @@ async def get_config() -> ConfigResponse:
     Get the current assistant configuration.
 
     Returns:
-        Current configuration including providers and projects.
+        Current configuration including providers, projects, and skills_location.
     """
     config = AssistantConfig.load()
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        skills_location=config.skills_location,
     )
 
 
@@ -263,4 +281,52 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        skills_location=config.skills_location,
+    )
+
+
+@assistant_router.post("/skills/install")
+async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+    """
+    Install skills from the MLflow skills repository.
+
+    Args:
+        request: SkillsInstallRequest with skills_location.
+
+    Returns:
+        SkillsInstallResponse with installed skill names and directory.
+
+    Raises:
+        HTTPException 412: If git is not installed.
+        HTTPException 500: If cloning fails.
+    """
+    config = AssistantConfig.load()
+    expanded_path = Path(request.skills_location).expanduser()
+    expanded_path_str = str(expanded_path)
+
+    # Check if installation needed (location changed or no skills)
+    current_skills = (
+        list_installed_skills(expanded_path_str) if expanded_path.exists() else []
+    )
+    needs_install = config.skills_location != expanded_path_str or not current_skills
+
+    if needs_install:
+        if not check_git_available():
+            raise HTTPException(
+                status_code=412, detail="Git is not installed or not available in PATH"
+            )
+
+        try:
+            installed = install_skills(expanded_path_str)
+        except CloneFailedError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+        config.skills_location = expanded_path_str
+        config.save()
+        return SkillsInstallResponse(
+            installed_skills=installed, skills_directory=expanded_path_str
+        )
+
+    return SkillsInstallResponse(
+        installed_skills=current_skills, skills_directory=expanded_path_str
     )

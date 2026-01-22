@@ -37,6 +37,10 @@ class AssistantConfig(BaseModel):
         default_factory=dict,
         description="Mapping of provider name to their configuration",
     )
+    skills_location: str | None = Field(
+        default=None,
+        description="Full path where skills are installed",
+    )
 
     @classmethod
     def load(cls) -> "AssistantConfig":

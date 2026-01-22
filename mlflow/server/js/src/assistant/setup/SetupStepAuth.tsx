@@ -111,7 +111,9 @@ export const SetupStepAuth = ({
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <CheckCircleIcon css={{ color: theme.colors.grey300, fontSize: 18 }} />
-            <span css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}>
+            <span
+              css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}
+            >
               Install Claude Code CLI
             </span>
           </div>
@@ -147,7 +149,9 @@ export const SetupStepAuth = ({
 
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <CheckCircleIcon css={{ color: theme.colors.grey300, fontSize: 18 }} />
-            <span css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}>
+            <span
+              css={{ fontSize: theme.typography.fontSizeMd, fontWeight: theme.typography.typographyBoldFontWeight }}
+            >
               Authenticate
             </span>
           </div>

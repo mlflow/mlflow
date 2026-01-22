@@ -142,12 +142,21 @@ export interface ProjectConfig {
 export interface AssistantConfig {
   providers: Record<string, ProviderConfig>;
   projects: Record<string, ProjectConfig>;
+  skills_location?: string;
 }
 
 /**
  * Setup wizard step type.
  */
 export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
+
+/**
+ * Response from installing skills.
+ */
+export interface InstallSkillsResponse {
+  installed_skills: string[];
+  skills_directory: string;
+}
 
 /**
  * Authentication state for provider connection check.
