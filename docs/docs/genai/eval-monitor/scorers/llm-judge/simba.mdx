@@ -29,7 +29,8 @@ judge = make_judge(
         "Evaluate if the response is polite and respectful.\n\n"
         "Response: {{ outputs }}"
     ),
-    model="openai:/gpt-4.1-mini",
+    feedback_value_type=bool,
+    model="openai:/gpt-5-mini",
 )
 
 # Retrieve traces with human feedback
@@ -40,7 +41,7 @@ aligned_judge = judge.align(traces_with_feedback)
 
 # Explicit: Same as above but with custom model specification
 optimizer = SIMBAAlignmentOptimizer(
-    model="openai:/gpt-4.1"  # Model used for optimization
+    model="openai:/gpt-5"  # Model used for optimization
 )
 aligned_judge = judge.align(traces_with_feedback, optimizer)
 ```

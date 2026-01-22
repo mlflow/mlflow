@@ -51,6 +51,14 @@ MemAlign maintains two types of memory:
 
 When evaluating new inputs, MemAlign constructs a dynamic context by gathering all principles from semantic memory and retrieving the most relevant examples from episodic memory—similar to how human judges reference both a rulebook and case history.
 
+## Installation
+
+MemAlign requires additional dependencies:
+
+```bash
+pip install mlflow[genai] dspy jinja2 tqdm
+```
+
 ## Basic Usage
 
 See [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for details on creating judges.
@@ -69,12 +77,12 @@ judge = make_judge(
         "Response: {{ outputs }}"
     ),
     feedback_value_type=bool,
-    model="openai:/gpt-4.1-mini",
+    model="openai:/gpt-5-mini",
 )
 
-# Create the MemAlign optimizer (we recommend using a stronger model for reflection)
+# Create the MemAlign optimizer
 optimizer = MemAlignOptimizer(
-    reflection_lm="openai:/gpt-5",
+    reflection_lm="openai:/gpt-5-mini",
 )
 
 # Retrieve traces with human feedback
@@ -88,7 +96,7 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. We recommend using a stronger model for better guideline extraction. |
+| `reflection_lm` | `str` | Required | Model used for extracting guidelines from feedback. |
 | `retrieval_k` | `int` | `5` | Number of relevant examples to retrieve from episodic memory during inference. |
 | `embedding_model` | `str` | `"openai/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>/<model-name>` format. |
 
@@ -110,8 +118,15 @@ print(aligned_judge.instructions)
 If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
 
 ```python
-# Remove knowledge derived from specific traces
-traces_to_forget = [...]  # traces with outdated or incorrect feedback
+import mlflow
+
+# Retrieve traces with outdated or incorrect feedback
+traces_to_forget: list[mlflow.entities.Trace] = mlflow.search_traces(
+    filter_string="tag.outdated = 'true'",
+    return_type="list",
+)
+
+# Remove knowledge derived from those traces
 updated_judge = aligned_judge.unalign(traces=traces_to_forget)
 ```
 
