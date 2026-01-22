@@ -3152,9 +3152,15 @@ def test_create_prompt_optimization_job(mock_tracking_store):
     mock_run.info.run_id = "run-456"
     mock_tracking_store.create_run.return_value = mock_run
 
+    mock_dataset = mock.MagicMock()
+    mock_dataset._to_mlflow_entity.return_value = mock.MagicMock()
+
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
         mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
+        mock.patch(
+            "mlflow.genai.datasets.get_dataset", return_value=mock_dataset
+        ) as mock_get_dataset,
     ):
         with app.test_request_context(
             method="POST",
@@ -3171,6 +3177,8 @@ def test_create_prompt_optimization_job(mock_tracking_store):
             },
         ):
             response = _create_prompt_optimization_job()
+
+        mock_get_dataset.assert_called_once_with(dataset_id="dataset-123")
 
     mock_tracking_store.create_run.assert_called_once()
     call_kwargs = mock_tracking_store.create_run.call_args[1]
