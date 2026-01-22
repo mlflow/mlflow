@@ -3,7 +3,7 @@ import { Typography, useDesignSystemTheme, SparkleIcon } from '@databricks/desig
 import { FormattedMessage } from 'react-intl';
 import { OverviewChartHeader, OverviewChartContainer } from './OverviewChartComponents';
 import { formatCount, useChartColors } from '../utils/chartUtils';
-import { useSortState, useSummaryTableStyles, SortableHeader, NameCellWithColor } from './SummaryTableComponents';
+import { useSortState, useSummaryTableStyles, SortableHeader, LinkableNameCell } from './SummaryTableComponents';
 
 type SortColumn = 'scorerName' | 'totalCount' | 'avgValue';
 
@@ -116,7 +116,11 @@ export const AssessmentSummaryTable: React.FC<AssessmentSummaryTableProps> = ({
             const colorIndex = originalIndex === -1 ? index : originalIndex;
             return (
               <div key={row.scorerName} css={bodyRowStyle}>
-                <NameCellWithColor name={row.scorerName} color={getChartColor(colorIndex)} />
+                <LinkableNameCell
+                  name={row.scorerName}
+                  color={getChartColor(colorIndex)}
+                  scrollToElementId={`assessment-chart-${row.scorerName}`}
+                />
                 <Typography.Text css={cellStyle}>{formatCount(row.totalCount)}</Typography.Text>
                 <Typography.Text css={cellStyle}>{formatAvgValue(row.avgValue)}</Typography.Text>
               </div>

@@ -114,22 +114,43 @@ export function useSummaryTableStyles(gridColumns: string) {
   return { rowStyle, headerRowStyle, bodyRowStyle, cellStyle };
 }
 
-interface NameCellWithColorProps {
+interface LinkableNameCellProps {
   /** Name to display */
   name: string;
   /** Color for the indicator dot */
   color: string;
+  /** ID of the element to scroll to when clicked */
+  scrollToElementId: string;
 }
 
 /**
- * Table cell displaying a name with a colored indicator dot.
- * Used for the first column in summary tables (tool name, scorer name, etc.)
+ * Table cell displaying a clickable name with a colored indicator dot.
+ * Clicking scrolls to the specified element. Used for linking summary table rows to their charts.
  */
-export const NameCellWithColor: React.FC<NameCellWithColorProps> = ({ name, color }) => {
+export const LinkableNameCell: React.FC<LinkableNameCellProps> = ({ name, color, scrollToElementId }) => {
   const { theme } = useDesignSystemTheme();
 
+  const handleClick = () => {
+    const element = document.getElementById(scrollToElementId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        cursor: 'pointer',
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
       <div
         css={{
           width: 8,
@@ -145,6 +166,7 @@ export const NameCellWithColor: React.FC<NameCellWithColorProps> = ({ name, colo
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          color: theme.colors.actionPrimaryBackgroundDefault,
         }}
       >
         {name}

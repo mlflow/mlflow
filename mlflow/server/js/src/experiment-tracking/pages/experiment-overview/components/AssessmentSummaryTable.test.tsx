@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
@@ -223,6 +223,68 @@ describe('AssessmentSummaryTable', () => {
       // Scorer header should not have sort icon
       const scorerHeader = screen.getByRole('button', { name: /^Scorer$/i });
       expect(within(scorerHeader).queryByRole('img', { hidden: true })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll to chart functionality', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should make scorer names clickable', () => {
+      renderComponent({
+        assessmentNames: ['test_scorer'],
+        countsByName: new Map([['test_scorer', 100]]),
+        avgValuesByName: new Map([['test_scorer', 0.9]]),
+      });
+
+      // Scorer name should be in a clickable element
+      const scorerCell = screen.getByText('test_scorer').closest('[role="button"]');
+      expect(scorerCell).toBeInTheDocument();
+    });
+
+    it('should scroll to chart when scorer name is clicked', async () => {
+      // Create a mock element to scroll to
+      const mockElement = document.createElement('div');
+      mockElement.id = 'assessment-chart-test_scorer';
+      mockElement.scrollIntoView = jest.fn();
+      document.body.appendChild(mockElement);
+
+      renderComponent({
+        assessmentNames: ['test_scorer'],
+        countsByName: new Map([['test_scorer', 100]]),
+        avgValuesByName: new Map([['test_scorer', 0.9]]),
+      });
+
+      const scorerCell = screen.getByText('test_scorer').closest('[role="button"]');
+      await userEvent.click(scorerCell!);
+
+      expect(mockElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+      // Cleanup
+      document.body.removeChild(mockElement);
+    });
+
+    it('should support keyboard navigation to scroll to chart', async () => {
+      const mockElement = document.createElement('div');
+      mockElement.id = 'assessment-chart-keyboard_scorer';
+      mockElement.scrollIntoView = jest.fn();
+      document.body.appendChild(mockElement);
+
+      renderComponent({
+        assessmentNames: ['keyboard_scorer'],
+        countsByName: new Map([['keyboard_scorer', 100]]),
+        avgValuesByName: new Map([['keyboard_scorer', 0.9]]),
+      });
+
+      const scorerCell = screen.getByText('keyboard_scorer').closest('[role="button"]') as HTMLElement;
+      scorerCell.focus();
+      await userEvent.keyboard('{Enter}');
+
+      expect(mockElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+      // Cleanup
+      document.body.removeChild(mockElement);
     });
   });
 
