@@ -2199,7 +2199,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         endpoint_id=endpoint_id,
                         resource_type=GatewayResourceType.SCORER.value,
                         resource_id=scorer.scorer_id,
-                        display_name=name,  # Store scorer name for UI display
+                        display_name=f"{name} (v{new_version})",
                         created_at=get_current_time_millis(),
                         last_updated_at=get_current_time_millis(),
                     )

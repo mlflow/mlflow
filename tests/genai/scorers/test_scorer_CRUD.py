@@ -335,7 +335,7 @@ def test_register_scorer_creates_endpoint_binding(monkeypatch):
     assert len(bindings) == 1
     assert bindings[0].resource_type == "scorer"
     assert bindings[0].endpoint_id == endpoint.endpoint_id
-    assert bindings[0].display_name == "test_binding_scorer"  # Scorer name for UI display
+    assert bindings[0].display_name == "test_binding_scorer (v1)"  # Scorer name with version
 
     # Binding should persist even after stopping the scorer
     # (stopping only changes sample_rate, not the endpoint reference)
