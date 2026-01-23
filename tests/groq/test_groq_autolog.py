@@ -83,6 +83,7 @@ def test_chat_completion_autolog():
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 20,
@@ -185,6 +186,7 @@ def test_tool_calling_autolog():
     assert span.inputs == DUMMY_TOOL_CALL_REQUEST
     assert span.outputs == DUMMY_TOOL_CALL_RESPONSE.to_dict(exclude_unset=False)
     assert span.get_attribute("mlflow.chat.tools") == TOOLS
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 20,
@@ -264,6 +266,7 @@ def test_tool_response_autolog():
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_TOOL_RESPONSE_REQUEST
     assert span.outputs == DUMMY_TOOL_RESPONSE_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 20,
@@ -308,6 +311,7 @@ def test_audio_transcription_autolog():
     assert span.inputs["file"][1] == str(DUMMY_AUDIO_TRANSCRIPTION_REQUEST["file"][1])
     assert span.inputs["model"] == DUMMY_AUDIO_TRANSCRIPTION_REQUEST["model"]
     assert span.outputs == DUMMY_AUDIO_TRANSCRIPTION_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "whisper-large-v3-turbo"
 
     mlflow.groq.autolog(disable=True)
     client = groq.Groq()
@@ -346,6 +350,7 @@ def test_audio_translation_autolog():
     assert span.inputs["file"][1] == str(DUMMY_AUDIO_TRANSLATION_REQUEST["file"][1])
     assert span.inputs["model"] == DUMMY_AUDIO_TRANSLATION_REQUEST["model"]
     assert span.outputs == DUMMY_AUDIO_TRANSLATION_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "whisper-large-v3"
 
     mlflow.groq.autolog(disable=True)
     client = groq.Groq()
