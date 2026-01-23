@@ -73,9 +73,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
     id: 'gateway',
     icon: CloudModelIcon,
     componentId: 'mlflow.home.quick_action.gateway',
-    title: (
-      <FormattedMessage defaultMessage="AI Gateway" description="Home page quick action title for AI Gateway" />
-    ),
+    title: <FormattedMessage defaultMessage="AI Gateway" description="Home page quick action title for AI Gateway" />,
     description: (
       <FormattedMessage
         defaultMessage="Unified interface for accessing multiple LLM providers."
