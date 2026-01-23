@@ -3048,9 +3048,9 @@ def test_await_model_version_creation_success(store):
     ):
         store._await_model_version_creation(pending_mv, 10)
 
-    # Verify that the logger was called with the correct message
     mock_logger.info.assert_called_once()
-    info_message = mock_logger.mock_calls[0][1][0]
+    call_args = mock_logger.info.call_args
+    info_message = call_args[0][0]
     assert "Waiting up to 10 seconds" in info_message
     assert "catalog.schema.model" in info_message
     assert "version 1" in info_message
