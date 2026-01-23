@@ -1,4 +1,4 @@
-"""add cascade delete to trace and span experiment foreign keys
+"""add cascade delete to experiment foreign keys in trace, span, and online scoring config tables
 
 Create Date: 2026-01-23 14:50:00.000000
 
