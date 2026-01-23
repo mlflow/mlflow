@@ -21,7 +21,10 @@ import yaml
 
 import mlflow.pyfunc
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+    MLFLOW_LOG_MODEL_COMPRESSION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -76,6 +79,7 @@ from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
+    is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
 )
@@ -1254,7 +1258,11 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        if not is_in_databricks_runtime():
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
             warnings.warn(
                 "Saving the Pyfunc models in the CloudPickle format requires exercising "
                 "caution as Python's object serialization mechanism may execute arbitrary code "
