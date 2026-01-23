@@ -49,6 +49,7 @@ except ImportError:
 if TYPE_CHECKING:
     from pandas import DataFrame
 
+    from mlflow.entities import Trace
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
@@ -217,7 +218,23 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
-@experimental(version="3.9.0")
+def _fetch_traces(all_trace_ids: list[list[str]], max_workers: int) -> list[list["Trace"]]:
+    flat_trace_ids = [tid for trace_ids in all_trace_ids for tid in trace_ids]
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
+    ) as executor:
+        flat_traces = list(executor.map(mlflow.get_trace, flat_trace_ids))
+
+    all_traces: list[list["Trace"]] = []
+    idx = 0
+    for trace_ids in all_trace_ids:
+        all_traces.append(flat_traces[idx : idx + len(trace_ids)])
+        idx += len(trace_ids)
+
+    return all_traces
+
+
+@experimental(version="3.10.0")
 @dataclass(frozen=True)
 class SimulatorContext:
     """
@@ -254,7 +271,7 @@ class SimulatorContext:
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class BaseSimulatedUserAgent(ABC):
     """
     Abstract base class for simulated user agents.
@@ -299,29 +316,15 @@ class BaseSimulatedUserAgent(ABC):
         """
         Generate a user message based on the provided context.
 
-        Override this method to implement custom message generation logic.
-
         Args:
-            context: A SimulatorContext containing goal, persona, conversation history,
-                and turn information.
+            context: A SimulatorContext containing information like goal, persona,
+                     conversation history, and turn.
 
         Returns:
             The generated user message string.
         """
 
     def invoke_llm(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Helper method to invoke the configured LLM model.
-
-        Use this in custom implementations to call the underlying model.
-
-        Args:
-            prompt: The user prompt to send to the model.
-            system_prompt: Optional system prompt to prepend.
-
-        Returns:
-            The model's response as a string.
-        """
         from mlflow.types.llm import ChatMessage
 
         messages = []
@@ -338,7 +341,7 @@ class BaseSimulatedUserAgent(ABC):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
     An LLM-powered agent that simulates user behavior in conversations.
@@ -500,8 +503,25 @@ class ConversationSimulator:
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
 
+    @experimental(version="3.9.0")
     @record_usage_event(SimulateConversationEvent)
-    def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
+    def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
+        """
+        Run conversation simulations for all test cases.
+
+        Executes the simulated user agent against the provided predict function
+        for each test case, generating multi-turn conversations. Each conversation
+        is traced in MLflow.
+
+        Args:
+            predict_fn: The target function to evaluate. Must accept an ``input``
+                parameter containing the conversation history as a list of message
+                dicts, and may accept additional kwargs from the test case's context.
+
+        Returns:
+            A list of lists containing Trace objects. Each inner list corresponds to
+            a test case and contains the traces for each turn in that conversation.
+        """
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
@@ -543,14 +563,14 @@ class ConversationSimulator:
                 if progress_bar:
                     progress_bar.close()
 
-        return all_trace_ids
+        return _fetch_traces(all_trace_ids, max_workers)
 
     def _run_conversation(
         self, test_case: dict[str, Any], predict_fn: Callable[..., dict[str, Any]]
     ) -> list[str]:
         goal = test_case["goal"]
         persona = test_case.get("persona") or DEFAULT_PERSONA
-        test_context = test_case.get("context", {})
+        context = test_case.get("context", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
         user_agent = self.user_agent_class(
@@ -564,17 +584,17 @@ class ConversationSimulator:
         for turn in range(self.max_turns):
             try:
                 # Generate a user message using the simulated user agent.
-                context = SimulatorContext(
+                simulator_context = SimulatorContext(
                     goal=goal,
                     persona=persona,
                     conversation_history=conversation_history,
                     turn=turn,
                 )
-                user_message_content = user_agent.generate_message(context)
+                user_message_content = user_agent.generate_message(simulator_context)
                 user_message = {"role": "user", "content": user_message_content}
                 conversation_history.append(user_message)
 
-                # Invoke the predict_fn with the user message and test context.
+                # Invoke the predict_fn with the user message and context.
                 response, trace_id = self._invoke_predict_fn(
                     predict_fn=predict_fn,
                     input_messages=conversation_history,
@@ -582,7 +602,7 @@ class ConversationSimulator:
                     goal=goal,
                     persona=persona,
                     turn=turn,
-                    **test_context,
+                    **context,
                 )
 
                 if trace_id:

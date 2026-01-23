@@ -96,11 +96,13 @@ def test_simulated_user_agent_default_persona():
 
 
 def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_fn):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace") as mock_update_current_trace,
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         # Each turn: generate_message + _check_goal_achieved
         mock_invoke.side_effect = [
@@ -118,21 +120,23 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
             max_turns=2,
         )
 
-        all_trace_ids = simulator.simulate(mock_predict_fn)
+        all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_trace_ids) == 1  # 1 test case
-        assert len(all_trace_ids[0]) == 2  # 2 trace IDs
-        assert all_trace_ids[0] == ["trace_123", "trace_123"]
+        assert len(all_traces) == 1  # 1 test case
+        assert len(all_traces[0]) == 2  # 2 traces
+        assert all(t is mock_trace for t in all_traces[0])
         assert mock_invoke.call_count == 4  # 2 turns * 2 calls each
         assert mock_update_current_trace.call_count == 2
 
 
 def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predict_fn):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_invoke.side_effect = [
             "Test message",  # turn 0 generate_message
@@ -150,20 +154,21 @@ def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predic
             max_turns=3,
         )
 
-        all_trace_ids = simulator.simulate(mock_predict_fn)
+        all_traces = simulator.simulate(mock_predict_fn)
 
-        # all_trace_ids is list of lists: one list per test case
-        assert len(all_trace_ids) == 1  # 1 test case
-        assert len(all_trace_ids[0]) == 3  # 3 trace IDs
+        assert len(all_traces) == 1  # 1 test case
+        assert len(all_traces[0]) == 3  # 3 traces
         assert mock_invoke.call_count == 6  # 3 turns * 2 calls each
 
 
 def test_conversation_simulator_empty_response_stopping(simple_test_case):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_invoke.return_value = "Test message"
         mock_get_trace_id.return_value = "trace_123"
@@ -186,20 +191,22 @@ def test_conversation_simulator_empty_response_stopping(simple_test_case):
             max_turns=5,
         )
 
-        all_trace_ids = simulator.simulate(empty_predict_fn)
+        all_traces = simulator.simulate(empty_predict_fn)
 
-        assert len(all_trace_ids) == 1
-        assert len(all_trace_ids[0]) == 1  # Only 1 trace ID before stopping
+        assert len(all_traces) == 1
+        assert len(all_traces[0]) == 1  # Only 1 trace before stopping
         # Only generate_message called, goal check not called due to empty response
         assert mock_invoke.call_count == 1
 
 
 def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_predict_fn):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_invoke.side_effect = [
             "Test message",  # turn 0 generate_message
@@ -213,11 +220,11 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
             max_turns=5,
         )
 
-        all_trace_ids = simulator.simulate(mock_predict_fn)
+        all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_trace_ids) == 1
-        # Only 1 trace ID before goal was achieved
-        assert len(all_trace_ids[0]) == 1
+        assert len(all_traces) == 1
+        # Only 1 trace before goal was achieved
+        assert len(all_traces[0]) == 1
         # 2 calls: generate_message + goal check
         assert mock_invoke.call_count == 2
         # Verify goal check was the second call with goal check prompt
@@ -227,11 +234,13 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
 
 
 def test_conversation_simulator_context_passing(test_case_with_context):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_invoke.side_effect = [
             "Test message",
@@ -260,10 +269,10 @@ def test_conversation_simulator_context_passing(test_case_with_context):
             max_turns=1,
         )
 
-        all_trace_ids = simulator.simulate(capturing_predict_fn)
+        all_traces = simulator.simulate(capturing_predict_fn)
 
-        assert len(all_trace_ids) == 1
-        assert len(all_trace_ids[0]) == 1
+        assert len(all_traces) == 1
+        assert len(all_traces[0]) == 1
         # Verify context was passed to predict_fn
         assert captured_kwargs.get("user_id") == "U001"
         assert captured_kwargs.get("session_id") == "S001"
@@ -272,11 +281,13 @@ def test_conversation_simulator_context_passing(test_case_with_context):
 def test_conversation_simulator_multiple_test_cases(
     simple_test_case, test_case_with_persona, mock_predict_fn
 ):
+    mock_trace = Mock()
     with (
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         # 2 test cases * 2 turns each * 2 calls per turn = 8 calls
         mock_invoke.side_effect = [
@@ -297,11 +308,11 @@ def test_conversation_simulator_multiple_test_cases(
             max_turns=2,
         )
 
-        all_trace_ids = simulator.simulate(mock_predict_fn)
+        all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_trace_ids) == 2  # 2 test cases
-        assert len(all_trace_ids[0]) == 2  # 2 trace IDs for first test case
-        assert len(all_trace_ids[1]) == 2  # 2 trace IDs for second test case
+        assert len(all_traces) == 2  # 2 test cases
+        assert len(all_traces[0]) == 2  # 2 traces for first test case
+        assert len(all_traces[1]) == 2  # 2 traces for second test case
 
 
 @pytest.mark.parametrize(
@@ -473,11 +484,13 @@ def test_custom_user_agent_class(simple_test_case, mock_predict_fn):
         def generate_message(self, context: SimulatorContext) -> str:
             return f"Custom message for: {context.goal}"
 
+    mock_trace = Mock()
     with (
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_get_trace_id.return_value = "trace_123"
         mock_trace_decorator.return_value = lambda fn: fn
@@ -489,10 +502,10 @@ def test_custom_user_agent_class(simple_test_case, mock_predict_fn):
             user_agent_class=CustomUserAgent,
         )
 
-        all_trace_ids = simulator.simulate(mock_predict_fn)
+        all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_trace_ids) == 1
-        assert len(all_trace_ids[0]) == 1
+        assert len(all_traces) == 1
+        assert len(all_traces[0]) == 1
 
 
 def test_user_agent_class_default(simple_test_case):
@@ -511,11 +524,13 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
             captured_contexts.append(context)
             return f"Message for turn {context.turn}"
 
+    mock_trace = Mock()
     with (
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
     ):
         mock_get_trace_id.return_value = "trace_123"
         mock_trace_decorator.return_value = lambda fn: fn
