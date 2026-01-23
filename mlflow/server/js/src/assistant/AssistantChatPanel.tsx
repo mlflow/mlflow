@@ -31,9 +31,6 @@ import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-rende
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
-import { useNavigate } from '../common/utils/RoutingUtils';
-import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
-import Routes from '../experiment-tracking/routes';
 
 type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
@@ -501,62 +498,6 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 };
 
 /**
- * Prompt shown when user is outside an experiment context.
- * Asks user to select or create an experiment before using the assistant.
- */
-const NoExperimentPrompt = () => {
-  const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flex: 1,
-        padding: theme.spacing.sm,
-        gap: theme.spacing.md,
-      }}
-    >
-      <AssistantWelcomeCarousel />
-
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        To use MLflow Assistant, please select or create an experiment.
-      </Typography.Text>
-
-      <div css={{ display: 'flex', gap: theme.spacing.md }}>
-        <Button componentId="mlflow.assistant.chat_panel.create_experiment" onClick={() => setShowCreateModal(true)}>
-          Create New Experiment
-        </Button>
-        <Button
-          componentId="mlflow.assistant.chat_panel.select_experiment"
-          type="primary"
-          onClick={() => navigate(Routes.experimentsObservatoryRoute)}
-        >
-          Select Experiment
-        </Button>
-      </div>
-
-      <CreateExperimentModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onExperimentCreated={() => setShowCreateModal(false)}
-      />
-    </div>
-  );
-};
-
-/**
  * Assistant Chat Panel.
  * Shows the chat header and the chat interface.
  * When setup is incomplete, shows a banner prompting the user to set up.
@@ -622,15 +563,12 @@ export const AssistantChatPanel = () => {
         if (!setupComplete) {
           return <SetupPrompt onSetup={handleStartSetup} />;
         }
-        if (!experimentId) {
-          return <NoExperimentPrompt />;
-        }
         return <ChatPanelContent />;
     }
   };
 
   // Determine if we should show the chat controls (new chat button)
-  const showChatControls = Boolean(experimentId) && setupComplete && currentView === 'chat';
+  const showChatControls = setupComplete && currentView === 'chat';
 
   return (
     <div
