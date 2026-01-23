@@ -45,7 +45,6 @@ export const ExperimentPageSideNav = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
         paddingTop: theme.spacing.sm,
         paddingRight: theme.spacing.sm,
         borderRight: `1px solid ${theme.colors.border}`,
@@ -73,6 +72,7 @@ export const ExperimentPageSideNav = ({
       }}
     >
       <div>
+        <ExperimentPageSideNavAssistantButton />
         {Object.entries(sideNavConfig).map(([sectionKey, items]) => (
           <ExperimentPageSideNavSection
             key={sectionKey}
@@ -82,7 +82,6 @@ export const ExperimentPageSideNav = ({
           />
         ))}
       </div>
-      <ExperimentPageSideNavAssistantButton />
     </div>
   );
 };
