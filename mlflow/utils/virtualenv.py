@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -27,12 +28,60 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import remove_on_error
+from mlflow.utils.file_utils import check_tarfile_security, remove_on_error
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd, _join_commands
 from mlflow.utils.requirements_utils import _parse_requirements
 
 _logger = logging.getLogger(__name__)
+
+
+def _check_zipfile_security(archive_path: str) -> None:
+    """Check zip file for path traversal vulnerabilities (zip slip)."""
+    with zipfile.ZipFile(archive_path, "r") as zf:
+        for name in zf.namelist():
+            # Normalize path and check for absolute paths or directory traversal
+            normalized = os.path.normpath(name)
+            if normalized.startswith("/") or normalized.startswith(".."):
+                raise MlflowException(
+                    f"Unsafe path in zip archive: {name}. "
+                    "Archive contains absolute or escaped paths."
+                )
+
+
+def _verify_checksum(file_path: Path, checksum_url: str) -> None:
+    """Verify file integrity using SHA256 checksum from PBS release."""
+    try:
+        with urllib.request.urlopen(checksum_url, timeout=30) as resp:
+            checksum_content = resp.read().decode()
+    except Exception as e:
+        _logger.warning("Could not download checksum file: %s", e)
+        return
+
+    # Parse checksum file (format: "sha256  filename")
+    expected_hash = None
+    filename = file_path.name
+    for line in checksum_content.strip().split("\n"):
+        if filename in line:
+            expected_hash = line.split()[0]
+            break
+
+    if not expected_hash:
+        _logger.warning("Checksum for %s not found in checksum file", filename)
+        return
+
+    # Calculate actual hash
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    actual_hash = sha256.hexdigest()
+
+    if actual_hash != expected_hash:
+        raise MlflowException(
+            f"Checksum verification failed for {filename}. "
+            f"Expected {expected_hash}, got {actual_hash}."
+        )
 
 
 def _get_mlflow_virtualenv_root():
@@ -137,11 +186,17 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         _logger.info("Downloading %s", url)
         urllib.request.urlretrieve(url, tmp_path)
 
+        # Verify checksum
+        checksum_url = f"{_PBS_BASE_URL}/{release_tag}/SHA256SUMS"
+        _verify_checksum(tmp_path, checksum_url)
+
         _logger.info("Extracting to %s", python_dir)
         if ext == "tar.gz":
+            check_tarfile_security(tmp_path)
             with tarfile.open(tmp_path, "r:gz") as tar:
                 tar.extractall(python_dir)
         else:
+            _check_zipfile_security(tmp_path)
             with zipfile.ZipFile(tmp_path, "r") as z:
                 z.extractall(python_dir)
     finally:
