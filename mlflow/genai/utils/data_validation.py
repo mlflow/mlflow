@@ -1,8 +1,10 @@
 import inspect
 import logging
+import uuid
 from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.provider import trace_disabled
 
 _logger = logging.getLogger(__name__)
@@ -21,13 +23,21 @@ def check_model_prediction(predict_fn: Callable[..., Any], sample_input: Any):
         "set the MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION environment variable to True."
     )
 
+    # Generate a unique request_id for the validation trace to avoid collisions
+    # with actual evaluation traces (which could cause duplicate key errors in the database)
+    validation_request_id = str(uuid.uuid4())
+
     # Wrap the function to add a decorator for disabling tracing
     @trace_disabled
     def _check():
         predict_fn(**sample_input)
 
     try:
-        _check()
+        # Set prediction context with a unique request_id to prevent trace ID collisions
+        # between validation and actual evaluation, especially for auto-traced functions
+        # (e.g., OpenAI, LangChain) that generate traces even when @trace_disabled is used
+        with set_prediction_context(Context(request_id=validation_request_id, is_evaluate=True)):
+            _check()
     except Exception as e:
         # Check input format and raise friendly message for typical error patterns
         _validate_function_and_input_compatibility(predict_fn, sample_input, e)
