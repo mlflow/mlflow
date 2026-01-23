@@ -4,10 +4,12 @@ import { useLocalStorage } from '../shared/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
 import { useCallback } from 'react';
+import { useAssistant } from '../assistant/AssistantContext';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const { isAssistantEnabled, setAssistantEnabled, isLocalServer, closePanel } = useAssistant();
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -25,6 +27,16 @@ const SettingsPage = () => {
       }
     },
     [setIsTelemetryEnabled],
+  );
+
+  const handleAssistantToggle = useCallback(
+    (checked: boolean) => {
+      setAssistantEnabled(checked);
+      if (!checked) {
+        closePanel();
+      }
+    },
+    [setAssistantEnabled, closePanel],
   );
 
   return (
@@ -63,6 +75,56 @@ const SettingsPage = () => {
           label=" "
           activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
           inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
+          disabledLabel=" "
+        />
+      </div>
+
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          maxWidth: 600,
+          marginTop: theme.spacing.lg,
+        }}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Enable Assistant" description="Enable assistant settings title" />
+          </Typography.Title>
+          <Typography.Text>
+            {isLocalServer ? (
+              <FormattedMessage
+                defaultMessage="This setting enables the AI Assistant feature in the sidebar. Learn more about what the Assistant can do in our {documentation}."
+                description="Enable assistant settings description"
+                values={{
+                  documentation: (
+                    <Typography.Link
+                      componentId="mlflow.settings.assistant.documentation-link"
+                      href="https://mlflow.org/docs/latest/assistant/index.html"
+                      openInNewTab
+                    >
+                      <FormattedMessage defaultMessage="documentation" description="Documentation link text" />
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="The Assistant feature is currently only available when running MLflow locally. Support for remote servers is coming soon."
+                description="Enable assistant settings description when not on local server"
+              />
+            )}
+          </Typography.Text>
+        </div>
+        <Switch
+          componentId="mlflow.settings.assistant.toggle-switch"
+          checked={isLocalServer && isAssistantEnabled}
+          onChange={handleAssistantToggle}
+          disabled={!isLocalServer}
+          label=" "
+          activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Assistant enabled label' })}
+          inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Assistant disabled label' })}
           disabledLabel=" "
         />
       </div>

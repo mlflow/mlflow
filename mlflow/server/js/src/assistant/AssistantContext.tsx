@@ -24,9 +24,21 @@ const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
+// Storage key for assistant enabled setting
+export const ASSISTANT_ENABLED_STORAGE_KEY = 'mlflow.settings.assistant.enabled';
+export const ASSISTANT_ENABLED_STORAGE_VERSION = 1;
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
+
+  // Assistant enabled state - persisted to localStorage
+  // Only enabled by default on local server
+  const [isAssistantEnabled, setIsAssistantEnabled] = useLocalStorage({
+    key: ASSISTANT_ENABLED_STORAGE_KEY,
+    version: ASSISTANT_ENABLED_STORAGE_VERSION,
+    initialValue: true,
+  });
 
   // Panel state - persisted to localStorage
   // Only open by default on first visit if server is local
@@ -363,6 +375,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     isLoadingConfig,
     isLocalServer,
+    isAssistantEnabled,
     // Actions
     openPanel,
     closePanel,
@@ -371,6 +384,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     reset,
     refreshConfig,
     completeSetup,
+    setAssistantEnabled: setIsAssistantEnabled,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -388,6 +402,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   setupComplete: false,
   isLoadingConfig: false,
   isLocalServer: false,
+  isAssistantEnabled: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
@@ -395,6 +410,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   reset: () => {},
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
+  setAssistantEnabled: () => {},
 };
 
 /**

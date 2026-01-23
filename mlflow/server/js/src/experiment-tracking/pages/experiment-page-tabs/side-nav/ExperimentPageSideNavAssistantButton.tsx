@@ -16,13 +16,13 @@ import { COLLAPSED_CLASS_NAME, FULL_WIDTH_CLASS_NAME } from './constants';
 
 export const ExperimentPageSideNavAssistantButton = () => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
+  const { openPanel, closePanel, isPanelOpen, isLocalServer, isAssistantEnabled } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Hide the Assistant button when not running on localhost
-  if (!isLocalServer) {
+  // Hide the Assistant button when not running on localhost or when disabled
+  if (!isLocalServer || !isAssistantEnabled) {
     return null;
   }
 

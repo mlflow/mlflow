@@ -154,7 +154,7 @@ export function MlflowSidebar() {
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
-  const { openPanel, closePanel, isPanelOpen } = useAssistant();
+  const { openPanel, closePanel, isPanelOpen, isLocalServer, isAssistantEnabled } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
   const handleAssistantToggle = useCallback(() => {
@@ -457,132 +457,133 @@ export function MlflowSidebar() {
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
+      {isLocalServer && isAssistantEnabled && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={isPanelOpen}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            paddingInline: theme.spacing.md,
+            paddingBlock: theme.spacing.xs,
+            borderRadius: theme.borders.borderRadiusSm,
+            cursor: 'pointer',
+            backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
+            color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+            marginBottom: -theme.spacing.sm,
+            ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
+          }}
+          onClick={handleAssistantToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleAssistantToggle();
+            }
+          }}
+          onMouseEnter={() => setIsAssistantHovered(true)}
+          onMouseLeave={() => setIsAssistantHovered(false)}
+        >
+          <Tooltip
+            componentId="mlflow.sidebar.assistant_tooltip"
+            content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
+            side="right"
+            delayDuration={0}
+          >
+            <AssistantSparkleIcon isHovered={isAssistantHovered} />
+          </Tooltip>
+          <Typography.Text bold={isPanelOpen} color="primary">
+            <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+          </Typography.Text>
+          <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+            Beta
+          </Tag>
+        </div>
+      )}
+
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <ul
-          css={{
-            listStyleType: 'none',
-            padding: 0,
-            margin: 0,
-          }}
-        >
-          {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
-            <li key={key}>
-              <Link
-                to={linkProps.to}
-                aria-current={linkProps.isActive(location) ? 'page' : undefined}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  color: theme.colors.textPrimary,
-                  paddingInline: theme.spacing.md,
-                  paddingBlock: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusSm,
-                  '&:hover': {
-                    color: theme.colors.actionLinkHover,
-                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                  },
-                  '&[aria-current="page"]': {
-                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-                    fontWeight: theme.typography.typographyBoldFontWeight,
-                  },
-                }}
-                onClick={() =>
-                  logTelemetryEvent({
-                    componentId,
-                    componentViewId: viewId,
-                    componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                    componentSubType: null,
-                    eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-                  })
-                }
-              >
-                {icon}
-                {linkProps.children}
-              </Link>
-              {nestedItemsGroups && nestedItemsGroups.length > 0 && (
-                <ul css={NESTED_ITEMS_UL_CSS}>
-                  {nestedItemsGroups.map((group) => (
-                    <Fragment key={group.sectionKey}>
-                      {group.sectionKey !== 'top-level' && (
-                        <li
-                          css={{
-                            display: 'flex',
-                            marginTop: theme.spacing.xs,
-                            marginBottom: theme.spacing.xs,
-                            position: 'relative',
-                            height: theme.typography.lineHeightBase,
-                            paddingLeft: 40,
-                          }}
-                        >
-                          <Typography.Text size="sm" color="secondary">
-                            {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                          </Typography.Text>
-                        </li>
-                      )}
-                      {group.items.map((nestedItem) => {
-                        const isDisabled = !experimentId && key === 'experiments';
-                        return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
-                      })}
-                    </Fragment>
-                  ))}
-                </ul>
-              )}
-              {nestedItems && nestedItems.length > 0 && (
-                <ul css={NESTED_ITEMS_UL_CSS}>
-                  {nestedItems.map((nestedItem) => (
-                    <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+            css={{
+              listStyleType: 'none',
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
+              <li key={key}>
+                <Link
+                  to={linkProps.to}
+                  aria-current={linkProps.isActive(location) ? 'page' : undefined}
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.sm,
+                    color: theme.colors.textPrimary,
+                    paddingInline: theme.spacing.md,
+                    paddingBlock: theme.spacing.xs,
+                    borderRadius: theme.borders.borderRadiusSm,
+                    '&:hover': {
+                      color: theme.colors.actionLinkHover,
+                      backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                    },
+                    '&[aria-current="page"]': {
+                      backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                      color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                    },
+                  }}
+                  onClick={() =>
+                    logTelemetryEvent({
+                      componentId,
+                      componentViewId: viewId,
+                      componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                      componentSubType: null,
+                      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+                    })
+                  }
+                >
+                  {icon}
+                  {linkProps.children}
+                </Link>
+                {nestedItemsGroups && nestedItemsGroups.length > 0 && (
+                  <ul css={NESTED_ITEMS_UL_CSS}>
+                    {nestedItemsGroups.map((group) => (
+                      <Fragment key={group.sectionKey}>
+                        {group.sectionKey !== 'top-level' && (
+                          <li
+                            css={{
+                              display: 'flex',
+                              marginTop: theme.spacing.xs,
+                              marginBottom: theme.spacing.xs,
+                              position: 'relative',
+                              height: theme.typography.lineHeightBase,
+                              paddingLeft: 40,
+                            }}
+                          >
+                            <Typography.Text size="sm" color="secondary">
+                              {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
+                            </Typography.Text>
+                          </li>
+                        )}
+                        {group.items.map((nestedItem) => {
+                          const isDisabled = !experimentId && key === 'experiments';
+                          return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
+                        })}
+                      </Fragment>
+                    ))}
+                  </ul>
+                )}
+                {nestedItems && nestedItems.length > 0 && (
+                  <ul css={NESTED_ITEMS_UL_CSS}>
+                    {nestedItems.map((nestedItem) => (
+                      <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
         <div>
-          {enableWorkflowBasedNavigation && (
-            <div
-              role="button"
-              tabIndex={0}
-              aria-pressed={isPanelOpen}
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.sm,
-                padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                borderRadius: theme.borders.borderRadiusSm,
-                cursor: 'pointer',
-                backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
-                color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                height: theme.typography.lineHeightBase,
-                boxSizing: 'content-box',
-                ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-              }}
-              onClick={handleAssistantToggle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleAssistantToggle();
-                }
-              }}
-              onMouseEnter={() => setIsAssistantHovered(true)}
-              onMouseLeave={() => setIsAssistantHovered(false)}
-            >
-              <Tooltip
-                componentId="mlflow.sidebar.assistant_tooltip"
-                content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
-                side="right"
-                delayDuration={0}
-              >
-                <AssistantSparkleIcon isHovered={isAssistantHovered} />
-              </Tooltip>
-              <Typography.Text bold={isPanelOpen} color="primary">
-                <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-              </Typography.Text>
-              <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                Beta
-              </Tag>
-            </div>
-          )}
           <Link
             to={ExperimentTrackingRoutes.settingsPageRoute}
             aria-current={isSettingsActive(location) ? 'page' : undefined}
