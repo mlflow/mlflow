@@ -7,4 +7,3 @@ packaging
 pydantic
 pyyaml
 toml
-taplo
