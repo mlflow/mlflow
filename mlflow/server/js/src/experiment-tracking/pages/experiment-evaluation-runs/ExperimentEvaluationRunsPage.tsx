@@ -89,12 +89,19 @@ const ExperimentEvaluationRunsPageImpl = () => {
     filter: searchFilter,
   });
 
-  const runUuids = runs?.map((run) => run.info.runUuid) ?? [];
-  // In comparison mode, set the selected run to the first run if we don't already have one
-  // or if the selected run went out of scope (e.g. was deleted)
-  if (isComparisonMode && runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
-    setSelectedRunUuid(runs[0].info.runUuid);
-  }
+  const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
+
+  // On mount, if selectedRunUuid is in URL, pre-select it and enter comparison mode
+  const hasInitializedFromUrl = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
+      hasInitializedFromUrl.current = true;
+      if (runUuids.includes(selectedRunUuid)) {
+        setRowSelection({ [selectedRunUuid]: true });
+        setIsComparisonMode(true);
+      }
+    }
+  }, [selectedRunUuid, runs, runUuids, setRowSelection]);
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.

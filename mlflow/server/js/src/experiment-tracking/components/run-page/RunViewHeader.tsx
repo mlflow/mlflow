@@ -10,11 +10,12 @@ import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelBu
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
 import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { Button, Icon, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Icon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -117,6 +118,37 @@ export const RunViewHeader = ({
     );
   }
 
+  const navigate = useNavigate();
+
+  const handleCompareClick = useCallback(() => {
+    const evaluationRunsRoute = Routes.getExperimentPageTabRoute(
+      experiment.experimentId ?? '',
+      ExperimentPageTabName.EvaluationRuns,
+    );
+    navigate(`${evaluationRunsRoute}?selectedRunUuid=${runUuid}`);
+  }, [navigate, experiment.experimentId, runUuid]);
+
+  const renderCompareButton = () => {
+    if (!shouldRouteToEvaluations) {
+      return null;
+    }
+    return (
+      <Tooltip
+        componentId="mlflow.run-view.compare-button.tooltip"
+        content={
+          <FormattedMessage
+            defaultMessage="Compare this run with other evaluation runs"
+            description="Tooltip for the compare button on the run detail page"
+          />
+        }
+      >
+        <Button componentId="mlflow.run-view.compare-button" onClick={handleCompareClick}>
+          <FormattedMessage defaultMessage="Compare" description="Compare button on run detail page" />
+        </Button>
+      </Tooltip>
+    );
+  };
+
   const renderRegisterModelButton = () => {
     return (
       <RunViewHeaderRegisterModelButton
@@ -141,6 +173,8 @@ export const RunViewHeader = ({
         breadcrumbs={breadcrumbs}
         /* prettier-ignore */
       >
+        {renderCompareButton()}
+        {renderRegisterModelButton()}
         <OverflowMenu
           menu={[
             {
@@ -163,8 +197,6 @@ export const RunViewHeader = ({
               : []),
           ]}
         />
-
-        {renderRegisterModelButton()}
       </PageHeader>
       <RunViewModeSwitch runTags={runTags} />
     </div>
