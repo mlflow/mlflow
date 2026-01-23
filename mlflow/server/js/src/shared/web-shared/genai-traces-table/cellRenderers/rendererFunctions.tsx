@@ -5,7 +5,7 @@ import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
-import { useIntl, type IntlShape } from '@databricks/i18n';
+import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
 
@@ -744,7 +744,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {!isNil(turnNumber) ? `Turn ${turnNumber}` : value}
+                  {!isNil(turnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
@@ -769,7 +777,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {!isNil(otherTurnNumber) ? `Turn ${otherTurnNumber}` : otherValue}
+                  {!isNil(otherTurnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber: otherTurnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
