@@ -1858,7 +1858,7 @@ class GatewayEndpointTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpointBinding(_message.Message):
-    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by", "display_name")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1866,6 +1866,7 @@ class GatewayEndpointBinding(_message.Message):
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     resource_type: str
     resource_id: str
@@ -1873,7 +1874,8 @@ class GatewayEndpointBinding(_message.Message):
     last_updated_at: int
     created_by: str
     last_updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+    display_name: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
 
 class CreateGatewaySecret(_message.Message):
     __slots__ = ("secret_name", "secret_value", "provider", "auth_config", "created_by")

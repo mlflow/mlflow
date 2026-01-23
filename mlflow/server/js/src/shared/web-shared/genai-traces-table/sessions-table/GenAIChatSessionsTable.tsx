@@ -1,6 +1,6 @@
 import type { Row, SortingState, RowSelectionState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import {
   Table,
@@ -163,6 +163,7 @@ export const GenAIChatSessionsTable = ({
   openLinksInNewTab = false,
   empty,
   toolbarAddons,
+  onRowSelectionChange,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -175,12 +176,19 @@ export const GenAIChatSessionsTable = ({
   openLinksInNewTab?: boolean;
   empty?: React.ReactElement;
   toolbarAddons?: React.ReactNode;
+  onRowSelectionChange?: (rowSelection: RowSelectionState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
   const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
+
+  // Notify parent of row selection changes
+  useEffect(() => {
+    onRowSelectionChange?.(rowSelection);
+  }, [rowSelection, onRowSelectionChange]);
+
   const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
     experimentId,
     columns,

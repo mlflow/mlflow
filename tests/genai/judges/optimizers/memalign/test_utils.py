@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import dspy
 import pytest
 
+import mlflow
 from mlflow.genai.judges.optimizers.memalign.utils import (
     _count_tokens,
     _create_batches,
@@ -10,6 +11,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     get_default_embedding_model,
     retrieve_relevant_examples,
     truncate_to_token_limit,
+    value_to_embedding_text,
 )
 
 
@@ -339,6 +341,32 @@ def test_truncate_to_token_limit_get_model_info_fallback(get_model_info_side_eff
             text = "This is a short text"
             result = truncate_to_token_limit(text, "openai:/gpt-4", model_type="chat")
             assert result == text
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("hello world", "hello world"),
+        (42, "42"),
+        ({"key": "value"}, "{'key': 'value'}"),
+        ([1, 2, 3], "[1, 2, 3]"),
+        (None, "None"),
+    ],
+)
+def test_value_to_embedding_text_non_trace(value, expected):
+    assert value_to_embedding_text(value) == expected
+
+
+def test_value_to_embedding_text_trace():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is ML?"})
+        span.set_outputs({"answer": "ML is machine learning."})
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    result = value_to_embedding_text(trace)
+    assert "What is ML?" in result
+    assert "ML is machine learning." in result
 
 
 def test_count_tokens_with_litellm():

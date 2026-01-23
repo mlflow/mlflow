@@ -39,6 +39,7 @@ import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 const ContextProviders = ({
   children,
@@ -64,6 +65,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
+
+  useRegisterAssistantContext('sessionId', sessionId);
 
   const selectedTraceIdFromUrl = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);

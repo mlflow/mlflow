@@ -51,6 +51,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -71,6 +72,11 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.genai.judges.instructions_judge import (
+    EXPECTATIONS_FIELD,
+    InstructionsJudge,
+)
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
     OnlineScorer,
@@ -112,6 +118,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDatasetTag,
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
@@ -2125,10 +2132,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             model = extract_model_from_serialized_scorer(serialized_data)
             validate_scorer_model(model)
 
+            endpoint_id = None
             if is_gateway_model(model):
                 endpoint_name = extract_endpoint_ref(model)
                 # Resolve name to ID - raises MlflowException if endpoint doesn't exist
                 endpoint = self.get_gateway_endpoint(name=endpoint_name)
+                endpoint_id = endpoint.endpoint_id
                 # Update serialized scorer with endpoint ID instead of name
                 serialized_data = update_model_in_serialized_scorer(
                     serialized_data, build_gateway_model(endpoint.endpoint_id)
@@ -2174,6 +2183,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             session.add(sql_scorer_version)
+
+            # Create endpoint binding if scorer uses a gateway endpoint
+            # Verify endpoint exists in DB (handles mocked tests and race conditions)
+            if endpoint_id is not None:
+                endpoint_exists = (
+                    session.query(SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if endpoint_exists is not None:
+                    # Delete any existing binding for this scorer (in case of re-registration)
+                    # Use scorer_id for globally unique identification across experiments
+                    session.query(SqlGatewayEndpointBinding).filter(
+                        SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                        SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                    ).delete()
+
+                    binding = SqlGatewayEndpointBinding(
+                        endpoint_id=endpoint_id,
+                        resource_type=GatewayResourceType.SCORER.value,
+                        resource_id=scorer.scorer_id,
+                        display_name=name,
+                        created_at=get_current_time_millis(),
+                        last_updated_at=get_current_time_millis(),
+                    )
+                    session.add(binding)
+
             session.flush()
 
             entity = sql_scorer_version.to_mlflow_entity()
@@ -2375,7 +2411,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.delete(sql_scorer_version)
 
             # If we're deleting all versions, also delete the scorer record
+            # and clean up associated endpoint bindings
             if version is None:
+                # Delete endpoint bindings for this scorer (resource_id stores scorer_id)
+                session.query(SqlGatewayEndpointBinding).filter(
+                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                ).delete()
+
                 session.delete(scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
@@ -2548,10 +2591,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         INVALID_PARAMETER_VALUE,
                     )
 
+                # Check if scorer requires expectations (ground truth data)
+                try:
+                    scorer_obj = Scorer.model_validate_json(latest_version.serialized_scorer)
+                except Exception:
+                    # Deserialization should not fail for valid registered scorers. If it does,
+                    # fail open (skip validation) to avoid blocking users in case this is an
+                    # internal issue.
+                    scorer_obj = None
+
+                if (
+                    isinstance(scorer_obj, InstructionsJudge)
+                    and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+                ):
+                    raise MlflowException(
+                        f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                        "expectations are not currently supported for automatic evaluation.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
             # Delete existing online configs for this scorer
             session.query(SqlOnlineScoringConfig).filter(
                 SqlOnlineScoringConfig.scorer_id == scorer.scorer_id
             ).delete()
+
             # Create new online config
             config = SqlOnlineScoringConfig(
                 online_scoring_config_id=uuid.uuid4().hex,
