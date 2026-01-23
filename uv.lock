@@ -4529,7 +4529,7 @@ docs = [
     { name = "sphinxcontrib-serializinghtml", specifier = "<1.1.10" },
     { name = "tensorflow" },
     { name = "torch", specifier = ">=1.11.0", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torchvision", specifier = ">=0.12.0,<0.24.0", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchvision", specifier = ">=0.12.0,!=0.24.0", index = "https://download.pytorch.org/whl/cpu" },
 ]
 lint = [
     { name = "aiohttp" },
