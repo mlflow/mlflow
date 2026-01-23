@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
 import pydantic
@@ -215,9 +217,129 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
+@experimental(version="3.9.0")
+@dataclass(frozen=True)
+class SimulatorContext:
+    """
+    Context information passed to simulated user agents for message generation.
+
+    This dataclass bundles all input information needed for a simulated user to
+    generate their next message in a conversation.
+
+    Args:
+        goal: The objective the simulated user is trying to achieve.
+        persona: Description of the user's personality and background.
+        conversation_history: The full conversation history as a list of message dicts.
+        turn: The current turn number (0-indexed).
+    """
+
+    goal: str
+    persona: str
+    conversation_history: list[dict[str, Any]]
+    turn: int
+
+    @property
+    def is_first_turn(self) -> bool:
+        return self.turn == 0
+
+    @property
+    def formatted_history(self) -> str | None:
+        return _format_history(self.conversation_history)
+
+    @property
+    def last_assistant_response(self) -> str | None:
+        if not self.conversation_history:
+            return None
+        return _get_last_response(self.conversation_history)
+
+
 @format_docstring(_MODEL_API_DOC)
 @experimental(version="3.9.0")
-class SimulatedUserAgent:
+class BaseSimulatedUserAgent(ABC):
+    """
+    Abstract base class for simulated user agents.
+
+    Subclass this to create custom simulated user implementations with specialized
+    behavior. The base class provides common functionality like LLM invocation and
+    context construction.
+
+    Args:
+        goal: The objective the simulated user is trying to achieve in the conversation.
+        persona: Description of the user's personality and background. If None, uses a
+            default helpful user persona.
+        model: {{ model }}
+        **inference_params: Additional parameters passed to the LLM (e.g., temperature).
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.simulators import BaseSimulatedUserAgent, SimulatorContext
+
+
+            class ImpatientUserAgent(BaseSimulatedUserAgent):
+                def generate_message(self, context: SimulatorContext) -> str:
+                    if context.is_first_turn:
+                        return f"I need help NOW with: {context.goal}"
+                    return self.invoke_llm(
+                        f"Respond impatiently. Goal: {context.goal}. "
+                        f"Last response: {context.last_assistant_response}"
+                    )
+    """
+
+    def __init__(
+        self,
+        model: str | None = None,
+        **inference_params,
+    ):
+        self.model = model or get_default_model()
+        self.inference_params = inference_params
+
+    @abstractmethod
+    def generate_message(self, context: SimulatorContext) -> str:
+        """
+        Generate a user message based on the provided context.
+
+        Override this method to implement custom message generation logic.
+
+        Args:
+            context: A SimulatorContext containing goal, persona, conversation history,
+                and turn information.
+
+        Returns:
+            The generated user message string.
+        """
+
+    def invoke_llm(self, prompt: str, system_prompt: str | None = None) -> str:
+        """
+        Helper method to invoke the configured LLM model.
+
+        Use this in custom implementations to call the underlying model.
+
+        Args:
+            prompt: The user prompt to send to the model.
+            system_prompt: Optional system prompt to prepend.
+
+        Returns:
+            The model's response as a string.
+        """
+        from mlflow.types.llm import ChatMessage
+
+        messages = []
+        if system_prompt:
+            messages.append(ChatMessage(role="system", content=system_prompt))
+        messages.append(ChatMessage(role="user", content=prompt))
+
+        return _invoke_model_without_tracing(
+            model_uri=self.model,
+            messages=messages,
+            num_retries=3,
+            inference_params=self.inference_params,
+        )
+
+
+@format_docstring(_MODEL_API_DOC)
+@experimental(version="3.9.0")
+class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
     An LLM-powered agent that simulates user behavior in conversations.
 
@@ -232,44 +354,20 @@ class SimulatedUserAgent:
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
-    def __init__(
-        self,
-        goal: str,
-        persona: str | None = None,
-        model: str | None = None,
-        **inference_params,
-    ):
-        self.goal = goal
-        self.persona = persona or DEFAULT_PERSONA
-        self.model = model or get_default_model()
-        self.inference_params = inference_params
-
-    def generate_message(
-        self,
-        conversation_history: list[dict[str, Any]],
-        turn: int = 0,
-    ) -> str:
-        from mlflow.types.llm import ChatMessage
-
-        if turn == 0:
-            prompt = INITIAL_USER_PROMPT.format(persona=self.persona, goal=self.goal)
+    def generate_message(self, context: SimulatorContext) -> str:
+        if context.is_first_turn:
+            prompt = INITIAL_USER_PROMPT.format(persona=context.persona, goal=context.goal)
         else:
-            last_response = _get_last_response(conversation_history)
-            history_str = _format_history(conversation_history[:-1])
+            history_without_last = context.conversation_history[:-1]
+            history_str = _format_history(history_without_last)
             prompt = FOLLOWUP_USER_PROMPT.format(
-                persona=self.persona,
-                goal=self.goal,
+                persona=context.persona,
+                goal=context.goal,
                 conversation_history=history_str if history_str is not None else "",
-                last_response=last_response if last_response is not None else "",
+                last_response=context.last_assistant_response or "",
             )
 
-        messages = [ChatMessage(role="user", content=prompt)]
-        return _invoke_model_without_tracing(
-            model_uri=self.model,
-            messages=messages,
-            num_retries=3,
-            inference_params=self.inference_params,
-        )
+        return self.invoke_llm(prompt)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -300,6 +398,9 @@ class ConversationSimulator:
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
+        user_agent_class: Optional custom simulated user agent class. Must be a subclass
+            of :py:class:`BaseSimulatedUserAgent`. If not provided, uses the default
+            :py:class:`SimulatedUserAgent`.
         **user_llm_params: Additional parameters passed to the simulated user's LLM calls.
 
     Example:
@@ -344,11 +445,13 @@ class ConversationSimulator:
         test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset,
         max_turns: int = 10,
         user_model: str | None = None,
+        user_agent_class: type[BaseSimulatedUserAgent] | None = None,
         **user_llm_params,
     ):
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
+        self.user_agent_class = user_agent_class or SimulatedUserAgent
         self.user_llm_params = user_llm_params
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -398,7 +501,7 @@ class ConversationSimulator:
             )
 
     @record_usage_event(SimulateConversationEvent)
-    def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
+    def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
@@ -446,13 +549,11 @@ class ConversationSimulator:
         self, test_case: dict[str, Any], predict_fn: Callable[..., dict[str, Any]]
     ) -> list[str]:
         goal = test_case["goal"]
-        persona = test_case.get("persona")
-        context = test_case.get("context", {})
+        persona = test_case.get("persona") or DEFAULT_PERSONA
+        test_context = test_case.get("context", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
-        user_agent = SimulatedUserAgent(
-            goal=goal,
-            persona=persona,
+        user_agent = self.user_agent_class(
             model=self.user_model,
             **self.user_llm_params,
         )
@@ -463,11 +564,17 @@ class ConversationSimulator:
         for turn in range(self.max_turns):
             try:
                 # Generate a user message using the simulated user agent.
-                user_message_content = user_agent.generate_message(conversation_history, turn)
+                context = SimulatorContext(
+                    goal=goal,
+                    persona=persona,
+                    conversation_history=conversation_history,
+                    turn=turn,
+                )
+                user_message_content = user_agent.generate_message(context)
                 user_message = {"role": "user", "content": user_message_content}
                 conversation_history.append(user_message)
 
-                # Invoke the predict_fn with the user message and context.
+                # Invoke the predict_fn with the user message and test context.
                 response, trace_id = self._invoke_predict_fn(
                     predict_fn=predict_fn,
                     input_messages=conversation_history,
@@ -475,7 +582,7 @@ class ConversationSimulator:
                     goal=goal,
                     persona=persona,
                     turn=turn,
-                    **context,
+                    **test_context,
                 )
 
                 if trace_id:

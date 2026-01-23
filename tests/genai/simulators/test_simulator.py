@@ -4,8 +4,12 @@ import pandas as pd
 import pytest
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
-from mlflow.genai.simulators import ConversationSimulator
-from mlflow.genai.simulators.simulator import SimulatedUserAgent
+from mlflow.genai.simulators import (
+    BaseSimulatedUserAgent,
+    ConversationSimulator,
+    SimulatedUserAgent,
+    SimulatorContext,
+)
 
 
 def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
@@ -18,12 +22,15 @@ def test_simulated_user_agent_generate_initial_message():
     with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Hello, I have a question about ML."
 
-        agent = SimulatedUserAgent(
+        agent = SimulatedUserAgent()
+        context = SimulatorContext(
             goal="Learn about MLflow",
             persona="You are a beginner who asks curious questions.",
+            conversation_history=[],
+            turn=0,
         )
 
-        message = agent.generate_message([], turn=0)
+        message = agent.generate_message(context)
 
         assert message == "Hello, I have a question about ML."
         mock_invoke.assert_called_once()
@@ -40,16 +47,18 @@ def test_simulated_user_agent_generate_followup_message():
     with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Can you tell me more?"
 
-        agent = SimulatedUserAgent(
+        agent = SimulatedUserAgent()
+        context = SimulatorContext(
             goal="Learn about MLflow",
+            persona="A helpful user",
+            conversation_history=[
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there!"},
+            ],
+            turn=1,
         )
 
-        history = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"},
-        ]
-
-        message = agent.generate_message(history, turn=1)
+        message = agent.generate_message(context)
 
         assert message == "Can you tell me more?"
         mock_invoke.assert_called_once()
@@ -65,11 +74,17 @@ def test_simulated_user_agent_default_persona():
     with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
-        agent = SimulatedUserAgent(
+        from mlflow.genai.simulators.prompts import DEFAULT_PERSONA
+
+        agent = SimulatedUserAgent()
+        context = SimulatorContext(
             goal="Learn about ML",
+            persona=DEFAULT_PERSONA,
+            conversation_history=[],
+            turn=0,
         )
 
-        message = agent.generate_message([], turn=0)
+        message = agent.generate_message(context)
 
         assert message == "Test message"
 
@@ -103,7 +118,7 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
             max_turns=2,
         )
 
-        all_trace_ids = simulator._simulate(mock_predict_fn)
+        all_trace_ids = simulator.simulate(mock_predict_fn)
 
         assert len(all_trace_ids) == 1  # 1 test case
         assert len(all_trace_ids[0]) == 2  # 2 trace IDs
@@ -135,7 +150,7 @@ def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predic
             max_turns=3,
         )
 
-        all_trace_ids = simulator._simulate(mock_predict_fn)
+        all_trace_ids = simulator.simulate(mock_predict_fn)
 
         # all_trace_ids is list of lists: one list per test case
         assert len(all_trace_ids) == 1  # 1 test case
@@ -171,7 +186,7 @@ def test_conversation_simulator_empty_response_stopping(simple_test_case):
             max_turns=5,
         )
 
-        all_trace_ids = simulator._simulate(empty_predict_fn)
+        all_trace_ids = simulator.simulate(empty_predict_fn)
 
         assert len(all_trace_ids) == 1
         assert len(all_trace_ids[0]) == 1  # Only 1 trace ID before stopping
@@ -198,7 +213,7 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
             max_turns=5,
         )
 
-        all_trace_ids = simulator._simulate(mock_predict_fn)
+        all_trace_ids = simulator.simulate(mock_predict_fn)
 
         assert len(all_trace_ids) == 1
         # Only 1 trace ID before goal was achieved
@@ -245,7 +260,7 @@ def test_conversation_simulator_context_passing(test_case_with_context):
             max_turns=1,
         )
 
-        all_trace_ids = simulator._simulate(capturing_predict_fn)
+        all_trace_ids = simulator.simulate(capturing_predict_fn)
 
         assert len(all_trace_ids) == 1
         assert len(all_trace_ids[0]) == 1
@@ -282,7 +297,7 @@ def test_conversation_simulator_multiple_test_cases(
             max_turns=2,
         )
 
-        all_trace_ids = simulator._simulate(mock_predict_fn)
+        all_trace_ids = simulator.simulate(mock_predict_fn)
 
         assert len(all_trace_ids) == 2  # 2 test cases
         assert len(all_trace_ids[0]) == 2  # 2 trace IDs for first test case
@@ -380,3 +395,143 @@ def test_reassignment_with_invalid_test_cases_raises_error(
     with pytest.raises(ValueError, match=expected_error):
         simulator.test_cases = invalid_test_cases
     assert simulator.test_cases == original_test_cases
+
+
+def test_simulator_context_is_first_turn():
+    context_first = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[],
+        turn=0,
+    )
+    assert context_first.is_first_turn is True
+
+    context_later = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[{"role": "user", "content": "Hello"}],
+        turn=1,
+    )
+    assert context_later.is_first_turn is False
+
+
+def test_simulator_context_formatted_history():
+    context_empty = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[],
+        turn=0,
+    )
+    assert context_empty.formatted_history is None
+
+    context_with_history = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+        ],
+        turn=1,
+    )
+    assert context_with_history.formatted_history == "user: Hello\nassistant: Hi there!"
+
+
+def test_simulator_context_last_assistant_response():
+    context_empty = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[],
+        turn=0,
+    )
+    assert context_empty.last_assistant_response is None
+
+    context_with_history = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+        ],
+        turn=1,
+    )
+    assert context_with_history.last_assistant_response == "Hi there!"
+
+
+def test_simulator_context_is_frozen():
+    context = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[],
+        turn=0,
+    )
+    with pytest.raises(AttributeError, match="cannot assign to field"):
+        context.goal = "New goal"
+
+
+def test_custom_user_agent_class(simple_test_case, mock_predict_fn):
+    class CustomUserAgent(BaseSimulatedUserAgent):
+        def generate_message(self, context: SimulatorContext) -> str:
+            return f"Custom message for: {context.goal}"
+
+    with (
+        patch("mlflow.trace") as mock_trace_decorator,
+        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
+        patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+    ):
+        mock_get_trace_id.return_value = "trace_123"
+        mock_trace_decorator.return_value = lambda fn: fn
+        mock_invoke.return_value = '{"rationale": "Goal achieved!", "result": "yes"}'
+
+        simulator = ConversationSimulator(
+            test_cases=[simple_test_case],
+            max_turns=2,
+            user_agent_class=CustomUserAgent,
+        )
+
+        all_trace_ids = simulator.simulate(mock_predict_fn)
+
+        assert len(all_trace_ids) == 1
+        assert len(all_trace_ids[0]) == 1
+
+
+def test_user_agent_class_default(simple_test_case):
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+    )
+    assert simulator.user_agent_class is SimulatedUserAgent
+
+
+def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
+    captured_contexts = []
+
+    class ContextCapturingAgent(BaseSimulatedUserAgent):
+        def generate_message(self, context: SimulatorContext) -> str:
+            captured_contexts.append(context)
+            return f"Message for turn {context.turn}"
+
+    with (
+        patch("mlflow.trace") as mock_trace_decorator,
+        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
+        patch("mlflow.update_current_trace"),
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+    ):
+        mock_get_trace_id.return_value = "trace_123"
+        mock_trace_decorator.return_value = lambda fn: fn
+        mock_invoke.return_value = '{"rationale": "Not yet", "result": "no"}'
+
+        simulator = ConversationSimulator(
+            test_cases=[simple_test_case],
+            max_turns=2,
+            user_agent_class=ContextCapturingAgent,
+        )
+
+        simulator.simulate(mock_predict_fn)
+
+        assert len(captured_contexts) == 2
+        assert captured_contexts[0].turn == 0
+        assert captured_contexts[0].is_first_turn is True
+        assert captured_contexts[0].goal == simple_test_case["goal"]
+        assert captured_contexts[1].turn == 1
+        assert captured_contexts[1].is_first_turn is False

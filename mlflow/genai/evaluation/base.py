@@ -330,7 +330,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if inspect.iscoroutinefunction(predict_fn):
             sim_predict_fn = _wrap_async_predict_fn(predict_fn)
 
-        all_trace_ids = data._simulate(sim_predict_fn)
+        all_trace_ids = data.simulate(sim_predict_fn)
         logger.debug(
             f"Simulation produced {len(all_trace_ids)} conversation(s) with "
             f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
