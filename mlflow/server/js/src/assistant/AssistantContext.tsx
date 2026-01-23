@@ -141,11 +141,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     // Refresh config when panel opens (intentionally not awaited)
     refreshConfig();
-  }, [refreshConfig]);
+  }, [refreshConfig, setIsPanelOpen]);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
-  }, []);
+  }, [setIsPanelOpen]);
 
   const reset = useCallback(() => {
     setSessionId(null);
