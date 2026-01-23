@@ -243,6 +243,12 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
 
 def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
     flat_trace_ids = [tid for trace_ids in all_trace_ids for tid in trace_ids]
+    if not flat_trace_ids:
+        raise MlflowException(
+            "Simulation produced no traces. This may indicate that all conversations failed during "
+            "simulation. Check the logs above for error details."
+        )
+
     max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"

@@ -1357,7 +1357,7 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
     def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
         return {"output": "Mock response"}
 
-    with mock.patch.object(simulator, "_simulate") as mock_simulate:
+    with mock.patch.object(simulator, "simulate") as mock_simulate:
         # Return empty list to trigger the "no traces" error
         mock_simulate.return_value = []
 
@@ -1368,5 +1368,5 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
                 scorers=[has_trace],
             )
 
-        # Verify _simulate was called with predict_fn
+        # Verify simulate was called with predict_fn
         mock_simulate.assert_called_once_with(mock_predict_fn)
