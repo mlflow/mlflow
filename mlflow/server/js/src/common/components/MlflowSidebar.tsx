@@ -1,4 +1,4 @@
-import React, { Fragment, useCallback, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ArrowLeftIcon,
@@ -159,6 +159,17 @@ export function MlflowSidebar() {
   const { openPanel, closePanel, isPanelOpen } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
+  // Track the last selected experiment ID so nested items remain enabled when navigating away
+  const lastSelectedExperimentIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (experimentId) {
+      lastSelectedExperimentIdRef.current = experimentId;
+    }
+  }, [experimentId]);
+
+  // Use current experimentId if available, otherwise fall back to last selected
+  const effectiveExperimentId = experimentId || lastSelectedExperimentIdRef.current;
+
   // Determine if we're inside an experiment (focused view should take over the sidebar)
   const isInExperimentFocusedView = enableWorkflowBasedNavigation && isInsideExperiment(location) && experimentId;
 
@@ -254,11 +265,11 @@ export function MlflowSidebar() {
 
     const groups: NestedItemsGroup[] = Object.entries(config).map(([sectionKey, items]) => ({
       sectionKey: sectionKey as ExperimentPageSideNavSectionKey,
-      items: buildNestedItemsFromConfig(items, experimentId),
+      items: buildNestedItemsFromConfig(items, effectiveExperimentId),
     }));
 
     return groups;
-  }, [enableWorkflowBasedNavigation, config, experimentId]);
+  }, [enableWorkflowBasedNavigation, config, effectiveExperimentId]);
 
   const menuItems: MenuItemWithNested[] = useMemo(
     () => [
@@ -301,7 +312,9 @@ export function MlflowSidebar() {
               linkProps: {
                 to: ModelRegistryRoutes.modelListPageRoute,
                 isActive: isModelsActive,
-                children: <FormattedMessage defaultMessage="Model registry" description="Sidebar link for model registry tab" />,
+                children: (
+                  <FormattedMessage defaultMessage="Model registry" description="Sidebar link for model registry tab" />
+                ),
               },
               componentId: 'mlflow.sidebar.models_tab_link',
               dropdownProps: {
@@ -311,30 +324,6 @@ export function MlflowSidebar() {
                   <FormattedMessage
                     defaultMessage="Model"
                     description="Sidebar button inside the 'new' popover to create new model"
-                  />
-                ),
-              },
-            },
-          ]
-        : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType)
-        ? [
-            {
-              key: 'prompts',
-              icon: <TextBoxIcon />,
-              linkProps: {
-                to: ExperimentTrackingRoutes.promptsPageRoute,
-                isActive: isPromptsActive,
-                children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
-              },
-              componentId: 'mlflow.sidebar.prompts_tab_link',
-              dropdownProps: {
-                componentId: 'mlflow_sidebar.create_prompt_button' as MlFlowSidebarMenuDropdownComponentId,
-                onClick: openCreatePromptModal,
-                children: (
-                  <FormattedMessage
-                    defaultMessage="Prompt"
-                    description="Sidebar button inside the 'new' popover to create new prompt"
                   />
                 ),
               },
@@ -411,50 +400,54 @@ export function MlflowSidebar() {
           maxWidth={300}
         >
           <span>
-          <SegmentedControlGroup
-            value={workflowType}
-            onChange={(e) => {
-              if (e.target.value) {
-                setWorkflowType(e.target.value as WorkflowType);
-              }
-            }}
-            name="workflow-type-selector"
-            componentId="mlflow.sidebar.workflow_type_selector"
-            css={{ width: '100%', display: 'flex', '& > .du-bois-light-radio-button-wrapper': { backgroundColor: 'unset !important' } }}
-          >
-            <SegmentedControlButton
-              value={WorkflowType.GENAI}
-              css={
-                workflowType === WorkflowType.GENAI
-                  ? {
-                      [`& > .${getPrefixedClassName('radio-button')}`]: {
-                        backgroundColor: theme.colors.actionDangerDefaultBackgroundPress,
-                      },
-                    }
-                  : undefined
-              }
-            >
-              <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
-            </SegmentedControlButton>
-            <SegmentedControlButton
-              value={WorkflowType.MACHINE_LEARNING}
+            <SegmentedControlGroup
+              value={workflowType}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setWorkflowType(e.target.value as WorkflowType);
+                }
+              }}
+              name="workflow-type-selector"
+              componentId="mlflow.sidebar.workflow_type_selector"
               css={{
-                whiteSpace: 'nowrap',
-                ...(workflowType === WorkflowType.MACHINE_LEARNING
-                  ? {
-                      [`& > .${getPrefixedClassName('radio-button')}`]: {
-                        backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                      },
-                    }
-                  : undefined),
+                width: '100%',
+                display: 'flex',
+                '& > .du-bois-light-radio-button-wrapper': { backgroundColor: 'unset !important' },
               }}
             >
-              <FormattedMessage
-                defaultMessage="Model training"
-                description="Label for Machine Learning workflow type option"
-              />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
+              <SegmentedControlButton
+                value={WorkflowType.GENAI}
+                css={
+                  workflowType === WorkflowType.GENAI
+                    ? {
+                        [`& > .${getPrefixedClassName('radio-button')}`]: {
+                          backgroundColor: theme.colors.actionDangerDefaultBackgroundPress,
+                        },
+                      }
+                    : undefined
+                }
+              >
+                <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
+              </SegmentedControlButton>
+              <SegmentedControlButton
+                value={WorkflowType.MACHINE_LEARNING}
+                css={{
+                  whiteSpace: 'nowrap',
+                  ...(workflowType === WorkflowType.MACHINE_LEARNING
+                    ? {
+                        [`& > .${getPrefixedClassName('radio-button')}`]: {
+                          backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                        },
+                      }
+                    : undefined),
+                }}
+              >
+                <FormattedMessage
+                  defaultMessage="Model training"
+                  description="Label for Machine Learning workflow type option"
+                />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
           </span>
         </Tooltip>
       )}
@@ -601,7 +594,7 @@ export function MlflowSidebar() {
                           </li>
                         )}
                         {group.items.map((nestedItem) => {
-                          const isDisabled = !experimentId && key === 'experiments';
+                          const isDisabled = !effectiveExperimentId && key === 'experiments';
                           return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
                         })}
                       </Fragment>

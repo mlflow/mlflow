@@ -1134,6 +1134,10 @@
     "defaultMessage": "Add new variable",
     "description": "Experiment page > new run modal > \"add new variable\" button label"
   },
+  "72MQ8i": {
+    "defaultMessage": "Model training",
+    "description": "Label for Machine Learning workflow type option"
+  },
   "72uGpl": {
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
@@ -4264,6 +4268,10 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
+  "W0PKNU": {
+    "defaultMessage": "Model registry",
+    "description": "Sidebar link for model registry tab"
+  },
   "W1ZIP4": {
     "defaultMessage": "Safety",
     "description": "LLM template option"
@@ -4502,10 +4510,6 @@
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
-  },
-  "Xuz/xh": {
-    "defaultMessage": "Models",
-    "description": "Sidebar link for models tab"
   },
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
@@ -5186,10 +5190,6 @@
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
-  },
-  "cSEpGa": {
-    "defaultMessage": "Machine Learning",
-    "description": "Label for Machine Learning workflow type option"
   },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
