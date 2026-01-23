@@ -112,6 +112,7 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
     assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
     assert spans[3].get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
+    assert spans[3].model_name == "gpt-4o-mini"
 
     # OpenAI autologging
     if with_openai_autolog:
@@ -128,6 +129,7 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
             "output_tokens": 12,
             "total_tokens": 21,
         }
+        assert spans[4].model_name == "gpt-4o-mini"
 
     # Trace level token usage should not double-count
     assert trace.info.token_usage == {
@@ -208,6 +210,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert chat_span.get_attribute(model_gen_ai_attributes.FINISH_REASON) == "FinishReason.STOP"
     assert chat_span.get_attribute(model_gen_ai_attributes.INPUT_TOKENS) == 9
     assert chat_span.get_attribute(model_gen_ai_attributes.OUTPUT_TOKENS) == 12
+    assert chat_span.model_name == "gpt-4o-mini"
 
     assert any(
         "I want to find a hotel in Seattle with free wifi and a pool." in m.get("content", "")
@@ -247,6 +250,7 @@ async def test_sk_invoke_agent(mock_openai):
     assert grandchild_span.name.startswith("chat")
     assert grandchild_span.span_type == SpanType.CHAT_MODEL
     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
+    assert grandchild_span.model_name == "gpt-4o-mini"
     assert isinstance(grandchild_span.inputs["messages"], list)
     assert isinstance(grandchild_span.outputs["messages"], list)
     assert (
@@ -365,6 +369,7 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         assert spans[1].span_type == SpanType.AGENT
         assert spans[2].span_type == SpanType.TOOL
         assert spans[3].span_type == SpanType.CHAT_MODEL
+        assert spans[3].model_name == "gpt-4o-mini"
 
         message = spans[3].inputs["messages"][0]["content"]
         assert message.startswith("What is this number: ")
@@ -476,3 +481,4 @@ async def test_kernel_invoke_function_object(mock_openai):
     # Child span should be chat completion
     assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.span_type == SpanType.CHAT_MODEL
+    assert chat_span.model_name == "gpt-4o-mini"
