@@ -1169,6 +1169,11 @@ export const getDefaultActiveTab = (
     return 'content';
   }
 
+  // Auto-navigate to events tab when span has errors
+  if (getSpanExceptionCount(selectedNode) > 0) {
+    return 'events';
+  }
+
   if (selectedNode.chatMessages) {
     return 'chat';
   }
