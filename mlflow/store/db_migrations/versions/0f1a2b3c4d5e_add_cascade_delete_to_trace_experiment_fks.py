@@ -125,20 +125,15 @@ def upgrade():
                     ondelete="CASCADE",
                 ),
                 sa.ForeignKeyConstraint(
-                    ["experiment_id"], ["experiments.experiment_id"], name="fk_spans_experiment_id"
+                    ["experiment_id"],
+                    ["experiments.experiment_id"],
+                    name="fk_spans_experiment_id",
+                    ondelete="CASCADE",  # Add CASCADE here to match target state
                 ),
             ),
         ) as batch_op:
-            # Drop the old FK constraint and recreate with CASCADE
-            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey")
-
-            batch_op.create_foreign_key(
-                new_fk_name,
-                SqlExperiment.__tablename__,
-                [column_name],
-                ["experiment_id"],
-                ondelete="CASCADE",
-            )
+            # The FK is recreated with CASCADE via the copy_from definition above
+            pass
     else:
         try:
             old_fk_name = get_foreign_key_name(table_name, column_name, SqlExperiment.__tablename__)
