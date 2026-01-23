@@ -96,30 +96,45 @@ def _workspace_error_response(exc: Exception) -> Response:
     return response
 
 
-def workspace_before_request_handler():
-    # The server-features endpoint must remain reachable even if the workspace header points to a
-    # missing workspace, so skip workspace resolution entirely for this route.
-    path = request.path.rstrip("/")
-    if path.endswith("/mlflow/server-features"):
+def resolve_workspace_for_request_if_enabled(
+    path: str,
+    header_value: str | None,
+) -> Workspace | None:
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        if (header_value or "").strip():
+            raise MlflowException(
+                "Workspace APIs are not available: workspaces are not enabled on this server",
+                error_code=databricks_pb2.FEATURE_DISABLED,
+            )
         return None
 
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        if request.headers.get(WORKSPACE_HEADER_NAME, "").strip():
-            return _workspace_error_response(
-                MlflowException(
-                    "Workspace APIs are not available: workspaces are not enabled on this server",
-                    error_code=databricks_pb2.FEATURE_DISABLED,
-                )
-            )
+    # The server-features endpoint must remain reachable even if the workspace header points to a
+    # missing workspace, so skip workspace resolution entirely for this route.
+    if path.rstrip("/").endswith("/mlflow/server-features"):
+        return None
+
+    try:
+        return resolve_workspace_from_header(header_value)
+    except MlflowException:
+        raise
+    except Exception as exc:
+        _logger.exception("Unexpected error while resolving workspace")
+        raise MlflowException(
+            str(exc),
+            error_code=databricks_pb2.INTERNAL_ERROR,
+        ) from exc
+
+
+def workspace_before_request_handler():
+    # FastAPI middleware may have already resolved the workspace for this request, and the
+    # server does not set the env var so this should reflect request-scoped state.
+    if workspace_context.is_request_workspace_resolved():
         return None
 
     header_value = request.headers.get(WORKSPACE_HEADER_NAME)
     try:
-        workspace = resolve_workspace_from_header(header_value)
+        workspace = resolve_workspace_for_request_if_enabled(request.path, header_value)
     except MlflowException as exc:
-        return _workspace_error_response(exc)
-    except Exception as exc:
-        _logger.exception("Unexpected error while resolving workspace")
         return _workspace_error_response(exc)
 
     workspace_context.set_server_request_workspace(workspace.name if workspace else None)
@@ -133,6 +148,7 @@ def workspace_teardown_request_handler(_exc):
 __all__ = [
     "WORKSPACE_HEADER_NAME",
     "resolve_workspace_from_header",
+    "resolve_workspace_for_request_if_enabled",
     "_get_workspace_store",
     "workspace_before_request_handler",
     "workspace_teardown_request_handler",
