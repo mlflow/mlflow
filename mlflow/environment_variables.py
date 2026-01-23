@@ -361,6 +361,15 @@ MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
 )
 
+#: Specifies whether or not to use multipart download for proxied artifact access.
+#: When enabled, large files (>= MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE) are downloaded
+#: in parallel chunks directly from cloud storage using presigned URLs, bypassing the tracking
+#: server. This reduces load on the tracking server for large artifact downloads.
+#: (default: ``False``)
+MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
