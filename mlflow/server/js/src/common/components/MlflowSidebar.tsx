@@ -50,6 +50,7 @@ import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
 import { useExperimentEvaluationRunsData } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
+import { useExperiments } from '../../experiment-tracking/components/experiment-page/hooks/useExperiments';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
@@ -169,6 +170,15 @@ export function MlflowSidebar() {
 
   // Use current experimentId if available, otherwise fall back to last selected
   const effectiveExperimentId = experimentId || lastSelectedExperimentIdRef.current;
+
+  // Fetch the experiment data to get the experiment name
+  const experiments = useExperiments(effectiveExperimentId ? [effectiveExperimentId] : []);
+  const experimentName = useMemo(() => {
+    if (experiments.length === 0) return null;
+    // Extract the last part of the experiment name (after the last slash)
+    return experiments[0].name.split('/').pop() || experiments[0].name;
+  }, [experiments]);
+
 
   // Determine if we're inside an experiment (focused view should take over the sidebar)
   const isInExperimentFocusedView = enableWorkflowBasedNavigation && isInsideExperiment(location) && experimentId;
@@ -461,75 +471,7 @@ export function MlflowSidebar() {
       </Button>
 
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
-        {isInExperimentFocusedView ? (
-          <ul
-            css={{
-              listStyleType: 'none',
-              padding: 0,
-              margin: 0,
-            }}
-          >
-            {/* Back button to return to home */}
-            <li>
-              <Link
-                to={ExperimentTrackingRoutes.rootRoute}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  color: theme.colors.textPrimary,
-                  paddingInline: theme.spacing.md,
-                  paddingBlock: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusSm,
-                  marginBottom: theme.spacing.sm,
-                  '&:hover': {
-                    color: theme.colors.actionLinkHover,
-                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                  },
-                }}
-                onClick={() =>
-                  logTelemetryEvent({
-                    componentId: 'mlflow.sidebar.back_to_home',
-                    componentViewId: viewId,
-                    componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                    componentSubType: null,
-                    eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-                  })
-                }
-              >
-                <ArrowLeftIcon />
-                <FormattedMessage
-                  defaultMessage="Back to home"
-                  description="Sidebar back button to return to home page"
-                />
-              </Link>
-            </li>
-            {/* Render experiment nested items as top-level items */}
-            {experimentNestedItemsGroups.map((group) => (
-              <Fragment key={group.sectionKey}>
-                {group.sectionKey !== 'top-level' && (
-                  <li
-                    css={{
-                      display: 'flex',
-                      marginTop: theme.spacing.sm,
-                      marginBottom: theme.spacing.xs,
-                      position: 'relative',
-                      height: theme.typography.lineHeightBase,
-                      paddingLeft: theme.spacing.md,
-                    }}
-                  >
-                    <Typography.Text size="sm" color="secondary">
-                      {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                    </Typography.Text>
-                  </li>
-                )}
-                {group.items.map((nestedItem) => (
-                  <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false, true)}</li>
-                ))}
-              </Fragment>
-            ))}
-          </ul>
-        ) : (
+        {
           <ul
             css={{
               listStyleType: 'none',
@@ -573,6 +515,11 @@ export function MlflowSidebar() {
                   {icon}
                   {linkProps.children}
                 </Link>
+                {key === 'experiments' && effectiveExperimentId && experimentName && (
+                  <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md, paddingTop: 4, paddingBottom: theme.spacing.sm, borderBottom: `1px solid ${theme.colors.grey300}`, marginBottom: theme.spacing.sm, marginLeft: 24 }}>
+                    <Typography.Text bold>{experimentName}</Typography.Text>
+                  </div>
+                )}
                 {nestedItemsGroups && nestedItemsGroups.length > 0 && (
                   <ul css={NESTED_ITEMS_UL_CSS}>
                     {nestedItemsGroups.map((group) => (
@@ -611,7 +558,7 @@ export function MlflowSidebar() {
               </li>
             ))}
           </ul>
-        )}
+        }
         <div>
           {enableWorkflowBasedNavigation && (
             <div
