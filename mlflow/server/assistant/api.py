@@ -97,7 +97,7 @@ class ConfigUpdateRequest(BaseModel):
 # Skills-related models
 class SkillsInstallRequest(BaseModel):
     type: Literal["global", "project", "custom"] = "global"
-    custom_path: str | None = None    # Required if type="custom"
+    custom_path: str | None = None  # Required if type="custom"
     experiment_id: str | None = None  # Used to get project_path for type="project"
 
 
@@ -307,9 +307,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
     project_path: Path | None = None
     if request.type == "project":
         if not request.experiment_id:
-            raise HTTPException(
-                status_code=400, detail="experiment_id required for 'project' type"
-            )
+            raise HTTPException(status_code=400, detail="experiment_id required for 'project' type")
         project_location = config.get_project_path(request.experiment_id)
         if not project_location:
             raise HTTPException(
@@ -334,9 +332,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
     # Install skills
     if not check_git_available():
-        raise HTTPException(
-            status_code=412, detail="Git is not installed or not available in PATH"
-        )
+        raise HTTPException(status_code=412, detail="Git is not installed or not available in PATH")
 
     try:
         installed = install_skills(skills_path_str)

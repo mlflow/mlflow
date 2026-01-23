@@ -84,17 +84,6 @@ class AssistantProvider(ABC):
         """
 
     @abstractmethod
-    def install_skills(self, skill_path: Path) -> list[str]:
-        """Install provider-specific skills.
-
-        Args:
-            skill_path: Directory where skills should be installed.
-
-        Returns:
-            List of installed skill names.
-        """
-
-    @abstractmethod
     def astream(
         self,
         prompt: str,

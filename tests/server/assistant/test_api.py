@@ -67,9 +67,6 @@ class MockProvider(AssistantProvider):
                     raise ValueError("custom_path required for 'custom' type")
                 return Path(custom_path).expanduser()
 
-    def install_skills(self, skill_path: Path) -> list[str]:
-        pass
-
     async def astream(
         self,
         prompt: str,

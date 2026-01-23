@@ -161,40 +161,6 @@ class ClaudeCodeProvider(AssistantProvider):
             case "custom":
                 return Path(custom_path).expanduser()
 
-    def install_skills(self, skill_path: Path) -> list[str]:
-        """Install MLflow-specific Claude skills.
-
-        Args:
-            skill_path: Directory where skills should be installed.
-        """
-        # Get the skills directory from this package
-        skills_source = Path(__file__).parent.parent / "skills"
-
-        if not skills_source.exists():
-            raise RuntimeError("Skills directory not found")
-
-        # Create destination directory
-        skill_path.mkdir(parents=True, exist_ok=True)
-
-        # Find all skill directories in the skills directory
-        skill_dirs = [d for d in skills_source.iterdir() if d.is_dir()]
-        if not skill_dirs:
-            raise RuntimeError("No skills to install")
-
-        installed_skills = []
-        for skill_dir in skill_dirs:
-            dest_skill_dir = skill_path / skill_dir.name
-            dest_skill_dir.mkdir(parents=True, exist_ok=True)
-
-            # Only copy files, not subdirectories, to avoid overwriting user customizations
-            for file in skill_dir.iterdir():
-                if file.is_file():
-                    shutil.copy2(file, dest_skill_dir / file.name)
-
-            installed_skills.append(skill_dir.name)
-
-        return installed_skills
-
     async def astream(
         self,
         prompt: str,
