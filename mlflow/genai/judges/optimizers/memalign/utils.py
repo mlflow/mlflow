@@ -1,5 +1,6 @@
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -328,6 +329,7 @@ def distill_guidelines(
     judge_instructions: str,
     reflection_lm: str,
     existing_guidelines: list[str],
+    max_workers: int = 8,
 ) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
 
@@ -336,6 +338,7 @@ def distill_guidelines(
         judge_instructions: Original judge instructions
         reflection_lm: Model to use for distillation
         existing_guidelines: Previously distilled guidelines
+        max_workers: Maximum number of parallel threads for LLM calls (default: 8)
 
     Returns:
         List of newly distilled Guideline objects (not including existing ones)
@@ -374,19 +377,12 @@ def distill_guidelines(
         )
         return []
 
-    # Distill guidelines from each batch of feedback records
+    # Distill guidelines from each batch of feedback records in parallel
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
-    all_guidelines = []
     existing_guideline_texts = set(existing_guidelines)
 
-    try:
-        from tqdm.auto import tqdm
-
-        batch_iter = tqdm(batches, desc="Distilling guidelines")
-    except ImportError:
-        batch_iter = batches
-
-    for batch_indices in batch_iter:
+    def process_batch(batch_indices: list[int]) -> list[Guideline]:
+        """Process a single batch and return guidelines."""
         batch_examples = [examples_data[i] for i in batch_indices]
 
         prompt = template.render(
@@ -404,25 +400,50 @@ def distill_guidelines(
                 response_format=Guidelines,
             )[0]
 
-            batch_guidelines = _parse_batch_response(
+            return _parse_batch_response(
                 response=response,
                 index_to_trace_id=index_to_trace_id,
                 existing_guideline_texts=existing_guideline_texts,
             )
-
-            # Add new guidelines and update existing set to avoid duplicates across batches
-            for guideline in batch_guidelines:
-                all_guidelines.append(guideline)
-                existing_guideline_texts.add(guideline.guideline_text)
-
         except Exception as e:
             _logger.error(
                 f"Failed to generate/validate distilled guidelines for batch "
                 f"with indices {batch_indices}: {e}"
             )
-            continue
+            return []
 
-    return all_guidelines
+    # Process batches in parallel using ThreadPoolExecutor
+    all_guidelines = []
+    try:
+        from tqdm.auto import tqdm
+
+        use_tqdm = True
+    except ImportError:
+        use_tqdm = False
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_batch, batch): batch for batch in batches}
+
+        if use_tqdm:
+            futures_iter = tqdm(
+                as_completed(futures), total=len(futures), desc="Distilling guidelines"
+            )
+        else:
+            futures_iter = as_completed(futures)
+
+        for future in futures_iter:
+            batch_guidelines = future.result()
+            all_guidelines.extend(batch_guidelines)
+
+    # Deduplicate guidelines (since batches ran in parallel with the same existing_guideline_texts)
+    seen_texts = set(existing_guidelines)
+    deduplicated_guidelines = []
+    for guideline in all_guidelines:
+        if guideline.guideline_text not in seen_texts:
+            seen_texts.add(guideline.guideline_text)
+            deduplicated_guidelines.append(guideline)
+
+    return deduplicated_guidelines
 
 
 def retrieve_relevant_examples(

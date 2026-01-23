@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
+_CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim", "max_workers")
 
 _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
@@ -89,6 +89,8 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+        max_workers: Maximum number of parallel threads for LLM calls during guideline
+            distillation (default: 8)
     """
 
     def __init__(
@@ -98,6 +100,7 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
+        max_workers: int = 8,
         *,
         _defer_init: bool = False,
     ):
@@ -118,6 +121,7 @@ class MemoryAugmentedJudge(Judge):
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
         self._embedding_dim = embedding_dim
+        self._max_workers = max_workers
 
         # Always store trace IDs for serialization
         self._episodic_trace_ids: list[str] = []
@@ -276,6 +280,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=data.get("retrieval_k", 5),
             embedding_model=data.get("embedding_model"),
             embedding_dim=data.get("embedding_dim", 512),
+            max_workers=data.get("max_workers", 8),
             _defer_init=True,
         )
 
@@ -300,6 +305,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
+            max_workers=self._max_workers,
             _defer_init=True,
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
@@ -427,6 +433,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
+            max_workers=self._max_workers,
         )
 
         new_judge._semantic_memory = guidelines_to_retain
@@ -453,6 +460,7 @@ class MemoryAugmentedJudge(Judge):
             judge_instructions=self._base_judge.instructions,
             reflection_lm=self._reflection_lm,
             existing_guidelines=existing_guideline_texts,
+            max_workers=self._max_workers,
         )
         self._semantic_memory.extend(new_guidelines)
         _logger.debug(
@@ -531,6 +539,9 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+        max_workers: Maximum number of parallel threads for LLM calls during guideline
+            distillation (default: 8). Increasing this value can speed up alignment
+            when processing many feedback examples, but may increase API rate limit errors.
 
     Example:
         .. code-block:: python
@@ -557,6 +568,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
+        max_workers: int = 8,
     ):
         _check_dspy_installed()
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
@@ -565,6 +577,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
         self._embedding_dim = embedding_dim
+        self._max_workers = max_workers
 
     def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
@@ -609,6 +622,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,
+                max_workers=self._max_workers,
             )
 
             memory_judge._add_examples_to_memory(new_examples)
