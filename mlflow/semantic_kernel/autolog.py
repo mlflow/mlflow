@@ -14,7 +14,7 @@ from opentelemetry.trace import (
 )
 
 from mlflow.entities.span import create_mlflow_span
-from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
+from mlflow.semantic_kernel.tracing_utils import set_model, set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import _get_tracer, mlflow_runtime_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -120,6 +120,7 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         with _bypass_attribute_guard(mlflow_span._span):
             set_span_type(mlflow_span)
             set_token_usage(mlflow_span)
+            set_model(mlflow_span)
 
         # Export the span using MLflow's span processor
         tracer = _get_tracer(__name__)
