@@ -91,6 +91,15 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
 
+  // Get selected run UUIDs from checkbox selection
+  const selectedRunUuidsFromCheckbox = useMemo(
+    () =>
+      Object.entries(rowSelection)
+        .filter(([_, value]) => value)
+        .map(([key]) => key),
+    [rowSelection],
+  );
+
   // On mount, if selectedRunUuid is in URL, pre-select it and enter comparison mode
   const hasInitializedFromUrl = useRef(false);
   if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
@@ -100,6 +109,41 @@ const ExperimentEvaluationRunsPageImpl = () => {
       setIsComparisonMode(true);
     }
   }
+
+  // Exit comparison mode when no runs are selected
+  useEffect(() => {
+    if (isComparisonMode && selectedRunUuidsFromCheckbox.length === 0) {
+      setIsComparisonMode(false);
+      setSelectedRunUuid(undefined);
+      setCompareToRunUuid(undefined);
+    }
+  }, [isComparisonMode, selectedRunUuidsFromCheckbox.length, setSelectedRunUuid, setCompareToRunUuid]);
+
+  // Keep selectedRunUuid in sync with checkbox selection when in comparison mode
+  useEffect(() => {
+    if (isComparisonMode && selectedRunUuidsFromCheckbox.length > 0) {
+      // Set selectedRunUuid to first selected run for the detail pane
+      if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
+        setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
+      }
+      // Set compareToRunUuid if 2 runs selected
+      if (selectedRunUuidsFromCheckbox.length >= 2) {
+        const otherRun = selectedRunUuidsFromCheckbox.find((uuid) => uuid !== selectedRunUuid);
+        if (otherRun && otherRun !== compareToRunUuid) {
+          setCompareToRunUuid(otherRun);
+        }
+      } else if (compareToRunUuid) {
+        setCompareToRunUuid(undefined);
+      }
+    }
+  }, [
+    isComparisonMode,
+    selectedRunUuidsFromCheckbox,
+    selectedRunUuid,
+    compareToRunUuid,
+    setSelectedRunUuid,
+    setCompareToRunUuid,
+  ]);
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.
@@ -164,25 +208,6 @@ const ExperimentEvaluationRunsPageImpl = () => {
     },
     [setSelectedRunUuid, setCompareToRunUuid],
   );
-
-  useEffect(() => {
-    const selectedRunUuids = Object.entries(rowSelection)
-      .filter(([_, value]) => value)
-      .map(([key]) => key);
-
-    if (selectedRunUuid && compareToRunUuid) {
-      const isSelectedRunStillSelected = selectedRunUuids.includes(selectedRunUuid);
-      const isCompareToRunStillSelected = selectedRunUuids.includes(compareToRunUuid);
-
-      if (!isSelectedRunStillSelected || !isCompareToRunStillSelected) {
-        setCompareToRunUuid(undefined);
-
-        if (selectedRunUuids.length > 0) {
-          setSelectedRunUuid(selectedRunUuids[0]);
-        }
-      }
-    }
-  }, [rowSelection, selectedRunUuid, compareToRunUuid, setSelectedRunUuid, setCompareToRunUuid]);
 
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
