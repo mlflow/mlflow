@@ -9,7 +9,6 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import { isIsolatedPoint } from '../components/OverviewChartComponents';
 import {
   sortValuesAlphanumerically,
   shouldCreateHistogramBuckets,
@@ -21,8 +20,6 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface AssessmentChartDataPoint {
   name: string;
   value: number | null;
-  /** Whether this point is isolated (both neighbors are null) - used to render dots */
-  isIsolated: boolean;
 }
 
 export interface DistributionChartDataPoint {
@@ -101,12 +98,9 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
 
   // Prepare time series chart data - use null for missing data to show gaps in chart
   const timeSeriesChartData = useMemo(() => {
-    const values = timeBuckets.map((ts) => valuesByTimestamp.get(ts) ?? null);
-
-    return timeBuckets.map((timestampMs, i) => ({
+    return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-      value: values[i],
-      isIsolated: isIsolatedPoint(values, i),
+      value: valuesByTimestamp.get(timestampMs) ?? null,
     }));
   }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
 
