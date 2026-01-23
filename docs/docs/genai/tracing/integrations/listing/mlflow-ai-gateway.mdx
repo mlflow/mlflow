@@ -19,6 +19,19 @@ Since MLflow AI Gateway exposes an OpenAI-compatible API, you can use MLflow's a
 
 <ImageBox src="/images/llms/tracing/basic-openai-trace.png" alt="MLflow AI Gateway Tracing" />
 
+## Integration Options
+
+There are two ways to trace LLM calls through MLflow AI Gateway:
+
+| Approach                              | Description                             | Best For                                                   |
+| :------------------------------------ | :-------------------------------------- | :--------------------------------------------------------- |
+| **Server-side Tracing** (Coming Soon) | Gateway automatically logs all requests | Centralized tracing for all requests through the gateway   |
+| **Client-side Tracing**               | Use OpenAI SDK with MLflow autolog      | Combining LLM traces with your agent or application traces |
+
+:::note Coming Soon
+**Server-side tracing** for MLflow AI Gateway is not available yet. Stay tuned for updates!
+:::
+
 ## Prerequisite
 
 ### Start MLflow Server with AI Gateway
@@ -121,7 +134,7 @@ mlflow.set_experiment("MLflow AI Gateway")
 
 # Point Gemini client to MLflow AI Gateway
 client = genai.Client(
-    http_options={"base_url": "http://localhost:5000/gateway/"},
+    http_options={"base_url": "http://localhost:5000/gateway/gemini/"},
     api_key="dummy",  # API key not needed, configured server-side
 )
 
@@ -152,7 +165,7 @@ mlflow.set_experiment("MLflow AI Gateway")
 
 # Point LangChain to MLflow AI Gateway
 llm = ChatOpenAI(
-    base_url="http://localhost:5000/gateway/mlflow/va/chat/completions",
+    base_url="http://localhost:5000/gateway/mlflow/v1",
     model="<your-endpoint-name>",  # Use your endpoint name
     api_key="dummy",  # API key not needed, configured server-side
 )
@@ -165,7 +178,7 @@ def get_weather(city: str) -> str:
 
 # Run the agent as usual
 agent = create_agent(
-    model="claude-sonnet-4-5-20250929",
+    llm,
     tools=[get_weather],
     system_prompt="You are a helpful assistant",
 )

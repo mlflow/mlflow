@@ -71,15 +71,36 @@ npm install mlflow-openai openai
 </Tabs>
 </TabsWrapper>
 
-<StepHeader number={2} title="Start MLflow Server (Optional)" />
+<StepHeader number={2} title="Set tracking URI and experiment" />
 
-If you're running outside of Databricks, start a local MLflow server:
+To save traces to Databricks-managed MLflow, set the tracking URI to `databricks` and the experiment to the name of your Databricks workspace.
 
-<ServerSetup />
+<TabsWrapper>
+<Tabs groupId="programming-language">
+  <TabItem value="python" label="Python" default>
+```python
+import mlflow
 
-:::tip Using Databricks Managed MLflow
-If you're running on Databricks, MLflow is already integrated. Traces are automatically captured and viewable in the Databricks workspace without additional setup.
-:::
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("<your-databricks-workspace>")
+
+````
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.init({
+  trackingUri: "databricks",
+  experimentId: "<your-databricks-workspace>",
+});
+````
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+When you want to self-host MLflow outside Databricks, follow the [Self-hosting](/self-hosting) guide to set up your MLflow server and set the tracking URI accordingly.
 
 <StepHeader number={3} title="Enable Tracing and Make API Calls" />
 
@@ -95,10 +116,6 @@ from openai import OpenAI
 
 # Enable auto-tracing for OpenAI
 mlflow.openai.autolog()
-
-# Set tracking URI and experiment (skip if running on Databricks)
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Databricks AI Gateway")
 
 # Point OpenAI client to Databricks AI Gateway
 client = OpenAI(
@@ -123,15 +140,8 @@ print(response.choices[0].message.content)
 Initialize MLflow tracing with `init()` and wrap the OpenAI client with the `tracedOpenAI` function.
 
 ```typescript
-import { init } from "mlflow-tracing";
 import { tracedOpenAI } from "mlflow-openai";
 import { OpenAI } from "openai";
-
-// Initialize MLflow tracing (skip if running on Databricks)
-init({
-  trackingUri: "http://localhost:5000",
-  experimentId: "<experiment-id>",
-});
 
 // Wrap the OpenAI client pointing to Databricks AI Gateway
 const client = tracedOpenAI(
