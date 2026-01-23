@@ -241,8 +241,9 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
-def _fetch_traces(all_trace_ids: list[list[str]], max_workers: int) -> list[list["Trace"]]:
+def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
     flat_trace_ids = [tid for trace_ids in all_trace_ids for tid in trace_ids]
+    max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
     ) as executor:
@@ -595,7 +596,7 @@ class ConversationSimulator:
                 if progress_bar:
                     progress_bar.close()
 
-        return _fetch_traces(all_trace_ids, max_workers)
+        return _fetch_traces(all_trace_ids)
 
     def _run_conversation(
         self,
