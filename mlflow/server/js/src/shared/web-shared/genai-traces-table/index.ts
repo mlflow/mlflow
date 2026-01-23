@@ -28,7 +28,7 @@ export {
   searchMlflowTracesQueryFn,
   SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
-export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
+export { getEvalTabTotalTracesLimit, shouldEnableSessionGrouping } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
 export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';

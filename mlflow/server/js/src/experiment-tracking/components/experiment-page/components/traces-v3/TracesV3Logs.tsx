@@ -405,6 +405,7 @@ const TracesV3LogsImpl = React.memo(
               usesV4APIs={usesV4APIs}
               addons={toolbarAddons}
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
+              forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
             />
             {renderMainContent()}
