@@ -3,6 +3,7 @@ import {
   BeakerIcon,
   Button,
   CloudModelIcon,
+  DatabaseIcon,
   DropdownMenu,
   GearIcon,
   HomeIcon,
@@ -12,6 +13,7 @@ import {
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
+  ChevronLeftIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
@@ -29,14 +31,26 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { shouldEnableWorkspaces } from '../utils/FeatureUtils';
+import { extractWorkspaceFromPathname } from '../utils/WorkspaceUtils';
 
-const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
+const isHomeActive = (location: Location) =>
+  matchPath({ path: '/', end: true }, location.pathname) ||
+  matchPath({ path: '/workspaces/:workspaceName', end: true }, location.pathname);
+const isWorkspacesActive = (location: Location) => matchPath('/workspaces', location.pathname);
 const isExperimentsActive = (location: Location) =>
-  matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
-const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
-const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
-const isGatewayActive = (location: Location) => matchPath('/gateway/*', location.pathname);
-const isSettingsActive = (location: Location) => matchPath('/settings/*', location.pathname);
+  matchPath('/experiments/*', location.pathname) ||
+  matchPath('/workspaces/:workspaceName/experiments/*', location.pathname) ||
+  matchPath('/compare-experiments/*', location.pathname) ||
+  matchPath('/workspaces/:workspaceName/compare-experiments/*', location.pathname);
+const isModelsActive = (location: Location) =>
+  matchPath('/models/*', location.pathname) || matchPath('/workspaces/:workspaceName/models/*', location.pathname);
+const isPromptsActive = (location: Location) =>
+  matchPath('/prompts/*', location.pathname) || matchPath('/workspaces/:workspaceName/prompts/*', location.pathname);
+const isGatewayActive = (location: Location) =>
+  matchPath('/gateway/*', location.pathname) || matchPath('/workspaces/:workspaceName/gateway/*', location.pathname);
+const isSettingsActive = (location: Location) =>
+  matchPath('/settings/*', location.pathname) || matchPath('/workspaces/:workspaceName/settings/*', location.pathname);
 
 export function MlflowSidebar() {
   const location = useLocation();
@@ -57,90 +71,115 @@ export function MlflowSidebar() {
     | 'mlflow_sidebar.create_model_button'
     | 'mlflow_sidebar.create_prompt_button';
 
-  const menuItems = [
-    {
-      key: 'home',
-      icon: <HomeIcon />,
-      linkProps: {
-        to: ExperimentTrackingRoutes.rootRoute,
-        isActive: isHomeActive,
-        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
-      },
-      componentId: 'mlflow.sidebar.home_tab_link',
+  const workspacesEnabled = shouldEnableWorkspaces();
+
+  // If on workspaces selector page, only show Workspaces nav
+  const workspaceOnlyMenuItem = {
+    key: 'workspaces',
+    icon: <DatabaseIcon />,
+    linkProps: {
+      to: ExperimentTrackingRoutes.rootRoute,
+      isActive: isWorkspacesActive,
+      children: <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />,
     },
-    {
-      key: 'experiments',
-      icon: <BeakerIcon />,
-      linkProps: {
-        to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
-        isActive: isExperimentsActive,
-        children: <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />,
-      },
-      componentId: 'mlflow.sidebar.experiments_tab_link',
-      dropdownProps: {
-        componentId: 'mlflow_sidebar.create_experiment_button' as MlFlowSidebarMenuDropdownComponentId,
-        onClick: () => setShowCreateExperimentModal(true),
-        children: (
-          <FormattedMessage
-            defaultMessage="Experiment"
-            description="Sidebar button inside the 'new' popover to create new experiment"
-          />
-        ),
-      },
-    },
-    {
-      key: 'models',
-      icon: <ModelsIcon />,
-      linkProps: {
-        to: ModelRegistryRoutes.modelListPageRoute,
-        isActive: isModelsActive,
-        children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
-      },
-      componentId: 'mlflow.sidebar.models_tab_link',
-      dropdownProps: {
-        componentId: 'mlflow_sidebar.create_model_button' as MlFlowSidebarMenuDropdownComponentId,
-        onClick: () => setShowCreateModelModal(true),
-        children: (
-          <FormattedMessage
-            defaultMessage="Model"
-            description="Sidebar button inside the 'new' popover to create new model"
-          />
-        ),
-      },
-    },
-    {
-      key: 'prompts',
-      icon: <TextBoxIcon />,
-      linkProps: {
-        to: ExperimentTrackingRoutes.promptsPageRoute,
-        isActive: isPromptsActive,
-        children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
-      },
-      componentId: 'mlflow.sidebar.prompts_tab_link',
-      dropdownProps: {
-        componentId: 'mlflow_sidebar.create_prompt_button' as MlFlowSidebarMenuDropdownComponentId,
-        onClick: openCreatePromptModal,
-        children: (
-          <FormattedMessage
-            defaultMessage="Prompt"
-            description="Sidebar button inside the 'new' popover to create new prompt"
-          />
-        ),
-      },
-    },
-    {
-      key: 'gateway',
-      icon: <CloudModelIcon />,
-      linkProps: {
-        to: GatewayRoutes.gatewayPageRoute,
-        isActive: isGatewayActive,
-        children: <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />,
-      },
-      componentId: 'mlflow.sidebar.gateway_tab_link',
-    },
-  ];
+    componentId: 'mlflow.sidebar.workspaces_tab_link',
+    dropdownProps: undefined,
+  };
+
+  const menuItems =
+    workspacesEnabled && isWorkspacesActive(location)
+      ? [workspaceOnlyMenuItem]
+      : [
+          {
+            key: 'home',
+            icon: <HomeIcon />,
+            linkProps: {
+              to: ExperimentTrackingRoutes.rootRoute,
+              isActive: isHomeActive,
+              children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+            },
+            componentId: 'mlflow.sidebar.home_tab_link',
+          },
+          {
+            key: 'experiments',
+            icon: <BeakerIcon />,
+            linkProps: {
+              to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
+              isActive: isExperimentsActive,
+              children: (
+                <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />
+              ),
+            },
+            componentId: 'mlflow.sidebar.experiments_tab_link',
+            dropdownProps: {
+              componentId: 'mlflow_sidebar.create_experiment_button' as MlFlowSidebarMenuDropdownComponentId,
+              onClick: () => setShowCreateExperimentModal(true),
+              children: (
+                <FormattedMessage
+                  defaultMessage="Experiment"
+                  description="Sidebar button inside the 'new' popover to create new experiment"
+                />
+              ),
+            },
+          },
+          {
+            key: 'models',
+            icon: <ModelsIcon />,
+            linkProps: {
+              to: ModelRegistryRoutes.modelListPageRoute,
+              isActive: isModelsActive,
+              children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
+            },
+            componentId: 'mlflow.sidebar.models_tab_link',
+            dropdownProps: {
+              componentId: 'mlflow_sidebar.create_model_button' as MlFlowSidebarMenuDropdownComponentId,
+              onClick: () => setShowCreateModelModal(true),
+              children: (
+                <FormattedMessage
+                  defaultMessage="Model"
+                  description="Sidebar button inside the 'new' popover to create new model"
+                />
+              ),
+            },
+          },
+          {
+            key: 'prompts',
+            icon: <TextBoxIcon />,
+            linkProps: {
+              to: ExperimentTrackingRoutes.promptsPageRoute,
+              isActive: isPromptsActive,
+              children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
+            },
+            componentId: 'mlflow.sidebar.prompts_tab_link',
+            dropdownProps: {
+              componentId: 'mlflow_sidebar.create_prompt_button' as MlFlowSidebarMenuDropdownComponentId,
+              onClick: openCreatePromptModal,
+              children: (
+                <FormattedMessage
+                  defaultMessage="Prompt"
+                  description="Sidebar button inside the 'new' popover to create new prompt"
+                />
+              ),
+            },
+          },
+          {
+            key: 'gateway',
+            icon: <CloudModelIcon />,
+            linkProps: {
+              to: GatewayRoutes.gatewayPageRoute,
+              isActive: isGatewayActive,
+              children: (
+                <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
+              ),
+            },
+            componentId: 'mlflow.sidebar.gateway_tab_link',
+          },
+        ];
 
   const logTelemetryEvent = useLogTelemetryEvent();
+
+  const workspaceFromUrl = extractWorkspaceFromPathname(location.pathname);
+  const showWorkspaceSection = workspacesEnabled;
 
   return (
     <aside
@@ -187,18 +226,18 @@ export function MlflowSidebar() {
             margin: 0,
           }}
         >
-          {menuItems.map(({ key, icon, linkProps, componentId }) => (
-            <li key={key}>
+          {showWorkspaceSection && (
+            <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
               <Link
-                to={linkProps.to}
-                aria-current={linkProps.isActive(location) ? 'page' : undefined}
+                disableWorkspacePrefix
+                to={Routes.rootRoute}
+                aria-current={!workspaceFromUrl ? 'page' : undefined}
                 css={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.spacing.sm,
                   color: theme.colors.textPrimary,
-                  paddingInline: theme.spacing.md,
-                  paddingBlock: theme.spacing.xs,
+                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
                   borderRadius: theme.borders.borderRadiusSm,
                   '&:hover': {
                     color: theme.colors.actionLinkHover,
@@ -212,7 +251,7 @@ export function MlflowSidebar() {
                 }}
                 onClick={() =>
                   logTelemetryEvent({
-                    componentId,
+                    componentId: 'mlflow.sidebar.workspaces_link',
                     componentViewId: viewId,
                     componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
                     componentSubType: null,
@@ -220,11 +259,52 @@ export function MlflowSidebar() {
                   })
                 }
               >
-                {icon}
-                {linkProps.children}
+                {workspaceFromUrl ? <ChevronLeftIcon /> : <HomeIcon />}
+                <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />
               </Link>
-            </li>
-          ))}
+            </div>
+          )}
+          {(workspaceFromUrl || !workspacesEnabled) && (
+            <>
+              {menuItems.map(({ key, icon, linkProps, componentId }) => (
+                <li key={key}>
+                  <Link
+                    to={linkProps.to}
+                    aria-current={linkProps.isActive(location) ? 'page' : undefined}
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.sm,
+                      color: theme.colors.textPrimary,
+                      padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                      borderRadius: theme.borders.borderRadiusSm,
+                      '&:hover': {
+                        color: theme.colors.actionLinkHover,
+                        backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                      },
+                      '&[aria-current="page"]': {
+                        backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                        color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                        fontWeight: theme.typography.typographyBoldFontWeight,
+                      },
+                    }}
+                    onClick={() =>
+                      logTelemetryEvent({
+                        componentId,
+                        componentViewId: viewId,
+                        componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                        componentSubType: null,
+                        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+                      })
+                    }
+                  >
+                    {icon}
+                    {linkProps.children}
+                  </Link>
+                </li>
+              ))}
+            </>
+          )}
         </ul>
         <Link
           to={ExperimentTrackingRoutes.settingsPageRoute}
@@ -234,9 +314,9 @@ export function MlflowSidebar() {
             alignItems: 'center',
             gap: theme.spacing.sm,
             color: theme.colors.textPrimary,
-            paddingInline: theme.spacing.md,
-            paddingBlock: theme.spacing.sm,
+            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
             borderRadius: theme.borders.borderRadiusSm,
+            marginTop: 'auto',
             '&:hover': {
               color: theme.colors.actionLinkHover,
               backgroundColor: theme.colors.actionDefaultBackgroundHover,

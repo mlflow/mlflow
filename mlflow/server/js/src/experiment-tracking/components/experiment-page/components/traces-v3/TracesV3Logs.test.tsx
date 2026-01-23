@@ -75,6 +75,10 @@ jest.mock('./TracesV3EmptyState', () => ({
   TracesV3EmptyState: jest.fn(() => null),
 }));
 
+jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
+  ExportTracesToDatasetModal: jest.fn(() => null),
+}));
+
 const renderComponent = (props = {}) => {
   const queryClient = new QueryClient({
     defaultOptions: {

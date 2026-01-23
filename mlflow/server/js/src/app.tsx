@@ -20,14 +20,36 @@ import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
 import { telemetryClient } from './telemetry';
+import { subscribeToWorkspaceChanges } from './common/utils/WorkspaceUtils';
+import { ServerFeaturesProvider, SERVER_FEATURES_QUERY_KEY } from './common/utils/ServerFeaturesContext';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const intl = useI18nInit();
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Create clients once - we'll clear caches on workspace changes instead of recreating
   const apolloClient = useMemo(() => createApolloClient(), []);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const queryClient = useMemo(() => new QueryClient(), []);
+
+  // Clear caches when workspace changes instead of recreating clients
+  useEffect(() => {
+    const unsubscribe = subscribeToWorkspaceChanges(() => {
+      // Clear React Query cache except server features (they don't change with workspace)
+      queryClient.removeQueries({
+        predicate: (query) => {
+          // Keep server features cached
+          return query.queryKey[0] !== SERVER_FEATURES_QUERY_KEY[0];
+        },
+      });
+
+      // Clear Apollo cache
+      apolloClient.clearStore();
+    });
+
+    return unsubscribe;
+  }, [queryClient, apolloClient]);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
@@ -54,7 +76,9 @@ export function MLFlowRoot() {
               <MlflowThemeGlobalStyles />
               <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
                 <QueryClientProvider client={queryClient}>
-                  <MlflowRouter />
+                  <ServerFeaturesProvider>
+                    <MlflowRouter />
+                  </ServerFeaturesProvider>
                 </QueryClientProvider>
               </DarkThemeProvider>
             </DesignSystemContainer>
