@@ -263,9 +263,8 @@ def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = F
 
 
 def update_pyproject():
-    """Update pyproject.toml files based on ml-package-versions.yml."""
     pyproject_script = Path(__file__).parent / "pyproject.py"
-    subprocess.check_call([sys.executable, str(pyproject_script)])
+    subprocess.check_call([sys.executable, pyproject_script])
 
 
 def update(skip_yml=False):
