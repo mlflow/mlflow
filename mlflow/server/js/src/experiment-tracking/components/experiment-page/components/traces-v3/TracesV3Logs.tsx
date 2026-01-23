@@ -83,6 +83,7 @@ const TracesV3LogsImpl = React.memo(
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    forceGroupBySession = false,
   }: {
     experimentId: string;
     endpointName?: string;
@@ -93,6 +94,7 @@ const TracesV3LogsImpl = React.memo(
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    forceGroupBySession?: boolean;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -357,7 +359,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
-                  isGroupedBySession={isGroupedBySession}
+                  isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 />
               </ContextProviders>
             )}
@@ -402,7 +404,7 @@ const TracesV3LogsImpl = React.memo(
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
               addons={toolbarAddons}
-              isGroupedBySession={isGroupedBySession}
+              isGroupedBySession={forceGroupBySession || isGroupedBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
             />
             {renderMainContent()}

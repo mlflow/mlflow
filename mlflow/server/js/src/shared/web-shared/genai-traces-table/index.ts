@@ -87,6 +87,8 @@ export {
   TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  INPUTS_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 // Test utilities
