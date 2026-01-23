@@ -1291,9 +1291,10 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """
-        Does not wait for the model version to become READY as a successful creation will
-        immediately place the model version in a READY state.
+        Wait for model version to become READY after creation.
+        Unity Catalog model registration can be asynchronous.
         """
+        self._await_model_version_creation_impl(mv, await_creation_for)
 
     # Prompt-related method overrides for UC
 

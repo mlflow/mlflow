@@ -2999,3 +2999,75 @@ def test_link_prompt_version_to_run_sets_tag(store):
 
         expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(run_tag.value) == expected_value
+
+
+def test_await_model_version_creation_pending(store):
+    from mlflow.entities.model_registry import ModelVersion
+    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+
+    pending_mv = ModelVersion(
+        name="catalog.schema.model",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
+    )
+    with (
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+            1,
+        ),
+        mock.patch.object(store, "get_model_version", return_value=pending_mv),
+        pytest.raises(MlflowException, match="Exceeded max wait time"),
+    ):
+        store._await_model_version_creation(pending_mv, 0.5)
+
+
+def test_await_model_version_creation_success(store):
+    from mlflow.entities.model_registry import ModelVersion
+    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+
+    pending_mv = ModelVersion(
+        name="catalog.schema.model",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
+    )
+    ready_mv = ModelVersion(
+        name="catalog.schema.model",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
+    )
+    with (
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+            1,
+        ),
+        mock.patch("mlflow.store.model_registry.abstract_store._logger") as mock_logger,
+        mock.patch.object(store, "get_model_version", return_value=ready_mv),
+    ):
+        store._await_model_version_creation(pending_mv, 10)
+
+    # Verify that the logger was called with the correct message
+    mock_logger.info.assert_called_once()
+    info_message = mock_logger.mock_calls[0][1][0]
+    assert "Waiting up to 10 seconds" in info_message
+    assert "catalog.schema.model" in info_message
+    assert "version 1" in info_message
+
+
+def test_await_model_version_creation_failed(store):
+    from mlflow.entities.model_registry import ModelVersion
+    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+
+    failed_mv = ModelVersion(
+        name="catalog.schema.model",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
+    )
+    with (
+        mock.patch.object(store, "get_model_version", return_value=failed_mv),
+        pytest.raises(MlflowException, match="Model version creation failed"),
+    ):
+        store._await_model_version_creation(failed_mv, 0.5)
