@@ -24,6 +24,7 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import (
     construct_full_inputs,
     get_mlflow_span_for_otel_span,
+    set_span_cost_attribute,
 )
 
 _OPERATION_TO_SPAN_TYPE = {
@@ -146,6 +147,7 @@ def set_token_usage(mlflow_span: LiveSpan) -> None:
 
     if usage_dict:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        set_span_cost_attribute(mlflow_span)
 
 
 def set_model(mlflow_span: LiveSpan) -> None:

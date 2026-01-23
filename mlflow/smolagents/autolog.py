@@ -6,7 +6,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import set_span_model_attribute
+from mlflow.tracing.utils import set_span_cost_attribute, set_span_model_attribute
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -27,9 +27,10 @@ def patched_class_call(original, self, *args, **kwargs):
 
                 # Need to convert the response of smolagents API for better visualization
                 outputs = result.__dict__ if hasattr(result, "__dict__") else result
+                set_span_model_attribute(span, inputs)
                 if token_usage := _parse_usage(outputs):
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
-                set_span_model_attribute(span, inputs)
+                    set_span_cost_attribute(span)
                 span.set_outputs(outputs)
                 return result
     except Exception as e:

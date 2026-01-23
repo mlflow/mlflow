@@ -118,7 +118,7 @@ def agent_with_tool():
     return roulette_agent
 
 
-def test_agent_run_sync_enable_disable_autolog(simple_agent):
+def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -162,6 +162,12 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
     assert span2.model_name == "gpt-4o"
+    # Verify cost is calculated (1 input token * 1.0 + 1 output token * 2.0)
+    assert span2.cost == {
+        "input_cost": 1.0,
+        "output_cost": 2.0,
+        "total_cost": 3.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -176,7 +182,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog(simple_agent):
+async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -206,6 +212,11 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
     assert span1.model_name == "gpt-4o"
+    assert span1.cost == {
+        "input_cost": 1.0,
+        "output_cost": 2.0,
+        "total_cost": 3.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -214,7 +225,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     }
 
 
-def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
+def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -245,6 +256,11 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
     assert span2.model_name == "gpt-4o"
+    assert span2.cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
 
     span3 = spans[3]
     assert span3.span_type == SpanType.TOOL
@@ -255,6 +271,11 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
     assert span4.model_name == "gpt-4o"
+    assert span4.cost == {
+        "input_cost": 100.0,
+        "output_cost": 400.0,
+        "total_cost": 500.0,
+    }
 
     assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
@@ -276,7 +297,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
+async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -320,13 +341,21 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
-
+    assert span1.cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
     assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 200,
         TokenUsageKey.TOTAL_TOKENS: 300,
     }
-
+    assert span3.cost == {
+        "input_cost": 100.0,
+        "output_cost": 400.0,
+        "total_cost": 500.0,
+    }
     assert traces[0].info.token_usage == {
         "input_tokens": 110,
         "output_tokens": 220,

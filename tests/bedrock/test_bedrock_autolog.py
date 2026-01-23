@@ -859,7 +859,12 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
     ],
 )
 def test_bedrock_autolog_converse_stream(
-    _request, expected_response, expected_chat_attr, expected_tool_attr, expected_usage
+    _request,
+    expected_response,
+    expected_chat_attr,
+    expected_tool_attr,
+    expected_usage,
+    mock_litellm_cost,
 ):
     mlflow.bedrock.autolog()
 
@@ -893,6 +898,14 @@ def test_bedrock_autolog_converse_stream(
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
+    # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
+    expected_cost = {
+        "input_cost": float(expected_usage["input_tokens"]),
+        "output_cost": float(expected_usage["output_tokens"]) * 2.0,
+        "total_cost": float(expected_usage["input_tokens"])
+        + float(expected_usage["output_tokens"]) * 2.0,
+    }
+    assert span.cost == expected_cost
 
 
 def _event_stream(raw_response, chunk_size=10):
