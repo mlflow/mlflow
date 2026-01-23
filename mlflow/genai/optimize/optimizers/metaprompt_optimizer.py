@@ -695,26 +695,14 @@ improve the prompt's effectiveness."""
         if not results:
             return {}
 
-        # Collect all individual scores
-        all_individual_scores = [r.individual_scores for r in results]
-        if not any(all_individual_scores):
-            return {}
-
-        # Get all scorer names from all results
-        scorer_names: set[str] = set()
-        for scores in all_individual_scores:
-            scorer_names.update(scores.keys())
-
+        scorer_names = results[0].individual_scores.keys()
         if not scorer_names:
             return {}
 
         # Compute average for each scorer
         per_scorer_avg: dict[str, float] = {}
         for scorer_name in scorer_names:
-            scores_for_scorer = [
-                scores[scorer_name] for scores in all_individual_scores if scorer_name in scores
-            ]
-            if scores_for_scorer:
-                per_scorer_avg[scorer_name] = sum(scores_for_scorer) / len(scores_for_scorer)
+            scores = [r.individual_scores[scorer_name] for r in results]
+            per_scorer_avg[scorer_name] = sum(scores) / len(scores)
 
         return per_scorer_avg

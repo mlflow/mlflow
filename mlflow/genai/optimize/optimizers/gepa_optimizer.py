@@ -244,7 +244,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     if scores:
                         per_scorer_scores[scorer_name] = sum(scores) / len(scores)
 
-                # Build eval results table as dict of columns
+                # Build the evaluation results table and log to MLflow as a table artifact
                 eval_results_table = {
                     "inputs": [json.dumps(r.inputs) for r in eval_results],
                     "output": [json.dumps(r.outputs) for r in eval_results],
@@ -257,8 +257,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     ]
 
                 iteration_dir = f"prompt_candidates/iteration_{iteration}"
-
-                # Log eval results as MLflow table
                 mlflow.log_table(
                     data=eval_results_table,
                     artifact_file=f"{iteration_dir}/eval_results.json",
@@ -269,11 +267,8 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     "aggregate": aggregate_score,
                     "per_scorer": per_scorer_scores,
                 }
-
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     tmp_path = Path(tmp_dir)
-
-                    # Write scores.json
                     scores_path = tmp_path / "scores.json"
                     with open(scores_path, "w") as f:
                         json.dump(scores_data, f, indent=2)

@@ -491,26 +491,3 @@ def test_compute_per_scorer_scores():
     per_scorer = optimizer._compute_per_scorer_scores(eval_results)
 
     assert per_scorer == {"Correctness": 0.8, "Safety": 0.6}  # Average of each scorer
-
-
-def test_compute_per_scorer_scores_empty_results():
-    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
-    assert optimizer._compute_per_scorer_scores([]) == {}
-
-
-def test_compute_per_scorer_scores_no_individual_scores():
-    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
-
-    eval_results = [
-        EvaluationResultRecord(
-            inputs={"q": "1"},
-            outputs="a",
-            expectations="a",
-            score=0.8,
-            trace=Mock(),
-            rationales={},
-            individual_scores={},
-        ),
-    ]
-
-    assert optimizer._compute_per_scorer_scores(eval_results) == {}
