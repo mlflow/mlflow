@@ -67,7 +67,7 @@ def test_enable_disable_autolog(llm_config):
     assert len(traces) == 1
 
 
-def test_tracing_agent(llm_config):
+def test_tracing_agent(llm_config, mock_litellm_cost):
     mlflow.ag2.autolog()
 
     with mock_user_input(
@@ -131,6 +131,12 @@ def test_tracing_agent(llm_config):
         "total_tokens": 21,
     }
     assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
@@ -138,6 +144,12 @@ def test_tracing_agent(llm_config):
         "total_tokens": 21,
     }
     assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span_2.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,

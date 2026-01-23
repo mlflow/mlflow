@@ -15,7 +15,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.utils import capture_function_input_args
+from mlflow.tracing.utils import capture_function_input_args, set_span_cost_attribute
 from mlflow.utils.autologging_utils import autologging_is_disabled
 from mlflow.utils.autologging_utils.safety import safe_patch
 
@@ -281,6 +281,7 @@ class MlflowAg2Logger(BaseLogger):
             span.set_attribute(SpanAttributeKey.MODEL, model)
         if usage := self._parse_usage(response):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+            set_span_cost_attribute(span)
 
         # Defer ending until after parent relocation
         # to avoid premature export with incorrect parent_id

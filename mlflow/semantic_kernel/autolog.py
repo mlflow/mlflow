@@ -119,8 +119,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
         with _bypass_attribute_guard(mlflow_span._span):
             set_span_type(mlflow_span)
-            set_token_usage(mlflow_span)
             set_model(mlflow_span)
+            set_token_usage(mlflow_span)
 
         # Export the span using MLflow's span processor
         tracer = _get_tracer(__name__)

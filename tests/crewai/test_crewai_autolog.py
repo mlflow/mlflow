@@ -245,7 +245,7 @@ def autolog(request):
     clear_autolog_state()
 
 
-def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
+def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_litellm_cost):
     crew = Crew(
         agents=[
             simple_agent_1,
@@ -295,6 +295,12 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_3.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_3.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
@@ -381,7 +387,7 @@ def test_kickoff_failure(simple_agent_1, task_1, autolog):
     Version(crewai.__version__) < Version("0.114.0"),
     reason=("Modern tooling feature in the current style is not available before 0.114.0"),
 )
-def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
+def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_litellm_cost):
     crew = Crew(
         agents=[
             tool_agent_1,
@@ -427,6 +433,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
     assert span_3.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_3.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
     # LLM - tool trace
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "TestTool"
@@ -443,6 +455,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_5.inputs["messages"] is not None
     assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_5.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_5.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     # Create Long Term Memory
     span_6 = traces[0].data.spans[6]

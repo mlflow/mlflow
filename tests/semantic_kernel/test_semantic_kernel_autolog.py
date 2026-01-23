@@ -58,7 +58,7 @@ def with_openai_autolog(request):
 
 
 @pytest.mark.asyncio
-async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
+async def test_sk_invoke_simple(mock_openai, with_openai_autolog, mock_litellm_cost):
     mlflow.semantic_kernel.autolog()
     result = await _create_and_invoke_kernel_simple(mock_openai)
 
@@ -113,6 +113,12 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
     assert spans[3].get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
     assert spans[3].model_name == "gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert spans[3].cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     # OpenAI autologging
     if with_openai_autolog:
@@ -130,6 +136,11 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
             "total_tokens": 21,
         }
         assert spans[4].model_name == "gpt-4o-mini"
+        assert spans[4].cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     # Trace level token usage should not double-count
     assert trace.info.token_usage == {
@@ -169,7 +180,7 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(mock_openai):
 
 
 @pytest.mark.asyncio
-async def test_sk_invoke_complex(mock_openai):
+async def test_sk_invoke_complex(mock_openai, mock_litellm_cost):
     mlflow.semantic_kernel.autolog()
     result = await _create_and_invoke_kernel_complex(mock_openai)
 
@@ -222,6 +233,11 @@ async def test_sk_invoke_complex(mock_openai):
     assert chat_usage[TokenUsageKey.INPUT_TOKENS] == 9
     assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
+    assert chat_span.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
 
 @pytest.mark.asyncio

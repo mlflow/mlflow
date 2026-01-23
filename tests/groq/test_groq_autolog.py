@@ -67,7 +67,7 @@ def init_state(monkeypatch):
     mlflow.groq.autolog(disable=True)
 
 
-def test_chat_completion_autolog():
+def test_chat_completion_autolog(mock_litellm_cost):
     mlflow.groq.autolog()
     client = groq.Groq()
 
@@ -89,6 +89,12 @@ def test_chat_completion_autolog():
         "input_tokens": 20,
         "output_tokens": 648,
         "total_tokens": 668,
+    }
+    # Verify cost is calculated (20 input tokens * 1.0 + 648 output tokens * 2.0)
+    assert span.cost == {
+        "input_cost": 20.0,
+        "output_cost": 1296.0,
+        "total_cost": 1316.0,
     }
 
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"

@@ -24,7 +24,7 @@ def clear_autolog_state():
     mlflow.utils.import_hooks._post_import_hooks = {}
 
 
-def test_run_autolog():
+def test_run_autolog(mock_litellm_cost):
     from smolagents import ChatMessage, CodeAgent, InferenceClientModel
 
     _DUMMY_OUTPUT = ChatMessage(
@@ -113,15 +113,33 @@ def test_run_autolog():
             "output_tokens": 18,
             "total_tokens": 28,
         }
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span_2.cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
         assert span_4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 10,
             "output_tokens": 18,
             "total_tokens": 28,
         }
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span_4.cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
         assert span_5.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 10,
             "output_tokens": 18,
             "total_tokens": 28,
+        }
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span_5.cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
         }
 
         assert traces[0].info.token_usage == {

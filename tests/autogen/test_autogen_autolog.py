@@ -20,7 +20,7 @@ _MODEL_USAGE = {"prompt_tokens": 6, "completion_tokens": 1}
     "disable",
     [True, False],
 )
-async def test_autolog_assistant_agent(disable):
+async def test_autolog_assistant_agent(disable, mock_litellm_cost):
     model_client = ReplayChatCompletionClient(
         ["2"],
     )
@@ -96,6 +96,12 @@ async def test_autolog_assistant_agent(disable):
             "output_tokens": 1,
             "total_tokens": 7,
         }
+        # Verify cost is calculated (6 input tokens * 1.0 + 1 output tokens * 2.0)
+        assert span.cost == {
+            "input_cost": 6.0,
+            "output_cost": 2.0,
+            "total_cost": 8.0,
+        }
 
         assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "autogen"
 
@@ -107,7 +113,7 @@ async def test_autolog_assistant_agent(disable):
 
 
 @pytest.mark.asyncio
-async def test_autolog_tool_agent():
+async def test_autolog_tool_agent(mock_litellm_cost):
     model_client = ReplayChatCompletionClient(
         [
             CreateResult(
@@ -250,6 +256,11 @@ async def test_autolog_tool_agent():
         "output_tokens": 1,
         "total_tokens": 7,
     }
+    assert span.cost == {
+        "input_cost": 6.0,
+        "output_cost": 2.0,
+        "total_cost": 8.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
@@ -259,7 +270,7 @@ async def test_autolog_tool_agent():
 
 
 @pytest.mark.asyncio
-async def test_autolog_multi_modal():
+async def test_autolog_multi_modal(mock_litellm_cost):
     import PIL
 
     pil_image = PIL.Image.new("RGB", (8, 8))
@@ -342,6 +353,11 @@ async def test_autolog_multi_modal():
         "input_tokens": 14,
         "output_tokens": 1,
         "total_tokens": 15,
+    }
+    assert span.cost == {
+        "input_cost": 14.0,
+        "output_cost": 2.0,
+        "total_cost": 16.0,
     }
 
     assert traces[0].info.token_usage == {

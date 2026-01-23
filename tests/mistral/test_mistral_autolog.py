@@ -146,7 +146,7 @@ def _make_httpx_response(response: BaseModel, status_code: int = 200) -> httpx.R
     )
 
 
-def test_chat_complete_autolog():
+def test_chat_complete_autolog(mock_litellm_cost):
     with patch(
         "mistralai.chat.Chat.do_request",
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
@@ -175,6 +175,12 @@ def test_chat_complete_autolog():
         TokenUsageKey.INPUT_TOKENS: 10,
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
+    }
+    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+    assert span.cost == {
+        "input_cost": 10.0,
+        "output_cost": 36.0,
+        "total_cost": 46.0,
     }
 
     with patch(
