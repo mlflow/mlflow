@@ -68,6 +68,7 @@ def create_ragas_model(model_uri: str):
             client=client,
             model=f"{provider}/{model_name}",
             provider=provider,
+            drop_params=True,
         )
     else:
         raise MlflowException.invalid_parameter_value(
