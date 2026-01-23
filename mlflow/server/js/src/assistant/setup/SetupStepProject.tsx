@@ -152,7 +152,17 @@ export const SetupStepProject = ({
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
       setIsSaving(false);
     }
-  }, [experimentId, projectPath, skillsLocation, customSkillsPath, onComplete, refetchConfig, editFiles, readDocs, fullPermission]);
+  }, [
+    experimentId,
+    projectPath,
+    skillsLocation,
+    customSkillsPath,
+    onComplete,
+    refetchConfig,
+    editFiles,
+    readDocs,
+    fullPermission,
+  ]);
 
   if (isLoadingConfig) {
     return (

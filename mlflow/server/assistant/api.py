@@ -305,9 +305,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
     expanded_path_str = str(expanded_path)
 
     # Check if installation needed (location changed or no skills)
-    current_skills = (
-        list_installed_skills(expanded_path_str) if expanded_path.exists() else []
-    )
+    current_skills = list_installed_skills(expanded_path_str) if expanded_path.exists() else []
     needs_install = config.skills_location != expanded_path_str or not current_skills
 
     if needs_install:
@@ -323,9 +321,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
         config.skills_location = expanded_path_str
         config.save()
-        return SkillsInstallResponse(
-            installed_skills=installed, skills_directory=expanded_path_str
-        )
+        return SkillsInstallResponse(installed_skills=installed, skills_directory=expanded_path_str)
 
     return SkillsInstallResponse(
         installed_skills=current_skills, skills_directory=expanded_path_str

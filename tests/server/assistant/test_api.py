@@ -6,12 +6,15 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
+from mlflow.assistant.config import AssistantConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderConfig,
 )
+from mlflow.assistant.skills_installer import CloneFailedError
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager
@@ -198,8 +201,6 @@ def test_health_check_returns_401_when_not_authenticated():
 
 def test_get_config_returns_empty_config(client):
     with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
-        from mlflow.assistant.config import AssistantConfig
-
         mock_load.return_value = AssistantConfig()
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
         assert response.status_code == 200
@@ -210,10 +211,8 @@ def test_get_config_returns_empty_config(client):
 
 def test_get_config_returns_existing_config(client):
     with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
-        from mlflow.assistant.config import AssistantConfig, ProjectConfig, ProviderConfig
-
         mock_config = AssistantConfig(
-            providers={"claude_code": ProviderConfig(model="default", selected=True)},
+            providers={"claude_code": AssistantProviderConfig(model="default", selected=True)},
             projects={"exp-123": ProjectConfig(type="local", location="/path/to/project")},
         )
         mock_load.return_value = mock_config
@@ -227,8 +226,6 @@ def test_get_config_returns_existing_config(client):
 
 def test_update_config_sets_provider(client):
     with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
-        from mlflow.assistant.config import AssistantConfig
-
         mock_config = AssistantConfig()
         mock_load.return_value = mock_config
 
@@ -243,8 +240,6 @@ def test_update_config_sets_provider(client):
 
 def test_update_config_sets_project(client):
     with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
-        from mlflow.assistant.config import AssistantConfig
-
         mock_config = AssistantConfig()
         mock_load.return_value = mock_config
 
@@ -311,3 +306,89 @@ def test_validate_session_id_rejects_invalid_format():
 def test_validate_session_id_rejects_path_traversal():
     with pytest.raises(ValueError, match="Invalid session ID format"):
         SessionManager.validate_session_id("../../../etc/passwd")
+
+
+def test_install_skills_success(client):
+    with (
+        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
+        patch("mlflow.server.assistant.api.check_git_available", return_value=True),
+        patch(
+            "mlflow.server.assistant.api.install_skills", return_value=["skill1", "skill2"]
+        ) as mock_install,
+    ):
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"skills_location": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["skill1", "skill2"]
+        assert data["skills_directory"] == "/tmp/test-skills"
+        mock_install.assert_called_once_with("/tmp/test-skills")
+
+
+def test_install_skills_skips_when_already_installed(client):
+    with (
+        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
+        patch("mlflow.server.assistant.api.Path.exists", return_value=True),
+        patch(
+            "mlflow.server.assistant.api.list_installed_skills",
+            return_value=["existing_skill"],
+        ) as mock_list,
+        patch("mlflow.server.assistant.api.install_skills") as mock_install,
+    ):
+        mock_config = AssistantConfig(skills_location="/tmp/test-skills")
+        mock_load.return_value = mock_config
+
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"skills_location": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["existing_skill"]
+        mock_install.assert_not_called()
+        mock_list.assert_called_once()
+
+
+def test_install_skills_returns_412_when_git_not_available(client):
+    with (
+        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
+        patch("mlflow.server.assistant.api.check_git_available", return_value=False),
+    ):
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"skills_location": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 412
+        assert "Git is not installed" in response.json()["detail"]
+
+
+def test_install_skills_returns_500_when_clone_fails(client):
+    with (
+        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
+        patch("mlflow.server.assistant.api.check_git_available", return_value=True),
+        patch(
+            "mlflow.server.assistant.api.install_skills",
+            side_effect=CloneFailedError("Failed to clone repository"),
+        ),
+    ):
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"skills_location": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 500
+        assert "Failed to clone repository" in response.json()["detail"]
