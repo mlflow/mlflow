@@ -1,6 +1,8 @@
 import logging
 from typing import Any
 
+from opentelemetry import context as otel_context_api
+from opentelemetry import trace as otel_trace
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.kernel_content import KernelContent
@@ -83,9 +85,6 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
 
 
 async def patched_kernel_entry_point(original, self, *args, **kwargs):
-    from opentelemetry import context as otel_context_api
-    from opentelemetry import trace as otel_trace
-
     with mlflow.start_span(
         name=f"{self.__class__.__name__}.{original.__name__}",
         span_type=SpanType.AGENT,
