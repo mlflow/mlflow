@@ -230,9 +230,7 @@ def test_download_file_in_parallel_when_necessary(
 ):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",

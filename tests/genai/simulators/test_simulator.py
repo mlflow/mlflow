@@ -10,6 +10,9 @@ from mlflow.genai.simulators import (
     SimulatedUserAgent,
     SimulatorContext,
 )
+from mlflow.genai.simulators.prompts import DEFAULT_PERSONA
+from mlflow.genai.simulators.simulator import _MAX_METADATA_LENGTH
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
@@ -550,3 +553,98 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
         assert captured_contexts[0].goal == simple_test_case["goal"]
         assert captured_contexts[1].turn == 1
         assert captured_contexts[1].is_first_turn is False
+
+
+def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_context):
+    long_goal = "A" * 500
+    long_persona = "B" * 500
+    context = {"user_id": "U001", "session_id": "S001"}
+
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Not achieved", "result": "no"}',
+            "Follow up message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        simulator = ConversationSimulator(
+            test_cases=[{"goal": long_goal, "persona": long_persona, "context": context}],
+            max_turns=2,
+        )
+
+        all_traces = simulator.simulate(mock_predict_fn_with_context)
+        first_test_case_traces = all_traces[0]
+
+        assert len(first_test_case_traces) == 2
+
+        for trace in first_test_case_traces:
+            root_span = trace.data.spans[0]
+            metadata = trace.info.request_metadata
+
+            assert root_span.attributes["mlflow.simulation.goal"] == long_goal
+            assert root_span.attributes["mlflow.simulation.persona"] == long_persona
+            assert root_span.attributes["mlflow.simulation.context"] == context
+            assert metadata["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
+            assert metadata["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
+
+
+def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        simulator = ConversationSimulator(
+            test_cases=[{"goal": "Test goal"}],
+            max_turns=1,
+        )
+
+        all_traces = simulator.simulate(mock_predict_fn)
+
+        trace = all_traces[0][0]
+        root_span = trace.data.spans[0]
+
+        assert root_span.attributes["mlflow.simulation.goal"] == "Test goal"
+        assert root_span.attributes["mlflow.simulation.persona"] == DEFAULT_PERSONA
+        assert root_span.attributes["mlflow.simulation.context"] == {}
+
+
+def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
+    expectations = {"expected_topic": "MLflow", "expected_sentiment": "positive"}
+
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Not achieved", "result": "no"}',
+            "Follow up message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        simulator = ConversationSimulator(
+            test_cases=[{"goal": "Test goal", "expectations": expectations}],
+            max_turns=2,
+        )
+
+        all_traces = simulator.simulate(mock_predict_fn)
+
+        assert len(all_traces[0]) == 2
+
+        first_trace = all_traces[0][0]
+        expectation_assessments = [
+            a for a in first_trace.info.assessments if a.expectation is not None
+        ]
+
+        assert len(expectation_assessments) == 2
+        for assessment in expectation_assessments:
+            assert assessment.name in expectations
+            assert assessment.expectation.value == expectations[assessment.name]
+            assert TraceMetadataKey.TRACE_SESSION in assessment.metadata
+
+        second_trace = all_traces[0][1]
+        second_trace_assessments = second_trace.info.assessments
+        second_expectation_assessments = [
+            a for a in second_trace_assessments if a.expectation is not None
+        ]
+        assert len(second_expectation_assessments) == 0

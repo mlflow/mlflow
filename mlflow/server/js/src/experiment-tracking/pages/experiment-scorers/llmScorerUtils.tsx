@@ -20,11 +20,43 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
     () => [
       // Trace-level templates
       {
+        value: LLM_TEMPLATE.COMPLETENESS,
+        label: intl.formatMessage({ defaultMessage: 'Completeness', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Did the response address all explicit requests in the prompt?',
+          description: 'Hint for Completeness template',
+        }),
+      },
+      {
         value: LLM_TEMPLATE.CORRECTNESS,
         label: intl.formatMessage({ defaultMessage: 'Correctness', description: 'LLM template option' }),
         hint: intl.formatMessage({
           defaultMessage: 'Are the expected facts supported by the response?',
           description: 'Hint for Correctness template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.EQUIVALENCE,
+        label: intl.formatMessage({ defaultMessage: 'Equivalence', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Is the output semantically equivalent to the expected output?',
+          description: 'Hint for Equivalence template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.EXPECTATIONS_GUIDELINES,
+        label: intl.formatMessage({ defaultMessage: 'Expectations Guidelines', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Does the response follow per-example guidelines from expectations?',
+          description: 'Hint for ExpectationsGuidelines template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.FLUENCY,
+        label: intl.formatMessage({ defaultMessage: 'Fluency', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Is the text grammatically correct and naturally flowing?',
+          description: 'Hint for Fluency template',
         }),
       },
       {
@@ -75,6 +107,30 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
           description: 'Hint for Safety template',
         }),
       },
+      {
+        value: LLM_TEMPLATE.SUMMARIZATION,
+        label: intl.formatMessage({ defaultMessage: 'Summarization', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Is the summary faithful, complete, and concise?',
+          description: 'Hint for Summarization template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.TOOL_CALL_CORRECTNESS,
+        label: intl.formatMessage({ defaultMessage: 'Tool Call Correctness', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Are the tool calls and their arguments correct for the request?',
+          description: 'Hint for ToolCallCorrectness template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.TOOL_CALL_EFFICIENCY,
+        label: intl.formatMessage({ defaultMessage: 'Tool Call Efficiency', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Is the tool usage free of redundancy and inefficiency?',
+          description: 'Hint for ToolCallEfficiency template',
+        }),
+      },
       // Session-level templates
       {
         value: LLM_TEMPLATE.CONVERSATION_COMPLETENESS,
@@ -90,6 +146,36 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
         hint: intl.formatMessage({
           defaultMessage: 'Does the assistant follow the provided guidelines throughout the conversation?',
           description: 'Hint for ConversationalGuidelines template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.CONVERSATIONAL_ROLE_ADHERENCE,
+        label: intl.formatMessage({
+          defaultMessage: 'Conversational role adherence',
+          description: 'LLM template option',
+        }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Does the assistant maintain its assigned role throughout the conversation?',
+          description: 'Hint for ConversationalRoleAdherence template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.CONVERSATIONAL_SAFETY,
+        label: intl.formatMessage({ defaultMessage: 'Conversational safety', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: "Are the assistant's responses safe throughout the conversation?",
+          description: 'Hint for ConversationalSafety template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.CONVERSATIONAL_TOOL_CALL_EFFICIENCY,
+        label: intl.formatMessage({
+          defaultMessage: 'Conversational tool call efficiency',
+          description: 'LLM template option',
+        }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Is tool usage efficient throughout the conversation?',
+          description: 'Hint for ConversationalToolCallEfficiency template',
         }),
       },
       {
