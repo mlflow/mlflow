@@ -31,12 +31,11 @@ const ExperimentChatSessionsPageImpl = () => {
   useRegisterSelectedIds('selectedSessionIds', rowSelection);
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
   });
 
-  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
+  const timeRange = useMonitoringFiltersTimeRange();
 
   const traceSearchLocations = useMemo(
     () => {
