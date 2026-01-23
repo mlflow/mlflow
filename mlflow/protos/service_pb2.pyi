@@ -5,6 +5,7 @@ from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
+import prompt_optimization_pb2 as _prompt_optimization_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -2245,6 +2246,34 @@ class GetSecretsConfig(_message.Message):
         secrets_available: bool
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
+
+class CreatePromptOptimizationJob(_message.Message):
+    __slots__ = ("experiment_id", "source_prompt_uri", "config", "tags")
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    source_prompt_uri: str
+    config: _prompt_optimization_pb2.PromptOptimizationJobConfig
+    tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJobTag]
+    def __init__(self, experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
+
+class CancelPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 
