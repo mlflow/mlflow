@@ -1388,13 +1388,12 @@ def test_evaluate_with_predict_fn_without_traces_creates_minimal_trace(monkeypat
     data = [
         {
             "inputs": {"summary": "Test summary"},
-            "outputs": "Test summary",  # Include outputs in data
+            "outputs": "Test summary",
         }
     ]
 
     @scorer(name="simple_scorer")
     def simple_scorer(inputs, outputs):
-        # Simple scorer that always returns 1.0
         return 1.0
 
     # This should not raise AttributeError: 'NoneType' object has no attribute 'info'
@@ -1470,12 +1469,18 @@ def test_evaluate_with_auto_traced_function_no_duplicate_traces():
     auto-tracing caused duplicate trace IDs.
     """
 
-    # Simulate an auto-traced function by manually creating traces
-    call_count = [0]
+    class CallCounter:
+        def __init__(self):
+            self.count = 0
+
+        def increment(self):
+            self.count += 1
+
+    counter = CallCounter()
 
     @mlflow.trace
     def auto_traced_predict_fn(summary: str) -> str:
-        call_count[0] += 1
+        counter.increment()
         return summary
 
     data = [
@@ -1501,7 +1506,7 @@ def test_evaluate_with_auto_traced_function_no_duplicate_traces():
     assert "test_scorer/mean" in result.metrics
 
     # Verify the function was called at least twice (validation + evaluation)
-    assert call_count[0] >= 2
+    assert counter.count >= 2
 
     # Get all traces and verify they have unique trace IDs
     traces = get_traces()
