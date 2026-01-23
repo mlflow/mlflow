@@ -7,7 +7,7 @@ from mlflow.entities import SpanType
 from mlflow.mistral.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools, set_span_model_attribute
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -106,6 +106,8 @@ class TracingSession:
                 f"Failed to extract token usage for span {self.span.name}: {e}",
                 exc_info=True,
             )
+
+        set_span_model_attribute(self.span, self.inputs)
 
         # End the span with captured outputs. Keep original object for backward compatibility.
         self.span.end(outputs=self.output)

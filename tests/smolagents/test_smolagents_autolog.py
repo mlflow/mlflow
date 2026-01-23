@@ -83,6 +83,7 @@ def test_run_autolog():
         assert span_2.parent_id == span_1.span_id
         assert span_2.inputs is not None
         assert span_2.outputs is not None
+        assert span_2.model_name == "gpt-3.5-turbo"
         # CodeAgent
         span_3 = traces[0].data.spans[3]
         assert span_3.name == "CodeAgent.step"
@@ -97,6 +98,7 @@ def test_run_autolog():
         assert span_4.parent_id == span_3.span_id
         assert span_4.inputs is not None
         assert span_4.outputs is not None
+        assert span_4.model_name == "gpt-3.5-turbo"
         # InferenceClientModel
         span_5 = traces[0].data.spans[5]
         assert span_5.name == "InferenceClientModel.call_original"
@@ -104,6 +106,7 @@ def test_run_autolog():
         assert span_5.parent_id == span_0.span_id
         assert span_5.inputs is not None
         assert span_5.outputs is not None
+        assert span_5.model_name == "gpt-3.5-turbo"
 
         assert span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 10,
@@ -228,6 +231,7 @@ def test_tool_autolog():
         assert span_2.parent_id == span_1.span_id
         assert span_2.inputs is not None
         assert span_2.outputs is not None
+        assert span_2.model_name == "gpt-3.5-turbo"
         # CodeAgent
         span_3 = traces[0].data.spans[3]
         assert span_3.name == "InferenceClientModel.call_original"
@@ -235,6 +239,7 @@ def test_tool_autolog():
         assert span_3.parent_id == span_0.span_id
         assert span_3.inputs is not None
         assert span_3.outputs is not None
+        assert span_3.model_name == "gpt-3.5-turbo"
 
         assert span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 10,
