@@ -146,3 +146,9 @@ def set_token_usage(mlflow_span: LiveSpan) -> None:
 
     if usage_dict:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+
+def set_model(mlflow_span: LiveSpan) -> None:
+    """Set model name attribute on the MLflow span."""
+    if model := mlflow_span.get_attribute(model_gen_ai_attributes.MODEL):
+        mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
