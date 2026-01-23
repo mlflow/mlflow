@@ -8,7 +8,11 @@ import type {
   GetTraceFunction,
   TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
-import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
+import {
+  shouldUseTracesV4API,
+  useUnifiedTraceTagsModal,
+  ModelTraceExplorerContextProvider,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -49,6 +53,7 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -363,47 +368,47 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     const tableContent = (
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={getTrace}
+      <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        isGroupedBySession={isGroupedBySession}
+        DrawerComponent={AssistantAwareDrawer}
       >
-        <div
-          css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <GenAITracesTableToolbar
-            experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            toggleColumns={toggleColumns}
-            setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
-            usesV4APIs={usesV4APIs}
-            addons={toolbarAddons}
-            isGroupedBySession={isGroupedBySession}
-            onToggleSessionGrouping={onToggleSessionGrouping}
-          />
-          {renderMainContent()}
-        </div>
-      </GenAITracesTableProvider>
+        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+          <div
+            css={{
+              overflowY: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <GenAITracesTableToolbar
+              experimentId={experimentId}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilters={setFilters}
+              assessmentInfos={assessmentInfos}
+              traceInfos={traceInfos}
+              tableFilterOptions={tableFilterOptions}
+              countInfo={countInfo}
+              traceActions={traceActions}
+              tableSort={tableSort}
+              setTableSort={setTableSort}
+              allColumns={allColumns}
+              selectedColumns={selectedColumns}
+              toggleColumns={toggleColumns}
+              setSelectedColumns={setSelectedColumns}
+              isMetadataLoading={isMetadataLoading}
+              metadataError={metadataError}
+              usesV4APIs={usesV4APIs}
+              addons={toolbarAddons}
+              isGroupedBySession={isGroupedBySession}
+              onToggleSessionGrouping={onToggleSessionGrouping}
+            />
+            {renderMainContent()}
+          </div>
+        </GenAITracesTableProvider>
+      </ModelTraceExplorerContextProvider>
     );
 
     // If we're already inside an external provider (e.g., from SelectTracesModal),
