@@ -24,6 +24,7 @@ async def test_autolog_assistant_agent(disable):
     model_client = ReplayChatCompletionClient(
         ["2"],
     )
+    model_client.model = "gpt-4o-mini"
     agent = AssistantAgent("assistant", model_client=model_client, system_message=_SYSTEM_MESSAGE)
 
     mlflow.autogen.autolog(disable=disable)
@@ -88,6 +89,7 @@ async def test_autolog_assistant_agent(disable):
             {"content": "1+1", "source": "user", "type": "UserMessage"},
         ]
         assert span.outputs["content"] == "2"
+        assert span.model_name == "gpt-4o-mini"
 
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 6,
@@ -116,6 +118,7 @@ async def test_autolog_tool_agent():
             ),
         ],
     )
+    model_client.model = "gpt-4o-mini"
     model_client.model_info["function_calling"] = True
     TOOL_ATTRIBUTES = [
         {
@@ -240,6 +243,7 @@ async def test_autolog_tool_agent():
     assert span.outputs["content"] == [
         {"id": "1", "arguments": '{"number": 1}', "name": "increment_number"}
     ]
+    assert span.model_name == "gpt-4o-mini"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 6,
@@ -265,6 +269,7 @@ async def test_autolog_multi_modal():
     model_client = ReplayChatCompletionClient(
         ["2"],
     )
+    model_client.model = "gpt-4o-mini"
     agent = AssistantAgent("assistant", model_client=model_client, system_message=_SYSTEM_MESSAGE)
     mlflow.autogen.autolog()
 
@@ -331,6 +336,7 @@ async def test_autolog_multi_modal():
         {"content": f"{user_message}\n<image>", "source": "user", "type": "UserMessage"},
     ]
     assert span.outputs["content"] == "2"
+    assert span.model_name == "gpt-4o-mini"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 14,
