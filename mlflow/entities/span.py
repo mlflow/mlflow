@@ -175,6 +175,19 @@ class Span:
         return self.get_attribute(SpanAttributeKey.MODEL)
 
     @property
+    def cost(self) -> dict[str, float] | None:
+        """The cost information for the span in USD.
+
+        Returns a dictionary with keys:
+        - input_cost: Cost of input tokens
+        - output_cost: Cost of output tokens
+        - total_cost: Total cost (input + output)
+
+        Returns None if cost information is not available.
+        """
+        return self.get_attribute(SpanAttributeKey.CHAT_COST)
+
+    @property
     def _trace_id(self) -> str:
         """
         The OpenTelemetry trace ID of the span. Note that this should not be exposed to

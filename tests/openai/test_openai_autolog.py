@@ -89,7 +89,7 @@ def embedding_models():
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_autolog(client):
+async def test_chat_completions_autolog(client, mock_litellm_cost):
     mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
@@ -122,6 +122,14 @@ async def test_chat_completions_autolog(client):
     }
     assert span.model_name == "gpt-4o-mini"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
+
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span.cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
+
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
