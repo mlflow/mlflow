@@ -99,7 +99,7 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai
-      - name: List Docker images (after tests)
+      - name: List Docker images
         if: always()
         run: |
           docker images
