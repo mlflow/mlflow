@@ -83,7 +83,7 @@ def test_token_usage_parsed_for_llm_component():
 
     @component
     class MyLLM:
-        def run(self, prompt: str):
+        def run(self, prompt: str, model: str):
             return {}
 
     pipe = Pipeline()
@@ -99,7 +99,7 @@ def test_token_usage_parsed_for_llm_component():
     }
 
     with patch.object(MyLLM, "run", return_value=output):
-        pipe.run({"my_llm": {"prompt": "hello"}})
+        pipe.run({"my_llm": {"prompt": "hello", "model": "gpt-4"}})
 
     traces = get_traces()
     assert len(traces) == 1
@@ -111,12 +111,13 @@ def test_token_usage_parsed_for_llm_component():
         "output_tokens": 2,
         "total_tokens": 3,
     }
+    assert span.model_name == "gpt-4"
 
     mlflow.haystack.autolog(disable=True)
 
     traces = get_traces()
     with patch.object(MyLLM, "run", return_value=output):
-        pipe.run({"my_llm": {"prompt": "hello"}})
+        pipe.run({"my_llm": {"prompt": "hello", "model": "gpt-4"}})
 
     assert len(traces) == 1
 

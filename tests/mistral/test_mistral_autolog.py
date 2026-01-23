@@ -169,6 +169,7 @@ def test_chat_complete_autolog():
         for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
     }
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 10,
@@ -207,6 +208,7 @@ def test_chat_complete_autolog_tool_calling():
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -278,6 +280,7 @@ async def test_chat_complete_async_autolog():
         for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
     }
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 10,

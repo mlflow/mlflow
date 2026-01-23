@@ -57,6 +57,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             _set_span_type(mlflow_span, span)
             _set_inputs_outputs(mlflow_span, span)
             _set_token_usage(mlflow_span, span)
+            if model := span.attributes.get("gen_ai.request.model"):
+                mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
         tracer = _get_tracer(__name__)
         tracer.span_processor.on_end(span)
 
