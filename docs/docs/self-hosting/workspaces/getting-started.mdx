@@ -72,7 +72,7 @@ print(f"Created workspace: {workspace.name}")
 You can also use the REST API directly:
 
 ```bash
-curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces \
+curl -X POST http://localhost:5000/api/3.0/mlflow/workspaces \
   -H "Content-Type: application/json" \
   -d '{
     "name": "team-a",
@@ -217,18 +217,18 @@ All workspace management operations are also available via REST API:
 
 ```bash
 # List workspaces
-curl http://localhost:5000/api/2.0/mlflow/workspaces
+curl http://localhost:5000/api/3.0/mlflow/workspaces
 
 # Get workspace
-curl http://localhost:5000/api/2.0/mlflow/workspaces/team-a
+curl http://localhost:5000/api/3.0/mlflow/workspaces/team-a
 
 # Update workspace
-curl -X PATCH http://localhost:5000/api/2.0/mlflow/workspaces/team-a \
+curl -X PATCH http://localhost:5000/api/3.0/mlflow/workspaces/team-a \
   -H "Content-Type: application/json" \
   -d '{"description": "Updated description"}'
 
 # Delete workspace
-curl -X DELETE http://localhost:5000/api/2.0/mlflow/workspaces/team-a
+curl -X DELETE http://localhost:5000/api/3.0/mlflow/workspaces/team-a
 ```
 
 ## Using REST APIs with Workspaces
