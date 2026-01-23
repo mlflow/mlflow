@@ -1513,3 +1513,62 @@ def test_evaluate_with_auto_traced_function_no_duplicate_traces():
     trace_ids = [trace.info.trace_id for trace in traces]
     # All trace IDs should be unique (no duplicates)
     assert len(trace_ids) == len(set(trace_ids)), "Found duplicate trace IDs"
+
+
+def test_bug_report_scenario_with_pre_generated_summaries():
+    """
+    Integration test that replicates the exact scenario from the bug report:
+    - Using genai.evaluate() with pre-generated summaries
+    - predict_fn simply returns the pre-generated summary (no generation)
+    - Using a custom scorer similar to the bug report
+
+    This test validates both fixes:
+    1. No duplicate trace ID errors when validation runs
+    2. No NoneType errors when accessing trace.info
+    """
+
+    # Replicate the bug report's predict function
+    def qa_predict_fn(**inputs) -> str:
+        """Wrapper function for evaluation - returns the summary to be evaluated"""
+        return inputs["summary"]
+
+    # Test dataset similar to bug report
+    test_dataset = [
+        {
+            "inputs": {
+                "source_text": "The story of Little Red Riding Hood revolves around a girl.",
+                "summary": "The story of John Cena, the WWE champion.",
+            },
+            "outputs": "The story of John Cena, the WWE champion.",
+        }
+    ]
+
+    @scorer(name="mock_score")
+    def mock_scorer(inputs, outputs):
+        """Simple mock scorer to trigger MLflow evaluation."""
+        return 1.0
+
+    # This should complete successfully without errors
+    result = mlflow.genai.evaluate(
+        data=test_dataset,
+        predict_fn=qa_predict_fn,
+        scorers=[mock_scorer],
+    )
+
+    # Verify the evaluation completed successfully
+    assert result is not None
+    assert "mock_score/mean" in result.metrics
+    assert result.metrics["mock_score/mean"] == 1.0
+
+    # Verify traces were created without duplicates
+    traces = get_traces()
+    assert len(traces) >= 1
+    trace_ids = [trace.info.trace_id for trace in traces]
+    assert len(trace_ids) == len(set(trace_ids)), "Found duplicate trace IDs"
+
+    # Verify all traces have valid info (no NoneType errors)
+    for trace in traces:
+        assert trace is not None
+        assert trace.info is not None
+        # Should be able to access assessments without AttributeError
+        assert hasattr(trace.info, "assessments")
