@@ -13,6 +13,7 @@ from mlflow.tracing.utils import (
     construct_full_inputs,
     parse_model_from_inputs,
     set_span_chat_tools,
+    set_span_cost_attribute,
     set_span_model_attribute,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -132,6 +133,9 @@ class TracingSession:
             _logger.warning(
                 f"Failed to extract token usage for span {self.span.name}: {e}", exc_info=True
             )
+
+        # Set cost attribute based on model and token usage
+        set_span_cost_attribute(self.span)
 
         # need to convert the response of generate_content for better visualization
         outputs = self.output.to_dict() if hasattr(self.output, "to_dict") else self.output
