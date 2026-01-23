@@ -19,6 +19,7 @@ from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.run import Run
@@ -62,7 +63,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetRegisteredModelRequest,
     Job,
     LineageHeaderInfo,
-    ModelVersion,
     Notebook,
     SearchModelVersionsRequest,
     SearchRegisteredModelsRequest,
@@ -2346,7 +2346,7 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
 
     uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
-    model_version = ModelVersion(
+    model_version = ProtoModelVersion(
         name="catalog.schema.model_1", version="1", storage_location="s3://some/storage/location"
     )
     creds = TemporaryCredentials(
@@ -2388,7 +2388,7 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
         return_value=creds,
     ):
         uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
-        model_version = ModelVersion(name="catalog.schema.model_1", version="1")
+        model_version = ProtoModelVersion(name="catalog.schema.model_1", version="1")
         presigned_store = uc_store._get_artifact_repo(model_version)
 
     assert type(presigned_store) is PresignedUrlArtifactRepository
@@ -3002,9 +3002,6 @@ def test_link_prompt_version_to_run_sets_tag(store):
 
 
 def test_await_model_version_creation_pending(store):
-    from mlflow.entities.model_registry import ModelVersion
-    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-
     pending_mv = ModelVersion(
         name="catalog.schema.model",
         version="1",
@@ -3023,9 +3020,6 @@ def test_await_model_version_creation_pending(store):
 
 
 def test_await_model_version_creation_success(store):
-    from mlflow.entities.model_registry import ModelVersion
-    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-
     pending_mv = ModelVersion(
         name="catalog.schema.model",
         version="1",
@@ -3057,9 +3051,6 @@ def test_await_model_version_creation_success(store):
 
 
 def test_await_model_version_creation_failed(store):
-    from mlflow.entities.model_registry import ModelVersion
-    from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-
     failed_mv = ModelVersion(
         name="catalog.schema.model",
         version="1",
