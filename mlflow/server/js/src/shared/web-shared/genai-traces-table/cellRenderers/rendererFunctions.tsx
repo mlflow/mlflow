@@ -415,6 +415,7 @@ export const traceInfoCellRenderer = (
   intl: IntlShape,
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
+  traceIdToTurnMap?: Record<string, number>,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -721,6 +722,10 @@ export const traceInfoCellRenderer = (
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const currentTraceId = currentTraceInfo?.trace_id;
     const otherTraceId = otherTraceInfo?.trace_id;
+
+    const turnNumber = traceIdToTurnMap?.[currentTraceId ?? ''];
+    const otherTurnNumber = traceIdToTurnMap?.[otherTraceId ?? ''];
+
     return (
       <StackedComponents
         first={
@@ -739,7 +744,7 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {value}
+                  {!isNil(turnNumber) ? `Turn ${turnNumber}` : value}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
@@ -764,7 +769,7 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {otherValue}
+                  {!isNil(otherTurnNumber) ? `Turn ${otherTurnNumber}` : otherValue}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>

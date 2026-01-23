@@ -46,7 +46,7 @@ const collectTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTra
 export const groupTracesBySessionForTable = (
   currentEvaluationResults: EvalTraceComparisonEntry[],
   expandedSessions: Set<string>,
-): GroupedTraceTableRowData[] => {
+): { groupedRows: GroupedTraceTableRowData[]; traceIdToTurnMap: Record<string, number> } => {
   const sessionMap: Record<string, EvalTraceComparisonEntry[]> = {};
   const standaloneEntries: EvalTraceComparisonEntry[] = [];
 
@@ -67,6 +67,7 @@ export const groupTracesBySessionForTable = (
   });
 
   const result: GroupedTraceTableRowData[] = [];
+  const traceIdToTurnMap: Record<string, number> = {};
 
   // Process each session: add header followed by trace rows (if expanded)
   Object.entries(sessionMap).forEach(([sessionId, sessionEntries]) => {
@@ -93,11 +94,16 @@ export const groupTracesBySessionForTable = (
 
     // Add individual trace rows only if session is expanded
     if (expandedSessions.has(sessionId)) {
-      sessionEntries.forEach((entry) => {
+      sessionEntries.forEach((entry, index) => {
         result.push({
           type: 'trace',
           data: entry,
         });
+
+        const traceId = entry.currentRunValue?.traceInfo?.trace_id;
+        if (traceId) {
+          traceIdToTurnMap[traceId] = index + 1;
+        }
       });
     }
   });
@@ -110,5 +116,5 @@ export const groupTracesBySessionForTable = (
     });
   });
 
-  return result;
+  return { groupedRows: result, traceIdToTurnMap };
 };
