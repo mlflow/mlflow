@@ -32,7 +32,7 @@ import * as mlflow from 'mlflow-tracing';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
-  experimentId: '<experiment-id>'
+  experimentId: '<experiment-id>',
 });
 ```
 
@@ -48,7 +48,7 @@ const client = tracedAnthropic(anthropic);
 const response = await client.messages.create({
   model: 'claude-3-7-sonnet-20250219',
   max_tokens: 256,
-  messages: [{ role: 'user', content: 'Hello Claude' }]
+  messages: [{ role: 'user', content: 'Hello Claude' }],
 });
 ```
 

@@ -18,9 +18,9 @@ describe('DatabricksArtifactsClient', () => {
     // eslint-disable-next-line require-await, @typescript-eslint/require-await
     getHeadersProvider: () => async () => ({
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${testToken}`
+      Authorization: `Bearer ${testToken}`,
     }),
-    getDatabricksToken: () => testToken
+    getDatabricksToken: () => testToken,
   };
 
   let server: ReturnType<typeof setupServer>;
@@ -44,10 +44,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-databricks-123',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
-        requestTime: 1000
+        requestTime: 1000,
       });
 
       const traceData = new TraceData([]);
@@ -62,18 +62,18 @@ describe('DatabricksArtifactsClient', () => {
                 type: 'AWS_PRESIGNED_URL',
                 signed_uri:
                   'https://s3.amazonaws.com/bucket/traces/tr-databricks-123?signature=xyz',
-                headers: [{ name: 'x-amz-server-side-encryption', value: 'AES256' }]
-              }
+                headers: [{ name: 'x-amz-server-side-encryption', value: 'AES256' }],
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       // Mock successful S3 upload
       server.use(
         http.put('https://s3.amazonaws.com/bucket/traces/tr-databricks-123', () => {
           return HttpResponse.json({}, { status: 200 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
@@ -84,10 +84,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-gcp-456',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '1' }
+          mlflowExperiment: { experimentId: '1' },
         },
         state: TraceState.OK,
-        requestTime: 2000
+        requestTime: 2000,
       });
 
       const traceData = new TraceData([]);
@@ -98,17 +98,17 @@ describe('DatabricksArtifactsClient', () => {
           return HttpResponse.json({
             credential_info: {
               type: 'GCP_SIGNED_URL',
-              signed_uri: 'https://storage.googleapis.com/bucket/traces/tr-gcp-456?signature=abc'
-            }
+              signed_uri: 'https://storage.googleapis.com/bucket/traces/tr-gcp-456?signature=abc',
+            },
           });
-        })
+        }),
       );
 
       // Mock successful GCP upload
       server.use(
         http.put('https://storage.googleapis.com/bucket/traces/tr-gcp-456', () => {
           return HttpResponse.json({}, { status: 200 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
@@ -119,10 +119,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-azure-789',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '2' }
+          mlflowExperiment: { experimentId: '2' },
         },
         state: TraceState.OK,
-        requestTime: 3000
+        requestTime: 3000,
       });
 
       const traceData = new TraceData([]);
@@ -135,18 +135,18 @@ describe('DatabricksArtifactsClient', () => {
             return HttpResponse.json({
               credential_info: {
                 type: 'AZURE_SAS_URI',
-                signed_uri: 'https://storage.azure.com/traces/tr-azure-789?sas=token'
-              }
+                signed_uri: 'https://storage.azure.com/traces/tr-azure-789?sas=token',
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       // Mock Azure Blob Storage upload
       server.use(
         http.put('https://storage.azure.com/traces/tr-azure-789', () => {
           return new HttpResponse(null, { status: 201 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
@@ -157,10 +157,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-fail-upload',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.ERROR,
-        requestTime: 4000
+        requestTime: 4000,
       });
 
       const traceData = new TraceData([]);
@@ -173,22 +173,22 @@ describe('DatabricksArtifactsClient', () => {
             return HttpResponse.json({
               credential_info: {
                 type: 'AWS_PRESIGNED_URL',
-                signed_uri: 'https://s3.amazonaws.com/bucket/traces/tr-fail-upload?signature=xyz'
-              }
+                signed_uri: 'https://s3.amazonaws.com/bucket/traces/tr-fail-upload?signature=xyz',
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       // Mock failed S3 upload
       server.use(
         http.put('https://s3.amazonaws.com/bucket/traces/tr-fail-upload', () => {
           return HttpResponse.json({ error: 'Forbidden' }, { status: 403 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
-        'AWS_PRESIGNED_URL upload failed: 403 Forbidden'
+        'AWS_PRESIGNED_URL upload failed: 403 Forbidden',
       );
     });
   });
@@ -199,10 +199,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-download-123',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '5' }
+          mlflowExperiment: { experimentId: '5' },
         },
         state: TraceState.OK,
-        requestTime: 5000
+        requestTime: 5000,
       });
 
       // Mock credentials response
@@ -214,11 +214,11 @@ describe('DatabricksArtifactsClient', () => {
               credential_info: {
                 type: 'AWS_PRESIGNED_URL',
                 signed_uri: 'https://s3.amazonaws.com/bucket/traces/tr-download-123?signature=xyz',
-                headers: [{ name: 'x-amz-server-side-encryption', value: 'AES256' }]
-              }
+                headers: [{ name: 'x-amz-server-side-encryption', value: 'AES256' }],
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       const mockTraceData = {
@@ -230,16 +230,16 @@ describe('DatabricksArtifactsClient', () => {
             start_time: '5000000000',
             end_time: '5100000000',
             status: { code: 'OK' },
-            attributes: {}
-          }
-        ]
+            attributes: {},
+          },
+        ],
       };
 
       // Mock successful S3 download
       server.use(
         http.get('https://s3.amazonaws.com/bucket/traces/tr-download-123', () => {
           return HttpResponse.text(JSON.stringify(mockTraceData));
-        })
+        }),
       );
 
       const result = await client.downloadTraceData(traceInfo);
@@ -258,10 +258,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-error-log',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.ERROR,
-        requestTime: 9000
+        requestTime: 9000,
       });
 
       const traceData = new TraceData([]);
@@ -272,8 +272,8 @@ describe('DatabricksArtifactsClient', () => {
           `${testHost}/api/2.0/mlflow/traces/tr-error-log/credentials-for-data-upload`,
           () => {
             return HttpResponse.json({ error: 'Network error' }, { status: 500 });
-          }
-        )
+          },
+        ),
       );
 
       // Spy on console.error
@@ -283,7 +283,7 @@ describe('DatabricksArtifactsClient', () => {
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'Trace data upload failed for tr-error-log:',
-        expect.any(Error)
+        expect.any(Error),
       );
 
       consoleSpy.mockRestore();
@@ -294,10 +294,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-download-error',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
-        requestTime: 10000
+        requestTime: 10000,
       });
 
       // Mock network error
@@ -306,8 +306,8 @@ describe('DatabricksArtifactsClient', () => {
           `${testHost}/api/2.0/mlflow/traces/tr-download-error/credentials-for-data-download`,
           () => {
             return HttpResponse.json({ error: 'Connection timeout' }, { status: 500 });
-          }
-        )
+          },
+        ),
       );
 
       // Spy on console.error
@@ -317,7 +317,7 @@ describe('DatabricksArtifactsClient', () => {
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to download trace data for tr-download-error:',
-        expect.any(Error)
+        expect.any(Error),
       );
 
       expect(result).toBeInstanceOf(TraceData);
@@ -330,7 +330,7 @@ describe('DatabricksArtifactsClient', () => {
   describe('Credential Types', () => {
     const credentialTypes = [
       { type: 'AWS_PRESIGNED_URL', url: 'https://s3.amazonaws.com/bucket/file' },
-      { type: 'GCP_SIGNED_URL', url: 'https://storage.googleapis.com/bucket/file' }
+      { type: 'GCP_SIGNED_URL', url: 'https://storage.googleapis.com/bucket/file' },
     ];
 
     credentialTypes.forEach(({ type, url }) => {
@@ -339,10 +339,10 @@ describe('DatabricksArtifactsClient', () => {
           traceId: `tr-${type}`,
           traceLocation: {
             type: TraceLocationType.MLFLOW_EXPERIMENT,
-            mlflowExperiment: { experimentId: '0' }
+            mlflowExperiment: { experimentId: '0' },
           },
           state: TraceState.OK,
-          requestTime: 11000
+          requestTime: 11000,
         });
 
         const traceData = new TraceData([]);
@@ -354,17 +354,17 @@ describe('DatabricksArtifactsClient', () => {
               return HttpResponse.json({
                 credential_info: {
                   type,
-                  signed_uri: `${url}?signature=test`
-                }
+                  signed_uri: `${url}?signature=test`,
+                },
               });
-            }
-          )
+            },
+          ),
         );
 
         server.use(
           http.put(`${url}`, () => {
             return HttpResponse.json({}, { status: 200 });
-          })
+          }),
         );
 
         await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
@@ -376,10 +376,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-AZURE_SAS_URI',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
-        requestTime: 12000
+        requestTime: 12000,
       });
 
       const traceData = new TraceData([]);
@@ -391,18 +391,18 @@ describe('DatabricksArtifactsClient', () => {
             return HttpResponse.json({
               credential_info: {
                 type: 'AZURE_SAS_URI' as any,
-                signed_uri: 'https://storage.azure.com/file?sas=token'
-              }
+                signed_uri: 'https://storage.azure.com/file?sas=token',
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       // Mock Azure Blob Storage upload
       server.use(
         http.put('https://storage.azure.com/file', () => {
           return new HttpResponse(null, { status: 201 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
@@ -413,10 +413,10 @@ describe('DatabricksArtifactsClient', () => {
         traceId: 'tr-AZURE_ADLS_GEN2_SAS_URI',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
-        requestTime: 12000
+        requestTime: 12000,
       });
 
       const traceData = new TraceData([]);
@@ -428,11 +428,11 @@ describe('DatabricksArtifactsClient', () => {
             return HttpResponse.json({
               credential_info: {
                 type: 'AZURE_ADLS_GEN2_SAS_URI' as any,
-                signed_uri: 'https://storage.azure.com/file?sas=token'
-              }
+                signed_uri: 'https://storage.azure.com/file?sas=token',
+              },
             });
-          }
-        )
+          },
+        ),
       );
 
       // Mock Azure ADLS Gen2 operations (create, append, flush)
@@ -455,7 +455,7 @@ describe('DatabricksArtifactsClient', () => {
             return new HttpResponse(null, { status: 200 });
           }
           return new HttpResponse(null, { status: 404 });
-        })
+        }),
       );
 
       await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();

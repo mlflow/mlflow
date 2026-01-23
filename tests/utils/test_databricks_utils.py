@@ -956,3 +956,24 @@ def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
         mock_dbutils.widgets.get.assert_called_once_with(
             "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
         )
+
+
+def test_databricks_config_profile_env_var_is_respected(tmp_path, monkeypatch):
+    file_path = tmp_path / ".databrickscfg"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(file_path))
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "test")
+
+    file_path.write_text("""[DEFAULT]
+host = http://default-workspace.databricks.com
+token = default-token
+
+[test]
+host = https://test-workspace.databricks.com
+token = test-token
+""")
+
+    # the resulting config should be the one from the [test] section
+    result = get_databricks_host_creds("databricks")
+    assert result.host == "https://test-workspace.databricks.com"
+    assert result.token == "test-token"

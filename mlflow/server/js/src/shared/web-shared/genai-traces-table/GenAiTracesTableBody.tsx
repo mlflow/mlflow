@@ -2,7 +2,7 @@ import type { RowSelectionState, OnChangeFn, ColumnDef, Row } from '@tanstack/re
 import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
@@ -17,7 +17,9 @@ import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
 import { getColumnConfig } from './GenAiTracesTableBody.utils';
 import { MemoizedGenAiTracesTableBodyRows } from './GenAiTracesTableBodyRows';
+import { MemoizedGenAiTracesTableSessionGroupedRows } from './GenAiTracesTableSessionGroupedRows';
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
+import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
 import { GenAITraceComparisonModal } from './components/GenAITraceComparisonModal';
 import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
@@ -69,6 +71,7 @@ export const GenAiTracesTableBody = React.memo(
     enableGrouping = false,
     allColumns,
     displayLoadingOverlay,
+    isGroupedBySession,
   }: {
     experimentId: string;
     selectedColumns: TracesTableColumn[];
@@ -103,14 +106,38 @@ export const GenAiTracesTableBody = React.memo(
     enableGrouping?: boolean;
     allColumns: TracesTableColumn[];
     displayLoadingOverlay?: boolean;
+    isGroupedBySession?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
+    const lastSelectedRowIdRef = useRef<string | null>(null);
+    // Track which sessions are expanded (collapsed by default)
+    const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+
+    const toggleSessionExpanded = React.useCallback((sessionId: string) => {
+      setExpandedSessions((prev) => {
+        const next = new Set(prev);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    }, []);
 
     const isComparing = !isNil(compareToRunUuid);
 
-    const evaluationInputs = selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT);
+    const evaluationInputs = useMemo(
+      () => selectedColumns.filter((col) => col.type === TracesTableColumnType.INPUT),
+      [selectedColumns],
+    );
+
+    const sortedGroupedColumns = useMemo(
+      () => sortGroupedColumns(selectedColumns, isComparing),
+      [selectedColumns, isComparing],
+    );
 
     const { columns } = useMemo(() => {
       if (!enableGrouping) {
@@ -132,7 +159,6 @@ export const GenAiTracesTableBody = React.memo(
 
       // Create a map of group IDs to their column arrays
       const groupColumns = new Map<TracesTableColumnGroup, ColumnDef<EvalTraceComparisonEntry>[]>();
-      const sortedGroupedColumns = sortGroupedColumns(selectedColumns, isComparing);
 
       sortedGroupedColumns.forEach((col) => {
         // Get the group for this column, defaulting to 'Info' if not specified
@@ -174,6 +200,7 @@ export const GenAiTracesTableBody = React.memo(
 
       return { columns: topLevelColumns };
     }, [
+      sortedGroupedColumns,
       selectedColumns,
       evaluationInputs,
       isComparing,
@@ -208,6 +235,55 @@ export const GenAiTracesTableBody = React.memo(
         onRowSelectionChange: setRowSelection,
         getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
       },
+    );
+
+    const rowSelectionChangeHandler = useCallback(
+      (row: Row<EvalTraceComparisonEntry>, event: unknown) => {
+        const defaultHandler = row.getToggleSelectedHandler();
+        const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
+        const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+        const currentSelectionState = table.getState().rowSelection ?? {};
+        const isDeselecting = row.getIsSelected();
+        const isOnlySelectedRow =
+          isDeselecting && Object.keys(currentSelectionState).length === 1 && currentSelectionState[row.id];
+
+        if (!isShiftPressed || !lastSelectedRowIdRef.current) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const allRows = table.getRowModel().rows;
+        const anchorIndex = allRows.findIndex((tableRow) => tableRow.id === lastSelectedRowIdRef.current);
+        const currentIndex = allRows.findIndex((tableRow) => tableRow.id === row.id);
+
+        if (anchorIndex === -1 || currentIndex === -1) {
+          defaultHandler(event);
+          lastSelectedRowIdRef.current = isOnlySelectedRow ? null : row.id;
+          return;
+        }
+
+        const [start, end] = anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+        const updatedSelection: RowSelectionState = { ...currentSelectionState };
+
+        for (let index = start; index <= end; index += 1) {
+          const targetRow = allRows[index];
+
+          if (!targetRow.getCanSelect()) {
+            continue;
+          }
+
+          if (isDeselecting) {
+            delete updatedSelection[targetRow.id];
+          } else {
+            updatedSelection[targetRow.id] = true;
+          }
+        }
+
+        table.setRowSelection(updatedSelection);
+        lastSelectedRowIdRef.current = Object.keys(updatedSelection).length === 0 ? null : row.id;
+      },
+      [table],
     );
 
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
@@ -266,11 +342,20 @@ export const GenAiTracesTableBody = React.memo(
 
     const { rows } = table.getRowModel();
 
+    // Compute grouped rows when session grouping is enabled
+    const groupedRows = useMemo(
+      () => (isGroupedBySession ? groupTracesBySessionForTable(evaluations, expandedSessions) : []),
+      [isGroupedBySession, evaluations, expandedSessions],
+    );
+
     // The virtualizer needs to know the scrollable container element
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
+    // Use grouped rows count when session grouping is enabled, otherwise use regular rows
+    const virtualizerRowCount = isGroupedBySession ? groupedRows.length : rows.length;
+
     const rowVirtualizer = useVirtualizer({
-      count: rows.length,
+      count: virtualizerRowCount,
       estimateSize: () => 120, // estimate row height for accurate scrollbar dragging
       getScrollElement: () => tableContainerRef.current,
       measureElement:
@@ -281,6 +366,7 @@ export const GenAiTracesTableBody = React.memo(
     });
 
     const virtualItems = rowVirtualizer.getVirtualItems();
+    const virtualizerTotalSize = rowVirtualizer.getTotalSize();
     const tableHeaderGroups = table.getHeaderGroups();
 
     /**
@@ -390,16 +476,34 @@ export const GenAiTracesTableBody = React.memo(
               setColumnSizing={table.setColumnSizing}
             />
 
-            <MemoizedGenAiTracesTableBodyRows
-              rows={rows}
-              isComparing={isComparing}
-              enableRowSelection={enableRowSelection}
-              virtualItems={virtualItems}
-              virtualizerTotalSize={rowVirtualizer.getTotalSize()}
-              virtualizerMeasureElement={rowVirtualizer.measureElement}
-              rowSelectionState={rowSelection}
-              selectedColumns={selectedColumns}
-            />
+            {isGroupedBySession ? (
+              <MemoizedGenAiTracesTableSessionGroupedRows
+                rows={rows}
+                groupedRows={groupedRows}
+                isComparing={isComparing}
+                enableRowSelection={enableRowSelection}
+                virtualItems={virtualItems}
+                virtualizerTotalSize={virtualizerTotalSize}
+                virtualizerMeasureElement={rowVirtualizer.measureElement}
+                rowSelectionState={rowSelection}
+                selectedColumns={sortedGroupedColumns}
+                expandedSessions={expandedSessions}
+                toggleSessionExpanded={toggleSessionExpanded}
+                experimentId={experimentId}
+              />
+            ) : (
+              <MemoizedGenAiTracesTableBodyRows
+                rows={rows}
+                isComparing={isComparing}
+                enableRowSelection={enableRowSelection}
+                virtualItems={virtualItems}
+                virtualizerTotalSize={virtualizerTotalSize}
+                virtualizerMeasureElement={rowVirtualizer.measureElement}
+                rowSelectionState={rowSelection}
+                selectedColumns={selectedColumns}
+                rowSelectionChangeHandler={rowSelectionChangeHandler}
+              />
+            )}
           </Table>
         </div>
         {displayLoadingOverlay && (

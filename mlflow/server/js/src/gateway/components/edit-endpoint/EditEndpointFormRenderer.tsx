@@ -17,6 +17,8 @@ import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { EditableEndpointName } from './EditableEndpointName';
+import type { Endpoint } from '../../types';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -25,14 +27,14 @@ export interface EditEndpointFormRendererProps {
   loadError: Error | null;
   mutationError: Error | null;
   errorMessage: string | null;
-  resetErrors: () => void;
-  endpointName: string | undefined;
   experimentId: string | undefined;
+  endpoint: Endpoint | undefined;
+  existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
-  onNameBlur: () => void;
+  onNameUpdate: (newName: string) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -42,12 +44,14 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
-  endpointName,
   experimentId,
+  endpoint,
+  existingEndpoints,
   isFormComplete,
   hasChanges,
   onSubmit,
   onCancel,
+  onNameUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -102,7 +106,12 @@ export const EditEndpointFormRenderer = ({
         <div
           css={{ marginTop: theme.spacing.sm, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         >
-          <Typography.Title level={2}>{endpointName}</Typography.Title>
+          <EditableEndpointName
+            endpoint={endpoint}
+            existingEndpoints={existingEndpoints}
+            onNameUpdate={onNameUpdate}
+            isSubmitting={isSubmitting}
+          />
           <Button componentId="mlflow.gateway.edit-endpoint.use-button" onClick={() => setIsUsageModalOpen(true)}>
             <FormattedMessage defaultMessage="Use" description="Use endpoint button" />
           </Button>
@@ -168,26 +177,6 @@ export const EditEndpointFormRenderer = ({
             </div>
           </div>
 
-          {trafficSplitModels.length > 0 && fallbackModels.length > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: theme.spacing.lg,
-                position: 'relative',
-              }}
-            >
-              <div
-                css={{
-                  width: 3,
-                  height: '100%',
-                  backgroundColor: theme.colors.actionDefaultBorderDefault,
-                }}
-              />
-            </div>
-          )}
-
           <div
             css={{
               padding: theme.spacing.md,
@@ -221,6 +210,50 @@ export const EditEndpointFormRenderer = ({
                   />
                 )}
               />
+            </div>
+          </div>
+
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
             </div>
           </div>
         </div>
@@ -359,7 +392,7 @@ export const EditEndpointFormRenderer = ({
       <EndpointUsageModal
         open={isUsageModalOpen}
         onClose={() => setIsUsageModalOpen(false)}
-        endpointName={endpointName || ''}
+        endpointName={endpoint?.name || ''}
       />
     </div>
   );

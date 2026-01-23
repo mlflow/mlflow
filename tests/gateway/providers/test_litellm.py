@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
 
@@ -17,7 +18,7 @@ def chat_config():
             "provider": "litellm",
             "name": "claude-3-5-sonnet-20241022",
             "config": {
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
@@ -31,8 +32,10 @@ def chat_config_with_api_base():
             "provider": "litellm",
             "name": "custom-model",
             "config": {
-                "litellm_api_key": "test-key",
-                "litellm_api_base": "https://custom-api.example.com",
+                "litellm_auth_config": {
+                    "api_key": "test-key",
+                    "api_base": "https://custom-api.example.com",
+                },
             },
         },
     }
@@ -47,7 +50,7 @@ def chat_config_with_provider():
             "name": "claude-3-5-sonnet-20241022",
             "config": {
                 "litellm_provider": "anthropic",
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
@@ -61,7 +64,7 @@ def embeddings_config():
             "provider": "litellm",
             "name": "text-embedding-3-small",
             "config": {
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
@@ -354,3 +357,234 @@ def test_adapter_model_to_embeddings():
     assert result.data[0].embedding == [0.1, 0.2, 0.3]
     assert result.data[0].index == 0
     assert result.usage.prompt_tokens == 5
+
+
+# Passthrough tests
+
+
+def mock_response_with_model_dump():
+    """Create a mock response object that supports model_dump()."""
+    response = mock.MagicMock()
+    response.model_dump.return_value = {
+        "id": "test-response-id",
+        "output": "Test response output",
+        "model": "test-model",
+    }
+    return response
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_responses():
+    config = chat_config()
+    mock_response = mock_response_with_model_dump()
+
+    with mock.patch("litellm.aresponses", return_value=mock_response) as mock_aresponses:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!"}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_RESPONSES,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "test-response-id"
+        assert result["output"] == "Test response output"
+        mock_aresponses.assert_called_once()
+        call_kwargs = mock_aresponses.call_args[1]
+        assert call_kwargs["model"] == "claude-3-5-sonnet-20241022"
+        assert call_kwargs["input"] == "Hello, world!"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_responses_streaming():
+    config = chat_config()
+
+    async def mock_stream():
+        for i in range(2):
+            chunk = mock.MagicMock()
+            chunk.model_dump.return_value = {"chunk": i, "content": f"part{i}"}
+            yield chunk
+
+    with mock.patch("litellm.aresponses", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!", "stream": True}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_RESPONSES,
+            payload,
+            headers=None,
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 3  # 2 data chunks + [DONE]
+        assert b"data:" in chunks[0]
+        assert b"[DONE]" in chunks[2]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages():
+    config = chat_config_with_provider()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "id": "msg-test-id",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello!"}],
+    }
+
+    with mock.patch(
+        "litellm.anthropic.messages.acreate", return_value=mock_response
+    ) as mock_acreate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "msg-test-id"
+        assert result["type"] == "message"
+        mock_acreate.assert_called_once()
+        call_kwargs = mock_acreate.call_args[1]
+        assert call_kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+        assert call_kwargs["max_tokens"] == 100
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_generate_content():
+    config = chat_config()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "candidates": [{"content": {"parts": [{"text": "Generated content"}]}}],
+    }
+
+    with mock.patch(
+        "litellm.google_genai.agenerate_content", return_value=mock_response
+    ) as mock_agenerate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [{"parts": [{"text": "Generate something"}]}],
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.GEMINI_GENERATE_CONTENT,
+            payload,
+            headers=None,
+        )
+
+        assert "candidates" in result
+        mock_agenerate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_stream_generate_content():
+    config = chat_config()
+
+    async def mock_stream():
+        for i in range(2):
+            chunk = mock.MagicMock()
+            chunk.model_dump.return_value = {
+                "candidates": [{"content": {"parts": [{"text": f"chunk{i}"}]}}]
+            }
+            yield chunk
+
+    # agenerate_content is called with stream=True for streaming
+    with mock.patch("litellm.google_genai.agenerate_content", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [{"parts": [{"text": "Generate something"}]}],
+        }
+
+        result = provider._passthrough_gemini_stream_generate_content(
+            {"model": "claude-3-5-sonnet-20241022", **payload}
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 3  # 2 data chunks + [DONE]
+        assert b"data:" in chunks[0]
+        assert b"[DONE]" in chunks[2]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_chat():
+    config = chat_config()
+    mock_response = mock_response_with_model_dump()
+    mock_response.model_dump.return_value = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "choices": [{"message": {"role": "assistant", "content": "Hello!"}}],
+    }
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_CHAT,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "chatcmpl-test"
+        assert result["object"] == "chat.completion"
+        mock_completion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_embeddings():
+    config = embeddings_config()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "object": "list",
+        "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}],
+        "model": "text-embedding-3-small",
+    }
+
+    with mock.patch("litellm.aembedding", return_value=mock_response) as mock_embedding:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!"}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_EMBEDDINGS,
+            payload,
+            headers=None,
+        )
+
+        assert result["object"] == "list"
+        assert len(result["data"]) == 1
+        mock_embedding.assert_called_once()
+
+
+def test_response_to_dict_with_model_dump():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    response = mock.MagicMock()
+    response.model_dump.return_value = {"key": "value"}
+
+    result = provider._response_to_dict(response)
+    assert result == {"key": "value"}
+
+
+def test_response_to_dict_with_dict_input():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    result = provider._response_to_dict({"key": "value"})
+    assert result == {"key": "value"}
+
+
+def test_response_to_dict_with_unknown_type_raises():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    with pytest.raises(TypeError, match="Unexpected response type"):
+        provider._response_to_dict("string value")

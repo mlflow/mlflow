@@ -19,7 +19,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface AssessmentChartDataPoint {
   name: string;
-  value: number;
+  value: number | null;
 }
 
 export interface DistributionChartDataPoint {
@@ -91,20 +91,17 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
 
   // Create a map of values by timestamp for the line chart
   const valueExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.AVG] || 0,
+    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.AVG] ?? null,
     [],
   );
   const valuesByTimestamp = useTimestampValueMap(timeSeriesDataPoints, valueExtractor);
 
-  // Prepare time series chart data - fill in all time buckets with 0 for missing data
+  // Prepare time series chart data - use null for missing data to show gaps in chart
   const timeSeriesChartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
-      const value = valuesByTimestamp.get(timestampMs);
-      return {
-        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-        value: value || 0,
-      };
-    });
+    return timeBuckets.map((timestampMs) => ({
+      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+      value: valuesByTimestamp.get(timestampMs) ?? null,
+    }));
   }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
 
   // Prepare distribution chart data - use actual values from API

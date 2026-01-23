@@ -110,16 +110,17 @@ class BaseProvider(ABC):
         """
         provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
         if provider_path is None:
-            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            requested_route = PASSTHROUGH_ROUTES.get(action, action.value)
             supported_routes = ", ".join(
-                f"/gateway{route} (provider_path: {path})"
+                f"/gateway{supported_route} (provider_path: {path})"
                 for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
-                if (route := PASSTHROUGH_ROUTES.get(act))
+                if (supported_route := PASSTHROUGH_ROUTES.get(act))
                 and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
             )
             raise AIGatewayException(
                 status_code=400,
-                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                detail="Unsupported passthrough endpoint "
+                f"'{requested_route}' for {self.NAME} provider. "
                 f"Supported endpoints: {supported_routes}",
             )
         return provider_path
@@ -508,8 +509,7 @@ class TracingProviderWrapper(BaseProvider):
             "provider": getattr(self._provider, "NAME", type(self._provider).__name__),
         }
         if hasattr(self._provider, "config") and hasattr(self._provider.config, "model"):
-            model_name = getattr(self._provider.config.model, "name", "")
-            if model_name:
+            if model_name := getattr(self._provider.config.model, "name", ""):
                 attrs["model"] = model_name
         return attrs
 

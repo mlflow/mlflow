@@ -45,14 +45,14 @@ export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
  * Feature flag to enable Scorers UI tab in experiment page
  */
 export const enableScorersUI = () => {
-  return false;
+  return true;
 };
 
 /**
  * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
  */
 export const isRunningScorersEnabled = () => {
-  return false;
+  return true;
 };
 
 /**
@@ -62,7 +62,7 @@ export const isEvaluatingSessionsInScorersEnabled = () => {
   if (!enableScorersUI() || !isRunningScorersEnabled()) {
     return false;
   }
-  return false;
+  return true;
 };
 
 /**
@@ -150,5 +150,13 @@ export const shouldEnableExperimentPageSideTabs = () => {
  * Determines if the Overview tab is enabled on the experiment page
  */
 export const shouldEnableExperimentOverviewTab = () => {
+  return true;
+};
+
+/**
+ * Determines if the top-level nested sidebar feature is enabled.
+ * This enables the workflow type selector and nested navigation items in the main sidebar.
+ */
+export const shouldEnableWorkflowBasedNavigation = () => {
   return false;
 };

@@ -42,6 +42,18 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
+from mlflow.telemetry.events import (
+    GatewayCreateEndpointEvent,
+    GatewayCreateSecretEvent,
+    GatewayDeleteEndpointEvent,
+    GatewayDeleteSecretEvent,
+    GatewayGetEndpointEvent,
+    GatewayListEndpointsEvent,
+    GatewayListSecretsEvent,
+    GatewayUpdateEndpointEvent,
+    GatewayUpdateSecretEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -93,6 +105,7 @@ class SqlAlchemyGatewayStoreMixin:
         if self._secret_cache is not None:
             self._secret_cache.clear()
 
+    @record_usage_event(GatewayCreateSecretEvent)
     def create_gateway_secret(
         self,
         secret_name: str,
@@ -188,6 +201,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateSecretEvent)
     def update_gateway_secret(
         self,
         secret_id: str,
@@ -248,6 +262,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteSecretEvent)
     def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
@@ -267,6 +282,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_secret)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListSecretsEvent)
     def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
         List all secret metadata with optional filtering.
@@ -505,6 +521,7 @@ class SqlAlchemyGatewayStoreMixin:
                     error_code=INVALID_STATE,
                 ) from e
 
+    @record_usage_event(GatewayCreateEndpointEvent)
     def create_gateway_endpoint(
         self,
         name: str,
@@ -626,6 +643,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayGetEndpointEvent)
     def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
@@ -658,6 +676,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateEndpointEvent)
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
@@ -772,6 +791,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteEndpointEvent)
     def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
@@ -787,6 +807,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_endpoint)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListEndpointsEvent)
     def list_gateway_endpoints(
         self,
         provider: str | None = None,
@@ -940,7 +961,7 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to bind.
-            resource_type: Type of resource (e.g., "scorer_job").
+            resource_type: Type of resource (e.g., "scorer").
             resource_id: Unique identifier for the resource instance.
             created_by: Username of the creator.
 

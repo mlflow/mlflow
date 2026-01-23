@@ -9,13 +9,13 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatLatency, useLegendHighlight, useChartColors } from '../utils/chartUtils';
+import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
 
 /**
  * Chart showing average latency comparison for each tool over time as a line chart.
@@ -46,7 +46,7 @@ export const ToolLatencyChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.tool_latency">
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={
@@ -57,10 +57,8 @@ export const ToolLatencyChart: React.FC = () => {
         }
       />
 
-      <OverviewChartTimeLabel />
-
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
@@ -78,7 +76,7 @@ export const ToolLatencyChart: React.FC = () => {
                   stroke={getChartColor(index)}
                   strokeWidth={2}
                   strokeOpacity={getOpacity(toolName)}
-                  dot={false}
+                  dot={getLineDotStyle(getChartColor(index))}
                 />
               ))}
               <Legend

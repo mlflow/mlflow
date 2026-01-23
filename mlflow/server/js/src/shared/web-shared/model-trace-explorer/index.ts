@@ -44,7 +44,7 @@ export * from './ModelTrace.types';
 export * from './TraceMetrics.types';
 export * from './oss-notebook-renderer/mlflow-fetch-utils';
 
-export { getAssessmentValue } from './assessments-pane/utils';
+export { getAssessmentValue, isFeedbackAssessment, isExpectationAssessment } from './assessments-pane/utils';
 export { TracesServiceV3, TracesServiceV4 } from './api';
 export { shouldUseTracesV4API } from './FeatureUtils';
 export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
@@ -59,3 +59,11 @@ export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessme
 export { getTraceTokenUsage, createTraceV4LongIdentifier, isSessionLevelAssessment } from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from './hooks/useGetTracesById';
+export {
+  ModelTraceExplorerContextProvider,
+  useModelTraceExplorerContext,
+  type ModelTraceExplorerContextValue,
+  type RenderExportTracesToDatasetsModalParams,
+  type DrawerComponentType,
+} from './ModelTraceExplorerContext';
+export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';

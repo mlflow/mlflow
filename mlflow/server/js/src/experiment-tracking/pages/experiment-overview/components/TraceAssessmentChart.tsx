@@ -24,7 +24,9 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
+import { getLineDotStyle } from '../utils/chartUtils';
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -34,7 +36,7 @@ const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElemen
       <Typography.Text color="secondary" size="sm">
         {label}
       </Typography.Text>
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         <ResponsiveContainer width="100%" height="100%">
           {children}
         </ResponsiveContainer>
@@ -113,15 +115,15 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             />
           }
         >
-          <BarChart data={distributionChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-            <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis allowDecimals={false} {...yAxisProps} />
+          <BarChart data={distributionChartData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <XAxis type="number" allowDecimals={false} {...xAxisProps} />
+            <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
             <Tooltip
               content={<ScrollableTooltip formatter={distributionTooltipFormatter} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend {...scrollableLegendProps} />
-            <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ChartPanel>
 
@@ -149,7 +151,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                 name={assessmentName}
                 stroke={chartLineColor}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(chartLineColor)}
                 legendType="plainline"
               />
               <ReferenceLine

@@ -14,8 +14,8 @@ interface DeleteEndpointModalProps {
 
 const formatResourceType = (resourceType: ResourceType): string => {
   switch (resourceType) {
-    case 'scorer_job':
-      return 'Scorer Job';
+    case 'scorer':
+      return 'Scorer';
     default:
       return resourceType;
   }

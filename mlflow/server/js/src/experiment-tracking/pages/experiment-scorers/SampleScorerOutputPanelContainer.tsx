@@ -6,12 +6,13 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
-import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
-import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
+import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -39,10 +40,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
 
-  const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
-    itemCount: DEFAULT_TRACE_COUNT,
-    itemIds: [],
-  });
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,
@@ -50,9 +48,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
-
-  // Request ID pattern to handle stale results
-  const requestIdRef = useRef(0);
 
   // Determine if we're in custom or built-in judge mode
   const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
@@ -66,10 +61,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   // Reset evaluation config when switching evaluation scope
   useEffect(() => {
     reset();
-    setItemsToEvaluate({
-      itemCount: DEFAULT_TRACE_COUNT,
-      itemIds: [],
-    });
+    setSelectedItemIds([]);
     resetField('instructions');
     resetField('llmTemplate');
   }, [evaluationScope, reset, resetField]);
@@ -90,8 +82,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       // Prepare evaluation parameters based on mode
       const evaluationParams = isCustomMode
         ? {
-            itemCount: itemsToEvaluate.itemCount,
-            itemIds: itemsToEvaluate.itemIds,
+            itemIds: selectedItemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
@@ -99,8 +90,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             evaluationScope,
           }
         : {
-            itemCount: itemsToEvaluate.itemCount,
-            itemIds: itemsToEvaluate.itemIds,
+            itemIds: selectedItemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             requestedAssessments: [
               {
@@ -123,7 +113,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     judgeInstructions,
     llmTemplate,
     guidelines,
-    itemsToEvaluate,
+    selectedItemIds,
     evaluationScope,
     evaluateTraces,
     experimentId,
@@ -175,6 +165,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
+  const hasEmptyGuidelines = isGuidelinesTemplate(llmTemplate) && (!guidelines || !guidelines.trim());
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
@@ -183,6 +174,25 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         defaultMessage: 'Please select a model to run the judge',
         description: 'Tooltip message when model is not selected',
       });
+    }
+
+    if (isDirectModel(modelValue)) {
+      return intl.formatMessage({
+        defaultMessage: 'Running the judge from the UI is only supported with gateway endpoints',
+        description: 'Tooltip message when model is not a gateway endpoint',
+      });
+    }
+
+    if (selectedItemIds.length === 0) {
+      return evaluationScope === ScorerEvaluationScope.TRACES
+        ? intl.formatMessage({
+            defaultMessage: 'Please select traces to run the judge',
+            description: 'Tooltip message when no traces are selected',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'Please select sessions to run the judge',
+            description: 'Tooltip message when no sessions are selected',
+          });
     }
 
     if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
@@ -208,6 +218,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       }
     } else {
       // Built-in judge mode
+      if (hasEmptyGuidelines) {
+        return intl.formatMessage({
+          defaultMessage: 'Guidelines should not be empty',
+          description: 'Tooltip message when guidelines are empty',
+        });
+      }
       if (isRetrievalRelevance) {
         return intl.formatMessage({
           defaultMessage: 'Retrieval Relevance is not yet supported for sample judge output',
@@ -230,6 +246,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     hasInstructionsError,
     hasNameError,
     isRetrievalRelevance,
+    hasEmptyGuidelines,
+    selectedItemIds,
+    evaluationScope,
     intl,
   ]);
 
@@ -245,11 +264,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
+      handleCancel={reset}
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}
-      itemsToEvaluate={itemsToEvaluate}
-      onItemsToEvaluateChange={setItemsToEvaluate}
+      selectedItemIds={selectedItemIds}
+      onSelectedItemIdsChange={setSelectedItemIds}
     />
   );
 };

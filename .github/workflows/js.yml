@@ -35,35 +35,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
         option: [--testPathPattern, --testPathIgnorePatterns]
-        include:
-          - os: ubuntu-latest
-            shell: bash
-          - os: windows-latest
-            shell: pwsh
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: ${{ matrix.shell }}
         working-directory: mlflow/server/js
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
-      - name: Disable problem matcher
-        if: runner.os == 'Windows'
-        run: |
-          echo "::remove-matcher owner=eslint-compact::"
-          echo "::remove-matcher owner=eslint-stylish::"
-      - name: Install dependencies (windows)
-        if: runner.os == 'Windows'
-        run: |
-          # On Windows, `yarn install` changes hash of @databricks/design-system in yarn.lock.
-          # Use `--no-immutable` to allow the change.
-          yarn install --no-immutable
-          git diff
-      - name: Install dependencies (non-windows)
-        if: runner.os != 'Windows'
+      - name: Install dependencies
         run: |
           yarn install --immutable
       - name: Run lint
@@ -84,9 +64,8 @@ jobs:
           yarn type-check
       - name: Run tests
         run: |
-          yarn test ${{ runner.os == 'Windows' && '--testTimeout=10000' || '' }} --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
-        if: runner.os == 'Linux'
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
           # https://github.com/wojtekmaj/react-pdf/issues/280

@@ -102,7 +102,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
     const otelSpan = tracer.startSpan(
       options.name,
       { startTime: startTime },
-      parentContext
+      parentContext,
     ) as OTelSpan;
 
     // SpanProcessor should have already registered the mlflow span
@@ -130,7 +130,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
  */
 export function withSpan<T>(
   callback: (span: LiveSpan) => T | Promise<T>,
-  options?: Omit<SpanOptions, 'parent'>
+  options?: Omit<SpanOptions, 'parent'>,
 ): T | Promise<T> {
   const spanOptions: Omit<SpanOptions, 'parent'> = options ?? { name: DEFAULT_SPAN_NAME };
 
@@ -231,7 +231,7 @@ export function createAndRegisterMlflowSpan(
   otelSpan: OTelSpan | ApiSpan,
   spanType?: SpanType,
   inputs?: any,
-  attributes?: Record<string, any>
+  attributes?: Record<string, any>,
 ): LiveSpan {
   // Get the MLflow trace ID from the OpenTelemetry trace ID
   const otelTraceId = otelSpan.spanContext().traceId;
@@ -305,7 +305,7 @@ export function trace(options?: TraceOptions): any;
 export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T;
 export function trace<T extends (...args: any[]) => any>(
   funcOrOptions?: T | TraceOptions,
-  options?: TraceOptions
+  options?: TraceOptions,
 ): any {
   // Check if this is being used as a decorator (no function provided, or options provided)
   if (typeof funcOrOptions !== 'function') {
@@ -346,7 +346,7 @@ export function trace<T extends (...args: any[]) => any>(
           name: decoratorOptions?.name || originalMethod.name || methodName,
           spanType: decoratorOptions?.spanType,
           attributes: decoratorOptions?.attributes,
-          inputs
+          inputs,
         };
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -394,7 +394,7 @@ function traceFunction<T extends (...args: any[]) => any>(func: T, options?: Tra
       name: options?.name || func.name || DEFAULT_SPAN_NAME,
       spanType: options?.spanType,
       attributes: options?.attributes,
-      inputs: inputs
+      inputs: inputs,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -551,14 +551,14 @@ export function updateCurrentTrace({
   metadata,
   clientRequestId,
   requestPreview,
-  responsePreview
+  responsePreview,
 }: UpdateCurrentTraceOptions): void {
   const activeSpan = getCurrentActiveSpan();
 
   if (!activeSpan) {
     console.warn(
       'No active trace found. Please create a span using `withSpan` or ' +
-        '`@trace` before calling `updateCurrentTrace`.'
+        '`@trace` before calling `updateCurrentTrace`.',
     );
     return;
   }

@@ -355,7 +355,7 @@ class GatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to bind.
-            resource_type: Type of resource (e.g., "scorer_job").
+            resource_type: Type of resource (e.g., "scorer").
             resource_id: Unique identifier for the resource instance.
             created_by: Username of the creator.
 

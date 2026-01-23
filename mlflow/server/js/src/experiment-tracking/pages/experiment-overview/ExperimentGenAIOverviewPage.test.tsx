@@ -82,14 +82,13 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should render the control bar with search and time range selector', async () => {
+    it('should render the control bar with time range and time unit selectors', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Search input
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
-        // Time range selector
-        expect(screen.getByRole('combobox')).toBeInTheDocument();
+        // Both time range and time unit selectors should be present
+        const comboboxes = screen.getAllByRole('combobox');
+        expect(comboboxes.length).toBeGreaterThanOrEqual(2);
       });
     });
 
@@ -136,53 +135,13 @@ describe('ExperimentGenAIOverviewPage', () => {
     });
   });
 
-  describe('search input handling', () => {
-    it('should render the search input with placeholder', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const searchInput = screen.getByPlaceholderText('Search charts');
-        expect(searchInput).toBeInTheDocument();
-      });
-    });
-
-    it('should allow typing in the search input', async () => {
-      const user = userEvent.setup();
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
-      });
-
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.type(searchInput, 'test query');
-
-      expect(searchInput).toHaveValue('test query');
-    });
-
-    it('should update search query state when typing', async () => {
-      const user = userEvent.setup();
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByPlaceholderText('Search charts')).toBeInTheDocument();
-      });
-
-      const searchInput = screen.getByPlaceholderText('Search charts');
-      await user.clear(searchInput);
-      await user.type(searchInput, 'my search');
-
-      expect(searchInput).toHaveValue('my search');
-    });
-  });
-
   describe('time range selection', () => {
     it('should render the date selector', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Look for the date selector dropdown button
-        const dateSelector = screen.getByRole('combobox');
+        // Look for the date selector by its test id
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
         expect(dateSelector).toBeInTheDocument();
       });
     });
@@ -192,10 +151,10 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toBeInTheDocument();
+        expect(screen.getByTestId('time-range-select-dropdown')).toBeInTheDocument();
       });
 
-      const dateSelector = screen.getByRole('combobox');
+      const dateSelector = screen.getByTestId('time-range-select-dropdown');
       await user.click(dateSelector);
 
       // Check that dropdown options are visible
@@ -208,7 +167,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        const dateSelector = screen.getByRole('combobox');
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
         // Default is LAST_7_DAYS
         expect(dateSelector).toHaveTextContent(/7 days/i);
       });

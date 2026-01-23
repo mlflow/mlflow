@@ -9,13 +9,13 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useLegendHighlight } from '../utils/chartUtils';
+import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -44,7 +44,7 @@ export const TraceErrorsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_errors">
       <OverviewChartHeader
         icon={<DangerIcon />}
         title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}
@@ -52,10 +52,8 @@ export const TraceErrorsChart: React.FC = () => {
         subtitle={`(Overall error rate: ${overallErrorRate.toFixed(1)}%)`}
       />
 
-      <OverviewChartTimeLabel />
-
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
@@ -101,7 +99,7 @@ export const TraceErrorsChart: React.FC = () => {
                 dataKey="errorRate"
                 stroke={theme.colors.yellow500}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(theme.colors.yellow500)}
                 name="Error Rate"
                 strokeOpacity={getOpacity('Error Rate')}
                 legendType="plainline"

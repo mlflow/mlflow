@@ -71,11 +71,9 @@ def set_kek_passphrase(monkeypatch):
 
 
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
     mlflow.set_tracking_uri(db_uri)
     yield SqlAlchemyStore(db_uri, artifact_uri.as_uri())
     mlflow.set_tracking_uri(None)
@@ -124,14 +122,13 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         auth_config={
             "api_type": "azure",
             "api_base": "https://my-resource.openai.azure.com",
-            "deployment_name": "gpt-4-deployment",
             "api_version": "2024-02-01",
         },
     )
     model_def = store.create_gateway_model_definition(
         name="azure-gpt-model",
         secret_id=secret.secret_id,
-        provider="openai",
+        provider="azure",
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
@@ -153,7 +150,7 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
     assert isinstance(unwrapped.config.model.config, OpenAIConfig)
     assert unwrapped.config.model.config.openai_api_type == OpenAIAPIType.AZURE
     assert unwrapped.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4-deployment"
+    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4"
     assert unwrapped.config.model.config.openai_api_version == "2024-02-01"
     assert unwrapped.config.model.config.openai_api_key == "azure-api-key-test"
 
@@ -329,7 +326,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, LiteLLMProvider)
     assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
-    assert unwrapped.config.model.config.litellm_api_key == "litellm-test-key"
+    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
     assert unwrapped.config.model.config.litellm_provider == "litellm"
 
 
@@ -363,9 +360,59 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, LiteLLMProvider)
     assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
-    assert unwrapped.config.model.config.litellm_api_key == "litellm-custom-key"
-    assert unwrapped.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert (
+        unwrapped.config.model.config.litellm_auth_config["api_base"]
+        == "https://custom-api.example.com"
+    )
     assert unwrapped.config.model.config.litellm_provider == "litellm"
+
+
+@pytest.mark.parametrize(
+    "input_url",
+    [
+        "https://my-workspace.databricks.com",
+        "https://my-workspace.databricks.com/serving-endpoints",
+    ],
+)
+def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
+    store: SqlAlchemyStore, input_url: str
+):
+    secret = store.create_gateway_secret(
+        secret_name="databricks-key",
+        secret_value={"api_key": "databricks-token-123"},
+        provider="databricks",
+        auth_config={"api_base": input_url},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="databricks-model",
+        secret_id=secret.secret_id,
+        provider="databricks",
+        model_name="databricks-dbrx-instruct",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-databricks-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, LiteLLMProvider)
+    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
+    # Verify the base URL was normalized to include /serving-endpoints
+    assert (
+        unwrapped.config.model.config.litellm_auth_config["api_base"]
+        == "https://my-workspace.databricks.com/serving-endpoints"
+    )
+    assert unwrapped.config.model.config.litellm_provider == "databricks"
 
 
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):

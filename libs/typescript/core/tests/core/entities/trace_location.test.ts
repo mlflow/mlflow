@@ -1,7 +1,7 @@
 import {
   TraceLocation,
   TraceLocationType,
-  createTraceLocationFromExperimentId
+  createTraceLocationFromExperimentId,
 } from '../../../src/core/entities/trace_location';
 
 describe('TraceLocation', () => {
@@ -9,7 +9,7 @@ describe('TraceLocation', () => {
     it('should create a TraceLocation with MLflow experiment', () => {
       const traceLocation: TraceLocation = {
         type: TraceLocationType.MLFLOW_EXPERIMENT,
-        mlflowExperiment: { experimentId: '123' }
+        mlflowExperiment: { experimentId: '123' },
       };
 
       expect(traceLocation.type).toBe(TraceLocationType.MLFLOW_EXPERIMENT);
@@ -20,7 +20,7 @@ describe('TraceLocation', () => {
     it('should create a TraceLocation with inference table', () => {
       const traceLocation: TraceLocation = {
         type: TraceLocationType.INFERENCE_TABLE,
-        inferenceTable: { fullTableName: 'a.b.c' }
+        inferenceTable: { fullTableName: 'a.b.c' },
       };
 
       expect(traceLocation.type).toBe(TraceLocationType.INFERENCE_TABLE);
@@ -36,7 +36,7 @@ describe('TraceLocation', () => {
       const invalidLocation: TraceLocation = {
         type: TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED,
         mlflowExperiment: { experimentId: '123' },
-        inferenceTable: { fullTableName: 'a.b.c' }
+        inferenceTable: { fullTableName: 'a.b.c' },
       };
 
       // Both are defined, which violates the constraint
@@ -49,7 +49,7 @@ describe('TraceLocation', () => {
       // This represents a mismatch: INFERENCE_TABLE type with mlflowExperiment data
       const mismatchedLocation: TraceLocation = {
         type: TraceLocationType.INFERENCE_TABLE,
-        mlflowExperiment: { experimentId: '123' }
+        mlflowExperiment: { experimentId: '123' },
       };
 
       expect(mismatchedLocation.type).toBe(TraceLocationType.INFERENCE_TABLE);
@@ -62,7 +62,7 @@ describe('TraceLocation', () => {
       // This represents a mismatch: MLFLOW_EXPERIMENT type with inferenceTable data
       const mismatchedLocation: TraceLocation = {
         type: TraceLocationType.MLFLOW_EXPERIMENT,
-        inferenceTable: { fullTableName: 'a.b.c' }
+        inferenceTable: { fullTableName: 'a.b.c' },
       };
 
       expect(mismatchedLocation.type).toBe(TraceLocationType.MLFLOW_EXPERIMENT);

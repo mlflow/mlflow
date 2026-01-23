@@ -28,7 +28,7 @@ from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 class GatewayResourceType(str, Enum):
     """Valid MLflow resource types that can use gateway endpoints."""
 
-    SCORER_JOB = "scorer_job"
+    SCORER = "scorer"
 
 
 class RoutingStrategy(str, Enum):
@@ -417,12 +417,13 @@ class GatewayEndpointBinding(_MlflowObject):
 
     Args:
         endpoint_id: ID of the endpoint this binding references.
-        resource_type: Type of MLflow resource (e.g., "scorer_job").
+        resource_type: Type of MLflow resource (e.g., "scorer").
         resource_id: ID of the specific resource instance.
         created_at: Timestamp (milliseconds) when the binding was created.
         last_updated_at: Timestamp (milliseconds) when the binding was last updated.
         created_by: User ID who created the binding.
         last_updated_by: User ID who last updated the binding.
+        display_name: Human-readable display name for the resource (e.g., scorer name).
     """
 
     endpoint_id: str
@@ -432,6 +433,7 @@ class GatewayEndpointBinding(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+    display_name: str | None = None
 
     def to_proto(self):
         proto = ProtoGatewayEndpointBinding()
@@ -444,6 +446,8 @@ class GatewayEndpointBinding(_MlflowObject):
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
             proto.last_updated_by = self.last_updated_by
+        if self.display_name is not None:
+            proto.display_name = self.display_name
         return proto
 
     @classmethod
@@ -456,4 +460,5 @@ class GatewayEndpointBinding(_MlflowObject):
             last_updated_at=proto.last_updated_at,
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
+            display_name=proto.display_name or None,
         )
