@@ -72,6 +72,19 @@ class OptimizerType(str, Enum):
                 f"Supported types: {supported_types}"
             )
 
+    def to_proto(self) -> int:
+        """
+        Convert the Python OptimizerType enum to a proto OptimizerType enum value.
+
+        Returns:
+            The corresponding proto OptimizerType integer value.
+        """
+        if self == OptimizerType.GEPA:
+            return OPTIMIZER_TYPE_GEPA
+        elif self == OptimizerType.METAPROMPT:
+            return OPTIMIZER_TYPE_METAPROMPT
+        return OPTIMIZER_TYPE_UNSPECIFIED
+
 
 @dataclass
 class PromptOptimizationJobResult:

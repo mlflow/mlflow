@@ -65,6 +65,11 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
+from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_GEPA,
+    OPTIMIZER_TYPE_METAPROMPT,
+    OPTIMIZER_TYPE_UNSPECIFIED,
+)
 from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
@@ -295,21 +300,13 @@ def _create_mock_job(
             "run_id": "run-456",
         }
 
-    status_map = {
-        "PENDING": JobStatus.PENDING,
-        "RUNNING": JobStatus.RUNNING,
-        "SUCCEEDED": JobStatus.SUCCEEDED,
-        "FAILED": JobStatus.FAILED,
-        "CANCELED": JobStatus.CANCELED,
-    }
-
     return Job(
         job_id=job_id,
         creation_time=creation_time,
         job_name=job_name,
         params=json.dumps(params),
         timeout=None,
-        status=status_map[status_name],
+        status=JobStatus.from_str(status_name),
         result=json.dumps(result) if result and status_name == "SUCCEEDED" else result,
         retry_count=0,
         last_update_time=creation_time,
@@ -3223,7 +3220,7 @@ def test_create_prompt_optimization_job(mock_tracking_store):
                 "experiment_id": "exp-123",
                 "source_prompt_uri": "prompts:/my-prompt/1",
                 "config": {
-                    "optimizer_type": 1,  # OPTIMIZER_TYPE_GEPA
+                    "optimizer_type": OPTIMIZER_TYPE_GEPA,
                     "dataset_id": "dataset-123",
                     "scorers": ["Correctness", "Safety"],
                     "optimizer_config_json": '{"reflection_model": "openai:/gpt-4"}',
@@ -3283,7 +3280,7 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
                 "experiment_id": "exp-123",
                 "source_prompt_uri": "prompts:/my-prompt/1",
                 "config": {
-                    "optimizer_type": 2,  # OPTIMIZER_TYPE_METAPROMPT
+                    "optimizer_type": OPTIMIZER_TYPE_METAPROMPT,
                     "scorers": [],  # Empty scorers for zero-shot
                     # No dataset_id - zero-shot optimization
                 },
@@ -3329,7 +3326,7 @@ def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking
             "experiment_id": "exp-123",
             "source_prompt_uri": "prompts:/my-prompt/1",
             "config": {
-                "optimizer_type": 0,  # OPTIMIZER_TYPE_UNSPECIFIED
+                "optimizer_type": OPTIMIZER_TYPE_UNSPECIFIED,
                 "dataset_id": "dataset-123",
                 "scorers": ["Correctness"],
             },

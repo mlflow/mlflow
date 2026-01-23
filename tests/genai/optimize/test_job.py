@@ -85,6 +85,17 @@ def test_optimizer_type_from_proto(proto_value, expected_type, expected_str, err
         assert result == expected_str
 
 
+@pytest.mark.parametrize(
+    ("optimizer_type", "expected_proto"),
+    [
+        (OptimizerType.GEPA, OPTIMIZER_TYPE_GEPA),
+        (OptimizerType.METAPROMPT, OPTIMIZER_TYPE_METAPROMPT),
+    ],
+)
+def test_optimizer_type_to_proto(optimizer_type, expected_proto):
+    assert optimizer_type.to_proto() == expected_proto
+
+
 def test_load_builtin_scorers():
     scorers = _load_scorers(["Correctness", "Safety"], "exp-123")
 
