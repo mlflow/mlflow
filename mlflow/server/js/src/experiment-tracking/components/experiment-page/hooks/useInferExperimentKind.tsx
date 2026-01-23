@@ -5,6 +5,7 @@ import { useExperimentContainsTrainingRuns } from '../../traces/hooks/useExperim
 import { isEditableExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
+import { shouldEnableWorkflowBasedNavigation } from '../../../../common/utils/FeatureUtils';
 
 export const useInferExperimentKind = ({
   experimentId,
@@ -19,22 +20,26 @@ export const useInferExperimentKind = ({
   experimentTags?: { key?: string | null; value?: string | null }[] | null;
   updateExperimentKind: (params: { experimentId: string; kind: ExperimentKind }) => void;
 }) => {
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+
+  const shouldInfer = enabled && !enableWorkflowBasedNavigation;
+
   const { containsTraces, isLoading: isTracesBeingDetermined } = useExperimentContainsTraces({
     experimentId,
-    enabled,
+    enabled: shouldInfer,
   });
 
   const [isDismissed, setIsDismissed] = useState(false);
 
   const { containsRuns, isLoading: isTrainingRunsBeingDetermined } = useExperimentContainsTrainingRuns({
     experimentId,
-    enabled,
+    enabled: shouldInfer,
   });
 
-  const isLoading = enabled && (isLoadingExperiment || isTracesBeingDetermined || isTrainingRunsBeingDetermined);
+  const isLoading = shouldInfer && (isLoadingExperiment || isTracesBeingDetermined || isTrainingRunsBeingDetermined);
 
   const inferredExperimentKind = useMemo(() => {
-    if (!enabled || isLoading || isDismissed) {
+    if (enableWorkflowBasedNavigation || !shouldInfer || isLoading || isDismissed) {
       return undefined;
     }
     if (containsTraces) {
@@ -46,7 +51,8 @@ export const useInferExperimentKind = ({
     return ExperimentKind.NO_INFERRED_TYPE;
   }, [
     // prettier-ignore
-    enabled,
+    enableWorkflowBasedNavigation,
+    shouldInfer,
     isDismissed,
     isLoading,
     containsTraces,
@@ -74,10 +80,10 @@ export const useInferExperimentKind = ({
 
   // automatically update the experiment type if it's not user-editable
   useEffect(() => {
-    if (inferredExperimentKind && !isEditableExperimentKind(inferredExperimentKind)) {
+    if (!enableWorkflowBasedNavigation && inferredExperimentKind && !isEditableExperimentKind(inferredExperimentKind)) {
       updateExperimentKind({ experimentId: experimentId ?? '', kind: inferredExperimentKind });
     }
-  }, [experimentId, inferredExperimentKind, updateExperimentKind]);
+  }, [enableWorkflowBasedNavigation, experimentId, inferredExperimentKind, updateExperimentKind]);
 
   return {
     isLoading,

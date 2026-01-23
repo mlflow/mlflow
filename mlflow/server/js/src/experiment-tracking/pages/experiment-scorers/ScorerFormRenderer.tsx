@@ -8,7 +8,7 @@ import {
 } from 'react-hook-form';
 import { useDesignSystemTheme, Button, Alert } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import {
   ModelTraceExplorerResizablePane,
   type ModelTraceExplorerResizablePaneRef,
@@ -18,7 +18,6 @@ import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './C
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
-import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;
@@ -45,31 +44,11 @@ interface ScorerFormContentProps {
   setValue: UseFormSetValue<ScorerFormData>;
   getValues: UseFormGetValues<ScorerFormData>;
   scorerType: ScorerFormData['scorerType'];
-  mutation: {
-    isLoading: boolean;
-    error: any;
-  };
-  componentError: string | null;
 }
 
-const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
-  mode,
-  control,
-  setValue,
-  getValues,
-  scorerType,
-  mutation,
-  componentError,
-}) => {
-  const { theme } = useDesignSystemTheme();
-
+const ScorerFormContent: React.FC<ScorerFormContentProps> = ({ mode, control, setValue, getValues, scorerType }) => {
   return (
     <>
-      {isEvaluatingSessionsInScorersEnabled() && scorerType === 'llm' && (
-        <div>
-          <ScorerFormEvaluationScopeSelect mode={mode} />
-        </div>
-      )}
       {/* Conditional Form Content */}
       {scorerType === 'llm' ? (
         <LLMScorerFormRenderer
@@ -80,16 +59,6 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
         />
       ) : (
         <CustomCodeScorerFormRenderer mode={mode} control={control as Control<CustomCodeScorerFormData>} />
-      )}
-      {/* Error message - display with priority: local error first, then mutation error */}
-      {(mutation.error || componentError) && (
-        <Alert
-          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_140"
-          type="error"
-          message={componentError || mutation.error?.message || mutation.error?.displayMessage}
-          closable={false}
-          css={{ marginTop: theme.spacing.md }}
-        />
       )}
     </>
   );
@@ -176,8 +145,6 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                     setValue={setValue}
                     getValues={getValues}
                     scorerType={scorerType}
-                    mutation={mutation}
-                    componentError={componentError}
                   />
                 </div>
               </div>
@@ -223,41 +190,54 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
             setValue={setValue}
             getValues={getValues}
             scorerType={scorerType}
-            mutation={mutation}
-            componentError={componentError}
           />
         </div>
       )}
-      {/* Sticky footer with buttons */}
+      {/* Sticky footer with error message and buttons */}
       <div
         css={{
           display: 'flex',
           justifyContent: 'flex-end',
+          alignItems: 'center',
           gap: theme.spacing.sm,
           paddingTop: theme.spacing.md,
           position: 'sticky',
           bottom: 0,
+          backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
+        {/* Error message - display with priority: local error first, then mutation error */}
+        {(mutation.error || componentError) && (
+          <Alert
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_140"
+            type="error"
+            message={componentError || mutation.error?.message || mutation.error?.displayMessage}
+            closable={false}
+            css={{ flex: 1 }}
+          />
+        )}
         <Button
           componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_293"
           onClick={handleCancel}
         >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
         </Button>
-        <Button
-          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
-          type="primary"
-          htmlType="submit"
-          loading={mutation.isLoading}
-          disabled={isSubmitDisabled}
-        >
-          {mode === SCORER_FORM_MODE.EDIT ? (
-            <FormattedMessage defaultMessage="Save" description="Save judge button text" />
-          ) : (
-            <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
-          )}
-        </Button>
+        {/* Hide submit button for custom-code in create mode since it's always disabled */}
+        {!(scorerType === 'custom-code' && mode === SCORER_FORM_MODE.CREATE) && (
+          <Button
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
+            type="primary"
+            htmlType="submit"
+            loading={mutation.isLoading}
+            disabled={isSubmitDisabled}
+          >
+            {mode === SCORER_FORM_MODE.EDIT ? (
+              <FormattedMessage defaultMessage="Save" description="Save judge button text" />
+            ) : (
+              <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
+            )}
+          </Button>
+        )}
       </div>
     </form>
   );

@@ -17,4 +17,9 @@ def get_project_path(experiment_id: str) -> str | None:
     return config.get_project_path(experiment_id)
 
 
-__all__ = ["get_project_path", "AssistantConfig"]
+def clear_project_path_cache() -> None:
+    """Clear the project path cache to pick up config changes."""
+    get_project_path.cache_clear()
+
+
+__all__ = ["get_project_path", "clear_project_path_cache", "AssistantConfig"]

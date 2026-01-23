@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
@@ -123,6 +124,11 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             as a dict (prompt template name -> prompt template).
         """
         from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        if not train_data:
+            raise MlflowException.invalid_parameter_value(
+                "GEPA optimizer requires `train_data` to be provided."
+            )
 
         try:
             import gepa
