@@ -4246,7 +4246,7 @@ message GatewayEndpointTag {
 message GatewayEndpointBinding {
   // ID of the endpoint this binding references
   optional string endpoint_id = 1;
-  // Type of MLflow resource (e.g., "scorer_job")
+  // Type of MLflow resource (e.g., "scorer")
   optional string resource_type = 2;
   // ID of the specific resource instance
   optional string resource_id = 3;
@@ -4259,6 +4259,8 @@ message GatewayEndpointBinding {
   // User ID who last updated the binding
   optional string last_updated_by = 7;
   // Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side)
+  // Human-readable display name for the resource (e.g., scorer name)
+  optional string display_name = 10;
 }
 
 // ========== Secrets API Messages ==========
@@ -4576,7 +4578,7 @@ message DeleteGatewayEndpointBinding {
 message ListGatewayEndpointBindings {
   // ID of the endpoint to list bindings for
   optional string endpoint_id = 1;
-  // Type of resource to filter bindings by (e.g., "scorer_job")
+  // Type of resource to filter bindings by (e.g., "scorer")
   optional string resource_type = 2;
   // ID of the resource to filter bindings by
   optional string resource_id = 3;

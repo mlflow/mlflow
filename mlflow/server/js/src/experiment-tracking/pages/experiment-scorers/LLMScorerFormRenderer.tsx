@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
@@ -28,6 +28,9 @@ import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
+import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
+import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -400,7 +403,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                   name={field.name}
                   id="mlflow-experiment-scorers-instructions"
                   readOnly={isReadOnly}
-                  rows={7}
+                  rows={10}
                   placeholder={
                     isSessionLevelScorer
                       ? intl.formatMessage(
@@ -529,6 +532,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
 const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
+  const accordionRef = useRef<ScorerFormAccordionHandle>(null);
 
   // Update name when template changes
   useEffect(() => {
@@ -537,24 +541,88 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     }
   }, [selectedTemplate, setValue, mode]);
 
-  return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.md,
-        paddingLeft: mode === SCORER_FORM_MODE.DISPLAY ? theme.spacing.lg : 0,
-      }}
-    >
-      <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
+  // Check if General section is complete and progress to Evaluation Criteria
+  const checkAndProgressGeneral = useCallback(
+    (fieldName: keyof LLMScorerFormData, newValue: string) => {
+      if (mode === SCORER_FORM_MODE.DISPLAY) return;
+
+      const values = getValues();
+      const updated = { ...values, [fieldName]: newValue };
+      const isComplete =
+        Boolean(updated.name) &&
+        Boolean(updated.model) &&
+        (!isEvaluatingSessionsInScorersEnabled() || Boolean(updated.evaluationScope));
+
+      if (isComplete) {
+        accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
+      }
+    },
+    [getValues, mode],
+  );
+
+  const generalSection = (
+    <>
+      {isEvaluatingSessionsInScorersEnabled() && (
+        <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
+      )}
       <NameSection mode={mode} control={control} />
+      <ModelSectionRenderer mode={mode} control={control} setValue={setValue} onUserSelect={checkAndProgressGeneral} />
+    </>
+  );
+
+  const evaluationCriteriaSection = (
+    <>
+      <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       {isGuidelinesTemplate(selectedTemplate) && <GuidelinesSection mode={mode} control={control} />}
       {!isGuidelinesTemplate(selectedTemplate) && (
         <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
       )}
       {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
-      <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+    </>
+  );
+
+  const automaticEvaluationSection = <EvaluateTracesSectionRenderer control={control} mode={mode} />;
+
+  // In DISPLAY mode, render original flat layout without accordion
+  if (mode === SCORER_FORM_MODE.DISPLAY) {
+    return (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.md,
+          paddingLeft: theme.spacing.lg,
+        }}
+      >
+        <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
+        <NameSection mode={mode} control={control} />
+        {isGuidelinesTemplate(selectedTemplate) && <GuidelinesSection mode={mode} control={control} />}
+        {!isGuidelinesTemplate(selectedTemplate) && (
+          <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+        )}
+        {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
+        <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
+        <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      </div>
+    );
+  }
+
+  // In CREATE/EDIT mode, render with accordion
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <ScorerFormAccordion
+        ref={accordionRef}
+        control={control}
+        generalSection={generalSection}
+        evaluationCriteriaSection={evaluationCriteriaSection}
+        automaticEvaluationSection={automaticEvaluationSection}
+        initialSection={mode === SCORER_FORM_MODE.EDIT ? AccordionSection.SCORING_CRITERIA : AccordionSection.GENERAL}
+      />
     </div>
   );
 };

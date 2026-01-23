@@ -5,6 +5,8 @@ import { TracesV3Toolbar } from '../../components/experiment-page/components/tra
 import invariant from 'invariant';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useCallback, useMemo, useState } from 'react';
+import type { RowSelectionState } from '@tanstack/react-table';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   GenAIChatSessionsTable,
@@ -25,14 +27,15 @@ import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/u
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedSessionIds', rowSelection);
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
   });
 
-  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
+  const timeRange = useMonitoringFiltersTimeRange();
 
   const traceSearchLocations = useMemo(
     () => {
@@ -80,6 +83,7 @@ const ExperimentChatSessionsPageImpl = () => {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         traceActions={traceActions}
+        onRowSelectionChange={setRowSelection}
       />
     </div>
   );
