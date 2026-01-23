@@ -1,14 +1,17 @@
+import json
 import logging
 import os
+import platform
 import re
 import shutil
 import sys
+import tarfile
 import tempfile
+import urllib.request
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Literal
-
-from packaging.version import Version
 
 import mlflow
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
@@ -33,50 +36,19 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_mlflow_virtualenv_root():
-    """
-    Returns the root directory to store virtualenv environments created by MLflow.
-    """
     return MLFLOW_ENV_ROOT.get()
 
 
-_DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
-
-
-def _is_pyenv_available():
-    """
-    Returns True if pyenv is available, otherwise False.
-    """
-    return _get_pyenv_bin_path() is not None
-
-
-def _validate_pyenv_is_available():
-    """
-    Validates pyenv is available. If not, throws an `MlflowException` with a brief instruction on
-    how to install pyenv.
-    """
-    url = (
-        "https://github.com/pyenv/pyenv#installation"
-        if not is_windows()
-        else "https://github.com/pyenv-win/pyenv-win#installation"
-    )
-    if not _is_pyenv_available():
-        raise MlflowException(
-            f"Could not find the pyenv binary. See {url} for installation instructions."
-        )
+# PBS (python-build-standalone) configuration
+_PBS_BASE_URL = "https://github.com/astral-sh/python-build-standalone/releases/download"
+_PBS_INSTALL_DIR = Path.home() / ".mlflow" / "python"
 
 
 def _is_virtualenv_available():
-    """
-    Returns True if virtualenv is available, otherwise False.
-    """
     return shutil.which("virtualenv") is not None
 
 
 def _validate_virtualenv_is_available():
-    """
-    Validates virtualenv is available. If not, throws an `MlflowException` with a brief instruction
-    on how to install virtualenv.
-    """
     if not _is_virtualenv_available():
         raise MlflowException(
             "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
@@ -87,73 +59,101 @@ def _validate_virtualenv_is_available():
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
-def _get_pyenv_bin_path():
-    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
-        return _DATABRICKS_PYENV_BIN_PATH
-    return shutil.which("pyenv")
+def _get_pbs_platform_tag():
+    machine = platform.machine().lower()
+    system = platform.system().lower()
+
+    arch_map = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
+    arch = arch_map.get(machine, machine)
+
+    if system == "darwin":
+        return f"{arch}-apple-darwin"
+    elif system == "linux":
+        return f"{arch}-unknown-linux-gnu"
+    elif system == "windows":
+        return f"{arch}-pc-windows-msvc"
+    raise MlflowException(f"Unsupported platform: {system}-{machine}")
+
+
+def _get_pbs_releases():
+    url = "https://api.github.com/repos/astral-sh/python-build-standalone/releases?per_page=10"
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        return json.loads(resp.read().decode())
 
 
 def _find_latest_installable_python_version(version_prefix):
-    """
-    Find the latest installable python version that matches the given version prefix
-    from the output of `pyenv install --list`. For example, `version_prefix("3.8")` returns '3.8.x'
-    where 'x' represents the latest micro version in 3.8.
-    """
-    lines = _exec_cmd(
-        [_get_pyenv_bin_path(), "install", "--list"],
-        capture_output=True,
-        shell=is_windows(),
-    ).stdout.splitlines()
-    semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
-    matched = [v for v in semantic_versions if v.startswith(version_prefix)]
-    if not matched:
-        raise MlflowException(f"Could not find python version that matches {version_prefix}")
-    return max(matched, key=Version)
+    releases = _get_pbs_releases()
+    platform_tag = _get_pbs_platform_tag()
+
+    for release in releases:
+        for asset in release.get("assets", []):
+            name = asset["name"]
+            if platform_tag not in name or "install_only" not in name:
+                continue
+            # Extract version from filename like cpython-3.10.14+20240713-...
+            if match := re.search(r"cpython-(\d+\.\d+\.\d+)\+(\d+)", name):
+                version = match.group(1)
+                if version.startswith(version_prefix):
+                    return version, release["tag_name"]
+
+    raise MlflowException(f"Could not find Python version matching {version_prefix}")
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
-    """Installs a specified version of python with pyenv and returns a path to the installed python
-    binary.
+    install_dir = Path(pyenv_root) if pyenv_root else _PBS_INSTALL_DIR
 
-    Args:
-        version: Python version to install.
-        pyenv_root: The value of the "PYENV_ROOT" environment variable used when running
-            `pyenv install` which installs python in `{PYENV_ROOT}/versions/{version}`.
-        capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
+    # Get the minor version prefix (e.g., "3.10" from "3.10.16" or "3.10")
+    match version.rsplit(".", 1):
+        case [major_minor, patch] if "." in major_minor and patch.isdigit():
+            version_prefix = major_minor
+        case [major, minor] if major.isdigit() and minor.isdigit():
+            version_prefix = version
+        case _:
+            raise MlflowException(f"Invalid Python version: {version}")
 
-    Returns:
-        Path to the installed python binary.
-    """
-    version = (
-        version
-        if _SEMANTIC_VERSION_REGEX.match(version)
-        else _find_latest_installable_python_version(version)
-    )
-    _logger.info("Installing python %s if it does not exist", version)
-    # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
-    # https://github.com/pyenv-win/pyenv-win/pull/314
-    pyenv_install_options = ("--skip-existing",) if not is_windows() else ()
-    extra_env = {"PYENV_ROOT": pyenv_root} if pyenv_root else None
-    pyenv_bin_path = _get_pyenv_bin_path()
-    _exec_cmd(
-        [pyenv_bin_path, "install", *pyenv_install_options, version],
-        capture_output=capture_output,
-        # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
-        shell=is_windows(),
-        extra_env=extra_env,
-    )
+    # Find the latest available version for this minor series from PBS
+    version, release_tag = _find_latest_installable_python_version(version_prefix)
 
-    if not is_windows():
-        if pyenv_root is None:
-            pyenv_root = _exec_cmd([pyenv_bin_path, "root"], capture_output=True).stdout.strip()
-        path_to_bin = ("bin", "python")
+    python_dir = install_dir / version
+    if is_windows():
+        python_bin = python_dir / "python" / "python.exe"
     else:
-        # pyenv-win doesn't provide the `pyenv root` command
-        pyenv_root = os.getenv("PYENV_ROOT")
-        if pyenv_root is None:
-            raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
-        path_to_bin = ("python.exe",)
-    return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
+        python_bin = python_dir / "python" / "bin" / "python3"
+
+    if python_bin.exists():
+        _logger.info("Python %s already installed at %s", version, python_bin)
+        return python_bin
+
+    _logger.info("Installing Python %s from python-build-standalone", version)
+
+    platform_tag = _get_pbs_platform_tag()
+    ext = "tar.gz" if not is_windows() else "zip"
+    filename = f"cpython-{version}+{release_tag}-{platform_tag}-install_only.{ext}"
+    url = f"{_PBS_BASE_URL}/{release_tag}/{filename}"
+
+    python_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        _logger.info("Downloading %s", url)
+        urllib.request.urlretrieve(url, tmp_path)
+
+        _logger.info("Extracting to %s", python_dir)
+        if ext == "tar.gz":
+            with tarfile.open(tmp_path, "r:gz") as tar:
+                tar.extractall(python_dir)
+        else:
+            with zipfile.ZipFile(tmp_path, "r") as z:
+                z.extractall(python_dir)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if not python_bin.exists():
+        raise MlflowException(f"Python binary not found at {python_bin} after installation")
+
+    return python_bin
 
 
 def _get_conda_env_file(model_config):
@@ -417,7 +417,6 @@ def _get_or_create_virtualenv(
 
     """
     if env_manager == em.VIRTUALENV:
-        _validate_pyenv_is_available()
         _validate_virtualenv_is_available()
 
     local_model_path = Path(local_model_path)

@@ -15,28 +15,21 @@ UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
-SETUP_PYENV_AND_VIRTUALENV = r"""# Setup pyenv
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
-    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-RUN git clone \
-    --depth 1 \
-    --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
-    https://github.com/pyenv/pyenv.git /root/.pyenv
-ENV PYENV_ROOT="/root/.pyenv"
-ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y software-properties-common \
-    && apt update \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt update \
-    && apt install -y python3.10 python3.10-distutils \
-    # Remove python3-blinker to avoid pip uninstall conflicts
-    && apt remove -y python3-blinker \
-    && ln -s -f $(which python3.10) /usr/bin/python \
-    && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
-    && python /tmp/get-pip.py
+SETUP_PBS_AND_VIRTUALENV = r"""# Setup Python via python-build-standalone (PBS)
+ARG PY_VER=3.10.19
+ARG PBS_REL=20260114
+ARG PBS_BASE=https://github.com/astral-sh/python-build-standalone/releases/download
+RUN ARCH=$(uname -m) && \
+    PBS_FILE="cpython-${PY_VER}+${PBS_REL}-${ARCH}-unknown-linux-gnu-install_only.tar.gz" && \
+    curl -fsSL -o /tmp/python.tar.gz "${PBS_BASE}/${PBS_REL}/${PBS_FILE}" && \
+    mkdir -p /opt/python && \
+    tar -xzf /tmp/python.tar.gz -C /opt/python --strip-components=1 && \
+    rm /tmp/python.tar.gz && \
+    ln -s /opt/python/bin/python3 /usr/bin/python && \
+    ln -s /opt/python/bin/pip3 /usr/bin/pip
+ENV PATH="/opt/python/bin:$PATH"
 RUN pip install virtualenv
-"""  # noqa: E501
+"""
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}
@@ -113,7 +106,7 @@ def generate_dockerfile(
             "git-core\n\n"
         )
         setup_python_venv_steps += (
-            SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
+            SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PBS_AND_VIRTUALENV
         )
         if install_java is not False:
             jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
