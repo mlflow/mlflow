@@ -1,5 +1,6 @@
 import logging
 
+from opentelemetry import trace as otel_trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -15,7 +16,7 @@ from opentelemetry.trace import (
 from mlflow.entities.span import create_mlflow_span
 from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, mlflow_runtime_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -97,18 +98,16 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
         # Also set this span in MLflow's runtime context so that other autolog integrations
         # (like OpenAI) can correctly parent their spans to Semantic Kernel spans.
-        from opentelemetry import trace as otel_trace
-
-        from mlflow.tracing.provider import mlflow_runtime_context
-
+        # NB: We use otel_trace.set_span_in_context() directly instead of
+        # mlflow.tracing.provider.set_span_in_context() because the latter can produce
+        # two separate traces when MLFLOW_USE_DEFAULT_TRACER_PROVIDER is set to False.
+        # Using the OpenTelemetry API directly ensures consistent behavior for autologging.
         context = otel_trace.set_span_in_context(span)
         token = mlflow_runtime_context.attach(context)
         self._context_tokens[span.context.span_id] = token
 
     def on_end(self, span: OTelReadableSpan) -> None:
         # Detach the span from MLflow's runtime context
-        from mlflow.tracing.provider import mlflow_runtime_context
-
         token = self._context_tokens.pop(span.context.span_id, None)
         if token is not None:
             mlflow_runtime_context.detach(token)
