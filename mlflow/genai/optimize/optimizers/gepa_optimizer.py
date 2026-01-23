@@ -167,13 +167,9 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 outputs = [result.outputs for result in eval_results]
                 scores = [result.score for result in eval_results]
                 trajectories = eval_results if capture_traces else None
-                objective_scores = [result.individual_scores for result in eval_results]
 
                 return gepa.EvaluationBatch(
-                    outputs=outputs,
-                    scores=scores,
-                    trajectories=trajectories,
-                    objective_scores=objective_scores if any(objective_scores) else None,
+                    outputs=outputs, scores=scores, trajectories=trajectories
                 )
 
             def make_reflective_dataset(
@@ -248,24 +244,15 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         gepa_result = gepa.optimize(**kwargs)
 
         optimized_prompts = gepa_result.best_candidate
-        (
-            initial_eval_score,
-            final_eval_score,
-            initial_eval_score_per_scorer,
-            final_eval_score_per_scorer,
-        ) = self._extract_eval_scores(gepa_result)
+        initial_score, final_score = self._extract_eval_scores(gepa_result)
 
         return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
-            initial_eval_score=initial_eval_score,
-            final_eval_score=final_eval_score,
-            initial_eval_score_per_scorer=initial_eval_score_per_scorer,
-            final_eval_score_per_scorer=final_eval_score_per_scorer,
+            initial_eval_score=initial_score,
+            final_eval_score=final_score,
         )
 
-    def _extract_eval_scores(
-        self, result: "gepa.GEPAResult"
-    ) -> tuple[float | None, float | None, dict[str, float], dict[str, float]]:
+    def _extract_eval_scores(self, result: "gepa.GEPAResult") -> tuple[float | None, float | None]:
         """
         Extract initial and final evaluation scores from GEPA result.
 
@@ -273,36 +260,16 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             result: GEPA optimization result
 
         Returns:
-            Tuple of (initial_eval_score, final_eval_score,
-                      initial_eval_score_per_scorer, final_eval_score_per_scorer).
-            Aggregated scores can be None if unavailable.
+            Tuple of (initial_score, final_score), both can be None if unavailable
         """
-        final_eval_score = None
-        initial_eval_score = None
-        initial_eval_score_per_scorer: dict[str, float] = {}
-        final_eval_score_per_scorer: dict[str, float] = {}
+        final_score = None
+        initial_score = None
 
         scores = result.val_aggregate_scores
         if scores and len(scores) > 0:
             # The first score is the initial baseline score
-            initial_eval_score = scores[0]
+            initial_score = scores[0]
             # The highest score is the final optimized score
-            final_eval_score = max(scores)
+            final_score = max(scores)
 
-        # Extract per-scorer scores from val_aggregate_subscores
-        subscores = getattr(result, "val_aggregate_subscores", None)
-        if subscores and len(subscores) > 0:
-            # The first subscore dict is the initial baseline per-scorer scores
-            initial_eval_score_per_scorer = subscores[0] or {}
-            # Find the per-scorer scores corresponding to the best aggregate score
-            if scores and len(scores) > 0:
-                best_idx = scores.index(max(scores))
-                if best_idx < len(subscores) and subscores[best_idx]:
-                    final_eval_score_per_scorer = subscores[best_idx]
-
-        return (
-            initial_eval_score,
-            final_eval_score,
-            initial_eval_score_per_scorer,
-            final_eval_score_per_scorer,
-        )
+        return initial_score, final_score

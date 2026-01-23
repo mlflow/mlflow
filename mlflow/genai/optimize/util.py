@@ -12,7 +12,6 @@ from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_PROMPT_OPTIMIZATION
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -48,9 +47,6 @@ def prompt_optimization_autolog(
         client = MlflowClient()
         run_id = run.info.run_id
 
-        # Tag run as prompt optimization job for UI filtering
-        mlflow.set_tag(MLFLOW_RUN_IS_PROMPT_OPTIMIZATION, "true")
-
         mlflow.log_param("optimizer", optimizer_name)
         mlflow.log_param("num_prompts", num_prompts)
         mlflow.log_param("num_training_samples", num_training_samples)
@@ -75,13 +71,6 @@ def prompt_optimization_autolog(
                 mlflow.log_metric("initial_eval_score", output.initial_eval_score)
             if output.final_eval_score is not None:
                 mlflow.log_metric("final_eval_score", output.final_eval_score)
-            # Log per-scorer metrics (for API response parsing)
-            if output.initial_eval_score_per_scorer:
-                for scorer_name, score in output.initial_eval_score_per_scorer.items():
-                    mlflow.log_metric(f"initial_eval_score.{scorer_name}", score)
-            if output.final_eval_score_per_scorer:
-                for scorer_name, score in output.final_eval_score_per_scorer.items():
-                    mlflow.log_metric(f"final_eval_score.{scorer_name}", score)
 
 
 def validate_train_data(
@@ -136,7 +125,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
 def create_metric_from_scorers(
     scorers: list[Scorer],
     objective: Callable[[dict[str, Any]], float] | None = None,
-) -> Callable[[Any, Any, dict[str, Any]], tuple[float, dict[str, str], dict[str, float]]]:
+) -> Callable[[Any, Any, dict[str, Any]], float]:
     """
     Create a metric function from scorers and an optional objective function.
 
@@ -149,7 +138,7 @@ def create_metric_from_scorers(
 
     Returns:
         A callable that takes (inputs, outputs, expectations) and
-        returns a tuple of (float score, dict of rationales, dict of individual scores).
+        returns a tuple of (float score, dict of rationales).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
@@ -174,7 +163,7 @@ def create_metric_from_scorers(
         outputs: Any,
         expectations: dict[str, Any],
         trace: Trace | None,
-    ) -> tuple[float, dict[str, str], dict[str, float]]:
+    ) -> float:
         scores = {}
         rationales = {}
 
@@ -187,6 +176,9 @@ def create_metric_from_scorers(
             if isinstance(score, Feedback):
                 rationales[key] = score.rationale
 
+        if objective is not None:
+            return objective(scores), rationales
+
         # Try to convert all scores to numeric
         numeric_scores = {}
         for name, score in scores.items():
@@ -194,13 +186,10 @@ def create_metric_from_scorers(
             if numeric_value is not None:
                 numeric_scores[name] = numeric_value
 
-        if objective is not None:
-            return objective(scores), rationales, numeric_scores
-
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
             # We average the scores to get the score between 0 and 1.
-            return sum(numeric_scores.values()) / len(numeric_scores), rationales, numeric_scores
+            return sum(numeric_scores.values()) / len(numeric_scores), rationales
 
         # Otherwise, report error with actual types
         non_convertible = {

@@ -156,7 +156,6 @@ def test_create_metric_from_scorers_with_single_score(score, expected_score):
     result = metric({"input": "test"}, {"output": "result"}, {}, None)
     assert result[0] == expected_score
     assert result[1] == {"test_scorer": "test rationale"}
-    assert result[2] == {"test_scorer": expected_score}
 
 
 def test_create_metric_from_scorers_with_multiple_categorical_ratings():
@@ -174,7 +173,6 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     result = metric({"input": "test"}, {"output": "result"}, {}, None)
     assert result[0] == 1.0
     assert result[1] == {"scorer1": "rationale1", "scorer2": "rationale2"}
-    assert result[2] == {"scorer1": 1.0, "scorer2": 1.0}
 
 
 @pytest.mark.parametrize(
