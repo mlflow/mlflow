@@ -1,10 +1,19 @@
-import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  DropdownMenu,
+  GavelIcon,
+  PlusIcon,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { first, isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
+import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -52,6 +61,22 @@ const AddFeedbackButton = ({ onClick }: { onClick: () => void }) => (
   </Button>
 );
 
+const RunJudgeButton = ({ traceId }: { traceId: string }) => {
+  const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
+
+  if (!runJudgeConfiguration.renderRunJudgeButton) {
+    return null;
+  }
+
+  const trigger = (
+    <Button type="primary" componentId="shared.model-trace-explorer.add-feedback" size="small" icon={<GavelIcon />}>
+      <FormattedMessage defaultMessage="Run judge" description="Label for the button to add a new feedback" />
+    </Button>
+  );
+
+  return <>{runJudgeConfiguration.renderRunJudgeButton({ traceId, trigger })}</>;
+};
+
 export const AssessmentsPaneFeedbackSection = ({
   enableRunScorer,
   feedbacks,
@@ -89,8 +114,11 @@ export const AssessmentsPaneFeedbackSection = ({
         </Typography.Text>
       </div>
       {!isEmpty(groupedFeedbacks) && (
-        <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
+        <div
+          css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
+        >
           <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
+          {enableRunScorer && <RunJudgeButton traceId={traceId} />}
         </div>
       )}
 
@@ -122,6 +150,7 @@ export const AssessmentsPaneFeedbackSection = ({
           <Spacer size="sm" />
           <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
             <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
+            {enableRunScorer && <RunJudgeButton traceId={traceId} />}
           </div>
         </div>
       )}

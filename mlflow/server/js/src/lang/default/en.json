@@ -1918,6 +1918,10 @@
     "defaultMessage": "No prompts",
     "description": "No results message for linked prompts table on logged model details page"
   },
+  "CAzD7g": {
+    "defaultMessage": "Custom judge",
+    "description": "Label indicating a custom judge scorer"
+  },
   "CBnbqy": {
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
@@ -3817,6 +3821,10 @@
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
   },
+  "SFYixb": {
+    "defaultMessage": "Custom code",
+    "description": "Label for custom code judge type filter option"
+  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -4199,6 +4207,10 @@
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
+  },
+  "VD7haA": {
+    "defaultMessage": "Custom LLM-as-a-judge",
+    "description": "Label for custom LLM judge type filter option"
   },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
@@ -5650,6 +5662,10 @@
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
+  },
+  "fdfi96": {
+    "defaultMessage": "Create judge",
+    "description": "Button to create a new judge"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -8146,6 +8162,10 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
+  },
+  "yO/HAZ": {
+    "defaultMessage": "Pre-built LLM-as-a-judge",
+    "description": "Label for pre-built LLM judge type filter option"
   },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",

@@ -11,6 +11,7 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
+import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 export const AssessmentsPane = ({
   assessments,
@@ -48,6 +49,7 @@ export const AssessmentsPane = ({
     () => partition(allAssessments, (assessment) => 'feedback' in assessment),
     [allAssessments],
   );
+  const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
 
   return (
     <div
@@ -105,7 +107,11 @@ export const AssessmentsPane = ({
         )}
       </div>
       <AssessmentsPaneFeedbackSection
-        enableRunScorer={enableRunScorer && isEvaluatingTracesInDetailsViewEnabled()}
+        enableRunScorer={
+          enableRunScorer &&
+          isEvaluatingTracesInDetailsViewEnabled() &&
+          Boolean(runJudgeConfiguration.renderRunJudgeButton)
+        }
         feedbacks={feedbacks}
         activeSpanId={activeSpanId}
         traceId={traceId}
