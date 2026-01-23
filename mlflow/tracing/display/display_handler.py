@@ -83,13 +83,6 @@ def _get_query_string_for_traces(traces: list["Trace"]):
     return urlencode(query_params)
 
 
-def _is_jupyter():
-    # Lazy import to avoid circular dependency
-    from mlflow.tracking.context.jupyter_notebook_context import _is_in_jupyter_notebook
-
-    return _is_in_jupyter_notebook()
-
-
 def is_using_tracking_server():
     return is_http_uri(mlflow.get_tracking_uri())
 
@@ -98,7 +91,10 @@ def is_trace_ui_available():
     # the notebook display feature only works in
     # Databricks notebooks, or in Jupyter notebooks
     # with a tracking server
-    return _is_jupyter() and (is_in_databricks_runtime() or is_using_tracking_server())
+    # Lazy import to avoid circular dependency
+    from mlflow.tracking.context.jupyter_notebook_context import _is_in_jupyter_notebook
+
+    return _is_in_jupyter_notebook() and (is_in_databricks_runtime() or is_using_tracking_server())
 
 
 class IPythonTraceDisplayHandler:
@@ -123,7 +119,10 @@ class IPythonTraceDisplayHandler:
 
     def __init__(self):
         self.traces_to_display = {}
-        if not _is_jupyter():
+        # Lazy import to avoid circular dependency
+        from mlflow.tracking.context.jupyter_notebook_context import _is_in_jupyter_notebook
+
+        if not _is_in_jupyter_notebook():
             return
 
         try:
