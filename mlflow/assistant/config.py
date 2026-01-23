@@ -15,10 +15,18 @@ class PermissionsConfig(BaseModel):
     full_access: bool = False
 
 
+class SkillsConfig(BaseModel):
+    """Skills configuration for a provider."""
+
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None  # Only used when type="custom"
+
+
 class ProviderConfig(BaseModel):
     model: str = "default"
     selected: bool = False
     permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
+    skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
 
 class ProjectConfig(BaseModel):
@@ -36,10 +44,6 @@ class AssistantConfig(BaseModel):
     providers: dict[str, ProviderConfig] = Field(
         default_factory=dict,
         description="Mapping of provider name to their configuration",
-    )
-    skills_location: str | None = Field(
-        default=None,
-        description="Full path where skills are installed",
     )
 
     @classmethod
@@ -118,4 +122,10 @@ class AssistantConfig(BaseModel):
             provider.selected = name == provider_name
 
 
-__all__ = ["AssistantConfig", "ProviderConfig", "ProjectConfig", "PermissionsConfig"]
+__all__ = [
+    "AssistantConfig",
+    "PermissionsConfig",
+    "ProjectConfig",
+    "ProviderConfig",
+    "SkillsConfig",
+]

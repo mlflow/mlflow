@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,8 +15,8 @@ from mlflow.assistant.providers.base import (
     NotAuthenticatedError,
     ProviderConfig,
 )
-from mlflow.assistant.skills_installer import CloneFailedError
 from mlflow.assistant.types import Event, Message
+from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager
 
@@ -48,7 +49,25 @@ class MockProvider(AssistantProvider):
     def check_connection(self, echo=print) -> None:
         pass
 
-    def install_skills(self) -> list[str]:
+    def resolve_skills_path(
+        self,
+        skills_type: Literal["global", "project", "custom"],
+        custom_path: str | None = None,
+        project_path: Path | None = None,
+    ) -> Path:
+        match skills_type:
+            case "global":
+                return Path.home() / ".mock" / "skills"
+            case "project":
+                if not project_path:
+                    raise ValueError("project_path required for 'project' type")
+                return project_path / ".mock" / "skills"
+            case "custom":
+                if not custom_path:
+                    raise ValueError("custom_path required for 'custom' type")
+                return Path(custom_path).expanduser()
+
+    def install_skills(self, skill_path: Path) -> list[str]:
         pass
 
     async def astream(
@@ -321,7 +340,7 @@ def test_install_skills_success(client):
 
         response = client.post(
             "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"skills_location": "/tmp/test-skills"},
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
         )
 
         assert response.status_code == 200
@@ -341,12 +360,12 @@ def test_install_skills_skips_when_already_installed(client):
         ) as mock_list,
         patch("mlflow.server.assistant.api.install_skills") as mock_install,
     ):
-        mock_config = AssistantConfig(skills_location="/tmp/test-skills")
+        mock_config = AssistantConfig()
         mock_load.return_value = mock_config
 
         response = client.post(
             "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"skills_location": "/tmp/test-skills"},
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
         )
 
         assert response.status_code == 200
@@ -366,7 +385,7 @@ def test_install_skills_returns_412_when_git_not_available(client):
 
         response = client.post(
             "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"skills_location": "/tmp/test-skills"},
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
         )
 
         assert response.status_code == 412
@@ -379,7 +398,7 @@ def test_install_skills_returns_500_when_clone_fails(client):
         patch("mlflow.server.assistant.api.check_git_available", return_value=True),
         patch(
             "mlflow.server.assistant.api.install_skills",
-            side_effect=CloneFailedError("Failed to clone repository"),
+            side_effect=MlflowException("Failed to clone repository"),
         ),
     ):
         mock_config = AssistantConfig()
@@ -387,7 +406,7 @@ def test_install_skills_returns_500_when_clone_fails(client):
 
         response = client.post(
             "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"skills_location": "/tmp/test-skills"},
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
         )
 
         assert response.status_code == 500

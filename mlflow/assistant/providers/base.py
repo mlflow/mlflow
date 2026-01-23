@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
 
@@ -63,6 +63,24 @@ class AssistantProvider(ABC):
 
         Raises:
             ProviderNotConfiguredError: If the provider is not properly configured.
+        """
+
+    @abstractmethod
+    def resolve_skills_path(
+        self,
+        skills_type: Literal["global", "project", "custom"],
+        custom_path: str | None = None,
+        project_path: Path | None = None,
+    ) -> Path:
+        """Resolve the skills installation path based on type.
+
+        Args:
+            skills_type: 'global', 'project', or 'custom'
+            custom_path: User-provided path (required if type='custom')
+            project_path: Current project path (used if type='project')
+
+        Returns:
+            Resolved absolute path for skills installation.
         """
 
     @abstractmethod

@@ -8,7 +8,7 @@ enabling AI-powered helper through a chat interface.
 import ipaddress
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -22,13 +22,13 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
-from mlflow.assistant.skills_installer import (
-    CloneFailedError,
+from mlflow.assistant.skills import (
     check_git_available,
     install_skills,
     list_installed_skills,
 )
 from mlflow.assistant.types import EventType
+from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.session import SessionManager
 
 # TODO: Hardcoded provider until supporting multiple providers
@@ -87,7 +87,6 @@ class MessageResponse(BaseModel):
 class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
-    skills_location: str | None = None
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -97,7 +96,9 @@ class ConfigUpdateRequest(BaseModel):
 
 # Skills-related models
 class SkillsInstallRequest(BaseModel):
-    skills_location: str
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None    # Required if type="custom"
+    experiment_id: str | None = None  # Used to get project_path for type="project"
 
 
 class SkillsInstallResponse(BaseModel):
@@ -223,13 +224,12 @@ async def get_config() -> ConfigResponse:
     Get the current assistant configuration.
 
     Returns:
-        Current configuration including providers, projects, and skills_location.
+        Current configuration including providers and projects.
     """
     config = AssistantConfig.load()
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
-        skills_location=config.skills_location,
     )
 
 
@@ -281,7 +281,6 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
-        skills_location=config.skills_location,
     )
 
 
@@ -289,40 +288,59 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills from the MLflow skills repository.
+    This endpoint only handles installation. Config updates should be done via PUT /config.
 
     Args:
-        request: SkillsInstallRequest with skills_location.
+        request: SkillsInstallRequest with type, custom_path, and experiment_id.
 
     Returns:
         SkillsInstallResponse with installed skill names and directory.
 
     Raises:
+        HTTPException 400: If custom type without custom_path or project type without experiment_id.
         HTTPException 412: If git is not installed.
         HTTPException 500: If cloning fails.
     """
     config = AssistantConfig.load()
-    expanded_path = Path(request.skills_location).expanduser()
-    expanded_path_str = str(expanded_path)
 
-    # Check if installation needed (location changed or no skills)
-    current_skills = list_installed_skills(expanded_path_str) if expanded_path.exists() else []
-    needs_install = config.skills_location != expanded_path_str or not current_skills
-
-    if needs_install:
-        if not check_git_available():
+    # Resolve project_path for "project" type
+    project_path: Path | None = None
+    if request.type == "project":
+        if not request.experiment_id:
             raise HTTPException(
-                status_code=412, detail="Git is not installed or not available in PATH"
+                status_code=400, detail="experiment_id required for 'project' type"
             )
+        project_location = config.get_project_path(request.experiment_id)
+        if not project_location:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No project path configured for experiment {request.experiment_id}",
+            )
+        project_path = Path(project_location)
 
-        try:
-            installed = install_skills(expanded_path_str)
-        except CloneFailedError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        config.skills_location = expanded_path_str
-        config.save()
-        return SkillsInstallResponse(installed_skills=installed, skills_directory=expanded_path_str)
-
-    return SkillsInstallResponse(
-        installed_skills=current_skills, skills_directory=expanded_path_str
+    # Get skills path from provider
+    skills_path = _provider.resolve_skills_path(
+        skills_type=request.type,
+        custom_path=request.custom_path,
+        project_path=project_path,
     )
+    skills_path_str = str(skills_path)
+
+    # Check if skills already exist
+    if current_skills := (list_installed_skills(skills_path_str) if skills_path.exists() else []):
+        return SkillsInstallResponse(
+            installed_skills=current_skills, skills_directory=skills_path_str
+        )
+
+    # Install skills
+    if not check_git_available():
+        raise HTTPException(
+            status_code=412, detail="Git is not installed or not available in PATH"
+        )
+
+    try:
+        installed = install_skills(skills_path_str)
+    except MlflowException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return SkillsInstallResponse(installed_skills=installed, skills_directory=skills_path_str)
