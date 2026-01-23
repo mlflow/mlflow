@@ -313,7 +313,7 @@ _JOB_STATUS_MAPPING = {
     "RUNNING": JobStatus.JOB_STATUS_IN_PROGRESS,
     "SUCCEEDED": JobStatus.JOB_STATUS_COMPLETED,
     "FAILED": JobStatus.JOB_STATUS_FAILED,
-    "CANCELLED": JobStatus.JOB_STATUS_CANCELED,
+    "CANCELED": JobStatus.JOB_STATUS_CANCELED,
 }
 
 
@@ -5379,7 +5379,15 @@ def _get_prompt_optimization_job(job_id):
             # Convert string back to enum
             optimizer_type_str = run_params["optimizer_type"].upper()
             enum_name = f"OPTIMIZER_TYPE_{optimizer_type_str}"
-            config.optimizer_type = ProtoOptimizerType.Value(enum_name)
+            try:
+                config.optimizer_type = ProtoOptimizerType.Value(enum_name)
+            except ValueError:
+                _logger.debug(
+                    "Unknown optimizer_type '%s' for optimization job %s; "
+                    "leaving optimizer_type unset.",
+                    run_params["optimizer_type"],
+                    job_id,
+                )
         if "dataset_id" in run_params:
             config.dataset_id = run_params["dataset_id"]
         if "scorer_names" in run_params:
@@ -5516,10 +5524,7 @@ def _delete_prompt_optimization_job(job_id):
 
     # Delete the associated MLflow run if it exists
     if run_id:
-        try:
-            _get_tracking_store().delete_run(run_id)
-        except Exception:
-            pass
+        _get_tracking_store().delete_run(run_id)
 
     response_message = DeletePromptOptimizationJob.Response()
     return _wrap_response(response_message)

@@ -96,6 +96,7 @@ class EvaluationResultRecord:
         score: The score of the evaluation result. None if no scorers are provided.
         trace: The trace of the evaluation execution.
         rationales: The rationales of the evaluation result.
+        individual_scores: Per-scorer scores (scorer name -> score).
     """
 
     inputs: dict[str, Any]
@@ -104,6 +105,7 @@ class EvaluationResultRecord:
     score: float | None
     trace: Trace
     rationales: dict[str, str]
+    individual_scores: dict[str, float] = field(default_factory=dict)
 
 
 @experimental(version="3.5.0")
@@ -118,11 +120,15 @@ class PromptOptimizerOutput:
             e.g., {"question": "What is the capital of {{country}}?"}
         initial_eval_score: The evaluation score before optimization (optional).
         final_eval_score: The evaluation score after optimization (optional).
+        initial_eval_score_per_scorer: Per-scorer scores before optimization (scorer name -> score).
+        final_eval_score_per_scorer: Per-scorer scores after optimization (scorer name -> score).
     """
 
     optimized_prompts: dict[str, str]
     initial_eval_score: float | None = None
     final_eval_score: float | None = None
+    initial_eval_score_per_scorer: dict[str, float] = field(default_factory=dict)
+    final_eval_score_per_scorer: dict[str, float] = field(default_factory=dict)
 
 
 @experimental(version="3.5.0")
@@ -136,9 +142,13 @@ class PromptOptimizationResult:
         optimizer_name: The name of the optimizer.
         initial_eval_score: The evaluation score before optimization (optional).
         final_eval_score: The evaluation score after optimization (optional).
+        initial_eval_score_per_scorer: Per-scorer scores before optimization (scorer name -> score).
+        final_eval_score_per_scorer: Per-scorer scores after optimization (scorer name -> score).
     """
 
     optimized_prompts: list[PromptVersion]
     optimizer_name: str
     initial_eval_score: float | None = None
     final_eval_score: float | None = None
+    initial_eval_score_per_scorer: dict[str, float] = field(default_factory=dict)
+    final_eval_score_per_scorer: dict[str, float] = field(default_factory=dict)
