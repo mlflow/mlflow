@@ -4719,6 +4719,10 @@
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
   },
+  "Zbff/R": {
+    "defaultMessage": "Unified interface for accessing multiple LLM providers.",
+    "description": "Home page quick action description for AI Gateway"
+  },
   "Zc48NC": {
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
@@ -6118,6 +6122,10 @@
   "jPW0Lj": {
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
+  },
+  "jSDxn3": {
+    "defaultMessage": "AI Gateway",
+    "description": "Home page quick action title for AI Gateway"
   },
   "jTqRO+": {
     "defaultMessage": "None",
