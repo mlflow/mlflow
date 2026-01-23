@@ -17,7 +17,7 @@ from mlflow.store.tracking.dbmodels.models import (
 
 # revision identifiers, used by Alembic.
 revision = "0f1a2b3c4d5e"
-down_revision = "84291f40a231"
+down_revision = "d3e4f5a6b7c8"
 branch_labels = None
 depends_on = None
 
@@ -46,68 +46,161 @@ def get_foreign_key_name(table_name, column_name, referred_table_name):
 def upgrade():
     dialect_name = op.get_context().dialect.name
 
-    # List of tables and their foreign keys to experiments.experiment_id that need CASCADE
-    tables_to_update = [
-        (SqlTraceInfo.__tablename__, "experiment_id", "fk_trace_info_experiment_id"),
-        (SqlSpan.__tablename__, "experiment_id", "fk_spans_experiment_id"),
-        (
-            SqlOnlineScoringConfig.__tablename__,
-            "experiment_id",
-            "fk_online_scoring_configs_experiment_id",
-        ),
-    ]
+    # Update trace_info FK
+    table_name = SqlTraceInfo.__tablename__
+    column_name = "experiment_id"
+    new_fk_name = "fk_trace_info_experiment_id"
 
-    for table_name, column_name, new_fk_name in tables_to_update:
-        if dialect_name == "sqlite":
-            # SQLite requires batch operations to alter foreign keys
-            # See https://alembic.sqlalchemy.org/en/latest/batch.html
-            with op.batch_alter_table(
-                table_name,
-                schema=None,
-                naming_convention={
-                    "fk": "fk_%(table_name)s_%(column_0_name)s",
-                },
-            ) as batch_op:
-                # Drop the old foreign key constraint
-                try:
-                    old_fk_name = f"fk_{table_name}_{column_name}"
-                    batch_op.drop_constraint(old_fk_name, type_="foreignkey")
-                except Exception:
-                    # If the constraint name doesn't match the pattern, try the provided name
-                    batch_op.drop_constraint(new_fk_name, type_="foreignkey")
-
-                # Create the new foreign key constraint with CASCADE
-                batch_op.create_foreign_key(
-                    new_fk_name,
-                    SqlExperiment.__tablename__,
-                    [column_name],
-                    ["experiment_id"],
-                    ondelete="CASCADE",
-                )
-        else:
-            # For other databases (MySQL, PostgreSQL, etc.)
+    if dialect_name == "sqlite":
+        with op.batch_alter_table(
+            table_name,
+            schema=None,
+            naming_convention={
+                "fk": "fk_%(table_name)s_%(column_0_name)s",
+            },
+        ) as batch_op:
             try:
-                old_fk_name = get_foreign_key_name(
-                    table_name, column_name, SqlExperiment.__tablename__
-                )
-                op.drop_constraint(old_fk_name, table_name, type_="foreignkey")
+                old_fk_name = f"fk_{table_name}_{column_name}"
+                batch_op.drop_constraint(old_fk_name, type_="foreignkey")
             except Exception:
-                # If we can't find the constraint, try the standardized name
-                try:
-                    op.drop_constraint(new_fk_name, table_name, type_="foreignkey")
-                except Exception:
-                    # Skip if constraint doesn't exist (defensive programming)
-                    pass
+                batch_op.drop_constraint(new_fk_name, type_="foreignkey")
 
-            # Create the new foreign key constraint with CASCADE
-            op.create_foreign_key(
+            batch_op.create_foreign_key(
                 new_fk_name,
-                table_name,
                 SqlExperiment.__tablename__,
                 [column_name],
                 ["experiment_id"],
                 ondelete="CASCADE",
             )
+    else:
+        try:
+            old_fk_name = get_foreign_key_name(table_name, column_name, SqlExperiment.__tablename__)
+            op.drop_constraint(old_fk_name, table_name, type_="foreignkey")
+        except Exception:
+            try:
+                op.drop_constraint(new_fk_name, table_name, type_="foreignkey")
+            except Exception:
+                pass
+
+        op.create_foreign_key(
+            new_fk_name,
+            table_name,
+            SqlExperiment.__tablename__,
+            [column_name],
+            ["experiment_id"],
+            ondelete="CASCADE",
+        )
+
+    # Update spans FK - special handling for SQLite due to computed column
+    table_name = SqlSpan.__tablename__
+    new_fk_name = "fk_spans_experiment_id"
+
+    if dialect_name == "sqlite":
+        # For SQLite, we need to use copy_from to exclude the computed column
+        # We must include all existing constraints including the FKs
+        with op.batch_alter_table(
+            table_name,
+            schema=None,
+            naming_convention={
+                "fk": "fk_%(table_name)s_%(column_0_name)s",
+            },
+            copy_from=sa.Table(
+                table_name,
+                sa.MetaData(),
+                sa.Column("trace_id", sa.String(50), nullable=False),
+                sa.Column("experiment_id", sa.Integer(), nullable=False),
+                sa.Column("span_id", sa.String(50), nullable=False),
+                sa.Column("parent_span_id", sa.String(50), nullable=True),
+                sa.Column("name", sa.Text(), nullable=True),
+                sa.Column("type", sa.String(500), nullable=True),
+                sa.Column("status", sa.String(50), nullable=False),
+                sa.Column("start_time_unix_nano", sa.BigInteger(), nullable=False),
+                sa.Column("end_time_unix_nano", sa.BigInteger(), nullable=True),
+                # Don't include duration_ns here - it's a computed column
+                sa.Column("content", sa.Text(), nullable=False),
+                sa.ForeignKeyConstraint(
+                    ["trace_id"],
+                    ["trace_info.request_id"],
+                    name="fk_spans_trace_id",
+                    ondelete="CASCADE",
+                ),
+                sa.ForeignKeyConstraint(
+                    ["experiment_id"], ["experiments.experiment_id"], name="fk_spans_experiment_id"
+                ),
+            ),
+        ) as batch_op:
+            # Drop the old FK constraint and recreate with CASCADE
+            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey")
+
+            batch_op.create_foreign_key(
+                new_fk_name,
+                SqlExperiment.__tablename__,
+                [column_name],
+                ["experiment_id"],
+                ondelete="CASCADE",
+            )
+    else:
+        try:
+            old_fk_name = get_foreign_key_name(table_name, column_name, SqlExperiment.__tablename__)
+            op.drop_constraint(old_fk_name, table_name, type_="foreignkey")
+        except Exception:
+            try:
+                op.drop_constraint(new_fk_name, table_name, type_="foreignkey")
+            except Exception:
+                pass
+
+        op.create_foreign_key(
+            new_fk_name,
+            table_name,
+            SqlExperiment.__tablename__,
+            [column_name],
+            ["experiment_id"],
+            ondelete="CASCADE",
+        )
+
+    # Update online_scoring_configs FK
+    table_name = SqlOnlineScoringConfig.__tablename__
+    new_fk_name = "fk_online_scoring_configs_experiment_id"
+
+    if dialect_name == "sqlite":
+        with op.batch_alter_table(
+            table_name,
+            schema=None,
+            naming_convention={
+                "fk": "fk_%(table_name)s_%(column_0_name)s",
+            },
+        ) as batch_op:
+            try:
+                old_fk_name = f"fk_{table_name}_{column_name}"
+                batch_op.drop_constraint(old_fk_name, type_="foreignkey")
+            except Exception:
+                batch_op.drop_constraint(new_fk_name, type_="foreignkey")
+
+            batch_op.create_foreign_key(
+                new_fk_name,
+                SqlExperiment.__tablename__,
+                [column_name],
+                ["experiment_id"],
+                ondelete="CASCADE",
+            )
+    else:
+        try:
+            old_fk_name = get_foreign_key_name(table_name, column_name, SqlExperiment.__tablename__)
+            op.drop_constraint(old_fk_name, table_name, type_="foreignkey")
+        except Exception:
+            try:
+                op.drop_constraint(new_fk_name, table_name, type_="foreignkey")
+            except Exception:
+                pass
+
+        op.create_foreign_key(
+            new_fk_name,
+            table_name,
+            SqlExperiment.__tablename__,
+            [column_name],
+            ["experiment_id"],
+            ondelete="CASCADE",
+        )
 
 
 def downgrade():

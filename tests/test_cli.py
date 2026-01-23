@@ -21,7 +21,9 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
-from mlflow.entities import ViewType
+from mlflow.entities import TraceInfo, ViewType
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -582,6 +584,48 @@ def test_mlflow_gc_experiments(get_store_details, request):
     assert sorted([e.experiment_id for e in experiments]) == sorted(
         [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
     )
+
+
+def test_mlflow_gc_experiments_with_traces(sqlite_store):
+    def invoke_gc(*args):
+        return CliRunner().invoke(gc, args, catch_exceptions=False)
+
+    store, uri = sqlite_store
+
+    # Create an experiment with traces
+    exp_id = store.create_experiment("exp_with_traces")
+
+    # Create a trace in the experiment
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"test": "tag"},
+        trace_metadata={},
+    )
+    store.start_trace(trace_info)
+
+    # Verify trace exists
+    traces, _ = store.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 1
+    assert traces[0].trace_id == "test-trace-id"
+
+    # Delete the experiment
+    store.delete_experiment(exp_id)
+
+    # Run GC - this should succeed even with traces present
+    result = invoke_gc("--backend-store-uri", uri)
+    assert result.exit_code == 0
+
+    # Verify experiment is deleted
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert exp_id not in [e.experiment_id for e in experiments]
+
+    # Verify traces are also deleted
+    traces, _ = store.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 0
 
 
 @pytest.fixture
