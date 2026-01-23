@@ -3,12 +3,19 @@ import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
+import { AssessmentsPaneJudgeFeedbackSection } from './AssessmentsPaneJudgeFeedbackSection';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
 type GroupedFeedbacks = [assessmentName: string, feedbacks: GroupedFeedbacksByValue][];
+
+// Helper function to check if any feedback in a group is from an LLM judge or code scorer
+const hasAutomatedFeedback = (feedbacksMap: GroupedFeedbacksByValue): boolean =>
+  Object.values(feedbacksMap)
+    .flat()
+    .some((feedback) => feedback.source.source_type === 'LLM_JUDGE' || feedback.source.source_type === 'CODE');
 
 const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   const aggregated: Record<string, GroupedFeedbacksByValue> = {};
@@ -37,6 +44,7 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   });
 
   // Filter out LLM judge feedback groups
+  // TODO(next PR): Extract LLM judge feedback groups to a separate section
   return Object.entries(aggregated);
 };
 
@@ -48,24 +56,29 @@ const AddFeedbackButton = ({ onClick }: { onClick: () => void }) => (
     icon={<PlusIcon />}
     onClick={onClick}
   >
-    {/* {TODO(next PR): Rename to "Add human feedback" when auto LLM judge feedback is implemented */}
-    <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
+    <FormattedMessage defaultMessage="Add human feedback" description="Label for the button to add a new feedback" />
   </Button>
 );
 
 export const AssessmentsPaneFeedbackSection = ({
+  showRunScorerSection,
   feedbacks,
   activeSpanId,
   traceId,
 }: {
+  showRunScorerSection: boolean;
   feedbacks: FeedbackAssessment[];
   activeSpanId?: string;
   traceId: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => {
-    // TODO(next PR): Extract LLM judge feedback groups to a separate section
-    return groupFeedbacks(feedbacks);
-  }, [feedbacks]);
+  const [groupedFeedbacks, llmJudgeFeedbacks] = useMemo(() => {
+    const groups = groupFeedbacks(feedbacks);
+    if (!showRunScorerSection) {
+      return [groups, []];
+    }
+    // Break out the groups into two lists: one with groups that have automated feedback and one without
+    return partition(groups, ([, feedbacks]) => !hasAutomatedFeedback(feedbacks));
+  }, [feedbacks, showRunScorerSection]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -90,11 +103,22 @@ export const AssessmentsPaneFeedbackSection = ({
           {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
         </Typography.Text>
       </div>
+      {showRunScorerSection && (
+        <>
+          <AssessmentsPaneJudgeFeedbackSection
+            feedbackGroups={llmJudgeFeedbacks}
+            traceId={traceId}
+            activeSpanId={activeSpanId}
+          />
+          <Spacer size="sm" shrinks={false} />
+        </>
+      )}
       {!isEmpty(groupedFeedbacks) && (
         <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
           <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
+
       {groupedFeedbacks.map(([name, valuesMap]) => (
         <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
       ))}

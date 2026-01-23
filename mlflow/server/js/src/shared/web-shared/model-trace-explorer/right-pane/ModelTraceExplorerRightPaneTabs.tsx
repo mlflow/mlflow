@@ -171,6 +171,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
       assessments={displayedAssessments}
       traceId={activeSpan.traceId}
       activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+      showRunScorerSection={!activeSpan.parentId}
     />
   );
 

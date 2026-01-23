@@ -19,6 +19,7 @@ export const AssessmentsPane = ({
   className,
   assessmentsTitleOverride,
   disableCloseButton,
+  showRunScorerSection = true,
 }: {
   assessments: Assessment[];
   traceId: string;
@@ -26,6 +27,7 @@ export const AssessmentsPane = ({
   className?: string;
   assessmentsTitleOverride?: (count?: number) => JSX.Element;
   disableCloseButton?: boolean;
+  showRunScorerSection?: boolean;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
@@ -102,7 +104,12 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      <AssessmentsPaneFeedbackSection feedbacks={feedbacks} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneFeedbackSection
+        showRunScorerSection={showRunScorerSection}
+        feedbacks={feedbacks}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+      />
       <Spacer size="sm" shrinks={false} />
       <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
     </div>

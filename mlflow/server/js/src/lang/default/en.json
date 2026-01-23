@@ -2542,6 +2542,10 @@
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
   },
+  "Hoy0z/": {
+    "defaultMessage": "Add human feedback",
+    "description": "Label for the button to add a new feedback"
+  },
   "Hq/PKm": {
     "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
     "description": "Hint text for direct model input"
@@ -3401,10 +3405,6 @@
   "OlytgO": {
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
-  },
-  "OmK5nx": {
-    "defaultMessage": "Add feedback",
-    "description": "Label for the button to add a new feedback"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -4759,6 +4759,10 @@
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
   },
+  "Zah+D4": {
+    "defaultMessage": "Run judge",
+    "description": "Label for the button to add a new feedback"
+  },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
@@ -5538,6 +5542,10 @@
   "eeLqSn": {
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
+  },
+  "egNGUf": {
+    "defaultMessage": "Run a scorer to get feedback on this trace.",
+    "description": "Hint message prompting user to run a scorer"
   },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
