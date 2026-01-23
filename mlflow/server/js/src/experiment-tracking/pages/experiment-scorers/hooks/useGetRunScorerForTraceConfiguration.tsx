@@ -21,22 +21,22 @@ import {
 import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE } from '../constants';
+import { useRunSerializedScorer } from './useRunSerializedScorer';
 
 export const useRunScorerInTracesViewConfiguration = (): ModelTraceExplorerRunJudgeConfig => {
+  const [experimentId] = useExperimentIds();
+
+  const { evaluateTraces } = useRunSerializedScorer({ experimentId });
+
   const renderRunJudgeButton = useCallback<NonNullable<ModelTraceExplorerRunJudgeConfig['renderRunJudgeButton']>>(
     ({ traceId, trigger }) => {
       return (
-        <SelectJudgeDropdown
-          traceId={traceId}
-          evaluateTraces={() => {
-            // TODO: Run judges against the trace
-          }}
-        >
+        <SelectJudgeDropdown traceId={traceId} evaluateTraces={evaluateTraces}>
           {trigger}
         </SelectJudgeDropdown>
       );
     },
-    [],
+    [evaluateTraces],
   );
   return {
     renderRunJudgeButton,

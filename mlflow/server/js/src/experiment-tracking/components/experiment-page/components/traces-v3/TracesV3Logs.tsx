@@ -55,7 +55,7 @@ import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
-import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesView';
+import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useGetRunScorerForTraceConfiguration';
 
 const ContextProviders = ({
   children,
@@ -69,7 +69,7 @@ const ContextProviders = ({
   const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      <ModelTraceExplorerRunJudgesContextProvider renderRunJudgeButton={runJudgeConfiguration.renderRunJudgeButton}>
+      <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
         {children}
       </ModelTraceExplorerRunJudgesContextProvider>
     </GenAiTracesMarkdownConverterProvider>
