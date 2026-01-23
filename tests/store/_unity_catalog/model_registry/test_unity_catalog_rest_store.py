@@ -18,7 +18,7 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.run import Run
