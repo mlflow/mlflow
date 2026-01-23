@@ -8,12 +8,15 @@ the job is executed as a subprocess.
 
 import importlib
 import json
+import logging
 import os
 import threading
+import traceback
 
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
+_logger = logging.getLogger(__name__)
 # Configure Python logging to suppress noisy job logs
 configure_logging_for_jobs()
 
@@ -49,4 +52,8 @@ if __name__ == "__main__":
         )
         job_result.dump(result_dump_path)
     except Exception as e:
+        _logger.error(
+            f"Job function {os.environ['_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME']} failed with "
+            f"error:\n{traceback.format_exc()}"
+        )
         JobResult.from_error(e, transient_error_classes).dump(result_dump_path)
