@@ -2427,3 +2427,271 @@ def test_search_traces_with_full_text():
     )
     assert len(traces) == 1
     assert traces[0].info.trace_id == trace_id_1
+
+
+def test_search_sessions_empty(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    sessions = mlflow.search_sessions(locations=["1"])
+
+    assert sessions == []
+    mock_client.search_traces.assert_called_once()
+
+
+def test_search_sessions_returns_grouped_traces(mock_client):
+    session_id_1 = "session-1"
+    session_id_2 = "session-2"
+
+    # First call returns traces with session IDs (for discovering sessions)
+    initial_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
+            ),
+            data=TraceData([]),
+        ),
+        Trace(
+            info=create_test_trace_info(
+                "tr-2",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
+            ),
+            data=TraceData([]),
+        ),
+        Trace(
+            info=create_test_trace_info(
+                "tr-3",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_2},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    # Traces for session 1 (with spans)
+    session_1_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
+            ),
+            data=TraceData([]),
+        ),
+        Trace(
+            info=create_test_trace_info(
+                "tr-2",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    # Traces for session 2 (with spans)
+    session_2_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-3",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_2},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(initial_traces, token=None),  # Initial search to find session IDs
+        PagedList(session_1_traces, token=None),  # Fetch session 1 traces
+        PagedList(session_2_traces, token=None),  # Fetch session 2 traces
+    ]
+
+    sessions = mlflow.search_sessions(locations=["1"])
+
+    assert len(sessions) == 2
+    assert len(sessions[0]) == 2
+    assert len(sessions[1]) == 1
+    assert sessions[0][0].info.trace_id == "tr-1"
+    assert sessions[0][1].info.trace_id == "tr-2"
+    assert sessions[1][0].info.trace_id == "tr-3"
+
+
+def test_search_sessions_respects_max_results(mock_client):
+    session_ids = ["session-1", "session-2", "session-3"]
+
+    initial_traces = [
+        Trace(
+            info=create_test_trace_info(
+                f"tr-{i}",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_ids[i]},
+            ),
+            data=TraceData([]),
+        )
+        for i in range(3)
+    ]
+
+    session_traces = [
+        [
+            Trace(
+                info=create_test_trace_info(
+                    f"tr-{i}",
+                    trace_metadata={TraceMetadataKey.TRACE_SESSION: session_ids[i]},
+                ),
+                data=TraceData([]),
+            )
+        ]
+        for i in range(2)  # Only 2 sessions should be fetched
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(initial_traces, token=None),
+        PagedList(session_traces[0], token=None),
+        PagedList(session_traces[1], token=None),
+    ]
+
+    sessions = mlflow.search_sessions(locations=["1"], max_results=2)
+
+    assert len(sessions) == 2
+
+
+def test_search_sessions_skips_traces_without_session_id(mock_client):
+    session_id = "session-1"
+
+    initial_traces = [
+        Trace(
+            info=create_test_trace_info("tr-no-session", trace_metadata={}),
+            data=TraceData([]),
+        ),
+        Trace(
+            info=create_test_trace_info(
+                "tr-with-session",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    session_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-with-session",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(initial_traces, token=None),
+        PagedList(session_traces, token=None),
+    ]
+
+    sessions = mlflow.search_sessions(locations=["1"])
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    assert sessions[0][0].info.trace_id == "tr-with-session"
+
+
+def test_search_sessions_validates_locations_type():
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations=4)
+
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations="4")
+
+
+def test_search_sessions_with_default_experiment_id(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"):
+        sessions = mlflow.search_sessions()
+
+    assert sessions == []
+    mock_client.search_traces.assert_called()
+    call_args = mock_client.search_traces.call_args
+    assert call_args.kwargs.get("locations") == ["123"]
+
+
+def test_search_sessions_raises_without_experiment():
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None):
+        with pytest.raises(MlflowException, match=r"No active experiment found"):
+            mlflow.search_sessions()
+
+
+def test_search_sessions_with_filter_string(mock_client):
+    session_id = "session-1"
+
+    initial_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    session_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(initial_traces, token=None),
+        PagedList(session_traces, token=None),
+    ]
+
+    sessions = mlflow.search_sessions(
+        locations=["1"],
+        filter_string="status = 'OK'",
+    )
+
+    assert len(sessions) == 1
+
+    # Verify the filter string was passed to the initial search
+    first_call_kwargs = mock_client.search_traces.call_args_list[0].kwargs
+    assert first_call_kwargs.get("filter_string") == "status = 'OK'"
+
+    # Verify the session filter was combined with the original filter
+    second_call_kwargs = mock_client.search_traces.call_args_list[1].kwargs
+    assert "status = 'OK'" in second_call_kwargs.get("filter_string")
+    assert TraceMetadataKey.TRACE_SESSION in second_call_kwargs.get("filter_string")
+
+
+def test_search_sessions_include_spans_false(mock_client):
+    session_id = "session-1"
+
+    initial_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    session_traces = [
+        Trace(
+            info=create_test_trace_info(
+                "tr-1",
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            ),
+            data=TraceData([]),
+        ),
+    ]
+
+    mock_client.search_traces.side_effect = [
+        PagedList(initial_traces, token=None),
+        PagedList(session_traces, token=None),
+    ]
+
+    sessions = mlflow.search_sessions(locations=["1"], include_spans=False)
+
+    assert len(sessions) == 1
+
+    # Verify include_spans=False was passed when fetching session traces
+    second_call_kwargs = mock_client.search_traces.call_args_list[1].kwargs
+    assert second_call_kwargs.get("include_spans") is False
