@@ -113,6 +113,11 @@ async def test_langgraph_tracing_prebuilt(is_async):
     # Thread ID should be recoded in the trace metadata
     assert traces[0].info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "1"
 
+    # Verify chat model spans have model name extracted
+    chat_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL]
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
+
 
 @skip_when_testing_trace_sdk
 def test_langgraph_tracing_diy_graph():
@@ -137,6 +142,9 @@ def test_langgraph_tracing_diy_graph():
 
     chat_spans = [span for span in traces[0].data.spans if span.name.startswith("ChatOpenAI")]
     assert len(chat_spans) == 3
+    # Verify all chat model spans have model name extracted
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
 
 
 @skip_when_testing_trace_sdk
@@ -170,6 +178,9 @@ def test_langgraph_tracing_with_custom_span():
     # Validate chat model spans
     chat_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
     assert len(chat_spans) == 3
+    # Verify all chat model spans have model name extracted
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
 
     # Validate tool span
     tool_span = next(s for s in spans if s.span_type == SpanType.TOOL)

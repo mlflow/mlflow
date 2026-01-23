@@ -199,6 +199,7 @@ def test_chat_model_autolog():
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
+    assert span.model_name == "gpt-4o-mini"
 
 
 def test_chat_model_bind_tool_autolog():
@@ -238,6 +239,7 @@ def test_chat_model_bind_tool_autolog():
         }
     ]
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
+    assert span.model_name == "gpt-4o-mini"
 
 
 @pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
@@ -740,20 +742,28 @@ async def test_langchain_autolog_token_usage():
         actual = trace.info.token_usage
         assert actual == {"input_tokens": 9, "output_tokens": 12, "total_tokens": 21}
 
+    def _validate_model_name(trace):
+        # Find the ChatOpenAI span
+        chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
+        assert chat_model_span.model_name == "gpt-3.5-turbo"
+
     # Normal invoke
     model.invoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
 
     # Invoke with streaming
     list(model.stream({"product": "MLflow"}))
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
 
     # When both OpenAI and LangChain autologging is enabled,
     # no duplicated token usage should be logged
@@ -762,6 +772,7 @@ async def test_langchain_autolog_token_usage():
     model.invoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
 
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
@@ -1133,3 +1144,6 @@ async def test_autolog_run_tracer_inline_with_manual_traces_async():
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].name == "manual_transform"
     assert spans[2].parent_id == spans[1].span_id
+    # Find and verify ChatOpenAI span has model name
+    chat_model_span = next(s for s in spans if s.name == "ChatOpenAI")
+    assert chat_model_span.model_name == "gpt-3.5-turbo"
