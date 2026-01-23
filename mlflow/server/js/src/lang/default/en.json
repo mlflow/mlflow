@@ -243,6 +243,10 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
+  "/jZi0V": {
+    "defaultMessage": "Human feedback",
+    "description": "Label for human feedback type"
+  },
   "/k6j6v": {
     "defaultMessage": "Confirm",
     "description": "Evaluation review > assessments > confirm assessment button label"
@@ -693,6 +697,10 @@
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
     "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
+  },
+  "3WGUbu": {
+    "defaultMessage": "Custom code scorer",
+    "description": "Label for custom code scorer type"
   },
   "3X52Jw": {
     "defaultMessage": "This tab displays all the traces logged to this logged model. MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
@@ -1917,6 +1925,10 @@
   "C9wfr0": {
     "defaultMessage": "No prompts",
     "description": "No results message for linked prompts table on logged model details page"
+  },
+  "CAzD7g": {
+    "defaultMessage": "Custom judge",
+    "description": "Label indicating a custom judge scorer"
   },
   "CBnbqy": {
     "defaultMessage": "Next",
@@ -3813,6 +3825,10 @@
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
   },
+  "SFYixb": {
+    "defaultMessage": "Custom code",
+    "description": "Label for custom code judge type filter option"
+  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -4187,6 +4203,10 @@
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
+  },
+  "VD7haA": {
+    "defaultMessage": "Custom LLM-as-a-judge",
+    "description": "Label for custom LLM judge type filter option"
   },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
@@ -5646,6 +5666,10 @@
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
+  },
+  "fdfi96": {
+    "defaultMessage": "Create judge",
+    "description": "Button to create a new judge"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -8142,6 +8166,10 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
+  },
+  "yO/HAZ": {
+    "defaultMessage": "Pre-built LLM-as-a-judge",
+    "description": "Label for pre-built LLM judge type filter option"
   },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",

@@ -2,20 +2,25 @@ import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@dat
 import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { FormattedMessage } from 'react-intl';
-import { first, isEmpty } from 'lodash';
-import { AssessmentSourceTypeTag } from './AssessmentSourceTypeTag';
+import { isEmpty } from 'lodash';
 import { AssessmentSourceTypeTagList } from './AssessmentSourceTypeTagList';
+import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
 type GroupedFeedbacks = [assessmentName: string, feedbacks: GroupedFeedbacksByValue][];
 
-const RunScorerButton = () => (
-  <Button type="primary" componentId="shared.model-trace-explorer.add-feedback" size="small" icon={<PlusIcon />}>
-    {/* TODO (next PR): Implement selecting and running a judge */}
-    <FormattedMessage defaultMessage="Run judge" description="Label for the button to add a new feedback" />
-  </Button>
-);
+const RenderRunScorerButton = ({ traceId }: { traceId: string }) => {
+  const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
+
+  const trigger = (
+    <Button type="primary" componentId="shared.model-trace-explorer.add-feedback" size="small" icon={<PlusIcon />}>
+      <FormattedMessage defaultMessage="Run judge" description="Label for the button to add a new feedback" />
+    </Button>
+  );
+
+  return runJudgeConfiguration?.renderRunJudgeButton?.({ traceId, trigger }) ?? null;
+};
 
 export const AssessmentsPaneJudgeFeedbackSection = ({
   feedbackGroups,
@@ -31,7 +36,7 @@ export const AssessmentsPaneJudgeFeedbackSection = ({
     <>
       {!isEmpty(feedbackGroups) && (
         <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
-          <RunScorerButton />
+          {RenderRunScorerButton({ traceId })}
         </div>
       )}
       {isEmpty(feedbackGroups) && (
@@ -57,9 +62,7 @@ export const AssessmentsPaneJudgeFeedbackSection = ({
             </Typography.Link>
           </Typography.Hint>
           <Spacer size="sm" />
-          <div css={{ display: 'flex', justifyContent: 'center' }}>
-            <RunScorerButton />
-          </div>
+          <div css={{ display: 'flex', justifyContent: 'center' }}>{RenderRunScorerButton({ traceId })}</div>
         </div>
       )}
       {feedbackGroups.map(([name, valuesMap]) => (
