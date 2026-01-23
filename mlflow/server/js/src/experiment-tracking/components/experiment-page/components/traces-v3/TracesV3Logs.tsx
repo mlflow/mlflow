@@ -84,6 +84,7 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns,
     toolbarAddons,
     forceGroupBySession = false,
+    columnStorageKeyPrefix,
   }: {
     experimentId: string;
     endpointName?: string;
@@ -95,6 +96,11 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
     forceGroupBySession?: boolean;
+    /**
+     * Optional prefix for the localStorage key used to persist column selection.
+     * Use this to separate column selection state between different views.
+     */
+    columnStorageKeyPrefix?: string;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -184,6 +190,8 @@ const TracesV3LogsImpl = React.memo(
       experimentId,
       allColumns,
       defaultSelectedColumns,
+      undefined, // runUuid
+      columnStorageKeyPrefix,
     );
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
