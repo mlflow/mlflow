@@ -567,6 +567,10 @@
     "defaultMessage": "10",
     "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
   },
+  "2KINrA": {
+    "defaultMessage": "New experiment",
+    "description": "Sidebar button to create a new experiment"
+  },
   "2NJ8E5": {
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
@@ -3094,6 +3098,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "MbGAqO": {
+    "defaultMessage": "Select your workflow type to customize which features are displayed in the sidebar",
+    "description": "Tooltip explaining the workflow type selector in the sidebar"
+  },
   "Mc6Dhy": {
     "defaultMessage": "5",
     "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
@@ -4926,10 +4934,6 @@
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
-  "amFk5F": {
-    "defaultMessage": "Workflow type",
-    "description": "Label for the workflow type selector in the sidebar"
   },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
@@ -7991,10 +7995,6 @@
     "defaultMessage": "Presence Penalty",
     "description": "Label for presence penalty input"
   },
-  "xq0Rde": {
-    "defaultMessage": "New",
-    "description": "Sidebar create popover button to create new experiment, model or prompt"
-  },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
     "description": "Tooltip content for a button that changes the render mode to default"
@@ -8082,6 +8082,10 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
+  },
+  "ya+m/4": {
+    "defaultMessage": "Back to home",
+    "description": "Sidebar back button to return to home page"
   },
   "ydoHrJ": {
     "defaultMessage": "Output",
