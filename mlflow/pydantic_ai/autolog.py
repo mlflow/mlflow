@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.tracing.utils import set_span_cost_attribute
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -134,6 +135,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+            set_span_cost_attribute(span)
         return result
 
 
@@ -154,6 +156,7 @@ def patched_class_call(original, self, *args, **kwargs):
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+            set_span_cost_attribute(span)
         return result
 
 
@@ -197,6 +200,7 @@ def patched_async_stream_call(original, self, *args, **kwargs):
                         span.set_outputs(outputs)
                         if usage_dict := _parse_usage(stream_result):
                             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+                            set_span_cost_attribute(span)
                     except Exception as e:
                         _logger.debug(f"Failed to set streaming outputs: {e}")
 
@@ -231,6 +235,7 @@ class _StreamedRunResultSyncWrapper:
             self._span.set_outputs(_serialize_output(self._result))
             if usage_dict := _parse_usage(self._result):
                 self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+                set_span_cost_attribute(self._span)
         except Exception as e:
             _logger.debug(f"Failed to set streaming outputs: {e}")
         finally:
