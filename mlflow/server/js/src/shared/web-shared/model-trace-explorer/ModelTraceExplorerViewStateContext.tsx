@@ -139,22 +139,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   );
 
   useEffect(() => {
-  const hasError = 
-    selectedNode?.status?.code === 'STATUS_CODE_ERROR' ||
-    selectedNode?.status?.status_code === 'STATUS_CODE_ERROR' ||
-    (selectedNode?.events && 
-     selectedNode.events.length > 0 && 
-     selectedNode.events.some(event => 
-       event.name === 'exception' || 
-       event.attributes?.['exception.type']
-     ));
-  
-  if (hasError) {
-    setActiveTab('events');
-  } else {
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
     setActiveTab(defaultActiveTab);
-  }
   }, [selectedNode]);
 
   // Switch to detail view if currently on summary and rootNode becomes null
