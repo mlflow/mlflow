@@ -134,7 +134,7 @@ class FileStore(AbstractStore):
 
         super().__init__()
         warnings.warn(
-            "The filesystem model registry backend (e.g., './mlruns') will be deprecated as of "
+            "The filesystem model registry backend (e.g., './mlruns') is deprecated as of "
             "February 2026. Consider transitioning to a database backend (e.g., "
             "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
             "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
