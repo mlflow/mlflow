@@ -457,50 +457,6 @@ export function MlflowSidebar() {
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      {isLocalServer && isAssistantEnabled && (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-pressed={isPanelOpen}
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.sm,
-            paddingInline: theme.spacing.md,
-            paddingBlock: theme.spacing.xs,
-            borderRadius: theme.borders.borderRadiusSm,
-            cursor: 'pointer',
-            backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
-            color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-            marginBottom: -theme.spacing.sm,
-            ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-          }}
-          onClick={handleAssistantToggle}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              handleAssistantToggle();
-            }
-          }}
-          onMouseEnter={() => setIsAssistantHovered(true)}
-          onMouseLeave={() => setIsAssistantHovered(false)}
-        >
-          <Tooltip
-            componentId="mlflow.sidebar.assistant_tooltip"
-            content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
-            side="right"
-            delayDuration={0}
-          >
-            <AssistantSparkleIcon isHovered={isAssistantHovered} />
-          </Tooltip>
-          <Typography.Text bold={isPanelOpen} color="primary">
-            <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-          </Typography.Text>
-          <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-            Beta
-          </Tag>
-        </div>
-      )}
-
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <ul
             css={{
@@ -584,6 +540,49 @@ export function MlflowSidebar() {
             ))}
           </ul>
         <div>
+          {isLocalServer && isAssistantEnabled && (
+            <div
+              css={{
+                padding: 2,
+                marginBottom: theme.spacing.xs,
+                borderRadius: theme.borders.borderRadiusMd,
+                background: 'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
+              }}
+            >
+              <div
+                role="button"
+                tabIndex={0}
+                aria-pressed={isPanelOpen}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusMd - 2,
+                  cursor: 'pointer',
+                  background: theme.colors.backgroundSecondary,
+                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                }}
+                onClick={handleAssistantToggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleAssistantToggle();
+                  }
+                }}
+                onMouseEnter={() => setIsAssistantHovered(true)}
+                onMouseLeave={() => setIsAssistantHovered(false)}
+              >
+                <AssistantSparkleIcon isHovered={isAssistantHovered} />
+                <Typography.Text bold={isPanelOpen} color="primary">
+                  <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                </Typography.Text>
+                <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                  Beta
+                </Tag>
+              </div>
+            </div>
+          )}
           <Link
             to={ExperimentTrackingRoutes.settingsPageRoute}
             aria-current={isSettingsActive(location) ? 'page' : undefined}
