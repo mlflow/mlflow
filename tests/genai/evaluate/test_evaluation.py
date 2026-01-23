@@ -1370,3 +1370,141 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
 
         # Verify _simulate was called with predict_fn
         mock_simulate.assert_called_once_with(mock_predict_fn)
+
+
+def test_evaluate_with_predict_fn_without_traces_creates_minimal_trace(monkeypatch):
+    """
+    Test that when MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION is True and predict_fn
+    doesn't generate traces, a minimal trace is created to avoid NoneType errors.
+
+    This addresses Bug 2: NoneType error when validation is skipped.
+    """
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+
+    # Create a simple predict function that doesn't generate traces
+    def simple_predict_fn(summary: str) -> str:
+        return summary
+
+    data = [
+        {
+            "inputs": {"summary": "Test summary"},
+            "outputs": "Test summary",  # Include outputs in data
+        }
+    ]
+
+    @scorer(name="simple_scorer")
+    def simple_scorer(inputs, outputs):
+        # Simple scorer that always returns 1.0
+        return 1.0
+
+    # This should not raise AttributeError: 'NoneType' object has no attribute 'info'
+    result = mlflow.genai.evaluate(
+        data=data,
+        predict_fn=simple_predict_fn,
+        scorers=[simple_scorer],
+    )
+
+    # Verify the evaluation completed successfully
+    assert result is not None
+    assert "simple_scorer/mean" in result.metrics
+    assert result.metrics["simple_scorer/mean"] == 1.0
+
+    # Verify a trace was created (minimal trace)
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0] is not None
+    assert traces[0].info is not None
+
+
+def test_evaluate_validation_uses_unique_request_id():
+    """
+    Test that validation check uses a unique request_id to prevent trace ID collisions.
+
+    This addresses Bug 1: Duplicate trace ID error during validation.
+    The test verifies that validation and evaluation use different request IDs.
+    """
+
+    # Mock predict function that tracks trace context
+    @mlflow.trace
+    def tracking_predict_fn(summary: str) -> str:
+        return summary
+
+    data = [
+        {
+            "inputs": {"summary": "Test summary"},
+            "outputs": "Test summary",
+        }
+    ]
+
+    @scorer(name="test_scorer")
+    def test_scorer(inputs, outputs):
+        return 1.0
+
+    # Run evaluation - this will call validation (with one request_id)
+    # and then actual evaluation (with a different request_id)
+    result = mlflow.genai.evaluate(
+        data=data,
+        predict_fn=tracking_predict_fn,
+        scorers=[test_scorer],
+    )
+
+    # Verify evaluation completed successfully
+    assert result is not None
+    assert "test_scorer/mean" in result.metrics
+
+    # Verify that traces were created
+    traces = get_traces()
+    assert len(traces) >= 1  # At least the evaluation trace
+
+    # Get all trace IDs and verify they're unique (no duplicates)
+    trace_ids = [trace.info.trace_id for trace in traces]
+    assert len(trace_ids) == len(set(trace_ids)), "Found duplicate trace IDs"
+
+
+def test_evaluate_with_auto_traced_function_no_duplicate_traces():
+    """
+    Test that auto-traced functions (e.g., using OpenAI) don't cause duplicate
+    trace IDs during validation and evaluation.
+
+    This simulates the real-world scenario from the bug report where OpenAI
+    auto-tracing caused duplicate trace IDs.
+    """
+
+    # Simulate an auto-traced function by manually creating traces
+    call_count = [0]
+
+    @mlflow.trace
+    def auto_traced_predict_fn(summary: str) -> str:
+        call_count[0] += 1
+        return summary
+
+    data = [
+        {
+            "inputs": {"summary": "Test summary"},
+            "outputs": "Test summary",
+        }
+    ]
+
+    @scorer(name="test_scorer")
+    def test_scorer(inputs, outputs):
+        return 1.0
+
+    # This should not raise duplicate key constraint violations
+    result = mlflow.genai.evaluate(
+        data=data,
+        predict_fn=auto_traced_predict_fn,
+        scorers=[test_scorer],
+    )
+
+    # Verify evaluation completed successfully
+    assert result is not None
+    assert "test_scorer/mean" in result.metrics
+
+    # Verify the function was called at least twice (validation + evaluation)
+    assert call_count[0] >= 2
+
+    # Get all traces and verify they have unique trace IDs
+    traces = get_traces()
+    trace_ids = [trace.info.trace_id for trace in traces]
+    # All trace IDs should be unique (no duplicates)
+    assert len(trace_ids) == len(set(trace_ids)), "Found duplicate trace IDs"
