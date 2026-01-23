@@ -722,7 +722,9 @@ class LiveSpan(Span):
         )
 
         # The latter one from attributes is the newly generated trace ID by the span processor.
-        trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
+        # Handle NonRecordingSpan case where attributes are not available
+        if not isinstance(otel_span, NonRecordingSpan) and hasattr(otel_span, 'attributes'):
+            trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
         # Span processor registers a new span in the in-memory trace manager, but we want to pop it
         clone_span = trace_manager._traces[trace_id].span_dict.pop(
             encode_span_id(otel_span.context.span_id)
