@@ -97,6 +97,7 @@ def test_trace_llm_complete(is_async):
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
+    assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
@@ -150,6 +151,7 @@ def test_trace_llm_complete_stream():
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
+    assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -189,6 +191,7 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
@@ -231,6 +234,7 @@ def test_trace_llm_chat(is_async):
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -304,6 +308,7 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
 
 def test_trace_llm_chat_stream():
@@ -328,6 +333,7 @@ def test_trace_llm_chat_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
@@ -371,6 +377,7 @@ def test_trace_llm_chat_stream():
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -405,6 +412,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert spans[0].span_type == SpanType.CHAT_MODEL
     assert spans[0].inputs == {"messages": [message.model_dump()]}
     assert spans[0].outputs is None
+    assert spans[0].model_name == llm.metadata.model_name
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
@@ -450,12 +458,14 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[2].inputs == {"query": "apple"}
     assert len(spans[2].outputs) == 1536  # embedding size
     assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
+    assert spans[2].model_name == Settings.embed_model.model_name
 
     assert "Embedding" in spans[3].name
     assert spans[3].span_type == SpanType.EMBEDDING
     assert spans[3].inputs == {"query": "apple"}
     assert len(spans[3].outputs) == 1536  # embedding size
     assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
+    assert spans[3].model_name == Settings.embed_model.model_name
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
@@ -588,6 +598,8 @@ def test_trace_agent():
             "type": "function",
         }
     ]
+    assert llm_spans[0].model_name == llm.metadata.model_name
+    assert llm_spans[1].model_name == llm.metadata.model_name
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
