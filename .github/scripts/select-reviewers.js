@@ -110,16 +110,12 @@ function updateStats(stats, selectedReviewers) {
 }
 
 async function getCopilotInitiator(github, owner, repo, pull_number) {
-  try {
-    const timeline = await github.rest.issues.listEventsForTimeline({
-      owner,
-      repo,
-      issue_number: pull_number,
-    });
-    return timeline.data.find((e) => e.event === "copilot_work_started")?.actor?.login || null;
-  } catch {
-    return null;
-  }
+  const timeline = await github.rest.issues.listEventsForTimeline({
+    owner,
+    repo,
+    issue_number: pull_number,
+  });
+  return timeline.data.find((e) => e.event === "copilot_work_started")?.actor?.login;
 }
 
 module.exports = async ({ github, context }) => {
