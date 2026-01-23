@@ -21,6 +21,7 @@ import {
   getModelTraceId,
   isV3ModelTraceInfo,
   ModelTraceExplorer,
+  ModelTraceExplorerContextProvider,
   ModelTraceExplorerDrawer,
   ModelTraceExplorerUpdateTraceContextProvider,
   shouldEnableAssessmentsInSessions,
@@ -41,6 +42,8 @@ import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
+import { ExportTracesToDatasetModal } from '../../experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -49,10 +52,18 @@ const ContextProviders = ({
   children: React.ReactNode;
   invalidateTraceQuery?: (traceId?: string) => void;
 }) => {
+  const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
+  const DrawerComponent = AssistantAwareDrawer;
+
   return (
-    <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-      {children}
-    </ModelTraceExplorerUpdateTraceContextProvider>
+    <ModelTraceExplorerContextProvider
+      renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+      DrawerComponent={DrawerComponent}
+    >
+      <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+        {children}
+      </ModelTraceExplorerUpdateTraceContextProvider>
+    </ModelTraceExplorerContextProvider>
   );
 };
 
