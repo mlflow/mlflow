@@ -5274,7 +5274,7 @@ def _create_prompt_optimization_job():
         user_id=_get_user(),
         start_time=start_time,
         tags=[],
-        run_name=f"optimize_prompt_{optimizer_type}_{start_time}",
+        run_name=run_name,
     )
     run_id = run.info.run_id
 
