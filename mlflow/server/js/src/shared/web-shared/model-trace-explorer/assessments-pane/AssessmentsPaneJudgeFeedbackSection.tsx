@@ -2,7 +2,9 @@ import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@dat
 import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { FormattedMessage } from 'react-intl';
-import { isEmpty } from 'lodash';
+import { first, isEmpty } from 'lodash';
+import { AssessmentSourceTypeTag } from './AssessmentSourceTypeTag';
+import { AssessmentSourceTypeTagList } from './AssessmentSourceTypeTagList';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -61,7 +63,14 @@ export const AssessmentsPaneJudgeFeedbackSection = ({
         </div>
       )}
       {feedbackGroups.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+        <FeedbackGroup
+          key={name}
+          name={name}
+          valuesMap={valuesMap}
+          traceId={traceId}
+          activeSpanId={activeSpanId}
+          feedbackTypeTag={<AssessmentSourceTypeTagList assessments={Object.values(valuesMap).flat()} />}
+        />
       ))}
     </>
   );

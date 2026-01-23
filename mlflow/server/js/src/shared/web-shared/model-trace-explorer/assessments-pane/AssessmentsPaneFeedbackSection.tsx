@@ -3,9 +3,11 @@ import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { isEmpty, isNil, partition, some } from 'lodash';
+import { first, isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { AssessmentsPaneJudgeFeedbackSection } from './AssessmentsPaneJudgeFeedbackSection';
+import { AssessmentSourceTypeTag } from './AssessmentSourceTypeTag';
+import { AssessmentSourceTypeTagList } from './AssessmentSourceTypeTagList';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -120,7 +122,14 @@ export const AssessmentsPaneFeedbackSection = ({
       )}
 
       {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+        <FeedbackGroup
+          key={name}
+          name={name}
+          valuesMap={valuesMap}
+          traceId={traceId}
+          activeSpanId={activeSpanId}
+          feedbackTypeTag={<AssessmentSourceTypeTagList assessments={Object.values(valuesMap).flat()} />}
+        />
       ))}
       {isEmpty(groupedFeedbacks) && !createFormVisible && (
         <div
