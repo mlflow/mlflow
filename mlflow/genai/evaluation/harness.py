@@ -265,8 +265,7 @@ def _run_single(
 
         # If predict_fn didn't generate a trace, create a minimal trace
         if eval_item.trace is None:
-            minimal_trace = create_minimal_trace(eval_item)
-            eval_item.trace = minimal_trace
+            eval_item.trace = create_minimal_trace(eval_item)
     elif eval_item.trace is not None:
         if _should_clone_trace(eval_item.trace, run_id):
             try:
