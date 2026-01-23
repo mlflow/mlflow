@@ -182,6 +182,9 @@ def test_strands_autolog_single_trace():
         "output_tokens": 2,
         "total_tokens": 3,
     }
+    # Test models don't emit gen_ai.response.model/gen_ai.request.model attributes
+    # so model_name will be None
+    assert usage_spans[0].model_name is None
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
         "output_tokens": 2,
@@ -210,6 +213,10 @@ def test_function_calling_creates_single_trace():
     assert agent_span.outputs == 3
     assert tool_span.inputs == [{"role": "tool", "content": {"a": 1, "b": 2}}]
     assert tool_span.outputs == [{"json": 3}]
+    # Test models don't emit gen_ai semantic convention attributes
+    # Find chat spans and verify model_name is None
+    chat_spans = [s for s in spans if s.attributes.get(SpanAttributeKey.CHAT_USAGE)]
+    assert all(s.model_name is None for s in chat_spans)
 
 
 def test_multiple_agents_single_trace():
@@ -275,6 +282,10 @@ def test_multiple_agents_single_trace():
         "output_tokens": 1,
         "total_tokens": 2,
     }
+    # Test models don't emit gen_ai semantic convention attributes
+    # Find chat spans and verify model_name is None
+    chat_spans = [s for s in spans if s.attributes.get(SpanAttributeKey.CHAT_USAGE)]
+    assert all(s.model_name is None for s in chat_spans)
 
 
 def test_autolog_disable_prevents_new_traces():

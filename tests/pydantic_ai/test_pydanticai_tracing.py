@@ -161,6 +161,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span2.model_name == "gpt-4o"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -204,6 +205,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span1.model_name == "gpt-4o"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -242,6 +244,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
+    assert span2.model_name == "gpt-4o"
 
     span3 = spans[3]
     assert span3.span_type == SpanType.TOOL
@@ -251,6 +254,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span4.name == "InstrumentedModel.request"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
+    assert span4.model_name == "gpt-4o"
 
     assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
@@ -299,6 +303,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
+    assert span1.model_name == "gpt-4o"
 
     span2 = spans[2]
     assert span2.span_type == SpanType.TOOL
@@ -308,6 +313,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span3.name == "InstrumentedModel.request"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
+    assert span3.model_name == "gpt-4o"
 
     assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
