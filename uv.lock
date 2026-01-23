@@ -1,19 +1,24 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -29,7 +34,6 @@ constraints = [
     { name = "pyspark", specifier = "<4.1.0" },
     { name = "xgboost", specifier = "<3.1.0" },
 ]
-excludes = ["uv"]
 
 [[package]]
 name = "absl-py"
@@ -926,7 +930,7 @@ name = "build"
 version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "(python_full_version >= '3.14' and os_name == 'nt' and sys_platform == 'linux') or (os_name == 'nt' and platform_machine != 'aarch64' and sys_platform == 'linux') or (os_name == 'nt' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "colorama", marker = "(os_name == 'nt' and platform_machine != 'aarch64' and sys_platform == 'linux') or (os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "importlib-metadata", marker = "python_full_version < '3.10.2'" },
     { name = "packaging" },
     { name = "pyproject-hooks" },
@@ -1167,7 +1171,7 @@ wheels = [
 [[package]]
 name = "clint"
 version = "0.1.0"
-source = { editable = "dev/clint" }
+source = { virtual = "dev/clint" }
 dependencies = [
     { name = "tomli" },
     { name = "typing-extensions" },
@@ -1211,7 +1215,8 @@ name = "contourpy"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -1283,15 +1288,19 @@ name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -3247,7 +3256,8 @@ name = "keras"
 version = "3.12.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -3271,15 +3281,19 @@ name = "keras"
 version = "3.13.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -3498,7 +3512,8 @@ name = "langchain-community"
 version = "0.3.31"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -3526,15 +3541,19 @@ name = "langchain-community"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -3713,8 +3732,8 @@ dependencies = [
     { name = "packaging" },
     { name = "pytorch-lightning" },
     { name = "pyyaml" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "torchmetrics" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -4331,10 +4350,10 @@ docs = [
     { name = "sphinxcontrib-qthelp" },
     { name = "sphinxcontrib-serializinghtml" },
     { name = "tensorflow" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
-    { name = "torchvision", version = "0.23.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version < '3.14' and sys_platform == 'darwin')" },
-    { name = "torchvision", version = "0.23.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and sys_platform == 'darwin') or (python_full_version >= '3.14' and sys_platform == 'linux') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.23.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.23.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
 ]
 lint = [
     { name = "aiohttp" },
@@ -4471,7 +4490,7 @@ dev = [
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "build" },
     { name = "claude-agent-sdk" },
-    { name = "clint", editable = "dev/clint" },
+    { name = "clint", virtual = "dev/clint" },
     { name = "mlflow-test-plugin", editable = "tests/resources/mlflow-test-plugin" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -4492,7 +4511,7 @@ dev = [
     { name = "ruamel-yaml" },
     { name = "ruff", specifier = "==0.14.10" },
     { name = "setuptools" },
-    { name = "skills", editable = ".claude/skills" },
+    { name = "skills", virtual = ".claude/skills" },
     { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "types-pyyaml" },
@@ -4536,7 +4555,7 @@ lint = [
     { name = "black", specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "claude-agent-sdk" },
-    { name = "clint", editable = "dev/clint" },
+    { name = "clint", virtual = "dev/clint" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
@@ -5069,7 +5088,8 @@ name = "networkx"
 version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -5083,15 +5103,19 @@ name = "networkx"
 version = "3.6.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -5114,7 +5138,8 @@ name = "numpy"
 version = "2.2.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -5181,15 +5206,19 @@ name = "numpy"
 version = "2.4.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -7133,8 +7162,8 @@ dependencies = [
     { name = "lightning-utilities" },
     { name = "packaging" },
     { name = "pyyaml" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "torchmetrics" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -7770,7 +7799,8 @@ name = "scikit-learn"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -7819,15 +7849,19 @@ name = "scikit-learn"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -7916,7 +7950,8 @@ name = "scipy"
 version = "1.15.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -7977,15 +8012,19 @@ name = "scipy"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -8112,7 +8151,7 @@ wheels = [
 [[package]]
 name = "skills"
 version = "0.1.0"
-source = { editable = ".claude/skills" }
+source = { virtual = ".claude/skills" }
 dependencies = [
     { name = "aiohttp" },
     { name = "claude-agent-sdk" },
@@ -8239,7 +8278,8 @@ name = "sphinx-autobuild"
 version = "2024.10.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
@@ -8261,15 +8301,19 @@ name = "sphinx-autobuild"
 version = "2025.8.25"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
 ]
@@ -8773,20 +8817,21 @@ name = "torch"
 version = "2.8.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'darwin'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "fsspec", marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "jinja2", marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
+    { name = "filelock", marker = "sys_platform == 'darwin'" },
+    { name = "fsspec", marker = "sys_platform == 'darwin'" },
+    { name = "jinja2", marker = "sys_platform == 'darwin'" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform == 'darwin'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "setuptools", marker = "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "sympy", marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform == 'darwin'" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' and sys_platform == 'darwin'" },
+    { name = "sympy", marker = "sys_platform == 'darwin'" },
+    { name = "typing-extensions", marker = "sys_platform == 'darwin'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.8.0-cp310-none-macosx_11_0_arm64.whl", hash = "sha256:a467b49fe893a6a6cce89e3aee556edfdc64a722d7195fdfdd75cec9dea13779" },
@@ -8801,26 +8846,30 @@ name = "torch"
 version = "2.8.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
-    "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "filelock", marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
-    { name = "fsspec", marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
-    { name = "jinja2", marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
+    { name = "filelock", marker = "sys_platform != 'darwin'" },
+    { name = "fsspec", marker = "sys_platform != 'darwin'" },
+    { name = "jinja2", marker = "sys_platform != 'darwin'" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform != 'darwin'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform != 'darwin') or (python_full_version >= '3.14' and sys_platform == 'darwin')" },
-    { name = "setuptools", marker = "(python_full_version >= '3.12' and sys_platform != 'darwin') or (python_full_version >= '3.14' and sys_platform == 'darwin')" },
-    { name = "sympy", marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform != 'darwin'" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' and sys_platform != 'darwin'" },
+    { name = "sympy", marker = "sys_platform != 'darwin'" },
+    { name = "typing-extensions", marker = "sys_platform != 'darwin'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp310-cp310-linux_s390x.whl", hash = "sha256:5d255d259fbc65439b671580e40fdb8faea4644761b64fed90d6904ffe71bbc1" },
@@ -8856,8 +8905,8 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "packaging" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version >= '3.14' or sys_platform != 'darwin'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/2e/48a887a59ecc4a10ce9e8b35b3e3c5cef29d902c4eac143378526e7485cb/torchmetrics-1.8.2.tar.gz", hash = "sha256:cf64a901036bf107f17a524009eea7781c9c5315d130713aeca5747a686fe7a5", size = 580679, upload-time = "2025-09-03T14:00:54.077Z" }
 wheels = [
@@ -8869,21 +8918,27 @@ name = "torchvision"
 version = "0.23.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
+    "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.14' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.12.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation != 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
     "python_full_version < '3.11' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform == 'darwin')" },
-    { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')" },
-    { name = "pillow", marker = "(python_full_version < '3.14' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version < '3.14' and sys_platform == 'darwin')" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and sys_platform == 'darwin'" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "python_full_version < '3.14' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform == 'darwin')" },
+    { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.11' and sys_platform == 'darwin')" },
+    { name = "pillow", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torchvision-0.23.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7266871daca00ad46d1c073e55d972179d12a58fa5c9adec9a3db9bbed71284a" },
@@ -8903,18 +8958,17 @@ name = "torchvision"
 version = "0.23.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
-    "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version >= '3.14' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.14' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform == 'darwin') or (python_full_version >= '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "pillow", marker = "(python_full_version >= '3.14' and sys_platform == 'darwin') or (python_full_version >= '3.14' and sys_platform == 'linux') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and sys_platform == 'darwin') or (python_full_version >= '3.14' and sys_platform == 'linux') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "pillow", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "torch", version = "2.8.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torchvision-0.23.0%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:bc6cee94bcc145d59426fd5289ca91e42cdb60e9886590f29d88f9f03c6bdea3" },

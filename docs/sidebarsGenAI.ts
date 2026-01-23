@@ -639,6 +639,21 @@ const sidebarsGenAI: SidebarsConfig = {
               },
             },
             {
+              type: 'category',
+              label: 'Tutorial',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'examples/evaluation/MemAlign Tutorial.ipynb',
+                  label: 'MemAlign Tutorial',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'examples/evaluation/MemAlign Tutorial.ipynb',
+              },
+            },
+            {
               type: 'doc',
               id: 'eval-monitor/scorers/versioning',
               label: 'Versioning Scorers',
