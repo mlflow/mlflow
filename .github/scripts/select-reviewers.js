@@ -109,10 +109,25 @@ function updateStats(stats, selectedReviewers) {
   return stats;
 }
 
+async function getCopilotInitiator(github, owner, repo, pull_number) {
+  try {
+    const timeline = await github.rest.issues.listEventsForTimeline({
+      owner,
+      repo,
+      issue_number: pull_number,
+    });
+    return timeline.data.find((e) => e.event === "copilot_work_started")?.actor?.login || null;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
   const pull_number = context.payload.pull_request.number;
   const author = context.payload.pull_request.user.login;
+
+  const copilotInitiator = await getCopilotInitiator(github, owner, repo, pull_number);
 
   // Get existing reviews
   const reviews = await github.rest.pulls.listReviews({
@@ -125,7 +140,7 @@ module.exports = async ({ github, context }) => {
   const requested = context.payload.pull_request.requested_reviewers.map((r) => r.login);
 
   const eligibleReviewers = MEMBERS.filter(
-    (m) => !approved.includes(m) && !requested.includes(m) && m !== author
+    (m) => !approved.includes(m) && !requested.includes(m) && m !== author && m !== copilotInitiator
   );
 
   // Load stats, select reviewers, and update stats
