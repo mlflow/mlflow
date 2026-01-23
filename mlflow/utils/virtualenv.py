@@ -56,9 +56,6 @@ def _validate_virtualenv_is_available():
         )
 
 
-_SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
-
-
 def _get_pbs_platform_tag():
     machine = platform.machine().lower()
     system = platform.system().lower()

@@ -25,8 +25,8 @@ RUN ARCH=$(uname -m) && \
     mkdir -p /opt/python && \
     tar -xzf /tmp/python.tar.gz -C /opt/python --strip-components=1 && \
     rm /tmp/python.tar.gz && \
-    ln -s /opt/python/bin/python3 /usr/bin/python && \
-    ln -s /opt/python/bin/pip3 /usr/bin/pip
+    ln -sf /opt/python/bin/python3 /usr/bin/python && \
+    ln -sf /opt/python/bin/pip3 /usr/bin/pip
 ENV PATH="/opt/python/bin:$PATH"
 RUN pip install virtualenv
 """
