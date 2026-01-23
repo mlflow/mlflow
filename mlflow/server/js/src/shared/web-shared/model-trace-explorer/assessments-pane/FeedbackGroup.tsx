@@ -13,11 +13,13 @@ export const FeedbackGroup = ({
   valuesMap,
   traceId,
   activeSpanId,
+  showAddButton = true,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
   traceId: string;
   activeSpanId?: string;
+  showAddButton?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -54,15 +56,17 @@ export const FeedbackGroup = ({
           </Typography.Text>
           {hasError && <DangerIcon css={{ flexShrink: 0 }} color="danger" />}
         </div>
-        <Tooltip content="Add new feedback" componentId="shared.model-trace-explorer.add-feedback-in-group-tooltip">
-          <Button
-            componentId="shared.model-trace-explorer.add-feedback"
-            css={{ flexShrink: 0, marginRight: -theme.spacing.xs }}
-            size="small"
-            icon={<PlusIcon />}
-            onClick={() => setShowCreateForm(true)}
-          />
-        </Tooltip>
+        {showAddButton && (
+          <Tooltip content="Add new feedback" componentId="shared.model-trace-explorer.add-feedback-in-group-tooltip">
+            <Button
+              componentId="shared.model-trace-explorer.add-feedback"
+              css={{ flexShrink: 0, marginRight: -theme.spacing.xs }}
+              size="small"
+              icon={<PlusIcon />}
+              onClick={() => setShowCreateForm(true)}
+            />
+          </Tooltip>
+        )}
       </div>
       {Object.entries(valuesMap).map(([jsonValue, feedbacks]) => (
         <FeedbackValueGroup jsonValue={jsonValue} feedbacks={feedbacks} key={jsonValue} />

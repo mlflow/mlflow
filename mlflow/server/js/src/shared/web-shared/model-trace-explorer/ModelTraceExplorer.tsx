@@ -94,7 +94,7 @@ export const ModelTraceExplorerImpl = ({
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
         isInComparisonView={isInComparisonView}
-        initialAssessmentsPaneCollapsed={collapseAssessmentPane}
+        initialAssessmentsPaneCollapsed={'force-open'}
         isTraceInitialLoading={isTraceInitialLoading}
       >
         {showLoadingState ? (

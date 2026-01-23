@@ -16,12 +16,23 @@ export const useActiveEvaluation = () => {
   const selectedEvaluationId = searchParams.get(QUERY_PARAM_KEY) ?? undefined;
 
   const setSelectedEvaluationId = useCallback(
-    (selectedEvaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => {
+    (
+      selectedEvaluationId: string | undefined,
+      traceInfo?: ModelTraceInfoV3,
+      additionalParams?: Record<string, string>,
+    ) => {
       setSearchParams((params) => {
         if (selectedEvaluationId === undefined) {
           params.delete(QUERY_PARAM_KEY);
           return params;
         }
+
+        if (additionalParams) {
+          Object.entries(additionalParams).forEach(([key, value]) => {
+            params.set(key, value);
+          });
+        }
+
         // If the trace supports V4 identifiers, use this format instead.
         if (traceInfo && doesTraceSupportV4API(traceInfo)) {
           const longIdentifier = createTraceV4LongIdentifier(traceInfo);
