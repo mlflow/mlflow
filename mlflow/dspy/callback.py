@@ -163,6 +163,7 @@ class MlflowCallback(BaseCallback):
             "model_type": instance.model_type,
             "cache": instance.cache,
             SpanAttributeKey.MESSAGE_FORMAT: "dspy",
+            SpanAttributeKey.MODEL: instance.model,
         }
 
         inputs = self._unpack_kwargs(inputs)
