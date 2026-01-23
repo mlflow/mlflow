@@ -244,6 +244,8 @@ def optimize_prompts(
         optimizer_name=optimizer.__class__.__name__,
         initial_eval_score=optimizer_output.initial_eval_score,
         final_eval_score=optimizer_output.final_eval_score,
+        initial_eval_score_per_scorer=optimizer_output.initial_eval_score_per_scorer,
+        final_eval_score_per_scorer=optimizer_output.final_eval_score_per_scorer,
     )
 
 

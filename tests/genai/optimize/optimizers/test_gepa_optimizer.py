@@ -109,6 +109,12 @@ def test_gepa_optimizer_optimize(
         "instruction": "Please answer this question carefully: {{question}}",
     }
     mock_result.val_aggregate_scores = [0.5, 0.6, 0.8, 0.9]  # Mock scores for testing
+    mock_result.val_aggregate_subscores = [
+        {"accuracy": 0.4, "relevance": 0.6},  # Initial (index 0)
+        {"accuracy": 0.5, "relevance": 0.7},  # Index 1
+        {"accuracy": 0.7, "relevance": 0.9},  # Index 2
+        {"accuracy": 0.85, "relevance": 0.95},  # Final best (index 3, max score)
+    ]
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
     optimizer = GepaPromptOptimizer(
@@ -127,9 +133,12 @@ def test_gepa_optimizer_optimize(
     assert result.optimized_prompts == mock_result.best_candidate
     assert "system_prompt" in result.optimized_prompts
     assert "instruction" in result.optimized_prompts
-    # Verify scores are extracted
+    # Verify aggregated scores are extracted
     assert result.initial_eval_score == 0.5  # First score
     assert result.final_eval_score == 0.9  # Max score
+    # Verify per-scorer scores are extracted
+    assert result.initial_eval_score_per_scorer == {"accuracy": 0.4, "relevance": 0.6}
+    assert result.final_eval_score_per_scorer == {"accuracy": 0.85, "relevance": 0.95}
 
     # Verify GEPA was called with correct parameters
     mock_gepa_module.optimize.assert_called_once()
@@ -157,6 +166,7 @@ def test_gepa_optimizer_optimize_with_custom_reflection_model(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -189,6 +199,7 @@ def test_gepa_optimizer_optimize_with_custom_gepa_params(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -221,6 +232,7 @@ def test_gepa_optimizer_optimize_model_name_parsing(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -291,6 +303,7 @@ def test_gepa_optimizer_single_record_dataset(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -321,6 +334,7 @@ def test_gepa_optimizer_custom_adapter_evaluate(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -361,6 +375,7 @@ def test_make_reflective_dataset_with_traces(
             mock_result = Mock()
             mock_result.best_candidate = sample_target_prompts
             mock_result.val_aggregate_scores = []
+            mock_result.val_aggregate_subscores = None
             return mock_result
 
         mock_gepa_module.optimize = mock_optimize_fn
@@ -460,6 +475,7 @@ def test_gepa_optimizer_version_check(
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
     mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -513,6 +529,7 @@ def test_gepa_optimizer_logs_prompt_candidates(
             mock_result = Mock()
             mock_result.best_candidate = sample_target_prompts
             mock_result.val_aggregate_scores = [0.8]
+            mock_result.val_aggregate_subscores = None
             return mock_result
 
         mock_gepa_module.optimize = mock_optimize_fn
@@ -583,3 +600,49 @@ def test_gepa_optimizer_logs_prompt_candidates(
     assert len(data["inputs"]) == len(sample_train_data)
     assert all(score == 0.9 for score in data["accuracy"])
     assert all(score == 0.7 for score in data["relevance"])
+
+
+@pytest.mark.parametrize(
+    ("val_aggregate_scores", "val_aggregate_subscores", "expected"),
+    [
+        # No scores at all
+        ([], None, (None, None, {}, {})),
+        (None, None, (None, None, {}, {})),
+        # Only aggregate scores, no subscores
+        ([0.5, 0.7, 0.9], None, (0.5, 0.9, {}, {})),
+        # Both aggregate and per-scorer scores
+        (
+            [0.5, 0.7, 0.9],
+            [
+                {"Correctness": 0.4, "Safety": 0.6},
+                {"Correctness": 0.6, "Safety": 0.8},
+                {"Correctness": 0.85, "Safety": 0.95},
+            ],
+            (0.5, 0.9, {"Correctness": 0.4, "Safety": 0.6}, {"Correctness": 0.85, "Safety": 0.95}),
+        ),
+        # Empty subscores dict at index 0
+        (
+            [0.5, 0.9],
+            [{}, {"Correctness": 0.9}],
+            (0.5, 0.9, {}, {"Correctness": 0.9}),
+        ),
+        # Best score not at last index
+        (
+            [0.5, 0.95, 0.8],
+            [
+                {"A": 0.4},
+                {"A": 0.95},  # Best score at index 1
+                {"A": 0.7},
+            ],
+            (0.5, 0.95, {"A": 0.4}, {"A": 0.95}),
+        ),
+    ],
+)
+def test_extract_eval_scores_per_scorer(val_aggregate_scores, val_aggregate_subscores, expected):
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    mock_result = Mock()
+    mock_result.val_aggregate_scores = val_aggregate_scores
+    mock_result.val_aggregate_subscores = val_aggregate_subscores
+
+    result = optimizer._extract_eval_scores(mock_result)
+    assert result == expected
