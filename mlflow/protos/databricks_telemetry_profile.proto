@@ -1,0 +1,108 @@
+// Proto definitions for Databricks Telemetry Profile.
+// Used to fetch telemetry destination configuration for trace export.
+syntax = "proto2";
+
+package mlflow.databricks;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option py_generic_services = true;
+
+service DatabricksTraceServerService {
+  // Get a telemetry profile by ID.
+  rpc getTelemetryProfile(GetTelemetryProfileRequest) returns (TelemetryProfile) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/otel/profiles/{profile_id}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Telemetry Profile"
+    };
+  }
+}
+
+// Request message for getting a telemetry profile.
+message GetTelemetryProfileRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[TelemetryProfile]";
+
+  // The telemetry profile ID.
+  optional string profile_id = 1 [(validate_required) = true];
+}
+
+// Telemetry profile defines OpenTelemetry collector configuration
+message TelemetryProfile {
+  // The profile_id can be a user-provided UUID or auto-generated UUID
+  optional string profile_id = 1;
+
+  optional string profile_name = 2;
+
+  // Audit fields
+  // Unix timestamp in milliseconds
+  optional int64 created_at = 3;
+  // User email of the creator
+  optional string created_by = 4;
+  // Unix timestamp in milliseconds
+  optional int64 updated_at = 5;
+  // User email of the last updater
+  optional string updated_by = 6;
+
+  // One or more exporters to configure
+  repeated Exporter exporters = 7;
+}
+
+// Defines an exporter destination for telemetry data
+message Exporter {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    UNITY_CATALOG_TABLES = 1;
+  }
+
+  optional Type type = 1;
+
+  // Exporter-specific configuration
+  oneof config {
+    UnityCatalogTablesConfig uc_tables = 2;
+  }
+}
+
+// Configuration for Unity Catalog Delta table exporter
+// Specifies a group of OTel tables in UC (logs, metrics, traces)
+// Input parameters below are mutually exclusive:
+//   1. uc_catalog, uc_schema, [optional] uc_table_prefix
+//   2. logs_table_name, metrics_table_name, spans_table_name
+message UnityCatalogTablesConfig {
+  // [Required for input method 1]: The UC catalog name where OTel tables will be stored
+  optional string uc_catalog = 1;
+
+  // [Required for input method 1]: The UC schema name where OTel tables will be stored
+  optional string uc_schema = 2;
+
+  // [Optional for input method 1]: The table prefix for OTel tables
+  optional string uc_table_prefix = 3;
+
+  // [Required for input method 2]: The fully qualified name of the logs table: `catalog.schema.prefix_otel_logs`
+  optional string logs_table_name = 4;
+
+  // The schema version of the logs table
+  optional string logs_schema_version = 5;
+
+  // [Required for input method 2]: The fully qualified name of the metrics table: `catalog.schema.table_name`
+  optional string metrics_table_name = 6;
+
+  // The schema version of the metrics table
+  optional string metrics_schema_version = 7;
+
+  // [Required for input method 2]: The fully qualified name of the spans table: `catalog.schema.table_name`
+  optional string spans_table_name = 8;
+
+  // The schema version of the spans table
+  optional string spans_schema_version = 9;
+}

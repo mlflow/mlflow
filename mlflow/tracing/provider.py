@@ -554,6 +554,16 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
             return processors
+    else:
+        # No user-specified destination. Check for Databricks telemetry destination ID
+        # which combines OTLP span export with TraceInfo persistence to UC tables.
+        # This requires both the telemetry destination ID AND OTLP configuration to be set.
+        telemetry_destination_id = os.environ.get("DATABRICKS_TELEMETRY_DESTINATION_ID")
+        if telemetry_destination_id and should_use_otlp_exporter():
+            processor = _get_uc_table_with_otel_processor(telemetry_destination_id)
+            if processor:
+                processors.append(processor)
+                return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
     # configuration.
@@ -612,6 +622,71 @@ def _get_mlflow_span_processor(tracking_uri: str):
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),
     )
+
+
+def _get_uc_table_with_otel_processor(telemetry_destination_id: str):
+    """
+    Get the UC table with OTLP span processor for the given telemetry destination ID.
+
+    This processor combines OTLP span export with TraceInfo persistence to UC tables
+    via the TelemetryProfile configuration.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID (profile ID) to fetch
+            configuration from.
+
+    Returns:
+        The span processor, or None if the TelemetryProfile could not be fetched.
+    """
+    from mlflow.tracing.export.uc_table_with_otel import DatabricksUCTableWithOtelSpanExporter
+    from mlflow.tracing.processor.uc_table_with_otel import DatabricksUCTableWithOtelSpanProcessor
+
+    try:
+        telemetry_profile = _fetch_telemetry_profile(telemetry_destination_id)
+        if telemetry_profile is None:
+            _logger.warning(
+                f"Failed to fetch TelemetryProfile for destination ID '{telemetry_destination_id}'. "
+                "Falling back to default tracing configuration."
+            )
+            return None
+
+        otlp_exporter = get_otlp_exporter()
+        exporter = DatabricksUCTableWithOtelSpanExporter(
+            otlp_exporter=otlp_exporter,
+            tracking_uri=mlflow.get_tracking_uri(),
+        )
+        return DatabricksUCTableWithOtelSpanProcessor(
+            span_exporter=exporter,
+            telemetry_profile=telemetry_profile,
+            export_metrics=should_export_otlp_metrics(),
+        )
+    except Exception as e:
+        _logger.warning(
+            f"Failed to initialize UC table with OTLP processor: {e}. "
+            "Falling back to default tracing configuration."
+        )
+        return None
+
+
+def _fetch_telemetry_profile(telemetry_destination_id: str):
+    """
+    Fetch the TelemetryProfile from the backend for the given destination ID.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID (profile ID).
+
+    Returns:
+        The TelemetryProfile, or None if it could not be fetched.
+    """
+    from mlflow.tracing.client import TracingClient
+
+    tracking_uri = mlflow.get_tracking_uri()
+    try:
+        client = TracingClient(tracking_uri)
+        return client.get_telemetry_profile(telemetry_destination_id)
+    except Exception as e:
+        _logger.warning(f"Failed to fetch TelemetryProfile: {e}")
+        return None
 
 
 @raise_as_trace_exception

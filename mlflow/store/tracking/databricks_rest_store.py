@@ -1000,3 +1000,24 @@ class DatabricksTracingRestStore(RestStore):
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
         return endpoint
+
+    def get_telemetry_profile(self, profile_id: str):
+        """
+        Fetch a TelemetryProfile from the backend.
+
+        Args:
+            profile_id: The telemetry profile ID (destination ID).
+
+        Returns:
+            The TelemetryProfile object.
+        """
+        from mlflow.entities.telemetry_profile import TelemetryProfile
+
+        endpoint = f"/api/2.0/otel/profiles/{profile_id}"
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="GET",
+        )
+        verify_rest_response(response, endpoint)
+        return TelemetryProfile.from_dict(response.json())

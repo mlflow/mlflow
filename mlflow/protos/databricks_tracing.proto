@@ -305,6 +305,15 @@ message UCSchemaLocation {
   optional string otel_logs_table_name = 4;
 }
 
+message UcTablePrefixLocation {
+  // The name of the Unity Catalog catalog.
+  optional string catalog_name = 1;
+  // The name of the Unity Catalog schema.
+  optional string schema_name = 2;
+  // The prefix for tables in this location.
+  optional string table_prefix = 3;
+}
+
 message MlflowExperimentLocation {
   // MLflow experiment ID which is the ACL container holding the trace.
   optional string experiment_id = 1;
@@ -322,6 +331,7 @@ message TraceLocation {
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
     UC_SCHEMA = 3;
+    UC_TABLE_PREFIX = 4;
   }
   optional TraceLocationType type = 1;
 
@@ -329,6 +339,7 @@ message TraceLocation {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
     UCSchemaLocation uc_schema = 4;
+    UcTablePrefixLocation uc_table_prefix = 5;
   }
 }
 

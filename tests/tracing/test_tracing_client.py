@@ -261,3 +261,34 @@ def test_tracing_client_get_trace_error_handling():
         MlflowException, match=rf"Trace with ID {trace_id} is not fully exported yet"
     ):
         client.get_trace(trace_id)
+
+
+def test_get_telemetry_profile_databricks_uri():
+    from mlflow.entities.telemetry_profile import TelemetryProfile
+
+    mock_store = Mock()
+    mock_profile = TelemetryProfile(
+        profile_id="test-profile-123",
+        profile_name="Test Profile",
+    )
+    mock_store.get_telemetry_profile.return_value = mock_profile
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        with patch("mlflow.tracing.client.is_databricks_uri", return_value=True):
+            client = TracingClient()
+            result = client.get_telemetry_profile("test-profile-123")
+
+    assert result == mock_profile
+    mock_store.get_telemetry_profile.assert_called_once_with("test-profile-123")
+
+
+def test_get_telemetry_profile_non_databricks_uri():
+    mock_store = Mock()
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        with patch("mlflow.tracing.client.is_databricks_uri", return_value=False):
+            client = TracingClient()
+            with pytest.raises(
+                MlflowException, match="only supported on Databricks backends"
+            ):
+                client.get_telemetry_profile("test-profile-123")

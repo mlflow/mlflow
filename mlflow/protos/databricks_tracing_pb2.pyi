@@ -1,3 +1,5 @@
+import datetime
+
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
@@ -10,7 +12,8 @@ from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import service as _service
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -26,6 +29,16 @@ class UCSchemaLocation(_message.Message):
     otel_logs_table_name: str
     def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., otel_spans_table_name: _Optional[str] = ..., otel_logs_table_name: _Optional[str] = ...) -> None: ...
 
+class UcTablePrefixLocation(_message.Message):
+    __slots__ = ("catalog_name", "schema_name", "table_prefix")
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    table_prefix: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., table_prefix: _Optional[str] = ...) -> None: ...
+
 class MlflowExperimentLocation(_message.Message):
     __slots__ = ("experiment_id",)
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -39,26 +52,30 @@ class InferenceTableLocation(_message.Message):
     def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
-    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
+    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema", "uc_table_prefix")
     class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TRACE_LOCATION_TYPE_UNSPECIFIED: _ClassVar[TraceLocation.TraceLocationType]
         MLFLOW_EXPERIMENT: _ClassVar[TraceLocation.TraceLocationType]
         INFERENCE_TABLE: _ClassVar[TraceLocation.TraceLocationType]
         UC_SCHEMA: _ClassVar[TraceLocation.TraceLocationType]
+        UC_TABLE_PREFIX: _ClassVar[TraceLocation.TraceLocationType]
     TRACE_LOCATION_TYPE_UNSPECIFIED: TraceLocation.TraceLocationType
     MLFLOW_EXPERIMENT: TraceLocation.TraceLocationType
     INFERENCE_TABLE: TraceLocation.TraceLocationType
     UC_SCHEMA: TraceLocation.TraceLocationType
+    UC_TABLE_PREFIX: TraceLocation.TraceLocationType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
     INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
     UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     type: TraceLocation.TraceLocationType
     mlflow_experiment: MlflowExperimentLocation
     inference_table: InferenceTableLocation
     uc_schema: UCSchemaLocation
-    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    uc_table_prefix: UcTablePrefixLocation
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class TraceInfo(_message.Message):
     __slots__ = ("trace_id", "client_request_id", "trace_location", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")
@@ -108,7 +125,7 @@ class TraceInfo(_message.Message):
     trace_metadata: _containers.ScalarMap[str, str]
     assessments: _containers.RepeatedCompositeFieldContainer[Assessment]
     tags: _containers.ScalarMap[str, str]
-    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class CreateTraceInfo(_message.Message):
     __slots__ = ("location_id", "trace_info")
@@ -294,7 +311,7 @@ class Assessment(_message.Message):
     metadata: _containers.ScalarMap[str, str]
     overrides: str
     valid: bool
-    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
+    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: _Optional[bool] = ...) -> None: ...
 
 class CreateAssessment(_message.Message):
     __slots__ = ("location_id", "assessment", "sql_warehouse_id")

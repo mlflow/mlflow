@@ -11,6 +11,7 @@ from mlflow.entities.trace_location import (
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
+    UcTablePrefixLocation,
 )
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
@@ -41,6 +42,24 @@ def uc_schema_location_from_proto(proto: pb.UCSchemaLocation) -> UCSchemaLocatio
     return location
 
 
+def uc_table_prefix_location_to_proto(
+    uc_table_prefix_location: UcTablePrefixLocation,
+) -> pb.UcTablePrefixLocation:
+    return pb.UcTablePrefixLocation(
+        catalog_name=uc_table_prefix_location.catalog_name,
+        schema_name=uc_table_prefix_location.schema_name,
+        table_prefix=uc_table_prefix_location.table_prefix,
+    )
+
+
+def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> UcTablePrefixLocation:
+    return UcTablePrefixLocation(
+        catalog_name=proto.catalog_name,
+        schema_name=proto.schema_name,
+        table_prefix=proto.table_prefix,
+    )
+
+
 def inference_table_location_to_proto(
     inference_table_location: InferenceTableLocation,
 ) -> pb.InferenceTableLocation:
@@ -58,6 +77,11 @@ def trace_location_to_proto(trace_location: TraceLocation) -> pb.TraceLocation:
         return pb.TraceLocation(
             type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
             uc_schema=uc_schema_location_to_proto(trace_location.uc_schema),
+        )
+    elif trace_location.type == TraceLocationType.UC_TABLE_PREFIX:
+        return pb.TraceLocation(
+            type=pb.TraceLocation.TraceLocationType.UC_TABLE_PREFIX,
+            uc_table_prefix=uc_table_prefix_location_to_proto(trace_location.uc_table_prefix),
         )
     elif trace_location.type == TraceLocationType.MLFLOW_EXPERIMENT:
         return pb.TraceLocation(
@@ -85,6 +109,11 @@ def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
             type=type_,
             uc_schema=uc_schema_location_from_proto(proto.uc_schema),
         )
+    elif proto.WhichOneof("identifier") == "uc_table_prefix":
+        return TraceLocation(
+            type=type_,
+            uc_table_prefix=uc_table_prefix_location_from_proto(proto.uc_table_prefix),
+        )
     elif proto.WhichOneof("identifier") == "mlflow_experiment":
         return TraceLocation(
             type=type_,
@@ -107,7 +136,7 @@ def trace_info_to_v4_proto(trace_info: TraceInfo) -> pb.TraceInfo:
         execution_duration = Duration()
         execution_duration.FromMilliseconds(trace_info.execution_duration)
 
-    if trace_info.trace_location.uc_schema:
+    if trace_info.trace_location.uc_schema or trace_info.trace_location.uc_table_prefix:
         _, trace_id = parse_trace_id_v4(trace_info.trace_id)
     else:
         trace_id = trace_info.trace_id

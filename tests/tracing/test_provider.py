@@ -24,6 +24,7 @@ from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+from mlflow.tracing.processor.uc_table_with_otel import DatabricksUCTableWithOtelSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _initialize_tracer_provider,
@@ -540,3 +541,128 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert processors[0]._export_metrics is True
+
+
+def test_telemetry_destination_id_uses_uc_table_with_otel_processor(monkeypatch):
+    from mlflow.entities.telemetry_profile import (
+        Exporter,
+        ExporterType,
+        TelemetryProfile,
+        UnityCatalogTablesConfig,
+    )
+    from mlflow.tracing.export.uc_table_with_otel import DatabricksUCTableWithOtelSpanExporter
+
+    # Set up environment variables
+    monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
+
+    # Create mock TelemetryProfile
+    mock_profile = TelemetryProfile(
+        profile_id="test-profile-123",
+        profile_name="Test Profile",
+        exporters=[
+            Exporter(
+                type=ExporterType.UNITY_CATALOG_TABLES,
+                uc_tables=UnityCatalogTablesConfig(
+                    uc_catalog="catalog",
+                    uc_schema="schema",
+                    uc_table_prefix="prefix_",
+                ),
+            )
+        ],
+    )
+
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_otlp,
+        mock.patch(
+            "mlflow.tracing.provider._fetch_telemetry_profile", return_value=mock_profile
+        ) as mock_fetch,
+    ):
+        mock_get_otlp.return_value = mock.MagicMock()
+
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
+
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 1
+        assert isinstance(processors[0], DatabricksUCTableWithOtelSpanProcessor)
+        assert isinstance(processors[0].span_exporter, DatabricksUCTableWithOtelSpanExporter)
+
+        mock_fetch.assert_called_once_with("test-profile-123")
+
+
+def test_telemetry_destination_id_requires_otlp_config(monkeypatch):
+    # Set up telemetry destination ID but NO OTLP config
+    monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+
+    with mock.patch(
+        "mlflow.tracing.provider._fetch_telemetry_profile"
+    ) as mock_fetch:
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
+
+        processors = tracer.span_processor._span_processors
+        # Should fall back to default MLflow processor since OTLP is not configured
+        assert len(processors) == 1
+        assert isinstance(processors[0], MlflowV3SpanProcessor)
+
+        # _fetch_telemetry_profile should not be called since OTLP is not configured
+        mock_fetch.assert_not_called()
+
+
+def test_telemetry_destination_id_fallback_on_fetch_failure(monkeypatch):
+    # Set up environment variables
+    monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
+
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_otlp,
+        mock.patch(
+            "mlflow.tracing.provider._fetch_telemetry_profile", return_value=None
+        ) as mock_fetch,
+    ):
+        mock_get_otlp.return_value = mock.MagicMock()
+
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
+
+        processors = tracer.span_processor._span_processors
+        # Should fall back to OTLP processor since TelemetryProfile fetch failed
+        assert len(processors) == 1
+        assert isinstance(processors[0], OtelSpanProcessor)
+
+        mock_fetch.assert_called_once_with("test-profile-123")
+
+
+def test_telemetry_destination_id_ignored_when_user_sets_destination(monkeypatch):
+    from mlflow.entities.telemetry_profile import TelemetryProfile
+
+    # Set up environment variables
+    monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
+
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_otlp,
+        mock.patch(
+            "mlflow.tracing.provider._fetch_telemetry_profile"
+        ) as mock_fetch,
+    ):
+        mock_get_otlp.return_value = mock.MagicMock()
+
+        # User sets destination explicitly
+        mlflow.tracing.reset()
+        mlflow.tracing.set_destination(destination=MlflowExperimentLocation(experiment_id="123"))
+        tracer = _get_tracer("test")
+
+        processors = tracer.span_processor._span_processors
+        # Should use the user-specified destination, not telemetry profile
+        assert len(processors) == 1
+        assert isinstance(processors[0], MlflowV3SpanProcessor)
+
+        # _fetch_telemetry_profile should not be called since user set destination
+        mock_fetch.assert_not_called()
