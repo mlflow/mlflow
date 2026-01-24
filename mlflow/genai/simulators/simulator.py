@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import pydantic
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_GENAI_SIMULATOR_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
@@ -249,7 +249,7 @@ def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
             "simulation. Check the logs above for error details."
         )
 
-    max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+    max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
     ) as executor:
@@ -539,7 +539,7 @@ class ConversationSimulator:
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
 
-    @experimental(version="3.9.0")
+    @experimental(version="3.10.0")
     @record_usage_event(SimulateConversationEvent)
     def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         """
@@ -560,7 +560,7 @@ class ConversationSimulator:
         """
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
-        max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+        max_workers = min(num_test_cases, MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
         timings = SimulationTimingTracker()
 
         progress_bar = (

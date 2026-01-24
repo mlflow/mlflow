@@ -77,8 +77,6 @@ def test_simulated_user_agent_default_persona():
     with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
-        from mlflow.genai.simulators.prompts import DEFAULT_PERSONA
-
         agent = SimulatedUserAgent()
         context = SimulatorContext(
             goal="Learn about ML",
