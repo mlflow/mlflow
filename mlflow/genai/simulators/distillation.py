@@ -39,15 +39,16 @@ def _distill_goal_and_persona(
     cleaned_response = _strip_markdown_code_blocks(response)
     try:
         result = json.loads(cleaned_response)
-        goal = result.get("goal", "")
-        if not goal:
+        goal = result.get("goal")
+        if goal is None:
+            _logger.debug(f"Failed to extract goal from response: {cleaned_response}")
             return None
         return {
             "goal": goal,
             "persona": result.get("persona", DEFAULT_PERSONA),
         }
-    except Exception as e:
-        _logger.warning(f"Failed to parse response from model: {e}")
+    except json.JSONDecodeError as e:
+        _logger.debug(f"Failed to parse response as JSON: {cleaned_response}\nError: {e}")
         return None
 
 
