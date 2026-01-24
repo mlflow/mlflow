@@ -384,7 +384,6 @@ def distill_guidelines(
     existing_guideline_texts = set(existing_guidelines)
 
     def process_batch(batch_indices: list[int]) -> list[Guideline]:
-        """Process a single batch and return guidelines."""
         batch_examples = [examples_data[i] for i in batch_indices]
 
         prompt = template.render(

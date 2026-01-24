@@ -99,7 +99,8 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 | `reflection_lm`   | `str` | Required                           | Model used for extracting guidelines from feedback.                                |
 | `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.     |
 | `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format. |
-| `max_workers`     | `int` | `8`                                | Maximum number of parallel threads for LLM calls during guideline distillation. Increasing this value can speed up alignment when processing many feedback examples, but may increase API rate limit errors. |
+
+Note: The number of parallel threads for LLM calls during guideline distillation can be configured via the `MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS` environment variable (default: 8).
 
 ## Inspecting Learned Knowledge
 
