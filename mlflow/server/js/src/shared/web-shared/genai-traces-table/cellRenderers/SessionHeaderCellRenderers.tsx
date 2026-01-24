@@ -48,6 +48,7 @@ import { TokenComponent } from './TokensCell';
 import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
 import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggregatedCell';
 import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
+import { calculateSessionDuration } from '../sessions-table/utils';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -185,13 +186,23 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       }
     });
 
-    cellContent = cellContent = (
+    cellContent = (
       <TokenComponent
         inputTokens={totalInputTokens}
         outputTokens={totalOutputTokens}
         totalTokens={totalTokens}
         isComparing={false}
       />
+    );
+  } else if (column.id === EXECUTION_DURATION_COLUMN_ID && traces.length > 0) {
+    // Duration - sum all execution durations
+    const duration = calculateSessionDuration(traces);
+    cellContent = duration ? (
+      <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
+        {duration}
+      </div>
+    ) : (
+      <NullCell />
     );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
