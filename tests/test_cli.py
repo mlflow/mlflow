@@ -312,15 +312,10 @@ def test_registry_store_uri_different_from_tracking_store(command):
 
 
 @pytest.fixture
-def sqlite_store():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
-    store = SqlAlchemyStore(db_uri, "artifact_folder")
-    yield (store, db_uri)
-    os.remove(temp_dbfile)
-    shutil.rmtree("artifact_folder", ignore_errors=True)
+def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
+    artifact_folder = tmp_path / "artifacts"
+    store = SqlAlchemyStore(db_uri, str(artifact_folder))
+    return (store, db_uri)
 
 
 @pytest.fixture
@@ -585,17 +580,14 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
 
 @pytest.fixture
-def sqlite_store_with_s3_artifact_repository():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
+def sqlite_store_with_s3_artifact_repository(
+    tmp_path: Path,
+) -> tuple[SqlAlchemyStore, str, str]:
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
     s3_uri = "s3://mlflow"
     store = SqlAlchemyStore(db_uri, s3_uri)
-
-    yield (store, db_uri, s3_uri)
-
-    os.remove(temp_dbfile)
+    return (store, db_uri, s3_uri)
 
 
 def test_mlflow_gc_sqlite_with_s3_artifact_repository(
@@ -1043,16 +1035,13 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
 
 
 @pytest.fixture
-def sqlite_store_with_jobs():
-    fd, temp_dbfile = tempfile.mkstemp()
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
-    tracking_store = SqlAlchemyStore(db_uri, "artifact_folder_jobs")
+def sqlite_store_with_jobs(
+    db_uri: str, tmp_path: Path
+) -> tuple[SqlAlchemyStore, SqlAlchemyJobStore, str]:
+    artifact_folder = tmp_path / "artifacts"
+    tracking_store = SqlAlchemyStore(db_uri, str(artifact_folder))
     job_store = SqlAlchemyJobStore(db_uri)
-    yield (tracking_store, job_store, db_uri)
-    os.remove(temp_dbfile)
-    if os.path.exists("artifact_folder_jobs"):
-        shutil.rmtree("artifact_folder_jobs")
+    return (tracking_store, job_store, db_uri)
 
 
 def _create_test_job(job_store, job_name="test_job", finalize=True):
