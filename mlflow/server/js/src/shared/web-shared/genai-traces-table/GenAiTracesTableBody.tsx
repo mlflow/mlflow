@@ -135,8 +135,8 @@ export const GenAiTracesTableBody = React.memo(
     );
 
     const sortedGroupedColumns = useMemo(
-      () => sortGroupedColumns(selectedColumns, isComparing),
-      [selectedColumns, isComparing],
+      () => sortGroupedColumns(selectedColumns, isComparing, isGroupedBySession),
+      [selectedColumns, isComparing, isGroupedBySession],
     );
 
     const { columns } = useMemo(() => {
