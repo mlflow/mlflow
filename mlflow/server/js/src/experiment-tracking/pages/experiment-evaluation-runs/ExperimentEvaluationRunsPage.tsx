@@ -41,6 +41,8 @@ import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperi
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
+const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
+
 const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
 };
@@ -137,9 +139,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // list of available metrics changed), reset the selected columns
   // to the default state to avoid displaying columns that don't exist
   if (columnDifference.length > 0) {
+    const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
+    const defaultEnabledMetrics = new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS));
+
     setSelectedColumns({
       ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
-      ...mapValues(keyBy(uniqueColumns), () => false),
+      ...mapValues(keyBy(uniqueColumns), (_, key) => defaultEnabledMetrics.has(key)),
     });
   }
 
