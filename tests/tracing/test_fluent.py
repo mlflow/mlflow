@@ -2472,26 +2472,19 @@ def test_search_sessions_returns_grouped_traces():
 
     assert len(sessions) == 2
 
-    # Find which session is which (order depends on timestamp)
-    session_1_traces = None
-    session_2_traces = None
-    for session in sessions:
-        session_id = session[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION)
-        if session_id == session_id_1:
-            session_1_traces = session
-        elif session_id == session_id_2:
-            session_2_traces = session
+    # Convert to dict keyed by session ID for easier assertions
+    sessions_by_id = {
+        s[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION): s for s in sessions
+    }
 
-    assert session_1_traces is not None
-    assert session_2_traces is not None
-    assert len(session_1_traces) == 2
-    assert len(session_2_traces) == 1
+    assert len(sessions_by_id[session_id_1]) == 2
+    assert len(sessions_by_id[session_id_2]) == 1
 
     # Verify trace IDs
-    session_1_trace_ids = {t.info.trace_id for t in session_1_traces}
+    session_1_trace_ids = {t.info.trace_id for t in sessions_by_id[session_id_1]}
     assert trace_id_1 in session_1_trace_ids
     assert trace_id_2 in session_1_trace_ids
-    assert session_2_traces[0].info.trace_id == trace_id_3
+    assert sessions_by_id[session_id_2][0].info.trace_id == trace_id_3
 
 
 @pytest.mark.skipif(
