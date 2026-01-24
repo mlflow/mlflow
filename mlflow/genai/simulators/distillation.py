@@ -10,7 +10,6 @@ from mlflow.genai.simulators.prompts import DEFAULT_PERSONA, DISTILL_GOAL_AND_PE
 from mlflow.genai.simulators.simulator import _MODEL_API_DOC
 from mlflow.genai.simulators.utils import format_history, invoke_model_without_tracing
 from mlflow.genai.utils.trace_utils import resolve_conversation_from_session
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -31,6 +30,8 @@ def _distill_goal_and_persona(
         return None
 
     prompt = DISTILL_GOAL_AND_PERSONA_PROMPT.format(conversation=format_history(messages))
+
+    from mlflow.types.llm import ChatMessage
 
     response = invoke_model_without_tracing(
         model_uri=model,
