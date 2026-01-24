@@ -32,7 +32,10 @@ def test_trace_location():
 
     with pytest.raises(
         MlflowException,
-        match="Only one of mlflow_experiment, inference_table, uc_schema, or uc_table_prefix can be provided",
+        match=(
+            "Only one of mlflow_experiment, inference_table, uc_schema, "
+            "or uc_table_prefix can be provided"
+        ),
     ):
         TraceLocation(
             type=TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED,

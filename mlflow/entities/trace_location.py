@@ -227,7 +227,8 @@ class TraceLocation(_MlflowObject):
             > 1
         ):
             raise MlflowException.invalid_parameter_value(
-                "Only one of mlflow_experiment, inference_table, uc_schema, or uc_table_prefix can be provided."
+                "Only one of mlflow_experiment, inference_table, uc_schema, "
+                "or uc_table_prefix can be provided."
             )
 
         if (
@@ -236,9 +237,15 @@ class TraceLocation(_MlflowObject):
             or (self.uc_schema and self.type != TraceLocationType.UC_SCHEMA)
             or (self.uc_table_prefix and self.type != TraceLocationType.UC_TABLE_PREFIX)
         ):
+            location = (
+                self.mlflow_experiment
+                or self.inference_table
+                or self.uc_schema
+                or self.uc_table_prefix
+            )
             raise MlflowException.invalid_parameter_value(
-                f"Trace location type {self.type} does not match the provided location "
-                f"{self.mlflow_experiment or self.inference_table or self.uc_schema or self.uc_table_prefix}."
+                f"Trace location type {self.type} does not match the provided "
+                f"location {location}."
             )
 
     def to_dict(self) -> dict[str, Any]:
