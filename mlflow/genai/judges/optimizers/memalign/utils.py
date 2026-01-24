@@ -15,6 +15,7 @@ except ImportError:
     _JINJA2_AVAILABLE = False
 
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS
 from mlflow.genai.judges.optimizers.dspy_utils import (
     construct_dspy_lm,
     convert_mlflow_uri_to_litellm,
@@ -329,16 +330,17 @@ def distill_guidelines(
     judge_instructions: str,
     reflection_lm: str,
     existing_guidelines: list[str],
-    max_workers: int = 8,
 ) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
+
+    The number of parallel threads for LLM calls can be configured via the
+    ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable (default: 8).
 
     Args:
         examples: List of DSPy examples containing feedback (with _trace_id attribute)
         judge_instructions: Original judge instructions
         reflection_lm: Model to use for distillation
         existing_guidelines: Previously distilled guidelines
-        max_workers: Maximum number of parallel threads for LLM calls (default: 8)
 
     Returns:
         List of newly distilled Guideline objects (not including existing ones)
@@ -421,7 +423,10 @@ def distill_guidelines(
     except ImportError:
         use_tqdm = False
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(
+        max_workers=MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS.get(),
+        thread_name_prefix="distill_guidelines",
+    ) as executor:
         futures = {executor.submit(process_batch, batch): batch for batch in batches}
 
         if use_tqdm:
