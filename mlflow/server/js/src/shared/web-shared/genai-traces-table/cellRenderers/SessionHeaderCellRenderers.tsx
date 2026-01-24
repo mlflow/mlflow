@@ -70,7 +70,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
   let cellContent: React.ReactNode = null;
 
   // Render specific columns with data from the first trace
-  if (column.id === TRACE_ID_COLUMN_ID) {
+  if (column.id === SESSION_COLUMN_ID) {
     // Session ID column - render as a tag with link to session view
     cellContent = (
       <div css={{ overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
