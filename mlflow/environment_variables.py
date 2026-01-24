@@ -1032,6 +1032,13 @@ _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE", int, 100
 )
 
+#: Maximum number of worker threads to use when fetching session traces in parallel
+#: during search_sessions operations.
+#: (default: ``10``)
+MLFLOW_SEARCH_SESSIONS_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SEARCH_SESSIONS_MAX_WORKERS", int, 10
+)
+
 #: Specifies the logging level for MLflow. This can be set to any valid logging level
 #: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
 #: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.

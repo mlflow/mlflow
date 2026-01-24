@@ -8,19 +8,21 @@ import json
 import logging
 import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities import NoOpSpan, Session, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SEARCH_SESSIONS_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
@@ -892,7 +894,6 @@ def search_traces(
 
 @experimental(version="3.10.0")
 def search_sessions(
-    experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
     max_results: int = 100,
     order_by: list[str] | None = None,
@@ -900,20 +901,19 @@ def search_sessions(
     model_id: str | None = None,
     include_spans: bool = True,
     locations: list[str] | None = None,
-) -> list[list[Trace]]:
+) -> list[Session]:
     """
-    Return sessions (groups of traces sharing a session ID) that match the given search criteria.
+    Return complete sessions that match the given search criteria.
 
     A session is a collection of traces that share the same session ID, typically representing
     a multi-turn conversation or a series of related interactions. This API retrieves complete
     sessions by first identifying unique session IDs from traces, then fetching all traces
-    belonging to each session.
+    belonging to each session in parallel.
 
     Args:
-        experiment_ids: List of experiment ids to scope the search.
         filter_string: A search filter string applied when searching for session IDs.
         max_results: Maximum number of sessions to return. Default is 100.
-        order_by: List of order_by clauses for ordering traces within sessions.
+        order_by: List of order_by clauses for ordering traces when discovering sessions.
         run_id: A run id to scope the search. When a trace is created under an active run,
             it will be associated with the run and you can filter on the run id to retrieve
             traces.
@@ -926,9 +926,9 @@ def search_sessions(
             If not provided, the search will be performed across the current active experiment.
 
     Returns:
-        A list of sessions, where each session is a list of
-        :py:class:`Trace <mlflow.entities.Trace>` objects that share the same session ID.
-        Sessions are ordered by the timestamp of their first trace (most recent first).
+        A list of :py:class:`Session <mlflow.entities.Session>` objects, where each session
+        is a list of :py:class:`Trace <mlflow.entities.Trace>` objects that share the same
+        session ID. Sessions are ordered by the timestamp of their first trace (most recent first).
 
     .. code-block:: python
         :caption: Basic usage - search sessions in an experiment
@@ -963,7 +963,7 @@ def search_sessions(
 
     _validate_list_param("locations", locations, allow_none=True)
 
-    if not experiment_ids and not locations:
+    if not locations:
         _logger.debug("Searching sessions in the current active experiment")
 
         if experiment_id := _get_experiment_id():
@@ -976,60 +976,66 @@ def search_sessions(
 
     session_id_key = TraceMetadataKey.TRACE_SESSION
 
-    # Build common search arguments - use locations if provided, otherwise experiment_ids
-    # Don't pass both to avoid deprecated_parameter conflict
-    common_search_kwargs: dict[str, Any] = {
-        "run_id": run_id,
-        "return_type": "list",
-        "model_id": model_id,
-    }
-    if locations:
-        common_search_kwargs["locations"] = locations
-    elif experiment_ids:
-        common_search_kwargs["experiment_ids"] = experiment_ids
-
-    # Step 1: Get traces to extract unique session IDs
-    # We fetch traces and extract their session IDs to identify unique sessions
-    traces: list[Trace] = search_traces(
-        filter_string=filter_string,
-        max_results=None,  # Get all matching traces to find session IDs
-        order_by=order_by or ["timestamp DESC"],
-        include_spans=False,  # Only need metadata to get session IDs
-        **common_search_kwargs,
-    )
-
-    # Step 2: Extract unique session IDs, preserving order (most recent first)
+    # Step 1: Page through traces to collect unique session IDs (up to max_results)
     seen_session_ids: set[str] = set()
     session_ids: list[str] = []
-    for trace in traces:
-        session_id = trace.info.request_metadata.get(session_id_key)
-        if session_id and session_id not in seen_session_ids:
-            seen_session_ids.add(session_id)
-            session_ids.append(session_id)
-            if len(session_ids) >= max_results:
-                break
+    page_token: str | None = None
+
+    while len(session_ids) < max_results:
+        traces: list[Trace] = TracingClient().search_traces(
+            filter_string=filter_string,
+            max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+            order_by=order_by or ["timestamp DESC"],
+            page_token=page_token,
+            include_spans=False,
+            run_id=run_id,
+            model_id=model_id,
+            locations=locations,
+        )
+
+        for trace in traces:
+            session_id = trace.info.request_metadata.get(session_id_key)
+            if session_id and session_id not in seen_session_ids:
+                seen_session_ids.add(session_id)
+                session_ids.append(session_id)
+                if len(session_ids) >= max_results:
+                    break
+
+        page_token = traces.token if hasattr(traces, "token") else None
+        if not page_token:
+            break
 
     if not session_ids:
         return []
 
-    # Step 3: Fetch complete traces for each session
-    sessions: list[list[Trace]] = []
-    for session_id in session_ids:
+    # Step 2: Fetch complete traces for each session in parallel
+    def fetch_session_traces(session_id: str) -> list[Trace]:
         session_filter = f"metadata.`{session_id_key}` = '{session_id}'"
         if filter_string:
             combined_filter = f"({filter_string}) AND {session_filter}"
         else:
             combined_filter = session_filter
 
-        session_traces: list[Trace] = search_traces(
+        return search_traces(
             filter_string=combined_filter,
             max_results=None,  # Get all traces in the session
             order_by=["timestamp ASC"],  # Order by time within session
             include_spans=include_spans,
-            **common_search_kwargs,
+            run_id=run_id,
+            return_type="list",
+            model_id=model_id,
+            locations=locations,
         )
-        if session_traces:
-            sessions.append(session_traces)
+
+    max_workers = min(len(session_ids), MLFLOW_SEARCH_SESSIONS_MAX_WORKERS.get())
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="search_sessions",
+    ) as executor:
+        session_results = list(executor.map(fetch_session_traces, session_ids))
+
+    # Filter out empty sessions and preserve order
+    sessions: list[Session] = [s for s in session_results if s]
 
     return sessions
 

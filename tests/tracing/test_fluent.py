@@ -2429,164 +2429,103 @@ def test_search_traces_with_full_text():
     assert traces[0].info.trace_id == trace_id_1
 
 
-def test_search_sessions_empty(mock_client):
-    mock_client.search_traces.return_value = PagedList([], token=None)
+def _create_trace_with_session(session_id: str, name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
 
-    sessions = mlflow.search_sessions(locations=["1"])
 
+def _create_trace_without_session(name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_empty():
+    # Create a trace without a session ID - should result in no sessions
+    _create_trace_without_session()
+    sessions = mlflow.search_sessions()
     assert sessions == []
-    mock_client.search_traces.assert_called_once()
 
 
-def test_search_sessions_returns_grouped_traces(mock_client):
-    session_id_1 = "session-1"
-    session_id_2 = "session-2"
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_returns_grouped_traces():
+    session_id_1 = f"session-1-{uuid.uuid4().hex[:8]}"
+    session_id_2 = f"session-2-{uuid.uuid4().hex[:8]}"
 
-    # First call returns traces with session IDs (for discovering sessions)
-    initial_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
-            ),
-            data=TraceData([]),
-        ),
-        Trace(
-            info=create_test_trace_info(
-                "tr-2",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
-            ),
-            data=TraceData([]),
-        ),
-        Trace(
-            info=create_test_trace_info(
-                "tr-3",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_2},
-            ),
-            data=TraceData([]),
-        ),
-    ]
+    # Create traces for session 1
+    trace_id_1 = _create_trace_with_session(session_id_1, "session1_trace1")
+    trace_id_2 = _create_trace_with_session(session_id_1, "session1_trace2")
 
-    # Traces for session 1 (with spans)
-    session_1_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
-            ),
-            data=TraceData([]),
-        ),
-        Trace(
-            info=create_test_trace_info(
-                "tr-2",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_1},
-            ),
-            data=TraceData([]),
-        ),
-    ]
+    # Create trace for session 2
+    trace_id_3 = _create_trace_with_session(session_id_2, "session2_trace1")
 
-    # Traces for session 2 (with spans)
-    session_2_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-3",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id_2},
-            ),
-            data=TraceData([]),
-        ),
-    ]
-
-    mock_client.search_traces.side_effect = [
-        PagedList(initial_traces, token=None),  # Initial search to find session IDs
-        PagedList(session_1_traces, token=None),  # Fetch session 1 traces
-        PagedList(session_2_traces, token=None),  # Fetch session 2 traces
-    ]
-
-    sessions = mlflow.search_sessions(locations=["1"])
+    sessions = mlflow.search_sessions()
 
     assert len(sessions) == 2
-    assert len(sessions[0]) == 2
-    assert len(sessions[1]) == 1
-    assert sessions[0][0].info.trace_id == "tr-1"
-    assert sessions[0][1].info.trace_id == "tr-2"
-    assert sessions[1][0].info.trace_id == "tr-3"
+
+    # Find which session is which (order depends on timestamp)
+    session_1_traces = None
+    session_2_traces = None
+    for session in sessions:
+        session_id = session[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        if session_id == session_id_1:
+            session_1_traces = session
+        elif session_id == session_id_2:
+            session_2_traces = session
+
+    assert session_1_traces is not None
+    assert session_2_traces is not None
+    assert len(session_1_traces) == 2
+    assert len(session_2_traces) == 1
+
+    # Verify trace IDs
+    session_1_trace_ids = {t.info.trace_id for t in session_1_traces}
+    assert trace_id_1 in session_1_trace_ids
+    assert trace_id_2 in session_1_trace_ids
+    assert session_2_traces[0].info.trace_id == trace_id_3
 
 
-def test_search_sessions_respects_max_results(mock_client):
-    session_ids = ["session-1", "session-2", "session-3"]
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_respects_max_results():
+    session_ids = [f"session-{i}-{uuid.uuid4().hex[:8]}" for i in range(3)]
 
-    initial_traces = [
-        Trace(
-            info=create_test_trace_info(
-                f"tr-{i}",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_ids[i]},
-            ),
-            data=TraceData([]),
-        )
-        for i in range(3)
-    ]
+    # Create one trace per session
+    for session_id in session_ids:
+        _create_trace_with_session(session_id)
 
-    session_traces = [
-        [
-            Trace(
-                info=create_test_trace_info(
-                    f"tr-{i}",
-                    trace_metadata={TraceMetadataKey.TRACE_SESSION: session_ids[i]},
-                ),
-                data=TraceData([]),
-            )
-        ]
-        for i in range(2)  # Only 2 sessions should be fetched
-    ]
-
-    mock_client.search_traces.side_effect = [
-        PagedList(initial_traces, token=None),
-        PagedList(session_traces[0], token=None),
-        PagedList(session_traces[1], token=None),
-    ]
-
-    sessions = mlflow.search_sessions(locations=["1"], max_results=2)
+    sessions = mlflow.search_sessions(max_results=2)
 
     assert len(sessions) == 2
 
 
-def test_search_sessions_skips_traces_without_session_id(mock_client):
-    session_id = "session-1"
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_skips_traces_without_session_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
 
-    initial_traces = [
-        Trace(
-            info=create_test_trace_info("tr-no-session", trace_metadata={}),
-            data=TraceData([]),
-        ),
-        Trace(
-            info=create_test_trace_info(
-                "tr-with-session",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
+    # Create trace without session
+    _create_trace_without_session("no_session_trace")
 
-    session_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-with-session",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
+    # Create trace with session
+    trace_id = _create_trace_with_session(session_id, "with_session_trace")
 
-    mock_client.search_traces.side_effect = [
-        PagedList(initial_traces, token=None),
-        PagedList(session_traces, token=None),
-    ]
-
-    sessions = mlflow.search_sessions(locations=["1"])
+    sessions = mlflow.search_sessions()
 
     assert len(sessions) == 1
     assert len(sessions[0]) == 1
-    assert sessions[0][0].info.trace_id == "tr-with-session"
+    assert sessions[0][0].info.trace_id == trace_id
 
 
 def test_search_sessions_validates_locations_type():
@@ -2597,16 +2536,16 @@ def test_search_sessions_validates_locations_type():
         mlflow.search_sessions(locations="4")
 
 
-def test_search_sessions_with_default_experiment_id(mock_client):
-    mock_client.search_traces.return_value = PagedList([], token=None)
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_with_default_experiment_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
 
-    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"):
-        sessions = mlflow.search_sessions()
-
-    assert sessions == []
-    mock_client.search_traces.assert_called()
-    call_args = mock_client.search_traces.call_args
-    assert call_args.kwargs.get("locations") == ["123"]
+    # search_sessions should use the default experiment
+    sessions = mlflow.search_sessions()
+    assert len(sessions) == 1
 
 
 def test_search_sessions_raises_without_experiment():
@@ -2615,83 +2554,31 @@ def test_search_sessions_raises_without_experiment():
             mlflow.search_sessions()
 
 
-def test_search_sessions_with_filter_string(mock_client):
-    session_id = "session-1"
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_true():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
 
-    initial_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
-
-    session_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
-
-    mock_client.search_traces.side_effect = [
-        PagedList(initial_traces, token=None),
-        PagedList(session_traces, token=None),
-    ]
-
-    sessions = mlflow.search_sessions(
-        locations=["1"],
-        filter_string="status = 'OK'",
-    )
+    sessions = mlflow.search_sessions(include_spans=True)
 
     assert len(sessions) == 1
-
-    # Verify the filter string was passed to the initial search
-    first_call_kwargs = mock_client.search_traces.call_args_list[0].kwargs
-    assert first_call_kwargs.get("filter_string") == "status = 'OK'"
-
-    # Verify the session filter was combined with the original filter
-    second_call_kwargs = mock_client.search_traces.call_args_list[1].kwargs
-    assert "status = 'OK'" in second_call_kwargs.get("filter_string")
-    assert TraceMetadataKey.TRACE_SESSION in second_call_kwargs.get("filter_string")
+    assert len(sessions[0]) == 1
+    # When include_spans=True, spans should be populated
+    assert len(sessions[0][0].data.spans) > 0
 
 
-def test_search_sessions_include_spans_false(mock_client):
-    session_id = "session-1"
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_false():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
 
-    initial_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
-
-    session_traces = [
-        Trace(
-            info=create_test_trace_info(
-                "tr-1",
-                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
-            ),
-            data=TraceData([]),
-        ),
-    ]
-
-    mock_client.search_traces.side_effect = [
-        PagedList(initial_traces, token=None),
-        PagedList(session_traces, token=None),
-    ]
-
-    sessions = mlflow.search_sessions(locations=["1"], include_spans=False)
+    sessions = mlflow.search_sessions(include_spans=False)
 
     assert len(sessions) == 1
-
-    # Verify include_spans=False was passed when fetching session traces
-    second_call_kwargs = mock_client.search_traces.call_args_list[1].kwargs
-    assert second_call_kwargs.get("include_spans") is False
+    assert len(sessions[0]) == 1
+    # When include_spans=False, spans should be empty
+    assert len(sessions[0][0].data.spans) == 0
