@@ -41,7 +41,7 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class GuardrailsScorer(Scorer):
     """
     Base class for Guardrails AI validator scorers.
@@ -112,33 +112,25 @@ class GuardrailsScorer(Scorer):
                 trace=trace,
             )
 
-            # Run validation
             result = self._guard.validate(text)
-
-            # Extract validation outcome
             passed = result.validation_passed
             value = "pass" if passed else "fail"
 
-            # Build rationale from validation results
             rationale = None
-            if hasattr(result, "validated_output"):
-                if not passed and result.validation_summaries:
-                    summaries = [
-                        f"{s.validator_name}: {s.failure_reason}"
-                        for s in result.validation_summaries
-                        if s.failure_reason
-                    ]
-                    rationale = "; ".join(summaries) if summaries else None
+            if hasattr(result, "validated_output") and not passed and result.validation_summaries:
+                summaries = [
+                    f"{s.validator_name}: {s.failure_reason}"
+                    for s in result.validation_summaries
+                    if s.failure_reason
+                ]
+                rationale = "; ".join(summaries) if summaries else None
 
             return Feedback(
                 name=self.name,
                 value=value,
                 rationale=rationale,
                 source=assessment_source,
-                metadata={
-                    FRAMEWORK_METADATA_KEY: "guardrails",
-                    "validation_passed": passed,
-                },
+                metadata={FRAMEWORK_METADATA_KEY: "guardrails"},
             )
         except Exception as e:
             _logger.error(f"Error validating with Guardrails {self.name}: {e}")
@@ -146,10 +138,11 @@ class GuardrailsScorer(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: "guardrails"},
             )
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 def get_scorer(
     validator_name: str,
     **validator_kwargs: Any,
@@ -179,7 +172,7 @@ def get_scorer(
 # Safety validators
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class ToxicLanguage(GuardrailsScorer):
     """
     Detects toxic language in text using Guardrails AI.
@@ -203,7 +196,7 @@ class ToxicLanguage(GuardrailsScorer):
     validator_name: ClassVar[str] = "ToxicLanguage"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class NSFWText(GuardrailsScorer):
     """
     Detects NSFW (Not Safe For Work) content in text.
@@ -226,7 +219,7 @@ class NSFWText(GuardrailsScorer):
     validator_name: ClassVar[str] = "NSFWText"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class DetectJailbreak(GuardrailsScorer):
     """
     Detects jailbreak or prompt injection attempts.
@@ -249,7 +242,7 @@ class DetectJailbreak(GuardrailsScorer):
 # PII validators
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class DetectPII(GuardrailsScorer):
     """
     Detects Personally Identifiable Information (PII) in text.
@@ -276,7 +269,7 @@ class DetectPII(GuardrailsScorer):
     validator_name: ClassVar[str] = "DetectPII"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class SecretsPresent(GuardrailsScorer):
     """
     Detects secrets and API keys in text.
@@ -299,7 +292,7 @@ class SecretsPresent(GuardrailsScorer):
 # Quality validators
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 class GibberishText(GuardrailsScorer):
     """
     Detects gibberish or nonsensical text in LLM outputs.

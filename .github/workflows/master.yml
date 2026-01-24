@@ -290,7 +290,7 @@ jobs:
           uv sync --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas arize-phoenix-evals
+            deepeval ragas arize-phoenix-evals guardrails-ai
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
