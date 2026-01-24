@@ -9,7 +9,7 @@ import "scalapb/scalapb.proto";
 
 option py_generic_services = true;
 
-service DatabricksTraceServerService {
+service DatabricksTracingServerService {
   // Get a telemetry profile by ID.
   rpc getTelemetryProfile(GetTelemetryProfileRequest) returns (TelemetryProfile) {
     option (rpc) = {
