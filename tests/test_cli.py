@@ -313,8 +313,8 @@ def test_registry_store_uri_different_from_tracking_store(command):
 
 @pytest.fixture
 def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
-    artifact_folder = tmp_path / "artifacts"
-    store = SqlAlchemyStore(db_uri, str(artifact_folder))
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
     return (store, db_uri)
 
 
@@ -1038,8 +1038,8 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
 def sqlite_store_with_jobs(
     db_uri: str, tmp_path: Path
 ) -> tuple[SqlAlchemyStore, SqlAlchemyJobStore, str]:
-    artifact_folder = tmp_path / "artifacts"
-    tracking_store = SqlAlchemyStore(db_uri, str(artifact_folder))
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    tracking_store = SqlAlchemyStore(db_uri, artifact_uri)
     job_store = SqlAlchemyJobStore(db_uri)
     return (tracking_store, job_store, db_uri)
 
