@@ -181,8 +181,8 @@ class ResourceUsage:
             return None
 
         return cls(
-            mem_bytes=psutil.virtual_memory().total,
-            disk_bytes=psutil.disk_usage("/").total,
+            mem_bytes=psutil.virtual_memory().used,
+            disk_bytes=psutil.disk_usage("/").used,
         )
 
 
