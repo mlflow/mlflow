@@ -199,7 +199,7 @@ class ResourceUsage:
         return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
 
 
-_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test id -> resource stats
+_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delta
 _RESOURCE_USAGE = ResourceUsage()
 
 
