@@ -142,9 +142,57 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+@dataclass
+class ResourceDelta:
+    THRESHOLD_BYTES = 500 * 1024 * 1024  # 0.5 GB
+
+    mem_bytes: int
+    disk_bytes: int
+
+    def exceeds_threshold(self) -> bool:
+        return self.mem_bytes >= self.THRESHOLD_BYTES or self.disk_bytes >= self.THRESHOLD_BYTES
+
+    def format_exceeded(self) -> str:
+        parts: list[str] = []
+        if self.mem_bytes >= self.THRESHOLD_BYTES:
+            parts.append(f"mem: +{self.mem_bytes / 1024**3:.1f} GB")
+        if self.disk_bytes >= self.THRESHOLD_BYTES:
+            parts.append(f"disk: +{self.disk_bytes / 1024**3:.1f} GB")
+        return ", ".join(parts)
+
+
+@dataclass
+class ResourceUsage:
+    mem_bytes: int
+    disk_bytes: int
+
+    def __sub__(self, other: "ResourceUsage") -> ResourceDelta:
+        return ResourceDelta(
+            mem_bytes=self.mem_bytes - other.mem_bytes,
+            disk_bytes=self.disk_bytes - other.disk_bytes,
+        )
+
+    @classmethod
+    def current(cls) -> "ResourceUsage | None":
+        """Get current process memory and system disk usage."""
+        try:
+            import psutil
+        except ImportError:
+            return None
+
+        proc = psutil.Process()
+        disk = psutil.disk_usage("/")
+        return cls(mem_bytes=proc.memory_info().rss, disk_bytes=disk.used)
+
+
+_resource_heavy_tests: dict[str, ResourceDelta] = {}
+_resource_before: ResourceUsage | None = None
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _resource_heavy_tests.clear()
 
     if IS_TRACING_SDK_ONLY:
         return
@@ -303,9 +351,28 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
 
 
 def pytest_runtest_setup(item):
+    global _resource_before
+    _resource_before = ResourceUsage.current()
+
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
+
+
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    global _resource_before
+    if _resource_before is None:
+        return
+
+    after = ResourceUsage.current()
+    if after is None:
+        return
+
+    delta = after - _resource_before
+    if delta.exceeds_threshold():
+        _resource_heavy_tests[item.nodeid] = delta
+
+    _resource_before = None
 
 
 def fetch_pr_labels():
@@ -510,6 +577,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    # Display resource-heavy tests
+    if _resource_heavy_tests:
+        terminalreporter.section("Resource-heavy tests", yellow=True)
+        for test_name, delta in _resource_heavy_tests.items():
+            terminalreporter.write(f"{test_name}: {delta.format_exceeded()}\n")
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
