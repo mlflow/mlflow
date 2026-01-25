@@ -673,8 +673,6 @@ def test_telemetry_destination_id_fallback_on_fetch_failure(monkeypatch):
 
 
 def test_telemetry_destination_id_ignored_when_user_sets_destination(monkeypatch):
-    from mlflow.entities.telemetry_profile import TelemetryProfile
-
     # Set up environment variables
     monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
@@ -682,9 +680,7 @@ def test_telemetry_destination_id_ignored_when_user_sets_destination(monkeypatch
     with (
         mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
         mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_otlp,
-        mock.patch(
-            "mlflow.tracing.provider._fetch_telemetry_profile"
-        ) as mock_fetch,
+        mock.patch("mlflow.tracing.provider._fetch_telemetry_profile") as mock_fetch,
     ):
         mock_get_otlp.return_value = mock.MagicMock()
 

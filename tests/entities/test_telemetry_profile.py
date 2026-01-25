@@ -1,5 +1,3 @@
-import pytest
-
 from mlflow.entities.telemetry_profile import (
     Exporter,
     ExporterType,

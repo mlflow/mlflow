@@ -244,8 +244,7 @@ class TraceLocation(_MlflowObject):
                 or self.uc_table_prefix
             )
             raise MlflowException.invalid_parameter_value(
-                f"Trace location type {self.type} does not match the provided "
-                f"location {location}."
+                f"Trace location type {self.type} does not match the provided location {location}."
             )
 
     def to_dict(self) -> dict[str, Any]:
