@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 _VALIDATOR_REGISTRY = {
     "ToxicLanguage": "ToxicLanguage",
     "NSFWText": "NSFWText",
-    "DetectJailbreak": "DetectPromptInjection",
+    "DetectJailbreak": "DetectJailbreak",
     "DetectPII": "DetectPII",
     "SecretsPresent": "SecretsPresent",
     "GibberishText": "GibberishText",

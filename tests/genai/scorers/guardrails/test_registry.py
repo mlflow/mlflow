@@ -10,7 +10,7 @@ from mlflow.exceptions import MlflowException
     [
         ("ToxicLanguage", "ToxicLanguage"),
         ("NSFWText", "NSFWText"),
-        ("DetectJailbreak", "DetectPromptInjection"),
+        ("DetectJailbreak", "DetectJailbreak"),
         ("DetectPII", "DetectPII"),
         ("SecretsPresent", "SecretsPresent"),
         ("GibberishText", "GibberishText"),

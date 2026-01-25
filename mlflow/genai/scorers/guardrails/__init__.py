@@ -222,7 +222,11 @@ class DetectJailbreak(GuardrailsScorer):
     Detects jailbreak or prompt injection attempts.
 
     Identifies attempts to bypass LLM safety measures or manipulate
-    the model into generating harmful content.
+    the model into generating harmful content using a BERT-based classifier.
+
+    Args:
+        threshold: Detection threshold (0.0-1.0, default: 0.9). Lower values are more sensitive.
+        device: Device to run the model on ("cpu", "mps", or "cuda")
 
     Examples:
         .. code-block:: python
