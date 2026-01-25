@@ -159,9 +159,9 @@ class ResourceDelta:
     def format(self) -> str:
         parts: list[str] = []
         if self.mem_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"mem: +{_to_gb(self.mem_bytes)} GB")
+            parts.append(f"MEM: +{_to_gb(self.mem_bytes)} GB")
         if self.disk_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"disk: +{_to_gb(self.disk_bytes)} GB")
+            parts.append(f"DISK: +{_to_gb(self.disk_bytes)} GB")
         return ", ".join(parts)
 
 
