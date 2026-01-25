@@ -273,10 +273,12 @@ def test_get_telemetry_profile_databricks_uri():
     )
     mock_store.get_telemetry_profile.return_value = mock_profile
 
-    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
-        with patch("mlflow.tracing.client.is_databricks_uri", return_value=True):
-            client = TracingClient()
-            result = client.get_telemetry_profile("test-profile-123")
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.is_databricks_uri", return_value=True),
+    ):
+        client = TracingClient()
+        result = client.get_telemetry_profile("test-profile-123")
 
     assert result == mock_profile
     mock_store.get_telemetry_profile.assert_called_once_with("test-profile-123")
@@ -285,10 +287,12 @@ def test_get_telemetry_profile_databricks_uri():
 def test_get_telemetry_profile_non_databricks_uri():
     mock_store = Mock()
 
-    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
-        with patch("mlflow.tracing.client.is_databricks_uri", return_value=False):
-            client = TracingClient()
-            with pytest.raises(
-                MlflowException, match="only supported on Databricks backends"
-            ):
-                client.get_telemetry_profile("test-profile-123")
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.is_databricks_uri", return_value=False),
+    ):
+        client = TracingClient()
+        with pytest.raises(
+            MlflowException, match="only supported on Databricks backends"
+        ):
+            client.get_telemetry_profile("test-profile-123")

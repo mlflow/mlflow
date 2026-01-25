@@ -564,8 +564,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # This requires both the telemetry destination ID AND OTLP configuration to be set.
         telemetry_destination_id = os.environ.get("DATABRICKS_TELEMETRY_DESTINATION_ID")
         if telemetry_destination_id and should_use_otlp_exporter():
-            processor = _get_uc_table_with_otel_processor(telemetry_destination_id)
-            if processor:
+            if processor := _get_uc_table_with_otel_processor(telemetry_destination_id):
                 processors.append(processor)
                 return processors
 
@@ -649,8 +648,9 @@ def _get_uc_table_with_otel_processor(telemetry_destination_id: str):
         telemetry_profile = _fetch_telemetry_profile(telemetry_destination_id)
         if telemetry_profile is None:
             _logger.warning(
-                f"Failed to fetch TelemetryProfile for destination ID '{telemetry_destination_id}'. "
-                "Falling back to default tracing configuration."
+                f"Failed to fetch TelemetryProfile for destination ID "
+                f"'{telemetry_destination_id}'. Falling back to default tracing "
+                "configuration."
             )
             return None
 
