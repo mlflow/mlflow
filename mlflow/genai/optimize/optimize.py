@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.entities import Trace
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
@@ -48,7 +50,7 @@ def optimize_prompts(
     train_data: "EvaluationDatasetTypes",
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
-    scorers: list[Scorer],
+    scorers: list[Scorer] | None = None,
     aggregation: AggregationFn | None = None,
     enable_tracking: bool = True,
 ) -> PromptOptimizationResult:
@@ -79,14 +81,18 @@ def optimize_prompts(
               Each input should contain keys matching the variables in the prompt template.
             - outputs: A column containing an output for each input
               that the predict_fn should produce.
+
+            If None, the optimization will be performed in zero-shot mode.
         prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
         optimizer: a prompt optimizer object that optimizes a set of prompts with
             the training dataset and scorers. For example,
             GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            Required parameter. Use builtin scorers like Equivalence or Correctness,
+            Use builtin scorers like Equivalence or Correctness,
             or define custom scorers with the @scorer decorator.
+            If None, the optimization will be performed in zero-shot mode.
+            `train_data` must be provided if `scorers` is provided.
         aggregation: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
@@ -176,8 +182,20 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    # Check if train_data is empty (for zero-shot optimization)
-    if len(train_data) == 0:
+    # For EvaluationDataset types, convert to DataFrame first since they don't support len()
+    if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        train_data = train_data.to_df()
+
+    has_train_data = train_data is not None and len(train_data) > 0
+    has_scorers = scorers is not None and len(scorers) > 0
+
+    if has_scorers and not has_train_data:
+        raise MlflowException.invalid_parameter_value(
+            "`scorers` is provided but `train_data` is None or empty or None. "
+            "`train_data` must be provided if `scorers` is provided."
+        )
+
+    if not has_train_data:
         # Zero-shot mode: no training data provided
         train_data_df = None
         converted_train_data = []
@@ -190,8 +208,8 @@ def optimize_prompts(
     sample_input = converted_train_data[0]["inputs"] if len(converted_train_data) > 0 else None
     predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    metric_fn = create_metric_from_scorers(scorers, aggregation)
-    eval_fn = _build_eval_fn(predict_fn, metric_fn)
+    metric_fn = create_metric_from_scorers(scorers, aggregation) if has_scorers else None
+    eval_fn = _build_eval_fn(predict_fn, metric_fn) if has_train_data else None
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
     if not all(prompt.is_text_prompt for prompt in target_prompts):
@@ -233,14 +251,17 @@ def _build_eval_fn(
     predict_fn: Callable[..., Any],
     metric_fn: Callable[
         [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], tuple[float, dict[str, str]]
-    ],
+    ]
+    | None,
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
 
     Args:
         predict_fn: The function to evaluate
-        metric_fn: Metric function created from scorers that takes (inputs, outputs, expectations)
+        metric_fn: Metric function created from scorers that takes (inputs, outputs, expectations).
+            If None, the evaluation function will still run predict_fn and capture traces,
+            but score will be None (useful for metaprompting without scorers).
 
     Returns:
         An evaluation function
@@ -278,10 +299,15 @@ def _build_eval_fn(
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
-            # Use metric function created from scorers
-            score, rationales = metric_fn(
-                inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
-            )
+
+            if metric_fn is not None:
+                score, rationales = metric_fn(
+                    inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
+                )
+            else:
+                score = None
+                rationales = {}
+
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,

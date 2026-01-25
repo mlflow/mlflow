@@ -12,6 +12,7 @@ defaults:
 
 jobs:
   push-images:
+    if: ${{ !contains(github.ref_name, 'rc') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

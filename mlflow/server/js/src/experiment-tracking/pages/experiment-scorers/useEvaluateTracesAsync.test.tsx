@@ -182,7 +182,7 @@ describe('useEvaluateTracesAsync', () => {
       act(() => {
         const [evaluateFunction] = result.current;
         evaluateFunction({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
@@ -263,7 +263,7 @@ describe('useEvaluateTracesAsync', () => {
       await act(async () => {
         const [evaluateFunction] = result.current;
         evaluateFunction({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
@@ -359,7 +359,7 @@ describe('useEvaluateTracesAsync', () => {
       act(() => {
         const [evaluateTracesFn] = result.current;
         evaluateTracesFn({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
@@ -421,7 +421,7 @@ describe('useEvaluateTracesAsync', () => {
       act(() => {
         const [evaluateTracesFn] = result.current;
         evaluateTracesFn({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
@@ -475,7 +475,7 @@ describe('useEvaluateTracesAsync', () => {
       await act(async () => {
         const [evaluateTracesFn] = result.current;
         evaluateTracesFn({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
@@ -542,7 +542,7 @@ describe('useEvaluateTracesAsync', () => {
       act(() => {
         const [evaluateTracesFn] = result.current;
         evaluateTracesFn({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
@@ -611,7 +611,7 @@ describe('useEvaluateTracesAsync', () => {
       await act(async () => {
         const [evaluateTracesFn] = result.current;
         evaluateTracesFn({
-          itemCount: 1,
+          itemIds: ['trace-1'],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
@@ -723,7 +723,7 @@ describe('useEvaluateTracesAsync', () => {
       act(() => {
         const [evaluateFunction] = result.current;
         evaluateFunction({
-          itemCount: 1,
+          itemIds: [sessionId],
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Evaluate the session',

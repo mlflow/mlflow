@@ -10817,6 +10817,35 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
 
 
+@pytest.mark.parametrize(
+    ("name", "error_match"),
+    [
+        (None, "cannot be None"),
+        (123, "must be a string"),
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+    ],
+)
+def test_register_scorer_validates_name(store: SqlAlchemyStore, name, error_match):
+    experiment_id = store.create_experiment("test_scorer_name_validation")
+    with pytest.raises(MlflowException, match=error_match):
+        store.register_scorer(experiment_id, name, '{"data": "test"}')
+
+
+@pytest.mark.parametrize(
+    ("model", "error_match"),
+    [
+        ("", "cannot be empty"),
+        ("   ", "cannot be empty"),
+    ],
+)
+def test_register_scorer_validates_model(store: SqlAlchemyStore, model, error_match):
+    experiment_id = store.create_experiment("test_scorer_model_validation")
+    scorer_json = json.dumps({"instructions_judge_pydantic_data": {"model": model}})
+    with pytest.raises(MlflowException, match=error_match):
+        store.register_scorer(experiment_id, "test_scorer", scorer_json)
+
+
 def _gateway_model_scorer_json():
     return json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/my-endpoint"}})
 
@@ -10932,6 +10961,53 @@ def test_upsert_online_scoring_config_rejects_non_gateway_model(store: SqlAlchem
         )
 
 
+def test_upsert_online_scoring_config_rejects_scorer_requiring_expectations(
+    store: SqlAlchemyStore,
+):
+    experiment_id = store.create_experiment("test_online_config_expectations")
+
+    # Complete serialized scorer with {{ expectations }} template variable
+    expectations_scorer = json.dumps(
+        {
+            "name": "expectations_scorer",
+            "description": None,
+            "aggregations": [],
+            "is_session_level_scorer": False,
+            "mlflow_version": "3.0.0",
+            "serialization_version": 1,
+            "instructions_judge_pydantic_data": {
+                "model": "gateway:/my-endpoint",
+                "instructions": "Compare {{ outputs }} against {{ expectations }}",
+            },
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+        }
+    )
+
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "expectations_scorer", expectations_scorer)
+
+    # Mock LiteLLM availability to allow scorer deserialization during validation
+    with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=True):
+        with pytest.raises(MlflowException, match="requires expectations.*not currently supported"):
+            store.upsert_online_scoring_config(
+                experiment_id=experiment_id,
+                scorer_name="expectations_scorer",
+                sample_rate=0.1,
+            )
+
+        # Setting sample_rate to 0 should work (disables automatic evaluation)
+        config = store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="expectations_scorer",
+            sample_rate=0.0,
+        )
+        assert config.sample_rate == 0.0
+
+
 def test_upsert_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_error")
 
@@ -10991,6 +11067,23 @@ def test_upsert_online_scoring_config_validates_sample_rate(store: SqlAlchemySto
             experiment_id=experiment_id,
             scorer_name="test_scorer",
             sample_rate=-0.1,
+        )
+
+    # Non-numeric sample_rate should raise
+    with pytest.raises(MlflowException, match="sample_rate must be a number"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate="0.5",
+        )
+
+    # Non-string filter_string should raise
+    with pytest.raises(MlflowException, match="filter_string must be a string"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=0.5,
+            filter_string=123,
         )
 
 

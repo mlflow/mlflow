@@ -32,7 +32,7 @@ export type ExperimentPageSideNavConfig = {
 
 export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'evaluation' | 'prompts-versions';
 
-const ExperimentPageSideNavGenAIConfig = {
+export const ExperimentPageSideNavGenAIConfig = {
   observability: [
     {
       label: (
@@ -107,7 +107,7 @@ const ExperimentPageSideNavGenAIConfig = {
   ],
 };
 
-const ExperimentPageSideNavCustomModelConfig = {
+export const ExperimentPageSideNavCustomModelConfig = {
   'top-level': [
     {
       label: (

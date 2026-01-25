@@ -96,6 +96,6 @@ jobs:
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --quiet --requires-ssh --ignore-flavors \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai
