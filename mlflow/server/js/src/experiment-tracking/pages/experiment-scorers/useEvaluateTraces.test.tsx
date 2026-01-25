@@ -302,7 +302,7 @@ describe('useEvaluateTraces', () => {
       });
 
       expect(evaluationResults).toHaveLength(3);
-      evaluationResults?.forEach((evalResult, index) => {
+      (evaluationResults as JudgeEvaluationResult[])?.forEach((evalResult, index) => {
         expect(evalResult).toEqual({
           trace: mockTraces[index],
           results: [
@@ -1018,7 +1018,7 @@ describe('useEvaluateTraces', () => {
         });
 
         expect(evaluationResults).toHaveLength(2);
-        evaluationResults?.forEach((evalResult, index) => {
+        (evaluationResults as JudgeEvaluationResult[])?.forEach((evalResult, index) => {
           expect(evalResult).toEqual({
             trace: mockTraces[index],
             results: [

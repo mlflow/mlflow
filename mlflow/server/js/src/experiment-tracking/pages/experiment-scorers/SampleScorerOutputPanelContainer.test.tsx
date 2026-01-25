@@ -91,6 +91,8 @@ describe('SampleScorerOutputPanelContainer', () => {
         isLoading: false,
         error: null,
         reset: jest.fn(),
+        getEvaluation: () => undefined,
+        allEvaluations: {},
       },
     ]);
 
@@ -129,6 +131,8 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: false,
           error: null,
           reset: jest.fn(),
+          getEvaluation: () => undefined,
+          allEvaluations: {},
         },
       ]);
 
@@ -152,6 +156,8 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: true,
           error: null,
           reset: jest.fn(),
+          getEvaluation: () => undefined,
+          allEvaluations: {},
         },
       ]);
 
@@ -175,6 +181,8 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: false,
           error: mockError,
           reset: jest.fn(),
+          getEvaluation: () => undefined,
+          allEvaluations: {},
         },
       ]);
 
@@ -270,6 +278,8 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: false,
           error: null,
           reset: jest.fn(),
+          getEvaluation: () => undefined,
+          allEvaluations: {},
         },
       ]);
 

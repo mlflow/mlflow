@@ -82,5 +82,11 @@ export const useGetTrackingServerJobStatus = <T = any,>(
     [queryResult.data],
   );
 
-  return { jobResults, areJobsRunning };
+  // Lightweight status-only array for efficient status checks
+  const jobStatuses = useMemo(
+    () => queryResult.data?.map((response) => ({ jobId: response.jobId, status: response.status })),
+    [queryResult.data],
+  );
+
+  return { jobResults, areJobsRunning, jobStatuses };
 };

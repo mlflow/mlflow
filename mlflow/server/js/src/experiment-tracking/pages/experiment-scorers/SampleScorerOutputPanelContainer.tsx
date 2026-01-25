@@ -13,10 +13,12 @@ import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
+import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
+  /** Callback fired when evaluation finishes (success or failure) */
   onScorerFinished?: () => void;
   isSessionLevelScorer?: boolean;
 }
@@ -42,8 +44,21 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
+  // Convert simple onScorerFinished callback to onScorerUpdate that fires on terminal states
+  const handleScorerUpdate = useMemo(
+    () =>
+      onScorerFinished
+        ? (event: { status: TrackingJobStatus }) => {
+            if (event.status === TrackingJobStatus.SUCCEEDED || event.status === TrackingJobStatus.FAILED) {
+              onScorerFinished();
+            }
+          }
+        : undefined,
+    [onScorerFinished],
+  );
+
   const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
-    onScorerFinished,
+    onScorerUpdate: handleScorerUpdate,
   });
 
   // Carousel state for navigating through traces

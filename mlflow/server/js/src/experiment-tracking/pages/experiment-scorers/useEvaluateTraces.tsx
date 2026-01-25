@@ -25,7 +25,8 @@ import {
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import { ScorerUpdateEvent, useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 /**
  * Response from the chat completions API
@@ -315,6 +316,9 @@ export interface EvaluateTracesState {
   isLoading: boolean;
   error: Error | null;
   reset: () => void;
+  // Extended API for multi-request support (only meaningful in async mode)
+  getEvaluation: (requestKey: string) => import('./useEvaluateTracesAsync').EvaluationRequest | undefined;
+  allEvaluations: Record<string, import('./useEvaluateTracesAsync').EvaluationRequest>;
 }
 
 /**
@@ -324,13 +328,17 @@ export interface EvaluateTracesState {
  * Results from both endpoints will not be cached since LLM responses are not deterministic.
  */
 export function useEvaluateTraces({
-  onScorerFinished,
+  onScorerUpdate,
 }: {
   /**
-   * Callback to be called when the evaluation is finished.
+   * Callback fired when an evaluation's status changes.
+   * Provides context about the evaluation including requestKey, status, results, and errors.
    */
-  onScorerFinished?: () => void;
-} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
+  onScorerUpdate?: (event: ScorerUpdateEvent) => void;
+} = {}): [
+  (params: EvaluateTracesParams, requestKey?: string) => Promise<JudgeEvaluationResult[] | string | void>,
+  EvaluateTracesState,
+] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -345,14 +353,22 @@ export function useEvaluateTraces({
   const usingAsyncMode = isEvaluatingSessionsInScorersEnabled();
 
   const evaluateTracesSync = useCallback(
-    async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
-      // Track this invocation to ensure only the latest one calls onScorerFinished
+    async (params: EvaluateTracesParams, requestKey?: string): Promise<JudgeEvaluationResult[]> => {
+      // Track this invocation to ensure only the latest one calls onScorerUpdate
       invocationCounterRef.current += 1;
       const currentInvocationId = invocationCounterRef.current;
+
+      // Generate request key for sync mode
+      const key = requestKey ?? `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       setIsLoading(true);
       setError(null);
       setData(null);
+
+      // Fire PENDING status update
+      if (currentInvocationId === invocationCounterRef.current) {
+        onScorerUpdate?.({ requestKey: key, status: TrackingJobStatus.PENDING });
+      }
 
       const { experimentId } = params;
 
@@ -572,21 +588,35 @@ export function useEvaluateTraces({
 
         setData(evaluationResults);
 
-        // Only call onScorerFinished if this is still the latest invocation
-        if (currentInvocationId === invocationCounterRef.current && onScorerFinished) {
-          onScorerFinished();
+        // Only call onScorerUpdate if this is still the latest invocation
+        if (currentInvocationId === invocationCounterRef.current) {
+          onScorerUpdate?.({
+            requestKey: key,
+            status: TrackingJobStatus.SUCCEEDED,
+            results: evaluationResults,
+          });
         }
 
         return evaluationResults;
       } catch (err) {
         const errorObj = err instanceof Error ? err : new Error(String(err));
         setError(errorObj);
+
+        // Fire FAILED status update
+        if (currentInvocationId === invocationCounterRef.current) {
+          onScorerUpdate?.({
+            requestKey: key,
+            status: TrackingJobStatus.FAILED,
+            error: errorObj,
+          });
+        }
+
         throw errorObj;
       } finally {
         setIsLoading(false);
       }
     },
-    [queryClient, getTraceIdsForEvaluation, onScorerFinished],
+    [queryClient, getTraceIdsForEvaluation, onScorerUpdate],
   );
 
   const reset = useCallback(() => {
@@ -596,8 +626,12 @@ export function useEvaluateTraces({
   }, []);
 
   const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({
-    onScorerFinished,
+    onScorerUpdate,
   });
+
+  // Stub implementations for sync mode (multi-request API is only available in async mode)
+  const getEvaluationStub = useCallback(() => undefined, []);
+  const allEvaluationsStub = {};
 
   if (usingAsyncMode) {
     return [evaluateTracesAsync, asyncEvaluationState] as const;
@@ -610,6 +644,9 @@ export function useEvaluateTraces({
       isLoading,
       error,
       reset,
+      // Provide stubs for consistency with async mode API
+      getEvaluation: getEvaluationStub,
+      allEvaluations: allEvaluationsStub,
     },
   ] as const;
 }

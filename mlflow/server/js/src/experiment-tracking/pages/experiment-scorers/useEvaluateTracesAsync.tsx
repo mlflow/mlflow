@@ -34,38 +34,182 @@ const isJobRunning = (jobData?: TrackingJobQueryResult<EvaluateTracesAsyncJobRes
   return jobData?.status === TrackingJobStatus.RUNNING || jobData?.status === TrackingJobStatus.PENDING;
 };
 
-type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[] };
+type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[]; requestKey: string };
 type StartEvaluationJobResponse = { jobs: { job_id: string }[] };
 
-export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?: () => void }) => {
+/**
+ * Represents a single evaluation request with its state
+ */
+export interface EvaluationRequest {
+  requestKey: string;
+  jobIds: string[];
+  status: TrackingJobStatus;
+  tracesData?: Record<string, ModelTrace>;
+  sessionsData?: SessionForEvaluation[];
+  results?: JudgeEvaluationResult[];
+  error?: Error | null;
+  startedAt: number;
+}
+
+/**
+ * Event payload for scorer state updates.
+ * Fired when an evaluation's status changes (PENDING -> RUNNING -> SUCCEEDED/FAILED).
+ */
+export interface ScorerUpdateEvent {
+  /** Unique identifier for the evaluation request */
+  requestKey: string;
+  /** Current status of the evaluation */
+  status: TrackingJobStatus;
+  /** Evaluation results (only present when status is SUCCEEDED) */
+  results?: JudgeEvaluationResult[];
+  /** Error details (only present when status is FAILED) */
+  error?: Error | null;
+}
+
+/**
+ * Generate a unique request key
+ */
+const generateRequestKey = () => `eval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+export const useEvaluateTracesAsync = ({
+  onScorerUpdate,
+}: {
+  /** Callback fired when an evaluation's status changes */
+  onScorerUpdate?: (event: ScorerUpdateEvent) => void;
+}) => {
   const queryClient = useQueryClient();
-  const [currentJobsId, setCurrentJobsId] = useState<string[] | undefined>(undefined);
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
   const getSessionsForEvaluation = useGetSessionsForEvaluation();
 
-  const [tracesData, setTracesData] = useState<Record<string, ModelTrace> | undefined>();
-  const lastFinishedJobsIdRef = useRef<string[] | undefined>(undefined);
-  const [sessionsData, setSessionsData] = useState<SessionForEvaluation[] | undefined>();
+  // Multi-request state management
+  const [evaluations, setEvaluations] = useState<Record<string, EvaluationRequest>>({});
+  const [latestRequestKey, setLatestRequestKey] = useState<string | null>(null);
 
-  const { jobResults, areJobsRunning } = useGetTrackingServerJobStatus<EvaluateTracesAsyncJobResult>(currentJobsId, {
-    enabled: Boolean(currentJobsId),
-    refetchInterval: (data) => {
-      if (data?.some((job) => isJobRunning(job))) {
-        return JOB_POLLING_INTERVAL;
-      }
-      return false;
+  // Track which evaluations have already triggered onScorerUpdate for terminal states
+  const finishedEvaluationsRef = useRef<Set<string>>(new Set());
+
+  // State update helpers
+  const startEvaluation = useCallback(
+    (requestKey: string) => {
+      setLatestRequestKey(requestKey);
+      setEvaluations((prev) => ({
+        ...prev,
+        [requestKey]: {
+          requestKey,
+          jobIds: [],
+          status: TrackingJobStatus.PENDING,
+          startedAt: Date.now(),
+          error: null,
+        },
+      }));
+      onScorerUpdate?.({ requestKey, status: TrackingJobStatus.PENDING });
     },
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
+    [onScorerUpdate],
+  );
 
-  // Call onScorerFinished when the job successfully completes (once per job)
-  useEffect(() => {
-    if (!areJobsRunning && currentJobsId && lastFinishedJobsIdRef.current !== currentJobsId) {
-      lastFinishedJobsIdRef.current = currentJobsId;
-      onScorerFinished?.();
-    }
-  }, [areJobsRunning, currentJobsId, onScorerFinished]);
+  const setJobIds = useCallback((requestKey: string, jobIds: string[]) => {
+    setEvaluations((prev) => ({
+      ...prev,
+      [requestKey]: {
+        ...prev[requestKey],
+        jobIds,
+      },
+    }));
+  }, []);
+
+  const updateStatus = useCallback(
+    (requestKey: string, status: TrackingJobStatus) => {
+      setEvaluations((prev) => ({
+        ...prev,
+        [requestKey]: {
+          ...prev[requestKey],
+          status,
+        },
+      }));
+      onScorerUpdate?.({ requestKey, status });
+    },
+    [onScorerUpdate],
+  );
+
+  const setResults = useCallback(
+    (requestKey: string, results: JudgeEvaluationResult[]) => {
+      setEvaluations((prev) => ({
+        ...prev,
+        [requestKey]: {
+          ...prev[requestKey],
+          results,
+          status: TrackingJobStatus.SUCCEEDED,
+        },
+      }));
+      // Only fire callback once per evaluation for terminal states
+      if (!finishedEvaluationsRef.current.has(requestKey)) {
+        finishedEvaluationsRef.current.add(requestKey);
+        onScorerUpdate?.({ requestKey, status: TrackingJobStatus.SUCCEEDED, results });
+      }
+    },
+    [onScorerUpdate],
+  );
+
+  const setError = useCallback(
+    (requestKey: string, error: Error) => {
+      setEvaluations((prev) => ({
+        ...prev,
+        [requestKey]: {
+          ...prev[requestKey],
+          error,
+          status: TrackingJobStatus.FAILED,
+        },
+      }));
+      // Only fire callback once per evaluation for terminal states
+      if (!finishedEvaluationsRef.current.has(requestKey)) {
+        finishedEvaluationsRef.current.add(requestKey);
+        onScorerUpdate?.({ requestKey, status: TrackingJobStatus.FAILED, error });
+      }
+    },
+    [onScorerUpdate],
+  );
+
+  const setTracesDataForRequest = useCallback((requestKey: string, tracesData: Record<string, ModelTrace>) => {
+    setEvaluations((prev) => ({
+      ...prev,
+      [requestKey]: {
+        ...prev[requestKey],
+        tracesData,
+      },
+    }));
+  }, []);
+
+  const setSessionsDataForRequest = useCallback((requestKey: string, sessionsData: SessionForEvaluation[]) => {
+    setEvaluations((prev) => ({
+      ...prev,
+      [requestKey]: {
+        ...prev[requestKey],
+        sessionsData,
+      },
+    }));
+  }, []);
+
+  // Compute active job IDs from evaluations (only PENDING/RUNNING)
+  const activeJobIds = useMemo(() => {
+    return Object.values(evaluations)
+      .filter((e) => e.status === TrackingJobStatus.PENDING || e.status === TrackingJobStatus.RUNNING)
+      .flatMap((e) => e.jobIds);
+  }, [evaluations]);
+
+  const { jobResults, areJobsRunning, jobStatuses } = useGetTrackingServerJobStatus<EvaluateTracesAsyncJobResult>(
+    activeJobIds,
+    {
+      enabled: activeJobIds.length > 0,
+      refetchInterval: (data) => {
+        if (data?.some((job) => isJobRunning(job))) {
+          return JOB_POLLING_INTERVAL;
+        }
+        return false;
+      },
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    },
+  );
 
   const {
     mutate: startEvaluationJob,
@@ -81,33 +225,151 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
       });
       return responseData;
     },
-    onSuccess: (data) => {
-      setCurrentJobsId(data.jobs.map((job) => job.job_id));
+    onSuccess: (data, variables) => {
+      setJobIds(
+        variables.requestKey,
+        data.jobs.map((job) => job.job_id),
+      );
+    },
+    onError: (error, variables) => {
+      setError(variables.requestKey, error);
     },
   });
 
-  const isLoading = areJobsRunning || isJobStarting;
+  // Create a map from jobId -> requestKey for quick lookup
+  const jobToRequestMap = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.values(evaluations).forEach((evaluation) => {
+      evaluation.jobIds.forEach((jobId) => map.set(jobId, evaluation.requestKey));
+    });
+    return map;
+  }, [evaluations]);
+
+  // Use a ref to track evaluations state for use in effect without causing re-runs
+  const evaluationsRef = useRef(evaluations);
+  evaluationsRef.current = evaluations;
+
+  // Helper function to compute results from job result and evaluation data
+  const computeResults = useCallback(
+    (
+      jobResult: EvaluateTracesAsyncJobResult,
+      evaluation: EvaluationRequest,
+    ): JudgeEvaluationResult[] | null => {
+      const { tracesData, sessionsData } = evaluation;
+      if (!tracesData) {
+        return null;
+      }
+
+      const aggregatedJobResults: EvaluateTracesAsyncJobResult = {};
+      for (const traceId of Object.keys(jobResult)) {
+        aggregatedJobResults[traceId] = {
+          assessments: jobResult[traceId]?.assessments ?? [],
+          failures: jobResult[traceId]?.failures ?? [],
+        };
+      }
+
+      if (sessionsData) {
+        return sessionsData.map<SessionJudgeEvaluationResult>((session) => {
+          const sessionResults: { assessments: FeedbackAssessment[]; errors: string[] } = {
+            assessments: [],
+            errors: [],
+          };
+          for (const traceInfo of session.traceInfos) {
+            const traceId = traceInfo.trace_id;
+            const traceResults = aggregatedJobResults[traceId];
+            sessionResults.assessments.push(...(traceResults?.assessments ?? []));
+            sessionResults.errors.push(...(traceResults?.failures?.map((failure) => failure.error_message) ?? []));
+          }
+
+          return {
+            sessionId: session.sessionId ?? '',
+            results: sessionResults.assessments,
+            traces: compact(session.traceInfos.map((traceInfo) => tracesData[traceInfo.trace_id] ?? null)),
+            error: sessionResults.errors.join(', ') || null,
+          };
+        });
+      }
+
+      const traceEvaluationResults = Object.entries(tracesData).map(([traceId, trace]) => {
+        const results = aggregatedJobResults[traceId]?.assessments ?? [];
+        const failureString = aggregatedJobResults[traceId]?.failures?.map((failure) => failure.error_message).join(', ');
+        return {
+          trace,
+          results,
+          error: failureString || null,
+        };
+      });
+
+      return compact(traceEvaluationResults);
+    },
+    [],
+  );
+
+  // Sync job results to state when polling returns new data
+  useEffect(() => {
+    if (!jobStatuses || !jobResults) return;
+
+    jobStatuses.forEach(({ jobId, status }) => {
+      const requestKey = jobToRequestMap.get(jobId);
+      if (!requestKey) return;
+
+      // Use ref to get current evaluation state without adding evaluations to deps
+      const evaluation = evaluationsRef.current[requestKey];
+      if (!evaluation) return;
+
+      // Skip if this evaluation is already completed or status hasn't changed
+      if (
+        evaluation.status === TrackingJobStatus.SUCCEEDED ||
+        evaluation.status === TrackingJobStatus.FAILED ||
+        evaluation.status === status
+      ) {
+        return;
+      }
+
+      if (status === TrackingJobStatus.RUNNING) {
+        updateStatus(requestKey, TrackingJobStatus.RUNNING);
+      } else if (status === TrackingJobStatus.SUCCEEDED) {
+        const result = jobResults[jobId];
+        if (result?.status === TrackingJobStatus.SUCCEEDED && evaluation.tracesData) {
+          const computedResults = computeResults(result.result, evaluation);
+          if (computedResults) {
+            // setResults will fire onScorerUpdate callback
+            setResults(requestKey, computedResults);
+          }
+        }
+      } else if (status === TrackingJobStatus.FAILED) {
+        const result = jobResults[jobId];
+        if (result?.status === TrackingJobStatus.FAILED) {
+          // setError will fire onScorerUpdate callback
+          setError(requestKey, new Error(result.result));
+        }
+      }
+    });
+  }, [jobStatuses, jobResults, jobToRequestMap, updateStatus, setResults, setError, computeResults]);
 
   const evaluateTracesAsync = useCallback(
-    async (params: EvaluateTracesParams) => {
+    async (params: EvaluateTracesParams, requestKey?: string) => {
+      const key = requestKey ?? generateRequestKey();
+      startEvaluation(key);
+
       let traceIds: string[];
       if (params.evaluationScope === ScorerEvaluationScope.SESSIONS) {
         const sessions = await getSessionsForEvaluation(params);
-        setSessionsData(sessions);
+        setSessionsDataForRequest(key, sessions);
         traceIds = uniq(sessions.flatMap((session) => session.traceInfos.map((traceInfo) => traceInfo.trace_id)));
       } else {
-        setSessionsData(undefined);
         traceIds = await getTraceIdsForEvaluation(params);
       }
 
       const serializedScorer = params.serializedScorer;
 
       if (!serializedScorer) {
-        throw new Error('The serialized scorer is malformed');
+        setError(key, new Error('The serialized scorer is malformed'));
+        return key;
       }
 
       // Start the evaluation job
-      startEvaluationJob({ evaluateParams: params, traceIds });
+      startEvaluationJob({ evaluateParams: params, traceIds, requestKey: key });
 
       // After the job is started, fetch all the traces in parallel
       const traces = await Promise.all(
@@ -120,94 +382,82 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
           });
         }),
       );
-      setTracesData(zipObject(traceIds, traces));
+      setTracesDataForRequest(key, zipObject(traceIds, traces));
+
+      return key;
     },
-    [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSessionsForEvaluation],
+    [
+      startEvaluation,
+      startEvaluationJob,
+      getTraceIdsForEvaluation,
+      queryClient,
+      getSessionsForEvaluation,
+      setSessionsDataForRequest,
+      setTracesDataForRequest,
+      setError,
+    ],
   );
 
   const reset = useCallback(() => {
     // Cancel any running jobs on the backend (fire-and-forget)
-    // Use functional setState to access current job IDs without adding to dependency array
-    setCurrentJobsId((prevJobsId) => {
-      if (prevJobsId) {
-        for (const jobId of prevJobsId) {
-          fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {
-            // Ignore errors - job may have already completed
-          });
-        }
-      }
-      return undefined;
-    });
-    setTracesData(undefined);
-    lastFinishedJobsIdRef.current = undefined;
-    setSessionsData(undefined);
+    // Use ref to access current state without adding to dependencies
+    Object.values(evaluationsRef.current)
+      .filter((e) => e.status === TrackingJobStatus.PENDING || e.status === TrackingJobStatus.RUNNING)
+      .flatMap((e) => e.jobIds)
+      .forEach((jobId) => {
+        fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {
+          // Ignore errors - job may have already completed
+        });
+      });
+
+    setEvaluations({});
+    setLatestRequestKey(null);
+    finishedEvaluationsRef.current = new Set();
   }, []);
 
-  const error = useMemo(() => {
-    if (startEvaluationJobError) {
-      return startEvaluationJobError;
-    }
-    if (areJobsRunning) {
-      return null;
-    }
-    for (const job of Object.values(jobResults ?? {})) {
-      if (job.status === TrackingJobStatus.FAILED) {
-        return new Error(job.result);
-      }
-    }
-    return null;
-  }, [jobResults, areJobsRunning, startEvaluationJobError]);
+  // TODO: Implement cleanup on unmount - cancel running jobs when component unmounts
+  // useEffect(() => {
+  //   return () => {
+  //     Object.values(evaluations)
+  //       .filter(
+  //         (e) =>
+  //           e.status === TrackingJobStatus.PENDING ||
+  //           e.status === TrackingJobStatus.RUNNING
+  //       )
+  //       .flatMap((e) => e.jobIds)
+  //       .forEach((jobId) => {
+  //         fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(
+  //           () => {}
+  //         );
+  //       });
+  //   };
+  // }, []);
 
-  // Combine the traces data and the evaluation job data to get the results
-  const data = useMemo<JudgeEvaluationResult[] | null>(() => {
-    if (!tracesData || isLoading || error) {
-      return null;
-    }
-    const aggregatedJobResults: EvaluateTracesAsyncJobResult = {};
-    // Get data from all successful jobs
-    for (const job of Object.values(jobResults ?? {})) {
-      if (job.status === TrackingJobStatus.SUCCEEDED) {
-        for (const traceId of Object.keys(job.result)) {
-          aggregatedJobResults[traceId] = {
-            assessments: job.result[traceId]?.assessments ?? [],
-            failures: job.result[traceId]?.failures ?? [],
-          };
-        }
-      }
-    }
+  // Derive latest evaluation for backward compatibility
+  const latestEvaluation = latestRequestKey ? evaluations[latestRequestKey] : undefined;
 
-    if (sessionsData) {
-      return sessionsData.map<SessionJudgeEvaluationResult>((session) => {
-        const sessionResults: { assessments: FeedbackAssessment[]; errors: string[] } = { assessments: [], errors: [] };
-        // For every trace in the session, aggregate the results into the session results
-        for (const traceInfo of session.traceInfos) {
-          const traceId = traceInfo.trace_id;
-          const traceResults = aggregatedJobResults[traceId];
-          sessionResults.assessments.push(...(traceResults?.assessments ?? []));
-          sessionResults.errors.push(...(traceResults?.failures?.map((failure) => failure.error_message) ?? []));
-        }
+  // Helper to get specific evaluation
+  const getEvaluation = useCallback((key: string) => evaluations[key], [evaluations]);
 
-        return {
-          sessionId: session.sessionId ?? '',
-          results: sessionResults.assessments,
-          traces: compact(session.traceInfos.map((traceInfo) => tracesData[traceInfo.trace_id] ?? null)),
-          error: sessionResults.errors.join(', ') || null,
-        };
-      });
-    }
+  // Compute backward-compatible data/error from latest evaluation
+  const data = latestEvaluation?.results ?? null;
+  const isLoading =
+    isJobStarting ||
+    (latestEvaluation?.status === TrackingJobStatus.PENDING ||
+      latestEvaluation?.status === TrackingJobStatus.RUNNING);
+  const error = startEvaluationJobError ?? latestEvaluation?.error ?? null;
 
-    const traceEvaluationResults = Object.entries(tracesData).map(([traceId, trace]) => {
-      const results = aggregatedJobResults[traceId]?.assessments ?? [];
-      const failureString = aggregatedJobResults[traceId]?.failures?.map((failure) => failure.error_message).join(', ');
-      return {
-        trace,
-        results,
-        error: failureString || null,
-      };
-    });
-
-    return compact(traceEvaluationResults);
-  }, [tracesData, isLoading, error, jobResults, sessionsData]);
-
-  return [evaluateTracesAsync, { data, isLoading, error, reset }] as const;
+  // Backward-compatible tuple return (existing API)
+  return [
+    evaluateTracesAsync,
+    {
+      data,
+      isLoading,
+      error,
+      reset,
+      // Extended API for multi-request consumers
+      getEvaluation,
+      allEvaluations: evaluations,
+    },
+  ] as const;
 };
