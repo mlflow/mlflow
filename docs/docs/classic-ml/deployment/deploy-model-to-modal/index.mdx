@@ -1,0 +1,298 @@
+---
+sidebar_position: 4
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Deploy MLflow Model to Modal
+
+[Modal](https://modal.com) is a serverless cloud platform optimized for AI/ML workloads, offering on-demand GPU access
+with automatic scaling. The [mlflow-modal-deploy](https://github.com/debu-sinha/mlflow-modal-deploy) plugin enables
+one-command deployment of MLflow models to Modal's infrastructure.
+
+If you are new to MLflow model deployment, please read [MLflow Deployment](/ml/deployment)
+first to understand the basic concepts of MLflow models and deployments.
+
+## How it Works
+
+The plugin automates the deployment process:
+
+1. **Extract**: MLflow model artifacts and dependencies are extracted from the model URI
+2. **Upload**: Model files are uploaded to a Modal Volume for persistent storage
+3. **Generate**: A Modal app is generated with FastAPI endpoints (`/invocations`, `/predict_stream`)
+4. **Deploy**: Modal builds a container with all dependencies and deploys to serverless infrastructure
+5. **Serve**: An HTTPS endpoint URL is returned, ready to handle prediction requests
+
+The generated container mirrors your training environment, ensuring consistent behavior between development and production.
+Modal handles auto-scaling, GPU allocation, and container lifecycle management automatically.
+
+## Deploying Model to Modal
+
+This section outlines the process of deploying a model to Modal using the MLflow deployment plugin.
+
+### Step 0: Preparation
+
+#### Install Tools
+
+Ensure the installation of the following tools:
+
+```bash
+pip install mlflow mlflow-modal-deploy modal
+```
+
+#### Authentication Setup
+
+Configure Modal authentication:
+
+```bash
+# Interactive setup (recommended)
+modal setup
+
+# Or use environment variables
+export MODAL_TOKEN_ID=your-token-id
+export MODAL_TOKEN_SECRET=your-token-secret
+```
+
+#### Create an MLflow Model
+
+Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model
+by following the [MLflow Tracking Quickstart](/ml/getting-started). Remember to note down the model URI, such as
+`runs:/<run_id>/model` (or `models:/<model_name>/<model_version>` if you registered the model in the
+[MLflow Model Registry](/ml/model-registry)).
+
+### Step 1: Test Your Model Locally
+
+It's recommended to test your model locally before deploying to production. The `run_local` function
+deploys the model using `modal serve` for local testing:
+
+```python
+from mlflow_modal import run_local
+
+run_local(
+    target_uri="modal",
+    name="test-model",
+    model_uri="runs:/<run_id>/model",
+    config={"gpu": "T4"}
+)
+```
+
+This allows you to verify that:
+- The model loads correctly with all dependencies
+- The inference endpoint responds as expected
+- The GPU configuration is valid
+
+### Step 2: Deploy to Modal
+
+Once local testing passes, deploy to Modal's cloud infrastructure.
+
+<Tabs>
+  <TabItem default label="Python API" value="python">
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("modal")
+
+deployment = client.create_deployment(
+    name="my-classifier",
+    model_uri="runs:/<run_id>/model",
+    config={
+        "gpu": "T4",
+        "memory": 2048,
+        "min_containers": 1,
+    }
+)
+
+print(f"Deployed to: {deployment['endpoint_url']}")
+```
+
+  </TabItem>
+  <TabItem label="CLI" value="cli">
+
+```bash
+# Deploy a model
+mlflow deployments create -t modal -m runs:/<run_id>/model --name my-model
+
+# Deploy with GPU and custom configuration
+mlflow deployments create -t modal -m runs:/<run_id>/model --name gpu-model \
+    -C gpu=T4 -C memory=4096 -C min_containers=1
+```
+
+  </TabItem>
+</Tabs>
+
+### Step 3: Make Predictions
+
+After deployment, you can make predictions using the deployment client:
+
+<Tabs>
+  <TabItem default label="Python API" value="python">
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("modal")
+
+# Standard predictions
+predictions = client.predict(
+    deployment_name="my-classifier",
+    inputs={"feature1": [1, 2, 3], "feature2": [4, 5, 6]}
+)
+
+# Streaming predictions (for LLM models)
+for chunk in client.predict_stream(
+    deployment_name="my-llm",
+    inputs={"messages": [{"role": "user", "content": "Hello!"}]},
+):
+    print(chunk, end="", flush=True)
+```
+
+  </TabItem>
+  <TabItem label="CLI" value="cli">
+
+```bash
+# Make predictions
+mlflow deployments predict -t modal --name my-model --input-path input.json
+```
+
+  </TabItem>
+</Tabs>
+
+## Configuration Options
+
+The following configuration options are available when creating a deployment:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `gpu` | str/list | None | GPU type: T4, L4, L40S, A10, A100, A100-40GB, A100-80GB, H100, H200, B200. Supports multi-GPU (`H100:8`), dedicated (`H100!`), or fallback list (`["H100", "A100"]`) |
+| `memory` | int | 512 | Memory allocation in MB |
+| `cpu` | float | 1.0 | CPU cores |
+| `timeout` | int | 300 | Request timeout in seconds |
+| `startup_timeout` | int | None | Container startup timeout (useful for large models) |
+| `scaledown_window` | int | 60 | Seconds before idle container scales down |
+| `concurrent_inputs` | int | 1 | Max concurrent requests per container |
+| `min_containers` | int | 0 | Minimum warm containers (set > 0 to avoid cold starts) |
+| `max_containers` | int | None | Maximum containers |
+| `enable_batching` | bool | False | Enable dynamic request batching |
+| `max_batch_size` | int | 8 | Max batch size when batching enabled |
+| `batch_wait_ms` | int | 100 | Batch wait time in milliseconds |
+| `extra_pip_packages` | list | [] | Additional pip packages to install |
+
+## Advanced Usage
+
+### GPU Selection
+
+Modal supports a wide range of GPU types for different workloads:
+
+```python
+# Single GPU
+config={"gpu": "T4"}  # Cost-effective for inference
+
+# High-performance GPU
+config={"gpu": "H100"}  # Best for large models
+
+# Multi-GPU for large models
+config={"gpu": "H100:8"}  # 8x H100 GPUs
+
+# Dedicated GPU (no sharing)
+config={"gpu": "H100!"}
+
+# Fallback list (uses first available)
+config={"gpu": ["H100", "A100", "A10"]}
+```
+
+### High-Throughput Deployment
+
+For high-throughput workloads, enable dynamic batching:
+
+```python
+client.create_deployment(
+    name="batch-classifier",
+    model_uri="runs:/<run_id>/model",
+    config={
+        "gpu": "A100",
+        "enable_batching": True,
+        "max_batch_size": 32,
+        "batch_wait_ms": 50,
+        "min_containers": 2,
+        "max_containers": 20,
+    }
+)
+```
+
+### Deploy to Specific Workspace
+
+Deploy to a specific Modal workspace:
+
+```python
+# Use workspace-specific URI
+client = get_deploy_client("modal:/production")
+```
+
+Or via CLI:
+
+```bash
+mlflow deployments create -t modal:/production -m runs:/<run_id>/model --name my-model
+```
+
+## Managing Deployments
+
+```bash
+# List all deployments
+mlflow deployments list -t modal
+
+# Get deployment info
+mlflow deployments get -t modal --name my-model
+
+# Delete deployment
+mlflow deployments delete -t modal --name my-model
+```
+
+## Troubleshooting
+
+### Modal Authentication Fails
+
+```bash
+# Re-authenticate with Modal
+modal setup
+
+# Verify authentication
+modal profile list
+```
+
+### Deployment Times Out
+
+For large models that take longer to load, increase the startup timeout:
+
+```python
+config={
+    "startup_timeout": 600,  # 10 minutes for model loading
+    "timeout": 300,          # 5 minutes for inference requests
+}
+```
+
+### Missing Dependencies
+
+If the model fails with import errors, add missing packages:
+
+```python
+config={
+    "extra_pip_packages": ["missing-package>=1.0"],
+}
+```
+
+### View Build Logs
+
+Check the [Modal Dashboard](https://modal.com/apps) for detailed build and runtime logs.
+
+## Useful Links
+
+- [mlflow-modal-deploy GitHub Repository](https://github.com/debu-sinha/mlflow-modal-deploy) -
+  Source code, issue tracker, and contribution guidelines.
+- [Modal Documentation](https://modal.com/docs) -
+  Comprehensive Modal platform documentation.
+- [Modal GPU Guide](https://modal.com/docs/guide/gpu) -
+  Detailed information on GPU types and configuration.
+- [MLflow Model Format](/ml/model) -
+  Understanding MLflow model packaging and flavors.
