@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from mlflow.entities.trace import Trace
+from mlflow.genai.scorers.trulens.registry import build_trulens_args
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -12,14 +14,10 @@ from mlflow.genai.utils.trace_utils import (
     resolve_outputs_from_trace,
 )
 
-# Mapping from metric name to TruLens argument names
-# Each metric expects different argument names for its feedback function
-_ARG_MAPPING: dict[str, dict[str, str]] = {
-    "Groundedness": {"context": "source", "output": "statement"},
-    "ContextRelevance": {"input": "question", "context": "context"},
-    "AnswerRelevance": {"input": "prompt", "output": "response"},
-    "Coherence": {"output": "text"},
-}
+_logger = logging.getLogger(__name__)
+
+# Keys that can provide context, in priority order
+_CONTEXT_KEYS = ("context", "reference", "expected_output")
 
 
 def map_scorer_inputs_to_trulens_args(
@@ -38,28 +36,12 @@ def map_scorer_inputs_to_trulens_args(
     output_str = parse_outputs_to_str(outputs) if outputs is not None else ""
     context_str = _extract_context(expectations, trace)
 
-    return _build_trulens_args(
+    return build_trulens_args(
         metric_name=metric_name,
         input_str=input_str,
         output_str=output_str,
         context_str=context_str,
     )
-
-
-def _build_trulens_args(
-    metric_name: str,
-    input_str: str,
-    output_str: str,
-    context_str: str,
-) -> dict[str, Any]:
-    arg_mapping = _ARG_MAPPING.get(metric_name, {})
-    generic_values = {"input": input_str, "output": output_str, "context": context_str}
-
-    return {
-        trulens_arg: generic_values[generic_key]
-        for generic_key, trulens_arg in arg_mapping.items()
-        if generic_values.get(generic_key)
-    }
 
 
 def _extract_context(
@@ -70,16 +52,22 @@ def _extract_context(
     context_str = ""
 
     if expectations:
-        context = (
-            expectations.get("context")
-            or expectations.get("reference")
-            or expectations.get("expected_output")
-        )
-        if context:
-            if isinstance(context, list):
-                context_str = "\n".join(str(c) for c in context)
-            else:
-                context_str = str(context)
+        # Check for multiple context keys and warn
+        found_keys = [key for key in _CONTEXT_KEYS if expectations.get(key)]
+        if len(found_keys) > 1:
+            _logger.warning(
+                f"Multiple context keys found in expectations: {found_keys}. "
+                f"Using '{found_keys[0]}' (priority order: {_CONTEXT_KEYS})."
+            )
+
+        # Use first available key in priority order
+        for key in _CONTEXT_KEYS:
+            if context := expectations.get(key):
+                if isinstance(context, list):
+                    context_str = "\n".join(str(c) for c in context)
+                else:
+                    context_str = str(context)
+                break
 
     if not context_str and trace:
         if span_id_to_context := extract_retrieval_context_from_trace(trace):

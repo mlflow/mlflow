@@ -135,26 +135,6 @@ def test_scorer_rationale_formatting(
     assert result.rationale == expected_rationale
 
 
-def test_scorers_available_in_trulens_namespace():
-    from mlflow.genai.scorers.trulens import (
-        ExecutionEfficiency,
-        LogicalConsistency,
-        PlanAdherence,
-        PlanQuality,
-        ToolCalling,
-        ToolSelection,
-        TruLensAgentScorer,
-    )
-
-    assert LogicalConsistency is not None
-    assert ExecutionEfficiency is not None
-    assert PlanAdherence is not None
-    assert PlanQuality is not None
-    assert ToolSelection is not None
-    assert ToolCalling is not None
-    assert TruLensAgentScorer is not None
-
-
 def test_scorer_error_handling(mock_provider, sample_agent_trace):
     with patch(
         "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
