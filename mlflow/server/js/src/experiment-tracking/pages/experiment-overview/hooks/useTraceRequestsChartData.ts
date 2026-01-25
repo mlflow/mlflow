@@ -39,7 +39,7 @@ export interface UseTraceRequestsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } = useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,
@@ -53,6 +53,7 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
+    filters,
   });
 
   const traceCountDataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);

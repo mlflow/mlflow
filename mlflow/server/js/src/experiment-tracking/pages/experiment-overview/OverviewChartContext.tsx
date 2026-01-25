@@ -12,6 +12,8 @@ export interface OverviewChartContextValue {
   timeIntervalSeconds: number;
   /** Pre-computed array of timestamp (ms) for all time buckets in the range */
   timeBuckets: number[];
+  /** Optional filter expressions to apply to all chart queries (e.g. `trace.tag.\`mlflow.gateway.provider\` = "openai"`) */
+  filters?: string[];
 }
 
 const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
@@ -31,6 +33,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
+  filters,
 }) => {
   const value = useMemo(
     () => ({
@@ -39,8 +42,9 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
+      filters,
     }),
-    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;

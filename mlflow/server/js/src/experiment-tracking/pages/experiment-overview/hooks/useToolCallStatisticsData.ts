@@ -37,9 +37,12 @@ export interface UseToolCallStatisticsDataResult {
  * @returns Tool call statistics, loading state, and error state
  */
 export function useToolCallStatisticsData(): UseToolCallStatisticsDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
-  // Filter for TOOL type spans
-  const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
+  const { experimentId, startTimeMs, endTimeMs, filters: contextFilters } = useOverviewChartContext();
+  // Filter for TOOL type spans, combined with context filters
+  const toolFilter = useMemo(
+    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), ...(contextFilters || [])],
+    [contextFilters],
+  );
 
   // Query tool call counts grouped by status (combines total and success/error counts)
   const {

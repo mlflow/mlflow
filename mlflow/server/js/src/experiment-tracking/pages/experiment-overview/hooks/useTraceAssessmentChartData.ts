@@ -50,9 +50,12 @@ export interface UseTraceAssessmentChartDataResult {
  * @returns Processed chart data (time series and distribution), loading state, and error state
  */
 export function useTraceAssessmentChartData(assessmentName: string): UseTraceAssessmentChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
-  // Create filters for feedback assessments with the given name
-  const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.NAME, assessmentName)], [assessmentName]);
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters: contextFilters } = useOverviewChartContext();
+  // Create filters for feedback assessments with the given name, combined with context filters
+  const filters = useMemo(
+    () => [createAssessmentFilter(AssessmentFilterKey.NAME, assessmentName), ...(contextFilters || [])],
+    [assessmentName, contextFilters],
+  );
 
   // Fetch assessment values over time for the line chart
   const {

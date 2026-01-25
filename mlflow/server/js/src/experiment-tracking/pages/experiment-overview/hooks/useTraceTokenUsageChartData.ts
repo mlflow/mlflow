@@ -35,7 +35,7 @@ export interface UseTraceTokenUsageChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } = useOverviewChartContext();
   // Fetch input tokens over time
   const {
     data: inputTokensData,
@@ -49,6 +49,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     metricName: TraceMetricKey.INPUT_TOKENS,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
     timeIntervalSeconds,
+    filters,
   });
 
   // Fetch output tokens over time
@@ -64,6 +65,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     metricName: TraceMetricKey.OUTPUT_TOKENS,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
     timeIntervalSeconds,
+    filters,
   });
 
   // Fetch total tokens (without time bucketing) for the header
@@ -78,6 +80,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TOTAL_TOKENS,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
+    filters,
   });
 
   const inputDataPoints = useMemo(() => inputTokensData?.data_points || [], [inputTokensData?.data_points]);

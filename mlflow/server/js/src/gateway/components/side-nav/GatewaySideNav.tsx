@@ -1,4 +1,4 @@
-import { ChainIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { ChainIcon, ChartLineIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -8,7 +8,7 @@ const SIDE_NAV_COLLAPSED_WIDTH = 32;
 const COLLAPSED_CLASS_NAME = 'gateway-side-nav-collapsed';
 const FULL_WIDTH_CLASS_NAME = 'gateway-side-nav-full-width';
 
-export type GatewayTab = 'endpoints' | 'api-keys';
+export type GatewayTab = 'endpoints' | 'usage' | 'api-keys';
 
 interface GatewaySideNavProps {
   activeTab: GatewayTab;
@@ -25,6 +25,12 @@ const navItems: Array<{
     label: <FormattedMessage defaultMessage="Endpoints" description="Gateway side nav > Endpoints tab" />,
     icon: <ChainIcon />,
     to: GatewayRoutes.gatewayPageRoute,
+  },
+  {
+    tab: 'usage',
+    label: <FormattedMessage defaultMessage="Usage" description="Gateway side nav > Usage tab" />,
+    icon: <ChartLineIcon />,
+    to: GatewayRoutes.usagePageRoute,
   },
   {
     tab: 'api-keys',

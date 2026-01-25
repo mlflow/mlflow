@@ -46,12 +46,16 @@ interface UseToolErrorRateChartDataProps {
 export function useToolErrorRateChartData({
   toolName,
 }: UseToolErrorRateChartDataProps): UseToolErrorRateChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters: contextFilters } = useOverviewChartContext();
 
-  // Filter for TOOL type spans with specific name
+  // Filter for TOOL type spans with specific name, combined with context filters
   const toolFilters = useMemo(
-    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), createSpanFilter(SpanFilterKey.NAME, toolName)],
-    [toolName],
+    () => [
+      createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL),
+      createSpanFilter(SpanFilterKey.NAME, toolName),
+      ...(contextFilters || []),
+    ],
+    [toolName, contextFilters],
   );
 
   // Query span counts grouped by status and time bucket

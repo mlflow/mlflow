@@ -18,6 +18,7 @@ import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 import { EditableEndpointName } from './EditableEndpointName';
+import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
 
 export interface EditEndpointFormRendererProps {
@@ -213,10 +214,12 @@ export const EditEndpointFormRenderer = ({
             </div>
           </div>
 
-          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+          {/* Usage charts section - only show if experiment is linked */}
+          {experimentId ? (
+            <GatewayUsageSection experimentId={experimentId} />
+          ) : (
             <div
               css={{
-                flex: 1,
                 padding: theme.spacing.md,
                 border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
                 borderRadius: theme.borders.borderRadiusMd,
@@ -231,30 +234,33 @@ export const EditEndpointFormRenderer = ({
                 <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
               </Typography.Text>
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+                <FormattedMessage
+                  defaultMessage="Usage charts will be available once traces are logged to this endpoint"
+                  description="Message when no experiment is linked"
+                />
               </Typography.Text>
             </div>
+          )}
 
-            <div
-              css={{
-                flex: 1,
-                padding: theme.spacing.md,
-                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                backgroundColor: theme.colors.backgroundPrimary,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-              }}
-            >
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-              </Typography.Text>
-            </div>
+          {/* Rate Limiting placeholder */}
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundPrimary,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <Typography.Text bold>
+              <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+            </Typography.Text>
           </div>
         </div>
 
