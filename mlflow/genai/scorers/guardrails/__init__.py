@@ -169,9 +169,6 @@ def get_scorer(
     )
 
 
-# Safety validators
-
-
 @experimental(version="3.10.0")
 class ToxicLanguage(GuardrailsScorer):
     """
@@ -239,9 +236,6 @@ class DetectJailbreak(GuardrailsScorer):
     validator_name: ClassVar[str] = "DetectJailbreak"
 
 
-# PII validators
-
-
 @experimental(version="3.10.0")
 class DetectPII(GuardrailsScorer):
     """
@@ -289,9 +283,6 @@ class SecretsPresent(GuardrailsScorer):
     validator_name: ClassVar[str] = "SecretsPresent"
 
 
-# Quality validators
-
-
 @experimental(version="3.10.0")
 class GibberishText(GuardrailsScorer):
     """
@@ -316,16 +307,12 @@ class GibberishText(GuardrailsScorer):
 
 
 __all__ = [
-    # Core classes
     "GuardrailsScorer",
     "get_scorer",
-    # Safety validators
     "ToxicLanguage",
     "NSFWText",
     "DetectJailbreak",
-    # PII validators
     "DetectPII",
     "SecretsPresent",
-    # Quality validators
     "GibberishText",
 ]

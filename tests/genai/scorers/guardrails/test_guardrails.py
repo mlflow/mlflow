@@ -5,6 +5,7 @@ import pytest
 from guardrails import Validator, register_validator
 from guardrails.classes.validation.validation_result import FailResult, PassResult
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
 
@@ -49,6 +50,7 @@ def test_guardrails_scorer_pass(mock_validator_class, scorer_class, validator_na
 
         result = scorer(outputs="This is clean text.")
 
+    assert isinstance(result, Feedback)
     assert result.name == validator_name
     assert result.value == "pass"
     assert result.rationale is None
@@ -77,6 +79,7 @@ def test_guardrails_scorer_fail(mock_validator_class, scorer_class, validator_na
         scorer = scorer_cls()
         result = scorer(outputs="This is toxic bad content.")
 
+    assert isinstance(result, Feedback)
     assert result.name == validator_name
     assert result.value == "fail"
     assert result.source == AssessmentSource(
@@ -97,6 +100,7 @@ def test_guardrails_get_scorer(mock_validator_class):
         scorer = get_scorer("ToxicLanguage", threshold=0.8)
         result = scorer(outputs="Clean text")
 
+    assert isinstance(result, Feedback)
     assert result.name == "ToxicLanguage"
     assert result.value == "pass"
     assert result.rationale is None
@@ -117,7 +121,14 @@ def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
         scorer = ToxicLanguage(threshold=0.9, validation_method="full")
         result = scorer(outputs="Test text")
 
+    assert isinstance(result, Feedback)
+    assert result.name == "ToxicLanguage"
     assert result.value == "pass"
+    assert result.rationale is None
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="guardrails/ToxicLanguage",
+    )
     assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
 
 
@@ -143,7 +154,7 @@ def test_guardrails_scorer_input_priority(mock_validator_class, inputs, outputs,
     assert result.value == expected_value
 
 
-def test_guardrails_scorer_error_handling(mock_validator_class):
+def test_guardrails_scorer_error_handling():
     @register_validator(name="test/error_validator", data_type="string")
     class ErrorValidator(Validator):
         def validate(self, value, metadata=None):
@@ -158,9 +169,14 @@ def test_guardrails_scorer_error_handling(mock_validator_class):
         scorer = ToxicLanguage()
         result = scorer(outputs="Some text")
 
+    assert isinstance(result, Feedback)
+    assert result.name == "ToxicLanguage"
     assert result.error is not None
     assert "Validation failed" in str(result.error)
-    assert result.source.source_id == "guardrails/ToxicLanguage"
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="guardrails/ToxicLanguage",
+    )
     assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
 
 
@@ -172,10 +188,13 @@ def test_guardrails_scorer_source_id(mock_validator_class):
         from mlflow.genai.scorers.guardrails import ToxicLanguage
 
         scorer = ToxicLanguage()
-        feedback = scorer(outputs="Test")
+        result = scorer(outputs="Test")
 
-    assert feedback.source.source_id == "guardrails/ToxicLanguage"
-    assert feedback.source.source_type == "CODE"
+    assert isinstance(result, Feedback)
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="guardrails/ToxicLanguage",
+    )
 
 
 def test_guardrails_scorer_guard_is_real_instance(mock_validator_class):
