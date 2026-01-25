@@ -147,66 +147,67 @@ def _to_gb(b: int) -> str:
 
 
 @dataclass
-class ResourceDelta:
-    THRESHOLD_BYTES = 500 * 1024 * 1024  # 0.5 GB
-
-    mem_bytes: int
-    disk_bytes: int
-
-    def exceeds_threshold(self) -> bool:
-        return self.mem_bytes >= self.THRESHOLD_BYTES or self.disk_bytes >= self.THRESHOLD_BYTES
-
-    def format(self) -> str:
-        parts: list[str] = []
-        if self.mem_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"MEM: +{_to_gb(self.mem_bytes)} GB")
-        if self.disk_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"DISK: +{_to_gb(self.disk_bytes)} GB")
-        return ", ".join(parts)
-
-
-@dataclass
 class ResourceUsage:
-    mem_total_bytes: int
-    mem_used_bytes: int
-    disk_total_bytes: int
-    disk_used_bytes: int
+    mem_used_bytes: int = 0
+    mem_total_bytes: int = 0
+    disk_used_bytes: int = 0
+    disk_total_bytes: int = 0
 
-    @classmethod
-    def snapshot(cls) -> "ResourceUsage":
-        import psutil
+    @staticmethod
+    def _get_usage() -> tuple[int, int, int, int]:
+        try:
+            import psutil
+        except ImportError:
+            return 0, 0, 0, 0
 
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
-        return cls(
-            mem_total_bytes=mem.total,
-            mem_used_bytes=mem.used,
-            disk_total_bytes=disk.total,
-            disk_used_bytes=disk.used,
-        )
+        return mem.used, mem.total, disk.used, disk.total
+
+    def snapshot(self) -> None:
+        (
+            self.mem_used_bytes,
+            self.mem_total_bytes,
+            self.disk_used_bytes,
+            self.disk_total_bytes,
+        ) = self._get_usage()
+
+    def check(self) -> str | None:
+        threshold = 500 * 1024 * 1024  # 0.5 GB
+        mu, _, du, _ = self._get_usage()
+        parts: list[str] = []
+        mem_delta = mu - self.mem_used_bytes
+        if mem_delta >= threshold:
+            prev = _to_gb(self.mem_used_bytes)
+            curr = _to_gb(mu)
+            delta = _to_gb(mem_delta)
+            parts.append(f"MEM: +{delta} ({prev} -> {curr}) GB")
+        disk_delta = du - self.disk_used_bytes
+        if disk_delta >= threshold:
+            prev = _to_gb(self.disk_used_bytes)
+            curr = _to_gb(du)
+            delta = _to_gb(disk_delta)
+            parts.append(f"DISK: +{delta} ({prev} -> {curr}) GB")
+        if parts:
+            return ", ".join(parts)
 
     def format(self) -> str:
-        mem_used = _to_gb(self.mem_used_bytes)
         mem_total = _to_gb(self.mem_total_bytes)
-        disk_used = _to_gb(self.disk_used_bytes)
+        mem_used = _to_gb(self.mem_used_bytes)
         disk_total = _to_gb(self.disk_total_bytes)
+        disk_used = _to_gb(self.disk_used_bytes)
         return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
 
-    def __sub__(self, other: "ResourceUsage") -> "ResourceDelta":
-        return ResourceDelta(
-            mem_bytes=self.mem_used_bytes - other.mem_used_bytes,
-            disk_bytes=self.disk_used_bytes - other.disk_used_bytes,
-        )
 
-
-_resource_heavy_tests: dict[str, str] = {}  # test id -> resource stats
-_PREV_USAGE: ResourceUsage | None = None
+_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test id -> resource stats
+_RESOURCE_USAGE = ResourceUsage()
 
 
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
-    _resource_heavy_tests.clear()
+    _RESOURCE_HEAVY_TESTS.clear()
+    _RESOURCE_USAGE.snapshot()
 
     if IS_TRACING_SDK_ONLY:
         return
@@ -387,7 +388,6 @@ def fetch_pr_labels():
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
-    global _PREV_USAGE
     outcome = yield
 
     # Handle rerun outcome
@@ -395,26 +395,13 @@ def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
         outcome.force_result(("rerun", "R", ("RERUN", {"yellow": True})))
         return
 
-    if report.when == "setup" and _PREV_USAGE is None:
-        try:
-            _PREV_USAGE = ResourceUsage.snapshot()
-        except ImportError:
-            pass
+    if report.when == "call":
+        if delta := _RESOURCE_USAGE.check():
+            _RESOURCE_HEAVY_TESTS[report.nodeid] = delta
 
-    elif report.when == "call":
-        try:
-            usage = ResourceUsage.snapshot()
-        except ImportError:
-            return
-
-        if _PREV_USAGE:
-            delta = usage - _PREV_USAGE
-            if delta.exceeds_threshold():
-                _resource_heavy_tests[report.nodeid] = delta.format()
-
-        (*rest, result) = outcome.get_result()
-        outcome.force_result((*rest, f"{result} | {usage.format()}"))
-        _PREV_USAGE = usage
+        (*rest, status) = outcome.get_result()
+        _RESOURCE_USAGE.snapshot()
+        outcome.force_result((*rest, f"{status} | {_RESOURCE_USAGE.format()}"))
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -571,9 +558,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 break
 
     # Display resource-heavy tests
-    if _resource_heavy_tests:
+    if _RESOURCE_HEAVY_TESTS:
         terminalreporter.section("Resource-heavy tests", yellow=True)
-        for test_name, stats in _resource_heavy_tests.items():
+        for test_name, stats in _RESOURCE_HEAVY_TESTS.items():
             terminalreporter.write(f"{test_name}: {stats}\n")
 
     main_thread = threading.main_thread()
