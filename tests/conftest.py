@@ -180,11 +180,10 @@ class ResourceUsage:
         except ImportError:
             return None
 
-        proc = psutil.Process()
-        # Use current directory for disk usage to be cross-platform
-        # (Windows doesn't have a universal "/" root)
-        disk = psutil.disk_usage(".")
-        return cls(mem_bytes=proc.memory_info().rss, disk_bytes=disk.used)
+        return cls(
+            mem_bytes=psutil.virtual_memory().total,
+            disk_bytes=psutil.disk_usage("/").total,
+        )
 
 
 _resource_heavy_tests: dict[str, ResourceDelta] = {}
