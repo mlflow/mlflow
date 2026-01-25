@@ -13,9 +13,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    InvokeDatabricksModelOutput,
-)
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import (
@@ -410,242 +407,6 @@ def test_invoke_judge_model_with_custom_response_format():
     call_kwargs = mock_completion.call_args.kwargs
     assert "response_format" in call_kwargs
     assert call_kwargs["response_format"] == ResponseFormat
-
-
-# Tests for Databricks adapter integration with invoke_judge_model
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_name"),
-    [
-        ("databricks:/test-model", "test-model"),
-        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
-    ],
-)
-@pytest.mark.parametrize("with_trace", [False, True])
-def test_invoke_judge_model_databricks_success_not_in_databricks(
-    model_uri: str, expected_model_name: str, with_trace: bool, mock_trace
-) -> None:
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
-            return_value=InvokeDatabricksModelOutput(
-                response='{"result": "yes", "rationale": "Good response"}',
-                request_id="req-123",
-                num_prompt_tokens=10,
-                num_completion_tokens=5,
-            ),
-        ) as mock_invoke_db,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
-        ) as mock_success_telemetry,
-    ):
-        kwargs = {
-            "model_uri": model_uri,
-            "prompt": "Test prompt",
-            "assessment_name": "test_assessment",
-        }
-        if with_trace:
-            kwargs["trace"] = mock_trace
-
-        feedback = invoke_judge_model(**kwargs)
-
-        mock_invoke_db.assert_called_once_with(
-            model_name=expected_model_name,
-            prompt="Test prompt",
-            num_retries=10,
-            response_format=None,
-            inference_params=None,
-        )
-        mock_success_telemetry.assert_called_once()
-
-    assert feedback.name == "test_assessment"
-    assert feedback.value == CategoricalRating.YES
-    assert feedback.rationale == "Good response"
-    assert feedback.trace_id == ("test-trace" if with_trace else None)
-    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
-    assert feedback.metadata is None
-
-
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_name"),
-    [
-        ("databricks:/test-model", "test-model"),
-        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
-    ],
-)
-def test_invoke_judge_model_databricks_success_in_databricks(
-    model_uri: str, expected_model_name: str
-) -> None:
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
-            return_value=InvokeDatabricksModelOutput(
-                response='{"result": "no", "rationale": "Bad response"}',
-                request_id="req-456",
-                num_prompt_tokens=15,
-                num_completion_tokens=8,
-            ),
-        ) as mock_invoke_db,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
-        ) as mock_success_telemetry,
-    ):
-        feedback = invoke_judge_model(
-            model_uri=model_uri,
-            prompt="Test prompt",
-            assessment_name="test_assessment",
-        )
-
-        # Verify telemetry was called
-        mock_success_telemetry.assert_called_once_with(
-            request_id="req-456",
-            model_provider="databricks",
-            endpoint_name=expected_model_name,
-            num_prompt_tokens=15,
-            num_completion_tokens=8,
-        )
-        mock_invoke_db.assert_called_once_with(
-            model_name=expected_model_name,
-            prompt="Test prompt",
-            num_retries=10,
-            response_format=None,
-            inference_params=None,
-        )
-
-    assert feedback.value == CategoricalRating.NO
-    assert feedback.rationale == "Bad response"
-    assert feedback.trace_id is None
-    assert feedback.metadata is None
-
-
-@pytest.mark.parametrize(
-    "model_uri", ["databricks:/test-model", "endpoints:/databricks-gpt-oss-120b"]
-)
-def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
-    with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
-        return_value=InvokeDatabricksModelOutput(
-            response='{"result": "yes", "rationale": "Great response"}',
-            request_id="req-789",
-            num_prompt_tokens=4,
-            num_completion_tokens=2,
-        ),
-    ) as mock_invoke_db:
-        feedback = invoke_judge_model(
-            model_uri=model_uri,
-            prompt="Test prompt",
-            assessment_name="test_assessment",
-        )
-
-    expected_model_name = (
-        "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
-    )
-    mock_invoke_db.assert_called_once_with(
-        model_name=expected_model_name,
-        prompt="Test prompt",
-        num_retries=10,
-        response_format=None,
-        inference_params=None,
-    )
-    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
-
-
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_name"),
-    [
-        ("databricks:/test-model", "test-model"),
-        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
-    ],
-)
-def test_invoke_judge_model_databricks_failure_in_databricks(
-    model_uri: str, expected_model_name: str
-) -> None:
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
-            side_effect=MlflowException("Model invocation failed"),
-        ) as mock_invoke_db,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_failure_databricks_telemetry"
-        ) as mock_failure_telemetry,
-    ):
-        with pytest.raises(MlflowException, match="Model invocation failed"):
-            invoke_judge_model(
-                model_uri=model_uri,
-                prompt="Test prompt",
-                assessment_name="test_assessment",
-            )
-
-        # Verify failure telemetry was called
-        mock_failure_telemetry.assert_called_once_with(
-            model_provider="databricks",
-            endpoint_name=expected_model_name,
-            error_code="UNKNOWN",
-            error_message=mock.ANY,
-        )
-        mock_invoke_db.assert_called_once_with(
-            model_name=expected_model_name,
-            prompt="Test prompt",
-            num_retries=10,
-            response_format=None,
-            inference_params=None,
-        )
-
-        # Verify error message contains the traceback
-        call_args = mock_failure_telemetry.call_args[1]
-        assert "Model invocation failed" in call_args["error_message"]
-
-
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_name"),
-    [
-        ("databricks:/test-model", "test-model"),
-        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
-    ],
-)
-def test_invoke_judge_model_databricks_telemetry_error_handling(
-    model_uri: str, expected_model_name: str
-) -> None:
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
-            return_value=InvokeDatabricksModelOutput(
-                response='{"result": "yes", "rationale": "Good"}',
-                request_id="req-789",
-                num_prompt_tokens=5,
-                num_completion_tokens=3,
-            ),
-        ) as mock_invoke_db,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry",
-            side_effect=Exception("Telemetry failed"),
-        ) as mock_success_telemetry,
-    ):
-        # Should still return feedback despite telemetry failure
-        feedback = invoke_judge_model(
-            model_uri=model_uri,
-            prompt="Test prompt",
-            assessment_name="test_assessment",
-        )
-
-        mock_success_telemetry.assert_called_once_with(
-            request_id="req-789",
-            model_provider="databricks",
-            endpoint_name=expected_model_name,
-            num_prompt_tokens=5,
-            num_completion_tokens=3,
-        )
-        mock_invoke_db.assert_called_once_with(
-            model_name=expected_model_name,
-            prompt="Test prompt",
-            num_retries=10,
-            response_format=None,
-            inference_params=None,
-        )
-
-    assert feedback.value == CategoricalRating.YES
-    assert feedback.rationale == "Good"
-    assert feedback.trace_id is None
-    assert feedback.metadata is None
 
 
 # Tests for LiteLLM adapter integration with invoke_judge_model
@@ -1145,3 +906,223 @@ def test_structured_output_schema_injection(
 
     assert isinstance(result, TestSchema)
     assert result.outputs == "test result"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+@pytest.mark.parametrize("with_trace", [False, True])
+def test_invoke_judge_model_databricks_via_litellm(
+    model_uri: str, expected_model_name: str, with_trace: bool, mock_response, mock_trace
+):
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        kwargs = {
+            "model_uri": model_uri,
+            "prompt": "Test prompt",
+            "assessment_name": "test_assessment",
+        }
+        if with_trace:
+            kwargs["trace"] = mock_trace
+
+        feedback = invoke_judge_model(**kwargs)
+
+    provider = model_uri.split(":/", 1)[0]
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == f"{provider}/{expected_model_name}"
+
+    assert feedback.name == "test_assessment"
+    assert feedback.value == "yes"
+    assert feedback.rationale == "The response meets all criteria."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.trace_id == ("test-trace" if with_trace else None)
+
+
+@pytest.mark.parametrize(
+    "model_uri",
+    [
+        "databricks:/test-model",
+        "endpoints:/databricks-gpt-oss-120b",
+    ],
+)
+def test_invoke_judge_model_databricks_source_id(model_uri: str, mock_response):
+    with mock.patch("litellm.completion", return_value=mock_response):
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    assert feedback.source.source_id == model_uri
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_failure_telemetry(model_uri: str, expected_model_name: str):
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=litellm.RateLimitError(
+                message="Rate limit exceeded",
+                model=f"databricks/{expected_model_name}",
+                llm_provider="databricks",
+            ),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_failure_databricks_telemetry"
+        ) as mock_failure_telemetry,
+    ):
+        with pytest.raises(MlflowException, match="Rate limit exceeded"):
+            invoke_judge_model(
+                model_uri=model_uri,
+                prompt="Test prompt",
+                assessment_name="test_assessment",
+            )
+
+        provider = model_uri.split(":/", 1)[0]
+        mock_failure_telemetry.assert_called_once()
+        call_kwargs = mock_failure_telemetry.call_args.kwargs
+        assert call_kwargs["model_provider"] == provider
+        assert call_kwargs["endpoint_name"] == expected_model_name
+        assert call_kwargs["error_code"] == "INTERNAL_ERROR"
+        assert "Rate limit exceeded" in call_kwargs["error_message"]
+
+
+def test_invoke_judge_model_databricks_with_response_format(mock_response):
+    class ResponseFormat(BaseModel):
+        result: str = Field(description="The result")
+        rationale: str = Field(description="The rationale")
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = invoke_judge_model(
+            model_uri="databricks:/my-endpoint",
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+            response_format=ResponseFormat,
+        )
+
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == "databricks/my-endpoint"
+    assert "response_format" in call_kwargs
+    assert call_kwargs["response_format"] == ResponseFormat
+
+    assert feedback.name == "test_assessment"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_success_telemetry(
+    model_uri: str, expected_model_name: str, mock_response
+):
+    mock_response.usage.prompt_tokens = 15
+    mock_response.usage.completion_tokens = 8
+    mock_response.id = "req-456"
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
+    ):
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    mock_success_telemetry.assert_called_once_with(
+        request_id="req-456",
+        model_provider=model_uri.split(":/", 1)[0],
+        endpoint_name=expected_model_name,
+        num_prompt_tokens=15,
+        num_completion_tokens=8,
+    )
+
+    assert feedback.name == "test_assessment"
+    assert feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_telemetry_error_handling(
+    model_uri: str, expected_model_name: str, mock_response
+):
+    mock_response.usage.prompt_tokens = 5
+    mock_response.usage.completion_tokens = 3
+    mock_response.id = "req-789"
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry",
+            side_effect=Exception("Telemetry failed"),
+        ) as mock_success_telemetry,
+    ):
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    mock_success_telemetry.assert_called_once_with(
+        request_id="req-789",
+        model_provider=model_uri.split(":/", 1)[0],
+        endpoint_name=expected_model_name,
+        num_prompt_tokens=5,
+        num_completion_tokens=3,
+    )
+
+    assert feedback.name == "test_assessment"
+    assert feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    "model_uri",
+    [
+        "openai:/gpt-4",
+        "anthropic:/claude-3-sonnet",
+    ],
+)
+def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_response):
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 5
+    mock_response.id = "req-123"
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_failure_databricks_telemetry"
+        ) as mock_failure_telemetry,
+    ):
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    mock_success_telemetry.assert_not_called()
+    mock_failure_telemetry.assert_not_called()
+
+    assert feedback.name == "test_assessment"
+    assert feedback.value == "yes"

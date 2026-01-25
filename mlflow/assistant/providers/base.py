@@ -14,6 +14,11 @@ def load_config(name: str) -> ProviderConfig:
     return cfg.providers[name]
 
 
+def clear_config_cache() -> None:
+    """Clear the config cache to pick up config changes."""
+    load_config.cache_clear()
+
+
 class ProviderNotConfiguredError(Exception):
     """Raised when a provider is not properly configured."""
 

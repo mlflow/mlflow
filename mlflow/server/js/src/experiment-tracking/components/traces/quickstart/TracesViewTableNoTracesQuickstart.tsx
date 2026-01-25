@@ -1,4 +1,4 @@
-import { Header, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { isNil } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
@@ -15,24 +15,16 @@ export const TracesViewTableNoTracesQuickstart = ({
   const { introductionText } = useTracesViewTableNoTracesQuickstartContext();
 
   return (
-    <div css={{ overflow: 'auto', paddingBottom: theme.spacing.lg }}>
-      <Header
-        title={
-          <FormattedMessage
-            defaultMessage="No traces recorded"
-            description="Message displayed when there are no traces logged to the experiment"
-          />
-        }
-        titleElementLevel={3}
-      />
-      <Typography.Text
-        css={{
-          display: 'block',
-          marginTop: theme.spacing.md,
-          marginBottom: theme.spacing.md,
-          maxWidth: 800,
-        }}
-      >
+    <div
+      css={{ flex: 1, flexDirection: 'column', display: 'flex', alignItems: 'center', paddingTop: theme.spacing.lg }}
+    >
+      <Typography.Title level={3} color="secondary">
+        <FormattedMessage
+          defaultMessage="No traces recorded"
+          description="Message displayed when there are no traces logged to the experiment"
+        />
+      </Typography.Title>
+      <Typography.Paragraph color="secondary" css={{ maxWidth: 600 }}>
         {introductionText ? (
           introductionText
         ) : (
@@ -44,7 +36,7 @@ export const TracesViewTableNoTracesQuickstart = ({
               a: (text: string) => (
                 <Typography.Link
                   componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracesviewtablenotracesquickstart_46"
-                  href="https://mlflow.org/docs/latest/llms/tracing/index.html"
+                  href="https://mlflow.org/docs/latest/genai/tracing/"
                   openInNewTab
                 >
                   {text}
@@ -53,7 +45,7 @@ export const TracesViewTableNoTracesQuickstart = ({
             }}
           />
         )}
-      </Typography.Text>
+      </Typography.Paragraph>
       <TraceTableGenericQuickstart flavorName="custom" baseComponentId={baseComponentId} />
     </div>
   );

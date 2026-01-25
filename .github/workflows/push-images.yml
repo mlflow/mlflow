@@ -12,6 +12,7 @@ defaults:
 
 jobs:
   push-images:
+    if: ${{ !contains(github.ref_name, 'rc') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -52,7 +53,7 @@ jobs:
             echo "should_update_latest=false" >> $GITHUB_OUTPUT
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Gather Docker Metadata for Tracking
         id: meta
@@ -70,6 +71,17 @@ jobs:
           context: docker
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Build and Push Base Full Image
+        uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3.3.1
+        with:
+          context: docker
+          file: docker/Dockerfile.full
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}-full
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}

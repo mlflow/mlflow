@@ -17,7 +17,7 @@ var json_parse = require('./parse.js');
 module.exports = function (options) {
   return {
     parse: json_parse(options),
-    stringify: json_stringify
+    stringify: json_stringify,
   };
 };
 //create the default method members with no options applied for backwards compatibility

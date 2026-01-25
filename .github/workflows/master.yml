@@ -96,6 +96,7 @@ jobs:
             --ignore=tests/examples \
             --ignore=tests/evaluate \
             --ignore=tests/genai \
+            --ignore=tests/docker \
             tests
 
       - name: Run databricks-connect related tests
@@ -376,6 +377,9 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
+          # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
+          # https://github.com/stefmolin/data-morph/pull/273
+          MPLBACKEND: Agg
         run: |
           export PATH=$PATH:$HADOOP_HOME/bin
           uv run --no-sync pytest tests \
@@ -391,4 +395,5 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py
+            --ignore=tests/data/test_spark_dataset.py \
+            --ignore=tests/docker

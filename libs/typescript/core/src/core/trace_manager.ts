@@ -5,7 +5,7 @@ import { TraceData } from './entities/trace_data';
 import {
   REQUEST_RESPONSE_PREVIEW_MAX_LENGTH,
   SpanAttributeKey,
-  TraceMetadataKey
+  TraceMetadataKey,
 } from './constants';
 
 /**
@@ -35,12 +35,12 @@ class _Trace {
       // Only set previews if they haven't been explicitly set by updateCurrentTrace
       if (!this.info.requestPreview) {
         this.info.requestPreview = getPreviewString(
-          root_span._span.attributes[SpanAttributeKey.INPUTS] as string
+          root_span._span.attributes[SpanAttributeKey.INPUTS] as string,
         );
       }
       if (!this.info.responsePreview) {
         this.info.responsePreview = getPreviewString(
-          root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string
+          root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string,
         );
       }
 

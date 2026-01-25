@@ -58,25 +58,22 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install Python dependencies
         run: |
-          uv sync --locked --only-group lint --only-group test
-      - name: Install JS dependencies
-        run: |
-          cd mlflow/server/js && yarn install --immutable
+          uv sync --locked --only-group lint --only-group pytest
       - name: Install pre-commit hooks
         run: |
-          uv run --only-group lint pre-commit install --install-hooks
-          uv run --only-group lint pre-commit run install-bin -a -v
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
       - name: Run pre-commit
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |
-          uv run --only-group lint pre-commit run --all-files
+          uv run --no-sync pre-commit run --all-files
 
       - name: Test clint
         run: |
-          uv run --only-group test pytest dev/clint
+          uv run --no-sync pytest dev/clint
 
       - name: Check function signatures
         if: matrix.os == 'ubuntu-latest'
@@ -86,7 +83,7 @@ jobs:
       - name: Check whitespace-only changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run --no-project dev/check_whitespace_only.py \
             --repo ${{ github.repository }} \

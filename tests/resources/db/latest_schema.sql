@@ -153,6 +153,7 @@ CREATE TABLE endpoint_bindings (
 	created_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
+	display_name VARCHAR(255),
 	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
 	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )

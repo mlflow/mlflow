@@ -5,6 +5,7 @@ import {
   transformScheduledScorer,
   convertFormDataToScheduledScorer,
   convertRegisterScorerResponseToConfig,
+  outputTypeSpecToFormData,
 } from './scorerTransformUtils';
 import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
@@ -1140,5 +1141,108 @@ describe('convertRegisterScorerResponseToConfig', () => {
       serialized_scorer: response.serialized_scorer,
       scorer_version: 2,
     });
+  });
+});
+
+describe('outputTypeSpecToFormData', () => {
+  it('should return default for undefined spec', () => {
+    expect(outputTypeSpecToFormData(undefined)).toEqual({ outputTypeKind: 'default' });
+  });
+
+  it('should convert primitive types', () => {
+    expect(outputTypeSpecToFormData({ kind: 'bool' })).toEqual({ outputTypeKind: 'bool' });
+    expect(outputTypeSpecToFormData({ kind: 'int' })).toEqual({ outputTypeKind: 'int' });
+    expect(outputTypeSpecToFormData({ kind: 'str' })).toEqual({ outputTypeKind: 'str' });
+  });
+
+  it('should convert categorical type with options joined by newlines', () => {
+    expect(outputTypeSpecToFormData({ kind: 'categorical', categoricalOptions: ['good', 'bad'] })).toEqual({
+      outputTypeKind: 'categorical',
+      categoricalOptions: 'good\nbad',
+    });
+  });
+
+  it('should convert dict type', () => {
+    expect(outputTypeSpecToFormData({ kind: 'dict', dictValueType: 'float' })).toEqual({
+      outputTypeKind: 'dict',
+      dictValueType: 'float',
+    });
+  });
+
+  it('should convert list type', () => {
+    expect(outputTypeSpecToFormData({ kind: 'list', listElementType: 'int' })).toEqual({
+      outputTypeKind: 'list',
+      listElementType: 'int',
+    });
+  });
+});
+
+describe('output type in transformScorerConfig', () => {
+  it('should parse feedback_value_type from instructions judge', () => {
+    const config: ScorerConfig = {
+      name: 'Test Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate',
+          feedback_value_type: { type: 'boolean' },
+        },
+      }),
+      custom: {},
+    };
+
+    const result = transformScorerConfig(config) as LLMScorer;
+
+    expect(result.outputType).toEqual({ kind: 'bool' });
+  });
+
+  it('should parse categorical feedback_value_type', () => {
+    const config: ScorerConfig = {
+      name: 'Test Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate',
+          feedback_value_type: { type: 'string', enum: ['good', 'bad', 'neutral'] },
+        },
+      }),
+      custom: {},
+    };
+
+    const result = transformScorerConfig(config) as LLMScorer;
+
+    expect(result.outputType).toEqual({ kind: 'categorical', categoricalOptions: ['good', 'bad', 'neutral'] });
+  });
+});
+
+describe('output type in transformScheduledScorer', () => {
+  it('should serialize outputType to feedback_value_type JSON Schema', () => {
+    const scorer: LLMScorer = {
+      name: 'Test Scorer',
+      type: 'llm',
+      llmTemplate: 'Custom',
+      instructions: 'Evaluate',
+      is_instructions_judge: true,
+      outputType: { kind: 'int' },
+    };
+
+    const result = transformScheduledScorer(scorer);
+    const serialized = JSON.parse(result.serialized_scorer);
+
+    expect(serialized.instructions_judge_pydantic_data.feedback_value_type).toEqual({ type: 'integer' });
+  });
+
+  it('should not include feedback_value_type for default output type', () => {
+    const scorer: LLMScorer = {
+      name: 'Test Scorer',
+      type: 'llm',
+      llmTemplate: 'Custom',
+      instructions: 'Evaluate',
+      is_instructions_judge: true,
+      // outputType undefined = default
+    };
+
+    const result = transformScheduledScorer(scorer);
+    const serialized = JSON.parse(result.serialized_scorer);
+
+    expect(serialized.instructions_judge_pydantic_data.feedback_value_type).toBeUndefined();
   });
 });

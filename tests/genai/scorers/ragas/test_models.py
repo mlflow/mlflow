@@ -21,7 +21,7 @@ def mock_call_chat_completions():
         yield mock
 
 
-def test_databricks_ragas_llm_generate_text(mock_call_chat_completions):
+def test_databricks_ragas_llm_generate(mock_call_chat_completions):
     llm = DatabricksRagasLLM()
     result = llm.generate(prompt="Test prompt", response_model=DummyResponseModel)
 
@@ -45,7 +45,7 @@ def test_create_ragas_model_databricks():
 
 def test_create_ragas_model_databricks_serving_endpoint():
     model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "DatabricksServingEndpointRagasLLM"
+    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
 
 
 def test_create_ragas_model_openai():
