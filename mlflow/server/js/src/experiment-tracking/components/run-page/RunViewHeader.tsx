@@ -13,7 +13,7 @@ import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants
 import { Button, Icon, useDesignSystemTheme } from '@databricks/design-system';
 import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { EXPERIMENT_KIND_TAG_KEY } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useMemo } from 'react';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
@@ -66,13 +66,13 @@ export const RunViewHeader = ({
   isLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const experimentKind = useExperimentKind(experiment.tags);
 
   const shouldRouteToEvaluations = useMemo(() => {
-    const isGenAIExperiment =
-      experiment.tags?.find((tag) => tag.key === EXPERIMENT_KIND_TAG_KEY)?.value === ExperimentKind.GENAI_DEVELOPMENT;
+    const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
     const hasModelOutputs = runOutputs && runOutputs.modelOutputs ? runOutputs.modelOutputs.length > 0 : false;
     return isGenAIExperiment && !hasModelOutputs;
-  }, [experiment, runOutputs]);
+  }, [experimentKind, runOutputs]);
 
   const experimentPageTabRoute = Routes.getExperimentPageTabRoute(
     experiment.experimentId ?? '',

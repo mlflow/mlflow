@@ -82,12 +82,13 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should render the control bar with time range selector', async () => {
+    it('should render the control bar with time range and time unit selectors', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Time range selector
-        expect(screen.getByRole('combobox')).toBeInTheDocument();
+        // Both time range and time unit selectors should be present
+        const comboboxes = screen.getAllByRole('combobox');
+        expect(comboboxes.length).toBeGreaterThanOrEqual(2);
       });
     });
 
@@ -139,8 +140,8 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        // Look for the date selector dropdown button
-        const dateSelector = screen.getByRole('combobox');
+        // Look for the date selector by its test id
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
         expect(dateSelector).toBeInTheDocument();
       });
     });
@@ -150,10 +151,10 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toBeInTheDocument();
+        expect(screen.getByTestId('time-range-select-dropdown')).toBeInTheDocument();
       });
 
-      const dateSelector = screen.getByRole('combobox');
+      const dateSelector = screen.getByTestId('time-range-select-dropdown');
       await user.click(dateSelector);
 
       // Check that dropdown options are visible
@@ -166,7 +167,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        const dateSelector = screen.getByRole('combobox');
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
         // Default is LAST_7_DAYS
         expect(dateSelector).toHaveTextContent(/7 days/i);
       });

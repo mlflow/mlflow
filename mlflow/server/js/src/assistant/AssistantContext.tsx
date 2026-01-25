@@ -3,21 +3,38 @@
  * Provides Assistant functionality accessible from anywhere in MLflow.
  */
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
-import { sendMessageStream } from './AssistantService';
+import { sendMessageStream, getConfig } from './AssistantService';
+import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
+
+/**
+ * Check if the server is running locally (localhost or 127.0.0.1).
+ */
+const checkIsLocalServer = (): boolean => {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+};
 
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
-  // Panel state
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // Detect if server is local - memoized since hostname doesn't change
+  const isLocalServer = useMemo(() => checkIsLocalServer(), []);
+
+  // Panel state - persisted to localStorage
+  // Only open by default on first visit if server is local
+  const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
+    key: 'mlflow.assistant.panelOpen',
+    version: 1,
+    initialValue: isLocalServer,
+  });
 
   // Chat state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -27,6 +44,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
 
+  // Setup state
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
 
@@ -34,6 +55,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
   const appendToStreamingMessage = useCallback((text: string) => {
+    // Add newline separator if there's already content (e.g. reasoning)
+    if (streamingMessageRef.current && !streamingMessageRef.current.endsWith('\n') && !text.startsWith('\n')) {
+      streamingMessageRef.current += '\n\n';
+    }
     streamingMessageRef.current += text;
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -70,6 +95,32 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setActiveTools(tools);
   }, []);
 
+  // Setup actions
+  const refreshConfig = useCallback(async () => {
+    setIsLoadingConfig(true);
+    try {
+      const config = await getConfig();
+      // Setup is complete if claude_code provider is selected
+      const isComplete = config.providers?.['claude_code']?.selected === true;
+      setSetupComplete(isComplete);
+    } catch {
+      // On error, assume setup is not complete
+      setSetupComplete(false);
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  }, []);
+
+  const completeSetup = useCallback(() => {
+    // Refresh config after setup completes to update the UI
+    refreshConfig();
+  }, [refreshConfig]);
+
+  // Fetch config on mount
+  useEffect(() => {
+    refreshConfig();
+  }, [refreshConfig]);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);
@@ -88,11 +139,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
-  }, []);
+    // Refresh config when panel opens (intentionally not awaited)
+    refreshConfig();
+  }, [refreshConfig, setIsPanelOpen]);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
-  }, []);
+  }, [setIsPanelOpen]);
 
   const reset = useCallback(() => {
     setSessionId(null);
@@ -218,6 +271,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      startChat,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
@@ -307,12 +361,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     error,
     currentStatus,
     activeTools,
+    setupComplete,
+    isLoadingConfig,
+    isLocalServer,
     // Actions
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
     regenerateLastMessage,
     reset,
+    refreshConfig,
+    completeSetup,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -327,11 +386,16 @@ const disabledAssistantContext: AssistantAgentContextType = {
   error: null,
   currentStatus: null,
   activeTools: [],
+  setupComplete: false,
+  isLoadingConfig: false,
+  isLocalServer: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},
+  refreshConfig: () => Promise.resolve(),
+  completeSetup: () => {},
 };
 
 /**

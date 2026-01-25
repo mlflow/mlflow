@@ -1,0 +1,108 @@
+<svg width="440" height="340" viewBox="114 10 440 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Chat Panel - Main container with shadow -->
+  <rect x="134.5" y="19.5" width="400" height="321" rx="7.5" fill="white" stroke="#E5E7EB" filter="url(#shadow)"/>
+
+  <!-- Header bar -->
+  <rect x="135" y="20" width="399" height="40" rx="7" fill="white"/>
+  <line x1="135" y1="60" x2="534" y2="60" stroke="#E5E7EB"/>
+
+  <!-- Double sparkle icon in header -->
+  <g>
+    <!-- Large sparkle (right/top) - stroke only -->
+    <path d="M156.5 35L153 36.2L156.5 37.4C157.3 37.7 158 38.4 158.3 39.2L159.5 43L160.7 39.2C161 38.4 161.7 37.7 162.5 37.4L166 36.2L162.5 35C161.7 34.7 161 34 160.7 33.2L159.5 29.5L158.3 33.2C158 34 157.3 34.7 156.5 35Z" fill="none" stroke="url(#paint_sparkle_header)" stroke-width="1.5"/>
+    <!-- Small sparkle (left/bottom) - stroke only -->
+    <path d="M148.5 43L146.5 43.7L148.5 44.4C149 44.6 149.4 45 149.6 45.5L150.2 47.5L150.8 45.5C151 45 151.4 44.6 151.9 44.4L154 43.7L151.9 43C151.4 42.8 151 42.4 150.8 41.9L150.2 40L149.6 41.9C149.4 42.4 149 42.8 148.5 43Z" fill="none" stroke="url(#paint_sparkle_header_small)" stroke-width="1.5"/>
+  </g>
+
+  <!-- "MLflow Assistant" text -->
+  <text x="174" y="45" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#11171C">MLflow Assistant</text>
+
+  <!-- Chat area -->
+
+  <!-- User message 1 (right-aligned) - "Why did my agent fail?" -->
+  <rect x="330" y="72" width="180" height="32" rx="8" fill="#F6F7F9"/>
+  <text x="345" y="93" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">Why did my agent fail?</text>
+
+  <!-- Assistant message 1 (left-aligned with sparkle) -->
+  <rect x="155" y="114" width="260" height="56" rx="8" fill="white" stroke="#E5E7EB"/>
+
+  <!-- Sparkle icon in assistant message 1 -->
+  <g clip-path="url(#clip_msg_sparkle1)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M175.386 135.347L178.896 134.193L175.386 133.038C174.102 132.616 173.094 131.608 172.672 130.324L171.517 126.814L170.363 130.324C169.941 131.608 168.933 132.616 167.649 133.038L164.139 134.193L167.649 135.347C168.933 135.769 169.941 136.777 170.363 138.061L171.517 141.571L172.672 138.061C173.094 136.777 174.102 135.769 175.386 135.347ZM179.562 136.215C181.513 135.573 181.513 132.812 179.562 132.170L176.052 131.016C175.409 130.804 174.906 130.301 174.694 129.658L173.54 126.148C172.898 124.197 170.137 124.197 169.495 126.148L168.341 129.658C168.129 130.301 167.626 130.804 166.983 131.016L163.473 132.170C161.522 132.812 161.522 135.573 163.473 136.215L166.983 137.369C167.626 137.581 168.129 138.084 168.341 138.727L169.495 142.237C170.137 144.188 172.898 144.188 173.54 142.237L174.694 138.727C174.906 138.084 175.409 137.581 176.052 137.369L179.562 136.215Z" fill="url(#paint_sparkle_msg1)"/>
+  </g>
+
+  <!-- Assistant message 1 text -->
+  <text x="188" y="140" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#11171C">The trace shows a timeout error in</text>
+  <!-- Placeholder bar -->
+  <rect x="188" y="152" width="200" height="8" rx="4" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- User message 2 (right-aligned) - "Can you fix it?" -->
+  <rect x="380" y="182" width="130" height="32" rx="8" fill="#F6F7F9"/>
+  <text x="410" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">Can you fix it?</text>
+
+  <!-- Tool call indicator -->
+  <rect x="155" y="226" width="170" height="28" rx="6" fill="#F0F4FF" stroke="#B8C9E8"/>
+  <!-- Terminal prompt icon -->
+  <text x="164" y="244" font-family="monospace" font-size="11" font-weight="600" fill="#5F7281">&gt;_</text>
+  <text x="188" y="244" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#5F7281">Analyzing codebase...</text>
+
+  <!-- Assistant message 2 (left-aligned with sparkle) -->
+  <rect x="155" y="266" width="280" height="56" rx="8" fill="white" stroke="#E5E7EB"/>
+
+  <!-- Sparkle icon in assistant message 2 -->
+  <g clip-path="url(#clip_msg_sparkle2)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M175.386 287.347L178.896 286.193L175.386 285.038C174.102 284.616 173.094 283.608 172.672 282.324L171.517 278.814L170.363 282.324C169.941 283.608 168.933 284.616 167.649 285.038L164.139 286.193L167.649 287.347C168.933 287.769 169.941 288.777 170.363 290.061L171.517 293.571L172.672 290.061C173.094 288.777 174.102 287.769 175.386 287.347ZM179.562 288.215C181.513 287.573 181.513 284.812 179.562 284.170L176.052 283.016C175.409 282.804 174.906 282.301 174.694 281.658L173.54 278.148C172.898 276.197 170.137 276.197 169.495 278.148L168.341 281.658C168.129 282.301 167.626 282.804 166.983 283.016L163.473 284.170C161.522 284.812 161.522 287.573 163.473 288.215L166.983 289.369C167.626 289.581 168.129 290.084 168.341 290.727L169.495 294.237C170.137 296.188 172.898 296.188 173.54 294.237L174.694 290.727C174.906 290.084 175.409 289.581 176.052 289.369L179.562 288.215Z" fill="url(#paint_sparkle_msg2)"/>
+  </g>
+
+  <!-- Assistant message 2 text -->
+  <text x="188" y="292" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#11171C">Done! I've added retry logic to</text>
+  <!-- Placeholder bar -->
+  <rect x="188" y="304" width="220" height="8" rx="4" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- Definitions -->
+  <defs>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+
+    <!-- Gradient for header sparkle (large - right/top) -->
+    <linearGradient id="paint_sparkle_header" x1="166" y1="29" x2="153" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+    <!-- Gradient for header sparkle (small - left/bottom) -->
+    <linearGradient id="paint_sparkle_header_small" x1="154" y1="40" x2="146" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Gradient for message sparkle 1 -->
+    <linearGradient id="paint_sparkle_msg1" x1="181.886" y1="123.296" x2="160.515" y2="144.666" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Gradient for message sparkle 2 -->
+    <linearGradient id="paint_sparkle_msg2" x1="181.886" y1="275.296" x2="160.515" y2="296.666" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Clip paths -->
+    <clipPath id="clip_header_sparkle">
+      <rect width="20" height="20" fill="white" transform="translate(147 30)"/>
+    </clipPath>
+    <clipPath id="clip_msg_sparkle1">
+      <rect width="20" height="20" fill="white" transform="translate(162 124)"/>
+    </clipPath>
+    <clipPath id="clip_msg_sparkle2">
+      <rect width="20" height="20" fill="white" transform="translate(162 276)"/>
+    </clipPath>
+  </defs>
+</svg>

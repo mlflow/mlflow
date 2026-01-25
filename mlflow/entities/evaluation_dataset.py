@@ -355,10 +355,12 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 or are incompatible with existing dataset schema
         """
         granularity_counts: dict[DatasetGranularity, int] = {}
+        has_empty_inputs = False
 
         for record in record_dicts:
             input_keys = set(record.get("inputs", {}).keys())
             if not input_keys:
+                has_empty_inputs = True
                 continue
 
             record_type = self._classify_input_fields(input_keys)
@@ -385,6 +387,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         batch_granularity = next(iter(granularity_counts), DatasetGranularity.UNKNOWN)
         existing_granularity = self._get_existing_granularity()
+
+        if has_empty_inputs and DatasetGranularity.SESSION in {
+            batch_granularity,
+            existing_granularity,
+        }:
+            raise MlflowException.invalid_parameter_value(
+                "Empty inputs are not allowed for session records. The 'goal' field is required."
+            )
 
         if DatasetGranularity.UNKNOWN in {batch_granularity, existing_granularity}:
             return
