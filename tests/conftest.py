@@ -173,20 +173,20 @@ class ResourceUsage:
         ) = self._get_usage()
 
     def check(self) -> str | None:
-        threshold = 500 * 1024 * 1024  # 0.5 GB
+        THRESHOLD = 500 * 1024 * 1024  # 0.5 GB
         mu, _, du, _ = self._get_usage()
         parts: list[str] = []
         mem_delta = mu - self.mem_used_bytes
-        if mem_delta >= threshold:
+        if mem_delta >= THRESHOLD:
+            delta = _to_gb(mem_delta)
             prev = _to_gb(self.mem_used_bytes)
             curr = _to_gb(mu)
-            delta = _to_gb(mem_delta)
             parts.append(f"MEM: +{delta} ({prev} -> {curr}) GB")
         disk_delta = du - self.disk_used_bytes
-        if disk_delta >= threshold:
+        if disk_delta >= THRESHOLD:
+            delta = _to_gb(disk_delta)
             prev = _to_gb(self.disk_used_bytes)
             curr = _to_gb(du)
-            delta = _to_gb(disk_delta)
             parts.append(f"DISK: +{delta} ({prev} -> {curr}) GB")
         if parts:
             return ", ".join(parts)
