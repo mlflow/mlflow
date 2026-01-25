@@ -480,7 +480,8 @@ def _initialize_tracer_provider(disabled=False):
     if not otel_service_name and not otel_resource_attributes:
         # Setting an empty resource to avoid triggering resource aggregation, which causes
         # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-        # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+        # Add telemetry resource:
+        # https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
         resource = Resource(
             {
                 "telemetry.sdk.language": "python",
@@ -560,13 +561,18 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             return processors
     else:
         # No user-specified destination. Check for Databricks telemetry destination ID
-        # which combines OTLP span export with TraceInfo persistence to UC tables.
-        # This requires both the telemetry destination ID AND OTLP configuration to be set.
-        telemetry_destination_id = os.environ.get("DATABRICKS_TELEMETRY_DESTINATION_ID")
-        if telemetry_destination_id and should_use_otlp_exporter():
-            if processor := _get_uc_table_with_otel_processor(telemetry_destination_id):
-                processors.append(processor)
-                return processors
+        # to get the destination configuration from the backend.
+        if telemetry_destination_id := os.environ.get("DATABRICKS_TELEMETRY_DESTINATION_ID"):
+            if should_use_otlp_exporter():
+                # Use OTLP export for spans + REST API for TraceInfo
+                if processor := _get_uc_table_with_otel_processor(telemetry_destination_id):
+                    processors.append(processor)
+                    return processors
+            else:
+                # Use REST API export for both spans and TraceInfo
+                if processor := _get_uc_table_processor_from_profile(telemetry_destination_id):
+                    processors.append(processor)
+                    return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
     # configuration.
@@ -641,8 +647,12 @@ def _get_uc_table_with_otel_processor(telemetry_destination_id: str):
     Returns:
         The span processor, or None if the TelemetryProfile could not be fetched.
     """
-    from mlflow.tracing.export.uc_table_with_otel import DatabricksUCTableWithOtelSpanExporter
-    from mlflow.tracing.processor.uc_table_with_otel import DatabricksUCTableWithOtelSpanProcessor
+    from mlflow.tracing.export.uc_table_with_otel import (
+        DatabricksUCTableWithOtelSpanExporter,
+    )
+    from mlflow.tracing.processor.uc_table_with_otel import (
+        DatabricksUCTableWithOtelSpanProcessor,
+    )
 
     try:
         telemetry_profile = _fetch_telemetry_profile(telemetry_destination_id)
@@ -667,6 +677,79 @@ def _get_uc_table_with_otel_processor(telemetry_destination_id: str):
     except Exception as e:
         _logger.warning(
             f"Failed to initialize UC table with OTLP processor: {e}. "
+            "Falling back to default tracing configuration."
+        )
+        return None
+
+
+def _get_uc_table_processor_from_profile(telemetry_destination_id: str):
+    """
+    Get the UC table span processor for the given telemetry destination ID.
+
+    This processor uses REST API for both span export and TraceInfo persistence
+    (no OTLP involved). The UC location is determined from the TelemetryProfile.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID (profile ID) to fetch
+            configuration from.
+
+    Returns:
+        The span processor, or None if the TelemetryProfile could not be fetched.
+    """
+    from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+    from mlflow.tracing.processor.uc_table_from_profile import (
+        DatabricksUCTableFromProfileSpanProcessor,
+    )
+
+    try:
+        telemetry_profile = _fetch_telemetry_profile(telemetry_destination_id)
+        if telemetry_profile is None:
+            _logger.warning(
+                f"Failed to fetch TelemetryProfile for destination ID "
+                f"'{telemetry_destination_id}'. Falling back to default tracing "
+                "configuration."
+            )
+            return None
+
+        uc_tables_config = telemetry_profile.get_uc_tables_config()
+        if not uc_tables_config:
+            _logger.warning(
+                "TelemetryProfile does not contain a UnityCatalogTablesConfig. "
+                "Falling back to default tracing configuration."
+            )
+            return None
+
+        catalog_name = uc_tables_config.uc_catalog
+        schema_name = uc_tables_config.uc_schema
+        spans_table_name = uc_tables_config.spans_table_name
+
+        if not catalog_name or not schema_name:
+            _logger.warning(
+                "TelemetryProfile UnityCatalogTablesConfig is missing uc_catalog or "
+                "uc_schema. Falling back to default tracing configuration."
+            )
+            return None
+
+        if not spans_table_name:
+            _logger.warning(
+                "TelemetryProfile UnityCatalogTablesConfig is missing spans_table_name. "
+                "Falling back to default tracing configuration."
+            )
+            return None
+
+        # Create exporter with the spans table name from the telemetry profile
+        exporter = DatabricksUCTableSpanExporter(
+            tracking_uri=mlflow.get_tracking_uri(),
+            spans_table_name=spans_table_name,
+        )
+        # Create processor that uses UcTablePrefixLocation from the telemetry profile
+        return DatabricksUCTableFromProfileSpanProcessor(
+            span_exporter=exporter,
+            telemetry_profile=telemetry_profile,
+        )
+    except Exception as e:
+        _logger.warning(
+            f"Failed to initialize UC table processor from profile: {e}. "
             "Falling back to default tracing configuration."
         )
         return None

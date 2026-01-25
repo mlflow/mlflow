@@ -5,6 +5,12 @@ import pytest
 from opentelemetry import trace
 
 import mlflow
+from mlflow.entities.telemetry_profile import (
+    Exporter,
+    ExporterType,
+    TelemetryProfile,
+    UnityCatalogTablesConfig,
+)
 from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
@@ -35,6 +41,26 @@ from mlflow.tracing.provider import (
 from mlflow.tracing.utils import get_active_spans_table_name
 
 from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
+
+
+def _create_test_telemetry_profile(
+    catalog: str = "test_catalog",
+    schema: str = "test_schema",
+    table_prefix: str = "prefix_",
+    spans_table_name: str = "test_catalog.test_schema.prefix_otel_spans",
+) -> TelemetryProfile:
+    config = UnityCatalogTablesConfig(
+        uc_catalog=catalog,
+        uc_schema=schema,
+        uc_table_prefix=table_prefix,
+        spans_table_name=spans_table_name,
+    )
+    exporter = Exporter(type=ExporterType.UNITY_CATALOG_TABLES, uc_tables=config)
+    return TelemetryProfile(
+        profile_id="test-profile-123",
+        profile_name="Test Profile",
+        exporters=[exporter],
+    )
 
 
 @pytest.fixture
@@ -592,25 +618,33 @@ def test_telemetry_destination_id_uses_uc_table_with_otel_processor(monkeypatch)
         mock_fetch.assert_called_once_with("test-profile-123")
 
 
-def test_telemetry_destination_id_requires_otlp_config(monkeypatch):
+def test_telemetry_destination_id_without_otlp_uses_rest_api(monkeypatch):
     # Set up telemetry destination ID but NO OTLP config
     monkeypatch.setenv("DATABRICKS_TELEMETRY_DESTINATION_ID", "test-profile-123")
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
 
+    from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+    from mlflow.tracing.processor.uc_table_from_profile import (
+        DatabricksUCTableFromProfileSpanProcessor,
+    )
+
+    mock_profile = _create_test_telemetry_profile()
+
     with mock.patch(
-        "mlflow.tracing.provider._fetch_telemetry_profile"
+        "mlflow.tracing.provider._fetch_telemetry_profile", return_value=mock_profile
     ) as mock_fetch:
         mlflow.tracing.reset()
         tracer = _get_tracer("test")
 
         processors = tracer.span_processor._span_processors
-        # Should fall back to default MLflow processor since OTLP is not configured
+        # Should use DatabricksUCTableFromProfileSpanProcessor for REST API export
         assert len(processors) == 1
-        assert isinstance(processors[0], MlflowV3SpanProcessor)
+        assert isinstance(processors[0], DatabricksUCTableFromProfileSpanProcessor)
+        assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
 
-        # _fetch_telemetry_profile should not be called since OTLP is not configured
-        mock_fetch.assert_not_called()
+        # _fetch_telemetry_profile should be called
+        mock_fetch.assert_called_once_with("test-profile-123")
 
 
 def test_telemetry_destination_id_fallback_on_fetch_failure(monkeypatch):
