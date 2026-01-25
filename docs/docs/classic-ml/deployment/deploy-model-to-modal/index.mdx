@@ -89,7 +89,7 @@ This allows you to verify that:
 Once local testing passes, deploy to Modal's cloud infrastructure.
 
 <Tabs>
-  <TabItem default label="Python API" value="python">
+  <TabItem value="python" label="Python API" default>
 
 ```python
 from mlflow.deployments import get_deploy_client
@@ -129,7 +129,7 @@ mlflow deployments create -t modal -m runs:/<run_id>/model --name gpu-model \
 After deployment, you can make predictions using the deployment client:
 
 <Tabs>
-  <TabItem default label="Python API" value="python">
+  <TabItem value="python" label="Python API" default>
 
 ```python
 from mlflow.deployments import get_deploy_client
