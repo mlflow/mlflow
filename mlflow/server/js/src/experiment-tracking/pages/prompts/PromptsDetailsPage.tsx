@@ -42,6 +42,7 @@ import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 import { ExperimentPageTabName } from '../../constants';
 import { PromptFilteredTracesView } from './components/PromptFilteredTracesView';
 import { ForkHorizontalIcon } from '@databricks/design-system';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -102,6 +103,10 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     setSelectedVersion,
     setComparedVersion,
   } = usePromptDetailsPageViewState(promptDetailsData);
+
+  useRegisterAssistantContext('promptName', promptName);
+  useRegisterAssistantContext('promptVersion', viewState.selectedVersion);
+  useRegisterAssistantContext('comparedPromptVersion', viewState.comparedVersion);
 
   const { mode } = viewState;
 

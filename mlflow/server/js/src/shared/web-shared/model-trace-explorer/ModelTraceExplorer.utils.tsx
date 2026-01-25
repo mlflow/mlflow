@@ -1169,6 +1169,11 @@ export const getDefaultActiveTab = (
     return 'content';
   }
 
+  // Auto-navigate to events tab when span has errors
+  if (getSpanExceptionCount(selectedNode) > 0) {
+    return 'events';
+  }
+
   if (selectedNode.chatMessages) {
     return 'chat';
   }
@@ -1354,6 +1359,7 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
   assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+
 export const isValidException = (
   event: ModelTraceEvent,
 ): event is ModelTraceEvent & {

@@ -17,9 +17,15 @@ export interface ModelSectionRendererProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode, control, setValue }) => {
+export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
+  mode,
+  control,
+  setValue,
+  onUserSelect,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   const currentModel = useWatch({ control, name: 'model' });
@@ -115,7 +121,11 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
               currentEndpointName={currentEndpointName}
-              onEndpointSelect={(endpointName) => field.onChange(formatGatewayModelFromEndpoint(endpointName))}
+              onEndpointSelect={(endpointName) => {
+                const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                field.onChange(modelValue);
+                onUserSelect?.('model', modelValue);
+              }}
               disabled={isReadOnly}
               componentIdPrefix={`${COMPONENT_ID_PREFIX}.endpoint`}
             />

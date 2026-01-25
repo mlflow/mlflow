@@ -68,6 +68,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/app-instrumentation/opentelemetry',
                   label: 'Tracing with OpenTelemetry',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
+                },
               ],
             },
             {
@@ -589,6 +594,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/ragas',
                       label: 'RAGAS',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -604,9 +614,29 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',

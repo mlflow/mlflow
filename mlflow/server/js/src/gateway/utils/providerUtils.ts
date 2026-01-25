@@ -13,19 +13,11 @@ export const PROVIDER_GROUPS: Record<string, Omit<ProviderGroup, 'providers'>> =
     displayName: 'OpenAI / Azure OpenAI',
     defaultProvider: 'openai',
   },
-  vertex_ai: {
-    groupId: 'vertex_ai',
-    displayName: 'Google Vertex AI',
-    defaultProvider: 'vertex_ai',
-  },
 };
 
 export function getProviderGroupId(provider: string): string | null {
   if (provider === 'openai' || provider === 'azure') {
     return 'openai_azure';
-  }
-  if (provider === 'vertex_ai' || provider.startsWith('vertex_ai-')) {
-    return 'vertex_ai';
   }
   return null;
 }
@@ -67,19 +59,6 @@ export function buildProviderGroups(providers: string[]): {
     });
   }
 
-  const vertexProviders = groupedProviders.get('vertex_ai');
-  if (vertexProviders && vertexProviders.length > 0) {
-    vertexProviders.sort((a, b) => {
-      if (a === 'vertex_ai') return -1;
-      if (b === 'vertex_ai') return 1;
-      return a.localeCompare(b);
-    });
-    groups.push({
-      ...PROVIDER_GROUPS['vertex_ai'],
-      providers: vertexProviders,
-    });
-  }
-
   return { groups, ungroupedProviders };
 }
 
@@ -106,33 +85,9 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   cerebras: 'Cerebras',
 };
 
-const VERTEX_AI_VARIANT_NAMES: Record<string, string> = {
-  'vertex_ai-anthropic': 'Vertex AI (Anthropic)',
-  'vertex_ai-llama3': 'Vertex AI (Llama 3)',
-  'vertex_ai-mistral': 'Vertex AI (Mistral)',
-  'vertex_ai-ai21': 'Vertex AI (AI21)',
-  'vertex_ai-codey': 'Vertex AI (Codey)',
-  'vertex_ai-image-models': 'Vertex AI (Image)',
-  'vertex_ai-code-text-models': 'Vertex AI (Code)',
-  'vertex_ai-text-models': 'Vertex AI (Text)',
-  'vertex_ai-chat-models': 'Vertex AI (Chat)',
-  'vertex_ai-embedding-models': 'Vertex AI (Embedding)',
-  'vertex_ai-vision-models': 'Vertex AI (Vision)',
-};
-
 export function formatProviderName(provider: string): string {
   if (PROVIDER_DISPLAY_NAMES[provider]) {
     return PROVIDER_DISPLAY_NAMES[provider];
-  }
-
-  if (VERTEX_AI_VARIANT_NAMES[provider]) {
-    return VERTEX_AI_VARIANT_NAMES[provider];
-  }
-
-  if (provider.startsWith('vertex_ai-')) {
-    const variant = provider.replace('vertex_ai-', '');
-    const formattedVariant = variant.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    return `Vertex AI (${formattedVariant})`;
   }
 
   return provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

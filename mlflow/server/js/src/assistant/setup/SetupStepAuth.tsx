@@ -16,8 +16,6 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 import { checkProviderHealth } from '../AssistantService';
 import type { AuthState } from '../types';
 
-const COMPONENT_ID = 'mlflow.assistant.setup.connection';
-
 interface SetupStepAuthProps {
   provider: string;
   cachedAuthStatus?: AuthState;
@@ -89,7 +87,7 @@ export const SetupStepAuth = ({
       }}
     >
       <code>{code}</code>
-      <CopyButton copyText={code} showLabel={false} size="small" componentId={`${COMPONENT_ID}.copy`} />
+      <CopyButton copyText={code} showLabel={false} size="small" componentId="mlflow.assistant.setup.connection.copy" />
     </div>
   );
 
@@ -134,7 +132,7 @@ export const SetupStepAuth = ({
           <Typography.Text color="secondary">After installation, click "Check Again" to verify.</Typography.Text>
 
           <Typography.Link
-            componentId={`${COMPONENT_ID}.learn_more`}
+            componentId="mlflow.assistant.setup.connection.learn_more"
             href="https://docs.anthropic.com/en/docs/claude-code"
             target="_blank"
           >
@@ -205,17 +203,17 @@ export const SetupStepAuth = ({
           borderTop: `1px solid ${theme.colors.border}`,
         }}
       >
-        <Button componentId={`${COMPONENT_ID}.back`} onClick={onBack}>
+        <Button componentId="mlflow.assistant.setup.connection.back" onClick={onBack}>
           Back
         </Button>
 
         {authState === 'authenticated' ? (
-          <Button componentId={`${COMPONENT_ID}.continue`} type="primary" onClick={onContinue}>
+          <Button componentId="mlflow.assistant.setup.connection.continue" type="primary" onClick={onContinue}>
             Continue
           </Button>
         ) : (
           <Button
-            componentId={`${COMPONENT_ID}.check_again`}
+            componentId="mlflow.assistant.setup.connection.check_again"
             type="primary"
             onClick={runHealthCheck}
             disabled={authState === 'checking'}

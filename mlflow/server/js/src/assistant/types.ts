@@ -27,6 +27,26 @@ export interface KnownAssistantContext {
   runId?: string;
   selectedRunIds?: string[];
   currentPage?: string;
+
+  // Sessions
+  sessionId?: string;
+  selectedSessionIds?: string[];
+
+  // Datasets
+  selectedDatasetId?: string;
+
+  // Prompts
+  promptName?: string;
+  promptVersion?: string;
+  comparedPromptVersion?: string;
+
+  // Models
+  modelName?: string;
+  modelVersion?: string;
+  selectedModelVersions?: string[];
+
+  // Scorers/Judges
+  selectedScorerName?: string;
 }
 
 /** All known context keys */
@@ -51,6 +71,8 @@ export interface AssistantAgentState {
   setupComplete: boolean;
   /** Whether config is being loaded */
   isLoadingConfig: boolean;
+  /** Whether the server is running locally (localhost) */
+  isLocalServer: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -89,11 +111,21 @@ export interface MessageRequest {
 export type HealthCheckResult = { ok: true } | { ok: false; error: string; status: number };
 
 /**
+ * Permission settings for the assistant provider.
+ */
+export interface PermissionsConfig {
+  allow_edit_files: boolean;
+  allow_read_docs: boolean;
+  full_access: boolean;
+}
+
+/**
  * Provider configuration.
  */
 export interface ProviderConfig {
   model: string;
   selected: boolean;
+  permissions: PermissionsConfig;
 }
 
 /**

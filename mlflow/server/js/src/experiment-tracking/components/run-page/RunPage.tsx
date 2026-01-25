@@ -39,7 +39,7 @@ import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -131,6 +131,8 @@ export const RunPage = () => {
     models: loggedModelsV3,
   } = isUsingGetLoggedModelsApi ? loggedModelsForRunV2 : loggedModelsForRun;
 
+  const experimentKind = useExperimentKind(experiment?.tags);
+
   const renderActiveTab = () => {
     if (!runInfo) {
       return null;
@@ -201,7 +203,7 @@ export const RunPage = () => {
         loggedModelsV3={loggedModelsV3}
         isLoadingLoggedModels={isLoadingLoggedModels}
         loggedModelsError={loggedModelsError ?? undefined}
-        experimentKind={getExperimentKindFromTags(experiment?.tags)}
+        experimentKind={experimentKind}
       />
     );
   };
