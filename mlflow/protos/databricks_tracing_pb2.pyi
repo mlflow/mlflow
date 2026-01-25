@@ -1,5 +1,3 @@
-import datetime
-
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
@@ -12,8 +10,7 @@ from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import service as _service
-from collections.abc import Iterable as _Iterable, Mapping as _Mapping
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -125,7 +122,7 @@ class TraceInfo(_message.Message):
     trace_metadata: _containers.ScalarMap[str, str]
     assessments: _containers.RepeatedCompositeFieldContainer[Assessment]
     tags: _containers.ScalarMap[str, str]
-    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class CreateTraceInfo(_message.Message):
     __slots__ = ("location_id", "trace_info")
@@ -311,7 +308,7 @@ class Assessment(_message.Message):
     metadata: _containers.ScalarMap[str, str]
     overrides: str
     valid: bool
-    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: _Optional[bool] = ...) -> None: ...
+    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
 
 class CreateAssessment(_message.Message):
     __slots__ = ("location_id", "assessment", "sql_warehouse_id")

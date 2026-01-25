@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
+    UcTablePrefixLocation,
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
@@ -321,6 +322,9 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
                 an MLflow experiment.
             - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
                 Databricks Unity Catalog schema. Only available in Databricks.
+            - :py:class:`~mlflow.entities.trace_location.UcTablePrefixLocation`: Logs traces to
+                Databricks Unity Catalog tables using OTLP export. Requires OTLP environment
+                variables to be configured. Only available in Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -382,7 +386,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, UCSchemaLocation) and (
+    if isinstance(destination, (UCSchemaLocation, UcTablePrefixLocation)) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
