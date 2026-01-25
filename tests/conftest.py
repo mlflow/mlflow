@@ -154,27 +154,35 @@ class ResourceUsage:
     disk_total_bytes: int = 0
 
     @staticmethod
-    def _get_usage() -> tuple[int, int, int, int]:
+    def _get_usage() -> tuple[int, int, int, int] | None:
         try:
             import psutil
         except ImportError:
-            return 0, 0, 0, 0
+            return None
 
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
         return mem.used, mem.total, disk.used, disk.total
 
     def snapshot(self) -> None:
+        usage = self._get_usage()
+        if usage is None:
+            return
+
         (
             self.mem_used_bytes,
             self.mem_total_bytes,
             self.disk_used_bytes,
             self.disk_total_bytes,
-        ) = self._get_usage()
+        ) = usage
 
     def check(self) -> str | None:
+        usage = self._get_usage()
+        if usage is None:
+            return None
+
         THRESHOLD = 500 * 1024 * 1024  # 0.5 GB
-        mu, _, du, _ = self._get_usage()
+        mu, _, du, _ = usage
         parts: list[str] = []
         mem_delta = mu - self.mem_used_bytes
         if mem_delta >= THRESHOLD:
