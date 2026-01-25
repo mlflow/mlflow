@@ -2,6 +2,7 @@
 sidebar_position: 4
 ---
 
+import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -30,6 +31,7 @@ Modal handles auto-scaling, GPU allocation, and container lifecycle management a
 ## Deploying Model to Modal
 
 This section outlines the process of deploying a model to Modal using the MLflow deployment plugin.
+For Python API references and tutorials, see the [Useful links](#deployment-modal-references) section.
 
 ### Step 0: Preparation
 
@@ -286,7 +288,14 @@ config={
 
 Check the [Modal Dashboard](https://modal.com/apps) for detailed build and runtime logs.
 
-## Useful Links
+## API Reference
+
+The mlflow-modal-deploy plugin integrates with the standard MLflow deployments interface:
+
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments">CLI Reference</APILink>
+- <APILink fn="mlflow.deployments">Python API Documentation</APILink>
+
+## Useful Links \{#deployment-modal-references}
 
 - [mlflow-modal-deploy GitHub Repository](https://github.com/debu-sinha/mlflow-modal-deploy) -
   Source code, issue tracker, and contribution guidelines.
