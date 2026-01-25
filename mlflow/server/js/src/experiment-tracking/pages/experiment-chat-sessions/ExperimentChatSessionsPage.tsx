@@ -108,6 +108,7 @@ const ExperimentChatSessionsPageImpl = () => {
           timeRange={timeRange}
           customDefaultSelectedColumns={defaultCustomDefaultSelectedColumns}
           forceGroupBySession
+          columnStorageKeyPrefix="chat-sessions"
         />
       ) : (
         <GenAIChatSessionsTable
