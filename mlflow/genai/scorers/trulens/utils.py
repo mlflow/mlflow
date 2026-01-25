@@ -96,7 +96,7 @@ def _extract_context(
     return context_str
 
 
-def format_trulens_rationale(reasons: dict[str, Any] | None) -> str | None:
+def format_rationale(reasons: dict[str, Any] | None) -> str | None:
     """
     Format TruLens reasons dict into a readable rationale string.
 

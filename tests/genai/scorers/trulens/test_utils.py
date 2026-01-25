@@ -9,7 +9,7 @@ from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.genai.scorers.trulens.utils import (
-    format_trulens_rationale,
+    format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
@@ -159,5 +159,5 @@ def test_map_scorer_inputs_with_trace():
         ({"details": {"key": "value"}}, "details: {'key': 'value'}"),
     ],
 )
-def test_format_trulens_rationale(reasons, expected):
-    assert format_trulens_rationale(reasons) == expected
+def test_format_rationale(reasons, expected):
+    assert format_rationale(reasons) == expected

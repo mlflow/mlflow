@@ -6,9 +6,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.scorers.scorer_utils import (
     parse_third_party_model_uri,
@@ -57,42 +54,6 @@ def _create_databricks_managed_judge_provider(**kwargs: Any):
     return DatabricksManagedJudgeProvider()
 
 
-def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: Any):
-    from trulens.core.feedback.endpoint import Endpoint
-    from trulens.feedback.llm_provider import LLMProvider
-
-    class DatabricksServingEndpointProvider(LLMProvider):
-        _databricks_endpoint_name: str = endpoint_name
-
-        def __init__(self):
-            endpoint = Endpoint(name=f"databricks-{endpoint_name}")
-            super().__init__(model_engine=endpoint_name, endpoint=endpoint)
-
-        def _create_chat_completion(
-            self,
-            prompt: str | None = None,
-            messages: "Sequence[dict] | None" = None,
-            **kwargs,
-        ) -> str:
-            if messages:
-                user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
-                final_prompt = (
-                    f"System: {system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
-                )
-            else:
-                final_prompt = prompt if prompt is not None else ""
-
-            output = _invoke_databricks_serving_endpoint(
-                model_name=self._databricks_endpoint_name,
-                prompt=final_prompt,
-                num_retries=3,
-                response_format=None,
-            )
-            return output.response
-
-    return DatabricksServingEndpointProvider()
-
-
 def create_trulens_provider(model_uri: str, **kwargs: Any):
     """
     Create a TruLens provider from a model URI.
@@ -100,9 +61,9 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     Args:
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
-            - "databricks:/endpoint" - Use Databricks serving endpoint
+            - "databricks:/endpoint" - Use LiteLLM with Databricks endpoint
             - "provider:/model" - Use LiteLLM with the specified model
-        kwargs: Additional keyword arguments to pass to the provider.
+        kwargs: Additional arguments passed to the underlying provider
 
     Returns:
         A TruLens-compatible provider
@@ -114,11 +75,11 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
 
     provider, model_name = parse_third_party_model_uri(model_uri)
 
-    if provider == "databricks":
-        if model_name is None:
-            return _create_databricks_managed_judge_provider(**kwargs)
-        return _create_databricks_serving_endpoint_provider(model_name, **kwargs)
+    # Use managed judge for plain "databricks" without endpoint
+    if provider == "databricks" and model_name is None:
+        return _create_databricks_managed_judge_provider(**kwargs)
 
+    # Use LiteLLM for all other providers (including databricks:/endpoint)
     try:
         from trulens.providers.litellm import LiteLLM
 

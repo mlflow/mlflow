@@ -36,16 +36,12 @@ def mock_provider():
 @pytest.mark.parametrize(
     ("scorer_class", "metric_name", "method_name"),
     [
-        ("LogicalConsistencyScorer", "logical_consistency", "logical_consistency_with_cot_reasons"),
-        (
-            "ExecutionEfficiencyScorer",
-            "execution_efficiency",
-            "execution_efficiency_with_cot_reasons",
-        ),
-        ("PlanAdherenceScorer", "plan_adherence", "plan_adherence_with_cot_reasons"),
-        ("PlanQualityScorer", "plan_quality", "plan_quality_with_cot_reasons"),
-        ("ToolSelectionScorer", "tool_selection", "tool_selection_with_cot_reasons"),
-        ("ToolCallingScorer", "tool_calling", "tool_calling_with_cot_reasons"),
+        ("LogicalConsistency", "logical_consistency", "logical_consistency_with_cot_reasons"),
+        ("ExecutionEfficiency", "execution_efficiency", "execution_efficiency_with_cot_reasons"),
+        ("PlanAdherence", "plan_adherence", "plan_adherence_with_cot_reasons"),
+        ("PlanQuality", "plan_quality", "plan_quality_with_cot_reasons"),
+        ("ToolSelection", "tool_selection", "tool_selection_with_cot_reasons"),
+        ("ToolCalling", "tool_calling", "tool_calling_with_cot_reasons"),
     ],
 )
 def test_agent_trace_scorer(
@@ -55,7 +51,7 @@ def test_agent_trace_scorer(
     expected_reasons = {"reason": "Test rationale"}
 
     with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
         return_value=mock_provider,
     ):
         from mlflow.genai.scorers import trulens
@@ -82,12 +78,12 @@ def test_agent_trace_scorer(
 
 def test_scorer_requires_trace(mock_provider):
     with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
         return_value=mock_provider,
     ):
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+        from mlflow.genai.scorers.trulens import LogicalConsistency
 
-        scorer = LogicalConsistencyScorer()
+        scorer = LogicalConsistency()
 
     with pytest.raises(MlflowException, match="Trace is required"):
         scorer(trace=None)
@@ -95,81 +91,78 @@ def test_scorer_requires_trace(mock_provider):
 
 def test_scorer_accepts_string_trace(mock_provider):
     with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
         return_value=mock_provider,
     ):
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+        from mlflow.genai.scorers.trulens import LogicalConsistency
 
-        scorer = LogicalConsistencyScorer()
+        scorer = LogicalConsistency()
 
     mock_provider.logical_consistency_with_cot_reasons.return_value = (0.85, None)
     trace_json = '{"info": {}, "data": {"spans": []}}'
     result = scorer(trace=trace_json)
 
     assert result.value == 0.85
+    assert result.metadata == {"mlflow.scorer.framework": "trulens"}
     mock_provider.logical_consistency_with_cot_reasons.assert_called_once_with(trace=trace_json)
 
 
-def test_scorer_rationale_with_multiple_reasons(mock_provider, sample_agent_trace):
+@pytest.mark.parametrize(
+    ("reasons", "expected_rationale"),
+    [
+        (
+            {"reason": "Main reason", "details": ["Detail 1", "Detail 2"]},
+            "reason: Main reason | details: Detail 1; Detail 2",
+        ),
+        ({"single": "value"}, "single: value"),
+        (None, None),
+    ],
+)
+def test_scorer_rationale_formatting(
+    mock_provider, sample_agent_trace, reasons, expected_rationale
+):
     with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
         return_value=mock_provider,
     ):
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+        from mlflow.genai.scorers.trulens import LogicalConsistency
 
-        scorer = LogicalConsistencyScorer()
+        scorer = LogicalConsistency()
 
-    mock_provider.logical_consistency_with_cot_reasons.return_value = (
-        0.8,
-        {"reason": "Main reason", "details": ["Detail 1", "Detail 2"]},
-    )
+    mock_provider.logical_consistency_with_cot_reasons.return_value = (0.8, reasons)
     result = scorer(trace=sample_agent_trace)
 
-    assert "reason: Main reason" in result.rationale
-    assert "details: Detail 1; Detail 2" in result.rationale
-
-
-def test_scorer_none_rationale(mock_provider, sample_agent_trace):
-    with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
-        return_value=mock_provider,
-    ):
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
-
-        scorer = LogicalConsistencyScorer()
-
-    mock_provider.logical_consistency_with_cot_reasons.return_value = (0.9, None)
-    result = scorer(trace=sample_agent_trace)
-
-    assert result.rationale is None
+    assert result.rationale == expected_rationale
 
 
 def test_scorers_available_in_trulens_namespace():
     from mlflow.genai.scorers.trulens import (
-        ExecutionEfficiencyScorer,
-        LogicalConsistencyScorer,
-        PlanAdherenceScorer,
-        PlanQualityScorer,
-        ToolCallingScorer,
-        ToolSelectionScorer,
+        ExecutionEfficiency,
+        LogicalConsistency,
+        PlanAdherence,
+        PlanQuality,
+        ToolCalling,
+        ToolSelection,
+        TruLensAgentScorer,
     )
 
-    assert LogicalConsistencyScorer is not None
-    assert ExecutionEfficiencyScorer is not None
-    assert PlanAdherenceScorer is not None
-    assert PlanQualityScorer is not None
-    assert ToolSelectionScorer is not None
-    assert ToolCallingScorer is not None
+    assert LogicalConsistency is not None
+    assert ExecutionEfficiency is not None
+    assert PlanAdherence is not None
+    assert PlanQuality is not None
+    assert ToolSelection is not None
+    assert ToolCalling is not None
+    assert TruLensAgentScorer is not None
 
 
 def test_scorer_error_handling(mock_provider, sample_agent_trace):
     with patch(
-        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
         return_value=mock_provider,
     ):
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+        from mlflow.genai.scorers.trulens import LogicalConsistency
 
-        scorer = LogicalConsistencyScorer(model="openai:/gpt-4")
+        scorer = LogicalConsistency(model="openai:/gpt-4")
 
     mock_provider.logical_consistency_with_cot_reasons.side_effect = RuntimeError(
         "Evaluation failed"
@@ -179,3 +172,4 @@ def test_scorer_error_handling(mock_provider, sample_agent_trace):
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
+    assert result.metadata == {"mlflow.scorer.framework": "trulens"}

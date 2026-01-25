@@ -179,3 +179,4 @@ def test_trulens_scorer_error_handling(mock_provider):
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
+    assert result.metadata == {"mlflow.scorer.framework": "trulens"}

@@ -25,14 +25,25 @@ from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
-from mlflow.genai.scorers.trulens.utils import format_trulens_rationale
+from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
+from mlflow.genai.scorers.trulens.utils import format_rationale
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
 
-class _AgentTraceScorerBase(Scorer):
+class TruLensAgentScorer(Scorer):
+    """
+    Base class for TruLens agent trace scorers.
+
+    Agent trace scorers evaluate the quality of agent execution traces,
+    analyzing reasoning, planning, and tool usage patterns.
+
+    Args:
+        model: Model to use for evaluation
+    """
+
     metric_name: ClassVar[str]
 
     _provider: Any = PrivateAttr()
@@ -48,7 +59,7 @@ class _AgentTraceScorerBase(Scorer):
         model = model or get_default_model()
         self._model = model
         self._provider = create_trulens_provider(model, **kwargs)
-        self._method_name = f"{self.metric_name}_with_cot_reasons"
+        self._method_name = get_feedback_method_name(self.metric_name)
 
     def _get_trace_string(self, trace: Trace | str | None) -> str:
         if trace is None:
@@ -81,7 +92,7 @@ class _AgentTraceScorerBase(Scorer):
             return Feedback(
                 name=self.name,
                 value=score,
-                rationale=format_trulens_rationale(reasons),
+                rationale=format_rationale(reasons),
                 source=assessment_source,
                 metadata={FRAMEWORK_METADATA_KEY: "trulens"},
             )
@@ -93,12 +104,13 @@ class _AgentTraceScorerBase(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: "trulens"},
             )
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class LogicalConsistencyScorer(_AgentTraceScorerBase):
+class LogicalConsistency(TruLensAgentScorer):
     """
     Evaluates logical consistency and reasoning quality of agent traces.
 
@@ -112,21 +124,21 @@ class LogicalConsistencyScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+        from mlflow.genai.scorers.trulens import LogicalConsistency
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[LogicalConsistencyScorer()],
+            scorers=[LogicalConsistency()],
         )
     """
 
     metric_name: ClassVar[str] = "logical_consistency"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class ExecutionEfficiencyScorer(_AgentTraceScorerBase):
+class ExecutionEfficiency(TruLensAgentScorer):
     """
     Evaluates execution efficiency of agent traces.
 
@@ -140,21 +152,21 @@ class ExecutionEfficiencyScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import ExecutionEfficiencyScorer
+        from mlflow.genai.scorers.trulens import ExecutionEfficiency
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[ExecutionEfficiencyScorer()],
+            scorers=[ExecutionEfficiency()],
         )
     """
 
     metric_name: ClassVar[str] = "execution_efficiency"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class PlanAdherenceScorer(_AgentTraceScorerBase):
+class PlanAdherence(TruLensAgentScorer):
     """
     Evaluates plan adherence of agent traces.
 
@@ -168,21 +180,21 @@ class PlanAdherenceScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import PlanAdherenceScorer
+        from mlflow.genai.scorers.trulens import PlanAdherence
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[PlanAdherenceScorer()],
+            scorers=[PlanAdherence()],
         )
     """
 
     metric_name: ClassVar[str] = "plan_adherence"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class PlanQualityScorer(_AgentTraceScorerBase):
+class PlanQuality(TruLensAgentScorer):
     """
     Evaluates plan quality of agent traces.
 
@@ -196,21 +208,21 @@ class PlanQualityScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import PlanQualityScorer
+        from mlflow.genai.scorers.trulens import PlanQuality
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[PlanQualityScorer()],
+            scorers=[PlanQuality()],
         )
     """
 
     metric_name: ClassVar[str] = "plan_quality"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class ToolSelectionScorer(_AgentTraceScorerBase):
+class ToolSelection(TruLensAgentScorer):
     """
     Evaluates tool selection quality of agent traces.
 
@@ -224,21 +236,21 @@ class ToolSelectionScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import ToolSelectionScorer
+        from mlflow.genai.scorers.trulens import ToolSelection
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[ToolSelectionScorer()],
+            scorers=[ToolSelection()],
         )
     """
 
     metric_name: ClassVar[str] = "tool_selection"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-class ToolCallingScorer(_AgentTraceScorerBase):
+class ToolCalling(TruLensAgentScorer):
     """
     Evaluates tool calling quality of agent traces.
 
@@ -252,12 +264,12 @@ class ToolCallingScorer(_AgentTraceScorerBase):
 
     .. code-block:: python
 
-        from mlflow.genai.scorers.trulens import ToolCallingScorer
+        from mlflow.genai.scorers.trulens import ToolCalling
 
         traces = mlflow.search_traces(experiment_ids=["1"])
         results = mlflow.genai.evaluate(
             data=traces,
-            scorers=[ToolCallingScorer()],
+            scorers=[ToolCalling()],
         )
     """
 

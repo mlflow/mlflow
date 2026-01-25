@@ -31,7 +31,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import (
-    format_trulens_rationale,
+    format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
 from mlflow.utils.annotations import experimental
@@ -43,7 +43,7 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_THRESHOLD = 0.5
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class TruLensScorer(Scorer):
     """
@@ -103,7 +103,7 @@ class TruLensScorer(Scorer):
             feedback_method = getattr(self._provider, self._method_name)
             score, reasons = feedback_method(**args)
 
-            rationale = format_trulens_rationale(reasons)
+            rationale = format_rationale(reasons)
             value = CategoricalRating.YES if score >= self._threshold else CategoricalRating.NO
 
             return Feedback(
@@ -123,10 +123,11 @@ class TruLensScorer(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: "trulens"},
             )
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -163,7 +164,7 @@ def get_scorer(
     )
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Groundedness(TruLensScorer):
     """
@@ -188,7 +189,7 @@ class Groundedness(TruLensScorer):
     metric_name: ClassVar[str] = "Groundedness"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRelevance(TruLensScorer):
     """
@@ -213,7 +214,7 @@ class ContextRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerRelevance(TruLensScorer):
     """
@@ -237,7 +238,7 @@ class AnswerRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "AnswerRelevance"
 
 
-@experimental(version="3.9.0")
+@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Coherence(TruLensScorer):
     """
@@ -261,18 +262,20 @@ class Coherence(TruLensScorer):
     metric_name: ClassVar[str] = "Coherence"
 
 
-from mlflow.genai.scorers.trulens.agent_trace import (
-    ExecutionEfficiencyScorer,
-    LogicalConsistencyScorer,
-    PlanAdherenceScorer,
-    PlanQualityScorer,
-    ToolCallingScorer,
-    ToolSelectionScorer,
+from mlflow.genai.scorers.trulens.scorers.agent_trace import (
+    ExecutionEfficiency,
+    LogicalConsistency,
+    PlanAdherence,
+    PlanQuality,
+    ToolCalling,
+    ToolSelection,
+    TruLensAgentScorer,
 )
 
 __all__ = [
     # Core classes
     "TruLensScorer",
+    "TruLensAgentScorer",
     "get_scorer",
     # RAG metric scorers
     "Groundedness",
@@ -280,10 +283,10 @@ __all__ = [
     "AnswerRelevance",
     "Coherence",
     # Agent trace scorers
-    "LogicalConsistencyScorer",
-    "ExecutionEfficiencyScorer",
-    "PlanAdherenceScorer",
-    "PlanQualityScorer",
-    "ToolSelectionScorer",
-    "ToolCallingScorer",
+    "LogicalConsistency",
+    "ExecutionEfficiency",
+    "PlanAdherence",
+    "PlanQuality",
+    "ToolSelection",
+    "ToolCalling",
 ]

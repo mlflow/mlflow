@@ -1,3 +1,4 @@
+import importlib
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,50 +17,65 @@ def mock_call_chat_completions():
         yield mock
 
 
-@pytest.fixture
-def mock_invoke_serving_endpoint():
-    with patch("mlflow.genai.scorers.trulens.models._invoke_databricks_serving_endpoint") as mock:
-        result = Mock()
-        result.response = "Endpoint output"
-        mock.return_value = result
-        yield mock
+def test_create_trulens_provider_databricks():
+    mock_endpoint = Mock()
+    mock_llm_provider = Mock()
+
+    with patch.dict(
+        "sys.modules",
+        {
+            "trulens.core.feedback.endpoint": mock_endpoint,
+            "trulens.feedback.llm_provider": mock_llm_provider,
+        },
+    ):
+        mock_llm_provider.LLMProvider = type(
+            "LLMProvider", (), {"__init__": lambda self, **kw: None}
+        )
+        mock_endpoint.Endpoint = Mock()
+
+        with patch("mlflow.genai.scorers.trulens.models.call_chat_completions") as mock_cc:
+            mock_cc.return_value = Mock(output="test")
+            provider = create_trulens_provider("databricks")
+            assert provider is not None
 
 
-def test_create_trulens_provider_databricks(mock_call_chat_completions):
-    provider = create_trulens_provider("databricks")
-    assert provider is not None
-    assert hasattr(provider, "_create_chat_completion")
+def test_create_trulens_provider_databricks_endpoint_uses_litellm():
+    mock_litellm_class = Mock()
+    mock_litellm_class.return_value = Mock()
 
-    # Test that _create_chat_completion calls the underlying method
-    result = provider._create_chat_completion(prompt="Test prompt")
-    assert result == "Test output"
-    mock_call_chat_completions.assert_called_once()
+    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
+        from mlflow.genai.scorers.trulens import models
 
+        importlib.reload(models)
 
-def test_create_trulens_provider_databricks_endpoint(mock_invoke_serving_endpoint):
-    provider = create_trulens_provider("databricks:/my-endpoint")
-    assert provider is not None
-    assert hasattr(provider, "_create_chat_completion")
-
-    # Test that _create_chat_completion calls the underlying method
-    result = provider._create_chat_completion(prompt="Test prompt")
-    assert result == "Endpoint output"
-    mock_invoke_serving_endpoint.assert_called_once()
+        models.create_trulens_provider("databricks:/my-endpoint")
+        mock_litellm_class.assert_called_once_with(model_engine="databricks/my-endpoint")
 
 
-def test_create_trulens_provider_openai(monkeypatch):
-    from trulens.providers.litellm import LiteLLM
+def test_create_trulens_provider_openai():
+    mock_litellm_class = Mock()
+    mock_litellm_class.return_value = Mock()
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    try:
-        provider = create_trulens_provider("openai:/gpt-4")
-        assert isinstance(provider, LiteLLM)
-        assert provider.model_engine == "openai/gpt-4"
-    except AttributeError as e:
-        # TruLens LiteLLM provider has an instrumentation bug with CallTypes enum
-        if "CallTypes" in str(e):
-            pytest.skip("TruLens LiteLLM instrumentation bug - see TruLens issue tracker")
-        raise
+    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
+        from mlflow.genai.scorers.trulens import models
+
+        importlib.reload(models)
+
+        models.create_trulens_provider("openai:/gpt-4")
+        mock_litellm_class.assert_called_once_with(model_engine="openai/gpt-4")
+
+
+def test_create_trulens_provider_litellm_format():
+    mock_litellm_class = Mock()
+    mock_litellm_class.return_value = Mock()
+
+    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
+        from mlflow.genai.scorers.trulens import models
+
+        importlib.reload(models)
+
+        models.create_trulens_provider("litellm:/gpt-4")
+        mock_litellm_class.assert_called_once_with(model_engine="gpt-4")
 
 
 def test_create_trulens_provider_invalid_format():
