@@ -181,7 +181,9 @@ class ResourceUsage:
             return None
 
         proc = psutil.Process()
-        disk = psutil.disk_usage("/")
+        # Use current directory for disk usage to be cross-platform
+        # (Windows doesn't have a universal "/" root)
+        disk = psutil.disk_usage(".")
         return cls(mem_bytes=proc.memory_info().rss, disk_bytes=disk.used)
 
 
