@@ -13,7 +13,10 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
+
+if TYPE_CHECKING:
+    import psutil
 from unittest import mock
 
 import pytest
@@ -140,6 +143,28 @@ class TestResult:
 
 
 _test_results: list[TestResult] = []
+
+# Track orphaned processes per test
+_orphans_by_test: dict[str, list["psutil.Process"]] = {}
+_known_orphan_pids: set[int] = set()
+
+
+def _get_current_orphans() -> list["psutil.Process"]:
+    """Get current orphaned Python processes (PPID=1)."""
+    try:
+        import psutil
+    except ImportError:
+        return []
+
+    orphans: list[psutil.Process] = []
+    for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline"]):
+        try:
+            if proc.ppid() == 1:
+                if sys.executable in proc.cmdline():
+                    orphans.append(proc)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return orphans
 
 
 def pytest_sessionstart(session):
@@ -306,6 +331,13 @@ def pytest_runtest_setup(item):
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
+
+
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    """Check for new orphaned processes after each test."""
+    if new_orphans := [p for p in _get_current_orphans() if p.pid not in _known_orphan_pids]:
+        _orphans_by_test[item.nodeid] = new_orphans
+        _known_orphan_pids.update(p.pid for p in new_orphans)
 
 
 def fetch_pr_labels():
@@ -537,6 +569,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             terminalreporter.section("Remaining child processes", yellow=True)
             for idx, child in enumerate(children, start=1):
                 terminalreporter.write(f"{idx}: {child}\n")
+
+        # Report orphaned processes by test
+        if _orphans_by_test:
+            terminalreporter.section("Tests that left orphaned processes (PPID=1)", yellow=True)
+            for test_name, orphans in _orphans_by_test.items():
+                terminalreporter.write(f"{test_name}:\n")
+                for proc in orphans:
+                    terminalreporter.write(f"  - {proc}\n")
 
 
 # Test fixtures from tests/conftest.py
