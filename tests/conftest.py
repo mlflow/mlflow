@@ -142,6 +142,10 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+def _to_gb(b: int) -> str:
+    return f"{b / 1024**3:.1f}"
+
+
 @dataclass
 class ResourceDelta:
     THRESHOLD_BYTES = 500 * 1024 * 1024  # 0.5 GB
@@ -152,42 +156,51 @@ class ResourceDelta:
     def exceeds_threshold(self) -> bool:
         return self.mem_bytes >= self.THRESHOLD_BYTES or self.disk_bytes >= self.THRESHOLD_BYTES
 
-    def format_exceeded(self) -> str:
+    def format(self) -> str:
         parts: list[str] = []
         if self.mem_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"mem: +{self.mem_bytes / 1024**3:.1f} GB")
+            parts.append(f"mem: +{_to_gb(self.mem_bytes)} GB")
         if self.disk_bytes >= self.THRESHOLD_BYTES:
-            parts.append(f"disk: +{self.disk_bytes / 1024**3:.1f} GB")
+            parts.append(f"disk: +{_to_gb(self.disk_bytes)} GB")
         return ", ".join(parts)
 
 
 @dataclass
 class ResourceUsage:
-    mem_bytes: int
-    disk_bytes: int
-
-    def __sub__(self, other: "ResourceUsage") -> ResourceDelta:
-        return ResourceDelta(
-            mem_bytes=self.mem_bytes - other.mem_bytes,
-            disk_bytes=self.disk_bytes - other.disk_bytes,
-        )
+    mem_total_bytes: int
+    mem_used_bytes: int
+    disk_total_bytes: int
+    disk_used_bytes: int
 
     @classmethod
-    def current(cls) -> "ResourceUsage | None":
-        """Get current process memory and system disk usage."""
-        try:
-            import psutil
-        except ImportError:
-            return None
+    def snapshot(cls) -> "ResourceUsage":
+        import psutil
 
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
         return cls(
-            mem_bytes=psutil.virtual_memory().used,
-            disk_bytes=psutil.disk_usage("/").used,
+            mem_total_bytes=mem.total,
+            mem_used_bytes=mem.used,
+            disk_total_bytes=disk.total,
+            disk_used_bytes=disk.used,
+        )
+
+    def format(self) -> str:
+        mem_used = _to_gb(self.mem_used_bytes)
+        mem_total = _to_gb(self.mem_total_bytes)
+        disk_used = _to_gb(self.disk_used_bytes)
+        disk_total = _to_gb(self.disk_total_bytes)
+        return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
+
+    def __sub__(self, other: "ResourceUsage") -> "ResourceDelta":
+        return ResourceDelta(
+            mem_bytes=self.mem_used_bytes - other.mem_used_bytes,
+            disk_bytes=self.disk_used_bytes - other.disk_used_bytes,
         )
 
 
-_resource_heavy_tests: dict[str, ResourceDelta] = {}
-_resource_before: ResourceUsage | None = None
+_resource_heavy_tests: dict[str, str] = {}  # test id -> resource stats
+_PREV_USAGE: ResourceUsage | None = None
 
 
 def pytest_sessionstart(session):
@@ -352,28 +365,9 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
 
 
 def pytest_runtest_setup(item):
-    global _resource_before
-    _resource_before = ResourceUsage.current()
-
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
-
-
-def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
-    global _resource_before
-    if _resource_before is None:
-        return
-
-    after = ResourceUsage.current()
-    if after is None:
-        return
-
-    delta = after - _resource_before
-    if delta.exceeds_threshold():
-        _resource_heavy_tests[item.nodeid] = delta
-
-    _resource_before = None
 
 
 def fetch_pr_labels():
@@ -392,7 +386,8 @@ def fetch_pr_labels():
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
+    global _PREV_USAGE
     outcome = yield
 
     # Handle rerun outcome
@@ -400,30 +395,26 @@ def pytest_report_teststatus(report, config):
         outcome.force_result(("rerun", "R", ("RERUN", {"yellow": True})))
         return
 
-    if report.when == "call":
+    if report.when == "setup" and _PREV_USAGE is None:
         try:
-            import psutil
+            _PREV_USAGE = ResourceUsage.snapshot()
+        except ImportError:
+            pass
+
+    elif report.when == "call":
+        try:
+            usage = ResourceUsage.snapshot()
         except ImportError:
             return
 
-        (*rest, result) = outcome.get_result()
-        mem = psutil.virtual_memory()
-        mem_used = mem.used / 1024**3
-        mem_total = mem.total / 1024**3
+        if _PREV_USAGE:
+            delta = usage - _PREV_USAGE
+            if delta.exceeds_threshold():
+                _resource_heavy_tests[report.nodeid] = delta.format()
 
-        disk = psutil.disk_usage("/")
-        disk_used = disk.used / 1024**3
-        disk_total = disk.total / 1024**3
-        outcome.force_result(
-            (
-                *rest,
-                (
-                    f"{result} | "
-                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
-                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
-                ),
-            )
-        )
+        (*rest, result) = outcome.get_result()
+        outcome.force_result((*rest, f"{result} | {usage.format()}"))
+        _PREV_USAGE = usage
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -582,8 +573,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     # Display resource-heavy tests
     if _resource_heavy_tests:
         terminalreporter.section("Resource-heavy tests", yellow=True)
-        for test_name, delta in _resource_heavy_tests.items():
-            terminalreporter.write(f"{test_name}: {delta.format_exceeded()}\n")
+        for test_name, stats in _resource_heavy_tests.items():
+            terminalreporter.write(f"{test_name}: {stats}\n")
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
