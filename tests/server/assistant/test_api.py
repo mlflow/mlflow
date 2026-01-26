@@ -16,7 +16,6 @@ from mlflow.assistant.providers.base import (
     ProviderConfig,
 )
 from mlflow.assistant.types import Event, Message
-from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager
 
@@ -327,7 +326,6 @@ def test_validate_session_id_rejects_path_traversal():
 def test_install_skills_success(client):
     with (
         patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
-        patch("mlflow.server.assistant.api.check_git_available", return_value=True),
         patch(
             "mlflow.server.assistant.api.install_skills", return_value=["skill1", "skill2"]
         ) as mock_install,
@@ -372,39 +370,3 @@ def test_install_skills_skips_when_already_installed(client):
         mock_list.assert_called_once()
 
 
-def test_install_skills_returns_412_when_git_not_available(client):
-    with (
-        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
-        patch("mlflow.server.assistant.api.check_git_available", return_value=False),
-    ):
-        mock_config = AssistantConfig()
-        mock_load.return_value = mock_config
-
-        response = client.post(
-            "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"type": "custom", "custom_path": "/tmp/test-skills"},
-        )
-
-        assert response.status_code == 412
-        assert "Git is not installed" in response.json()["detail"]
-
-
-def test_install_skills_returns_500_when_clone_fails(client):
-    with (
-        patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load,
-        patch("mlflow.server.assistant.api.check_git_available", return_value=True),
-        patch(
-            "mlflow.server.assistant.api.install_skills",
-            side_effect=MlflowException("Failed to clone repository"),
-        ),
-    ):
-        mock_config = AssistantConfig()
-        mock_load.return_value = mock_config
-
-        response = client.post(
-            "/ajax-api/3.0/mlflow/assistant/skills/install",
-            json={"type": "custom", "custom_path": "/tmp/test-skills"},
-        )
-
-        assert response.status_code == 500
-        assert "Failed to clone repository" in response.json()["detail"]

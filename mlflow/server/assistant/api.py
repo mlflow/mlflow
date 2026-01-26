@@ -22,13 +22,8 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
-from mlflow.assistant.skills import (
-    check_git_available,
-    install_skills,
-    list_installed_skills,
-)
+from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
-from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.session import SessionManager
 
 # TODO: Hardcoded provider until supporting multiple providers
@@ -287,7 +282,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
 @assistant_router.post("/skills/install")
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
-    Install skills from the MLflow skills repository.
+    Install skills bundled with MLflow.
     This endpoint only handles installation. Config updates should be done via PUT /config.
 
     Args:
@@ -298,8 +293,6 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
     Raises:
         HTTPException 400: If custom type without custom_path or project type without experiment_id.
-        HTTPException 412: If git is not installed.
-        HTTPException 500: If cloning fails.
     """
     config = AssistantConfig.load()
 
@@ -330,13 +323,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
             installed_skills=current_skills, skills_directory=skills_path_str
         )
 
-    # Install skills
-    if not check_git_available():
-        raise HTTPException(status_code=412, detail="Git is not installed or not available in PATH")
-
-    try:
-        installed = install_skills(skills_path_str)
-    except MlflowException as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Install skills from bundled package
+    installed = install_skills(skills_path_str)
 
     return SkillsInstallResponse(installed_skills=installed, skills_directory=skills_path_str)

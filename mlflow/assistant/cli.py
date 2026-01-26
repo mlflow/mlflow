@@ -11,8 +11,7 @@ import click
 from mlflow.assistant.config import AssistantConfig, ProjectConfig, SkillsConfig
 from mlflow.assistant.providers import AssistantProvider, list_providers
 from mlflow.assistant.providers.base import ProviderNotConfiguredError
-from mlflow.assistant.skills import check_git_available, install_skills
-from mlflow.exceptions import MlflowException
+from mlflow.assistant.skill_installer import install_skills
 
 
 class Spinner:
@@ -462,7 +461,7 @@ def _prompt_skill_location(project_path: Path | None) -> SkillsConfig:
 def _install_skills(
     provider: AssistantProvider, skills_config: SkillsConfig, project_path: Path | None
 ) -> Path:
-    """Install skills from the MLflow skills repository.
+    """Install skills bundled with MLflow.
 
     Returns:
         The resolved path where skills were installed.
@@ -473,18 +472,7 @@ def _install_skills(
         project_path=project_path,
     )
 
-    if not check_git_available():
-        click.secho("Git is not installed or not available in PATH.", fg="red")
-        click.secho("Skills installation skipped.", fg="yellow")
-        click.echo()
-        return skill_path
-
-    try:
-        installed_skills = install_skills(str(skill_path))
-    except MlflowException as e:
-        click.secho(f"Failed to install skills: {e}", fg="red")
-        click.echo()
-        return skill_path
+    installed_skills = install_skills(str(skill_path))
 
     if installed_skills:
         click.secho(f"Installed skills to {skill_path}:", fg="green")
@@ -503,7 +491,6 @@ def _save_config(provider: AssistantProvider, model: str, skills_config: SkillsC
 
     config = AssistantConfig.load()
     config.set_provider(provider.name, model)
-    # Save skills config to the provider
     config.providers[provider.name].skills = skills_config
     config.save()
 

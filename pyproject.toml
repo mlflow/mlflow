@@ -154,6 +154,7 @@ mlflow = [
   "ai_commands/**/*.md",
   "models/container/**/*",
   "server/js/build/**/*",
+  "assistant/skills/**/*",
 ]
 
 [tool.setuptools.packages.find]
