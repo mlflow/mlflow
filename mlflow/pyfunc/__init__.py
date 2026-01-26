@@ -591,7 +591,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
-from mlflow.utils.uv_utils import copy_uv_project_files
+from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -3782,7 +3782,16 @@ def _save_model_with_loader_module_and_data_path(
     # Copy UV project files (uv.lock and pyproject.toml) if detected
     copy_uv_project_files(path, source_dir=original_cwd)
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    # Use UV project's Python version if available, otherwise use current
+    if uv_python_version := get_python_version_from_uv_project(original_cwd):
+        python_env = _PythonEnv(
+            python=uv_python_version,
+            build_dependencies=_PythonEnv.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    else:
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 
