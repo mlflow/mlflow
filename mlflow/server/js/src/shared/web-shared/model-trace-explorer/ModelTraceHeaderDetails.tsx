@@ -16,10 +16,12 @@ import type { ModelTrace, ModelTraceInfoV3, ModelTraceState } from './ModelTrace
 import {
   createTraceV4LongIdentifier,
   doesTraceSupportV4API,
+  getTraceCost,
   getTraceTokenUsage,
   isV3ModelTraceInfo,
 } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
+import { isTraceCostType, ModelTraceExplorerCostHoverCard, type TraceCost } from './ModelTraceExplorerCostHoverCard';
 import {
   isTokenUsageType,
   ModelTraceExplorerTokenUsageHoverCard,
@@ -52,6 +54,11 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
 
   const tokenUsage = useMemo<Partial<TokenUsage> | undefined>(
     () => getTraceTokenUsage(modelTraceInfo as ModelTraceInfoV3) as Partial<TokenUsage> | undefined,
+    [modelTraceInfo],
+  );
+
+  const cost = useMemo<Partial<TraceCost> | undefined>(
+    () => getTraceCost(modelTraceInfo as ModelTraceInfoV3) as Partial<TraceCost> | undefined,
     [modelTraceInfo],
   );
 
@@ -111,6 +118,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           />
         )}
         {isTokenUsageType(tokenUsage) && <ModelTraceExplorerTokenUsageHoverCard tokenUsage={tokenUsage} />}
+        {isTraceCostType(cost) && <ModelTraceExplorerCostHoverCard cost={cost} />}
         {latency && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="Latency" description="Label for the latency section" />}
