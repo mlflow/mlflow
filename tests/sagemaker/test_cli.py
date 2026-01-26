@@ -30,11 +30,7 @@ def cleanup_base_image():
     yield
     for img in client.images.list():
         if img.id not in images:
-            try:
-                client.images.remove(img.id, force=True)
-            except Exception:
-                # Ignore errors during cleanup
-                pass
+            client.images.remove(img.id, force=True)
 
 
 @pytest.mark.parametrize(
