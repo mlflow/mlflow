@@ -40,3 +40,5 @@ dspy
 gepa
 # required for testing docker compose
 testcontainers
+# required for testing cost tracking
+litellm
