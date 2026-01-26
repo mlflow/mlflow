@@ -71,13 +71,20 @@ def prompt_optimization_autolog(
                 mlflow.log_metric("initial_eval_score", output.initial_eval_score)
             if output.final_eval_score is not None:
                 mlflow.log_metric("final_eval_score", output.final_eval_score)
-            # Log per-scorer metrics (for API response parsing)
             if output.initial_eval_score_per_scorer:
-                for scorer_name, score in output.initial_eval_score_per_scorer.items():
-                    mlflow.log_metric(f"initial_eval_score.{scorer_name}", score)
+                mlflow.log_metrics(
+                    {
+                        f"initial_eval_score.{scorer_name}": score
+                        for scorer_name, score in output.initial_eval_score_per_scorer.items()
+                    }
+                )
             if output.final_eval_score_per_scorer:
-                for scorer_name, score in output.final_eval_score_per_scorer.items():
-                    mlflow.log_metric(f"final_eval_score.{scorer_name}", score)
+                mlflow.log_metrics(
+                    {
+                        f"final_eval_score.{scorer_name}": score
+                        for scorer_name, score in output.final_eval_score_per_scorer.items()
+                    }
+                )
 
 
 def validate_train_data(

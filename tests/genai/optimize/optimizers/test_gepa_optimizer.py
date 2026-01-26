@@ -5,8 +5,8 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from packaging.version import Version
 
+import mlflow
 from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
@@ -257,7 +257,7 @@ def test_gepa_optimizer_import_error(
     with patch.dict("sys.modules", {"gepa": None}):
         optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
-        with pytest.raises(ImportError, match="GEPA is not installed"):
+        with pytest.raises(ImportError, match="GEPA >= 0.0.18 is required"):
             optimizer.optimize(
                 eval_fn=mock_eval_fn,
                 train_data=sample_train_data,
@@ -457,13 +457,11 @@ def test_make_reflective_dataset_with_traces(
     assert system_data[1]["expectations"] == {"expected_response": "Paris"}
 
 
-@pytest.mark.parametrize("gepa_version", ["0.0.9", "0.0.18", "0.1.0"])
 @pytest.mark.parametrize("enable_tracking", [True, False])
-def test_gepa_optimizer_version_check(
+def test_gepa_optimizer_passes_use_mlflow(
     sample_train_data: list[dict[str, Any]],
     sample_target_prompts: dict[str, str],
     mock_eval_fn: Any,
-    gepa_version: str,
     enable_tracking: bool,
 ):
     mock_gepa_module = MagicMock()
@@ -481,10 +479,7 @@ def test_gepa_optimizer_version_check(
 
     optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
-    with (
-        patch.dict(sys.modules, mock_modules),
-        patch("importlib.metadata.version", return_value=gepa_version),
-    ):
+    with patch.dict(sys.modules, mock_modules):
         optimizer.optimize(
             eval_fn=mock_eval_fn,
             train_data=sample_train_data,
@@ -493,12 +488,8 @@ def test_gepa_optimizer_version_check(
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
-
-    if Version(gepa_version) < Version("0.0.10"):
-        assert "use_mlflow" not in call_kwargs
-    else:
-        assert "use_mlflow" in call_kwargs
-        assert call_kwargs["use_mlflow"] == enable_tracking
+    assert "use_mlflow" in call_kwargs
+    assert call_kwargs["use_mlflow"] == enable_tracking
 
 
 def test_gepa_optimizer_logs_prompt_candidates(
@@ -519,6 +510,7 @@ def test_gepa_optimizer_logs_prompt_candidates(
 
     logged_artifacts = []
     logged_tables = []
+    logged_metrics = []
 
     with patch.dict(sys.modules, mock_modules):
         captured_adapter = None
@@ -534,40 +526,51 @@ def test_gepa_optimizer_logs_prompt_candidates(
 
         mock_gepa_module.optimize = mock_optimize_fn
 
-        with (
-            patch("mlflow.active_run") as mock_active_run,
-            patch("mlflow.log_artifact") as mock_log_artifact,
-            patch("mlflow.log_table") as mock_log_table,
-        ):
-            mock_run = Mock()
-            mock_active_run.return_value = mock_run
+        with mlflow.start_run():
+            with (
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_artifact"
+                ) as mock_log_artifact,
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_table"
+                ) as mock_log_table,
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_metrics"
+                ) as mock_log_metrics,
+            ):
 
-            def capture_artifact(path, artifact_path=None):
-                with open(path) as f:
-                    logged_artifacts.append(
-                        {"path": path, "artifact_path": artifact_path, "content": f.read()}
-                    )
+                def capture_artifact(path, artifact_path=None):
+                    with open(path) as f:
+                        logged_artifacts.append(
+                            {"path": str(path), "artifact_path": artifact_path, "content": f.read()}
+                        )
 
-            def capture_table(data, artifact_file):
-                logged_tables.append({"data": data, "artifact_file": artifact_file})
+                def capture_table(data, artifact_file):
+                    logged_tables.append({"data": data, "artifact_file": artifact_file})
 
-            mock_log_artifact.side_effect = capture_artifact
-            mock_log_table.side_effect = capture_table
+                def capture_metrics(metrics, step=None):
+                    logged_metrics.append({"metrics": metrics, "step": step})
 
-            optimizer.optimize(
-                eval_fn=mock_eval_fn,
-                train_data=sample_train_data,
-                target_prompts=sample_target_prompts,
-                enable_tracking=True,
-            )
+                mock_log_artifact.side_effect = capture_artifact
+                mock_log_table.side_effect = capture_table
+                mock_log_metrics.side_effect = capture_metrics
 
-            # First: minibatch evaluation (should NOT log any artifacts)
-            minibatch = sample_train_data[:2]
-            captured_adapter.evaluate(minibatch, {"system_prompt": "Test"}, capture_traces=False)
+                optimizer.optimize(
+                    eval_fn=mock_eval_fn,
+                    train_data=sample_train_data,
+                    target_prompts=sample_target_prompts,
+                    enable_tracking=True,
+                )
 
-            # Second: full dataset validation (should log artifacts)
-            candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
-            captured_adapter.evaluate(sample_train_data, candidate, capture_traces=False)
+                # First: minibatch evaluation (should NOT log any artifacts)
+                minibatch = sample_train_data[:2]
+                captured_adapter.evaluate(
+                    minibatch, {"system_prompt": "Test"}, capture_traces=False
+                )
+
+                # Second: full dataset validation (should log artifacts)
+                candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
+                captured_adapter.evaluate(sample_train_data, candidate, capture_traces=False)
 
     # Verify scores.json was logged
     scores_artifact = next((a for a in logged_artifacts if "scores.json" in a["path"]), None)
@@ -600,6 +603,14 @@ def test_gepa_optimizer_logs_prompt_candidates(
     assert len(data["inputs"]) == len(sample_train_data)
     assert all(score == 0.9 for score in data["accuracy"])
     assert all(score == 0.7 for score in data["relevance"])
+
+    # Verify metrics were logged with step for time progression
+    assert len(logged_metrics) == 1
+    metrics = logged_metrics[0]
+    assert metrics["step"] == 0
+    assert metrics["metrics"]["eval_score"] == 0.8
+    assert metrics["metrics"]["eval_score.accuracy"] == 0.9
+    assert metrics["metrics"]["eval_score.relevance"] == 0.7
 
 
 @pytest.mark.parametrize(

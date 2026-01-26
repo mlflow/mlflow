@@ -1,12 +1,10 @@
-import importlib.metadata
 import json
 import logging
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from packaging.version import Version
-
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -16,6 +14,11 @@ if TYPE_CHECKING:
     import gepa
 
 _logger = logging.getLogger(__name__)
+
+# Artifact path and file name constants
+PROMPT_CANDIDATES_DIR = "prompt_candidates"
+EVAL_RESULTS_FILE = "eval_results.json"
+SCORES_FILE = "scores.json"
 
 
 @experimental(version="3.5.0")
@@ -140,7 +143,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             import gepa
         except ImportError as e:
             raise ImportError(
-                "GEPA is not installed. Please install it with: `pip install gepa`"
+                "GEPA >= 0.0.18 is required. Please install it with: `pip install 'gepa>=0.0.18'`"
             ) from e
 
         provider, model = _parse_model_uri(self.reflection_model)
@@ -178,7 +181,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 Args:
                     batch: List of data instances to evaluate
                     candidate: Proposed text components (prompts)
-                    capture_traces: Whether to capture execution traces.
+                    capture_traces: Whether to capture execution traces
 
                 Returns:
                     EvaluationBatch with outputs, scores, and optional trajectories
@@ -215,10 +218,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     candidate: The candidate prompts being validated
                     eval_results: Evaluation results containing scores
                 """
-                import mlflow
-
-                active_run = mlflow.active_run()
-                if active_run is None:
+                if not self.tracking_enabled:
                     return
 
                 iteration = self.validation_iteration
@@ -229,26 +229,16 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     sum(r.score for r in eval_results) / len(eval_results) if eval_results else 0.0
                 )
 
-                # Compute per-scorer average scores
+                # Collect all scorer names
                 scorer_names = set()
                 for result in eval_results:
-                    scorer_names.update(result.individual_scores.keys())
-
-                per_scorer_scores = {}
-                for scorer_name in scorer_names:
-                    scores = [
-                        r.individual_scores.get(scorer_name)
-                        for r in eval_results
-                        if scorer_name in r.individual_scores
-                    ]
-                    if scores:
-                        per_scorer_scores[scorer_name] = sum(scores) / len(scores)
+                    scorer_names |= result.individual_scores.keys()
 
                 # Build the evaluation results table and log to MLflow as a table artifact
                 eval_results_table = {
-                    "inputs": [json.dumps(r.inputs) for r in eval_results],
-                    "output": [json.dumps(r.outputs) for r in eval_results],
-                    "expectation": [json.dumps(r.expectations) for r in eval_results],
+                    "inputs": [r.inputs for r in eval_results],
+                    "output": [r.outputs for r in eval_results],
+                    "expectation": [r.expectations for r in eval_results],
                     "aggregate_score": [r.score for r in eval_results],
                 }
                 for scorer_name in scorer_names:
@@ -256,10 +246,28 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                         r.individual_scores.get(scorer_name) for r in eval_results
                     ]
 
-                iteration_dir = f"prompt_candidates/iteration_{iteration}"
+                iteration_dir = f"{PROMPT_CANDIDATES_DIR}/iteration_{iteration}"
                 mlflow.log_table(
                     data=eval_results_table,
-                    artifact_file=f"{iteration_dir}/eval_results.json",
+                    artifact_file=f"{iteration_dir}/{EVAL_RESULTS_FILE}",
+                )
+
+                # Compute per-scorer average scores
+                per_scorer_scores = {}
+                for scorer_name in scorer_names:
+                    scores = [
+                        r.individual_scores[scorer_name]
+                        for r in eval_results
+                        if scorer_name in r.individual_scores
+                    ]
+                    if scores:
+                        per_scorer_scores[scorer_name] = sum(scores) / len(scores)
+
+                # Log per-scorer metrics for time progression visualization
+                mlflow.log_metrics(
+                    {"eval_score": aggregate_score}
+                    | {f"eval_score.{name}": score for name, score in per_scorer_scores.items()},
+                    step=iteration,
                 )
 
                 # Log scores summary as JSON artifact
@@ -269,17 +277,17 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 }
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     tmp_path = Path(tmp_dir)
-                    scores_path = tmp_path / "scores.json"
+                    scores_path = tmp_path / SCORES_FILE
                     with open(scores_path, "w") as f:
                         json.dump(scores_data, f, indent=2)
-                    mlflow.log_artifact(str(scores_path), artifact_path=iteration_dir)
+                    mlflow.log_artifact(scores_path, artifact_path=iteration_dir)
 
                     # Write each prompt as a separate text file
                     for prompt_name, prompt_text in candidate.items():
                         prompt_path = tmp_path / f"{prompt_name}.txt"
                         with open(prompt_path, "w") as f:
                             f.write(prompt_text)
-                        mlflow.log_artifact(str(prompt_path), artifact_path=iteration_dir)
+                        mlflow.log_artifact(prompt_path, artifact_path=iteration_dir)
 
             def make_reflective_dataset(
                 self,
@@ -350,8 +358,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             "use_mlflow": enable_tracking,
         }
 
-        if Version(importlib.metadata.version("gepa")) < Version("0.0.18"):
-            kwargs.pop("use_mlflow")
         gepa_result = gepa.optimize(**kwargs)
 
         optimized_prompts = gepa_result.best_candidate
