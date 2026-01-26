@@ -6571,6 +6571,10 @@
     "defaultMessage": "Params",
     "description": "Header for parameter columns in the evaluation runs table column configuration"
   },
+  "mYcueV": {
+    "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
+    "description": "Warning banner shown on the Overview tab when using FileStore backend"
+  },
   "md81Lo": {
     "defaultMessage": "Error",
     "description": "MLflow trace notebook output > error state title"
