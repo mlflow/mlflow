@@ -11,6 +11,8 @@ class TraceMetadataKey:
     SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
+    COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
     # tag, which stores "who created the trace" i.e. developer or system name.
     TRACE_USER = "mlflow.trace.user"

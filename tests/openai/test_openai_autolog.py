@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
+    CostKey,
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
@@ -138,6 +139,11 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
+    }
+    assert trace.info.cost == {
+        CostKey.INPUT_COST: 9.0,
+        CostKey.OUTPUT_COST: 24.0,
+        CostKey.TOTAL_COST: 33.0,
     }
 
 

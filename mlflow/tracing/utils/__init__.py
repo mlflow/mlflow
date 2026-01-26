@@ -227,6 +227,53 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     }
 
 
+def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
+    input_cost = 0.0
+    output_cost = 0.0
+    total_cost = 0.0
+    has_cost_data = False
+
+    span_id_to_spans = {span.span_id: span for span in spans}
+    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
+    roots: list[LiveSpan] = []
+
+    for span in spans:
+        parent_id = span.parent_id
+        if parent_id and parent_id in span_id_to_spans:
+            children_map[parent_id].append(span)
+        else:
+            roots.append(span)
+
+    def dfs(span: LiveSpan, ancestor_has_cost: bool) -> None:
+        nonlocal input_cost, output_cost, total_cost, has_cost_data
+
+        cost = span.get_attribute(SpanAttributeKey.CHAT_COST)
+        span_has_cost = cost is not None
+
+        if span_has_cost and not ancestor_has_cost:
+            input_cost += cost.get(CostKey.INPUT_COST, 0.0)
+            output_cost += cost.get(CostKey.OUTPUT_COST, 0.0)
+            total_cost += cost.get(CostKey.TOTAL_COST, 0.0)
+            has_cost_data = True
+
+        next_ancestor_has_cost = ancestor_has_cost or span_has_cost
+        for child in children_map.get(span.span_id, []):
+            dfs(child, next_ancestor_has_cost)
+
+    for root in roots:
+        dfs(root, False)
+
+    # If none of the spans have cost data, we shouldn't log cost metadata.
+    if not has_cost_data:
+        return None
+
+    return {
+        CostKey.INPUT_COST: input_cost,
+        CostKey.OUTPUT_COST: output_cost,
+        CostKey.TOTAL_COST: total_cost,
+    }
+
+
 def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     """Calculate cost for a single span using LiteLLM pricing data.
 
