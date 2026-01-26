@@ -12,6 +12,25 @@ from pathlib import Path
 SKILL_MANIFEST_FILE = "SKILL.md"
 
 
+def _get_skills_source_path() -> Path | None:
+    """Get the filesystem path to the bundled skills package.
+
+    Returns:
+        Path to the skills directory, or None if not available.
+    """
+    skills_pkg = files("mlflow.assistant.skills")
+
+    # For directory-based packages (editable installs, source), _paths gives us the path
+    if hasattr(skills_pkg, "_paths") and skills_pkg._paths:
+        return skills_pkg._paths[0]
+
+    # For MultiplexedPath (namespace packages), try _path attribute
+    if hasattr(skills_pkg, "_path"):
+        return Path(skills_pkg._path)
+
+    return None
+
+
 def install_skills(destination_path: Path) -> list[str]:
     """
     Install MLflow skills to the specified destination path (e.g., ~/.claude/skills).
@@ -24,7 +43,11 @@ def install_skills(destination_path: Path) -> list[str]:
     """
     destination_dir = destination_path.expanduser()
 
-    skill_dirs = _get_skills_to_install()
+    skills_path = _get_skills_source_path()
+    if skills_path is None:
+        return []
+
+    skill_dirs = _find_skill_directories(skills_path)
     if not skill_dirs:
         return []
 
@@ -51,16 +74,6 @@ def list_installed_skills(destination_path: Path) -> list[str]:
     if not destination_path.exists():
         return []
     return sorted(d.name for d in _find_skill_directories(destination_path))
-
-
-def _get_skills_to_install() -> list[Path]:
-    skills_path = _get_subtree_skills_path()
-    return _find_skill_directories(skills_path)
-
-
-def _get_subtree_skills_path() -> Path:
-    # Load skills from the mlflow.assistant.skills subtree
-    return files("mlflow.assistant.skills")._paths[0]
 
 
 def _find_skill_directories(path: Path) -> list[Path]:
