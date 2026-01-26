@@ -73,8 +73,6 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
-  /** Whether the Assistant feature is enabled globally (user setting) */
-  isAssistantEnabled: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -92,8 +90,6 @@ export interface AssistantAgentActions {
   refreshConfig: () => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */
   completeSetup: () => void;
-  /** Enable or disable the Assistant feature globally */
-  setAssistantEnabled: (enabled: boolean) => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;

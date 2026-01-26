@@ -154,7 +154,7 @@ export function MlflowSidebar() {
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
-  const { openPanel, closePanel, isPanelOpen, isLocalServer, isAssistantEnabled } = useAssistant();
+  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
   const handleAssistantToggle = useCallback(() => {
@@ -459,94 +459,95 @@ export function MlflowSidebar() {
 
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <ul
-            css={{
-              listStyleType: 'none',
-              padding: 0,
-              margin: 0,
-            }}
-          >
-            {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
-              <li key={key}>
-                <Link
-                  to={linkProps.to}
-                  aria-current={linkProps.isActive(location) ? 'page' : undefined}
-                  css={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    color: theme.colors.textPrimary,
-                    paddingInline: theme.spacing.md,
-                    paddingBlock: theme.spacing.xs,
-                    borderRadius: theme.borders.borderRadiusSm,
-                    '&:hover': {
-                      color: theme.colors.actionLinkHover,
-                      backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                    },
-                    '&[aria-current="page"]': {
-                      backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                      color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-                      fontWeight: theme.typography.typographyBoldFontWeight,
-                    },
-                  }}
-                  onClick={() =>
-                    logTelemetryEvent({
-                      componentId,
-                      componentViewId: viewId,
-                      componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                      componentSubType: null,
-                      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-                    })
-                  }
-                >
-                  {icon}
-                  {linkProps.children}
-                </Link>
-                {nestedItemsGroups && nestedItemsGroups.length > 0 && (
-                  <ul css={NESTED_ITEMS_UL_CSS}>
-                    {nestedItemsGroups.map((group) => (
-                      <Fragment key={group.sectionKey}>
-                        {group.sectionKey !== 'top-level' && (
-                          <li
-                            css={{
-                              display: 'flex',
-                              marginTop: theme.spacing.xs,
-                              marginBottom: theme.spacing.xs,
-                              position: 'relative',
-                              height: theme.typography.lineHeightBase,
-                              paddingLeft: 40,
-                            }}
-                          >
-                            <Typography.Text size="sm" color="secondary">
-                              {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                            </Typography.Text>
-                          </li>
-                        )}
-                        {group.items.map((nestedItem) => {
-                          const isDisabled = !experimentId && key === 'experiments';
-                          return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
-                        })}
-                      </Fragment>
-                    ))}
-                  </ul>
-                )}
-                {nestedItems && nestedItems.length > 0 && (
-                  <ul css={NESTED_ITEMS_UL_CSS}>
-                    {nestedItems.map((nestedItem) => (
-                      <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
+          css={{
+            listStyleType: 'none',
+            padding: 0,
+            margin: 0,
+          }}
+        >
+          {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
+            <li key={key}>
+              <Link
+                to={linkProps.to}
+                aria-current={linkProps.isActive(location) ? 'page' : undefined}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  color: theme.colors.textPrimary,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusSm,
+                  '&:hover': {
+                    color: theme.colors.actionLinkHover,
+                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                  },
+                  '&[aria-current="page"]': {
+                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                    fontWeight: theme.typography.typographyBoldFontWeight,
+                  },
+                }}
+                onClick={() =>
+                  logTelemetryEvent({
+                    componentId,
+                    componentViewId: viewId,
+                    componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                    componentSubType: null,
+                    eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+                  })
+                }
+              >
+                {icon}
+                {linkProps.children}
+              </Link>
+              {nestedItemsGroups && nestedItemsGroups.length > 0 && (
+                <ul css={NESTED_ITEMS_UL_CSS}>
+                  {nestedItemsGroups.map((group) => (
+                    <Fragment key={group.sectionKey}>
+                      {group.sectionKey !== 'top-level' && (
+                        <li
+                          css={{
+                            display: 'flex',
+                            marginTop: theme.spacing.xs,
+                            marginBottom: theme.spacing.xs,
+                            position: 'relative',
+                            height: theme.typography.lineHeightBase,
+                            paddingLeft: 40,
+                          }}
+                        >
+                          <Typography.Text size="sm" color="secondary">
+                            {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
+                          </Typography.Text>
+                        </li>
+                      )}
+                      {group.items.map((nestedItem) => {
+                        const isDisabled = !experimentId && key === 'experiments';
+                        return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
+                      })}
+                    </Fragment>
+                  ))}
+                </ul>
+              )}
+              {nestedItems && nestedItems.length > 0 && (
+                <ul css={NESTED_ITEMS_UL_CSS}>
+                  {nestedItems.map((nestedItem) => (
+                    <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
         <div>
-          {isLocalServer && isAssistantEnabled && (
+          {isLocalServer && (
             <div
               css={{
                 padding: 2,
                 marginBottom: theme.spacing.xs,
                 borderRadius: theme.borders.borderRadiusMd,
-                background: 'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
+                background:
+                  'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
               }}
             >
               <div
@@ -574,7 +575,7 @@ export function MlflowSidebar() {
                 onMouseLeave={() => setIsAssistantHovered(false)}
               >
                 <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                <Typography.Text bold={isPanelOpen} color="primary">
+                <Typography.Text color="primary">
                   <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
                 </Typography.Text>
                 <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>

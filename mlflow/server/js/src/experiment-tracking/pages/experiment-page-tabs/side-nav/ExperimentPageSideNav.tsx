@@ -71,16 +71,18 @@ export const ExperimentPageSideNav = ({
           : {}),
       }}
     >
-      <div>
+      <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+        <div>
+          {Object.entries(sideNavConfig).map(([sectionKey, items]) => (
+            <ExperimentPageSideNavSection
+              key={sectionKey}
+              activeTab={activeTab}
+              sectionKey={sectionKey as ExperimentPageSideNavSectionKey}
+              items={items}
+            />
+          ))}
+        </div>
         <ExperimentPageSideNavAssistantButton />
-        {Object.entries(sideNavConfig).map(([sectionKey, items]) => (
-          <ExperimentPageSideNavSection
-            key={sectionKey}
-            activeTab={activeTab}
-            sectionKey={sectionKey as ExperimentPageSideNavSectionKey}
-            items={items}
-          />
-        ))}
       </div>
     </div>
   );
