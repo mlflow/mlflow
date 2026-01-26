@@ -4,7 +4,7 @@ from clint.resolver import Resolver
 from clint.rules.base import Rule
 
 
-class ThreadPoolExecutorWithoutThreadNamePrefix(Rule):
+class UnnamedThreadPool(Rule):
     def _message(self) -> str:
         return (
             "`ThreadPoolExecutor()` must be called with a `thread_name_prefix` argument to improve "

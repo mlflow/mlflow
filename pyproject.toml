@@ -229,8 +229,7 @@ docs = [
   "datasets",
   "plotly",
   "torch>=1.11.0",
-  # TODO: Unpin once https://github.com/astral-sh/uv/issues/16386 is resolved
-  "torchvision>=0.12.0,<0.24.0",
+  "torchvision>=0.12.0,!=0.24.0",
   "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
@@ -451,7 +450,7 @@ example-rules = [
 "^(?!mlflow/).*$" = [
   "forbidden-set-active-model-usage",
   "unnamed-thread",
-  "thread-pool-executor-without-thread-name-prefix",
+  "unnamed-thread-pool",
 ]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
@@ -543,7 +542,7 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:mlflow",
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
-  "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
+  "ignore:The filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
   # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
   "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
 ]

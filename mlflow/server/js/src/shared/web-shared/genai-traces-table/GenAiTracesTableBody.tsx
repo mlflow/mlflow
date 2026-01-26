@@ -135,8 +135,8 @@ export const GenAiTracesTableBody = React.memo(
     );
 
     const sortedGroupedColumns = useMemo(
-      () => sortGroupedColumns(selectedColumns, isComparing),
-      [selectedColumns, isComparing],
+      () => sortGroupedColumns(selectedColumns, isComparing, isGroupedBySession),
+      [selectedColumns, isComparing, isGroupedBySession],
     );
 
     const { columns } = useMemo(() => {
@@ -215,6 +215,15 @@ export const GenAiTracesTableBody = React.memo(
 
     const { setTable, setSelectedRowIds } = React.useContext(GenAITracesTableContext);
 
+    // Compute grouped rows when session grouping is enabled
+    const { groupedRows, traceIdToTurnMap } = useMemo(
+      () =>
+        isGroupedBySession
+          ? groupTracesBySessionForTable(evaluations, expandedSessions)
+          : { groupedRows: [], traceIdToTurnMap: {} },
+      [isGroupedBySession, evaluations, expandedSessions],
+    );
+
     const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>(
       'js/packages/web-shared/src/genai-traces-table/GenAiTracesTableBody.tsx',
       {
@@ -231,6 +240,7 @@ export const GenAiTracesTableBody = React.memo(
         },
         meta: {
           getRunColor,
+          traceIdToTurnMap,
         },
         onRowSelectionChange: setRowSelection,
         getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
@@ -341,12 +351,6 @@ export const GenAiTracesTableBody = React.memo(
     }, [tableSort, table]);
 
     const { rows } = table.getRowModel();
-
-    // Compute grouped rows when session grouping is enabled
-    const groupedRows = useMemo(
-      () => (isGroupedBySession ? groupTracesBySessionForTable(evaluations, expandedSessions) : []),
-      [isGroupedBySession, evaluations, expandedSessions],
-    );
 
     // The virtualizer needs to know the scrollable container element
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
