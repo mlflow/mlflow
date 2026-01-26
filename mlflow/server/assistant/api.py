@@ -279,7 +279,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                     )
                 config.projects[exp_id] = ProjectConfig(
                     type=project_data.get("type", "local"),
-                    location=project_path,
+                    location=str(project_path),
                 )
 
     config.save()
