@@ -199,6 +199,9 @@ def export_uv_requirements(
     no_hashes: bool = True,
     frozen: bool = True,
     uv_lock: str | Path | None = None,
+    groups: list[str] | None = None,
+    only_groups: list[str] | None = None,
+    extras: list[str] | None = None,
 ) -> list[str] | None:
     """
     Export dependencies from a UV project to pip-compatible requirements.
@@ -213,6 +216,12 @@ def export_uv_requirements(
         frozen: Use frozen lockfile without updating. Defaults to True.
         uv_lock: Explicit path to uv.lock file. When provided, the UV project directory
             is derived from this path (parent directory). Useful for monorepos.
+        groups: Optional list of dependency groups to include (additive with project deps).
+            Maps to `uv export --group <name>`.
+        only_groups: Optional list of dependency groups to export exclusively (no project deps).
+            Maps to `uv export --only-group <name>`. Mutually exclusive with `groups`.
+        extras: Optional list of optional dependency extras to include.
+            Maps to `uv export --extra <name>`.
 
     Returns:
         A list of requirement strings (e.g., ["requests==2.28.0", "numpy==1.24.0"]),
@@ -246,6 +255,19 @@ def export_uv_requirements(
         cmd.append("--no-hashes")
     if frozen:
         cmd.append("--frozen")
+
+    # Handle dependency groups (mutually exclusive: only_groups takes precedence)
+    if only_groups:
+        for group in only_groups:
+            cmd.extend(["--only-group", group])
+    elif groups:
+        for group in groups:
+            cmd.extend(["--group", group])
+
+    # Handle optional extras
+    if extras:
+        for extra in extras:
+            cmd.extend(["--extra", extra])
 
     # Additional flags for cleaner output
     cmd.extend(
@@ -466,3 +488,236 @@ def copy_uv_project_files(
     except Exception as e:
         _logger.warning(f"Failed to copy UV project files: {e}")
         return False
+
+
+# Environment variables for dependency groups (Phase 2)
+_MLFLOW_UV_GROUPS_ENV = "MLFLOW_UV_GROUPS"
+_MLFLOW_UV_ONLY_GROUPS_ENV = "MLFLOW_UV_ONLY_GROUPS"
+_MLFLOW_UV_EXTRAS_ENV = "MLFLOW_UV_EXTRAS"
+
+
+def _parse_comma_separated_env(env_var: str) -> list[str] | None:
+    """Parse a comma-separated environment variable into a list."""
+    value = os.environ.get(env_var, "").strip()
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def get_uv_groups_from_env() -> list[str] | None:
+    """Get UV dependency groups from MLFLOW_UV_GROUPS environment variable."""
+    return _parse_comma_separated_env(_MLFLOW_UV_GROUPS_ENV)
+
+
+def get_uv_only_groups_from_env() -> list[str] | None:
+    """Get UV-only dependency groups from MLFLOW_UV_ONLY_GROUPS environment variable."""
+    return _parse_comma_separated_env(_MLFLOW_UV_ONLY_GROUPS_ENV)
+
+
+def get_uv_extras_from_env() -> list[str] | None:
+    """Get UV extras from MLFLOW_UV_EXTRAS environment variable."""
+    return _parse_comma_separated_env(_MLFLOW_UV_EXTRAS_ENV)
+
+
+def extract_index_urls_from_uv_lock(uv_lock_path: str | Path) -> list[str]:
+    """
+    Extract private index URLs from a uv.lock file.
+
+    Parses the uv.lock TOML file to find package sources that use non-PyPI registries.
+    These URLs are returned as `--extra-index-url` compatible strings.
+
+    Note: Credentials are NEVER stored in uv.lock. Users must provide credentials
+    at restore time via UV_INDEX_* environment variables or .netrc file.
+
+    Args:
+        uv_lock_path: Path to the uv.lock file.
+
+    Returns:
+        A list of unique index URLs (excluding PyPI). Empty list if none found
+        or if parsing fails.
+    """
+    uv_lock_path = Path(uv_lock_path)
+    if not uv_lock_path.exists():
+        return []
+
+    try:
+        content = uv_lock_path.read_text()
+
+        # Extract registry URLs from uv.lock using regex
+        # Format in uv.lock: source = { registry = "https://..." }
+        registry_pattern = r'source\s*=\s*\{\s*registry\s*=\s*["\']([^"\']+)["\']'
+        urls = set(re.findall(registry_pattern, content))
+
+        # Filter out default PyPI URLs
+        pypi_urls = {
+            "https://pypi.org/simple",
+            "https://pypi.org/simple/",
+            "https://pypi.python.org/simple",
+            "https://pypi.python.org/simple/",
+        }
+        private_urls = [url for url in urls if url.lower() not in pypi_urls]
+
+        if private_urls:
+            _logger.info(f"Extracted {len(private_urls)} private index URL(s) from uv.lock")
+            _logger.warning(
+                "Private package indexes detected in UV lockfile. "
+                "Ensure credentials are available at model load time via "
+                "UV_INDEX_* environment variables or .netrc file."
+            )
+
+        return sorted(private_urls)
+
+    except Exception as e:
+        _logger.debug(f"Failed to extract index URLs from uv.lock: {e}")
+        return []
+
+
+def create_uv_sync_pyproject(
+    dest_dir: str | Path,
+    python_version: str,
+    project_name: str = "mlflow-model-env",
+) -> Path:
+    """
+    Create a minimal pyproject.toml for uv sync.
+
+    This is required for `uv sync --frozen` to work when restoring a model
+    environment from a uv.lock artifact.
+
+    Args:
+        dest_dir: Directory where pyproject.toml will be created.
+        python_version: Python version requirement (e.g., "3.11" or "3.11.5").
+        project_name: Name for the temporary project. Defaults to "mlflow-model-env".
+
+    Returns:
+        Path to the created pyproject.toml file.
+    """
+    dest_dir = Path(dest_dir)
+
+    # Normalize version to major.minor format for requires-python
+    version_parts = python_version.split(".")
+    requires_python = ".".join(version_parts[:2])
+
+    pyproject_content = f"""[project]
+name = "{project_name}"
+version = "0.0.0"
+requires-python = ">={requires_python}"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+"""
+
+    pyproject_path = dest_dir / _PYPROJECT_ARTIFACT_NAME
+    pyproject_path.write_text(pyproject_content)
+    _logger.debug(f"Created minimal pyproject.toml for uv sync at {pyproject_path}")
+
+    return pyproject_path
+
+
+def setup_uv_sync_environment(
+    env_dir: str | Path,
+    model_path: str | Path,
+    python_version: str,
+) -> bool:
+    """
+    Setup a UV project structure for environment restoration via `uv sync --frozen`.
+
+    Copies uv.lock from model artifacts and creates a minimal pyproject.toml
+    to enable exact environment restoration using UV.
+
+    Args:
+        env_dir: The environment directory where UV project will be set up.
+        model_path: Path to the model artifacts containing uv.lock.
+        python_version: Python version for the environment.
+
+    Returns:
+        True if setup succeeded (uv.lock exists in model artifacts), False otherwise.
+    """
+    env_dir = Path(env_dir)
+    model_path = Path(model_path)
+
+    uv_lock_artifact = model_path / _UV_LOCK_ARTIFACT_NAME
+    if not uv_lock_artifact.exists():
+        _logger.debug(f"No uv.lock found in model artifacts at {model_path}")
+        return False
+
+    env_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy uv.lock to environment directory
+    shutil.copy2(uv_lock_artifact, env_dir / _UV_LOCK_ARTIFACT_NAME)
+    _logger.debug(f"Copied uv.lock to {env_dir}")
+
+    # Create minimal pyproject.toml
+    create_uv_sync_pyproject(env_dir, python_version)
+
+    # Copy .python-version if it exists in model artifacts
+    python_version_artifact = model_path / _PYTHON_VERSION_FILE
+    if python_version_artifact.exists():
+        shutil.copy2(python_version_artifact, env_dir / _PYTHON_VERSION_FILE)
+        _logger.debug(f"Copied .python-version to {env_dir}")
+
+    _logger.info(f"Set up UV sync environment at {env_dir}")
+    return True
+
+
+def run_uv_sync(
+    project_dir: str | Path,
+    frozen: bool = True,
+    no_dev: bool = True,
+    capture_output: bool = False,
+) -> bool:
+    """
+    Run `uv sync` to install dependencies from a uv.lock file.
+
+    This provides exact cross-platform environment restoration, significantly
+    faster than pip-based installation.
+
+    Args:
+        project_dir: Directory containing pyproject.toml and uv.lock.
+        frozen: Use frozen lockfile without updating. Defaults to True.
+        no_dev: Exclude development dependencies. Defaults to True.
+        capture_output: Whether to capture stdout/stderr. Defaults to False.
+
+    Returns:
+        True if sync succeeded, False otherwise.
+    """
+    if not is_uv_available():
+        _logger.warning("UV is not available for environment sync")
+        return False
+
+    uv_bin = shutil.which("uv")
+    project_dir = Path(project_dir)
+
+    cmd = [uv_bin, "sync"]
+    if frozen:
+        cmd.append("--frozen")
+    if no_dev:
+        cmd.append("--no-dev")
+
+    try:
+        _logger.info(f"Running UV sync in {project_dir}")
+        _logger.debug(f"UV sync command: {' '.join(str(c) for c in cmd)}")
+
+        subprocess.run(
+            cmd,
+            cwd=project_dir,
+            capture_output=capture_output,
+            check=True,
+            text=True,
+        )
+
+        _logger.info("UV sync completed successfully")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        _logger.warning(f"UV sync failed with exit code {e.returncode}: {e.stderr}")
+        return False
+    except Exception as e:
+        _logger.warning(f"UV sync failed: {e}")
+        return False
+
+
+def has_uv_lock_artifact(model_path: str | Path) -> bool:
+    """Check if a model has a uv.lock artifact."""
+    return (Path(model_path) / _UV_LOCK_ARTIFACT_NAME).exists()

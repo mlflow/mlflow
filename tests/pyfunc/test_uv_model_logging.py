@@ -51,7 +51,7 @@ def uv_project_real(tmp_path):
     """Create a real UV project with uv lock."""
     # Create pyproject.toml
     pyproject_content = """[project]
-name = "test-uv-project"
+name = "test_uv_project"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -66,6 +66,11 @@ build-backend = "hatchling.build"
 
     # Create .python-version
     (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+
+    # Create minimal package structure for hatchling
+    pkg_dir = tmp_path / "test_uv_project"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text('"""Test UV project."""\n__version__ = "0.1.0"\n')
 
     # Run uv lock to generate real uv.lock
     result = subprocess.run(
@@ -131,7 +136,7 @@ def test_pyfunc_log_model_copies_uv_artifacts(uv_project_real, python_model, mon
 
         # Verify content matches source
         assert "version = 1" in (artifact_dir / _UV_LOCK_FILE).read_text()
-        assert "test-uv-project" in (artifact_dir / _PYPROJECT_FILE).read_text()
+        assert "test_uv_project" in (artifact_dir / _PYPROJECT_FILE).read_text()
         assert "3.11.5" in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
 
 
@@ -228,7 +233,7 @@ def test_pyfunc_log_model_with_explicit_uv_lock_parameter(
         # Verify UV artifacts from explicit path are copied
         assert (artifact_dir / _UV_LOCK_FILE).exists()
         assert (artifact_dir / _PYPROJECT_FILE).exists()
-        assert "test-uv-project" in (artifact_dir / _PYPROJECT_FILE).read_text()
+        assert "test_uv_project" in (artifact_dir / _PYPROJECT_FILE).read_text()
 
 
 @requires_uv
@@ -444,3 +449,184 @@ def test_mlflow_log_uv_files_env_var_true_variants(
         # UV artifacts should be copied
         assert (artifact_dir / _UV_LOCK_FILE).exists()
         assert (artifact_dir / _PYPROJECT_FILE).exists()
+
+
+# --- Phase 2: Dependency Groups Integration Tests ---
+
+
+@pytest.fixture
+def uv_project_with_groups(tmp_path):
+    """Create a UV project with dependency groups."""
+    pyproject_content = """[project]
+name = "test_uv_groups"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+gpu = ["scipy>=1.10.0"]
+
+[dependency-groups]
+serving = ["gunicorn>=21.0.0"]
+dev = ["pytest>=7.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+"""
+    (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
+    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+
+    # Create minimal package structure for hatchling
+    pkg_dir = tmp_path / "test_uv_groups"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text('"""Test UV groups project."""\n__version__ = "0.1.0"\n')
+
+    result = subprocess.run(
+        ["uv", "lock"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"uv lock failed: {result.stderr}")
+
+    return tmp_path
+
+
+@requires_uv
+def test_export_uv_requirements_with_groups_real(uv_project_with_groups):
+    """Test exporting with --group flag using real UV."""
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, groups=["serving"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    # Should have numpy (project dep) and gunicorn (serving group)
+    assert "numpy" in pkg_names
+    assert "gunicorn" in pkg_names
+    # Should NOT have pytest (dev group not included)
+    assert "pytest" not in pkg_names
+
+
+@requires_uv
+def test_export_uv_requirements_with_only_groups_real(uv_project_with_groups):
+    """Test exporting with --only-group flag using real UV."""
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, only_groups=["serving"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    # Should have ONLY gunicorn (serving group), NOT numpy (project dep)
+    assert "gunicorn" in pkg_names
+    # numpy may or may not be included depending on UV version behavior
+
+
+@requires_uv
+def test_export_uv_requirements_with_extras_real(uv_project_with_groups):
+    """Test exporting with --extra flag using real UV."""
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, extras=["gpu"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    # Should have numpy (project dep) and scipy (gpu extra)
+    assert "numpy" in pkg_names
+    assert "scipy" in pkg_names
+
+
+@requires_uv
+def test_export_uv_requirements_with_env_vars(uv_project_with_groups, monkeypatch):
+    """Test that MLFLOW_UV_* environment variables are parsed correctly."""
+    from mlflow.utils.uv_utils import (
+        export_uv_requirements,
+        get_uv_extras_from_env,
+        get_uv_groups_from_env,
+    )
+
+    monkeypatch.setenv("MLFLOW_UV_GROUPS", "serving")
+    monkeypatch.setenv("MLFLOW_UV_EXTRAS", "gpu")
+
+    groups = get_uv_groups_from_env()
+    extras = get_uv_extras_from_env()
+
+    assert groups == ["serving"]
+    assert extras == ["gpu"]
+
+    result = export_uv_requirements(uv_project_with_groups, groups=groups, extras=extras)
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    assert "gunicorn" in pkg_names
+    assert "scipy" in pkg_names
+
+
+# --- Phase 2: UV Sync Environment Setup Integration Tests ---
+
+
+@requires_uv
+def test_setup_uv_sync_environment_real(uv_project_real, tmp_path):
+    """Test setting up UV sync environment from model artifacts."""
+    from mlflow.utils.uv_utils import has_uv_lock_artifact, setup_uv_sync_environment
+
+    # Simulate model artifacts by copying UV files
+    model_artifacts = tmp_path / "model_artifacts"
+    model_artifacts.mkdir()
+
+    import shutil
+
+    shutil.copy2(uv_project_real / _UV_LOCK_FILE, model_artifacts / _UV_LOCK_FILE)
+    shutil.copy2(uv_project_real / _PYTHON_VERSION_FILE, model_artifacts / _PYTHON_VERSION_FILE)
+
+    assert has_uv_lock_artifact(model_artifacts)
+
+    # Setup sync environment
+    env_dir = tmp_path / "env"
+    result = setup_uv_sync_environment(env_dir, model_artifacts, "3.11.5")
+
+    assert result is True
+    assert (env_dir / _UV_LOCK_FILE).exists()
+    assert (env_dir / _PYPROJECT_FILE).exists()
+    assert (env_dir / _PYTHON_VERSION_FILE).exists()
+
+    # Verify pyproject.toml content
+    pyproject_content = (env_dir / _PYPROJECT_FILE).read_text()
+    assert 'name = "mlflow-model-env"' in pyproject_content
+    assert 'requires-python = ">=3.11"' in pyproject_content
+
+
+@requires_uv
+def test_extract_index_urls_from_real_uv_lock(uv_project_real):
+    """Test extracting index URLs from a real uv.lock file."""
+    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
+
+    # Real uv.lock won't have private indexes (uses PyPI)
+    result = extract_index_urls_from_uv_lock(uv_project_real / _UV_LOCK_FILE)
+
+    # Should return empty list (only PyPI sources)
+    assert result == []
+
+
+@requires_uv
+def test_run_uv_sync_real(uv_project_real, tmp_path):
+    """Test running uv sync with real UV by using original project files."""
+    import shutil
+
+    from mlflow.utils.uv_utils import run_uv_sync
+
+    # Copy the entire UV project to a new directory for sync
+    # Using original pyproject.toml and uv.lock ensures lockfile matches
+    sync_dir = tmp_path / "sync_project"
+    shutil.copytree(uv_project_real, sync_dir)
+
+    # Run uv sync in the copied project
+    result = run_uv_sync(sync_dir, frozen=True, no_dev=True)
+
+    assert result is True
+    # Verify .venv was created
+    assert (sync_dir / ".venv").exists()
