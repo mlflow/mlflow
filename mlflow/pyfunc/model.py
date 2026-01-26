@@ -95,7 +95,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.uv_utils import copy_uv_project_files
+from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
 
 
 def _merge_requirements(inferred_reqs: list[str], default_reqs: list[str]) -> list[str]:
@@ -1277,7 +1277,16 @@ def _save_model_with_class_artifacts_params(
     # Copy UV project files (uv.lock and pyproject.toml) if detected
     copy_uv_project_files(path, source_dir=original_cwd)
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    # Use UV project's Python version if available, otherwise use current
+    if uv_python_version := get_python_version_from_uv_project(original_cwd):
+        python_env = _PythonEnv(
+            python=uv_python_version,
+            build_dependencies=_PythonEnv.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    else:
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):
