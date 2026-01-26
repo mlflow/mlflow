@@ -44,10 +44,14 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
             _await_server_up_or_die(port)
             yield process
         finally:
-            if is_windows():
-                process.terminate()
-            else:
-                os.killpg(process.pid, signal.SIGTERM)
+            try:
+                if is_windows():
+                    process.terminate()
+                else:
+                    os.killpg(process.pid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                # Process has already terminated
+                pass
 
 
 class ArtifactsServer(NamedTuple):
