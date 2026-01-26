@@ -427,3 +427,99 @@ def test_copy_uv_project_files_env_var_true_variants(tmp_path, monkeypatch, env_
 
     result = copy_uv_project_files(dest_dir, source_dir)
     assert result is True
+
+
+# --- explicit uv_lock parameter tests ---
+
+
+def test_export_uv_requirements_with_explicit_uv_lock(tmp_path):
+    # Create the uv.lock file so it exists
+    uv_lock_path = tmp_path / _UV_LOCK_FILE
+    uv_lock_path.touch()
+
+    uv_output = """requests==2.28.0
+numpy==1.24.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = export_uv_requirements(uv_lock=uv_lock_path)
+
+        assert result is not None
+        assert "requests==2.28.0" in result
+        assert "numpy==1.24.0" in result
+        mock_run.assert_called_once()
+        # Verify cwd is set to uv_lock's parent directory
+        assert mock_run.call_args.kwargs["cwd"] == tmp_path
+
+
+def test_export_uv_requirements_with_nonexistent_uv_lock(tmp_path):
+    uv_lock_path = tmp_path / "nonexistent" / _UV_LOCK_FILE
+
+    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True):
+        result = export_uv_requirements(uv_lock=uv_lock_path)
+        assert result is None
+
+
+def test_get_python_version_from_uv_project_with_explicit_uv_lock(tmp_path):
+    project_dir = tmp_path / "monorepo" / "subproject"
+    project_dir.mkdir(parents=True)
+    (project_dir / _UV_LOCK_FILE).touch()
+    (project_dir / ".python-version").write_text("3.12.0")
+
+    result = get_python_version_from_uv_project(uv_lock=project_dir / _UV_LOCK_FILE)
+    assert result == "3.12.0"
+
+
+def test_get_python_version_from_uv_project_with_nonexistent_uv_lock(tmp_path):
+    uv_lock_path = tmp_path / "nonexistent" / _UV_LOCK_FILE
+
+    result = get_python_version_from_uv_project(uv_lock=uv_lock_path)
+    assert result is None
+
+
+def test_copy_uv_project_files_with_explicit_uv_lock(tmp_path):
+    project_dir = tmp_path / "monorepo" / "subproject"
+    project_dir.mkdir(parents=True)
+    (project_dir / _UV_LOCK_FILE).write_text("lock content from monorepo")
+    (project_dir / _PYPROJECT_FILE).write_text("pyproject from monorepo")
+    (project_dir / ".python-version").write_text("3.12.0")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, uv_lock=project_dir / _UV_LOCK_FILE)
+
+    assert result is True
+    assert (dest_dir / _UV_LOCK_FILE).exists()
+    assert (dest_dir / _PYPROJECT_FILE).exists()
+    assert (dest_dir / ".python-version").exists()
+    assert (dest_dir / _UV_LOCK_FILE).read_text() == "lock content from monorepo"
+    assert (dest_dir / ".python-version").read_text() == "3.12.0"
+
+
+def test_copy_uv_project_files_with_nonexistent_uv_lock(tmp_path):
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+    uv_lock_path = tmp_path / "nonexistent" / _UV_LOCK_FILE
+
+    result = copy_uv_project_files(dest_dir, uv_lock=uv_lock_path)
+    assert result is False
+
+
+def test_copy_uv_project_files_with_uv_lock_missing_pyproject(tmp_path):
+    project_dir = tmp_path / "incomplete_project"
+    project_dir.mkdir()
+    (project_dir / _UV_LOCK_FILE).write_text("lock content")
+    # Missing pyproject.toml
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, uv_lock=project_dir / _UV_LOCK_FILE)
+    assert result is False
