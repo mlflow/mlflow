@@ -146,10 +146,8 @@ def _install_python_with_pbs(version, install_dir=None, capture_output=False):
         raise MlflowException(f"Could not find Python version matching {version_prefix}: {e}")
 
     python_dir = install_dir / full_version
-    if is_windows():
-        python_bin = python_dir / "python" / "python.exe"
-    else:
-        python_bin = python_dir / "python" / "bin" / "python3"
+    # pbs-installer extracts with strip=1, removing the 'python/' prefix from the archive
+    python_bin = python_dir / "python.exe" if is_windows() else python_dir / "bin" / "python3"
 
     if python_bin.exists():
         _logger.info("Python %s already installed at %s", full_version, python_bin)
