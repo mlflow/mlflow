@@ -899,11 +899,12 @@ class Model:
                 prompts = [pr.uri if isinstance(pr, PromptVersion) else pr for pr in prompts]
             mlflow_model = cls(
                 artifact_path=artifact_path,
-                run_id=run_id,
-                metadata=metadata,
-                resources=resources,
-                auth_policy=auth_policy,
-                prompts=prompts,
+		    run_id=run_id,
+		    metadata=metadata,
+		    resources=resources,
+		    auth_policy=auth_policy,
+		    prompts=prompts,
+		    **kwargs,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
