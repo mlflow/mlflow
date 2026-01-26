@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 # Restrict to only Bash commands that use MLflow CLI
 BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
+    "Bash(export:*)",
 ]
 FILE_EDIT_TOOLS = [
     "Edit(*)",
@@ -65,12 +66,12 @@ The MLflow tracking server is running at: `{tracking_uri}`
 
 **CRITICAL**:
 - The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
-- ALL MLflow operations MUST target this server.
-- For **bash commands**: Prepend the tracking URI inline to each command rather than using
-  `export`. For example: `MLFLOW_TRACKING_URI="{tracking_uri}" mlflow traces search ...`
-  Avoid `export MLFLOW_TRACKING_URI=...` unless other approaches don't work or you have
-  sufficient Claude Code permissions to run export commands.
-- For **Python scripts**: Set the tracking URI before any MLflow operations:
+- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands.
+- For **bash**: ALWAYS use `export MLFLOW_TRACKING_URI={tracking_uri}` as a separate command
+  before running MLflow CLI commands. NEVER prepend environment variables inline before a command
+  (e.g., `MLFLOW_TRACKING_URI=... mlflow ...`) unless Claude Code permissions have already been
+  granted to run the command that way.
+- For **Python**: Set the tracking URI at the start of the script:
 ```python
 import mlflow
 mlflow.set_tracking_uri("{tracking_uri}")
@@ -102,8 +103,8 @@ where the user wants to log (write) or update information.
 
 For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * STRONGLY PREFER MLflow CLI commands directly.
-* When running CLI commands, ALWAYS prefix with `MLFLOW_TRACKING_URI="{tracking_uri}"`
-  to ensure commands target the correct server.
+* ALWAYS run `export MLFLOW_TRACKING_URI="{tracking_uri}"` first to ensure commands target
+  the correct server. Do NOT prepend environment variables inline before commands.
 * When using MLflow CLI, always use `--help` to discover all available options.
   Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
