@@ -179,6 +179,7 @@ def patched_module_call(original, *args, **kwargs):
             _logger.warning(
                 f"Failed to extract token usage for span {span.name}: {e}", exc_info=True
             )
+        set_span_cost_attribute(span)
         # need to convert the response of generate_content for better visualization
         outputs = result.to_dict() if hasattr(result, "to_dict") else result
         span.set_outputs(outputs)
