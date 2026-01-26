@@ -483,8 +483,6 @@ extend-exclude = [
   "mlflow/protos/**/*",
   # Vendored files
   "mlflow/utils/gorilla.py",
-  # Skills subtree (external repo)
-  "mlflow/assistant/skills/**/*",
 ]
 
 [tool.typos.default]
