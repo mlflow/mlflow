@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _try_get_prediction_context,
+    aggregate_cost_from_spans,
     aggregate_usage_from_spans,
     generate_trace_id_v3,
     get_otel_attribute,
@@ -141,6 +142,10 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             # Aggregate token usage information from all spans
             if usage := aggregate_usage_from_spans(spans):
                 trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
+
+            # Aggregate cost information from all spans
+            if cost := aggregate_cost_from_spans(spans):
+                trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
         super().on_end(span)
 

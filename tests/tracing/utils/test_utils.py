@@ -17,11 +17,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
     TRACE_ID_V4_PREFIX,
+    CostKey,
     SpanAttributeKey,
     TokenUsageKey,
 )
 from mlflow.tracing.utils import (
     _calculate_percentile,
+    aggregate_cost_from_spans,
     aggregate_usage_from_spans,
     capture_function_input_args,
     construct_full_inputs,
@@ -143,6 +145,92 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
         TokenUsageKey.INPUT_TOKENS: 13,
         TokenUsageKey.OUTPUT_TOKENS: 26,
         TokenUsageKey.TOTAL_TOKENS: 39,
+    }
+
+
+def test_aggregate_cost_from_spans():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(3)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {
+            CostKey.INPUT_COST: 10,
+            CostKey.OUTPUT_COST: 20,
+            CostKey.TOTAL_COST: 30,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {CostKey.OUTPUT_COST: 15, CostKey.TOTAL_COST: 15},
+    )
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {
+            CostKey.INPUT_COST: 5,
+            CostKey.OUTPUT_COST: 10,
+            CostKey.TOTAL_COST: 15,
+        },
+    )
+
+    cost = aggregate_cost_from_spans(spans)
+    assert cost == {
+        CostKey.INPUT_COST: 15,
+        CostKey.OUTPUT_COST: 45,
+        CostKey.TOTAL_COST: 60,
+    }
+
+
+def test_aggregate_cost_from_spans_skips_descendant_cost():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=3, name="grandchild", parent_id=2),
+            trace_id="tr-123",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"
+        ),
+    ]
+
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {
+            CostKey.INPUT_COST: 10,
+            CostKey.OUTPUT_COST: 20,
+            CostKey.TOTAL_COST: 30,
+        },
+    )
+
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {
+            CostKey.INPUT_COST: 5,
+            CostKey.OUTPUT_COST: 10,
+            CostKey.TOTAL_COST: 15,
+        },
+    )
+
+    spans[3].set_attribute(
+        SpanAttributeKey.CHAT_COST,
+        {
+            CostKey.INPUT_COST: 3,
+            CostKey.OUTPUT_COST: 6,
+            CostKey.TOTAL_COST: 9,
+        },
+    )
+
+    cost = aggregate_cost_from_spans(spans)
+
+    assert cost == {
+        CostKey.INPUT_COST: 13,
+        CostKey.OUTPUT_COST: 26,
+        CostKey.TOTAL_COST: 39,
     }
 
 
