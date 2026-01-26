@@ -6,29 +6,14 @@ which points to the https://github.com/mlflow/skills repository.
 """
 
 import shutil
-from importlib.resources import files
+from importlib import resources
 from pathlib import Path
 
 SKILL_MANIFEST_FILE = "SKILL.md"
 
 
-def _get_skills_source_path() -> Path | None:
-    """Get the filesystem path to the bundled skills package.
-
-    Returns:
-        Path to the skills directory, or None if not available.
-    """
-    skills_pkg = files("mlflow.assistant.skills")
-
-    # For directory-based packages (editable installs, source), _paths gives us the path
-    if hasattr(skills_pkg, "_paths") and skills_pkg._paths:
-        return skills_pkg._paths[0]
-
-    # For MultiplexedPath (namespace packages), try _path attribute
-    if hasattr(skills_pkg, "_path"):
-        return Path(skills_pkg._path)
-
-    return None
+def _find_skill_directories(path: Path) -> list[Path]:
+    return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]
 
 
 def install_skills(destination_path: Path) -> list[str]:
@@ -42,21 +27,23 @@ def install_skills(destination_path: Path) -> list[str]:
         A list of installed skill names.
     """
     destination_dir = destination_path.expanduser()
-
-    skills_path = _get_skills_source_path()
-    if skills_path is None:
-        return []
-
-    skill_dirs = _find_skill_directories(skills_path)
-    if not skill_dirs:
-        return []
-
-    destination_dir.mkdir(parents=True, exist_ok=True)
+    skills_pkg = resources.files("mlflow.assistant.skills")
     installed_skills = []
-    for skill_dir in skill_dirs:
-        target_dir = destination_dir / skill_dir.name
-        shutil.copytree(skill_dir, target_dir, dirs_exist_ok=True)
-        installed_skills.append(skill_dir.name)
+
+    for item in skills_pkg.iterdir():
+        if not item.is_dir():
+            continue
+        skill_manifest = item.joinpath(SKILL_MANIFEST_FILE)
+        if not skill_manifest.is_file():
+            continue
+
+        # Use resources.as_file() on the manifest to get a real path
+        with resources.as_file(skill_manifest) as manifest_path:
+            skill_dir = manifest_path.parent
+            target_dir = destination_dir / skill_dir.name
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(skill_dir, target_dir, dirs_exist_ok=True)
+            installed_skills.append(skill_dir.name)
 
     return sorted(installed_skills)
 
@@ -74,7 +61,3 @@ def list_installed_skills(destination_path: Path) -> list[str]:
     if not destination_path.exists():
         return []
     return sorted(d.name for d in _find_skill_directories(destination_path))
-
-
-def _find_skill_directories(path: Path) -> list[Path]:
-    return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]
