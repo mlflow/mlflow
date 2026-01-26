@@ -80,14 +80,21 @@ class AssistantProvider(ABC):
     def astream(
         self,
         prompt: str,
+        tracking_uri: str,
         session_id: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream responses from the assistant asynchronously.
 
         Args:
             prompt: The prompt to send to the assistant
+            tracking_uri: MLflow tracking server URI for the assistant to use
             session_id: Session ID for conversation continuity
+            cwd: Working directory for the assistant
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
 
         Yields:
             Event dictionaries with 'type' and 'data' keys.
