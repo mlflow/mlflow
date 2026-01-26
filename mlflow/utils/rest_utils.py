@@ -264,11 +264,11 @@ def http_request(
 
 
 def _get_credentials_strategy() -> "CredentialsStrategy | None":
-    is_in_db_model_serving_env = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-    if is_in_db_model_serving_env is None:
+    is_in_serving = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+    if is_in_serving is None:
         return None
 
-    if is_in_db_model_serving_env.lower() not in ("1", "true"):
+    if is_in_serving.lower() not in ("1", "true"):
         return None
 
     try:
