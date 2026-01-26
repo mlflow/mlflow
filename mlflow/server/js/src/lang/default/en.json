@@ -2430,6 +2430,10 @@
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
   },
+  "Gj3Zbz": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
+    "description": "Label indicating a pre-built LLM-as-a-judge template"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
@@ -7774,6 +7778,10 @@
   "vEuvEt": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
+  },
+  "vGf4dg": {
+    "defaultMessage": "No custom LLM-as-a-judge scorers found",
+    "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
   },
   "vHNP+J": {
     "defaultMessage": "Add tags",
