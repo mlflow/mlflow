@@ -21,7 +21,7 @@ from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.otel.translation.voltagent import VoltAgentTranslator
-from mlflow.tracing.utils import dump_span_attribute_value
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage, dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
 
@@ -85,6 +85,36 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         message_format := _get_message_format(attributes)
     ):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
+
+    # Extract and normalize model name from various sources
+    if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
+        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
+
+    if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
+        model_provider := _get_model_provider(attributes)
+    ):
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
+
+    # Calculate cost if both token usage and model are available
+    if (
+        SpanAttributeKey.CHAT_COST not in attributes
+        and SpanAttributeKey.CHAT_USAGE in attributes
+        and SpanAttributeKey.MODEL in attributes
+    ):
+        try:
+            token_usage = json.loads(attributes[SpanAttributeKey.CHAT_USAGE])
+            model_name = json.loads(attributes[SpanAttributeKey.MODEL])
+            model_provider = (
+                json.loads(attributes[SpanAttributeKey.MODEL_PROVIDER])
+                if SpanAttributeKey.MODEL_PROVIDER in attributes
+                else None
+            )
+            if cost := calculate_cost_by_model_and_token_usage(
+                model_name, token_usage, model_provider
+            ):
+                attributes[SpanAttributeKey.CHAT_COST] = dump_span_attribute_value(cost)
+        except Exception:
+            _logger.debug("Failed to calculate cost during OTEL translation", exc_info=True)
 
     span_dict["attributes"] = attributes
     return span_dict
@@ -209,6 +239,53 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
     for translator in _TRANSLATORS:
         if message_format := translator.get_message_format(attributes):
             return message_format
+    return None
+
+
+def _get_model_name(attributes: dict[str, Any]) -> str | None:
+    """
+    Get model name from span attributes.
+
+    Args:
+        attributes: Dictionary of span attributes
+
+    Returns:
+        Model name string or None if not found
+    """
+    for translator in _TRANSLATORS:
+        if model_name := translator.get_model_name(attributes):
+            return model_name
+
+    # Check inputs for model field
+    if inputs := attributes.get(SpanAttributeKey.INPUTS):
+        try:
+            if isinstance(inputs, str):
+                inputs = json.loads(inputs)
+            if isinstance(inputs, dict) and (model := inputs.get("model")):
+                return model if isinstance(model, str) else None
+        except Exception:
+            _logger.debug("Failed to parse inputs for model name", exc_info=True)
+
+    # Check outputs for model field
+    if outputs := attributes.get(SpanAttributeKey.OUTPUTS):
+        try:
+            if isinstance(outputs, str):
+                outputs = json.loads(outputs)
+            if isinstance(outputs, dict) and (model := outputs.get("model")):
+                return model if isinstance(model, str) else None
+        except Exception:
+            _logger.debug("Failed to parse outputs for model name", exc_info=True)
+
+    return None
+
+
+def _get_model_provider(attributes: dict[str, Any]) -> str | None:
+    """
+    Get model provider from span attributes.
+    """
+    for translator in _TRANSLATORS:
+        if model_provider := translator.get_model_provider(attributes):
+            return model_provider
     return None
 
 

@@ -49,6 +49,9 @@ class TraceloopTranslator(OtelSchemaTranslator):
     ]
     OUTPUT_VALUE_KEYS = ["traceloop.entity.output", re.compile(r"gen_ai\.completion\.\d+\.content")]
 
+    # https://github.com/traceloop/openllmetry/blob/e66894fd7f8324bd7b2972d7f727da39e7d93181/packages/opentelemetry-semantic-conventions-ai/opentelemetry/semconv_ai/__init__.py#L70
+    LLM_PROVIDER_KEY = "gen_ai.system"
+
     def get_attribute_value(
         self, attributes: dict[str, Any], valid_keys: list[str | re.Pattern] | None = None
     ) -> Any:
