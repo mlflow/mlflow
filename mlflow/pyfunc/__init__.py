@@ -3045,6 +3045,9 @@ def save_model(
             is derived from this path (parent directory). This is useful for monorepos or
             non-standard project layouts where uv.lock is not in the current working directory.
             If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         kwargs: Extra keyword arguments.
     """
     if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
@@ -3620,6 +3623,9 @@ def log_model(
             is derived from this path (parent directory). This is useful for monorepos or
             non-standard project layouts where uv.lock is not in the current working directory.
             If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
