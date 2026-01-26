@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -36,6 +35,7 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     get_safe_port,
+    kill_process_tree,
     pyfunc_serve_and_score_model,
 )
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -52,10 +52,7 @@ def test_mlflow_server_command(command):
             augmented_raise_for_status(resp)
             assert resp.text == "OK"
         finally:
-            if is_windows():
-                process.terminate()
-            else:
-                os.killpg(process.pid, signal.SIGTERM)
+            kill_process_tree(process.pid)
 
 
 def test_server_static_prefix_validation():
@@ -699,10 +696,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
                 "server running in `--artifacts-only` mode." in resp.text
             )
         finally:
-            if is_windows():
-                process.terminate()
-            else:
-                os.killpg(process.pid, signal.SIGTERM)
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
@@ -716,10 +710,7 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             assert resp.status_code == 200
             assert resp.text == "{}"
         finally:
-            if is_windows():
-                process.terminate()
-            else:
-                os.killpg(process.pid, signal.SIGTERM)
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
@@ -735,10 +726,7 @@ def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specifi
                 "`--no-serve-artifacts`" in resp.text
             )
         finally:
-            if is_windows():
-                process.terminate()
-            else:
-                os.killpg(process.pid, signal.SIGTERM)
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
