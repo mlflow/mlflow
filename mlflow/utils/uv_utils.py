@@ -383,7 +383,6 @@ _MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
 
 
 def _should_log_uv_files() -> bool:
-    """Check if UV files should be logged based on environment variable."""
     env_value = os.environ.get(_MLFLOW_LOG_UV_FILES_ENV, "true").lower()
     return env_value not in ("false", "0", "no")
 
