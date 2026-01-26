@@ -591,6 +591,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
+from mlflow.utils.uv_utils import copy_uv_project_files
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -3703,6 +3704,9 @@ def _save_model_with_loader_module_and_data_path(
     Returns:
         Model configuration containing model info.
     """
+    # Capture original working directory for UV project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
 
     data = None
 
@@ -3752,7 +3756,9 @@ def _save_model_with_loader_module_and_data_path(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
             )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            # Merge inferred and default requirements, preferring inferred versions
+            # when the same package appears in both (e.g., from UV export vs defaults)
+            default_reqs = mlflow.pyfunc.model._merge_requirements(inferred_reqs, default_reqs)
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -3772,6 +3778,9 @@ def _save_model_with_loader_module_and_data_path(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy UV project files (uv.lock and pyproject.toml) if detected
+    copy_uv_project_files(path, source_dir=original_cwd)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
