@@ -63,10 +63,8 @@ const SettingsPage = () => {
           label=" "
           activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
           inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
-          disabledLabel=" "
         />
       </div>
-
     </div>
   );
 };
