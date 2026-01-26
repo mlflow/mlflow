@@ -12071,6 +12071,112 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     assert trace.info.token_usage["total_tokens"] == 425
 
 
+def test_log_spans_cost(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                "input_cost": 0.01,
+                "output_cost": 0.02,
+                "total_cost": 0.03,
+            }
+        ),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    # verify cost is stored in the trace info
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.01,
+        "output_cost": 0.02,
+        "total_cost": 0.03,
+    }
+
+    # verify loaded trace has same cost
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost is not None
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+
+def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_update_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                "input_cost": 0.01,
+                "output_cost": 0.02,
+                "total_cost": 0.03,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                "input_cost": 0.005,
+                "output_cost": 0.01,
+                "total_cost": 0.015,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.015
+    assert trace.info.cost["output_cost"] == 0.03
+    assert trace.info.cost["total_cost"] == 0.045
+
+
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_batch_get_traces_token_usage")
 
