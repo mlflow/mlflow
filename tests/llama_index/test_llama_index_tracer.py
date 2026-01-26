@@ -56,7 +56,7 @@ def set_handlers():
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_llm_complete(is_async):
+def test_trace_llm_complete(is_async, mock_litellm_cost):
     # By default llama-index uses "gpt-3.5-turbo" model that only has chat interface,
     # and llama-index redirects completion call to chat endpoint. We use non-chat
     # model here to test trace for completion.
@@ -103,6 +103,13 @@ def test_trace_llm_complete(is_async):
         TokenUsageKey.INPUT_TOKENS: 5,
         TokenUsageKey.OUTPUT_TOKENS: 7,
         TokenUsageKey.TOTAL_TOKENS: 12,
+    }
+
+    # Verify cost is calculated
+    assert spans[0].cost == {
+        "input_cost": 5.0,
+        "output_cost": 14.0,
+        "total_cost": 19.0,
     }
 
 
@@ -175,7 +182,7 @@ def _get_llm_input_content_json(content):
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_llm_chat(is_async):
+def test_trace_llm_chat(is_async, mock_litellm_cost):
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
 
@@ -235,6 +242,11 @@ def test_trace_llm_chat(is_async):
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
+    assert spans[0].cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,

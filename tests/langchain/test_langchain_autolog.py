@@ -733,7 +733,7 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.asyncio
-async def test_langchain_autolog_token_usage():
+async def test_langchain_autolog_token_usage(mock_litellm_cost):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -747,23 +747,35 @@ async def test_langchain_autolog_token_usage():
         chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
         assert chat_model_span.model_name == "gpt-3.5-turbo"
 
+    def _validate_cost(trace):
+        # Find the ChatOpenAI span
+        chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
+        assert chat_model_span.cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
+
     # Normal invoke
     model.invoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
+    _validate_cost(trace)
 
     # Invoke with streaming
     list(model.stream({"product": "MLflow"}))
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
+    _validate_cost(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
+    _validate_cost(trace)
 
     # When both OpenAI and LangChain autologging is enabled,
     # no duplicated token usage should be logged
@@ -773,6 +785,7 @@ async def test_langchain_autolog_token_usage():
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
+    _validate_cost(trace)
 
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
