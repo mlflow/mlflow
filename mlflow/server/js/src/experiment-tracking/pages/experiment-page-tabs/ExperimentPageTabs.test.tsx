@@ -307,6 +307,7 @@ describe('ExperimentLoggedModelListPage', () => {
           ),
         ),
       ),
+      rest.get('/tracking-store-info', (req, res, ctx) => res(ctx.json({ is_file_store: false }))),
     );
 
     // Start on experiment page WITHOUT a tab

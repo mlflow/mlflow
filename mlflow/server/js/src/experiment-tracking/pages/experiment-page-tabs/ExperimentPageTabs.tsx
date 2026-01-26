@@ -122,7 +122,7 @@ const ExperimentPageTabsImpl = () => {
                   // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled
                   // and not using FileStore backend, otherwise Traces
                   const targetTab =
-                    shouldEnableExperimentOverviewTab() && !isFileStore
+                    shouldEnableExperimentOverviewTab() && isFileStore === false
                       ? ExperimentPageTabName.Overview
                       : ExperimentPageTabName.Traces;
                   navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {

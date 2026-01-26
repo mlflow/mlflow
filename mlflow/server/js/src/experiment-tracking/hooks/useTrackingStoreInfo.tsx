@@ -16,7 +16,7 @@ const DEFAULT_RESPONSE: TrackingStoreInfoResponse = { is_file_store: false };
  */
 async function fetchTrackingStoreInfo(): Promise<TrackingStoreInfoResponse> {
   try {
-    const response = await fetch(getAjaxUrl('/tracking-store-info'), {
+    const response = await fetch(getAjaxUrl('tracking-store-info'), {
       method: 'GET',
     });
     if (!response.ok) {

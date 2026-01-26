@@ -58,7 +58,7 @@ export const useNavigateToExperimentPageTab = ({
     // otherwise Traces tab.
     if (experimentKind === ExperimentKind.GENAI_DEVELOPMENT) {
       targetTab =
-        shouldEnableExperimentOverviewTab() && !isFileStore
+        shouldEnableExperimentOverviewTab() && isFileStore === false
           ? ExperimentPageTabName.Overview
           : ExperimentPageTabName.Traces;
     }
