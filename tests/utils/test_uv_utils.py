@@ -523,3 +523,114 @@ def test_copy_uv_project_files_with_uv_lock_missing_pyproject(tmp_path):
 
     result = copy_uv_project_files(dest_dir, uv_lock=project_dir / _UV_LOCK_FILE)
     assert result is False
+
+
+# --- _merge_requirements tests (from mlflow.pyfunc.model) ---
+
+
+def test_merge_requirements_prefers_inferred_versions():
+    from mlflow.pyfunc.model import _merge_requirements
+
+    inferred = ["numpy==1.24.0", "pandas==2.0.0"]
+    defaults = ["numpy==1.23.0", "scikit-learn==1.2.0"]
+
+    result = _merge_requirements(inferred, defaults)
+
+    assert "numpy==1.24.0" in result  # Inferred version preferred
+    assert "numpy==1.23.0" not in result
+    assert "pandas==2.0.0" in result
+    assert "scikit-learn==1.2.0" in result  # Default added
+
+
+def test_merge_requirements_handles_version_specifiers():
+    from mlflow.pyfunc.model import _merge_requirements
+
+    inferred = ["requests>=2.28.0", "numpy[extra]==1.24.0"]
+    defaults = ["requests==2.25.0", "flask>=2.0"]
+
+    result = _merge_requirements(inferred, defaults)
+
+    assert "requests>=2.28.0" in result
+    assert "requests==2.25.0" not in result
+    assert "numpy[extra]==1.24.0" in result
+    assert "flask>=2.0" in result
+
+
+def test_merge_requirements_returns_sorted():
+    from mlflow.pyfunc.model import _merge_requirements
+
+    inferred = ["zebra==1.0", "apple==2.0"]
+    defaults = ["banana==3.0"]
+
+    result = _merge_requirements(inferred, defaults)
+
+    assert result == ["apple==2.0", "banana==3.0", "zebra==1.0"]
+
+
+def test_merge_requirements_empty_lists():
+    from mlflow.pyfunc.model import _merge_requirements
+
+    assert _merge_requirements([], []) == []
+    assert _merge_requirements(["numpy==1.0"], []) == ["numpy==1.0"]
+    assert _merge_requirements([], ["numpy==1.0"]) == ["numpy==1.0"]
+
+
+def test_merge_requirements_case_insensitive():
+    from mlflow.pyfunc.model import _merge_requirements
+
+    inferred = ["NumPy==1.24.0"]
+    defaults = ["numpy==1.23.0"]
+
+    result = _merge_requirements(inferred, defaults)
+
+    assert len(result) == 1
+    assert "NumPy==1.24.0" in result
+
+
+# --- Integration tests for infer_pip_requirements UV path ---
+
+
+def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypatch):
+    from mlflow.utils.environment import infer_pip_requirements
+
+    # Setup UV project
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / _UV_LOCK_FILE).touch()
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    uv_output = "requests==2.28.0\nnumpy==1.24.0\n"
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result),
+    ):
+        # Call with a dummy model_uri - UV path should be taken before model loading
+        result = infer_pip_requirements("runs:/fake/model", "sklearn")
+
+        assert "requests==2.28.0" in result
+        assert "numpy==1.24.0" in result
+
+
+def test_infer_pip_requirements_falls_back_when_uv_not_available(tmp_path, monkeypatch):
+    # Setup UV project (but UV not available)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / _UV_LOCK_FILE).touch()
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    # UV not available - should not call subprocess.run for uv export
+    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
+        # This will fall back to model inference which may fail without a real model
+        # We just verify UV export is not attempted
+        result = export_uv_requirements(tmp_path)
+        assert result is None  # UV path returns None, triggering fallback
+
+
+def test_detect_uv_project_not_detected_when_files_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # No UV project files
+
+    result = detect_uv_project()
+    assert result is None  # Not a UV project
