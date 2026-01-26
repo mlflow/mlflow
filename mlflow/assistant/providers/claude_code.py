@@ -8,6 +8,7 @@ enabling AI-powered trace analysis through the Claude Code CLI.
 import asyncio
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,6 +37,7 @@ _logger = logging.getLogger(__name__)
 # Restrict to only Bash commands that use MLflow CLI
 BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
+    "Skill",  # Skill tool needs to be explicitly allowed
 ]
 FILE_EDIT_TOOLS = [
     "Edit(*)",
@@ -65,14 +67,8 @@ The MLflow tracking server is running at: `{tracking_uri}`
 
 **CRITICAL**:
 - The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
-- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands:
-```bash
-export MLFLOW_TRACKING_URI={tracking_uri}
-```
-```python
-import mlflow
-mlflow.set_tracking_uri("{tracking_uri}")
-```
+- ALL MLflow operations MUST target this server. You must assume MLFLOW_TRACKING_URI env var is.
+  always set. DO NOT try to override it or set custom env var to the bash command.
 - Assume the server is available and operational at all times, unless you have good reason
   to believe otherwise (e.g. an error that seems likely caused by server unavailability).
 
@@ -100,8 +96,6 @@ where the user wants to log (write) or update information.
 
 For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * STRONGLY PREFER MLflow CLI commands directly.
-* When running CLI commands, ALWAYS prefix with `MLFLOW_TRACKING_URI="{tracking_uri}"`
-  to ensure commands target the correct server.
 * When using MLflow CLI, always use `--help` to discover all available options.
   Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
@@ -379,7 +373,11 @@ class ClaudeCodeProvider(AssistantProvider):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
                 # Increase buffer limit from default 64KB to handle large JSON responses
-                limit=1024 * 1024,  # 1 MB
+                limit=1024 * 1024,  # 1 MB,
+                # Specify tracking URI to let Claude Code CLI inherit it
+                # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
+                # environment so we need to copy the parent process's environment explicitly.
+                env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
             async for line in process.stdout:
