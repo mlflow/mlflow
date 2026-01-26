@@ -71,8 +71,12 @@ function Content({
       size={size}
       css={cssProp}
       onInteractOutside={(event) => {
-        // Prevent closing when clicking outside the drawer
-        event.preventDefault();
+        // Only prevent closing if clicking on the assistant panel/button
+        const target = event.target as HTMLElement;
+        const isAssistantClick = target?.closest('[data-assistant-ui="true"]');
+        if (isAssistantClick) {
+          event.preventDefault();
+        }
       }}
     >
       {children}

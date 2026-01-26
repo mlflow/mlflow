@@ -88,6 +88,7 @@ export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, classNam
     >
       <div
         role="button"
+        data-assistant-ui="true"
         tabIndex={0}
         aria-pressed={isPanelOpen}
         className={className}
