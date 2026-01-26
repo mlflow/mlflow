@@ -270,10 +270,10 @@ def _get_credentials_strategy() -> "CredentialsStrategy | None":
 
     try:
         from databricks.sdk.credentials_provider import ModelServingUserCredentials
-
-        return ModelServingUserCredentials()
     except ImportError:
         return None
+
+    return ModelServingUserCredentials()
 
 
 @lru_cache(maxsize=5)
