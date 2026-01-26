@@ -1,6 +1,5 @@
 import shutil
 from pathlib import Path
-from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,23 +47,8 @@ class MockProvider(AssistantProvider):
     def check_connection(self, echo=print) -> None:
         pass
 
-    def resolve_skills_path(
-        self,
-        skills_type: Literal["global", "project", "custom"],
-        custom_path: str | None = None,
-        project_path: Path | None = None,
-    ) -> Path:
-        match skills_type:
-            case "global":
-                return Path.home() / ".mock" / "skills"
-            case "project":
-                if not project_path:
-                    raise ValueError("project_path required for 'project' type")
-                return project_path / ".mock" / "skills"
-            case "custom":
-                if not custom_path:
-                    raise ValueError("custom_path required for 'custom' type")
-                return Path(custom_path).expanduser()
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        return base_directory / ".mock" / "skills"
 
     async def astream(
         self,

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Literal
+from typing import Any, AsyncGenerator, Callable
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
 
@@ -66,18 +66,11 @@ class AssistantProvider(ABC):
         """
 
     @abstractmethod
-    def resolve_skills_path(
-        self,
-        skills_type: Literal["global", "project", "custom"],
-        custom_path: str | None = None,
-        project_path: Path | None = None,
-    ) -> Path:
-        """Resolve the skills installation path based on type.
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        """Resolve the skills installation path.
 
         Args:
-            skills_type: 'global', 'project', or 'custom'
-            custom_path: User-provided path (required if type='custom')
-            project_path: Current project path (used if type='project')
+            base_directory: Base directory to resolve skills path from.
 
         Returns:
             Resolved absolute path for skills installation.

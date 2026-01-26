@@ -11,7 +11,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Literal
+from typing import Any, AsyncGenerator, Callable
 
 from mlflow.assistant.providers.base import (
     AssistantProvider,
@@ -147,19 +147,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 echo(f"Error checking authentication: {e}")
             raise NotAuthenticatedError(str(e))
 
-    def resolve_skills_path(
-        self,
-        skills_type: Literal["global", "project", "custom"],
-        custom_path: str | None = None,
-        project_path: Path | None = None,
-    ) -> Path:
-        match skills_type:
-            case "global":
-                return Path.home() / ".claude" / "skills"
-            case "project":
-                return project_path / ".claude" / "skills"
-            case "custom":
-                return Path(custom_path).expanduser()
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        """Resolve the path to the skills directory."""
+        return base_directory / ".claude" / "skills"
 
     async def astream(
         self,

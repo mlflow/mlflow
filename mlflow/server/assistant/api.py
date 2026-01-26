@@ -318,11 +318,13 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
         project_path = Path(project_location)
 
     # Get the destination path to install skills to
-    destination = _provider.resolve_skills_path(
-        skills_type=request.type,
-        custom_path=request.custom_path,
-        project_path=project_path,
-    )
+    match request.type:
+        case "global":
+            destination = _provider.resolve_skills_path(Path.home())
+        case "project":
+            destination = _provider.resolve_skills_path(project_path)
+        case "custom":
+            destination = Path(request.custom_path).expanduser()
 
     # Check if skills already exist - skip re-installation
     if destination.exists():

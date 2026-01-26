@@ -466,11 +466,13 @@ def _install_skills(
     Returns:
         The resolved path where skills were installed.
     """
-    skill_path = provider.resolve_skills_path(
-        skills_type=skills_config.type,
-        custom_path=skills_config.custom_path,
-        project_path=project_path,
-    )
+    match skills_config.type:
+        case "global":
+            skill_path = provider.resolve_skills_path(Path.home())
+        case "project":
+            skill_path = provider.resolve_skills_path(project_path)
+        case "custom":
+            skill_path = Path(skills_config.custom_path).expanduser()
     if installed_skills := install_skills(skill_path):
         for skill in installed_skills:
             click.secho(f"  - {skill}")

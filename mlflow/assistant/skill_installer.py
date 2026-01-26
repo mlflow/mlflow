@@ -14,7 +14,7 @@ SKILL_MANIFEST_FILE = "SKILL.md"
 
 def install_skills(destination_path: Path) -> list[str]:
     """
-    Install skills bundled with MLflow as a git subtree to the specified destination path.
+    Install MLflow skills to the specified destination path (e.g., ~/.claude/skills).
 
     Args:
         destination_path: The path where skills should be installed.
