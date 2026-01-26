@@ -15,7 +15,7 @@ import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-
 import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { hasTemplateVariable } from './utils/templateUtils';
-import { templateRequiresExpectations } from './types';
+import { isExpectationsTemplate } from './types';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -55,8 +55,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
   });
 
   // Check if scorer requires expectations - either via built-in template or custom instructions containing {{ expectations }}
-  const hasExpectations =
-    templateRequiresExpectations(llmTemplate) || hasTemplateVariable(instructions, 'expectations');
+  const hasExpectations = isExpectationsTemplate(llmTemplate) || hasTemplateVariable(instructions, 'expectations');
 
   // Check if using a non-gateway model - automatic evaluation only works with gateway models
   const isNonGatewayModel = modelInputMode === ModelProvider.OTHER;
