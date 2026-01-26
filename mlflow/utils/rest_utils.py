@@ -1,7 +1,6 @@
 import base64
 import json
 import logging
-import os
 import random
 import time
 import warnings
@@ -33,6 +32,7 @@ from mlflow.exceptions import (
 )
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -264,11 +264,7 @@ def http_request(
 
 
 def _get_credentials_strategy() -> "CredentialsStrategy | None":
-    is_in_serving = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-    if is_in_serving is None:
-        return None
-
-    if is_in_serving.lower() not in ("1", "true"):
+    if not is_in_databricks_model_serving_environment():
         return None
 
     try:
