@@ -58,7 +58,10 @@ def create_phoenix_model(model_uri: str):
 
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-        return LiteLLMModel(model=f"{provider}/{model_name}")
+        return LiteLLMModel(
+            model=f"{provider}/{model_name}",
+            model_kwargs={"drop_params": True},
+        )
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "
