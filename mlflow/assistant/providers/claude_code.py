@@ -65,10 +65,12 @@ The MLflow tracking server is running at: `{tracking_uri}`
 
 **CRITICAL**:
 - The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
-- ALL MLflow operations MUST target this server. Set the tracking URI before any MLflow commands:
-```bash
-export MLFLOW_TRACKING_URI={tracking_uri}
-```
+- ALL MLflow operations MUST target this server.
+- For **bash commands**: Prepend the tracking URI inline to each command rather than using
+  `export`. For example: `MLFLOW_TRACKING_URI="{tracking_uri}" mlflow traces search ...`
+  Avoid `export MLFLOW_TRACKING_URI=...` unless other approaches don't work or you have
+  sufficient Claude Code permissions to run export commands.
+- For **Python scripts**: Set the tracking URI before any MLflow operations:
 ```python
 import mlflow
 mlflow.set_tracking_uri("{tracking_uri}")
