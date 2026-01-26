@@ -634,3 +634,333 @@ def test_detect_uv_project_not_detected_when_files_missing(tmp_path, monkeypatch
 
     result = detect_uv_project()
     assert result is None  # Not a UV project
+
+
+# --- Phase 2: Dependency Groups Tests ---
+
+
+def test_export_uv_requirements_with_groups(tmp_path):
+    uv_output = """requests==2.28.0
+numpy==1.24.0
+gunicorn==21.0.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = export_uv_requirements(tmp_path, groups=["serving"])
+
+        assert result is not None
+        assert "requests==2.28.0" in result
+        assert "gunicorn==21.0.0" in result
+        mock_run.assert_called_once()
+        # Verify --group flag was added
+        call_args = mock_run.call_args[0][0]
+        assert "--group" in call_args
+        assert "serving" in call_args
+
+
+def test_export_uv_requirements_with_only_groups(tmp_path):
+    uv_output = """gunicorn==21.0.0
+uvicorn==0.24.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = export_uv_requirements(tmp_path, only_groups=["serving"])
+
+        assert result is not None
+        assert "gunicorn==21.0.0" in result
+        assert "uvicorn==0.24.0" in result
+        mock_run.assert_called_once()
+        # Verify --only-group flag was added
+        call_args = mock_run.call_args[0][0]
+        assert "--only-group" in call_args
+        assert "serving" in call_args
+
+
+def test_export_uv_requirements_with_extras(tmp_path):
+    uv_output = """numpy==1.24.0
+torch==2.0.0
+cuda-toolkit==12.0.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = export_uv_requirements(tmp_path, extras=["gpu"])
+
+        assert result is not None
+        assert "torch==2.0.0" in result
+        mock_run.assert_called_once()
+        # Verify --extra flag was added
+        call_args = mock_run.call_args[0][0]
+        assert "--extra" in call_args
+        assert "gpu" in call_args
+
+
+def test_export_uv_requirements_only_groups_takes_precedence_over_groups(tmp_path):
+    uv_output = """gunicorn==21.0.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        # Both groups and only_groups provided - only_groups should take precedence
+        result = export_uv_requirements(tmp_path, groups=["dev"], only_groups=["serving"])
+
+        assert result is not None
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert "--only-group" in call_args
+        assert "--group" not in call_args
+
+
+# --- Phase 2: Environment Variable Tests ---
+
+
+def test_get_uv_groups_from_env(monkeypatch):
+    from mlflow.utils.uv_utils import get_uv_groups_from_env
+
+    monkeypatch.setenv("MLFLOW_UV_GROUPS", "serving,production")
+    result = get_uv_groups_from_env()
+    assert result == ["serving", "production"]
+
+
+def test_get_uv_groups_from_env_empty(monkeypatch):
+    from mlflow.utils.uv_utils import get_uv_groups_from_env
+
+    monkeypatch.delenv("MLFLOW_UV_GROUPS", raising=False)
+    result = get_uv_groups_from_env()
+    assert result is None
+
+
+def test_get_uv_only_groups_from_env(monkeypatch):
+    from mlflow.utils.uv_utils import get_uv_only_groups_from_env
+
+    monkeypatch.setenv("MLFLOW_UV_ONLY_GROUPS", "minimal")
+    result = get_uv_only_groups_from_env()
+    assert result == ["minimal"]
+
+
+def test_get_uv_extras_from_env(monkeypatch):
+    from mlflow.utils.uv_utils import get_uv_extras_from_env
+
+    monkeypatch.setenv("MLFLOW_UV_EXTRAS", "gpu,experimental")
+    result = get_uv_extras_from_env()
+    assert result == ["gpu", "experimental"]
+
+
+def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
+    from mlflow.utils.uv_utils import _parse_comma_separated_env
+
+    monkeypatch.setenv("TEST_ENV", "  item1 , item2 ,  item3  ")
+    result = _parse_comma_separated_env("TEST_ENV")
+    assert result == ["item1", "item2", "item3"]
+
+
+# --- Phase 2: Private Index URL Extraction Tests ---
+
+
+def test_extract_index_urls_from_uv_lock(tmp_path):
+    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
+
+    uv_lock_content = """
+version = 1
+requires-python = ">=3.11"
+
+[[package]]
+name = "my-private-pkg"
+version = "1.0.0"
+source = { registry = "https://internal.company.com/simple" }
+
+[[package]]
+name = "numpy"
+version = "1.24.0"
+source = { registry = "https://pypi.org/simple" }
+"""
+    uv_lock_path = tmp_path / "uv.lock"
+    uv_lock_path.write_text(uv_lock_content)
+
+    result = extract_index_urls_from_uv_lock(uv_lock_path)
+
+    assert len(result) == 1
+    assert "https://internal.company.com/simple" in result
+    assert "https://pypi.org/simple" not in result
+
+
+def test_extract_index_urls_from_uv_lock_multiple_private(tmp_path):
+    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
+
+    uv_lock_content = """
+version = 1
+
+[[package]]
+name = "pkg1"
+source = { registry = "https://private1.com/simple" }
+
+[[package]]
+name = "pkg2"
+source = { registry = "https://private2.com/simple" }
+
+[[package]]
+name = "pkg3"
+source = { registry = "https://private1.com/simple" }
+"""
+    uv_lock_path = tmp_path / "uv.lock"
+    uv_lock_path.write_text(uv_lock_content)
+
+    result = extract_index_urls_from_uv_lock(uv_lock_path)
+
+    assert len(result) == 2
+    assert "https://private1.com/simple" in result
+    assert "https://private2.com/simple" in result
+
+
+def test_extract_index_urls_from_uv_lock_no_private(tmp_path):
+    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
+
+    uv_lock_content = """
+version = 1
+
+[[package]]
+name = "numpy"
+source = { registry = "https://pypi.org/simple" }
+"""
+    uv_lock_path = tmp_path / "uv.lock"
+    uv_lock_path.write_text(uv_lock_content)
+
+    result = extract_index_urls_from_uv_lock(uv_lock_path)
+    assert result == []
+
+
+def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
+    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
+
+    result = extract_index_urls_from_uv_lock(tmp_path / "nonexistent.lock")
+    assert result == []
+
+
+# --- Phase 2: UV Sync Environment Setup Tests ---
+
+
+def test_create_uv_sync_pyproject(tmp_path):
+    from mlflow.utils.uv_utils import create_uv_sync_pyproject
+
+    result_path = create_uv_sync_pyproject(tmp_path, "3.11.5")
+
+    assert result_path.exists()
+    content = result_path.read_text()
+    assert 'name = "mlflow-model-env"' in content
+    assert 'requires-python = ">=3.11"' in content
+
+
+def test_create_uv_sync_pyproject_custom_name(tmp_path):
+    from mlflow.utils.uv_utils import create_uv_sync_pyproject
+
+    result_path = create_uv_sync_pyproject(tmp_path, "3.10", project_name="my-custom-env")
+
+    content = result_path.read_text()
+    assert 'name = "my-custom-env"' in content
+    assert 'requires-python = ">=3.10"' in content
+
+
+def test_setup_uv_sync_environment(tmp_path):
+    from mlflow.utils.uv_utils import setup_uv_sync_environment
+
+    # Create model artifacts with uv.lock
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    (model_path / "uv.lock").write_text('version = 1\nrequires-python = ">=3.11"')
+    (model_path / ".python-version").write_text("3.11.5")
+
+    env_dir = tmp_path / "env"
+
+    result = setup_uv_sync_environment(env_dir, model_path, "3.11.5")
+
+    assert result is True
+    assert (env_dir / "uv.lock").exists()
+    assert (env_dir / "pyproject.toml").exists()
+    assert (env_dir / ".python-version").exists()
+
+
+def test_setup_uv_sync_environment_no_uv_lock(tmp_path):
+    from mlflow.utils.uv_utils import setup_uv_sync_environment
+
+    # Create model artifacts WITHOUT uv.lock
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+
+    env_dir = tmp_path / "env"
+
+    result = setup_uv_sync_environment(env_dir, model_path, "3.11")
+
+    assert result is False
+    assert not env_dir.exists()
+
+
+def test_has_uv_lock_artifact(tmp_path):
+    from mlflow.utils.uv_utils import has_uv_lock_artifact
+
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+
+    assert has_uv_lock_artifact(model_path) is False
+
+    (model_path / "uv.lock").write_text("version = 1")
+    assert has_uv_lock_artifact(model_path) is True
+
+
+def test_run_uv_sync_returns_false_when_uv_not_available(tmp_path):
+    from mlflow.utils.uv_utils import run_uv_sync
+
+    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
+        result = run_uv_sync(tmp_path)
+        assert result is False
+
+
+def test_run_uv_sync_builds_correct_command(tmp_path):
+    from mlflow.utils.uv_utils import run_uv_sync
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run") as mock_run,
+    ):
+        run_uv_sync(tmp_path, frozen=True, no_dev=True)
+
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert call_args[0] == "/usr/bin/uv"
+        assert call_args[1] == "sync"
+        assert "--frozen" in call_args
+        assert "--no-dev" in call_args
+
+
+def test_run_uv_sync_returns_false_on_failure(tmp_path):
+    from mlflow.utils.uv_utils import run_uv_sync
+
+    with (
+        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
+        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "uv sync")),
+    ):
+        result = run_uv_sync(tmp_path)
+        assert result is False
