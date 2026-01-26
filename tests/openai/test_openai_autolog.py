@@ -139,6 +139,9 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+)
 async def test_chat_completions_autolog_under_current_active_span(client):
     # If a user have an active span, the autologging should create a child span under it.
     mlflow.openai.autolog()
