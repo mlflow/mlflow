@@ -299,8 +299,9 @@ def get_workspace_client(
         or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
     )
 
+    credentials_strategy = _get_credentials_strategy()
     try:
-        return WorkspaceClient(config=config, credentials_strategy=_get_credentials_strategy())
+        return WorkspaceClient(config=config, credentials_strategy=credentials_strategy)
     except TypeError:
         # WorkspaceClient may not support credentials_strategy param in older versions
         return WorkspaceClient(config=config)
