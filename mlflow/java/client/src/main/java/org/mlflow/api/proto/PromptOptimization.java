@@ -2721,6 +2721,29 @@ public final class PromptOptimization {
 
     double getFinalEvalScoresOrThrow(
         java.lang.String key);
+
+    /**
+     * <pre>
+     * Optimization progress as a ratio (0.0 to 1.0).
+     * Only populated for GEPA optimizer jobs where progress can be tracked.
+     * Calculated as total_metric_calls / max_metric_calls.
+     * </pre>
+     *
+     * <code>optional double progress = 13;</code>
+     * @return Whether the progress field is set.
+     */
+    boolean hasProgress();
+    /**
+     * <pre>
+     * Optimization progress as a ratio (0.0 to 1.0).
+     * Only populated for GEPA optimizer jobs where progress can be tracked.
+     * Calculated as total_metric_calls / max_metric_calls.
+     * </pre>
+     *
+     * <code>optional double progress = 13;</code>
+     * @return The progress.
+     */
+    double getProgress();
   }
   /**
    * <pre>
@@ -2877,6 +2900,11 @@ public final class PromptOptimization {
                   FinalEvalScoresDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
               finalEvalScores_.getMutableMap().put(
                   finalEvalScores__.getKey(), finalEvalScores__.getValue());
+              break;
+            }
+            case 105: {
+              bitField0_ |= 0x00000200;
+              progress_ = input.readDouble();
               break;
             }
             default: {
@@ -3632,6 +3660,37 @@ public final class PromptOptimization {
       return map.get(key);
     }
 
+    public static final int PROGRESS_FIELD_NUMBER = 13;
+    private double progress_;
+    /**
+     * <pre>
+     * Optimization progress as a ratio (0.0 to 1.0).
+     * Only populated for GEPA optimizer jobs where progress can be tracked.
+     * Calculated as total_metric_calls / max_metric_calls.
+     * </pre>
+     *
+     * <code>optional double progress = 13;</code>
+     * @return Whether the progress field is set.
+     */
+    @java.lang.Override
+    public boolean hasProgress() {
+      return ((bitField0_ & 0x00000200) != 0);
+    }
+    /**
+     * <pre>
+     * Optimization progress as a ratio (0.0 to 1.0).
+     * Only populated for GEPA optimizer jobs where progress can be tracked.
+     * Calculated as total_metric_calls / max_metric_calls.
+     * </pre>
+     *
+     * <code>optional double progress = 13;</code>
+     * @return The progress.
+     */
+    @java.lang.Override
+    public double getProgress() {
+      return progress_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -3688,6 +3747,9 @@ public final class PromptOptimization {
           internalGetFinalEvalScores(),
           FinalEvalScoresDefaultEntryHolder.defaultEntry,
           12);
+      if (((bitField0_ & 0x00000200) != 0)) {
+        output.writeDouble(13, progress_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -3751,6 +3813,10 @@ public final class PromptOptimization {
             .build();
         size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(12, finalEvalScores__);
+      }
+      if (((bitField0_ & 0x00000200) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeDoubleSize(13, progress_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -3818,6 +3884,12 @@ public final class PromptOptimization {
           other.internalGetInitialEvalScores())) return false;
       if (!internalGetFinalEvalScores().equals(
           other.internalGetFinalEvalScores())) return false;
+      if (hasProgress() != other.hasProgress()) return false;
+      if (hasProgress()) {
+        if (java.lang.Double.doubleToLongBits(getProgress())
+            != java.lang.Double.doubleToLongBits(
+                other.getProgress())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -3878,6 +3950,11 @@ public final class PromptOptimization {
       if (!internalGetFinalEvalScores().getMap().isEmpty()) {
         hash = (37 * hash) + FINAL_EVAL_SCORES_FIELD_NUMBER;
         hash = (53 * hash) + internalGetFinalEvalScores().hashCode();
+      }
+      if (hasProgress()) {
+        hash = (37 * hash) + PROGRESS_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            java.lang.Double.doubleToLongBits(getProgress()));
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -4079,6 +4156,8 @@ public final class PromptOptimization {
         }
         internalGetMutableInitialEvalScores().clear();
         internalGetMutableFinalEvalScores().clear();
+        progress_ = 0D;
+        bitField0_ = (bitField0_ & ~0x00001000);
         return this;
       }
 
@@ -4164,6 +4243,10 @@ public final class PromptOptimization {
         result.initialEvalScores_.makeImmutable();
         result.finalEvalScores_ = internalGetFinalEvalScores();
         result.finalEvalScores_.makeImmutable();
+        if (((from_bitField0_ & 0x00001000) != 0)) {
+          result.progress_ = progress_;
+          to_bitField0_ |= 0x00000200;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4280,6 +4363,9 @@ public final class PromptOptimization {
             other.internalGetInitialEvalScores());
         internalGetMutableFinalEvalScores().mergeFrom(
             other.internalGetFinalEvalScores());
+        if (other.hasProgress()) {
+          setProgress(other.getProgress());
+        }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -5931,6 +6017,69 @@ public final class PromptOptimization {
             .putAll(values);
         return this;
       }
+
+      private double progress_ ;
+      /**
+       * <pre>
+       * Optimization progress as a ratio (0.0 to 1.0).
+       * Only populated for GEPA optimizer jobs where progress can be tracked.
+       * Calculated as total_metric_calls / max_metric_calls.
+       * </pre>
+       *
+       * <code>optional double progress = 13;</code>
+       * @return Whether the progress field is set.
+       */
+      @java.lang.Override
+      public boolean hasProgress() {
+        return ((bitField0_ & 0x00001000) != 0);
+      }
+      /**
+       * <pre>
+       * Optimization progress as a ratio (0.0 to 1.0).
+       * Only populated for GEPA optimizer jobs where progress can be tracked.
+       * Calculated as total_metric_calls / max_metric_calls.
+       * </pre>
+       *
+       * <code>optional double progress = 13;</code>
+       * @return The progress.
+       */
+      @java.lang.Override
+      public double getProgress() {
+        return progress_;
+      }
+      /**
+       * <pre>
+       * Optimization progress as a ratio (0.0 to 1.0).
+       * Only populated for GEPA optimizer jobs where progress can be tracked.
+       * Calculated as total_metric_calls / max_metric_calls.
+       * </pre>
+       *
+       * <code>optional double progress = 13;</code>
+       * @param value The progress to set.
+       * @return This builder for chaining.
+       */
+      public Builder setProgress(double value) {
+        bitField0_ |= 0x00001000;
+        progress_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optimization progress as a ratio (0.0 to 1.0).
+       * Only populated for GEPA optimizer jobs where progress can be tracked.
+       * Calculated as total_metric_calls / max_metric_calls.
+       * </pre>
+       *
+       * <code>optional double progress = 13;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearProgress() {
+        bitField0_ = (bitField0_ & ~0x00001000);
+        progress_ = 0D;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -6024,7 +6173,7 @@ public final class PromptOptimization {
       "\030\002 \001(\t\"\220\001\n\033PromptOptimizationJobConfig\022-" +
       "\n\016optimizer_type\030\001 \001(\0162\025.mlflow.Optimize" +
       "rType\022\022\n\ndataset_id\030\002 \001(\t\022\017\n\007scorers\030\003 \003" +
-      "(\t\022\035\n\025optimizer_config_json\030\004 \001(\t\"\341\004\n\025Pr" +
+      "(\t\022\035\n\025optimizer_config_json\030\004 \001(\t\"\363\004\n\025Pr" +
       "omptOptimizationJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006r" +
       "un_id\030\002 \001(\t\022\037\n\005state\030\003 \001(\0132\020.mlflow.JobS" +
       "tate\022\025\n\rexperiment_id\030\004 \001(\t\022\031\n\021source_pr" +
@@ -6037,13 +6186,13 @@ public final class PromptOptimization {
       ".mlflow.PromptOptimizationJob.InitialEva" +
       "lScoresEntry\022M\n\021final_eval_scores\030\014 \003(\0132" +
       "2.mlflow.PromptOptimizationJob.FinalEval" +
-      "ScoresEntry\0328\n\026InitialEvalScoresEntry\022\013\n" +
-      "\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001\0326\n\024FinalEv" +
-      "alScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(" +
-      "\001:\0028\001*g\n\rOptimizerType\022\036\n\032OPTIMIZER_TYPE" +
-      "_UNSPECIFIED\020\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022" +
-      "\035\n\031OPTIMIZER_TYPE_METAPROMPT\020\002B\036\n\024org.ml" +
-      "flow.api.proto\220\001\001\342?\002\020\001"
+      "ScoresEntry\022\020\n\010progress\030\r \001(\001\0328\n\026Initial" +
+      "EvalScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 " +
+      "\001(\001:\0028\001\0326\n\024FinalEvalScoresEntry\022\013\n\003key\030\001" +
+      " \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001*g\n\rOptimizerType" +
+      "\022\036\n\032OPTIMIZER_TYPE_UNSPECIFIED\020\000\022\027\n\023OPTI" +
+      "MIZER_TYPE_GEPA\020\001\022\035\n\031OPTIMIZER_TYPE_META" +
+      "PROMPT\020\002B\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6068,7 +6217,7 @@ public final class PromptOptimization {
     internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_PromptOptimizationJob_descriptor,
-        new java.lang.String[] { "JobId", "RunId", "State", "ExperimentId", "SourcePromptUri", "OptimizedPromptUri", "Config", "CreationTimestampMs", "CompletionTimestampMs", "Tags", "InitialEvalScores", "FinalEvalScores", });
+        new java.lang.String[] { "JobId", "RunId", "State", "ExperimentId", "SourcePromptUri", "OptimizedPromptUri", "Config", "CreationTimestampMs", "CompletionTimestampMs", "Tags", "InitialEvalScores", "FinalEvalScores", "Progress", });
     internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_descriptor =
       internal_static_mlflow_PromptOptimizationJob_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_PromptOptimizationJob_InitialEvalScoresEntry_fieldAccessorTable = new

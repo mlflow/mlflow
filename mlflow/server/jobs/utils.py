@@ -538,10 +538,6 @@ def _load_function(fullname: str) -> Callable[..., Any]:
 
 
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
-    # TODO: Job re-enqueueing is temporarily disabled. The current implementation
-    # has issues with job state management that can cause duplicate execution.
-    # This will be re-enabled once the job persistence layer is stabilized.
-    return None
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()

@@ -38,7 +38,7 @@ class PromptOptimizationJobConfig(_message.Message):
     def __init__(self, optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJob(_message.Message):
-    __slots__ = ("job_id", "run_id", "state", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "tags", "initial_eval_scores", "final_eval_scores")
+    __slots__ = ("job_id", "run_id", "state", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "tags", "initial_eval_scores", "final_eval_scores", "progress")
     class InitialEvalScoresEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -65,6 +65,7 @@ class PromptOptimizationJob(_message.Message):
     TAGS_FIELD_NUMBER: _ClassVar[int]
     INITIAL_EVAL_SCORES_FIELD_NUMBER: _ClassVar[int]
     FINAL_EVAL_SCORES_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     run_id: str
     state: _jobs_pb2.JobState
@@ -77,4 +78,5 @@ class PromptOptimizationJob(_message.Message):
     tags: _containers.RepeatedCompositeFieldContainer[PromptOptimizationJobTag]
     initial_eval_scores: _containers.ScalarMap[str, float]
     final_eval_scores: _containers.ScalarMap[str, float]
-    def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ..., state: _Optional[_Union[_jobs_pb2.JobState, _Mapping]] = ..., experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., optimized_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[PromptOptimizationJobConfig, _Mapping]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[PromptOptimizationJobTag, _Mapping]]] = ..., initial_eval_scores: _Optional[_Mapping[str, float]] = ..., final_eval_scores: _Optional[_Mapping[str, float]] = ...) -> None: ...
+    progress: float
+    def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ..., state: _Optional[_Union[_jobs_pb2.JobState, _Mapping]] = ..., experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., optimized_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[PromptOptimizationJobConfig, _Mapping]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[PromptOptimizationJobTag, _Mapping]]] = ..., initial_eval_scores: _Optional[_Mapping[str, float]] = ..., final_eval_scores: _Optional[_Mapping[str, float]] = ..., progress: _Optional[float] = ...) -> None: ...

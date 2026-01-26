@@ -1,10 +1,8 @@
-# ruff: noqa
-# clint: skip-file
 #!/usr/bin/env python
 """
 Test script to invoke prompt optimization job creation.
 
-This script demonstrates how to call the createPromptOptimizationJob API.
+This script demonstrates how to call the createOptimizationJob API.
 
 Prerequisites:
 1. Start the MLflow server with job execution enabled:
@@ -27,7 +25,6 @@ Usage:
 """
 
 import json
-import time
 
 import requests
 
@@ -36,72 +33,7 @@ MLFLOW_SERVER_URL = "http://127.0.0.1:5000"
 API_VERSION = 3  # API version from proto (prompt optimization APIs are v3)
 
 
-def create_prompt_optimization_job(
-    experiment_id: str,
-    prompt_uri: str,
-    dataset_id: str,
-    scorers: list[str],
-    optimizer_type: str = "gepa",
-    optimizer_config: dict | None = None,
-    tags: list[dict] | None = None,
-) -> dict:
-    """
-    Create a new single-prompt optimization job.
-
-    Args:
-        experiment_id: The MLflow experiment ID to track the job.
-        prompt_uri: The URI of the prompt to optimize (e.g., "prompts:/my-prompt/1").
-        dataset_id: The ID of the EvaluationDataset containing training data.
-        scorers: List of scorer names. Can be built-in scorer class names
-            (e.g., "Correctness", "Safety") or registered scorer names.
-        optimizer_type: The optimizer type string (e.g., "gepa").
-        optimizer_config: Optimizer-specific configuration (e.g., reflection_model).
-        tags: Optional tags for the job.
-
-    Returns:
-        The created job response.
-    """
-    url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs"
-
-    # Build optimizer config JSON (optimizer-specific only, not dataset_id/scorers)
-    config_json = json.dumps(optimizer_config) if optimizer_config else None
-
-    # Convert string optimizer_type to proto enum value
-    optimizer_type_to_enum = {
-        "gepa": 1,  # OPTIMIZER_TYPE_GEPA
-        "metaprompt": 2,  # OPTIMIZER_TYPE_METAPROMPT
-    }
-    optimizer_type_enum = optimizer_type_to_enum.get(optimizer_type.lower(), 0)
-
-    payload = {
-        "experiment_id": experiment_id,
-        "source_prompt_uri": prompt_uri,
-        "config": {
-            "optimizer_type": optimizer_type_enum,
-            "dataset_id": dataset_id,
-            "scorers": scorers,
-            "optimizer_config_json": config_json,
-        },
-        "tags": tags or [],
-    }
-
-    print("Creating prompt optimization job...")
-    print(f"URL: {url}")
-    print(f"Payload: {json.dumps(payload, indent=2)}")
-
-    response = requests.post(url, json=payload)
-
-    if response.status_code != 200:
-        print(f"Error: {response.status_code}")
-        print(f"Response: {response.text}")
-        return None
-
-    result = response.json()
-    print(f"Response: {json.dumps(result, indent=2)}")
-    return result
-
-
-def get_prompt_optimization_job(job_id: str) -> dict:
+def get_optimization_job(job_id: str) -> dict:
     """
     Get the status of an optimization job.
 
@@ -127,21 +59,23 @@ def get_prompt_optimization_job(job_id: str) -> dict:
     return result
 
 
-def search_prompt_optimization_jobs(experiment_id: str) -> dict:
+def search_optimization_jobs(experiment_id: str = None) -> dict:
     """
     Search for optimization jobs.
 
     Args:
-        experiment_id: Experiment ID to filter by (required).
+        experiment_id: Optional experiment ID to filter by.
 
     Returns:
         List of matching jobs.
     """
     url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs/search"
 
-    payload = {"experiment_id": experiment_id}
+    payload = {}
+    if experiment_id:
+        payload["experiment_id"] = experiment_id
 
-    print("Searching prompt optimization jobs...")
+    print("Searching optimization jobs...")
 
     response = requests.post(url, json=payload)
 
@@ -155,33 +89,7 @@ def search_prompt_optimization_jobs(experiment_id: str) -> dict:
     return result
 
 
-def cancel_prompt_optimization_job(job_id: str) -> dict:
-    """
-    Cancel an optimization job.
-
-    Args:
-        job_id: The job ID to cancel.
-
-    Returns:
-        The cancelled job.
-    """
-    url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs/{job_id}/cancel"
-
-    print(f"Cancelling job: {job_id}")
-
-    response = requests.post(url)
-
-    if response.status_code != 200:
-        print(f"Error: {response.status_code}")
-        print(f"Response: {response.text}")
-        return None
-
-    result = response.json()
-    print(f"Response: {json.dumps(result, indent=2)}")
-    return result
-
-
-def delete_prompt_optimization_job(job_id: str) -> dict:
+def delete_optimization_job(job_id: str) -> dict:
     """
     Delete an optimization job.
 
@@ -207,10 +115,82 @@ def delete_prompt_optimization_job(job_id: str) -> dict:
     return result
 
 
+def create_optimization_job(
+    experiment_id: str,
+    prompt_uri: str,
+    optimizer_type: str = "gepa",
+    scorers: list[str] | None = None,
+    dataset_id: str | None = None,
+    optimizer_config: dict | None = None,
+    tags: list[dict] | None = None,
+) -> dict:
+    url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs"
+
+    # Convert string optimizer_type to proto enum value
+    optimizer_type_to_enum = {
+        "gepa": 1,  # OPTIMIZER_TYPE_GEPA
+        "metaprompt": 2,  # OPTIMIZER_TYPE_METAPROMPT
+    }
+    optimizer_type_enum = optimizer_type_to_enum.get(optimizer_type.lower(), 0)
+
+    # Build config - source_prompt_uri is now a top-level field, not in config
+    config = {
+        "optimizer_type": optimizer_type_enum,
+        "scorers": scorers or [],  # Empty list if None
+    }
+
+    # Add dataset_id if provided (optional for zero-shot metaprompting)
+    if dataset_id:
+        config["dataset_id"] = dataset_id
+
+    # Add optimizer_config_json if provided
+    if optimizer_config:
+        config["optimizer_config_json"] = json.dumps(optimizer_config)
+
+    payload = {
+        "experiment_id": experiment_id,
+        "source_prompt_uri": prompt_uri,  # Top-level field, not in config
+        "config": config,
+        "tags": tags or [],
+    }
+
+    print("Creating optimization job...")
+    print(f"URL: {url}")
+    print(f"Payload: {json.dumps(payload, indent=2)}")
+
+    response = requests.post(url, json=payload)
+
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(f"Response: {response.text}")
+        return None
+
+    result = response.json()
+    print(f"Response: {json.dumps(result, indent=2)}")
+    return result
+
+
+def cancel_optimization_job(job_id: str) -> dict:
+    url = f"{MLFLOW_SERVER_URL}/ajax-api/{API_VERSION}.0/mlflow/prompt-optimization/jobs/{job_id}/cancel"
+
+    print(f"Cancelling job: {job_id}")
+
+    response = requests.post(url)
+
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(f"Response: {response.text}")
+        return None
+
+    result = response.json()
+    print(f"Response: {json.dumps(result, indent=2)}")
+    return result
+
+
 def main():
     import mlflow
 
-    dataset_id = "d-be15aded1a2a467e8466c017b24f13c7"
+    dataset_id = "d-ecaeda79a412460bb6f0560af6bb7321"
     prompt_uri = "prompts:/aime_solver/1"
 
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
@@ -222,19 +202,19 @@ def main():
 
     # Optimizer-specific config
     optimizer_config = {
-        "reflection_model": "openai:/gpt-4o",
-        # "max_metric_calls": 100,
+        "reflection_model": "openai:/gpt-5-mini",
+        "max_metric_calls": 60,
     }
 
     experiment = mlflow.get_experiment_by_name("optimization_backend")
     experiment_id = experiment.experiment_id
 
-    result = create_prompt_optimization_job(
+    result = create_optimization_job(
         experiment_id=experiment_id,
         prompt_uri=prompt_uri,
         dataset_id=dataset_id,
         scorers=scorers,
-        optimizer_type="metaprompt",
+        optimizer_type="gepa",
         optimizer_config=optimizer_config,
         tags=[{"key": "test", "value": "true"}],
     )
@@ -246,24 +226,13 @@ def main():
         import pdb
 
         pdb.set_trace()
-        # Wait a moment and check status
-        print("\n4. Checking job status...")
-        time.sleep(1)
-        get_prompt_optimization_job(job_id)
 
-        # Search for jobs
-        print("\n5. Searching for jobs...")
-        search_prompt_optimization_jobs(experiment_id)
-
-        # Optionally cancel the job
-        print("\n6. Cancelling the job...")
-        cancel_prompt_optimization_job(job_id)
-
-        # Optionally delete the job
-        # print("\n7. Deleting the job...")
-        # delete_prompt_optimization_job(job_id)
+        get_optimization_job(job_id)
+        search_optimization_jobs(experiment_id)
+        cancel_optimization_job(job_id)
+        delete_optimization_job(job_id)
     else:
-        print("Failed to create prompt optimization job")
+        print("Failed to create optimization job")
 
     print("\n" + "=" * 60)
     print("Test complete!")
