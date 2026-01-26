@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from mlflow.entities.span import Span
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -375,6 +375,40 @@ def update_token_usage(
         )
 
     return current_token_usage
+
+
+def update_cost(
+    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any]
+) -> str | dict[str, Any]:
+    """
+    Update current cost in-place by adding the new cost.
+
+    Args:
+        current_cost: Current cost, dictionary or JSON string
+        new_cost: New cost, dictionary or JSON string
+
+    Returns:
+        Updated cost dictionary or JSON string
+    """
+    try:
+        if isinstance(current_cost, str):
+            current_cost = json.loads(current_cost) or {}
+        if isinstance(new_cost, str):
+            new_cost = json.loads(new_cost) or {}
+        if new_cost:
+            for key in [
+                CostKey.INPUT_COST,
+                CostKey.OUTPUT_COST,
+                CostKey.TOTAL_COST,
+            ]:
+                current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
+    except Exception:
+        _logger.debug(
+            f"Failed to update cost with current_cost: {current_cost}, new_cost: {new_cost}",
+            exc_info=True,
+        )
+
+    return current_cost
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
