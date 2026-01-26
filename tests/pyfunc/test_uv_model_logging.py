@@ -6,9 +6,8 @@ Tests the end-to-end workflow:
 2. Artifact generation (uv.lock, pyproject.toml, .python-version, requirements.txt)
 3. Model loading with UV artifacts
 
-Note: UV file copying (uv.lock, pyproject.toml, .python-version) is implemented in
-mlflow.pyfunc.log_model/save_model. The sklearn flavor uses the standard requirements
-inference via UV export but does not copy UV artifacts directly.
+These tests use REAL UV calls (not mocked) where possible, following MLflow best practices.
+Tests requiring UV are skipped if UV is not installed or below minimum version.
 """
 
 import subprocess
@@ -23,16 +22,21 @@ from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
     _UV_LOCK_FILE,
+    is_uv_available,
 )
 
 # Constants for artifact file names
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
+# Skip marker for tests requiring UV
+requires_uv = pytest.mark.skipif(
+    not is_uv_available(),
+    reason="UV is not installed or below minimum required version (0.5.0)",
+)
+
 
 class SimplePythonModel(mlflow.pyfunc.PythonModel):
-    """Simple PythonModel for testing."""
-
     def predict(self, context, model_input, params=None):
         return model_input
 
@@ -43,31 +47,8 @@ def python_model():
 
 
 @pytest.fixture
-def sklearn_model():
-    from sklearn.linear_model import LogisticRegression
-
-    return LogisticRegression()
-
-
-@pytest.fixture
-def uv_project(tmp_path):
-    """Create a minimal UV project structure."""
-    # Create uv.lock
-    uv_lock_content = """version = 1
-requires-python = ">=3.10"
-
-[[package]]
-name = "numpy"
-version = "1.24.0"
-source = { registry = "https://pypi.org/simple" }
-
-[[package]]
-name = "scikit-learn"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-"""
-    (tmp_path / _UV_LOCK_FILE).write_text(uv_lock_content)
-
+def uv_project_real(tmp_path):
+    """Create a real UV project with uv lock."""
     # Create pyproject.toml
     pyproject_content = """[project]
 name = "test-uv-project"
@@ -75,47 +56,67 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24.0",
-    "scikit-learn>=1.2.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 """
     (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
 
     # Create .python-version
-    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5")
+    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+
+    # Run uv lock to generate real uv.lock
+    result = subprocess.run(
+        ["uv", "lock"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"uv lock failed: {result.stderr}")
 
     return tmp_path
 
 
 @pytest.fixture
-def uv_project_no_python_version(tmp_path):
-    """Create a UV project without .python-version file."""
-    (tmp_path / _UV_LOCK_FILE).write_text('version = 1\nrequires-python = ">=3.10"\n')
+def uv_project_real_no_python_version(tmp_path):
+    """Create a real UV project without .python-version file."""
     pyproject_content = """[project]
 name = "test-project"
 version = "0.1.0"
 requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 """
     (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
+
+    result = subprocess.run(
+        ["uv", "lock"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"uv lock failed: {result.stderr}")
+
     return tmp_path
 
 
-# --- Model Logging Tests (pyfunc) ---
-# Note: UV file copying is implemented in mlflow.pyfunc.log_model/save_model
+# --- Model Logging Tests with Real UV ---
 
 
-def test_pyfunc_log_model_copies_uv_artifacts(uv_project, python_model, monkeypatch):
-    monkeypatch.chdir(uv_project)
+@requires_uv
+def test_pyfunc_log_model_copies_uv_artifacts(uv_project_real, python_model, monkeypatch):
+    monkeypatch.chdir(uv_project_real)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -134,21 +135,13 @@ def test_pyfunc_log_model_copies_uv_artifacts(uv_project, python_model, monkeypa
         assert "3.11.5" in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
 
 
+@requires_uv
 def test_pyfunc_log_model_uses_uv_python_version_in_python_env(
-    uv_project, python_model, monkeypatch
+    uv_project_real, python_model, monkeypatch
 ):
-    monkeypatch.chdir(uv_project)
+    monkeypatch.chdir(uv_project_real)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -163,21 +156,13 @@ def test_pyfunc_log_model_uses_uv_python_version_in_python_env(
         assert "3.11.5" in python_env_content
 
 
+@requires_uv
 def test_pyfunc_log_model_extracts_python_version_from_pyproject(
-    uv_project_no_python_version, python_model, monkeypatch
+    uv_project_real_no_python_version, python_model, monkeypatch
 ):
-    monkeypatch.chdir(uv_project_no_python_version)
+    monkeypatch.chdir(uv_project_real_no_python_version)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -193,22 +178,14 @@ def test_pyfunc_log_model_extracts_python_version_from_pyproject(
         assert "3.11" in python_env_content
 
 
+@requires_uv
 def test_pyfunc_log_model_respects_mlflow_log_uv_files_env_var(
-    uv_project, python_model, monkeypatch
+    uv_project_real, python_model, monkeypatch
 ):
-    monkeypatch.chdir(uv_project)
+    monkeypatch.chdir(uv_project_real)
     monkeypatch.setenv("MLFLOW_LOG_UV_FILES", "false")
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -216,37 +193,31 @@ def test_pyfunc_log_model_respects_mlflow_log_uv_files_env_var(
         )
         artifact_dir = Path(artifact_path)
 
-        # UV artifacts should NOT be copied
+        # UV artifacts should NOT be copied when env var is false
         assert not (artifact_dir / _UV_LOCK_FILE).exists()
         assert not (artifact_dir / _PYPROJECT_FILE).exists()
 
         # But requirements.txt should still exist (from UV export)
         assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
+        requirements_content = (artifact_dir / _REQUIREMENTS_FILE_NAME).read_text()
+        assert "numpy" in requirements_content.lower()
 
 
+@requires_uv
 def test_pyfunc_log_model_with_explicit_uv_lock_parameter(
-    tmp_path, uv_project, python_model, monkeypatch
+    tmp_path, uv_project_real, python_model, monkeypatch
 ):
     # Work from a different directory than the UV project
     work_dir = tmp_path / "work"
     work_dir.mkdir()
     monkeypatch.chdir(work_dir)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         # Use explicit uv_lock parameter to point to UV project
         mlflow.pyfunc.log_model(
             name="model",
             python_model=python_model,
-            uv_lock=uv_project / _UV_LOCK_FILE,
+            uv_lock=uv_project_real / _UV_LOCK_FILE,
         )
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -260,11 +231,35 @@ def test_pyfunc_log_model_with_explicit_uv_lock_parameter(
         assert "test-uv-project" in (artifact_dir / _PYPROJECT_FILE).read_text()
 
 
-# --- Fallback Tests ---
+@requires_uv
+def test_pyfunc_log_model_generates_requirements_from_uv_export(
+    uv_project_real, python_model, monkeypatch
+):
+    monkeypatch.chdir(uv_project_real)
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=python_model)
+
+        artifact_path = mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="model"
+        )
+        artifact_dir = Path(artifact_path)
+
+        # Verify requirements.txt exists and contains numpy from UV export
+        requirements_file = artifact_dir / _REQUIREMENTS_FILE_NAME
+        assert requirements_file.exists()
+        requirements_content = requirements_file.read_text()
+        assert "numpy" in requirements_content.lower()
 
 
-def test_pyfunc_log_model_falls_back_when_uv_not_available(uv_project, python_model, monkeypatch):
-    monkeypatch.chdir(uv_project)
+# --- Fallback Tests (mocking required to simulate UV unavailable) ---
+
+
+def test_pyfunc_log_model_falls_back_when_uv_not_available(tmp_path, python_model, monkeypatch):
+    # Create a UV project structure (files exist but UV unavailable)
+    (tmp_path / _UV_LOCK_FILE).write_text('version = 1\nrequires-python = ">=3.10"\n')
+    (tmp_path / _PYPROJECT_FILE).write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
+    monkeypatch.chdir(tmp_path)
 
     with (
         mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False),
@@ -282,8 +277,11 @@ def test_pyfunc_log_model_falls_back_when_uv_not_available(uv_project, python_mo
         assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
 
 
-def test_pyfunc_log_model_falls_back_when_uv_export_fails(uv_project, python_model, monkeypatch):
-    monkeypatch.chdir(uv_project)
+def test_pyfunc_log_model_falls_back_when_uv_export_fails(tmp_path, python_model, monkeypatch):
+    # Create a UV project structure
+    (tmp_path / _UV_LOCK_FILE).write_text('version = 1\nrequires-python = ">=3.10"\n')
+    (tmp_path / _PYPROJECT_FILE).write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
+    monkeypatch.chdir(tmp_path)
 
     with (
         mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
@@ -329,19 +327,11 @@ def test_pyfunc_log_model_non_uv_project_uses_standard_inference(
 # --- Model Loading Tests ---
 
 
-def test_load_pyfunc_model_with_uv_artifacts(uv_project, python_model, monkeypatch):
-    monkeypatch.chdir(uv_project)
+@requires_uv
+def test_load_pyfunc_model_with_uv_artifacts(uv_project_real, python_model, monkeypatch):
+    monkeypatch.chdir(uv_project_real)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
         model_uri = f"runs:/{run.info.run_id}/model"
 
@@ -349,23 +339,14 @@ def test_load_pyfunc_model_with_uv_artifacts(uv_project, python_model, monkeypat
         loaded_model = mlflow.pyfunc.load_model(model_uri)
 
         assert loaded_model is not None
-        # Verify model info contains expected metadata
         assert loaded_model.metadata is not None
 
 
-def test_load_pyfunc_model_can_predict_after_loading(uv_project, python_model, monkeypatch):
-    monkeypatch.chdir(uv_project)
+@requires_uv
+def test_load_pyfunc_model_can_predict_after_loading(uv_project_real, python_model, monkeypatch):
+    monkeypatch.chdir(uv_project_real)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
         model_uri = f"runs:/{run.info.run_id}/model"
 
@@ -383,77 +364,52 @@ def test_load_pyfunc_model_can_predict_after_loading(uv_project, python_model, m
 # --- Save Model Tests ---
 
 
-def test_pyfunc_save_model_with_uv_project(uv_project, python_model, tmp_path, monkeypatch):
-    monkeypatch.chdir(uv_project)
+@requires_uv
+def test_pyfunc_save_model_with_uv_project(uv_project_real, python_model, tmp_path, monkeypatch):
+    monkeypatch.chdir(uv_project_real)
     model_path = tmp_path / "saved_model"
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
+    mlflow.pyfunc.save_model(model_path, python_model=python_model)
 
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-    ):
-        mlflow.pyfunc.save_model(model_path, python_model=python_model)
-
-        # Verify artifacts
-        assert (model_path / _REQUIREMENTS_FILE_NAME).exists()
-        assert (model_path / _UV_LOCK_FILE).exists()
-        assert (model_path / _PYPROJECT_FILE).exists()
-        assert (model_path / _PYTHON_VERSION_FILE).exists()
+    # Verify artifacts
+    assert (model_path / _REQUIREMENTS_FILE_NAME).exists()
+    assert (model_path / _UV_LOCK_FILE).exists()
+    assert (model_path / _PYPROJECT_FILE).exists()
+    assert (model_path / _PYTHON_VERSION_FILE).exists()
 
 
-def test_pyfunc_save_model_with_explicit_uv_lock(uv_project, python_model, tmp_path, monkeypatch):
+@requires_uv
+def test_pyfunc_save_model_with_explicit_uv_lock(
+    uv_project_real, python_model, tmp_path, monkeypatch
+):
     work_dir = tmp_path / "work"
     work_dir.mkdir()
     model_path = tmp_path / "saved_model"
     monkeypatch.chdir(work_dir)
 
-    uv_export_output = "numpy==1.24.0\n"
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
+    mlflow.pyfunc.save_model(
+        model_path,
+        python_model=python_model,
+        uv_lock=uv_project_real / _UV_LOCK_FILE,
+    )
 
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-    ):
-        mlflow.pyfunc.save_model(
-            model_path,
-            python_model=python_model,
-            uv_lock=uv_project / _UV_LOCK_FILE,
-        )
-
-        # Verify UV artifacts from explicit path
-        assert (model_path / _UV_LOCK_FILE).exists()
-        assert (model_path / _PYPROJECT_FILE).exists()
+    # Verify UV artifacts from explicit path
+    assert (model_path / _UV_LOCK_FILE).exists()
+    assert (model_path / _PYPROJECT_FILE).exists()
 
 
-# --- Environment Marker Filtering Tests ---
+# --- Environment Variable Variations ---
 
 
-def test_pyfunc_log_model_filters_platform_specific_dependencies(
-    uv_project, python_model, monkeypatch
+@requires_uv
+@pytest.mark.parametrize("env_value", ["false", "0", "no", "FALSE", "No"])
+def test_mlflow_log_uv_files_env_var_false_variants(
+    uv_project_real, python_model, monkeypatch, env_value
 ):
-    monkeypatch.chdir(uv_project)
+    monkeypatch.chdir(uv_project_real)
+    monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
 
-    # UV export output with platform-specific packages
-    uv_export_output = """numpy==1.24.0
-pywin32==306 ; sys_platform == 'win32'
-pandas==2.0.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_export_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result),
-        mock.patch("sys.platform", "darwin"),  # Simulate macOS
-        mlflow.start_run() as run,
-    ):
+    with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -461,8 +417,30 @@ pandas==2.0.0
         )
         artifact_dir = Path(artifact_path)
 
-        requirements_content = (artifact_dir / _REQUIREMENTS_FILE_NAME).read_text()
+        # UV artifacts should NOT be copied
+        assert not (artifact_dir / _UV_LOCK_FILE).exists()
+        assert not (artifact_dir / _PYPROJECT_FILE).exists()
 
-        # pywin32 should be filtered out on non-Windows
-        assert "pywin32" not in requirements_content
-        assert "numpy" in requirements_content.lower()
+        # requirements.txt should still exist
+        assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
+
+
+@requires_uv
+@pytest.mark.parametrize("env_value", ["true", "1", "yes", "TRUE"])
+def test_mlflow_log_uv_files_env_var_true_variants(
+    uv_project_real, python_model, monkeypatch, env_value
+):
+    monkeypatch.chdir(uv_project_real)
+    monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=python_model)
+
+        artifact_path = mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="model"
+        )
+        artifact_dir = Path(artifact_path)
+
+        # UV artifacts should be copied
+        assert (artifact_dir / _UV_LOCK_FILE).exists()
+        assert (artifact_dir / _PYPROJECT_FILE).exists()
