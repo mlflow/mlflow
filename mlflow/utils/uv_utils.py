@@ -348,14 +348,27 @@ def get_python_version_from_uv_project(directory: str | Path | None = None) -> s
 # File names for UV artifacts
 _UV_LOCK_ARTIFACT_NAME = "uv.lock"
 _PYPROJECT_ARTIFACT_NAME = "pyproject.toml"
+_PYTHON_VERSION_FILE = ".python-version"
+
+# Environment variable to disable UV file logging (for large projects)
+_MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
+
+
+def _should_log_uv_files() -> bool:
+    """Check if UV files should be logged based on environment variable."""
+    env_value = os.environ.get(_MLFLOW_LOG_UV_FILES_ENV, "true").lower()
+    return env_value not in ("false", "0", "no")
 
 
 def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = None) -> bool:
     """
-    Copy UV project files (uv.lock and pyproject.toml) to the model artifact directory.
+    Copy UV project files to the model artifact directory.
 
-    This function should be called during model saving to preserve UV project files
-    as model artifacts for reproducibility.
+    Copies uv.lock, pyproject.toml, and .python-version (if present) to preserve
+    UV project configuration as model artifacts for reproducibility.
+
+    Can be disabled by setting MLFLOW_LOG_UV_FILES=false environment variable
+    for large projects where uv.lock size is a concern.
 
     Args:
         dest_dir: The destination directory (model artifact directory).
@@ -365,14 +378,23 @@ def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = 
     Returns:
         True if UV files were copied, False otherwise.
     """
+    # Check if UV file logging is disabled via environment variable
+    if not _should_log_uv_files():
+        _logger.info(
+            f"UV file logging disabled via {_MLFLOW_LOG_UV_FILES_ENV} environment variable"
+        )
+        return False
+
     dest_dir = Path(dest_dir)
-    uv_project = detect_uv_project() if source_dir is None else detect_uv_project(source_dir)
+    source_dir = Path.cwd() if source_dir is None else Path(source_dir)
+    uv_project = detect_uv_project(source_dir)
 
     if uv_project is None:
         return False
 
     uv_lock_src = uv_project["uv_lock"]
     pyproject_src = uv_project["pyproject"]
+    python_version_src = source_dir / _PYTHON_VERSION_FILE
 
     try:
         # Copy uv.lock
@@ -384,6 +406,12 @@ def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = 
         pyproject_dest = dest_dir / _PYPROJECT_ARTIFACT_NAME
         shutil.copy2(pyproject_src, pyproject_dest)
         _logger.info(f"Copied {_PYPROJECT_ARTIFACT_NAME} to model artifacts")
+
+        # Copy .python-version if it exists
+        if python_version_src.exists():
+            python_version_dest = dest_dir / _PYTHON_VERSION_FILE
+            shutil.copy2(python_version_src, python_version_dest)
+            _logger.info(f"Copied {_PYTHON_VERSION_FILE} to model artifacts")
 
         return True
     except Exception as e:
