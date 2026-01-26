@@ -20,11 +20,13 @@ from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
     TRACE_ID_V4_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
-    CostKey,
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
+)
+from mlflow.tracing.constant import (
+    CostKey as CostKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -235,37 +237,59 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
         Dictionary with input_cost, output_cost, and total_cost in USD,
         or None if cost cannot be calculated.
     """
+    model_name = span.get_attribute(SpanAttributeKey.MODEL)
+    usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    model_provider = span.get_attribute(SpanAttributeKey.MODEL_PROVIDER)
+    return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
+
+
+def calculate_cost_by_model_and_token_usage(
+    model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
+) -> dict[str, float] | None:
+    if not model_name or not usage:
+        return None
+
     try:
         from litellm import cost_per_token
     except ImportError:
         _logger.debug("LiteLLM not available for cost calculation")
         return None
 
-    model_name = span.get_attribute(SpanAttributeKey.MODEL)
-    usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+    completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
 
-    if not model_name or not usage:
+    if prompt_tokens == 0 and completion_tokens == 0:
         return None
 
     try:
-        prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
-        completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
-
-        if prompt_tokens == 0 and completion_tokens == 0:
-            return None
-
         input_cost_usd, output_cost_usd = cost_per_token(
             model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
         )
-
-        return {
-            CostKey.INPUT_COST: input_cost_usd,
-            CostKey.OUTPUT_COST: output_cost_usd,
-            CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
-        }
     except Exception as e:
-        _logger.debug(f"Failed to calculate cost for span {span.span_id}: {e}")
-        return None
+        if model_provider:
+            try:
+                model_name = f"{json.loads(model_provider)}/{json.loads(model_name)}"
+                input_cost_usd, output_cost_usd = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
+                )
+                return
+        else:
+            _logger.debug(
+                f"Failed to calculate cost for model {model_name} without provider: {e}",
+                exc_info=True,
+            )
+
+    return {
+        CostKey.INPUT_COST: input_cost_usd,
+        CostKey.OUTPUT_COST: output_cost_usd,
+        CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
+    }
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
