@@ -1,11 +1,12 @@
 import base64
 import json
 import logging
+import os
 import random
 import time
 import warnings
 from functools import lru_cache
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import requests
 
@@ -40,6 +41,9 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+
+if TYPE_CHECKING:
+    from databricks.sdk import CredentialsStrategy
 
 _logger = logging.getLogger(__name__)
 
@@ -259,6 +263,22 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
+def _get_credentials_strategy() -> "CredentialsStrategy | None":
+    is_in_db_model_serving_env = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+    if is_in_db_model_serving_env is None:
+        return None
+
+    if is_in_db_model_serving_env.lower() not in ("1", "true"):
+        return None
+
+    try:
+        from databricks.sdk.credentials_provider import ModelServingUserCredentials
+
+        return ModelServingUserCredentials()
+    except ImportError:
+        return None
+
+
 @lru_cache(maxsize=5)
 def get_workspace_client(
     use_secret_scope_token,
@@ -282,8 +302,12 @@ def get_workspace_client(
         retry_timeout_seconds=retry_timeout_seconds
         or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
     )
-    # Note: If we use `config` param, all SDK configurations must be set in `config` object.
-    return WorkspaceClient(config=config)
+
+    try:
+        return WorkspaceClient(config=config, credentials_strategy=_get_credentials_strategy())
+    except TypeError:
+        # WorkspaceClient may not support credentials_strategy param in older versions
+        return WorkspaceClient(config=config)
 
 
 def _can_parse_as_json_object(string):
