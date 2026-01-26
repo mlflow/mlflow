@@ -9,7 +9,7 @@ Once enabled, any visitor will be required to login before they can view any res
 MLflow Authentication provides Python and REST API for managing users and permissions.
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
-- <Link to="/api_reference/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
 
 ![](/images/auth_signup_form.png)
 
@@ -56,6 +56,7 @@ The available permissions are:
     <tr>
       <th>Permission</th>
       <th>Can read</th>
+      <th>Can use</th>
       <th>Can update</th>
       <th>Can delete</th>
       <th>Can manage</th>
@@ -68,9 +69,19 @@ The available permissions are:
       <td>No</td>
       <td>No</td>
       <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>USE</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
     </tr>
     <tr>
       <td>EDIT</td>
+      <td>Yes</td>
       <td>Yes</td>
       <td>Yes</td>
       <td>No</td>
@@ -82,9 +93,11 @@ The available permissions are:
       <td>Yes</td>
       <td>Yes</td>
       <td>Yes</td>
+      <td>Yes</td>
     </tr>
     <tr>
       <td>NO_PERMISSIONS</td>
+      <td>No</td>
       <td>No</td>
       <td>No</td>
       <td>No</td>
@@ -580,6 +593,183 @@ Required Permissions for accessing registered models:
   </tbody>
 </table>
 
+### AI Gateway Permissions
+
+AI Gateway resources (API keys, model definitions, and endpoints) support the same permission model as experiments and registered models. When a user creates a resource, they automatically receive `MANAGE` permission on it and can grant permissions to other users.
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelistgatewaysecretinfos" target="_blank">
+          <span>List API Keys</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/list`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetgatewaysecretinfo" target="_blank">
+          <span>Get API Key</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreategatewaysecret" target="_blank">
+          <span>Create API Key</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/create`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowserviceupdategatewaysecret" target="_blank">
+          <span>Update API Key</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/update`</td>
+      <td>`PATCH`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeletegatewaysecret" target="_blank">
+          <span>Delete API Key</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelistgatewaymodeldefinitions" target="_blank">
+          <span>List Model Definitions</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/list`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetgatewaymodeldefinition" target="_blank">
+          <span>Get Model Definition</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreategatewaymodeldefinition" target="_blank">
+          <span>Create Model Definition</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/create`</td>
+      <td>`POST`</td>
+      <td>None (can_use on referenced API key)</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowserviceupdategatewaymodeldefinition" target="_blank">
+          <span>Update Model Definition</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeletegatewaymodeldefinition" target="_blank">
+          <span>Delete Model Definition</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelistgatewayendpoints" target="_blank">
+          <span>List Endpoints</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/list`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetgatewayendpoint" target="_blank">
+          <span>Get Endpoint</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreategatewayendpoint" target="_blank">
+          <span>Create Endpoint</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/create`</td>
+      <td>`POST`</td>
+      <td>None (can_use on referenced model definitions)</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowserviceupdategatewayendpoint" target="_blank">
+          <span>Update Endpoint</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/update`</td>
+      <td>`PATCH`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeletegatewayendpoint" target="_blank">
+          <span>Delete Endpoint</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>Query Endpoint</td>
+      <td>`gateway/{endpoint_name}/...`</td>
+      <td>`POST`</td>
+      <td>can_use</td>
+    </tr>
+  </tbody>
+</table>
+
+:::note
+When creating AI Gateway resources, the creator automatically receives `MANAGE` permission. To grant access to other users, use the permission management APIs listed below.
+:::
+
 Required Permissions for accessing scorers:
 
 <table>
@@ -639,7 +829,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
   <tbody>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">
           <span>Create User</span>
         </Link>
       </td>
@@ -649,7 +839,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-user" target="_blank">
           <span>Get User</span>
         </Link>
       </td>
@@ -659,7 +849,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuserpassword" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-user-password" target="_blank">
           <span>Update User Password</span>
         </Link>
       </td>
@@ -669,7 +859,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuseradmin" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-user-admin" target="_blank">
           <span>Update User Admin</span>
         </Link>
       </td>
@@ -679,7 +869,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-user" target="_blank">
           <span>Delete User</span>
         </Link>
       </td>
@@ -689,7 +879,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-experiment-permission" target="_blank">
           <span>Create Experiment Permission</span>
         </Link>
       </td>
@@ -699,7 +889,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-experiment-permission" target="_blank">
           <span>Get Experiment Permission</span>
         </Link>
       </td>
@@ -709,7 +899,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-experiment-permission" target="_blank">
           <span>Update Experiment Permission</span>
         </Link>
       </td>
@@ -719,7 +909,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-experiment-permission" target="_blank">
           <span>Delete Experiment Permission</span>
         </Link>
       </td>
@@ -729,7 +919,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-registered-model-permission" target="_blank">
           <span>Create Registered Model Permission</span>
         </Link>
       </td>
@@ -739,7 +929,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-registered-model-permission" target="_blank">
           <span>Get Registered Model Permission</span>
         </Link>
       </td>
@@ -749,7 +939,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-registered-model-permission" target="_blank">
           <span>Update Registered Model Permission</span>
         </Link>
       </td>
@@ -759,11 +949,131 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-registered-model-permission" target="_blank">
           <span>Delete Registered Model Permission</span>
         </Link>
       </td>
       <td>`2.0/mlflow/registered-models/permissions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#create-gateway-endpoint-permission" target="_blank">
+          <span>Create Gateway Endpoint Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/permissions/create`</td>
+      <td>`POST`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#get-gateway-endpoint-permission" target="_blank">
+          <span>Get Gateway Endpoint Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/permissions/get`</td>
+      <td>`GET`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#update-gateway-endpoint-permission" target="_blank">
+          <span>Update Gateway Endpoint Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/permissions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#delete-gateway-endpoint-permission" target="_blank">
+          <span>Delete Gateway Endpoint Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/endpoints/permissions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#create-gateway-secret-permission" target="_blank">
+          <span>Create Gateway API Key Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/permissions/create`</td>
+      <td>`POST`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#get-gateway-secret-permission" target="_blank">
+          <span>Get Gateway API Key Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/permissions/get`</td>
+      <td>`GET`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#update-gateway-secret-permission" target="_blank">
+          <span>Update Gateway API Key Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/permissions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#delete-gateway-secret-permission" target="_blank">
+          <span>Delete Gateway API Key Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/secrets/permissions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#create-gateway-model-definition-permission" target="_blank">
+          <span>Create Gateway Model Definition Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/permissions/create`</td>
+      <td>`POST`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#get-gateway-model-definition-permission" target="_blank">
+          <span>Get Gateway Model Definition Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/permissions/get`</td>
+      <td>`GET`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#update-gateway-model-definition-permission" target="_blank">
+          <span>Update Gateway Model Definition Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/permissions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/auth/rest-api.html#delete-gateway-model-definition-permission" target="_blank">
+          <span>Delete Gateway Model Definition Permission</span>
+        </Link>
+      </td>
+      <td>`3.0/mlflow/gateway/model-definitions/permissions/delete`</td>
       <td>`DELETE`</td>
       <td>can_manage</td>
     </tr>
@@ -916,7 +1226,7 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 ### Managing Permissions
 
-MLflow provides <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">REST APIs</Link>
+MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
 To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
 

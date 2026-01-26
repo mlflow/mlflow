@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface TokenUsageChartDataPoint {
   name: string;
@@ -30,17 +30,12 @@ export interface UseTraceTokenUsageChartDataResult {
 /**
  * Custom hook that fetches and processes token usage chart data.
  * Encapsulates all data-fetching and processing logic for the token usage chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceTokenUsageChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceTokenUsageChartDataResult {
+export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch input tokens over time
   const {
     data: inputTokensData,

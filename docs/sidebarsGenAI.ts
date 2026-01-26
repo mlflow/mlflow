@@ -68,6 +68,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/app-instrumentation/opentelemetry',
                   label: 'Tracing with OpenTelemetry',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
+                },
               ],
             },
             {
@@ -160,6 +165,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock-agentcore',
+                  label: 'Amazon Bedrock AgentCore',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
                 },
@@ -185,8 +195,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/koog',
+                  label: 'Koog',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langchain',
                   label: 'LangChain',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
                 },
                 {
                   type: 'doc',
@@ -215,8 +235,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/pipecat',
+                  label: 'Pipecat',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/pydantic_ai',
                   label: 'PydanticAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/quarkus-langchain4j',
+                  label: 'Quarkus LangChain4j',
                 },
                 {
                   type: 'doc',
@@ -227,6 +257,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/smolagents',
                   label: 'Smolagents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/spring-ai',
+                  label: 'Spring AI',
                 },
                 {
                   type: 'doc',
@@ -248,6 +283,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/integrations/listing/voltagent',
                   label: 'VoltAgent',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/watsonx-orchestrate',
+                  label: 'Watsonx Orchestrate',
+                },
               ],
             },
             {
@@ -263,6 +303,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/bedrock',
                   label: 'AWS Bedrock',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/byteplus',
+                  label: 'BytePlus',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/cohere',
+                  label: 'Cohere',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks',
+                  label: 'Databricks',
                 },
                 {
                   type: 'doc',
@@ -286,6 +341,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/moonshot',
+                  label: 'Kimi (Moonshot AI)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/litellm',
                   label: 'LiteLLM',
                 },
@@ -296,6 +356,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/novitaai',
+                  label: 'Novita AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/ollama',
                   label: 'Ollama',
                 },
@@ -303,6 +368,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openai',
                   label: 'OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen',
+                  label: 'Qwen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/togetherai',
+                  label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/xai-grok',
+                  label: 'xAI / Grok',
                 },
               ],
             },
@@ -319,6 +399,52 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Gateways',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/helicone',
+                  label: 'Helicone',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/kong',
+                  label: 'Kong AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/litellm-proxy',
+                  label: 'LiteLLM Proxy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openrouter',
+                  label: 'OpenRouter',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/portkey',
+                  label: 'Portkey',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                  label: 'Pydantic AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/truefoundry',
+                  label: 'TrueFoundry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
                 },
               ],
             },
@@ -379,6 +505,11 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
               label: 'Evaluate Prompts',
             },
@@ -398,6 +529,11 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Evaluate Conversations',
             },
           ],
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
         },
         {
           type: 'category',
@@ -458,6 +594,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/ragas',
                       label: 'RAGAS',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -473,9 +614,29 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',
@@ -623,6 +784,53 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'API Keys',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/create-and-manage',
+              label: 'Create and Manage API Keys',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/key-rotation',
+              label: 'Encryption & Rotation',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Endpoints',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/create-and-manage',
+              label: 'Create and Manage Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/query-endpoints',
+              label: 'Query Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/model-providers',
+              label: 'Model Providers',
+            },
+          ],
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/traffic-routing-fallbacks',
+          label: 'Traffic Routing & Fallbacks',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [
@@ -642,6 +850,10 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Usage',
             },
           ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {

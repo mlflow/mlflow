@@ -7,7 +7,18 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
-from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, TraceState, ViewType
+from mlflow.entities import (
+    RunStatus,
+    ScorerVersion,
+    Span,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceState,
+    ViewType,
+)
+from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job_status import JobStatus
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -90,10 +101,12 @@ from mlflow.server.handlers import (
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
+    _cancel_prompt_optimization_job,
     _convert_path_parameter_to_flask_format,
     _create_dataset_handler,
     _create_experiment,
     _create_model_version,
+    _create_prompt_optimization_job,
     _create_registered_model,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
@@ -2607,6 +2620,62 @@ def test_litellm_not_available():
             assert "LiteLLM is not installed" in data["message"]
 
 
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+        "invalid#name",  # hash
+        "invalid@name",  # at sign
+        "invalid:name",  # colon
+        "日本語",  # unicode (Japanese)
+        "naïve",  # unicode (accented)
+    ],
+)
+def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+    ],
+)
+def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
+    from mlflow.server.handlers import _update_gateway_endpoint
+
+    request_msg = UpdateGatewayEndpoint()
+    request_msg.endpoint_id = "test-endpoint-id"
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _update_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["exp1", "exp2"]
     metric_name = "latency"
@@ -2751,7 +2820,7 @@ def test_invoke_scorer_missing_trace_ids():
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "trace_ids" in data["message"]
+        assert "Please select at least one trace to evaluate" in data["message"]
 
 
 def test_invoke_scorer_submits_jobs(mock_tracking_store):
@@ -3064,3 +3133,237 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         # Verify that all data is correctly streamed
         streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data
+
+
+def test_create_prompt_optimization_job(mock_tracking_store):
+    mock_job_entity = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params='{"run_id": "run-456"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-456"
+    mock_tracking_store.create_run.return_value = mock_run
+
+    mock_dataset = mock.MagicMock()
+    mock_dataset._to_mlflow_entity.return_value = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
+        mock.patch(
+            "mlflow.genai.datasets.get_dataset", return_value=mock_dataset
+        ) as mock_get_dataset,
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
+                "config": {
+                    "optimizer_type": 1,  # OPTIMIZER_TYPE_GEPA
+                    "dataset_id": "dataset-123",
+                    "scorers": ["Correctness", "Safety"],
+                    "optimizer_config_json": '{"reflection_model": "openai:/gpt-4"}',
+                },
+                "tags": [{"key": "env", "value": "test"}],
+            },
+        ):
+            response = _create_prompt_optimization_job()
+
+        mock_get_dataset.assert_called_once_with(dataset_id="dataset-123")
+
+    mock_tracking_store.create_run.assert_called_once()
+    call_kwargs = mock_tracking_store.create_run.call_args[1]
+    assert call_kwargs["experiment_id"] == "exp-123"
+    assert call_kwargs["user_id"] == "test_user"
+
+    mock_tracking_store.log_batch.assert_called_once()
+    logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
+    param_dict = {p.key: p.value for p in logged_params}
+    assert param_dict["source_prompt_uri"] == "prompts:/my-prompt/1"
+    assert param_dict["optimizer_type"] == "gepa"
+    assert param_dict["dataset_id"] == "dataset-123"
+    assert param_dict["scorer_names"] == '["Correctness", "Safety"]'
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-123"
+    assert response_data["job"]["run_id"] == "run-456"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_PENDING"
+    assert response_data["job"]["experiment_id"] == "exp-123"
+    assert response_data["job"]["source_prompt_uri"] == "prompts:/my-prompt/1"
+
+
+def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
+    mock_job_entity = JobEntity(
+        job_id="job-999",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params='{"run_id": "run-999"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-999"
+    mock_tracking_store.create_run.return_value = mock_run
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
+                "config": {
+                    "optimizer_type": 2,  # OPTIMIZER_TYPE_METAPROMPT
+                    "scorers": [],  # Empty scorers for zero-shot
+                    # No dataset_id - zero-shot optimization
+                },
+            },
+        ):
+            response = _create_prompt_optimization_job()
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-999"
+    assert response_data["job"]["run_id"] == "run-999"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_PENDING"
+
+    mock_tracking_store.log_batch.assert_called_once()
+    logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
+    param_dict = {p.key: p.value for p in logged_params}
+    assert param_dict["dataset_id"] == ""  # Empty string for None
+    assert param_dict["scorer_names"] == "[]"  # Empty list
+
+
+def test_create_prompt_optimization_job_missing_prompt_uri(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "source_prompt_uri" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 0,  # OPTIMIZER_TYPE_UNSPECIFIED
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "optimizer_type is required" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+                "optimizer_config_json": "invalid json {",
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid JSON in optimizer_config_json" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "",  # Empty experiment_id
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "experiment_id is required" in json_response["message"]
+
+
+def test_cancel_prompt_optimization_job():
+    mock_job_entity = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params=(
+            '{"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1", '
+            '"run_id": "run-456"}'
+        ),
+        timeout=None,
+        status=JobStatus.CANCELED,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        mock_tracking_store = mock.Mock()
+        mock_store.return_value = mock_tracking_store
+        with app.test_request_context(method="POST"):
+            response = _cancel_prompt_optimization_job("job-123")
+
+        # Verify that the underlying run was terminated
+        mock_tracking_store.update_run_info.assert_called_once()
+        call_args = mock_tracking_store.update_run_info.call_args
+        assert call_args.kwargs["run_id"] == "run-456"
+        assert call_args.kwargs["run_status"] == RunStatus.KILLED
+        assert call_args.kwargs["run_name"] is None
+        assert "end_time" in call_args.kwargs
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-123"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_CANCELED"
+    assert response_data["job"]["experiment_id"] == "exp-123"
+    assert response_data["job"]["source_prompt_uri"] == "prompts:/my-prompt/1"
+    assert response_data["job"]["run_id"] == "run-456"

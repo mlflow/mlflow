@@ -21,6 +21,7 @@ import {
   useLocation as useLocationDirect,
   useParams as useParamsDirect,
   useSearchParams as useSearchParamsDirect,
+  useMatches as useMatchesDirect,
   createHashRouter,
   RouterProvider,
   Routes,
@@ -46,6 +47,8 @@ const useParams = useParamsDirect;
 
 const useNavigate = useNavigateDirect;
 
+const useMatches = useMatchesDirect;
+
 const Outlet = OutletDirect;
 
 const Link = LinkDirect;
@@ -64,6 +67,7 @@ export {
   useLocation,
   useParams,
   useSearchParams,
+  useMatches,
   generatePath,
   matchPath,
   Route,
@@ -84,5 +88,61 @@ export const createLazyRouteElement = (
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);
+
+/**
+ * Handle for route definitions that can be used to set the document title.
+ */
+export interface DocumentTitleHandle {
+  getPageTitle: (params: Params<string>) => string;
+}
+
+/**
+ * Handle for route definitions that provides context-aware assistant prompts.
+ */
+export interface AssistantPromptsHandle {
+  getAssistantPrompts?: () => string[];
+}
+
+/**
+ * Combined route handle interface for routes that support both page titles and assistant prompts.
+ */
+export type RouteHandle = DocumentTitleHandle & AssistantPromptsHandle;
+
+export const usePageTitle = () => {
+  const matches = useMatches();
+  if (matches.length === 0) {
+    return;
+  }
+
+  const lastMatch = matches[matches.length - 1];
+  const handle = lastMatch.handle as DocumentTitleHandle | undefined;
+  const title = handle?.getPageTitle(lastMatch.params);
+
+  return title;
+};
+
+export const DEFAULT_ASSISTANT_PROMPTS = [
+  'How do I get started with MLflow?',
+  'What should I know about MLflow?',
+  'Explain how MLflow Tracing works.',
+];
+
+/**
+ * Hook to get context-aware assistant prompts based on the current route.
+ * Falls back to default prompts if the route doesn't define any.
+ */
+export const useAssistantPrompts = (): string[] => {
+  const matches = useMatches();
+
+  // Find the most specific route that defines assistant prompts (search from end)
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const handle = matches[i].handle as AssistantPromptsHandle | undefined;
+    if (handle?.getAssistantPrompts) {
+      return handle.getAssistantPrompts();
+    }
+  }
+
+  return DEFAULT_ASSISTANT_PROMPTS;
+};
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

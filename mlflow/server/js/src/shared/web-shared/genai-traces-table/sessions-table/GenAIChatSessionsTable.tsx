@@ -1,6 +1,6 @@
 import type { Row, SortingState, RowSelectionState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import {
   Table,
@@ -86,11 +86,17 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<SessionTableRow>;
   enableRowSelection?: boolean;
   enableLinks?: boolean;
+  openLinksInNewTab?: boolean;
 }
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    function ExperimentChatSessionsTableRow({ row, enableRowSelection, enableLinks = true }) {
+    function ExperimentChatSessionsTableRow({
+      row,
+      enableRowSelection,
+      enableLinks = true,
+      openLinksInNewTab = false,
+    }) {
       const { search } = useLocation();
       const { theme } = useDesignSystemTheme();
 
@@ -109,7 +115,7 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <TableCell key={cell.id}>
+            <TableCell key={cell.id} css={{ flex: `calc(var(--col-${cell.column.id}-size) / 100)` }}>
               {enableLinks ? (
                 <Link
                   to={{
@@ -117,14 +123,16 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
                       row.original.experimentId,
                       row.original.sessionId,
                     ),
-                    search,
+                    search: openLinksInNewTab ? undefined : search,
                   }}
+                  target={openLinksInNewTab ? '_blank' : undefined}
+                  rel={openLinksInNewTab ? 'noopener noreferrer' : undefined}
                   css={{
                     display: 'flex',
                     width: '100%',
                     height: '100%',
                     alignItems: 'center',
-                    color: 'inherit',
+                    color: 'inherit !important',
                     textDecoration: 'none',
                   }}
                 >
@@ -152,8 +160,10 @@ export const GenAIChatSessionsTable = ({
   traceActions,
   enableRowSelection: enableRowSelectionProp = false,
   enableLinks = true,
+  openLinksInNewTab = false,
   empty,
   toolbarAddons,
+  onRowSelectionChange,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -163,14 +173,22 @@ export const GenAIChatSessionsTable = ({
   traceActions?: TraceActions;
   enableRowSelection?: boolean;
   enableLinks?: boolean;
+  openLinksInNewTab?: boolean;
   empty?: React.ReactElement;
   toolbarAddons?: React.ReactNode;
+  onRowSelectionChange?: (rowSelection: RowSelectionState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
   const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
+
+  // Notify parent of row selection changes
+  useEffect(() => {
+    onRowSelectionChange?.(rowSelection);
+  }, [rowSelection, onRowSelectionChange]);
+
   const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
     experimentId,
     columns,
@@ -224,7 +242,6 @@ export const GenAIChatSessionsTable = ({
         flex: 1,
         minHeight: 0,
         position: 'relative',
-        marginTop: theme.spacing.sm,
       }}
     >
       <GenAIChatSessionsToolbar
@@ -286,6 +303,7 @@ export const GenAIChatSessionsTable = ({
                 row={row}
                 enableRowSelection={enableRowSelection}
                 enableLinks={enableLinks}
+                openLinksInNewTab={openLinksInNewTab}
               />
             ))}
 

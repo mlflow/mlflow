@@ -390,8 +390,10 @@ class Linter(ast.NodeVisitor):
         # Skip rules that are not selected in the config
         if rule.name not in self.config.select:
             return
-        # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
+        # Check line-level ignores (supports both start and end of range)
+        if (lines := self.ignore.get(rule.name)) and (
+            range.start.line in lines or range.end.line in lines
+        ):
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:
@@ -772,8 +774,8 @@ class Linter(ast.NodeVisitor):
         if rules.UnnamedThread.check(node, self.resolver):
             self._check(Range.from_node(node), rules.UnnamedThread())
 
-        if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
-            self._check(Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+        if rules.UnnamedThreadPool.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UnnamedThreadPool())
 
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
@@ -792,6 +794,9 @@ class Linter(ast.NodeVisitor):
 
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+
+        if rules.UseGhToken.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UseGhToken())
 
         self.generic_visit(node)
 

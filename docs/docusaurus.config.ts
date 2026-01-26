@@ -743,8 +743,11 @@ const config: Config = {
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
               '/genai/governance/ai-gateway/guides/step1-create-deployments',
-              '/genai/governance/ai-gateway/setup',
             ],
+          },
+          {
+            to: '/genai/governance/ai-gateway/quickstart',
+            from: ['/genai/governance/ai-gateway/setup'],
           },
           {
             to: '/genai/governance/ai-gateway/legacy/usage',

@@ -14,18 +14,17 @@ import {
   extractTemplateVariables,
 } from '../../utils/evaluationUtils';
 import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS, ScorerEvaluationScope } from './constants';
+import { RETRIEVAL_ASSESSMENTS } from './constants';
 import {
   extractInputs,
   extractOutputs,
   extractRetrievalContext,
   extractExpectations,
-  type TraceRetrievalContexts,
   type RetrievalContext,
 } from '../../utils/TraceUtils';
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 
 /**
@@ -384,10 +383,6 @@ export function useEvaluateTraces({
 
                 // Extract template variables from instructions to filter what gets included in user prompt
                 const templateVariables = extractTemplateVariables(judgeInstructions);
-
-                if (templateVariables.includes('trace')) {
-                  throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
-                }
 
                 // Build prompts
                 const systemPrompt = buildSystemPrompt(judgeInstructions);

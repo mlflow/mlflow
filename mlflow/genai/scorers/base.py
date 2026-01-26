@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
@@ -45,6 +46,7 @@ class ScorerKind(Enum):
     INSTRUCTIONS = "instructions"
     GUIDELINES = "guidelines"
     THIRD_PARTY = "third_party"
+    MEMORY_AUGMENTED = "memory_augmented"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
@@ -52,6 +54,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [
     ScorerKind.DECORATOR,
     ScorerKind.INSTRUCTIONS,
     ScorerKind.GUIDELINES,
+    ScorerKind.MEMORY_AUGMENTED,
 ]
 
 
@@ -106,20 +109,32 @@ class SerializedScorer:
     # InstructionsJudge fields (for make_judge created judges)
     instructions_judge_pydantic_data: dict[str, Any] | None = None
 
+    # MemoryAugmentedJudge fields (for aligned judges)
+    memory_augmented_judge_data: dict[str, Any] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
         has_instructions_fields = self.instructions_judge_pydantic_data is not None
+        has_memory_augmented_fields = self.memory_augmented_judge_data is not None
 
         # Count how many field types are present
-        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+        field_count = sum(
+            [
+                has_builtin_fields,
+                has_decorator_fields,
+                has_instructions_fields,
+                has_memory_augmented_fields,
+            ]
+        )
 
         if field_count == 0:
             raise ValueError(
                 "SerializedScorer must have either builtin scorer fields "
                 "(builtin_scorer_class), decorator scorer fields (call_source), "
-                "or instructions judge fields (instructions_judge_pydantic_data) present"
+                "instructions judge fields (instructions_judge_pydantic_data), "
+                "or memory augmented judge fields (memory_augmented_judge_data) present"
             )
 
         if field_count > 1:
@@ -369,6 +384,12 @@ class Scorer(BaseModel):
                     f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
                 )
 
+        # Handle MemoryAugmentedJudge scorers
+        elif serialized.memory_augmented_judge_data is not None:
+            from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
+
+            return MemoryAugmentedJudge._from_serialized(serialized)
+
         # Invalid serialized data
         else:
             raise MlflowException.invalid_parameter_value(
@@ -380,6 +401,30 @@ class Scorer(BaseModel):
                 f"serialization version: {serialized.serialization_version or 'unknown'}, "
                 f"current MLflow version: {mlflow.__version__}."
             )
+
+    @classmethod
+    def model_validate_json(cls, json_data: str) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string containing serialized scorer data.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            mlflow.exceptions.MlflowException: If JSON parsing or scorer validation fails.
+        """
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":

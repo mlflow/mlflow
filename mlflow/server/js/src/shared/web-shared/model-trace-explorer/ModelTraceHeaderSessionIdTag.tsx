@@ -15,11 +15,13 @@ export const ModelTraceHeaderSessionIdTag = ({
   sessionId,
   traceId,
   handleCopy,
+  hideLabel = false,
 }: {
   experimentId: string;
   sessionId: string;
   traceId?: string;
   handleCopy: () => void;
+  hideLabel?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const location = useLocation();
@@ -47,6 +49,7 @@ export const ModelTraceHeaderSessionIdTag = ({
         color="default"
         getTruncatedLabel={getTruncatedLabel}
         onCopy={handleCopy}
+        hideLabel={hideLabel}
       />
     );
   }
@@ -56,14 +59,16 @@ export const ModelTraceHeaderSessionIdTag = ({
       css={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: hideLabel ? 'flex-start' : 'center',
         flexDirection: 'row',
         gap: theme.spacing.sm,
       }}
     >
-      <Typography.Text size="md" color="secondary">
-        <FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />
-      </Typography.Text>
+      {!hideLabel && (
+        <Typography.Text size="md" color="secondary">
+          <FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />
+        </Typography.Text>
+      )}
       <Tooltip
         componentId="mlflow.model-trace-explorer.session-id-tag"
         content={<FormattedMessage defaultMessage="View chat session" description="Tooltip for the session id tag" />}
