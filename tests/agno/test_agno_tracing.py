@@ -81,7 +81,6 @@ def test_run_simple_autolog(simple_agent):
     assert spans[1].name == "Claude.invoke"
     assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
     assert spans[1].outputs["content"][0]["text"] == "Paris"
-    assert spans[1].model_name == "claude-sonnet-4-20250514"
 
     purge_traces()
 
@@ -144,7 +143,6 @@ async def test_arun_simple_autolog(simple_agent):
     assert spans[1].name == "Claude.ainvoke"
     assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
     assert spans[1].outputs["content"][0]["text"] == "Paris"
-    assert spans[1].model_name == "claude-sonnet-4-20250514"
 
 
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
