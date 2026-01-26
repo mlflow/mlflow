@@ -41,6 +41,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
+from mlflow.utils.uv_utils import detect_uv_project, export_uv_requirements
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -401,6 +402,10 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
+    If the current working directory is a UV project (contains both uv.lock and pyproject.toml),
+    this function will first attempt to export dependencies via `uv export`. If UV export
+    succeeds, those requirements are returned. Otherwise, falls back to model-based inference.
+
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
@@ -414,6 +419,24 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
+    # Check for UV project first - if detected, use uv export instead of model-based inference
+    if uv_project := detect_uv_project():
+        _logger.info(
+            f"Detected UV project at {uv_project['uv_lock'].parent}. "
+            "Attempting to export requirements via 'uv export'."
+        )
+        if uv_requirements := export_uv_requirements(uv_project["uv_lock"].parent):
+            _logger.info(
+                f"Successfully exported {len(uv_requirements)} requirements from UV project. "
+                "Skipping model-based inference."
+            )
+            return uv_requirements
+        else:
+            _logger.warning(
+                "UV export failed or returned no requirements. "
+                "Falling back to model-based inference."
+            )
+
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     if timeout and is_windows():
