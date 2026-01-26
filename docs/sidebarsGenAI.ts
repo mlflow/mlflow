@@ -648,10 +648,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   label: 'MemAlign Tutorial',
                 },
               ],
-              link: {
-                type: 'doc',
-                id: 'examples/evaluation/MemAlign Tutorial.ipynb',
-              },
             },
             {
               type: 'doc',
