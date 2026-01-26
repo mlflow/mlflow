@@ -141,8 +141,13 @@ export const AssistantSetupWizard = ({
 
   const handleProjectComplete = useCallback(() => {
     markStepComplete('project');
-    setCurrentStep('complete');
-  }, [markStepComplete]);
+    // In settings mode, go back to chat panel instead of showing complete step
+    if (isSettingsMode && onBackFromSettings) {
+      onBackFromSettings();
+    } else {
+      setCurrentStep('complete');
+    }
+  }, [markStepComplete, isSettingsMode, onBackFromSettings]);
 
   const handleBack = useCallback(() => {
     const stepIndex = STEPS.findIndex((s) => s.key === currentStep);
