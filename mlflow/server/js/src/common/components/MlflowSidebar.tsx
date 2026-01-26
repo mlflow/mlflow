@@ -8,7 +8,9 @@ import {
   HomeIcon,
   ModelsIcon,
   PlusIcon,
+  Tag,
   TextBoxIcon,
+  Typography,
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
@@ -29,6 +31,8 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { useAssistant } from '../../assistant';
+import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 
 const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 const isExperimentsActive = (location: Location) =>
@@ -51,6 +55,15 @@ export function MlflowSidebar() {
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
+  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
+  const [isAssistantHovered, setIsAssistantHovered] = useState(false);
+  const handleAssistantToggle = () => {
+    if (isPanelOpen) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  };
 
   type MlFlowSidebarMenuDropdownComponentId =
     | 'mlflow_sidebar.create_experiment_button'
@@ -226,40 +239,86 @@ export function MlflowSidebar() {
             </li>
           ))}
         </ul>
-        <Link
-          to={ExperimentTrackingRoutes.settingsPageRoute}
-          aria-current={isSettingsActive(location) ? 'page' : undefined}
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.sm,
-            color: theme.colors.textPrimary,
-            paddingInline: theme.spacing.md,
-            paddingBlock: theme.spacing.sm,
-            borderRadius: theme.borders.borderRadiusSm,
-            '&:hover': {
-              color: theme.colors.actionLinkHover,
-              backgroundColor: theme.colors.actionDefaultBackgroundHover,
-            },
-            '&[aria-current="page"]': {
-              backgroundColor: theme.colors.actionDefaultBackgroundPress,
-              color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-              fontWeight: theme.typography.typographyBoldFontWeight,
-            },
-          }}
-          onClick={() =>
-            logTelemetryEvent({
-              componentId: 'mlflow.sidebar.settings_tab_link',
-              componentViewId: viewId,
-              componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-              componentSubType: null,
-              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-            })
-          }
-        >
-          <GearIcon />
-          <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
-        </Link>
+        <div>
+          {isLocalServer && (
+            <div
+              css={{
+                padding: 2,
+                marginBottom: theme.spacing.xs,
+                borderRadius: theme.borders.borderRadiusMd,
+                background:
+                  'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
+              }}
+            >
+              <div
+                role="button"
+                tabIndex={0}
+                aria-pressed={isPanelOpen}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusMd - 2,
+                  cursor: 'pointer',
+                  background: theme.colors.backgroundSecondary,
+                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                }}
+                onClick={handleAssistantToggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleAssistantToggle();
+                  }
+                }}
+                onMouseEnter={() => setIsAssistantHovered(true)}
+                onMouseLeave={() => setIsAssistantHovered(false)}
+              >
+                <AssistantSparkleIcon isHovered={isAssistantHovered} />
+                <Typography.Text color="primary">
+                  <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                </Typography.Text>
+                <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                  Beta
+                </Tag>
+              </div>
+            </div>
+          )}
+          <Link
+            to={ExperimentTrackingRoutes.settingsPageRoute}
+            aria-current={isSettingsActive(location) ? 'page' : undefined}
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              color: theme.colors.textPrimary,
+              paddingInline: theme.spacing.md,
+              paddingBlock: theme.spacing.sm,
+              borderRadius: theme.borders.borderRadiusSm,
+              '&:hover': {
+                color: theme.colors.actionLinkHover,
+                backgroundColor: theme.colors.actionDefaultBackgroundHover,
+              },
+              '&[aria-current="page"]': {
+                backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                fontWeight: theme.typography.typographyBoldFontWeight,
+              },
+            }}
+            onClick={() =>
+              logTelemetryEvent({
+                componentId: 'mlflow.sidebar.settings_tab_link',
+                componentViewId: viewId,
+                componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                componentSubType: null,
+                eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+              })
+            }
+          >
+            <GearIcon />
+            <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
+          </Link>
+        </div>
       </nav>
 
       <CreateExperimentModal
