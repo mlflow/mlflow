@@ -1,7 +1,6 @@
-import { Link } from '../../../common/utils/RoutingUtils';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
@@ -18,6 +17,8 @@ import {
   calculateDefaultTimeUnit,
 } from '../../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
 import { generateTimeBuckets } from '../../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
+import { useGatewayFilterOptions } from '../../hooks/useGatewayFilterOptions';
+import { GatewayUsageFilters } from '../GatewayUsageFilters';
 
 interface GatewayUsageSectionProps {
   experimentId: string;
@@ -26,6 +27,16 @@ interface GatewayUsageSectionProps {
 const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const [chartFilters, setChartFilters] = useState<string[]>([]);
+
+  // Fetch filter options (providers and models) for this endpoint
+  const experimentIds = useMemo(() => [experimentId], [experimentId]);
+  const { providers, models, isLoading: isLoadingFilterOptions } = useGatewayFilterOptions(experimentIds);
+
+  // Handle filter changes
+  const handleFiltersChange = useCallback((filters: string[]) => {
+    setChartFilters(filters);
+  }, []);
 
   // Get the current time range from monitoring filters
   const [monitoringFilters] = useMonitoringFilters();
@@ -64,7 +75,9 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
         backgroundColor: theme.colors.backgroundSecondary,
       }}
     >
-      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md }}>
+      <div
+        css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md }}
+      >
         <div>
           <Typography.Title level={3} css={{ margin: 0 }}>
             <FormattedMessage defaultMessage="Usage" description="Section title for endpoint usage" />
@@ -76,20 +89,23 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
             />
           </Typography.Text>
         </div>
-        <Link to={`/experiments/${experimentId}/overview`}>
-          <Typography.Text color="info" css={{ fontSize: theme.typography.fontSizeSm }}>
-            <FormattedMessage defaultMessage="View full dashboard" description="Link to view full usage dashboard" />
-          </Typography.Text>
-        </Link>
+        <Typography.Link
+          componentId="mlflow.gateway.endpoint.usage.view-full-dashboard"
+          href={`#/experiments/${experimentId}/overview`}
+          css={{ fontSize: theme.typography.fontSizeSm }}
+        >
+          <FormattedMessage defaultMessage="View full dashboard" description="Link to view full usage dashboard" />
+        </Typography.Link>
       </div>
 
-      {/* Time range controls */}
+      {/* Time range controls and filters */}
       <div
         css={{
           display: 'flex',
           alignItems: 'center',
           gap: theme.spacing.sm,
           marginBottom: theme.spacing.md,
+          flexWrap: 'wrap',
         }}
       >
         <TimeUnitSelector
@@ -104,14 +120,24 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
           excludeOptions={['ALL']}
           refreshButtonComponentId="mlflow.gateway.endpoint.usage.refresh-button"
         />
+        {/* Provider/Model filters */}
+        {(providers.length > 0 || models.length > 0) && (
+          <GatewayUsageFilters
+            providers={providers}
+            models={models}
+            onFiltersChange={handleFiltersChange}
+            disabled={isLoadingFilterOptions}
+          />
+        )}
       </div>
 
       <OverviewChartProvider
-        experimentId={experimentId}
+        experimentIds={experimentIds}
         startTimeMs={startTimeMs}
         endTimeMs={endTimeMs}
         timeIntervalSeconds={timeIntervalSeconds}
         timeBuckets={timeBuckets}
+        filters={chartFilters.length > 0 ? chartFilters : undefined}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {/* Requests chart */}

@@ -40,14 +40,15 @@ export interface UseTraceLatencyChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
   const {
     data: latencyData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -67,7 +68,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,

@@ -46,7 +46,14 @@ interface UseToolErrorRateChartDataProps {
 export function useToolErrorRateChartData({
   toolName,
 }: UseToolErrorRateChartDataProps): UseToolErrorRateChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters: contextFilters } = useOverviewChartContext();
+  const {
+    experimentIds,
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
+    filters: contextFilters,
+  } = useOverviewChartContext();
 
   // Filter for TOOL type spans with specific name, combined with context filters
   const toolFilters = useMemo(
@@ -60,7 +67,7 @@ export function useToolErrorRateChartData({
 
   // Query span counts grouped by status and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

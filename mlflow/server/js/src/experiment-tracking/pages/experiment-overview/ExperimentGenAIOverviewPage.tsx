@@ -32,6 +32,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
 
   invariant(experimentId, 'Experiment ID must be defined');
 
+  // Wrap single experimentId in array for context
+  const experimentIds = useMemo(() => [experimentId], [experimentId]);
+
   // Get the current time range from monitoring filters
   const [monitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
@@ -134,7 +137,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={experimentIds}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}

@@ -17,7 +17,10 @@ import { LazyTraceLatencyChart } from '../../experiment-tracking/pages/experimen
 import { LazyTraceErrorsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart';
-import { ChartGrid, TabContentContainer } from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
+import {
+  ChartGrid,
+  TabContentContainer,
+} from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
 import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
 import { TimeUnitSelector } from '../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
 import {
@@ -41,24 +44,29 @@ const GatewayUsagePageImpl = () => {
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
 
   // Filter endpoints that have experiment_id configured
-  const endpointsWithExperiments = useMemo(
-    () => endpoints.filter((ep) => ep.experiment_id),
-    [endpoints],
-  );
+  const endpointsWithExperiments = useMemo(() => endpoints.filter((ep) => ep.experiment_id), [endpoints]);
 
-  // Get the selected endpoint or default to showing all
+  // Get the selected endpoint (if specific endpoint is selected)
   const selectedEndpoint = useMemo(() => {
-    if (!selectedEndpointId) return null;
+    if (!selectedEndpointId || selectedEndpointId === 'all') return null;
     return endpointsWithExperiments.find((ep) => ep.endpoint_id === selectedEndpointId) ?? null;
   }, [selectedEndpointId, endpointsWithExperiments]);
 
-  // Get the experiment ID to use for charts
-  // If a specific endpoint is selected, use its experiment_id
-  // Otherwise, we'll show a message to select an endpoint
-  const experimentId = selectedEndpoint?.experiment_id ?? null;
+  // Determine whether to show all endpoints or a specific one
+  const showAllEndpoints = !selectedEndpointId || selectedEndpointId === 'all';
 
-  // Fetch filter options (providers and models) for the selected endpoint
-  const { providers, models, isLoading: isLoadingFilterOptions } = useGatewayFilterOptions(experimentId);
+  // Get the experiment IDs to use for charts
+  // If showing all endpoints, use all experiment_ids
+  // If a specific endpoint is selected, use its experiment_id
+  const experimentIds = useMemo(() => {
+    if (showAllEndpoints) {
+      return endpointsWithExperiments.map((ep) => ep.experiment_id).filter(Boolean) as string[];
+    }
+    return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
+  }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
+
+  // Fetch filter options (providers and models) for the selected endpoint(s)
+  const { providers, models, isLoading: isLoadingFilterOptions } = useGatewayFilterOptions(experimentIds);
 
   // Handle filter changes - reset filters when endpoint changes
   const handleFiltersChange = useCallback((filters: string[]) => {
@@ -139,12 +147,12 @@ const GatewayUsagePageImpl = () => {
           <SimpleSelect
             id="gateway-usage-endpoint-selector"
             componentId="mlflow.gateway.usage.endpoint-selector"
-            value={selectedEndpointId ?? ''}
-            onChange={({ target }) => setSelectedEndpointId(target.value || null)}
+            value={selectedEndpointId ?? 'all'}
+            onChange={({ target }) => setSelectedEndpointId(target.value || 'all')}
             css={{ minWidth: 200 }}
           >
-            <SimpleSelectOption value="">
-              <FormattedMessage defaultMessage="Select an endpoint" description="Endpoint selector placeholder" />
+            <SimpleSelectOption value="all">
+              <FormattedMessage defaultMessage="All endpoints" description="All endpoints option" />
             </SimpleSelectOption>
             {endpointsWithExperiments.map((ep) => (
               <SimpleSelectOption key={ep.endpoint_id} value={ep.endpoint_id}>
@@ -154,8 +162,8 @@ const GatewayUsagePageImpl = () => {
           </SimpleSelect>
         </div>
 
-        {/* Time controls - only show when an endpoint is selected */}
-        {experimentId && (
+        {/* Time controls - only show when endpoints with experiments exist */}
+        {experimentIds.length > 0 && (
           <>
             <TimeUnitSelector
               value={effectiveTimeUnit}
@@ -213,32 +221,9 @@ const GatewayUsagePageImpl = () => {
               </Typography.Text>
             </Link>
           </div>
-        ) : !experimentId ? (
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              gap: theme.spacing.md,
-              textAlign: 'center',
-            }}
-          >
-            <ChartLineIcon css={{ fontSize: 48, color: theme.colors.textSecondary }} />
-            <Typography.Title level={4} css={{ margin: 0 }}>
-              <FormattedMessage defaultMessage="Select an endpoint" description="Select endpoint title" />
-            </Typography.Title>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Choose an endpoint from the dropdown above to view its usage metrics."
-                description="Select endpoint message"
-              />
-            </Typography.Text>
-          </div>
         ) : (
           <OverviewChartProvider
-            experimentId={experimentId}
+            experimentIds={experimentIds}
             startTimeMs={startTimeMs}
             endTimeMs={endTimeMs}
             timeIntervalSeconds={timeIntervalSeconds}

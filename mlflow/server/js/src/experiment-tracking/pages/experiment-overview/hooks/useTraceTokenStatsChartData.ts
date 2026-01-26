@@ -40,14 +40,15 @@ export interface UseTraceTokenStatsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
   const {
     data: tokenStatsData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -67,7 +68,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,

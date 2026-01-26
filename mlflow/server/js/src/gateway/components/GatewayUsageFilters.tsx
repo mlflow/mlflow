@@ -1,5 +1,12 @@
 import { useMemo, useState, useCallback } from 'react';
-import { SimpleSelect, SimpleSelectOption, Typography, useDesignSystemTheme, Button, CloseIcon } from '@databricks/design-system';
+import {
+  SimpleSelect,
+  SimpleSelectOption,
+  Typography,
+  useDesignSystemTheme,
+  Button,
+  CloseIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { createTraceTagFilter, GatewayTraceTagKey } from '../../shared/web-shared/model-trace-explorer';
 
@@ -82,12 +89,12 @@ export const GatewayUsageFilters = ({
           <SimpleSelect
             id="gateway-usage-provider-filter"
             componentId="mlflow.gateway.usage.provider-filter"
-            value={selectedProvider ?? ''}
-            onChange={({ target }) => handleProviderChange(target.value || null)}
+            value={selectedProvider ?? 'all'}
+            onChange={({ target }) => handleProviderChange(target.value === 'all' ? null : target.value)}
             css={{ minWidth: 150 }}
             disabled={disabled}
           >
-            <SimpleSelectOption value="">
+            <SimpleSelectOption value="all">
               <FormattedMessage defaultMessage="All providers" description="All providers option" />
             </SimpleSelectOption>
             {sortedProviders.map((provider) => (
@@ -108,12 +115,12 @@ export const GatewayUsageFilters = ({
           <SimpleSelect
             id="gateway-usage-model-filter"
             componentId="mlflow.gateway.usage.model-filter"
-            value={selectedModel ?? ''}
-            onChange={({ target }) => handleModelChange(target.value || null)}
+            value={selectedModel ?? 'all'}
+            onChange={({ target }) => handleModelChange(target.value === 'all' ? null : target.value)}
             css={{ minWidth: 200 }}
             disabled={disabled}
           >
-            <SimpleSelectOption value="">
+            <SimpleSelectOption value="all">
               <FormattedMessage defaultMessage="All models" description="All models option" />
             </SimpleSelectOption>
             {sortedModels.map((model) => (

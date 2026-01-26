@@ -160,13 +160,59 @@ def _set_trace_outputs(trace, outputs: Any):
     if trace is not None:
         try:
             if hasattr(outputs, "model_dump"):
-                trace.set_outputs(outputs.model_dump())
+                output_dict = outputs.model_dump()
+                trace.set_outputs(output_dict)
+                # Extract and set token usage from chat responses
+                _set_trace_token_usage(trace, output_dict)
             elif isinstance(outputs, dict):
                 trace.set_outputs(outputs)
+                # Extract and set token usage from chat responses
+                _set_trace_token_usage(trace, outputs)
             else:
                 trace.set_outputs({"response": str(outputs)})
         except Exception as e:
             _logger.debug(f"Failed to set trace outputs: {e}")
+
+
+def _set_trace_token_usage(trace, output_dict: dict):
+    """
+    Extract token usage from gateway response and set it on the span.
+
+    This enables token usage metrics to be tracked for gateway invocations.
+    The token usage is stored in the span attribute 'mlflow.chat.tokenUsage'.
+    """
+    try:
+        from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+
+        usage = output_dict.get("usage")
+        if usage is None:
+            return
+
+        # Map gateway response usage fields to standard token usage keys
+        # Gateway chat response uses: prompt_tokens, completion_tokens, total_tokens
+        # Gateway embeddings response uses: prompt_tokens, total_tokens (no completion_tokens)
+        token_usage = {}
+
+        # Input tokens (prompt_tokens in OpenAI format)
+        if "prompt_tokens" in usage:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = usage["prompt_tokens"]
+        elif "input_tokens" in usage:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = usage["input_tokens"]
+
+        # Output tokens (completion_tokens in OpenAI format)
+        if "completion_tokens" in usage:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = usage["completion_tokens"]
+        elif "output_tokens" in usage:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = usage["output_tokens"]
+
+        # Total tokens
+        if "total_tokens" in usage:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = usage["total_tokens"]
+
+        if token_usage:
+            trace.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+    except Exception as e:
+        _logger.debug(f"Failed to set token usage on trace: {e}")
 
 
 def _get_endpoint_by_name(store: SqlAlchemyStore, endpoint_name: str) -> GatewayEndpoint:

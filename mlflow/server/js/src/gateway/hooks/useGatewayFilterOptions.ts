@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '../../common/utils/reactQueryHooks';
-import { fetchOrFail, getAjaxUrl } from '../../common/utils/FetchUtils';
-import { catchNetworkErrorIfExists } from '../../experiment-tracking/utils/NetworkUtils';
+import { getAjaxUrl } from '../../common/utils/FetchUtils';
 import { GatewayTraceTagKey } from '../../shared/web-shared/model-trace-explorer';
 
 interface TraceInfo {
@@ -13,24 +12,43 @@ interface SearchTracesResponse {
   traces?: TraceInfo[];
 }
 
+interface MlflowExperimentLocation {
+  type: 'MLFLOW_EXPERIMENT';
+  mlflow_experiment: {
+    experiment_id: string;
+  };
+}
+
 /**
- * Fetches traces from an experiment and extracts filter options
+ * Fetches traces from experiments and extracts filter options
  */
-async function fetchTracesForFilterOptions(experimentId: string): Promise<SearchTracesResponse> {
+async function fetchTracesForFilterOptions(experimentIds: string[]): Promise<SearchTracesResponse> {
+  // Convert experiment IDs to locations format required by the API
+  const locations: MlflowExperimentLocation[] = experimentIds.map((id) => ({
+    type: 'MLFLOW_EXPERIMENT',
+    mlflow_experiment: {
+      experiment_id: id,
+    },
+  }));
+
   const payload = {
-    experiment_ids: [experimentId],
-    max_results: 1000,
+    locations,
+    max_results: 100,
   };
 
-  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+  const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
-  })
-    .then((res) => res.json())
-    .catch(catchNetworkErrorIfExists);
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch traces: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
 export interface UseGatewayFilterOptionsResult {
@@ -48,17 +66,17 @@ export interface UseGatewayFilterOptionsResult {
  * Hook that fetches gateway trace data and extracts unique provider and model values
  * for filter dropdowns.
  *
- * @param experimentId - The experiment ID to fetch traces from
+ * @param experimentIds - The experiment IDs to fetch traces from
  * @returns Filter options including providers and models
  */
-export function useGatewayFilterOptions(experimentId: string | null): UseGatewayFilterOptionsResult {
+export function useGatewayFilterOptions(experimentIds: string[]): UseGatewayFilterOptionsResult {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['gatewayFilterOptions', experimentId],
+    queryKey: ['gatewayFilterOptions', experimentIds],
     queryFn: async () => {
-      if (!experimentId) return { traces: [] };
-      return fetchTracesForFilterOptions(experimentId);
+      if (experimentIds.length === 0) return { traces: [] };
+      return fetchTracesForFilterOptions(experimentIds);
     },
-    enabled: !!experimentId,
+    enabled: experimentIds.length > 0,
     refetchOnWindowFocus: false,
     staleTime: 60000, // Cache for 1 minute
   });
@@ -88,6 +106,9 @@ export function useGatewayFilterOptions(experimentId: string | null): UseGateway
       models: Array.from(modelSet),
     };
   }, [data?.traces]);
+
+  console.log('providers', providers);
+  console.log('models', models);
 
   return {
     providers,

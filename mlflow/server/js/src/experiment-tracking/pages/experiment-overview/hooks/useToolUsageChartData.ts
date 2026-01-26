@@ -39,7 +39,14 @@ export interface UseToolUsageChartDataResult {
  * @returns Processed chart data, tool names, loading state, and error state
  */
 export function useToolUsageChartData(): UseToolUsageChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters: contextFilters } = useOverviewChartContext();
+  const {
+    experimentIds,
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
+    filters: contextFilters,
+  } = useOverviewChartContext();
   // Filter for TOOL type spans, combined with context filters
   const toolFilter = useMemo(
     () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), ...(contextFilters || [])],
@@ -48,7 +55,7 @@ export function useToolUsageChartData(): UseToolUsageChartDataResult {
 
   // Query span counts grouped by span_name and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

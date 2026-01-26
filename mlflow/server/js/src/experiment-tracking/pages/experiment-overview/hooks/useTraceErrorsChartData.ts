@@ -45,7 +45,8 @@ export interface UseTraceErrorsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
 
   // Combine context filters with the error filter
   const errorFilters = useMemo(() => [ERROR_FILTER, ...(filters || [])], [filters]);
@@ -56,7 +57,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     isLoading: isLoadingErrors,
     error: errorCountError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -73,7 +74,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     isLoading: isLoadingTotal,
     error: totalCountError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,

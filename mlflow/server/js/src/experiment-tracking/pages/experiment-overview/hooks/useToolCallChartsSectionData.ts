@@ -33,7 +33,7 @@ export interface UseToolCallChartsSectionDataResult {
  * @returns Tool names, error rates, loading state, and error state
  */
 export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResult {
-  const { experimentId, startTimeMs, endTimeMs, filters: contextFilters } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, filters: contextFilters } = useOverviewChartContext();
   // Filter for TOOL type spans, combined with context filters
   const toolFilter = useMemo(
     () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), ...(contextFilters || [])],
@@ -42,7 +42,7 @@ export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResu
 
   // Query span counts grouped by span_name and span_status to get list of tools and their error rates
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
