@@ -1,7 +1,6 @@
 import cgi
 import os
 import pathlib
-import signal
 import subprocess
 import tempfile
 from contextlib import contextmanager
@@ -17,7 +16,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import LOCALHOST, get_safe_port
+from tests.helper_functions import LOCALHOST, get_safe_port, kill_process_tree
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -39,19 +38,12 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         artifacts_destination,
         *extra_cmd,
     ]
-    with subprocess.Popen(cmd, start_new_session=True) as process:
+    with subprocess.Popen(cmd) as process:
         try:
             _await_server_up_or_die(port)
             yield process
         finally:
-            try:
-                if is_windows():
-                    process.terminate()
-                else:
-                    os.killpg(process.pid, signal.SIGTERM)
-            except (ProcessLookupError, OSError):
-                # Process has already terminated
-                pass
+            kill_process_tree(process.pid)
 
 
 class ArtifactsServer(NamedTuple):
