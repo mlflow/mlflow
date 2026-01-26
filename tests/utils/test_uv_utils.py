@@ -342,3 +342,88 @@ def test_copy_uv_project_files_uses_cwd_when_source_not_specified(tmp_path, monk
 
     assert result is True
     assert (dest_dir / _UV_LOCK_FILE).exists()
+
+
+def test_copy_uv_project_files_copies_python_version_file(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+    (source_dir / ".python-version").write_text("3.11.5")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, source_dir)
+
+    assert result is True
+    assert (dest_dir / ".python-version").exists()
+    assert (dest_dir / ".python-version").read_text() == "3.11.5"
+
+
+def test_copy_uv_project_files_works_without_python_version_file(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+    # No .python-version file
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, source_dir)
+
+    assert result is True
+    assert (dest_dir / _UV_LOCK_FILE).exists()
+    assert (dest_dir / _PYPROJECT_FILE).exists()
+    assert not (dest_dir / ".python-version").exists()
+
+
+def test_copy_uv_project_files_respects_mlflow_log_uv_files_env_false(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_LOG_UV_FILES", "false")
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, source_dir)
+
+    assert result is False
+    assert not (dest_dir / _UV_LOCK_FILE).exists()
+    assert not (dest_dir / _PYPROJECT_FILE).exists()
+
+
+@pytest.mark.parametrize("env_value", ["0", "no", "FALSE", "No"])
+def test_copy_uv_project_files_env_var_false_variants(tmp_path, monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, source_dir)
+    assert result is False
+
+
+@pytest.mark.parametrize("env_value", ["true", "1", "yes", "TRUE"])
+def test_copy_uv_project_files_env_var_true_variants(tmp_path, monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    result = copy_uv_project_files(dest_dir, source_dir)
+    assert result is True
