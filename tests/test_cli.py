@@ -45,7 +45,7 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
-    with subprocess.Popen(cmd, start_new_session=not is_windows()) as process:
+    with subprocess.Popen(cmd) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/health")
@@ -687,7 +687,7 @@ def test_mlflow_models_serve(enable_mlserver):
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=not is_windows()) as process:
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
@@ -702,7 +702,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=not is_windows()) as process:
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
@@ -716,7 +716,7 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    with subprocess.Popen(cmd, start_new_session=not is_windows()) as process:
+    with subprocess.Popen(cmd) as process:
         try:
             _await_server_up_or_die(port)
             endpoint = "/api/2.0/mlflow-artifacts/artifacts"
