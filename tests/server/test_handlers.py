@@ -3529,7 +3529,7 @@ def test_get_prompt_optimization_job_failed_with_error(mock_tracking_store):
             assert "Optimization failed" in job["state"]["error_message"]
 
 
-def test_get_prompt_optimization_job_missing_run_id_raises_error(mock_tracking_store):
+def test_get_prompt_optimization_job_without_run_id(mock_tracking_store):
     mock_job = _create_mock_job(
         params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"}
     )
@@ -3537,9 +3537,12 @@ def test_get_prompt_optimization_job_missing_run_id_raises_error(mock_tracking_s
     with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
         with app.test_client() as c:
             response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
-            assert response.status_code == 400
+            assert response.status_code == 200
             data = response.get_json()
-            assert "missing run_id" in data["message"]
+            job = data["job"]
+            assert job["job_id"] == "job-123"
+            assert job["experiment_id"] == "exp-123"
+            assert "run_id" not in job  # run_id is not set
 
 
 def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
@@ -3640,14 +3643,19 @@ def test_search_prompt_optimization_jobs_includes_failed_job_error(mock_job_stor
 
 
 def test_delete_prompt_optimization_job_success(mock_job_store, mock_tracking_store):
-    mock_job = _create_mock_job(status_name="SUCCEEDED")
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
     mock_job_store.get_job.return_value = mock_job
+    mock_tracking_store.get_run.return_value = mock.MagicMock()  # Run exists
 
     with app.test_client() as c:
         response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
         assert response.status_code == 200
 
     mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    mock_tracking_store.get_run.assert_called_once_with("run-456")
     mock_tracking_store.delete_run.assert_called_once_with("run-456")
 
 
@@ -3665,15 +3673,20 @@ def test_delete_prompt_optimization_job_without_run_id(mock_job_store, mock_trac
     mock_tracking_store.delete_run.assert_not_called()
 
 
-def test_delete_prompt_optimization_job_run_deletion_failure_is_ignored(
+def test_delete_prompt_optimization_job_skips_run_deletion_when_run_not_found(
     mock_job_store, mock_tracking_store
 ):
-    mock_job = _create_mock_job(status_name="SUCCEEDED")
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
     mock_job_store.get_job.return_value = mock_job
-    mock_tracking_store.delete_run.side_effect = Exception("Run not found")
+    mock_tracking_store.get_run.side_effect = MlflowException("Run not found")
 
     with app.test_client() as c:
         response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
         assert response.status_code == 200
 
     mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    # delete_run should not be called since run doesn't exist
+    mock_tracking_store.delete_run.assert_not_called()

@@ -36,9 +36,6 @@ MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 # Indicates that an MLflow run was created by an evaluation
 MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
 
-# Indicates that an MLflow run was created by prompt optimization
-MLFLOW_RUN_IS_PROMPT_OPTIMIZATION = "mlflow.run.isPromptOptimization"
-
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
