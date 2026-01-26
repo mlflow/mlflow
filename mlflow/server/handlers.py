@@ -4624,6 +4624,14 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+def _get_tracking_store_info():
+    from mlflow.store.tracking.file_store import FileStore
+
+    store = _get_tracking_store()
+    is_file_store = isinstance(store, FileStore)
+    return jsonify({"is_file_store": is_file_store})
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_supported_providers():
@@ -4805,6 +4813,7 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/tracking-store-info"), _get_tracking_store_info, ["GET"])]
         + get_gateway_endpoints()
     )
 

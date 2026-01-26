@@ -283,6 +283,15 @@ def test_version():
         assert response.get_data().decode() == mlflow.__version__
 
 
+def test_tracking_store_info_with_file_store():
+    with app.test_client() as c:
+        response = c.get("/tracking-store-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "is_file_store" in data
+        assert data["is_file_store"] is False
+
+
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]

@@ -2875,3 +2875,7 @@ class FileStore(AbstractStore):
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )
+
+    @filestore_not_supported
+    def query_trace_metrics(self, *args, **kwargs):
+        pass
