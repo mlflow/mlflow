@@ -80,3 +80,8 @@ huey:
   pip_release: huey
   minimum: "2.5.4"
   max_major_version: 2
+
+pbs-installer:
+  pip_release: pbs-installer
+  extras: ["all"]
+  max_major_version: 2100

@@ -1,21 +1,17 @@
-import hashlib
-import json
 import logging
 import os
-import platform
 import re
 import shutil
 import sys
-import tarfile
 import tempfile
-import urllib.request
 import uuid
-import zipfile
 from pathlib import Path
 from typing import Literal
 
+from packaging.version import Version
+
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT, MLFLOW_USE_PYENV
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
@@ -28,7 +24,7 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import check_tarfile_security, remove_on_error
+from mlflow.utils.file_utils import remove_on_error
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd, _join_commands
 from mlflow.utils.requirements_utils import _parse_requirements
@@ -36,61 +32,16 @@ from mlflow.utils.requirements_utils import _parse_requirements
 _logger = logging.getLogger(__name__)
 
 
-def _check_zipfile_security(archive_path: str) -> None:
-    """Check zip file for path traversal vulnerabilities (zip slip)."""
-    with zipfile.ZipFile(archive_path, "r") as zf:
-        for name in zf.namelist():
-            # Normalize path and check for absolute paths or directory traversal
-            normalized = os.path.normpath(name)
-            if normalized.startswith("/") or normalized.startswith(".."):
-                raise MlflowException(
-                    f"Unsafe path in zip archive: {name}. "
-                    "Archive contains absolute or escaped paths."
-                )
-
-
-def _verify_checksum(file_path: Path, checksum_url: str) -> None:
-    """Verify file integrity using SHA256 checksum from PBS release."""
-    try:
-        with urllib.request.urlopen(checksum_url, timeout=30) as resp:
-            checksum_content = resp.read().decode()
-    except Exception as e:
-        _logger.warning("Could not download checksum file: %s", e)
-        return
-
-    # Parse checksum file (format: "sha256  filename")
-    expected_hash = None
-    filename = file_path.name
-    for line in checksum_content.strip().split("\n"):
-        if filename in line:
-            expected_hash = line.split()[0]
-            break
-
-    if not expected_hash:
-        _logger.warning("Checksum for %s not found in checksum file", filename)
-        return
-
-    # Calculate actual hash
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    actual_hash = sha256.hexdigest()
-
-    if actual_hash != expected_hash:
-        raise MlflowException(
-            f"Checksum verification failed for {filename}. "
-            f"Expected {expected_hash}, got {actual_hash}."
-        )
-
-
 def _get_mlflow_virtualenv_root():
     return MLFLOW_ENV_ROOT.get()
 
 
 # PBS (python-build-standalone) configuration
-_PBS_BASE_URL = "https://github.com/astral-sh/python-build-standalone/releases/download"
 _PBS_INSTALL_DIR = Path.home() / ".mlflow" / "python"
+
+# pyenv configuration
+_DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
+_SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _is_virtualenv_available():
@@ -105,48 +56,78 @@ def _validate_virtualenv_is_available():
         )
 
 
-def _get_pbs_platform_tag():
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-
-    arch_map = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
-    arch = arch_map.get(machine, machine)
-
-    if system == "darwin":
-        return f"{arch}-apple-darwin"
-    elif system == "linux":
-        return f"{arch}-unknown-linux-gnu"
-    elif system == "windows":
-        return f"{arch}-pc-windows-msvc"
-    raise MlflowException(f"Unsupported platform: {system}-{machine}")
+def _is_pyenv_available():
+    return _get_pyenv_bin_path() is not None
 
 
-def _get_pbs_releases():
-    url = "https://api.github.com/repos/astral-sh/python-build-standalone/releases?per_page=10"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        return json.loads(resp.read().decode())
+def _get_pyenv_bin_path():
+    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+        return _DATABRICKS_PYENV_BIN_PATH
+    return shutil.which("pyenv")
 
 
-def _find_latest_installable_python_version(version_prefix):
-    releases = _get_pbs_releases()
-    platform_tag = _get_pbs_platform_tag()
-
-    for release in releases:
-        for asset in release.get("assets", []):
-            name = asset["name"]
-            if platform_tag not in name or "install_only" not in name:
-                continue
-            # Extract version from filename like cpython-3.10.14+20240713-...
-            if match := re.search(r"cpython-(\d+\.\d+\.\d+)\+(\d+)", name):
-                version = match.group(1)
-                if version.startswith(version_prefix):
-                    return version, release["tag_name"]
-
-    raise MlflowException(f"Could not find Python version matching {version_prefix}")
+def _validate_pyenv_is_available():
+    url = (
+        "https://github.com/pyenv/pyenv#installation"
+        if not is_windows()
+        else "https://github.com/pyenv-win/pyenv-win#installation"
+    )
+    if not _is_pyenv_available():
+        raise MlflowException(
+            f"Could not find the pyenv binary. See {url} for installation instructions."
+        )
 
 
-def _install_python(version, pyenv_root=None, capture_output=False):
-    install_dir = Path(pyenv_root) if pyenv_root else _PBS_INSTALL_DIR
+def _find_latest_installable_python_version_pyenv(version_prefix):
+    lines = _exec_cmd(
+        [_get_pyenv_bin_path(), "install", "--list"],
+        capture_output=True,
+        shell=is_windows(),
+    ).stdout.splitlines()
+    semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
+    matched = [v for v in semantic_versions if v.startswith(version_prefix)]
+    if not matched:
+        raise MlflowException(f"Could not find python version that matches {version_prefix}")
+    return max(matched, key=Version)
+
+
+def _install_python_with_pyenv(version, pyenv_root=None, capture_output=False):
+    version = (
+        version
+        if _SEMANTIC_VERSION_REGEX.match(version)
+        else _find_latest_installable_python_version_pyenv(version)
+    )
+    _logger.info("Installing python %s if it does not exist", version)
+    # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
+    # https://github.com/pyenv-win/pyenv-win/pull/314
+    pyenv_install_options = ("--skip-existing",) if not is_windows() else ()
+    extra_env = {"PYENV_ROOT": pyenv_root} if pyenv_root else None
+    pyenv_bin_path = _get_pyenv_bin_path()
+    _exec_cmd(
+        [pyenv_bin_path, "install", *pyenv_install_options, version],
+        capture_output=capture_output,
+        # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
+        shell=is_windows(),
+        extra_env=extra_env,
+    )
+
+    if not is_windows():
+        if pyenv_root is None:
+            pyenv_root = _exec_cmd([pyenv_bin_path, "root"], capture_output=True).stdout.strip()
+        path_to_bin = ("bin", "python")
+    else:
+        # pyenv-win doesn't provide the `pyenv root` command
+        pyenv_root = os.getenv("PYENV_ROOT")
+        if pyenv_root is None:
+            raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
+        path_to_bin = ("python.exe",)
+    return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
+
+
+def _install_python_with_pbs(version, install_dir=None, capture_output=False):
+    from pbs_installer import get_download_link, install
+
+    install_dir = Path(install_dir) if install_dir else _PBS_INSTALL_DIR
 
     # Get the minor version prefix (e.g., "3.10" from "3.10.16" or "3.10")
     match version.rsplit(".", 1):
@@ -157,55 +138,38 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         case _:
             raise MlflowException(f"Invalid Python version: {version}")
 
-    # Find the latest available version for this minor series from PBS
-    version, release_tag = _find_latest_installable_python_version(version_prefix)
+    # Get the exact version that will be installed
+    try:
+        py_version, _ = get_download_link(version_prefix)
+        full_version = f"{py_version.major}.{py_version.minor}.{py_version.micro}"
+    except ValueError as e:
+        raise MlflowException(f"Could not find Python version matching {version_prefix}: {e}")
 
-    python_dir = install_dir / version
+    python_dir = install_dir / full_version
     if is_windows():
         python_bin = python_dir / "python" / "python.exe"
     else:
         python_bin = python_dir / "python" / "bin" / "python3"
 
     if python_bin.exists():
-        _logger.info("Python %s already installed at %s", version, python_bin)
+        _logger.info("Python %s already installed at %s", full_version, python_bin)
         return python_bin
 
-    _logger.info("Installing Python %s from python-build-standalone", version)
-
-    platform_tag = _get_pbs_platform_tag()
-    ext = "tar.gz" if not is_windows() else "zip"
-    filename = f"cpython-{version}+{release_tag}-{platform_tag}-install_only.{ext}"
-    url = f"{_PBS_BASE_URL}/{release_tag}/{filename}"
-
+    _logger.info("Installing Python %s from python-build-standalone", full_version)
     python_dir.mkdir(parents=True, exist_ok=True)
-
-    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-
-    try:
-        _logger.info("Downloading %s", url)
-        urllib.request.urlretrieve(url, tmp_path)
-
-        # Verify checksum
-        checksum_url = f"{_PBS_BASE_URL}/{release_tag}/SHA256SUMS"
-        _verify_checksum(tmp_path, checksum_url)
-
-        _logger.info("Extracting to %s", python_dir)
-        if ext == "tar.gz":
-            check_tarfile_security(tmp_path)
-            with tarfile.open(tmp_path, "r:gz") as tar:
-                tar.extractall(python_dir)
-        else:
-            _check_zipfile_security(tmp_path)
-            with zipfile.ZipFile(tmp_path, "r") as z:
-                z.extractall(python_dir)
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    install(version_prefix, python_dir)
 
     if not python_bin.exists():
         raise MlflowException(f"Python binary not found at {python_bin} after installation")
 
     return python_bin
+
+
+def _install_python(version, pyenv_root=None, capture_output=False):
+    if MLFLOW_USE_PYENV.get():
+        _validate_pyenv_is_available()
+        return _install_python_with_pyenv(version, pyenv_root, capture_output)
+    return _install_python_with_pbs(version, pyenv_root, capture_output)
 
 
 def _get_conda_env_file(model_config):

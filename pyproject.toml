@@ -49,6 +49,7 @@ dependencies = [
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<26",
   "pandas<3",
+  "pbs-installer[all]<2101",
   "protobuf<7,>=3.12.0",
   "pyarrow<23,>=4.0.0",
   "pydantic<3,>=2.0.0",
