@@ -144,6 +144,7 @@ class MlflowCallback(BaseCallback):
                         usage_data[TokenUsageKey.OUTPUT_TOKENS] += usage.get("completion_tokens", 0)
                         usage_data[TokenUsageKey.TOTAL_TOKENS] += usage.get("total_tokens", 0)
                     attributes[SpanAttributeKey.CHAT_USAGE] = usage_data
+                    # TODO: the span may not contain model name so we cannot calculate cost
         self._end_span(call_id, outputs, exception, attributes)
 
     @skip_if_trace_disabled

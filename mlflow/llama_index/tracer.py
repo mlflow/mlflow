@@ -39,7 +39,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools, set_span_cost_attribute
 
 _logger = logging.getLogger(__name__)
 
@@ -397,6 +397,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
+        set_span_cost_attribute(span)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -410,6 +411,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
+        set_span_cost_attribute(span)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register

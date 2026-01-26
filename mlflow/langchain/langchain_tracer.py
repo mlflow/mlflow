@@ -27,7 +27,11 @@ from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_tools
+from mlflow.tracing.utils import (
+    maybe_set_prediction_context,
+    set_span_chat_tools,
+    set_span_cost_attribute,
+)
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -432,6 +436,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         try:
             if usage := parse_token_usage(generations):
                 llm_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+                set_span_cost_attribute(llm_span)
         except Exception as e:
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
