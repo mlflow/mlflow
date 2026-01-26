@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 # Restrict to only Bash commands that use MLflow CLI
 BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
+    # Allow `export` so the assistant can set MLFLOW_TRACKING_URI before running commands
     "Bash(export:*)",
 ]
 FILE_EDIT_TOOLS = [
