@@ -262,9 +262,17 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 # Remove project mapping
                 config.projects.pop(exp_id, None)
             else:
+                location = project_data.get("location", "")
+                if location:
+                    project_path = Path(location).expanduser()
+                    if not project_path.exists():
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Project path does not exist: {location}",
+                        )
                 config.projects[exp_id] = ProjectConfig(
                     type=project_data.get("type", "local"),
-                    location=project_data.get("location", ""),
+                    location=location,
                 )
 
     config.save()
@@ -309,21 +317,20 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
             )
         project_path = Path(project_location)
 
-    # Get skills path from provider
-    skills_path = _provider.resolve_skills_path(
+    # Get the destination path to install skills to
+    destination = _provider.resolve_skills_path(
         skills_type=request.type,
         custom_path=request.custom_path,
         project_path=project_path,
     )
-    skills_path_str = str(skills_path)
 
-    # Check if skills already exist
-    if current_skills := (list_installed_skills(skills_path_str) if skills_path.exists() else []):
-        return SkillsInstallResponse(
-            installed_skills=current_skills, skills_directory=skills_path_str
-        )
+    # Check if skills already exist - skip re-installation
+    if destination.exists():
+        if current_skills := list_installed_skills(destination):
+            return SkillsInstallResponse(
+                installed_skills=current_skills, skills_directory=str(destination)
+            )
 
-    # Install skills from bundled package
-    installed = install_skills(skills_path_str)
+    installed = install_skills(destination)
 
-    return SkillsInstallResponse(installed_skills=installed, skills_directory=skills_path_str)
+    return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))

@@ -30,7 +30,9 @@ def parse_arguments():
         "--tracking-uri",
         help="MLflow tracking URI (default: auto-detect from env/Databricks/local)",
     )
-    parser.add_argument("--experiment-id", help="Experiment ID to use (default: from env or search)")
+    parser.add_argument(
+        "--experiment-id", help="Experiment ID to use (default: from env or search)"
+    )
     parser.add_argument("--experiment-name", help="Experiment name (for search or creation)")
     parser.add_argument(
         "--create", action="store_true", help="Create new experiment with --experiment-name"

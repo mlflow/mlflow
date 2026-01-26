@@ -57,12 +57,14 @@ MLflow provides several built-in scorers for common evaluation criteria.
 Do NOT use `mlflow scorers list -b` - it may be incomplete or unavailable in some environments. Instead:
 
 1. Query MLflow documentation via llms.txt:
+
    ```
    WebFetch https://mlflow.org/docs/latest/llms.txt with prompt:
    "What built-in LLM judges or scorers are available in MLflow for evaluating GenAI agents?"
    ```
 
 2. Read scorer documentation pages referenced in llms.txt to understand:
+
    - Scorer names and how to import them
    - What each scorer evaluates
    - Required inputs (trace structure, expected_response, etc.)
@@ -82,6 +84,7 @@ uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
 ```
 
 Output shows:
+
 - Scorer names
 - Whether they're built-in or custom
 - Registration details

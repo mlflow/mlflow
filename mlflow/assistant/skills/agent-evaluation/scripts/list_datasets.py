@@ -28,10 +28,10 @@ import signal
 import sys
 
 import numpy as np
+from utils import validate_env_vars
 
 from mlflow import MlflowClient
 from mlflow.genai.datasets import get_dataset
-from utils import validate_env_vars
 
 
 class TimeoutError(Exception):
@@ -147,7 +147,7 @@ def print_table_format(dataset_info, args):
                 print(f"   Diversity: {info.get('diversity', 'N/A')}")
 
             if "samples" in info:
-                print(f"\n   Sample queries:")
+                print("\n   Sample queries:")
                 for j, sample in enumerate(info["samples"], 1):
                     preview = sample[:60] + "..." if len(sample) > 60 else sample
                     print(f"     {j}. {preview}")

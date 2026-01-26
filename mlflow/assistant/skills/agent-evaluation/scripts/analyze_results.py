@@ -36,8 +36,8 @@ def strip_ansi_codes(text: str) -> str:
     """
     # Standard ANSI escape sequence pattern
     # Matches: ESC [ <parameters> <command>
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 def load_evaluation_results(json_file: str) -> list[dict[str, Any]]:

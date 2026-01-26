@@ -55,11 +55,13 @@ uv run mlflow traces evaluate ... --output json > results.json 2> evaluation.log
 ```
 
 **When to separate streams:**
+
 - Any command with `--output json` flag
 - Commands that output structured data (CSV, JSON, XML)
 - When piping output to parsing tools (`jq`, `grep`, etc.)
 
 **When NOT to separate:**
+
 - Interactive commands where you want to see progress
 - Debugging scenarios where logs provide context
 - Commands that only output unstructured text
@@ -95,6 +97,7 @@ If MLflow is missing or version is <3.8.0, see Setup Overview below.
 **Each project has unique structure.** Use dynamic exploration instead of assumptions:
 
 ### Find Agent Entry Points
+
 ```bash
 # Search for main agent functions
 grep -r "def.*agent" . --include="*.py"
@@ -109,6 +112,7 @@ grep -r "def.*route" . --include="*.py"
 ```
 
 ### Find Tracing Integration
+
 ```bash
 # Find autolog calls
 grep -r "mlflow.*autolog" . --include="*.py"
@@ -121,6 +125,7 @@ grep -r "import mlflow" . --include="*.py"
 ```
 
 ### Understand Project Structure
+
 ```bash
 # Check entry points in package config
 cat pyproject.toml setup.py 2>/dev/null | grep -A 5 "scripts\|entry_points"
@@ -153,6 +158,7 @@ Before evaluation, complete these three setup steps:
 - [ ] Test run creates a trace (verify trace ID is not None)
 
 **Validation scripts:**
+
 ```bash
 uv run python scripts/validate_environment.py  # Check MLflow install, env vars, connectivity
 uv run python scripts/validate_auth.py         # Test authentication before expensive operations
@@ -172,11 +178,13 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 ### Step 2: Define Quality Scorers
 
 1. **Discover built-in scorers using documentation protocol:**
+
    - Query `https://mlflow.org/docs/latest/llms.txt` for "What built-in LLM judges or scorers are available?"
    - Read scorer documentation to understand their purpose and requirements
    - Note: Do NOT use `mlflow scorers list -b` - use documentation instead for accurate information
 
 2. **Check registered scorers in your experiment:**
+
    ```bash
    uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
    ```

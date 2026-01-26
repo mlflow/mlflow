@@ -471,11 +471,7 @@ def _install_skills(
         custom_path=skills_config.custom_path,
         project_path=project_path,
     )
-
-    installed_skills = install_skills(str(skill_path))
-
-    if installed_skills:
-        click.secho(f"Installed skills to {skill_path}:", fg="green")
+    if installed_skills := install_skills(skill_path):
         for skill in installed_skills:
             click.secho(f"  - {skill}")
     else:

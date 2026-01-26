@@ -45,7 +45,10 @@ def check_import_order(file_path: str, import_pattern: str = None) -> tuple[bool
 
         if autolog_line and first_import_line:
             if autolog_line < first_import_line:
-                return True, f"Autolog (line {autolog_line}) before imports (line {first_import_line})"
+                return (
+                    True,
+                    f"Autolog (line {autolog_line}) before imports (line {first_import_line})",
+                )
             else:
                 return (
                     False,
@@ -58,8 +61,6 @@ def check_import_order(file_path: str, import_pattern: str = None) -> tuple[bool
 
     except Exception as e:
         return True, f"Could not check import order: {e}"  # Don't fail on errors
-
-
 
 
 def check_session_id_capture(file_path: str) -> bool:

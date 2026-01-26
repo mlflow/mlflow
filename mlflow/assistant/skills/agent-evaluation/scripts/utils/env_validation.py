@@ -100,7 +100,11 @@ def check_databricks_config() -> tuple[bool, str | None]:
     if "databricks" in tracking_uri.lower():
         # Extract profile if present
         if "databricks://" in tracking_uri:
-            profile = tracking_uri.split("databricks://")[1] if len(tracking_uri.split("databricks://")) > 1 else "DEFAULT"
+            profile = (
+                tracking_uri.split("databricks://")[1]
+                if len(tracking_uri.split("databricks://")) > 1
+                else "DEFAULT"
+            )
             return True, profile
         return True, "databricks"
 

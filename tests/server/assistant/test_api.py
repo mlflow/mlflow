@@ -342,7 +342,7 @@ def test_install_skills_success(client):
         data = response.json()
         assert data["installed_skills"] == ["skill1", "skill2"]
         assert data["skills_directory"] == "/tmp/test-skills"
-        mock_install.assert_called_once_with("/tmp/test-skills")
+        mock_install.assert_called_once_with(Path("/tmp/test-skills"))
 
 
 def test_install_skills_skips_when_already_installed(client):
@@ -368,5 +368,3 @@ def test_install_skills_skips_when_already_installed(client):
         assert data["installed_skills"] == ["existing_skill"]
         mock_install.assert_not_called()
         mock_list.assert_called_once()
-
-

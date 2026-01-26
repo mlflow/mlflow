@@ -97,16 +97,19 @@ uv run python scripts/setup_mlflow.py
 **After running the above commands**, automatically detect and update the agent's configuration:
 
 1. **Detect configuration mechanism** by checking for:
+
    - `.env` file (most common)
    - `config.py` or `settings.py` with Settings/Config class
    - Other configuration files
 
 2. **Update configuration automatically**:
+
    - If `.env` exists: Append `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID`
    - If config class exists: Add `mlflow_tracking_uri` and `mlflow_experiment_id` fields
    - If neither exists: Set environment variables in agent initialization code
 
 3. **Verify configuration** by importing the agent and checking values load correctly:
+
    ```bash
    uv run python -c "
    import os
@@ -125,7 +128,8 @@ uv run python scripts/setup_mlflow.py
        print('⚠ Environment variables not set - check agent configuration')
    "
    ```
-```
+
+````
 
 **If the quick setup succeeds**, you're done! Skip to Step 3.
 
@@ -156,7 +160,7 @@ export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
 
 # For other remote server
 export MLFLOW_TRACKING_URI="<your_server_uri>"
-```
+````
 
 #### Step 2.2: Find or Create Experiment
 

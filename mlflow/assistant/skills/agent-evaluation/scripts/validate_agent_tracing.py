@@ -12,12 +12,13 @@ This is a template script. Fill in the TODO sections before running:
 
 import os
 import sys
-import mlflow
-from mlflow import MlflowClient
 
 # TODO: Update these imports with your agent's module and entry point
 # Example: from my_agent.agent import run_agent
 from YOUR_MODULE import YOUR_ENTRY_POINT  # <-- UPDATE THIS LINE
+
+import mlflow
+from mlflow import MlflowClient
 
 # Configuration
 TEST_QUERY = "What is MLflow?"
@@ -96,7 +97,7 @@ try:
     def count_spans(spans):
         count = len(spans)
         for span in spans:
-            if hasattr(span, 'spans') and span.spans:
+            if hasattr(span, "spans") and span.spans:
                 count += count_spans(span.spans)
         return count
 
@@ -114,7 +115,7 @@ try:
         for span in spans:
             prefix = "    " + "  " * indent
             print(f"{prefix}- {span.name} ({span.span_type})")
-            if hasattr(span, 'spans') and span.spans:
+            if hasattr(span, "spans") and span.spans:
                 print_hierarchy(span.spans, indent + 1)
 
     print()
@@ -142,7 +143,8 @@ try:
     print()
 
 except Exception as e:
-    print(f"✗ FAILED: {str(e)}")
+    print(f"✗ FAILED: {e!s}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)

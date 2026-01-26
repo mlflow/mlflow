@@ -11,7 +11,6 @@ Usage:
     python scripts/validate_environment.py
 """
 
-import importlib.util
 import subprocess
 import sys
 
@@ -76,7 +75,7 @@ def check_mlflow_version():
         print()
         return []
     elif version_str == "not installed":
-        print(f"  ✗ MLflow not installed")
+        print("  ✗ MLflow not installed")
         print()
         return ["Install MLflow: pip install mlflow"]
     else:

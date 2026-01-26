@@ -146,6 +146,14 @@ export interface AssistantConfig {
 }
 
 /**
+ * Config update request - allows null to remove entries.
+ */
+export interface AssistantConfigUpdate {
+  providers?: Record<string, Partial<ProviderConfig>>;
+  projects?: Record<string, ProjectConfig | null>;
+}
+
+/**
  * Setup wizard step type.
  */
 export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';

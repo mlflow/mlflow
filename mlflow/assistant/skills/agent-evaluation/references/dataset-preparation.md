@@ -23,11 +23,13 @@ Before writing dataset code:
 # Load config
 config = load_config()
 
+
 # Agent code
 def run_agent(
     query: str, llm_provider: LLMProvider, session_id: str | None = None
 ) -> str:
     ...
+
 
 run_agent(query="what can you help me with", llm_provider=config.provider)
 ```

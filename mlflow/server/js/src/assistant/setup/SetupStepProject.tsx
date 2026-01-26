@@ -12,6 +12,7 @@ import {
   Radio,
   Tooltip,
   QuestionMarkIcon,
+  Alert,
 } from '@databricks/design-system';
 
 import { updateConfig, installSkills } from '../AssistantService';
@@ -68,7 +69,6 @@ export const SetupStepProject = ({
   // Skills state
   const [skillsLocation, setSkillsLocation] = useState<SkillsLocation>('global');
   const [customSkillsPath, setCustomSkillsPath] = useState<string>('');
-
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,18 +99,6 @@ export const SetupStepProject = ({
     setIsSaving(true);
     setError(null);
 
-    // Derive full skills path from location selection
-    const getSkillsPath = (location: SkillsLocation): string => {
-      switch (location) {
-        case 'global':
-          return GLOBAL_SKILLS_PATH;
-        case 'project':
-          return `${projectPath.trim()}/.claude/skills`;
-        case 'custom':
-          return customSkillsPath.trim();
-      }
-    };
-
     try {
       // Build config update - always mark provider as selected (setup complete)
       const configUpdate: Parameters<typeof updateConfig>[0] = {
@@ -127,22 +115,30 @@ export const SetupStepProject = ({
         },
       };
 
-      // Add project mapping if experiment and path provided
-      if (experimentId && projectPath.trim()) {
-        configUpdate.projects = {
-          [experimentId]: { type: 'local' as const, location: projectPath.trim() },
-        };
+      // Handle project mapping - add if path provided, remove if cleared
+      if (experimentId) {
+        if (projectPath.trim()) {
+          configUpdate.projects = {
+            [experimentId]: { type: 'local' as const, location: projectPath.trim() },
+          };
+        } else {
+          // Send null to remove the project mapping
+          configUpdate.projects = {
+            [experimentId]: null,
+          };
+        }
       }
 
       await updateConfig(configUpdate);
 
       // Install skills based on selected location
       try {
-        const skillsPath = getSkillsPath(skillsLocation);
-        if (skillsPath) {
-          await installSkills(skillsPath);
-          await refetchConfig();
-        }
+        await installSkills(
+          skillsLocation,
+          skillsLocation === 'custom' ? customSkillsPath.trim() : undefined,
+          skillsLocation === 'project' ? experimentId : undefined,
+        );
+        await refetchConfig();
       } catch {
         // Silently ignore skills installation errors - user can install later
       }
@@ -275,7 +271,10 @@ export const SetupStepProject = ({
               <Input
                 componentId="mlflow.assistant.setup.project.path_input"
                 value={projectPath}
-                onChange={(e) => setProjectPath(e.target.value)}
+                onChange={(e) => {
+                  setProjectPath(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="/Users/me/projects/my-llm-project"
                 css={{ width: '100%' }}
               />
@@ -345,7 +344,10 @@ export const SetupStepProject = ({
                       <Input
                         componentId="mlflow.assistant.setup.project.custom_skills_path"
                         value={customSkillsPath}
-                        onChange={(e) => setCustomSkillsPath(e.target.value)}
+                        onChange={(e) => {
+                          setCustomSkillsPath(e.target.value);
+                          if (error) setError(null);
+                        }}
                         placeholder="/path/to/skills"
                         css={{ width: '100%' }}
                       />
@@ -355,10 +357,18 @@ export const SetupStepProject = ({
               </div>
             </Radio.Group>
           </div>
-
-          {error && <Typography.Text css={{ color: theme.colors.textValidationDanger }}>{error}</Typography.Text>}
         </div>
       </div>
+
+      {error && (
+        <Alert
+          componentId="mlflow.assistant.setup.project.error"
+          type="error"
+          message={error}
+          closable={false}
+          css={{ marginTop: theme.spacing.md }}
+        />
+      )}
 
       <WizardFooter
         onBack={onBack}
@@ -366,6 +376,7 @@ export const SetupStepProject = ({
         nextLabel={nextLabel}
         backLabel={backLabel}
         isLoading={isSaving}
+        nextDisabled={!!error}
       />
     </div>
   );

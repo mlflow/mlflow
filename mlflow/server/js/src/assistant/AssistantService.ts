@@ -2,7 +2,14 @@
  * Service layer for Assistant Agent API calls.
  */
 
-import type { MessageRequest, ToolUseInfo, AssistantConfig, HealthCheckResult, InstallSkillsResponse } from './types';
+import type {
+  MessageRequest,
+  ToolUseInfo,
+  AssistantConfig,
+  AssistantConfigUpdate,
+  HealthCheckResult,
+  InstallSkillsResponse,
+} from './types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
@@ -70,15 +77,17 @@ export const getConfig = async (): Promise<AssistantConfig> => {
 
 /**
  * Update the assistant configuration.
+ * Pass null for a project to remove it.
  */
-export const updateConfig = async (config: Partial<AssistantConfig>): Promise<AssistantConfig> => {
+export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
   const response = await fetch(`${API_BASE}/config`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
   });
   if (!response.ok) {
-    throw new Error(`Failed to update config: ${response.statusText}`);
+    const data = await response.json();
+    throw new Error(data.detail || 'Failed to update config');
   }
   return response.json();
 };
@@ -217,11 +226,19 @@ export const sendMessageStream = async (
  *   412 = git not installed
  *   500 = clone failed
  */
-export const installSkills = async (skillsLocation: string): Promise<InstallSkillsResponse> => {
+export const installSkills = async (
+  type: 'global' | 'project' | 'custom',
+  customPath?: string,
+  experimentId?: string,
+): Promise<InstallSkillsResponse> => {
   const response = await fetch(`${API_BASE}/skills/install`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ skills_location: skillsLocation }),
+    body: JSON.stringify({
+      type,
+      custom_path: customPath,
+      experiment_id: experimentId,
+    }),
   });
   if (!response.ok) {
     const data = await response.json();

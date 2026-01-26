@@ -20,6 +20,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+EXCLUDED = [
+    # This is subtree of https://github.com/mlflow/skills, no need to check
+    Path("mlflow/assistant/skills"),
+]
+
 
 def get_tracked_python_files() -> list[Path]:
     try:
@@ -28,7 +33,12 @@ def get_tracked_python_files() -> list[Path]:
             text=True,
         )
         paths = (Path(f) for f in result.splitlines() if f)
-        return [p for p in paths if not p.is_relative_to("tests") or p.name.startswith("test_")]
+        return [
+            p
+            for p in paths
+            if (not p.is_relative_to("tests") or p.name.startswith("test_"))
+            and not any(p.is_relative_to(excluded) for excluded in EXCLUDED)
+        ]
     except subprocess.CalledProcessError as e:
         print(f"Error running git ls-files: {e}", file=sys.stderr)
         sys.exit(1)

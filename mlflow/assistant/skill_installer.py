@@ -1,8 +1,8 @@
 """
-Skills installer for Claude Code.
+Manage skill installation
 
-Installs skills bundled with MLflow to the specified skills directory.
-Skills are maintained in the mlflow/skills repository and included via git subtree.
+Skills are maintained in the mlflow/assistant/skills subtree in the MLflow repository,
+which points to the https://github.com/mlflow/skills repository.
 """
 
 import shutil
@@ -12,47 +12,56 @@ from pathlib import Path
 SKILL_MANIFEST_FILE = "SKILL.md"
 
 
-def get_skills_directory(skills_location: str) -> Path:
-    return Path(skills_location).expanduser()
+def install_skills(destination_path: Path) -> list[str]:
+    """
+    Install skills bundled with MLflow as a git subtree to the specified destination path.
 
+    Args:
+        destination_path: The path where skills should be installed.
 
-def _get_bundled_skills_path() -> Path:
-    return Path(str(files("mlflow.assistant.skills")))
+    Returns:
+        A list of installed skill names.
+    """
+    destination_dir = destination_path.expanduser()
 
-
-def _find_skill_directories(path: Path) -> list[Path]:
-    return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]
-
-
-def list_installed_skills(skills_location: str) -> list[str]:
-    skills_dir = get_skills_directory(skills_location)
-    if not skills_dir.exists():
-        return []
-    return sorted(d.name for d in _find_skill_directories(skills_dir))
-
-
-def list_bundled_skills() -> list[str]:
-    bundled_path = _get_bundled_skills_path()
-    return sorted(d.name for d in _find_skill_directories(bundled_path))
-
-
-def install_skills(skills_location: str) -> list[str]:
-    skills_dir = get_skills_directory(skills_location)
-    bundled_path = _get_bundled_skills_path()
-
-    # Find all directories containing SKILL.md in bundled skills
-    skill_dirs = _find_skill_directories(bundled_path)
-
+    skill_dirs = _get_skills_to_install()
     if not skill_dirs:
         return []
 
-    # Create skills directory if it doesn't exist
-    skills_dir.mkdir(parents=True, exist_ok=True)
-
+    destination_dir.mkdir(parents=True, exist_ok=True)
     installed_skills = []
     for skill_dir in skill_dirs:
-        target_dir = skills_dir / skill_dir.name
+        target_dir = destination_dir / skill_dir.name
         shutil.copytree(skill_dir, target_dir, dirs_exist_ok=True)
         installed_skills.append(skill_dir.name)
 
     return sorted(installed_skills)
+
+
+def list_installed_skills(destination_path: Path) -> list[str]:
+    """
+    List installed skills in the specified destination path.
+
+    Args:
+        destination_path: The path where skills are installed.
+
+    Returns:
+        A list of installed skill names.
+    """
+    if not destination_path.exists():
+        return []
+    return sorted(d.name for d in _find_skill_directories(destination_path))
+
+
+def _get_skills_to_install() -> list[Path]:
+    skills_path = _get_subtree_skills_path()
+    return _find_skill_directories(skills_path)
+
+
+def _get_subtree_skills_path() -> Path:
+    # Load skills from the mlflow.assistant.skills subtree
+    return files("mlflow.assistant.skills")._paths[0]
+
+
+def _find_skill_directories(path: Path) -> list[Path]:
+    return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]

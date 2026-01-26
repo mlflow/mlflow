@@ -98,7 +98,7 @@ uv run mlflow scorers register-llm-judge \
 
 **Why "yes"/"no"?**
 
-MLflow's built-in judges use the binary yes/no format and the UI is optimized for this use case. 
+MLflow's built-in judges use the binary yes/no format and the UI is optimized for this use case.
 
 ## Constraint 3: Instructions Must Include Template Variable
 
@@ -109,6 +109,7 @@ Instructions must contain at least one template variable:
 - `{{ trace }}` - Complete execution trace
 
 The above can be combined with optional variables:
+
 - `{{ expectations }}` - Ground truth (optional)
 
 **Example - Wrong (no variables):**
