@@ -1086,6 +1086,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Gateway > Endpoints page > Create endpoint button"
   },
+  "6eYtIQ": {
+    "defaultMessage": "Add categorized feedback",
+    "description": "Label for the button to add a new human feedback"
+  },
   "6fP+8o": {
     "defaultMessage": "See more",
     "description": "A button label in a message renderer that expands truncated content when clicked."
@@ -3820,10 +3824,6 @@
   "SDClGN": {
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
-  },
-  "SFYixb": {
-    "defaultMessage": "Custom code",
-    "description": "Label for custom code judge type filter option"
   },
   "SI6n4L": {
     "defaultMessage": "Compare",

@@ -5,6 +5,7 @@ import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
 import { FormattedMessage } from 'react-intl';
 import {
+  Alert,
   Button,
   DialogCombobox,
   DialogComboboxContent,
@@ -71,10 +72,17 @@ const SelectJudgeDropdown = ({
     ) as LLMScorer[];
   }, [data?.scheduledScorers, searchValue]);
 
-  const handleLLMScorerClick = (scorer: LLMScorer) => {
-    evaluateTraces(scorer, [traceId]);
-    setDropdownOpen(false);
-    onScorerStarted?.(scorer.name);
+  const [error, setError] = useState<Error | undefined>(undefined);
+
+  const handleLLMScorerClick = async (scorer: LLMScorer) => {
+    setError(undefined);
+    try {
+      evaluateTraces(scorer, [traceId]);
+      setDropdownOpen(false);
+      onScorerStarted?.(scorer.name);
+    } catch (error) {
+      setError(error as Error);
+    }
   };
 
   return (
@@ -86,7 +94,7 @@ const SelectJudgeDropdown = ({
         onOpenChange={setDropdownOpen}
       >
         <DialogComboboxCustomButtonTriggerWrapper asChild>{children}</DialogComboboxCustomButtonTriggerWrapper>
-        <DialogComboboxContent align="end" css={{ minWidth: 400 }}>
+        <DialogComboboxContent align="end" css={{ minWidth: 450 }}>
           <DialogComboboxOptionList
             css={{
               borderTop: `1px solid ${theme.colors.border}`,
@@ -94,6 +102,15 @@ const SelectJudgeDropdown = ({
           >
             <DialogComboboxOptionListSearch controlledValue={searchValue} setControlledValue={setSearchValue}>
               <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, marginBottom: theme.spacing.sm }}>
+                {error && (
+                  <Alert
+                    message={error.message}
+                    type="error"
+                    componentId="mlflow.experiment-scorers.traces-view-judge-error"
+                    css={{ marginBottom: theme.spacing.sm }}
+                    closable={false}
+                  />
+                )}
                 <PillControl.Root
                   size="small"
                   componentId="mlflow.experiment-scorers.traces-view-judge-type-filter"
@@ -110,13 +127,6 @@ const SelectJudgeDropdown = ({
                     <FormattedMessage
                       defaultMessage="Pre-built LLM-as-a-judge"
                       description="Label for pre-built LLM judge type filter option"
-                    />
-                  </PillControl.Item>
-                  {/* TODO: Add support for custom code judges */}
-                  <PillControl.Item value="custom-code" disabled>
-                    <FormattedMessage
-                      defaultMessage="Custom code"
-                      description="Label for custom code judge type filter option"
                     />
                   </PillControl.Item>
                 </PillControl.Root>
@@ -144,7 +154,6 @@ const SelectJudgeDropdown = ({
               css={{ flex: 1 }}
               onClick={() => setIsCreateScorerModalVisible(true)}
             >
-              {/* TODO: Add support for creating judges ad-hoc in traces view */}
               <FormattedMessage defaultMessage="Create judge" description="Button to create a new judge" />
             </Button>
           </DialogComboboxFooter>
