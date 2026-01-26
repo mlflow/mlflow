@@ -141,3 +141,8 @@ gunicorn.conf.py
 !.claude/rules/
 !.claude/settings.json
 !.claude/statusline.sh
+
+# Local repro scripts
+repro_prompt.py
+repro_prompt_bug.py
+
