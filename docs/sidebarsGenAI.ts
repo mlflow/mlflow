@@ -547,22 +547,20 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Judges',
+          label: 'Judges and Scorers',
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/scorers/index',
+          },
           items: [
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/index',
-              label: 'What is a Judge?',
-            },
-            {
               type: 'category',
-              label: 'Supported Judges',
+              label: 'Built-in Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/predefined',
+              },
               items: [
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/predefined',
-                  label: 'Predefined Judges',
-                },
                 {
                   type: 'category',
                   label: 'LLM-as-a-Judge',
