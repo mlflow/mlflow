@@ -22,6 +22,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
+    aggregate_cost_from_spans,
     aggregate_usage_from_spans,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
@@ -180,6 +181,10 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # Aggregate token usage information from all spans
         if usage := aggregate_usage_from_spans(trace.span_dict.values()):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
+
+        # Aggregate cost information from all spans
+        if cost := aggregate_cost_from_spans(trace.span_dict.values()):
+            trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
     def _truncate_metadata(self, value: str | None) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
