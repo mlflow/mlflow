@@ -45,14 +45,17 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
-    with subprocess.Popen(cmd, start_new_session=True) as process:
+    with subprocess.Popen(cmd, start_new_session=not is_windows()) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/health")
             augmented_raise_for_status(resp)
             assert resp.text == "OK"
         finally:
-            os.killpg(process.pid, signal.SIGTERM)
+            if is_windows():
+                process.terminate()
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
 
 
 def test_server_static_prefix_validation():
@@ -687,7 +690,7 @@ def test_mlflow_models_serve(enable_mlserver):
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=True) as process:
+    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=not is_windows()) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
@@ -696,13 +699,16 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
                 "server running in `--artifacts-only` mode." in resp.text
             )
         finally:
-            os.killpg(process.pid, signal.SIGTERM)
+            if is_windows():
+                process.terminate()
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=True) as process:
+    with subprocess.Popen(cmd, cwd=tmp_path, start_new_session=not is_windows()) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
@@ -710,13 +716,16 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             assert resp.status_code == 200
             assert resp.text == "{}"
         finally:
-            os.killpg(process.pid, signal.SIGTERM)
+            if is_windows():
+                process.terminate()
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    with subprocess.Popen(cmd, start_new_session=True) as process:
+    with subprocess.Popen(cmd, start_new_session=not is_windows()) as process:
         try:
             _await_server_up_or_die(port)
             endpoint = "/api/2.0/mlflow-artifacts/artifacts"
@@ -726,7 +735,10 @@ def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specifi
                 "`--no-serve-artifacts`" in resp.text
             )
         finally:
-            os.killpg(process.pid, signal.SIGTERM)
+            if is_windows():
+                process.terminate()
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
