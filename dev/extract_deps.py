@@ -5,7 +5,7 @@ from typing import cast
 
 
 def parse_dependencies(content: str) -> list[str]:
-    pattern = r"dependencies\s*=\s*(\[[\s\S]*?\])"
+    pattern = r"dependencies\s*=\s*(\[[\s\S]*?\])\n"
     match = re.search(pattern, content)
     if match is None:
         raise ValueError("Could not find dependencies in pyproject.toml")

@@ -35,6 +35,7 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     get_safe_port,
+    kill_process_tree,
     pyfunc_serve_and_score_model,
 )
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -44,14 +45,14 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        resp = requests.get(f"http://localhost:{port}/health")
-        augmented_raise_for_status(resp)
-        assert resp.text == "OK"
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/health")
+            augmented_raise_for_status(resp)
+            assert resp.text == "OK"
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_server_static_prefix_validation():
@@ -686,14 +687,16 @@ def test_mlflow_models_serve(enable_mlserver):
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd, cwd=tmp_path)
-    _await_server_up_or_die(port)
-    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
-    assert (
-        "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
-        "in `--artifacts-only` mode." in resp.text
-    )
-    process.kill()
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
+            assert (
+                "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow "
+                "server running in `--artifacts-only` mode." in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
@@ -707,23 +710,23 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             assert resp.status_code == 200
             assert resp.text == "{}"
         finally:
-            process.kill()
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        endpoint = "/api/2.0/mlflow-artifacts/artifacts"
-        resp = requests.get(f"http://localhost:{port}{endpoint}")
-        assert (
-            f"Endpoint: {endpoint} disabled due to the mlflow server running with "
-            "`--no-serve-artifacts`" in resp.text
-        )
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            endpoint = "/api/2.0/mlflow-artifacts/artifacts"
+            resp = requests.get(f"http://localhost:{port}{endpoint}")
+            assert (
+                f"Endpoint: {endpoint} disabled due to the mlflow server running with "
+                "`--no-serve-artifacts`" in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
