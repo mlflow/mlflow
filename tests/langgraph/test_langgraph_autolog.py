@@ -61,7 +61,7 @@ def test_langgraph_save_as_code():
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-async def test_langgraph_tracing_prebuilt(is_async):
+async def test_langgraph_tracing_prebuilt(is_async, mock_litellm_cost):
     from tests.langgraph.sample_code.langgraph_prebuilt import graph
 
     mlflow.langchain.autolog()
@@ -117,6 +117,12 @@ async def test_langgraph_tracing_prebuilt(is_async):
     chat_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL]
     for chat_span in chat_spans:
         assert chat_span.model_name == "gpt-3.5-turbo"
+        usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
+        assert chat_span.cost == {
+            "input_cost": usage["input_tokens"] * 1.0,
+            "output_cost": usage["output_tokens"] * 2.0,
+            "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
+        }
 
 
 @skip_when_testing_trace_sdk
