@@ -198,6 +198,7 @@ def export_uv_requirements(
     no_dev: bool = True,
     no_hashes: bool = True,
     frozen: bool = True,
+    uv_lock: str | Path | None = None,
 ) -> list[str] | None:
     """
     Export dependencies from a UV project to pip-compatible requirements.
@@ -206,9 +207,12 @@ def export_uv_requirements(
 
     Args:
         directory: The UV project directory. Defaults to the current working directory.
+            Ignored if uv_lock is provided.
         no_dev: Exclude development dependencies. Defaults to True.
         no_hashes: Omit hashes from output. Defaults to True.
         frozen: Use frozen lockfile without updating. Defaults to True.
+        uv_lock: Explicit path to uv.lock file. When provided, the UV project directory
+            is derived from this path (parent directory). Useful for monorepos.
 
     Returns:
         A list of requirement strings (e.g., ["requests==2.28.0", "numpy==1.24.0"]),
@@ -222,7 +226,17 @@ def export_uv_requirements(
         return None
 
     uv_bin = shutil.which("uv")
-    directory = Path.cwd() if directory is None else Path(directory)
+
+    # If explicit uv_lock path provided, derive directory from it
+    if uv_lock is not None:
+        uv_lock_path = Path(uv_lock)
+        if not uv_lock_path.exists():
+            _logger.warning(f"Specified uv_lock path does not exist: {uv_lock_path}")
+            return None
+        directory = uv_lock_path.parent
+        _logger.info(f"Using explicit uv_lock path for export: {uv_lock_path}")
+    else:
+        directory = Path.cwd() if directory is None else Path(directory)
 
     cmd = [uv_bin, "export"]
 
@@ -302,7 +316,10 @@ def export_uv_requirements(
         return None
 
 
-def get_python_version_from_uv_project(directory: str | Path | None = None) -> str | None:
+def get_python_version_from_uv_project(
+    directory: str | Path | None = None,
+    uv_lock: str | Path | None = None,
+) -> str | None:
     """
     Extract Python version from a UV project.
 
@@ -311,11 +328,22 @@ def get_python_version_from_uv_project(directory: str | Path | None = None) -> s
 
     Args:
         directory: The UV project directory. Defaults to the current working directory.
+            Ignored if uv_lock is provided.
+        uv_lock: Explicit path to uv.lock file. When provided, the UV project directory
+            is derived from this path (parent directory).
 
     Returns:
         Python version string (e.g., "3.11.5" or "3.11"), or None if not found.
     """
-    directory = Path.cwd() if directory is None else Path(directory)
+    # If explicit uv_lock path provided, derive directory from it
+    if uv_lock is not None:
+        uv_lock_path = Path(uv_lock)
+        if uv_lock_path.exists():
+            directory = uv_lock_path.parent
+        else:
+            return None
+    else:
+        directory = Path.cwd() if directory is None else Path(directory)
 
     # Check .python-version file first
     python_version_file = directory / ".python-version"
@@ -360,7 +388,11 @@ def _should_log_uv_files() -> bool:
     return env_value not in ("false", "0", "no")
 
 
-def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = None) -> bool:
+def copy_uv_project_files(
+    dest_dir: str | Path,
+    source_dir: str | Path | None = None,
+    uv_lock: str | Path | None = None,
+) -> bool:
     """
     Copy UV project files to the model artifact directory.
 
@@ -373,7 +405,10 @@ def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = 
     Args:
         dest_dir: The destination directory (model artifact directory).
         source_dir: The source directory containing UV project files.
-            Defaults to the current working directory.
+            Defaults to the current working directory. Ignored if uv_lock is provided.
+        uv_lock: Explicit path to uv.lock file. When provided, the UV project directory
+            is derived from this path (parent directory). Useful for monorepos or
+            non-standard project layouts where uv.lock is not in CWD.
 
     Returns:
         True if UV files were copied, False otherwise.
@@ -386,10 +421,25 @@ def copy_uv_project_files(dest_dir: str | Path, source_dir: str | Path | None = 
         return False
 
     dest_dir = Path(dest_dir)
-    source_dir = Path.cwd() if source_dir is None else Path(source_dir)
+
+    # If explicit uv_lock path provided, derive source_dir from it
+    if uv_lock is not None:
+        uv_lock_path = Path(uv_lock)
+        if not uv_lock_path.exists():
+            _logger.warning(f"Specified uv_lock path does not exist: {uv_lock_path}")
+            return False
+        source_dir = uv_lock_path.parent
+        _logger.info(f"Using explicit uv_lock path: {uv_lock_path}")
+    else:
+        source_dir = Path.cwd() if source_dir is None else Path(source_dir)
+
     uv_project = detect_uv_project(source_dir)
 
     if uv_project is None:
+        if uv_lock is not None:
+            _logger.warning(
+                f"Explicit uv_lock provided but pyproject.toml not found in {source_dir}"
+            )
         return False
 
     uv_lock_src = uv_project["uv_lock"]
