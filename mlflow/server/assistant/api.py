@@ -271,16 +271,15 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 config.projects.pop(exp_id, None)
             else:
                 location = project_data.get("location", "")
-                if location:
-                    project_path = Path(location).expanduser()
-                    if not project_path.exists():
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Project path does not exist: {location}",
-                        )
+                project_path = Path(location).expanduser()
+                if not project_path or not project_path.exists():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Project path does not exist: {location}",
+                    )
                 config.projects[exp_id] = ProjectConfig(
                     type=project_data.get("type", "local"),
-                    location=location,
+                    location=project_path,
                 )
 
     config.save()

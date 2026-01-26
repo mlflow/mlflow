@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -250,6 +251,20 @@ def test_update_config_sets_project(client):
         assert response.status_code == 200
         data = response.json()
         assert data["projects"]["exp-456"]["location"] == "/my/project"
+
+
+def test_update_config_expand_user_home(client):
+    with patch("mlflow.server.assistant.api.AssistantConfig.load") as mock_load:
+        mock_config = AssistantConfig()
+        mock_load.return_value = mock_config
+
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={"projects": {"exp-456": {"type": "local", "location": "~/my/project"}}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["projects"]["exp-456"]["location"] == os.path.expanduser("~/my/project")
 
 
 @pytest.mark.asyncio
