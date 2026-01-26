@@ -77,6 +77,7 @@ import {
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
+  COST_METADATA_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
@@ -1374,6 +1375,11 @@ export const getTraceTokenUsage = (
   traceInfo: ModelTraceInfoV3,
 ): { input_tokens?: number; output_tokens?: number; total_tokens?: number } =>
   parseJSONSafe(traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}');
+
+export const getTraceCost = (
+  traceInfo: ModelTraceInfoV3,
+): { input_cost?: number; output_cost?: number; total_cost?: number } =>
+  parseJSONSafe(traceInfo?.trace_metadata?.[COST_METADATA_KEY] ?? '{}');
 
 export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
   return !isEmpty(assessment.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]);
