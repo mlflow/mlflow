@@ -17,7 +17,24 @@ _MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 _TEST_IMAGE_NAME = "test-sagemaker-image"
 
-_docker_client = docker.from_env()
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_base_image():
+    """Clean up Docker images pulled during tests (only in CI environments)."""
+    if not os.environ.get("CI"):
+        yield
+        return
+
+    client = docker.from_env()
+    images = {img.id for img in client.images.list()}
+    yield
+    for img in client.images.list():
+        if img.id not in images:
+            try:
+                client.images.remove(img.id, force=True)
+            except Exception:
+                # Ignore errors during cleanup
+                pass
 
 
 @pytest.mark.parametrize(
@@ -64,6 +81,3 @@ def test_build_and_push_container(tmp_path, env_manager, install_java):
         / f"Dockerfile_sagemaker_{env_manager}{'_no_java' if install_java is False else ''}"
     )
     assert_dockerfiles_equal(actual, expected)
-
-    # Clean up generated image
-    _docker_client.images.remove(_TEST_IMAGE_NAME, force=True)
