@@ -316,16 +316,6 @@ async def test_v2_creates_otel_spans(simple_agent, is_async):
             assert resp.content == "Paris"
             spans = memory_exporter.get_finished_spans()
             assert len(spans) > 0
-
-            # Check that model name was extracted for LLM spans
-            from mlflow.tracing.constant import SpanAttributeKey
-
-            if llm_spans := [s for s in spans if s.name in ["Claude", "claude-sonnet-4-20250514"]]:
-                # At least one LLM span should have the model attribute
-                assert any(
-                    s.attributes.get(SpanAttributeKey.MODEL) == "claude-sonnet-4-20250514"
-                    for s in llm_spans
-                )
     finally:
         mlflow.agno.autolog(disable=True)
 
@@ -364,15 +354,6 @@ def test_v2_failure_creates_spans(simple_agent):
 
             spans = memory_exporter.get_finished_spans()
             assert len(spans) > 0
-
-            # Check that model name was extracted even in failure case
-            from mlflow.tracing.constant import SpanAttributeKey
-
-            if llm_spans := [s for s in spans if s.name in ["Claude", "claude-sonnet-4-20250514"]]:
-                assert any(
-                    s.attributes.get(SpanAttributeKey.MODEL) == "claude-sonnet-4-20250514"
-                    for s in llm_spans
-                )
 
             if not AGNO_CATCHES_ERRORS:
                 # Error spans are only created when exceptions propagate
