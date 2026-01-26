@@ -15,6 +15,7 @@ import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-
 import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { hasTemplateVariable } from './utils/templateUtils';
+import { templateRequiresExpectations } from './types';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -48,26 +49,27 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'modelInputMode',
   });
+  const llmTemplate = useWatch({
+    control,
+    name: 'llmTemplate',
+  });
 
-  // Check if template contains {{ expectations }} - automatic evaluation not supported for scorers requiring expectations
-  const hasExpectations = hasTemplateVariable(instructions, 'expectations');
+  // Check if scorer requires expectations - either via built-in template or custom instructions containing {{ expectations }}
+  const hasExpectations =
+    templateRequiresExpectations(llmTemplate) || hasTemplateVariable(instructions, 'expectations');
 
   // Check if using a non-gateway model - automatic evaluation only works with gateway models
   const isNonGatewayModel = modelInputMode === ModelProvider.OTHER;
 
-  // Automatically uncheck automatic evaluation when expectations is added to template
+  // Set sampleRate based on whether automatic evaluation is allowed
   useEffect(() => {
-    if (hasExpectations && sampleRate > 0 && setValue) {
+    if (!setValue) return;
+    if (hasExpectations || isNonGatewayModel) {
       setValue('sampleRate', 0);
+    } else {
+      setValue('sampleRate', 100);
     }
-  }, [hasExpectations, sampleRate, setValue]);
-
-  // Automatically uncheck automatic evaluation when using a non-gateway model
-  useEffect(() => {
-    if (isNonGatewayModel && sampleRate > 0 && setValue) {
-      setValue('sampleRate', 0);
-    }
-  }, [isNonGatewayModel, sampleRate, setValue]);
+  }, [hasExpectations, isNonGatewayModel, setValue]);
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;

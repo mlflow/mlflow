@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { LLM_TEMPLATE } from './types';
 
 describe('EvaluateTracesSectionRenderer', () => {
   const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
@@ -104,7 +105,7 @@ describe('EvaluateTracesSectionRenderer', () => {
       );
 
       expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeDisabled();
+      expect(screen.getByRole('switch')).toBeDisabled();
       // sampleRate is set to 0, so sample rate and filter controls should be hidden
       expect(screen.queryByText(/Sample rate/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
@@ -121,7 +122,56 @@ describe('EvaluateTracesSectionRenderer', () => {
       );
 
       expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeDisabled();
+      expect(screen.getByRole('switch')).toBeDisabled();
+    });
+
+    it('should disable automatic evaluation for built-in templates that require expectations', () => {
+      render(
+        <TestWrapper
+          defaultValues={{
+            sampleRate: 100,
+            llmTemplate: LLM_TEMPLATE.CORRECTNESS,
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
+      expect(screen.getByRole('switch')).toBeDisabled();
+      expect(screen.queryByText(/Sample rate/i)).not.toBeInTheDocument();
+    });
+
+    it('should re-enable automatic evaluation when switching from expectations template to non-expectations template', async () => {
+      const ReenableWrapper = () => {
+        const { control, setValue } = useForm({
+          defaultValues: {
+            sampleRate: 100,
+            llmTemplate: LLM_TEMPLATE.CORRECTNESS,
+          },
+        });
+        return (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>
+              <EvaluateTracesSectionRenderer control={control} mode={SCORER_FORM_MODE.CREATE} setValue={setValue} />
+              <button onClick={() => setValue('llmTemplate', LLM_TEMPLATE.RELEVANCE_TO_QUERY)}>
+                Switch to Relevance
+              </button>
+            </DesignSystemProvider>
+          </IntlProvider>
+        );
+      };
+
+      render(<ReenableWrapper />);
+
+      // Initially disabled because Correctness requires expectations
+      expect(screen.getByRole('switch')).toBeDisabled();
+      expect(screen.getByText(/not available for judges that use expectations/i)).toBeInTheDocument();
+
+      // Switch to a template that doesn't require expectations
+      await userEvent.click(screen.getByText('Switch to Relevance'));
+
+      // Should re-enable automatic evaluation
+      expect(screen.getByRole('switch')).not.toBeDisabled();
+      expect(screen.queryByText(/not available for judges that use expectations/i)).not.toBeInTheDocument();
     });
 
     it('should disable automatic evaluation when using a non-gateway model', () => {
@@ -135,7 +185,7 @@ describe('EvaluateTracesSectionRenderer', () => {
       );
 
       expect(screen.getByText(/only available for judges that use gateway endpoints/i)).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeDisabled();
+      expect(screen.getByRole('switch')).toBeDisabled();
     });
   });
 });
