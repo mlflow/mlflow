@@ -31,6 +31,7 @@ export const useRunSerializedScorer = ({
         experimentId,
         evaluationScope: ScorerEvaluationScope.TRACES,
         serializedScorer: scorerConfig.serialized_scorer,
+        saveAssessment: true,
       };
       return evaluateTracesFn(evaluationParams);
     },
