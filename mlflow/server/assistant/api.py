@@ -14,9 +14,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from mlflow.assistant import get_project_path
-from mlflow.assistant.config import AssistantConfig, ProjectConfig
-from mlflow.assistant.providers.base import CLINotInstalledError, NotAuthenticatedError
+from mlflow.assistant import clear_project_path_cache, get_project_path
+from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.providers.base import (
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    clear_config_cache,
+)
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager
@@ -121,11 +125,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
-async def stream_response(session_id: str) -> StreamingResponse:
+async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
 
     Args:
+        request: The FastAPI request object
         session_id: The session ID returned from /message
 
     Returns:
@@ -141,10 +146,17 @@ async def stream_response(session_id: str) -> StreamingResponse:
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
 
+    # Extract the MLflow server URL from the request for the assistant to use.
+    # This assumes the assistant is accessing the same MLflow server that serves this API,
+    # which works because the assistant endpoint is localhost-only.
+    # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
+    tracking_uri = str(request.base_url).rstrip("/")
+
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
         async for event in _provider.astream(
             prompt=pending_message.content,
+            tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
             cwd=session.working_dir,
             context=session.context,
@@ -228,7 +240,15 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     if request.providers:
         for name, provider_data in request.providers.items():
             model = provider_data.get("model", "default")
-            config.set_provider(name, model)
+            permissions = None
+            if "permissions" in provider_data:
+                perm_data = provider_data["permissions"]
+                permissions = PermissionsConfig(
+                    allow_edit_files=perm_data.get("allow_edit_files", True),
+                    allow_read_docs=perm_data.get("allow_read_docs", True),
+                    full_access=perm_data.get("full_access", False),
+                )
+            config.set_provider(name, model, permissions)
 
     # Update projects
     if request.projects:
@@ -243,6 +263,10 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
 
     config.save()
+
+    # Clear caches so provider and project path lookups pick up new settings
+    clear_config_cache()
+    clear_project_path_cache()
 
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},

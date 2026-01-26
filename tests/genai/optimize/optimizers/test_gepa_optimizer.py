@@ -250,6 +250,25 @@ def test_gepa_optimizer_import_error(
             )
 
 
+def test_gepa_optimizer_requires_train_data(
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    from mlflow.exceptions import MlflowException
+
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with pytest.raises(
+        MlflowException,
+        match="GEPA optimizer requires `train_data` to be provided",
+    ):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=[],
+            target_prompts=sample_target_prompts,
+        )
+
+
 def test_gepa_optimizer_single_record_dataset(
     sample_target_prompts: dict[str, str], mock_eval_fn: Any
 ):

@@ -15,6 +15,7 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
+import { getLineDotStyle } from '../utils/chartUtils';
 
 export interface ToolErrorRateChartProps {
   /** The name of the tool to display */
@@ -85,7 +86,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
               name="Error Rate"
               stroke={chartLineColor}
               strokeWidth={2}
-              dot={false}
+              dot={getLineDotStyle(chartLineColor)}
             />
           </LineChart>
         </ResponsiveContainer>

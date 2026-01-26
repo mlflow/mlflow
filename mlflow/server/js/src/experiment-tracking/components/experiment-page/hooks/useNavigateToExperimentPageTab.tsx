@@ -3,7 +3,7 @@ import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { getExperimentKindFromTags } from '../../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
 
@@ -26,18 +26,23 @@ export const useNavigateToExperimentPageTab = ({
     },
   });
 
+  const experimentTags = useMemo(() => {
+    if (!experiment) return [];
+    return experiment && 'tags' in experiment ? experiment?.tags : [];
+  }, [experiment]);
+
+  const experimentKindFromContext = useExperimentKind(experimentTags);
+
   const experimentKind = useMemo(() => {
     if (loadingExperiment || !experiment) {
       return null;
     }
-    const experimentTags = experiment && 'tags' in experiment ? experiment?.tags : [];
 
-    if (experiment) {
-      const experimentKindTagValue = getExperimentKindFromTags(experimentTags);
-      return coerceToEnum(ExperimentKind, experimentKindTagValue, ExperimentKind.NO_INFERRED_TYPE);
+    if (experimentKindFromContext) {
+      return coerceToEnum(ExperimentKind, experimentKindFromContext, ExperimentKind.NO_INFERRED_TYPE);
     }
     return null;
-  }, [experiment, loadingExperiment]);
+  }, [experiment, loadingExperiment, experimentKindFromContext]);
 
   useEffect(() => {
     if (!enabled || !experimentKind) {

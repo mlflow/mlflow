@@ -24,7 +24,7 @@ import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifact
 import { InfoPopover } from '@databricks/design-system';
 import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
-import { getExperimentKindFromTags, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
+import { useExperimentKind, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -134,7 +134,8 @@ export const ExperimentViewHeader = React.memo(
       );
     };
 
-    const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
+    const experimentKindFromContext = useExperimentKind(experiment.tags);
+    const experimentKind = inferredExperimentKind ?? experimentKindFromContext;
     const docLinkHref = getDocLinkHref(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
 
     return (

@@ -3,7 +3,7 @@
  * Provides Assistant functionality accessible from anywhere in MLflow.
  */
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
 import { sendMessageStream, getConfig } from './AssistantService';
@@ -12,16 +12,28 @@ import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+/**
+ * Check if the server is running locally (localhost or 127.0.0.1).
+ */
+const checkIsLocalServer = (): boolean => {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+};
+
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
-  // Panel state - persisted to localStorage, open by default on first visit
+  // Detect if server is local - memoized since hostname doesn't change
+  const isLocalServer = useMemo(() => checkIsLocalServer(), []);
+
+  // Panel state - persisted to localStorage
+  // Only open by default on first visit if server is local
   const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
     key: 'mlflow.assistant.panelOpen',
     version: 1,
-    initialValue: true,
+    initialValue: isLocalServer,
   });
 
   // Chat state
@@ -43,6 +55,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
   const appendToStreamingMessage = useCallback((text: string) => {
+    // Add newline separator if there's already content (e.g. reasoning)
+    if (streamingMessageRef.current && !streamingMessageRef.current.endsWith('\n') && !text.startsWith('\n')) {
+      streamingMessageRef.current += '\n\n';
+    }
     streamingMessageRef.current += text;
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -123,11 +139,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
     setError(null);
-  }, []);
+    // Refresh config when panel opens (intentionally not awaited)
+    refreshConfig();
+  }, [refreshConfig, setIsPanelOpen]);
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
-  }, []);
+  }, [setIsPanelOpen]);
 
   const reset = useCallback(() => {
     setSessionId(null);
@@ -253,6 +271,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      startChat,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
@@ -344,6 +363,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     activeTools,
     setupComplete,
     isLoadingConfig,
+    isLocalServer,
     // Actions
     openPanel,
     closePanel,
@@ -368,6 +388,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   activeTools: [],
   setupComplete: false,
   isLoadingConfig: false,
+  isLocalServer: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

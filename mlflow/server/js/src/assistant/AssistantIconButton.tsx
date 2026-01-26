@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  Button,
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   SparkleFillIcon,
@@ -46,18 +47,12 @@ export const AssistantSparkleIcon = ({ isHovered, iconSize, className }: Assista
  * Use this for icon-only buttons (e.g., in the header).
  */
 interface AssistantIconButtonProps {
-  componentId: string;
   tooltipSide?: 'top' | 'bottom' | 'left' | 'right';
   iconSize?: number;
   className?: string;
 }
 
-export const AssistantIconButton = ({
-  componentId,
-  tooltipSide = 'bottom',
-  iconSize,
-  className,
-}: AssistantIconButtonProps) => {
+export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, className }: AssistantIconButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, closePanel, isPanelOpen } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
@@ -71,7 +66,7 @@ export const AssistantIconButton = ({
       openPanel();
     }
     logTelemetryEvent({
-      componentId,
+      componentId: 'mlflow.assistant.icon_button',
       componentViewId: viewId,
       componentType: DesignSystemEventProviderComponentTypes.Button,
       componentSubType: null,
@@ -79,42 +74,25 @@ export const AssistantIconButton = ({
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      togglePanel();
-    }
-  };
-
   return (
     <Tooltip
-      componentId={`${componentId}.tooltip`}
+      componentId="mlflow.assistant.icon_button.tooltip"
       content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
       side={tooltipSide}
       delayDuration={0}
     >
-      <div
-        role="button"
-        tabIndex={0}
+      <Button
+        componentId="mlflow.assistant.icon_button"
         aria-pressed={isPanelOpen}
         className={className}
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: theme.spacing.xs,
-          borderRadius: theme.borders.borderRadiusSm,
-          cursor: 'pointer',
-          backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
-          color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-          ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-        }}
+        icon={<AssistantSparkleIcon isHovered={isHovered} iconSize={iconSize} />}
         onClick={togglePanel}
-        onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-      >
-        <AssistantSparkleIcon isHovered={isHovered} iconSize={iconSize} />
-      </div>
+        css={{
+          backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
+        }}
+      />
     </Tooltip>
   );
 };

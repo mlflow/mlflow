@@ -30,12 +30,13 @@ export const ToolCallChartsSection: React.FC = () => {
   return (
     <ChartGrid>
       {toolNames.map((name, index) => (
-        <LazyToolErrorRateChart
-          key={name}
-          toolName={name}
-          lineColor={getChartColor(index)}
-          overallErrorRate={errorRateByTool.get(name) ?? 0}
-        />
+        <div key={name} id={`tool-chart-${name}`}>
+          <LazyToolErrorRateChart
+            toolName={name}
+            lineColor={getChartColor(index)}
+            overallErrorRate={errorRateByTool.get(name) ?? 0}
+          />
+        </div>
       ))}
     </ChartGrid>
   );
