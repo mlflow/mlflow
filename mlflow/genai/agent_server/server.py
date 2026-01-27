@@ -260,7 +260,7 @@ class AgentServer:
         )
 
         is_streaming = data.pop(STREAM_KEY, False)
-        return_trace_id = get_request_headers().get(RETURN_TRACE_HEADER) == "true"
+        return_trace_id = (get_request_headers().get(RETURN_TRACE_HEADER) or "").lower() == "true"
 
         try:
             request_data = self.validator.validate_and_convert_request(data)

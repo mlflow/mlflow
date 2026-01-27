@@ -1160,3 +1160,50 @@ def test_return_trace_header_stream_non_responses_agent():
         # trace_id should NOT be included for non-ResponsesAgent even with header
         assert "trace_id" not in content
         assert "data: [DONE]" in content
+
+
+@pytest.mark.parametrize("header_value", ["true", "True", "TRUE", "tRuE"])
+def test_return_trace_header_case_insensitive(header_value):
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-123"
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+        response = client.post(
+            "/invocations",
+            json=request_data,
+            headers={"x-mlflow-return-trace-id": header_value},
+        )
+        assert response.status_code == 200
+        response_json = response.json()
+        assert "output" in response_json
+        assert response_json["metadata"] == {"trace_id": "test-trace-id-123"}
