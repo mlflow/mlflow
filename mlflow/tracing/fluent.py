@@ -66,6 +66,30 @@ _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=
 # This ensures child spans also skip tracing when their parent was not sampled.
 _TRACE_SAMPLING_SKIPPED = ContextVar("trace_sampling_skipped", default=False)
 
+
+@contextlib.contextmanager
+def _skip_tracing():
+    """Context manager to propagate 'not sampled' state to nested calls."""
+    token = _TRACE_SAMPLING_SKIPPED.set(True)
+    try:
+        yield
+    finally:
+        _TRACE_SAMPLING_SKIPPED.reset(token)
+
+
+@contextlib.contextmanager
+def _force_sampler(sampling_ratio: float | None):
+    """Context manager to force the OTel sampler to sample when sampling_ratio is set."""
+    if sampling_ratio is not None:
+        token = provider._FORCE_SAMPLE.set(True)
+        try:
+            yield
+        finally:
+            provider._FORCE_SAMPLE.reset(token)
+    else:
+        yield
+
+
 # Cache mapping between evaluation request ID to MLflow backend request ID.
 # This is necessary for evaluation harness to access generated traces during
 # evaluation using the dataset row ID (evaluation request ID).
@@ -303,45 +327,21 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            # Check if this call should be sampled
             if not _should_sample(sampling_ratio):
-                # Set context variable to propagate "not sampled" to nested calls
-                token = _TRACE_SAMPLING_SKIPPED.set(True)
-                try:
+                with _skip_tracing():
                     return await fn(*args, **kwargs)
-                finally:
-                    _TRACE_SAMPLING_SKIPPED.reset(token)
-            # If sampling_ratio is explicitly set, force the sampler to sample
-            force_token = None
-            if sampling_ratio is not None:
-                force_token = provider._FORCE_SAMPLE.set(True)
-            try:
+            with _force_sampler(sampling_ratio):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
-            finally:
-                if force_token is not None:
-                    provider._FORCE_SAMPLE.reset(force_token)
     else:
 
         def wrapper(*args, **kwargs):
-            # Check if this call should be sampled
             if not _should_sample(sampling_ratio):
-                # Set context variable to propagate "not sampled" to nested calls
-                token = _TRACE_SAMPLING_SKIPPED.set(True)
-                try:
+                with _skip_tracing():
                     return fn(*args, **kwargs)
-                finally:
-                    _TRACE_SAMPLING_SKIPPED.reset(token)
-            # If sampling_ratio is explicitly set, force the sampler to sample
-            force_token = None
-            if sampling_ratio is not None:
-                force_token = provider._FORCE_SAMPLE.set(True)
-            try:
+            with _force_sampler(sampling_ratio):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(fn(*args, **kwargs))
-            finally:
-                if force_token is not None:
-                    provider._FORCE_SAMPLE.reset(force_token)
 
     return _wrap_function_safe(fn, wrapper)
 
@@ -430,26 +430,14 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            # Check if this call should be sampled
             if not _should_sample(sampling_ratio):
-                # Set context variable to propagate "not sampled" to nested calls
-                token = _TRACE_SAMPLING_SKIPPED.set(True)
-                try:
+                with _skip_tracing():
                     yield from fn(*args, **kwargs)
-                finally:
-                    _TRACE_SAMPLING_SKIPPED.reset(token)
                 return
 
-            # If sampling_ratio is explicitly set, force the sampler to sample
-            force_token = None
-            if sampling_ratio is not None:
-                force_token = provider._FORCE_SAMPLE.set(True)
-            try:
+            with _force_sampler(sampling_ratio):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
-            finally:
-                if force_token is not None:
-                    provider._FORCE_SAMPLE.reset(force_token)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -473,27 +461,15 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            # Check if this call should be sampled
             if not _should_sample(sampling_ratio):
-                # Set context variable to propagate "not sampled" to nested calls
-                token = _TRACE_SAMPLING_SKIPPED.set(True)
-                try:
+                with _skip_tracing():
                     async for value in fn(*args, **kwargs):
                         yield value
-                finally:
-                    _TRACE_SAMPLING_SKIPPED.reset(token)
                 return
 
-            # If sampling_ratio is explicitly set, force the sampler to sample
-            force_token = None
-            if sampling_ratio is not None:
-                force_token = provider._FORCE_SAMPLE.set(True)
-            try:
+            with _force_sampler(sampling_ratio):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
-            finally:
-                if force_token is not None:
-                    provider._FORCE_SAMPLE.reset(force_token)
             generator = fn(*args, **kwargs)
 
             i = 0
