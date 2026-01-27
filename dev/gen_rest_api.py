@@ -148,8 +148,12 @@ class Field:
 
     @staticmethod
     def _convert_to_link(raw_string: str) -> str:
+        # Only create internal refs for mlflow types, not external ones
         if "." in raw_string:
-            return f":ref:`{raw_string.replace('.', '').lower()}`"
+            if raw_string.startswith("mlflow."):
+                return f":ref:`{raw_string.replace('.', '').lower()}`"
+            # External types (google.protobuf.*, opentelemetry.*, etc.)
+            return f"``{raw_string}``"
         return f"``{raw_string}``"
 
     @classmethod

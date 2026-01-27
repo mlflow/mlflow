@@ -4865,9 +4865,9 @@ Data and metadata for an assessment of a trace.
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 | source                          | :ref:`mlflowassessmentsassessmentsource`                                | The source this assessment came from.                                                    |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| create_time                     | :ref:`googleprotobuftimestamp`                                          | The creation time of this assessment.                                                    |
+| create_time                     | ``google.protobuf.Timestamp``                                           | The creation time of this assessment.                                                    |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| last_update_time                | :ref:`googleprotobuftimestamp`                                          | The last update time of this assessment.                                                 |
+| last_update_time                | ``google.protobuf.Timestamp``                                           | The last update time of this assessment.                                                 |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 | rationale                       | ``STRING``                                                              | Justification for the assessment.                                                        |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
@@ -5557,7 +5557,7 @@ from the inputs contained in the trace.
 +------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
 |    Field Name    |                        Type                        |                                                     Description                                                     |
 +==================+====================================================+=====================================================================================================================+
-| value            | :ref:`googleprotobufvalue`                         | The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a      |
+| value            | ``google.protobuf.Value``                          | The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a      |
 |                  |                                                    | flexible schema of expectation values but is validated to constrain it to specific types. This means the value must |
 |                  |                                                    | be JSON conforming to one of the following supported types:                                                         |
 |                  |                                                    | * Numeric values like integers or floats                                                                            |
@@ -5652,7 +5652,7 @@ Feedback provided on the model / agent output(s) contained in the trace
 +------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
 | Field Name |                  Type                   |                                              Description                                              |
 +============+=========================================+=======================================================================================================+
-| value      | :ref:`googleprotobufvalue`              | Value of the feedback-based assessment.                                                               |
+| value      | ``google.protobuf.Value``               | Value of the feedback-based assessment.                                                               |
 |            |                                         | We use google.protobuf.Value to support a flexible schema of feedback values.                         |
 |            |                                         | Supported initial types:                                                                              |
 |            |                                         | - Numeric values like integers or floats                                                              |
@@ -8330,13 +8330,13 @@ Trace
 
 
 
-+------------+--------------------------------------------------+-------------+
-| Field Name |                       Type                       | Description |
-+============+==================================================+=============+
-| trace_info | :ref:`mlflowtraceinfov3`                         |             |
-+------------+--------------------------------------------------+-------------+
-| spans      | An array of :ref:`opentelemetryprototracev1span` |             |
-+------------+--------------------------------------------------+-------------+
++------------+---------------------------------------------------+-------------+
+| Field Name |                       Type                        | Description |
++============+===================================================+=============+
+| trace_info | :ref:`mlflowtraceinfov3`                          |             |
++------------+---------------------------------------------------+-------------+
+| spans      | An array of ``opentelemetry.proto.trace.v1.Span`` |             |
++------------+---------------------------------------------------+-------------+
 
 .. _mlflowTraceInfo:
 
@@ -8402,9 +8402,9 @@ TraceInfoV3
 | response_preview   | ``STRING``                                             | A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root |
 |                    |                                                        | span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.     |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| request_time       | :ref:`googleprotobuftimestamp`                         | Start time of the trace                                                                                                |
+| request_time       | ``google.protobuf.Timestamp``                          | Start time of the trace                                                                                                |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| execution_duration | :ref:`googleprotobufduration`                          | Execution time of the trace                                                                                            |
+| execution_duration | ``google.protobuf.Duration``                           | Execution time of the trace                                                                                            |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | state              | :ref:`mlflowtraceinfov3state`                          |                                                                                                                        |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
@@ -8519,7 +8519,7 @@ A request to update an existing assessment.
 |             |                                    | This field is required.                                                                                                       |
 |             |                                    |                                                                                                                               |
 +-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| update_mask | :ref:`googleprotobuffieldmask`     | The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`. |
+| update_mask | ``google.protobuf.FieldMask``      | The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`. |
 |             |                                    | This field is required.                                                                                                       |
 |             |                                    |                                                                                                                               |
 +-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
