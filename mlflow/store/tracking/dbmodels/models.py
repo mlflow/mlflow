@@ -2293,6 +2293,11 @@ class SqlGatewayEndpoint(Base):
     Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
     Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
     """
+    experiment_id = Column(String(32), nullable=True)
+    """
+    Experiment ID: `String` (limit 32 characters). ID of the MLflow experiment
+    where traces for this endpoint are logged.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2331,6 +2336,7 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            experiment_id=self.experiment_id,
         )
 
 

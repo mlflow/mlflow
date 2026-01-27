@@ -217,6 +217,7 @@ class GatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -229,6 +230,8 @@ class GatewayStoreMixin:
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
+            experiment_id: ID of the MLflow experiment where traces are logged.
+                          If not provided, an experiment will be auto-created.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -258,6 +261,7 @@ class GatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -269,6 +273,7 @@ class GatewayStoreMixin:
             routing_strategy: Optional new routing strategy for the endpoint.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
 
         Returns:
             Updated Endpoint entity.
