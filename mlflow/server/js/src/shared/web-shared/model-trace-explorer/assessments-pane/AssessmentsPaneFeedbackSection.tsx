@@ -1,19 +1,25 @@
 import {
+  Alert,
   Button,
   DropdownMenu,
   GavelIcon,
   PlusIcon,
   Spacer,
+  TableSkeleton,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { first, isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
+import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
+import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -92,6 +98,47 @@ export const AssessmentsPaneFeedbackSection = ({
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
+  const { evaluations, subscribeToScorerFinished } = useModelTraceExplorerRunJudgesContext();
+
+  // Derive evaluations for this trace from context state
+  const currentTraceEvaluations = useMemo(() => {
+    if (!evaluations) return [];
+    return Object.values(evaluations).filter((event) => traceId in (event.tracesData ?? {}));
+  }, [evaluations, traceId]);
+
+  const currentTracePendingEvaluations = useMemo(
+    () => currentTraceEvaluations.filter((event) => event.isLoading),
+    [currentTraceEvaluations],
+  );
+  const currentTraceEvaluationErrors = useMemo(
+    () => currentTraceEvaluations.filter((event) => event.error),
+    [currentTraceEvaluations],
+  );
+
+  const { invalidateTraceQuery } = useModelTraceExplorerUpdateTraceContext();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    return subscribeToScorerFinished?.((event) => {
+      const isCurrentTraceEvaluation = event.results?.some(
+        (result) =>
+          'trace' in result &&
+          result.trace?.info &&
+          'trace_id' in result.trace?.info &&
+          result.trace?.info.trace_id === traceId,
+      );
+      if (!isCurrentTraceEvaluation) {
+        return;
+      }
+      invalidateTraceQuery?.(traceId);
+      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
+      invalidateMlflowSearchTracesCache({ queryClient });
+    });
+  }, [subscribeToScorerFinished, traceId, invalidateTraceQuery, queryClient]);
+
+  const isSectionEmpty =
+    isEmpty(groupedFeedbacks) && isEmpty(currentTraceEvaluationErrors) && isEmpty(currentTracePendingEvaluations);
+
   const { theme } = useDesignSystemTheme();
   return (
     <>
@@ -113,7 +160,8 @@ export const AssessmentsPaneFeedbackSection = ({
           {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
         </Typography.Text>
       </div>
-      {!isEmpty(groupedFeedbacks) && (
+
+      {!isSectionEmpty && (
         <div
           css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
         >
@@ -122,10 +170,47 @@ export const AssessmentsPaneFeedbackSection = ({
         </div>
       )}
 
+      {currentTraceEvaluationErrors.map((evaluation) => (
+        <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
+          <Alert
+            closable={false}
+            type="error"
+            message={
+              <FormattedMessage
+                defaultMessage='Error evaluating "{label}"'
+                description="Error evaluating label"
+                values={{ label: evaluation.label }}
+              />
+            }
+            description={evaluation.error?.message}
+            componentId="shared.model-trace-explorer.feedback-error-item"
+          />
+        </div>
+      ))}
+      {currentTracePendingEvaluations.map((evaluation) => (
+        <div
+          key={evaluation.requestKey}
+          css={{
+            borderRadius: theme.spacing.sm,
+            border: `1px solid ${theme.colors.border}`,
+            padding: theme.spacing.sm + theme.spacing.xs,
+            paddingTop: theme.spacing.sm,
+            marginBottom: theme.spacing.sm,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+          }}
+        >
+          {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
+          <Typography.Text bold>{evaluation.label}</Typography.Text>
+          <TableSkeleton lines={3} />
+        </div>
+      ))}
+
       {groupedFeedbacks.map(([name, valuesMap]) => (
         <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
       ))}
-      {isEmpty(groupedFeedbacks) && !createFormVisible && (
+      {isSectionEmpty && !createFormVisible && (
         <div
           css={{
             textAlign: 'center',

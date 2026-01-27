@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { LLMScorer } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
@@ -27,11 +27,27 @@ import {
   ModelTraceExplorerRunJudgeConfig,
   ModelTraceExplorerRunJudgesContextProvider,
 } from '@databricks/web-shared/model-trace-explorer';
+import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 
 export const useRunScorerInTracesViewConfiguration = (): ModelTraceExplorerRunJudgeConfig => {
   const [experimentId] = useExperimentIds();
 
-  const { evaluateTraces } = useRunSerializedScorer({ experimentId });
+  const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
+
+  const onScorerFinished = useCallback((event: ScorerFinishedEvent) => {
+    scorerFinishSubscribers.current.forEach((callback) => callback(event));
+  }, []);
+
+  const subscribeToScorerFinished = useCallback((callback: (event: ScorerFinishedEvent) => void) => {
+    scorerFinishSubscribers.current.push(callback);
+    return () => {
+      scorerFinishSubscribers.current = scorerFinishSubscribers.current.filter(
+        (currentCallback) => currentCallback !== callback,
+      );
+    };
+  }, []);
+
+  const { evaluateTraces, allEvaluations } = useRunSerializedScorer({ experimentId, onScorerFinished });
 
   const renderRunJudgeButton = useCallback<NonNullable<ModelTraceExplorerRunJudgeConfig['renderRunJudgeButton']>>(
     ({ traceId, trigger }) => {
@@ -43,9 +59,12 @@ export const useRunScorerInTracesViewConfiguration = (): ModelTraceExplorerRunJu
     },
     [evaluateTraces],
   );
+
   return {
     renderRunJudgeButton,
-  };
+    evaluations: allEvaluations,
+    subscribeToScorerFinished,
+  } as ModelTraceExplorerRunJudgeConfig;
 };
 
 /**
