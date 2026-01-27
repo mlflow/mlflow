@@ -2184,6 +2184,15 @@ wheels = [
 ]
 
 [[package]]
+name = "gepa"
+version = "0.0.26"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/98/b8f1ccc8cc2a319f21433df45bcec8a8f7903ee08aacd0acfdc475f47c05/gepa-0.0.26.tar.gz", hash = "sha256:0119ca8022e93b6236bc154a57bb910bdb117485dc067d77777933dd3e9e9ad8", size = 141776, upload-time = "2026-01-24T18:11:18.362Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/6e/f1141b76398026ef77f0d52a17b37d26ceb7cd320e0ad3a72c59fe00b983/gepa-0.0.26-py3-none-any.whl", hash = "sha256:331e40d8693a4192de2eb3b2b4df10d410ead49173f748d50c32a035cf746e63", size = 139666, upload-time = "2026-01-24T18:11:16.836Z" },
+]
+
+[[package]]
 name = "gevent"
 version = "25.9.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4236,6 +4245,7 @@ genai = [
     { name = "aiohttp" },
     { name = "boto3" },
     { name = "fastapi" },
+    { name = "gepa" },
     { name = "litellm" },
     { name = "slowapi" },
     { name = "tiktoken" },
@@ -4405,6 +4415,7 @@ requires-dist = [
     { name = "flask", specifier = "<4" },
     { name = "flask-cors", specifier = "<7" },
     { name = "flask-wtf", marker = "extra == 'auth'", specifier = "<2" },
+    { name = "gepa", marker = "extra == 'genai'", specifier = ">=0.0.26,<1" },
     { name = "gitpython", specifier = ">=3.1.9,<4" },
     { name = "google-cloud-storage", marker = "extra == 'databricks'", specifier = ">=1.30.0" },
     { name = "google-cloud-storage", marker = "extra == 'extras'", specifier = ">=1.30.0" },
