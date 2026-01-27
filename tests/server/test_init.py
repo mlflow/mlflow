@@ -1,17 +1,60 @@
+import os
+import signal
+import socket
+import subprocess
 import sys
+import time
 from unittest import mock
+from urllib.parse import urlunsplit
+from urllib.request import pathname2url
 
 import pytest
 
 from mlflow import server
 from mlflow.environment_variables import _MLFLOW_SGI_NAME
 from mlflow.exceptions import MlflowException
+from mlflow.utils import find_free_port
+from mlflow.utils.os import is_windows
 
 
 @pytest.fixture
 def mock_exec_cmd():
     with mock.patch("mlflow.server._exec_cmd") as m:
         yield m
+
+
+def _wait_for_port(host, port, proc, timeout=15):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            stdout, stderr = proc.communicate()
+            raise AssertionError(
+                "MLflow server exited before accepting connections.\n"
+                f"stdout:\n{stdout}\n"
+                f"stderr:\n{stderr}"
+            )
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise AssertionError(f"Timed out waiting for {host}:{port} to accept connections")
+
+
+def _wait_for_port_closed(host, port, timeout=15):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                time.sleep(0.1)
+        except OSError:
+            return
+    raise AssertionError(f"Timed out waiting for {host}:{port} to close")
+
+
+def _path_to_file_uri(path):
+    # Ensure Windows paths are treated as file URIs, not URI schemes like "C:"
+    return urlunsplit(("file", "", pathname2url(str(path)), "", ""))
 
 
 def test_find_app_custom_app_plugin():
@@ -201,4 +244,76 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
         capture_output=False,
         synchronous=False,
+        start_new_session=not is_windows(),
     )
+
+
+@pytest.mark.parametrize(
+    "sig",
+    [
+        pytest.param(
+            signal.SIGTERM,
+            marks=pytest.mark.skipif(is_windows(), reason="SIGTERM is a hard kill on Windows"),
+        ),
+        signal.SIGINT,
+    ],
+)
+def test_mlflow_server_shuts_down_on_signal(tmp_path, sig):
+    port = find_free_port()
+    backend_store_path = tmp_path / "mlruns"
+    artifact_root_path = tmp_path / "artifacts"
+    registry_store_path = tmp_path / "registry"
+    env = {**os.environ, "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "false"}
+    backend_store_uri = _path_to_file_uri(backend_store_path)
+    registry_store_uri = _path_to_file_uri(registry_store_path)
+    artifact_root_uri = _path_to_file_uri(artifact_root_path)
+    cmd = [
+        sys.executable,
+        "-m",
+        "mlflow",
+        "server",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--workers",
+        "1",
+        "--backend-store-uri",
+        backend_store_uri,
+        "--registry-store-uri",
+        registry_store_uri,
+        "--default-artifact-root",
+        artifact_root_uri,
+    ]
+    popen_kwargs = {
+        "cwd": tmp_path,
+        "env": env,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+    }
+    if is_windows():
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    try:
+        _wait_for_port("127.0.0.1", port, proc)
+        if is_windows():
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            proc.send_signal(sig)
+        proc.wait(timeout=15)
+        _wait_for_port_closed("127.0.0.1", port)
+        # Exit code 0 means graceful shutdown (signal was caught and handled)
+        # -sig or 128+sig means the process was killed by the signal
+        # On Windows, CTRL_BREAK_EVENT maps to 0xC000013A.
+        if is_windows():
+            assert proc.returncode in (0, 0xC000013A)
+        else:
+            assert proc.returncode in (0, -sig, 128 + sig)
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
