@@ -40,11 +40,13 @@ BASE_ALLOWED_TOOLS = [
     "Skill",  # Skill tool needs to be explicitly allowed
 ]
 FILE_EDIT_TOOLS = [
+    # Project directory: for evaluation scripts, code edits, etc.
     "Edit(*)",
-    "Edit(//tmp/**)",
     "Read(*)",
-    "Read(//tmp/**)",
     "Write(*)",
+    # /tmp: for working with large command output (e.g. grep, jq)
+    "Edit(//tmp/**)",
+    "Read(//tmp/**)",
     "Write(//tmp/**)",
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
