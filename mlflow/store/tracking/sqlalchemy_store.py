@@ -134,6 +134,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
+    SqlSpanAttributes,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -147,6 +149,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -4205,6 +4208,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
+                span_cost = None
+                model_name = None
                 if span_attributes := span_dict.get("attributes", {}):
                     if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
                         aggregated_token_usage = update_token_usage(
@@ -4217,6 +4222,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # Get model name for span metrics
+                    model_name = span_attributes.get(SpanAttributeKey.MODEL)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -4234,6 +4241,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
                 session.merge(sql_span)
+
+                if span_cost:
+                    span_cost = json.loads(span_cost)
+                    for cost_key in CostKey.all_keys():
+                        if (cost_value := span_cost.get(cost_key)) is not None:
+                            session.merge(
+                                SqlSpanMetrics(
+                                    trace_id=span.trace_id,
+                                    span_id=span.span_id,
+                                    key=cost_key,
+                                    value=float(cost_value),
+                                )
+                            )
+
+                if model_name:
+                    model_name = json.loads(model_name)
+                    session.merge(
+                        SqlSpanAttributes(
+                            trace_id=span.trace_id,
+                            span_id=span.span_id,
+                            key=SpanAttributeKey.MODEL,
+                            value=model_name,
+                        )
+                    )
 
                 if span.parent_id is None:
                     update_dict.update(
