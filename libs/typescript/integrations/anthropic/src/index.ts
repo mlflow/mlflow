@@ -238,6 +238,12 @@ async function* wrapAsyncIterator(
     } catch (e) {
       // Stream may have completed without finalMessage available
       console.debug('Could not get final message from stream', e);
+      // Mark span with a partial-failure indicator so callers know token usage could not be captured
+      span.setAttribute('mlflow.tracing.token_usage_capture_failed', true);
+      span.setAttribute(
+        'mlflow.tracing.token_usage_capture_error',
+        e instanceof Error ? e.message : String(e)
+      );
     }
 
     span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'anthropic');
