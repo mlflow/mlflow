@@ -3398,6 +3398,10 @@
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
   },
+  "OjWQ39": {
+    "defaultMessage": "Human feedback",
+    "description": "Tooltip content for human feedback"
+  },
   "OlytgO": {
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
@@ -3873,6 +3877,10 @@
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
   },
+  "SihD1a": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Tooltip content for LLM judge feedback"
+  },
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
@@ -3896,6 +3904,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SuVsDp": {
+    "defaultMessage": "Custom code judge feedback",
+    "description": "Tooltip content for custom code judge feedback"
   },
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
