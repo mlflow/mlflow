@@ -47,6 +47,6 @@ echo "Generating GraphQL schema from Protobuf files..."
 uv run ./dev/proto_to_graphql/code_generator.py
 
 echo "Generating REST API from Protobuf files..."
-python ./dev/gen_rest_api.py
+uv run python ./dev/gen_rest_api.py
 
 echo "Done!"

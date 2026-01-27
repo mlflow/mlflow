@@ -22,6 +22,176 @@ tracking server. For example, to search for experiments on a tracking server hos
 
 
 
+.. _mlflowMlflowServiceattachModelToEndpoint:
+
+Attach Model to Endpoint
+========================
+
+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``2.0/mlflow/gateway/endpoints/models/attach`` | ``POST``    |
++------------------------------------------------+-------------+
+
+Attach an existing model definition to an endpoint
+
+
+
+
+.. _mlflowAttachModelToGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++--------------+-----------------------------------------+-------------------------------------------+
+|  Field Name  |                  Type                   |                Description                |
++==============+=========================================+===========================================+
+| endpoint_id  | ``STRING``                              | ID of the endpoint to attach the model to |
++--------------+-----------------------------------------+-------------------------------------------+
+| model_config | :ref:`mlflowgatewayendpointmodelconfig` | Configuration for the model to attach     |
++--------------+-----------------------------------------+-------------------------------------------+
+| created_by   | ``STRING``                              | Username of the creator                   |
++--------------+-----------------------------------------+-------------------------------------------+
+
+.. _mlflowAttachModelToGatewayEndpointResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------------+---------------------+
+| Field Name |                   Type                   |     Description     |
++============+==========================================+=====================+
+| mapping    | :ref:`mlflowgatewayendpointmodelmapping` | The created mapping |
++------------+------------------------------------------+---------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicecancelPromptOptimizationJob:
+
+Cancel Prompt Optimization Job
+==============================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow/prompt-optimization/jobs/{job_id}/cancel`` | ``POST``    |
++---------------------------------------------------------+-------------+
+
+Cancel an in-progress prompt optimization job.
+If the job is already completed or cancelled, this operation has no effect.
+
+
+
+
+.. _mlflowCancelPromptOptimizationJob:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+----------------------------------------------------------+
+| Field Name |    Type    |                       Description                        |
++============+============+==========================================================+
+| job_id     | ``STRING`` | The unique identifier of the optimization job to cancel. |
++------------+------------+----------------------------------------------------------+
+
+.. _mlflowCancelPromptOptimizationJobResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------+---------------------------------+
+| Field Name |                Type                |           Description           |
++============+====================================+=================================+
+| job        | :ref:`mlflowpromptoptimizationjob` | The cancelled optimization job. |
++------------+------------------------------------+---------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicecreateEndpointBinding:
+
+Create Endpoint Binding
+=======================
+
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/gateway/endpoints/bindings/create`` | ``POST``    |
++--------------------------------------------------+-------------+
+
+Create a binding between an endpoint and an MLflow resource
+
+
+
+
+.. _mlflowCreateGatewayEndpointBinding:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+-----------------------------+
+|  Field Name   |    Type    |         Description         |
++===============+============+=============================+
+| endpoint_id   | ``STRING`` | ID of the endpoint to bind  |
++---------------+------------+-----------------------------+
+| resource_type | ``STRING`` | Type of MLflow resource     |
++---------------+------------+-----------------------------+
+| resource_id   | ``STRING`` | ID of the resource instance |
++---------------+------------+-----------------------------+
+| created_by    | ``STRING`` | Username of the creator     |
++---------------+------------+-----------------------------+
+
+.. _mlflowCreateGatewayEndpointBindingResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+-------------------------------------+---------------------+
+| Field Name |                Type                 |     Description     |
++============+=====================================+=====================+
+| binding    | :ref:`mlflowgatewayendpointbinding` | The created binding |
++------------+-------------------------------------+---------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicecreateExperiment:
 
 Create Experiment
@@ -90,6 +260,253 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicecreateGatewayEndpoint:
+
+Create Gateway Endpoint
+=======================
+
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/gateway/endpoints/create`` | ``POST``    |
++-----------------------------------------+-------------+
+
+Create a new endpoint with model configurations
+
+
+
+
+.. _mlflowCreateGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+|    Field Name    |                        Type                         |                            Description                            |
++==================+=====================================================+===================================================================+
+| name             | ``STRING``                                          | Optional user-friendly name for the endpoint                      |
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+| model_configs    | An array of :ref:`mlflowgatewayendpointmodelconfig` | List of model configurations                                      |
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+| created_by       | ``STRING``                                          | Username of the creator                                           |
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+| routing_strategy | :ref:`mlflowroutingstrategy`                        | Optional routing strategy for the endpoint                        |
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+| fallback_config  | :ref:`mlflowfallbackconfig`                         | Optional fallback configuration (includes strategy, max_attempts) |
++------------------+-----------------------------------------------------+-------------------------------------------------------------------+
+
+.. _mlflowCreateGatewayEndpointResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------+----------------------------------------------+
+| Field Name |             Type             |                 Description                  |
++============+==============================+==============================================+
+| endpoint   | :ref:`mlflowgatewayendpoint` | The created endpoint with all model mappings |
++------------+------------------------------+----------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicecreateGatewayModelDefinition:
+
+Create Gateway Model Definition
+===============================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/mlflow/gateway/model-definitions/create`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+Create a reusable model definition
+
+
+
+
+.. _mlflowCreateGatewayModelDefinition:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+--------------------------------------------------------------------------+
+| Field Name |    Type    |                               Description                                |
++============+============+==========================================================================+
+| name       | ``STRING`` | User-friendly name for the model definition (must be unique)             |
++------------+------------+--------------------------------------------------------------------------+
+| secret_id  | ``STRING`` | ID of the secret containing authentication credentials                   |
++------------+------------+--------------------------------------------------------------------------+
+| provider   | ``STRING`` | LLM provider (e.g., "openai", "anthropic")                               |
++------------+------------+--------------------------------------------------------------------------+
+| model_name | ``STRING`` | Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet") |
++------------+------------+--------------------------------------------------------------------------+
+| created_by | ``STRING`` | Username of the creator                                                  |
++------------+------------+--------------------------------------------------------------------------+
+
+.. _mlflowCreateGatewayModelDefinitionResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------+-------------------------------------+------------------------------+
+|    Field Name    |                Type                 |         Description          |
++==================+=====================================+==============================+
+| model_definition | :ref:`mlflowgatewaymodeldefinition` | The created model definition |
++------------------+-------------------------------------+------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicecreateGatewaySecret:
+
+Create Gateway Secret
+=====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``2.0/mlflow/gateway/secrets/create`` | ``POST``    |
++---------------------------------------+-------------+
+
+Create a new encrypted secret for LLM provider authentication
+
+
+
+
+.. _mlflowCreateGatewaySecret:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+|  Field Name  |                             Type                             |                                                      Description                                                       |
++==============+==============================================================+========================================================================================================================+
+| secret_name  | ``STRING``                                                   | User-friendly name for the secret (must be unique)                                                                     |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| secret_value | An array of :ref:`mlflowcreategatewaysecretsecretvalueentry` | The secret value(s) to encrypt as key-value pairs.                                                                     |
+|              |                                                              | For simple API keys: {"api_key": "sk-xxx"}                                                                             |
+|              |                                                              | For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}                                 |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| provider     | ``STRING``                                                   | Optional LLM provider (e.g., "openai", "anthropic")                                                                    |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| auth_config  | An array of :ref:`mlflowcreategatewaysecretauthconfigentry`  | Optional provider-specific auth configuration.                                                                         |
+|              |                                                              | For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}) |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| created_by   | ``STRING``                                                   | Username of the creator                                                                                                |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowCreateGatewaySecretResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+--------------------------------+----------------------------------------------------------------+
+| Field Name |              Type              |                          Description                           |
++============+================================+================================================================+
+| secret     | :ref:`mlflowgatewaysecretinfo` | The created secret metadata (does not include encrypted value) |
++------------+--------------------------------+----------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicecreatePromptOptimizationJob:
+
+Create Prompt Optimization Job
+==============================
+
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/prompt-optimization/jobs`` | ``POST``    |
++-----------------------------------------+-------------+
+
+Create a new prompt optimization job.
+This endpoint initiates an optimization run with the specified configuration.
+The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
+
+
+
+
+.. _mlflowCreatePromptOptimizationJob:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------------+---------------------------------------------------+----------------------------------------------------------------------+
+|    Field Name     |                       Type                        |                             Description                              |
++===================+===================================================+======================================================================+
+| experiment_id     | ``STRING``                                        | ID of the MLflow experiment to track the optimization job in.        |
++-------------------+---------------------------------------------------+----------------------------------------------------------------------+
+| source_prompt_uri | ``STRING``                                        | URI of the source prompt to optimize (e.g., "prompts:/my-prompt/1"). |
++-------------------+---------------------------------------------------+----------------------------------------------------------------------+
+| config            | :ref:`mlflowpromptoptimizationjobconfig`          | Configuration for the optimization job.                              |
++-------------------+---------------------------------------------------+----------------------------------------------------------------------+
+| tags              | An array of :ref:`mlflowpromptoptimizationjobtag` | Optional tags for the optimization job.                              |
++-------------------+---------------------------------------------------+----------------------------------------------------------------------+
+
+.. _mlflowCreatePromptOptimizationJobResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------+-------------------------------+
+| Field Name |                Type                |          Description          |
++============+====================================+===============================+
+| job        | :ref:`mlflowpromptoptimizationjob` | The created optimization job. |
++------------+------------------------------------+-------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicecreateRun:
 
 Create Run
@@ -150,6 +567,47 @@ Response Structure
 +============+==================+========================+
 | run        | :ref:`mlflowrun` | The newly created run. |
 +------------+------------------+------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteEndpointBinding:
+
+Delete Endpoint Binding
+=======================
+
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/gateway/endpoints/bindings/delete`` | ``DELETE``  |
++--------------------------------------------------+-------------+
+
+Delete a binding between an endpoint and a resource
+
+
+
+
+.. _mlflowDeleteGatewayEndpointBinding:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+----------------------------------------+
+|  Field Name   |    Type    |              Description               |
++===============+============+========================================+
+| endpoint_id   | ``STRING`` | ID of the endpoint                     |
++---------------+------------+----------------------------------------+
+| resource_type | ``STRING`` | Type of resource bound to the endpoint |
++---------------+------------+----------------------------------------+
+| resource_id   | ``STRING`` | ID of the resource                     |
++---------------+------------+----------------------------------------+
 
 ===========================
 
@@ -238,6 +696,194 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicedeleteGatewayEndpoint:
+
+Delete Gateway Endpoint
+=======================
+
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/gateway/endpoints/delete`` | ``DELETE``  |
++-----------------------------------------+-------------+
+
+Delete an endpoint and all its model configurations
+
+
+
+
+.. _mlflowDeleteGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+------------------------------+
+| Field Name  |    Type    |         Description          |
++=============+============+==============================+
+| endpoint_id | ``STRING`` | ID of the endpoint to delete |
++-------------+------------+------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteGatewayEndpointTag:
+
+Gateway Delete Endpoint Tag
+===========================
+
+
++---------------------------------------------+-------------+
+|                  Endpoint                   | HTTP Method |
++=============================================+=============+
+| ``2.0/mlflow/gateway/endpoints/delete-tag`` | ``DELETE``  |
++---------------------------------------------+-------------+
+
+Delete a tag from an endpoint
+
+
+
+
+.. _mlflowDeleteGatewayEndpointTag:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+---------------------------------------+
+| Field Name  |    Type    |              Description              |
++=============+============+=======================================+
+| endpoint_id | ``STRING`` | ID of the endpoint to delete tag from |
++-------------+------------+---------------------------------------+
+| key         | ``STRING`` | Tag key to delete                     |
++-------------+------------+---------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteGatewayModelDefinition:
+
+Delete Gateway Model Definition
+===============================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/mlflow/gateway/model-definitions/delete`` | ``DELETE``  |
++-------------------------------------------------+-------------+
+
+Delete a model definition (fails if in use by any endpoint)
+
+
+
+
+.. _mlflowDeleteGatewayModelDefinition:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------------+------------+------------------------------------------------------------------------+
+|     Field Name      |    Type    |                              Description                               |
++=====================+============+========================================================================+
+| model_definition_id | ``STRING`` | ID of the model definition to delete (fails if in use by any endpoint) |
++---------------------+------------+------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteGatewaySecret:
+
+Delete Gateway Secret
+=====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``2.0/mlflow/gateway/secrets/delete`` | ``DELETE``  |
++---------------------------------------+-------------+
+
+Delete a secret
+
+
+
+
+.. _mlflowDeleteGatewaySecret:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+----------------------------+
+| Field Name |    Type    |        Description         |
++============+============+============================+
+| secret_id  | ``STRING`` | ID of the secret to delete |
++------------+------------+----------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeletePromptOptimizationJob:
+
+Delete Prompt Optimization Job
+==============================
+
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``DELETE``  |
++--------------------------------------------------+-------------+
+
+Delete a prompt optimization job and its associated data.
+This permanently removes the job and all related information.
+
+
+
+
+.. _mlflowDeletePromptOptimizationJob:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+----------------------------------------------------------+
+| Field Name |    Type    |                       Description                        |
++============+============+==========================================================+
+| job_id     | ``STRING`` | The unique identifier of the optimization job to delete. |
++------------+------------+----------------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicedeleteRun:
 
 Delete Run
@@ -272,6 +918,47 @@ Request Structure
 |            |            | This field is required.  |
 |            |            |                          |
 +------------+------------+--------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteScorer:
+
+Delete Scorer
+=============
+
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``2.0/mlflow/scorers/delete`` | ``DELETE``  |
++-------------------------------+-------------+
+
+Delete a scorer for an experiment.
+
+
+
+
+.. _mlflowDeleteScorer:
+
+Request Structure
+-----------------
+
+
+
+Delete a scorer for an experiment.
+
+
++---------------+------------+-----------------------------------------------------------------------+
+|  Field Name   |    Type    |                              Description                              |
++===============+============+=======================================================================+
+| experiment_id | ``STRING`` | The experiment ID.                                                    |
++---------------+------------+-----------------------------------------------------------------------+
+| name          | ``STRING`` | The scorer name.                                                      |
++---------------+------------+-----------------------------------------------------------------------+
+| version       | ``INT32``  | The scorer version to delete. If not specified, deletes all versions. |
++---------------+------------+-----------------------------------------------------------------------+
 
 ===========================
 
@@ -316,6 +1003,45 @@ Request Structure
 |            |            | This field is required.                                        |
 |            |            |                                                                |
 +------------+------------+----------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedetachModelFromEndpoint:
+
+Detach Model from Endpoint
+==========================
+
+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``2.0/mlflow/gateway/endpoints/models/detach`` | ``POST``    |
++------------------------------------------------+-------------+
+
+Detach a model definition from an endpoint (does not delete the model definition)
+
+
+
+
+.. _mlflowDetachModelFromGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------------+------------+--------------------------------------+
+|     Field Name      |    Type    |             Description              |
++=====================+============+======================================+
+| endpoint_id         | ``STRING`` | ID of the endpoint                   |
++---------------------+------------+--------------------------------------+
+| model_definition_id | ``STRING`` | ID of the model definition to detach |
++---------------------+------------+--------------------------------------+
 
 ===========================
 
@@ -437,6 +1163,169 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicegetGatewayEndpoint:
+
+Get Gateway Endpoint
+====================
+
+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/gateway/endpoints/get`` | ``GET``     |
++--------------------------------------+-------------+
+
+Get endpoint details including all model configurations
+
+
+
+
+.. _mlflowGetGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+---------------------------------------------+
+| Field Name  |    Type    |                 Description                 |
++=============+============+=============================================+
+| endpoint_id | ``STRING`` | Either endpoint_id or name must be provided |
++-------------+------------+---------------------------------------------+
+| name        | ``STRING`` |                                             |
++-------------+------------+---------------------------------------------+
+
+.. _mlflowGetGatewayEndpointResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------+--------------------------------------------+
+| Field Name |             Type             |                Description                 |
++============+==============================+============================================+
+| endpoint   | :ref:`mlflowgatewayendpoint` | The endpoint with all model configurations |
++------------+------------------------------+--------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetGatewayModelDefinition:
+
+Get Gateway Model Definition
+============================
+
+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/mlflow/gateway/model-definitions/get`` | ``GET``     |
++----------------------------------------------+-------------+
+
+Get a model definition by ID
+
+
+
+
+.. _mlflowGetGatewayModelDefinition:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------------+------------+----------------------------------------+
+|     Field Name      |    Type    |              Description               |
++=====================+============+========================================+
+| model_definition_id | ``STRING`` | ID of the model definition to retrieve |
++---------------------+------------+----------------------------------------+
+
+.. _mlflowGetGatewayModelDefinitionResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------+-------------------------------------+----------------------+
+|    Field Name    |                Type                 |     Description      |
++==================+=====================================+======================+
+| model_definition | :ref:`mlflowgatewaymodeldefinition` | The model definition |
++------------------+-------------------------------------+----------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetGatewaySecretInfo:
+
+Get Gateway Secret Info
+=======================
+
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``2.0/mlflow/gateway/secrets/get`` | ``GET``     |
++------------------------------------+-------------+
+
+Get metadata about a secret (does not include the encrypted value)
+
+
+
+
+.. _mlflowGetGatewaySecretInfo:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+--------------------------------------------------+
+| Field Name  |    Type    |                   Description                    |
++=============+============+==================================================+
+| secret_id   | ``STRING`` | Either secret_id or secret_name must be provided |
++-------------+------------+--------------------------------------------------+
+| secret_name | ``STRING`` |                                                  |
++-------------+------------+--------------------------------------------------+
+
+.. _mlflowGetGatewaySecretInfoResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+--------------------------------+----------------------------------------------------+
+| Field Name |              Type              |                    Description                     |
++============+================================+====================================================+
+| secret     | :ref:`mlflowgatewaysecretinfo` | Secret metadata (does not include encrypted value) |
++------------+--------------------------------+----------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicegetMetricHistory:
 
 Get Metric History
@@ -507,6 +1396,61 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicegetPromptOptimizationJob:
+
+Get Prompt Optimization Job
+===========================
+
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``GET``     |
++--------------------------------------------------+-------------+
+
+Get the details and status of a prompt optimization job.
+Returns the job configuration, current status, progress statistics,
+and the best prompt if the optimization has completed.
+
+
+
+
+.. _mlflowGetPromptOptimizationJob:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-----------------------------------------------------------------+
+| Field Name |    Type    |                           Description                           |
++============+============+=================================================================+
+| job_id     | ``STRING`` | The unique identifier of the optimization job (same as run_id). |
++------------+------------+-----------------------------------------------------------------+
+
+.. _mlflowGetPromptOptimizationJobResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------+-------------------------------+
+| Field Name |                Type                |          Description          |
++============+====================================+===============================+
+| job        | :ref:`mlflowpromptoptimizationjob` | The optimization job details. |
++------------+------------------------------------+-------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicegetRun:
 
 Get Run
@@ -560,6 +1504,63 @@ Response Structure
 +============+==================+============================================================================+
 | run        | :ref:`mlflowrun` | Run metadata (name, start time, etc) and data (metrics, params, and tags). |
 +------------+------------------+----------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetScorer:
+
+Get Scorer
+==========
+
+
++----------------------------+-------------+
+|          Endpoint          | HTTP Method |
++============================+=============+
+| ``2.0/mlflow/scorers/get`` | ``GET``     |
++----------------------------+-------------+
+
+Get a specific scorer for an experiment.
+
+
+
+
+.. _mlflowGetScorer:
+
+Request Structure
+-----------------
+
+
+
+Get a specific scorer for an experiment.
+
+
++---------------+------------+--------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                  Description                                   |
++===============+============+================================================================================+
+| experiment_id | ``STRING`` | The experiment ID.                                                             |
++---------------+------------+--------------------------------------------------------------------------------+
+| name          | ``STRING`` | The scorer name.                                                               |
++---------------+------------+--------------------------------------------------------------------------------+
+| version       | ``INT32``  | The scorer version. If not specified, returns the scorer with maximum version. |
++---------------+------------+--------------------------------------------------------------------------------+
+
+.. _mlflowGetScorerResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+---------------------+--------------------+
+| Field Name |        Type         |    Description     |
++============+=====================+====================+
+| scorer     | :ref:`mlflowscorer` | The scorer entity. |
++------------+---------------------+--------------------+
 
 ===========================
 
@@ -625,6 +1626,334 @@ Response Structure
 +-----------------+-----------------------------------+----------------------------------------------------------------------+
 | next_page_token | ``STRING``                        | Token that can be used to retrieve the next page of artifact results |
 +-----------------+-----------------------------------+----------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistEndpointBindings:
+
+List Endpoint Bindings
+======================
+
+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``2.0/mlflow/gateway/endpoints/bindings/list`` | ``GET``     |
++------------------------------------------------+-------------+
+
+List all bindings for an endpoint
+
+
+
+
+.. _mlflowListGatewayEndpointBindings:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+---------------------------------------------------------+
+|  Field Name   |    Type    |                       Description                       |
++===============+============+=========================================================+
+| endpoint_id   | ``STRING`` | ID of the endpoint to list bindings for                 |
++---------------+------------+---------------------------------------------------------+
+| resource_type | ``STRING`` | Type of resource to filter bindings by (e.g., "scorer") |
++---------------+------------+---------------------------------------------------------+
+| resource_id   | ``STRING`` | ID of the resource to filter bindings by                |
++---------------+------------+---------------------------------------------------------+
+
+.. _mlflowListGatewayEndpointBindingsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+-------------------------------------------------+-----------------------------------+
+| Field Name |                      Type                       |            Description            |
++============+=================================================+===================================+
+| bindings   | An array of :ref:`mlflowgatewayendpointbinding` | List of bindings for the endpoint |
++------------+-------------------------------------------------+-----------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistGatewayEndpoints:
+
+List Gateway Endpoints
+======================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``2.0/mlflow/gateway/endpoints/list`` | ``GET``     |
++---------------------------------------+-------------+
+
+List endpoints with optional filtering by provider or secret
+
+
+
+
+.. _mlflowListGatewayEndpoints:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+------------------------------+
+| Field Name |    Type    |         Description          |
++============+============+==============================+
+| provider   | ``STRING`` | Optional filter by provider  |
++------------+------------+------------------------------+
+| secret_id  | ``STRING`` | Optional filter by secret ID |
++------------+------------+------------------------------+
+
+.. _mlflowListGatewayEndpointsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------------+---------------------------------------------------+
+| Field Name |                   Type                   |                    Description                    |
++============+==========================================+===================================================+
+| endpoints  | An array of :ref:`mlflowgatewayendpoint` | List of endpoints with their model configurations |
++------------+------------------------------------------+---------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistGatewayModelDefinitions:
+
+List Gateway Model Definitions
+==============================
+
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/gateway/model-definitions/list`` | ``GET``     |
++-----------------------------------------------+-------------+
+
+List all model definitions with optional filters
+
+
+
+
+.. _mlflowListGatewayModelDefinitions:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+------------------------------+
+| Field Name |    Type    |         Description          |
++============+============+==============================+
+| provider   | ``STRING`` | Optional filter by provider  |
++------------+------------+------------------------------+
+| secret_id  | ``STRING`` | Optional filter by secret ID |
++------------+------------+------------------------------+
+
+.. _mlflowListGatewayModelDefinitionsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-------------------+-------------------------------------------------+---------------------------+
+|    Field Name     |                      Type                       |        Description        |
++===================+=================================================+===========================+
+| model_definitions | An array of :ref:`mlflowgatewaymodeldefinition` | List of model definitions |
++-------------------+-------------------------------------------------+---------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistGatewaySecretInfos:
+
+List Gateway Secrets
+====================
+
+
++-------------------------------------+-------------+
+|              Endpoint               | HTTP Method |
++=====================================+=============+
+| ``2.0/mlflow/gateway/secrets/list`` | ``GET``     |
++-------------------------------------+-------------+
+
+List all secrets with optional filtering by provider
+
+
+
+
+.. _mlflowListGatewaySecretInfos:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-----------------------------------------------------------+
+| Field Name |    Type    |                        Description                        |
++============+============+===========================================================+
+| provider   | ``STRING`` | Optional filter by provider (e.g., "openai", "anthropic") |
++------------+------------+-----------------------------------------------------------+
+
+.. _mlflowListGatewaySecretInfosResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+--------------------------------------------+-------------------------------------------------------------+
+| Field Name |                    Type                    |                         Description                         |
++============+============================================+=============================================================+
+| secrets    | An array of :ref:`mlflowgatewaysecretinfo` | List of secret metadata (does not include encrypted values) |
++------------+--------------------------------------------+-------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistScorerVersions:
+
+List Scorer Versions
+====================
+
+
++---------------------------------+-------------+
+|            Endpoint             | HTTP Method |
++=================================+=============+
+| ``2.0/mlflow/scorers/versions`` | ``GET``     |
++---------------------------------+-------------+
+
+List all versions of a specific scorer for an experiment.
+
+
+
+
+.. _mlflowListScorerVersions:
+
+Request Structure
+-----------------
+
+
+
+List all versions of a specific scorer for an experiment.
+
+
++---------------+------------+--------------------+
+|  Field Name   |    Type    |    Description     |
++===============+============+====================+
+| experiment_id | ``STRING`` | The experiment ID. |
++---------------+------------+--------------------+
+| name          | ``STRING`` | The scorer name.   |
++---------------+------------+--------------------+
+
+.. _mlflowListScorerVersionsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+---------------------------------+---------------------------------------------------------+
+| Field Name |              Type               |                       Description                       |
++============+=================================+=========================================================+
+| scorers    | An array of :ref:`mlflowscorer` | List of scorer entities for all versions of the scorer. |
++------------+---------------------------------+---------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistScorers:
+
+List Scorers
+============
+
+
++-----------------------------+-------------+
+|          Endpoint           | HTTP Method |
++=============================+=============+
+| ``2.0/mlflow/scorers/list`` | ``GET``     |
++-----------------------------+-------------+
+
+List all scorers for an experiment.
+
+
+
+
+.. _mlflowListScorers:
+
+Request Structure
+-----------------
+
+
+
+List all scorers for an experiment.
+
+
++---------------+------------+--------------------+
+|  Field Name   |    Type    |    Description     |
++===============+============+====================+
+| experiment_id | ``STRING`` | The experiment ID. |
++---------------+------------+--------------------+
+
+.. _mlflowListScorersResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+---------------------------------+----------------------------------------------------------------+
+| Field Name |              Type               |                          Description                           |
++============+=================================+================================================================+
+| scorers    | An array of :ref:`mlflowscorer` | List of scorer entities (latest version for each scorer name). |
++------------+---------------------------------+----------------------------------------------------------------+
 
 ===========================
 
@@ -922,6 +2251,73 @@ Request Structure
 
 
 
+.. _mlflowMlflowServiceregisterScorer:
+
+Register Scorer
+===============
+
+
++---------------------------------+-------------+
+|            Endpoint             | HTTP Method |
++=================================+=============+
+| ``2.0/mlflow/scorers/register`` | ``POST``    |
++---------------------------------+-------------+
+
+Register a scorer for an experiment.
+
+
+
+
+.. _mlflowRegisterScorer:
+
+Request Structure
+-----------------
+
+
+
+Register a scorer for an experiment.
+
+
++-------------------+------------+--------------------------------------+
+|    Field Name     |    Type    |             Description              |
++===================+============+======================================+
+| experiment_id     | ``STRING`` | The experiment ID.                   |
++-------------------+------------+--------------------------------------+
+| name              | ``STRING`` | The scorer name.                     |
++-------------------+------------+--------------------------------------+
+| serialized_scorer | ``STRING`` | The serialized scorer string (JSON). |
++-------------------+------------+--------------------------------------+
+
+.. _mlflowRegisterScorerResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-------------------+------------+------------------------------------------------------------------------+
+|    Field Name     |    Type    |                              Description                               |
++===================+============+========================================================================+
+| version           | ``INT32``  | The new version number for the scorer.                                 |
++-------------------+------------+------------------------------------------------------------------------+
+| scorer_id         | ``STRING`` | The unique identifier for the scorer.                                  |
++-------------------+------------+------------------------------------------------------------------------+
+| experiment_id     | ``STRING`` | The experiment ID (same as request).                                   |
++-------------------+------------+------------------------------------------------------------------------+
+| name              | ``STRING`` | The scorer name (same as request).                                     |
++-------------------+------------+------------------------------------------------------------------------+
+| serialized_scorer | ``STRING`` | The serialized scorer string (same as request).                        |
++-------------------+------------+------------------------------------------------------------------------+
+| creation_time     | ``INT64``  | The creation time of the scorer version (in milliseconds since epoch). |
++-------------------+------------+------------------------------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicerestoreExperiment:
 
 Restore Experiment
@@ -1086,6 +2482,60 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicesearchPromptOptimizationJobs:
+
+Search Prompt Optimization Jobs
+===============================
+
+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``2.0/mlflow/prompt-optimization/jobs/search`` | ``POST``    |
++------------------------------------------------+-------------+
+
+Search for prompt optimization jobs.
+Returns a list of optimization jobs matching the specified filters.
+
+
+
+
+.. _mlflowSearchPromptOptimizationJobs:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+-------------------------------------------------------------+
+|  Field Name   |    Type    |                         Description                         |
++===============+============+=============================================================+
+| experiment_id | ``STRING`` | ID of the MLflow experiment to search optimization jobs in. |
++---------------+------------+-------------------------------------------------------------+
+
+.. _mlflowSearchPromptOptimizationJobsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------------------------+----------------------------+
+| Field Name |                      Type                      |        Description         |
++============+================================================+============================+
+| jobs       | An array of :ref:`mlflowpromptoptimizationjob` | List of optimization jobs. |
++------------+------------------------------------------------+----------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicesearchRuns:
 
 Search Runs
@@ -1218,6 +2668,47 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicesetGatewayEndpointTag:
+
+Gateway Set Endpoint Tag
+========================
+
+
++------------------------------------------+-------------+
+|                 Endpoint                 | HTTP Method |
++==========================================+=============+
+| ``2.0/mlflow/gateway/endpoints/set-tag`` | ``POST``    |
++------------------------------------------+-------------+
+
+Set a tag on an endpoint
+
+
+
+
+.. _mlflowSetGatewayEndpointTag:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+----------------------------------+
+| Field Name  |    Type    |           Description            |
++=============+============+==================================+
+| endpoint_id | ``STRING`` | ID of the endpoint to set tag on |
++-------------+------------+----------------------------------+
+| key         | ``STRING`` | Tag key to set                   |
++-------------+------------+----------------------------------+
+| value       | ``STRING`` | Tag value to set                 |
++-------------+------------+----------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicesetTag:
 
 Set Tag
@@ -1305,6 +2796,194 @@ Request Structure
 +---------------+------------+---------------------------------------------------------------------------------------------+
 | new_name      | ``STRING`` | If provided, the experiment's name is changed to the new name. The new name must be unique. |
 +---------------+------------+---------------------------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServiceupdateGatewayEndpoint:
+
+Update Gateway Endpoint
+=======================
+
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/gateway/endpoints/update`` | ``POST``    |
++-----------------------------------------+-------------+
+
+Update an endpoint's name
+
+
+
+
+.. _mlflowUpdateGatewayEndpoint:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+|    Field Name    |                        Type                         |                                   Description                                    |
++==================+=====================================================+==================================================================================+
+| endpoint_id      | ``STRING``                                          | ID of the endpoint to update                                                     |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+| name             | ``STRING``                                          | Optional new name for the endpoint                                               |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+| updated_by       | ``STRING``                                          | Username of the updater                                                          |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+| model_configs    | An array of :ref:`mlflowgatewayendpointmodelconfig` | Optional new list of model configurations (replaces all existing model linkages) |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+| routing_strategy | :ref:`mlflowroutingstrategy`                        | Optional new routing strategy for the endpoint                                   |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+| fallback_config  | :ref:`mlflowfallbackconfig`                         | Optional fallback configuration (includes strategy, max_attempts)                |
++------------------+-----------------------------------------------------+----------------------------------------------------------------------------------+
+
+.. _mlflowUpdateGatewayEndpointResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+------------------------------+----------------------+
+| Field Name |             Type             |     Description      |
++============+==============================+======================+
+| endpoint   | :ref:`mlflowgatewayendpoint` | The updated endpoint |
++------------+------------------------------+----------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServiceupdateGatewayModelDefinition:
+
+Update Gateway Model Definition
+===============================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/mlflow/gateway/model-definitions/update`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+Update a model definition
+
+
+
+
+.. _mlflowUpdateGatewayModelDefinition:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------------+------------+--------------------------------------+
+|     Field Name      |    Type    |             Description              |
++=====================+============+======================================+
+| model_definition_id | ``STRING`` | ID of the model definition to update |
++---------------------+------------+--------------------------------------+
+| name                | ``STRING`` | Optional new name                    |
++---------------------+------------+--------------------------------------+
+| secret_id           | ``STRING`` | Optional new secret ID               |
++---------------------+------------+--------------------------------------+
+| model_name          | ``STRING`` | Optional new model name              |
++---------------------+------------+--------------------------------------+
+| updated_by          | ``STRING`` | Username of the updater              |
++---------------------+------------+--------------------------------------+
+| provider            | ``STRING`` | Optional new provider                |
++---------------------+------------+--------------------------------------+
+
+.. _mlflowUpdateGatewayModelDefinitionResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------+-------------------------------------+------------------------------+
+|    Field Name    |                Type                 |         Description          |
++==================+=====================================+==============================+
+| model_definition | :ref:`mlflowgatewaymodeldefinition` | The updated model definition |
++------------------+-------------------------------------+------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServiceupdateGatewaySecret:
+
+Update Gateway Secret
+=====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``2.0/mlflow/gateway/secrets/update`` | ``POST``    |
++---------------------------------------+-------------+
+
+Update an existing secret's value or auth configuration
+
+
+
+
+.. _mlflowUpdateGatewaySecret:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+|  Field Name  |                             Type                             |                                                      Description                                                       |
++==============+==============================================================+========================================================================================================================+
+| secret_id    | ``STRING``                                                   | ID of the secret to update                                                                                             |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| secret_value | An array of :ref:`mlflowupdategatewaysecretsecretvalueentry` | Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).                              |
+|              |                                                              | For simple API keys: {"api_key": "sk-xxx"}                                                                             |
+|              |                                                              | For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}                                 |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| auth_config  | An array of :ref:`mlflowupdategatewaysecretauthconfigentry`  | Optional new auth configuration.                                                                                       |
+|              |                                                              | For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}) |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+| updated_by   | ``STRING``                                                   | Username of the updater                                                                                                |
++--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowUpdateGatewaySecretResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+--------------------------------+-----------------------------+
+| Field Name |              Type              |         Description         |
++============+================================+=============================+
+| secret     | :ref:`mlflowgatewaysecretinfo` | The updated secret metadata |
++------------+--------------------------------+-----------------------------+
 
 ===========================
 
@@ -2886,6 +4565,119 @@ Data Structures
 
 
 
+.. _mlflowAddDatasetToExperiments:
+
+AddDatasetToExperiments
+-----------------------
+
+
+
+
+
+
++----------------+------------------------+----------------------------------------------+
+|   Field Name   |          Type          |                 Description                  |
++================+========================+==============================================+
+| dataset_id     | ``STRING``             | Dataset ID to add to experiments             |
+|                |                        | This field is required.                      |
+|                |                        |                                              |
++----------------+------------------------+----------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Experiment IDs to associate with the dataset |
++----------------+------------------------+----------------------------------------------+
+
+.. _mlflowGatewaySecretInfoAuthConfigEntry:
+
+AuthConfigEntry
+---------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowCreateGatewaySecretAuthConfigEntry:
+
+AuthConfigEntry
+---------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowUpdateGatewaySecretAuthConfigEntry:
+
+AuthConfigEntry
+---------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowBatchGetTraces:
+
+BatchGetTraces
+--------------
+
+
+
+
+
+
++------------+------------------------+----------------------------------------------+
+| Field Name |          Type          |                 Description                  |
++============+========================+==============================================+
+| trace_ids  | An array of ``STRING`` | ID of the traces to fetch. Must be provided. |
++------------+------------------------+----------------------------------------------+
+
+.. _mlflowCalculateTraceFilterCorrelation:
+
+CalculateTraceFilterCorrelation
+-------------------------------
+
+
+
+
+
+
++----------------+------------------------+-------------------------------------------------------------------------+
+|   Field Name   |          Type          |                               Description                               |
++================+========================+=========================================================================+
+| experiment_ids | An array of ``STRING`` | List of experiment IDs to search within.                                |
++----------------+------------------------+-------------------------------------------------------------------------+
+| filter_string1 | ``STRING``             | First filter condition (e.g., "span.type = 'LLM'").                     |
++----------------+------------------------+-------------------------------------------------------------------------+
+| filter_string2 | ``STRING``             | Second filter condition (e.g., "feedback.quality > 0.8").               |
++----------------+------------------------+-------------------------------------------------------------------------+
+| base_filter    | ``STRING``             | Optional base filter that both filter1 and filter2 are tested on top of |
+|                |                        | (e.g., 'request_time > ... and request_time < ...' for time windows).   |
++----------------+------------------------+-------------------------------------------------------------------------+
+
 .. _mlflowCreateAssessment:
 
 CreateAssessment
@@ -2903,6 +4695,38 @@ CreateAssessment
 |            |                                    | This field is required.   |
 |            |                                    |                           |
 +------------+------------------------------------+---------------------------+
+
+.. _mlflowCreateDataset:
+
+CreateDataset
+-------------
+
+
+
+
+
+
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+|   Field Name   |                        Type                        |                                      Description                                       |
++================+====================================================+========================================================================================+
+| name           | ``STRING``                                         | Dataset name                                                                           |
+|                |                                                    | This field is required.                                                                |
+|                |                                                    |                                                                                        |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING``                             | Associated experiment IDs. If not provided, defaults to the current active experiment. |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| source_type    | :ref:`mlflowdatasetsdatasetrecordsourcesourcetype` | Source type                                                                            |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| source         | ``STRING``                                         | Source information                                                                     |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| schema         | ``STRING``                                         | Schema information (JSON)                                                              |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| profile        | ``STRING``                                         | Profile information (JSON)                                                             |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| created_by     | ``STRING``                                         | User creating the dataset                                                              |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
+| tags           | ``STRING``                                         | Tags to set on the dataset (JSON string mapping keys to values)                        |
++----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
 
 .. _mlflowCreateLoggedModel:
 
@@ -3064,6 +4888,46 @@ The response is empty on successful deletion.
 |               |            |                           |
 +---------------+------------+---------------------------+
 
+.. _mlflowDeleteDataset:
+
+DeleteDataset
+-------------
+
+
+
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| dataset_id | ``STRING`` | Dataset ID to delete    |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+
+.. _mlflowDeleteDatasetTag:
+
+DeleteDatasetTag
+----------------
+
+
+
+
+
+
++------------+------------+-------------------------------+
+| Field Name |    Type    |          Description          |
++============+============+===============================+
+| dataset_id | ``STRING`` | Dataset ID to delete tag from |
+|            |            | This field is required.       |
+|            |            |                               |
++------------+------------+-------------------------------+
+| key        | ``STRING`` | Tag key to delete             |
+|            |            | This field is required.       |
+|            |            |                               |
++------------+------------+-------------------------------+
+
 .. _mlflowDeleteLoggedModel:
 
 DeleteLoggedModel
@@ -3117,7 +4981,7 @@ DeleteTraceTag
 +------------+------------+-----------------------------------------------+
 | Field Name |    Type    |                  Description                  |
 +============+============+===============================================+
-| trace_id   | ``STRING`` | ID of the trace from which to delete the tag. |
+| request_id | ``STRING`` | ID of the trace from which to delete the tag. |
 +------------+------------+-----------------------------------------------+
 | key        | ``STRING`` | Name of the tag to delete.                    |
 +------------+------------+-----------------------------------------------+
@@ -3135,7 +4999,7 @@ DeleteTraceTagV3
 +------------+------------+-----------------------------------------------+
 | Field Name |    Type    |                  Description                  |
 +============+============+===============================================+
-| request_id | ``STRING`` | ID of the trace from which to delete the tag. |
+| trace_id   | ``STRING`` | ID of the trace from which to delete the tag. |
 +------------+------------+-----------------------------------------------+
 | key        | ``STRING`` | Name of the tag to delete.                    |
 +------------+------------+-----------------------------------------------+
@@ -3191,6 +5055,24 @@ DeleteTracesV3
 | request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion                           |
 |                      |                        | A set of request IDs to delete                                                        |
 +----------------------+------------------------+---------------------------------------------------------------------------------------+
+
+.. _mlflowMetricDataPointDimensionsEntry:
+
+DimensionsEntry
+---------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
 
 .. _mlflowEndTrace:
 
@@ -3263,6 +5145,24 @@ Tag for an experiment.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+.. _mlflowFallbackConfig:
+
+FallbackConfig
+--------------
+
+
+
+Configuration for fallback routing
+
+
++--------------+-------------------------------+-------------------------------------------------------------------------------+
+|  Field Name  |             Type              |                                  Description                                  |
++==============+===============================+===============================================================================+
+| strategy     | :ref:`mlflowfallbackstrategy` | The fallback strategy.                                                        |
++--------------+-------------------------------+-------------------------------------------------------------------------------+
+| max_attempts | ``INT32``                     | The max attempts for fallback routing (cannot exceed number of destinations). |
++--------------+-------------------------------+-------------------------------------------------------------------------------+
+
 .. _mlflowFileInfo:
 
 FileInfo
@@ -3308,6 +5208,212 @@ FinalizeLoggedModel
 |            |                                |                                                                                    |
 +------------+--------------------------------+------------------------------------------------------------------------------------+
 
+.. _mlflowGatewayEndpoint:
+
+GatewayEndpoint
+---------------
+
+
+
+Endpoint entity representing an LLM gateway endpoint
+
+
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+|    Field Name    |                         Type                         |                               Description                               |
++==================+======================================================+=========================================================================+
+| endpoint_id      | ``STRING``                                           | Unique identifier for the endpoint                                      |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| name             | ``STRING``                                           | User-friendly name for the endpoint                                     |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| created_at       | ``INT64``                                            | Timestamp (milliseconds since epoch) when the endpoint was created      |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| last_updated_at  | ``INT64``                                            | Timestamp (milliseconds since epoch) when the endpoint was last updated |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| model_mappings   | An array of :ref:`mlflowgatewayendpointmodelmapping` | List of model mappings bound to this endpoint                           |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| created_by       | ``STRING``                                           | User ID who created the endpoint                                        |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| last_updated_by  | ``STRING``                                           | User ID who last updated the endpoint                                   |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| tags             | An array of :ref:`mlflowgatewayendpointtag`          | Tags associated with the endpoint                                       |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| routing_strategy | :ref:`mlflowroutingstrategy`                         | Routing strategy for the endpoint                                       |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+| fallback_config  | :ref:`mlflowfallbackconfig`                          | Fallback configuration (populated if routing_strategy is FALLBACK)      |
++------------------+------------------------------------------------------+-------------------------------------------------------------------------+
+
+.. _mlflowGatewayEndpointBinding:
+
+GatewayEndpointBinding
+----------------------
+
+
+
+Binding between an endpoint and an MLflow resource.
+Uses composite key (endpoint_id, resource_type, resource_id) for identification.
+
+
++-----------------+------------+-----------------------------------------------------------------------------------+
+|   Field Name    |    Type    |                                    Description                                    |
++=================+============+===================================================================================+
+| endpoint_id     | ``STRING`` | ID of the endpoint this binding references                                        |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| resource_type   | ``STRING`` | Type of MLflow resource (e.g., "scorer")                                          |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| resource_id     | ``STRING`` | ID of the specific resource instance                                              |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| created_at      | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was created                 |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| last_updated_at | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was last updated            |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| created_by      | ``STRING`` | User ID who created the binding                                                   |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| last_updated_by | ``STRING`` | User ID who last updated the binding                                              |
++-----------------+------------+-----------------------------------------------------------------------------------+
+| display_name    | ``STRING`` | Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side) |
+|                 |            | Human-readable display name for the resource (e.g., scorer name)                  |
++-----------------+------------+-----------------------------------------------------------------------------------+
+
+.. _mlflowGatewayEndpointModelConfig:
+
+GatewayEndpointModelConfig
+--------------------------
+
+
+
+Configuration for a model attached to an endpoint
+
+
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+|     Field Name      |                 Type                 |                                Description                                 |
++=====================+======================================+============================================================================+
+| model_definition_id | ``STRING``                           | ID of the model definition                                                 |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| linkage_type        | :ref:`mlflowgatewaymodellinkagetype` | Type of linkage                                                            |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| weight              | ``FLOAT``                            | Routing weight for traffic distribution                                    |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| fallback_order      | ``INT32``                            | Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY) |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+
+.. _mlflowGatewayEndpointModelMapping:
+
+GatewayEndpointModelMapping
+---------------------------
+
+
+
+Mapping between an endpoint and a model definition
+
+
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+|     Field Name      |                 Type                 |                                Description                                 |
++=====================+======================================+============================================================================+
+| mapping_id          | ``STRING``                           | Unique identifier for this mapping                                         |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| endpoint_id         | ``STRING``                           | ID of the endpoint                                                         |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| model_definition_id | ``STRING``                           | ID of the model definition                                                 |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| model_definition    | :ref:`mlflowgatewaymodeldefinition`  | The full model definition (populated via JOIN)                             |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| weight              | ``FLOAT``                            | Routing weight for traffic distribution                                    |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| created_at          | ``INT64``                            | Timestamp (milliseconds since epoch) when the mapping was created          |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| created_by          | ``STRING``                           | User ID who created the mapping                                            |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| linkage_type        | :ref:`mlflowgatewaymodellinkagetype` | Type of linkage                                                            |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+| fallback_order      | ``INT32``                            | Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY) |
++---------------------+--------------------------------------+----------------------------------------------------------------------------+
+
+.. _mlflowGatewayEndpointTag:
+
+GatewayEndpointTag
+------------------
+
+
+
+Tag associated with an endpoint
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` | Tag key     |
++------------+------------+-------------+
+| value      | ``STRING`` | Tag value   |
++------------+------------+-------------+
+
+.. _mlflowGatewayModelDefinition:
+
+GatewayModelDefinition
+----------------------
+
+
+
+Reusable model definition that can be shared across endpoints
+
+
++---------------------+------------+---------------------------------------------------------------------------------+
+|     Field Name      |    Type    |                                   Description                                   |
++=====================+============+=================================================================================+
+| model_definition_id | ``STRING`` | Unique identifier for this model definition                                     |
++---------------------+------------+---------------------------------------------------------------------------------+
+| name                | ``STRING`` | User-friendly name for identification and reuse                                 |
++---------------------+------------+---------------------------------------------------------------------------------+
+| secret_id           | ``STRING`` | ID of the secret containing authentication credentials                          |
++---------------------+------------+---------------------------------------------------------------------------------+
+| secret_name         | ``STRING`` | Name of the secret for display purposes                                         |
++---------------------+------------+---------------------------------------------------------------------------------+
+| provider            | ``STRING`` | LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock")                 |
++---------------------+------------+---------------------------------------------------------------------------------+
+| model_name          | ``STRING`` | Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet")        |
++---------------------+------------+---------------------------------------------------------------------------------+
+| created_at          | ``INT64``  | Timestamp (milliseconds since epoch) when the model definition was created      |
++---------------------+------------+---------------------------------------------------------------------------------+
+| last_updated_at     | ``INT64``  | Timestamp (milliseconds since epoch) when the model definition was last updated |
++---------------------+------------+---------------------------------------------------------------------------------+
+| created_by          | ``STRING`` | User ID who created the model definition                                        |
++---------------------+------------+---------------------------------------------------------------------------------+
+| last_updated_by     | ``STRING`` | User ID who last updated the model definition                                   |
++---------------------+------------+---------------------------------------------------------------------------------+
+
+.. _mlflowGatewaySecretInfo:
+
+GatewaySecretInfo
+-----------------
+
+
+
+Secret metadata entity (does not include the decrypted secret value)
+
+
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+|   Field Name    |                            Type                             |                                            Description                                            |
++=================+=============================================================+===================================================================================================+
+| secret_id       | ``STRING``                                                  | Unique identifier for the secret (UUID)                                                           |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| secret_name     | ``STRING``                                                  | User-friendly name for the secret (must be unique)                                                |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| masked_values   | An array of :ref:`mlflowgatewaysecretinfomaskedvaluesentry` | Masked version of the secret values for display as key-value pairs.                               |
+|                 |                                                             | For simple API keys: {"api_key": "sk-...xyz123"}                                                  |
+|                 |                                                             | For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}`` |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| created_at      | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was created                                  |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| last_updated_at | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was last updated                             |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| provider        | ``STRING``                                                  | LLM provider identifier (e.g., "openai", "anthropic", "cohere")                                   |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| created_by      | ``STRING``                                                  | User ID who created the secret                                                                    |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| last_updated_by | ``STRING``                                                  | User ID who last updated the secret                                                               |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+| auth_config     | An array of :ref:`mlflowgatewaysecretinfoauthconfigentry`   | Provider-specific auth configuration (e.g., auth_mode, region, project_id)                        |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
+
 .. _mlflowGetAssessmentRequest:
 
 GetAssessmentRequest
@@ -3329,6 +5435,66 @@ GetAssessmentRequest
 |               |            | This field is required.                        |
 |               |            |                                                |
 +---------------+------------+------------------------------------------------+
+
+.. _mlflowGetDataset:
+
+GetDataset
+----------
+
+
+
+
+
+
++------------+------------+--------------------------------------------+
+| Field Name |    Type    |                Description                 |
++============+============+============================================+
+| dataset_id | ``STRING`` | Dataset ID                                 |
+|            |            | This field is required.                    |
+|            |            |                                            |
++------------+------------+--------------------------------------------+
+| page_token | ``STRING`` | Optional page token for paginating records |
++------------+------------+--------------------------------------------+
+
+.. _mlflowGetDatasetExperimentIds:
+
+GetDatasetExperimentIds
+-----------------------
+
+
+
+
+
+
++------------+------------+--------------------------------------+
+| Field Name |    Type    |             Description              |
++============+============+======================================+
+| dataset_id | ``STRING`` | Dataset ID to get experiment IDs for |
+|            |            | This field is required.              |
+|            |            |                                      |
++------------+------------+--------------------------------------+
+
+.. _mlflowGetDatasetRecords:
+
+GetDatasetRecords
+-----------------
+
+
+
+
+
+
++-------------+------------+-----------------------------------------------------------+
+| Field Name  |    Type    |                        Description                        |
++=============+============+===========================================================+
+| dataset_id  | ``STRING`` | Dataset ID to get records for                             |
+|             |            | This field is required.                                   |
+|             |            |                                                           |
++-------------+------------+-----------------------------------------------------------+
+| max_results | ``INT32``  | Optional pagination - maximum number of records to return |
++-------------+------------+-----------------------------------------------------------+
+| page_token  | ``STRING`` | Optional pagination token for getting next page           |
++-------------+------------+-----------------------------------------------------------+
 
 .. _mlflowGetLoggedModel:
 
@@ -3410,6 +5576,26 @@ GetOnlineTraceDetails
 |                              |            |                                               |
 +------------------------------+------------+-----------------------------------------------+
 
+.. _mlflowGetTrace:
+
+GetTrace
+--------
+
+
+
+
+
+
++---------------+------------+----------------------------------------------------+
+|  Field Name   |    Type    |                    Description                     |
++===============+============+====================================================+
+| trace_id      | ``STRING`` | ID of the trace to fetch. Must be provided.        |
+|               |            | This field is required.                            |
+|               |            |                                                    |
++---------------+------------+----------------------------------------------------+
+| allow_partial | ``BOOL``   | Whether to allow partial traces. Default to False. |
++---------------+------------+----------------------------------------------------+
+
 .. _mlflowGetTraceInfo:
 
 GetTraceInfo
@@ -3479,6 +5665,26 @@ Tag for an input.
 |            |            | This field is required. |
 |            |            |                         |
 +------------+------------+-------------------------+
+
+.. _mlflowLinkPromptsToTrace:
+
+LinkPromptsToTrace
+------------------
+
+
+
+
+
+
++-----------------+-------------------------------------------------------------+---------------------------------------------+
+|   Field Name    |                            Type                             |                 Description                 |
++=================+=============================================================+=============================================+
+| trace_id        | ``STRING``                                                  | ID of the trace to link prompt versions to. |
+|                 |                                                             | This field is required.                     |
+|                 |                                                             |                                             |
++-----------------+-------------------------------------------------------------+---------------------------------------------+
+| prompt_versions | An array of :ref:`mlflowlinkpromptstotracepromptversionref` |                                             |
++-----------------+-------------------------------------------------------------+---------------------------------------------+
 
 .. _mlflowLinkTracesToRun:
 
@@ -3696,6 +5902,24 @@ Tag for a LoggedModel.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+.. _mlflowGatewaySecretInfoMaskedValuesEntry:
+
+MaskedValuesEntry
+-----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
 .. _mlflowMetric:
 
 Metric
@@ -3729,6 +5953,50 @@ Metric associated with a run, represented as a key-value pair.
 +----------------+------------+-----------------------------------------------------------------------+
 | run_id         | ``STRING`` | The ID of the run containing the metric.                              |
 +----------------+------------+-----------------------------------------------------------------------+
+
+.. _mlflowMetricAggregation:
+
+MetricAggregation
+-----------------
+
+
+
+
+
+
++------------------+------------------------------+----------------------------------------------------------------------------------------+
+|    Field Name    |             Type             |                                      Description                                       |
++==================+==============================+========================================================================================+
+| aggregation_type | :ref:`mlflowaggregationtype` | The type of aggregation to perform.                                                    |
++------------------+------------------------------+----------------------------------------------------------------------------------------+
+| percentile_value | ``DOUBLE``                   | The percentile value to compute (0-100), required when aggregation_type is PERCENTILE. |
+|                  |                              | Examples: 50 (median), 75, 90, 95, 99.                                                 |
+|                  |                              | This field is ignored for other aggregation types.                                     |
++------------------+------------------------------+----------------------------------------------------------------------------------------+
+
+.. _mlflowMetricDataPoint:
+
+MetricDataPoint
+---------------
+
+
+
+A single data point with dimension values and metric values.
+
+
++-------------+---------------------------------------------------------+--------------------------------------+
+| Field Name  |                          Type                           |             Description              |
++=============+=========================================================+======================================+
+| metric_name | ``STRING``                                              | Metric name, e.g. "latency"          |
++-------------+---------------------------------------------------------+--------------------------------------+
+| dimensions  | An array of :ref:`mlflowmetricdatapointdimensionsentry` | Dimension values for this data point |
+|             |                                                         | Keys correspond to dimensions        |
+|             |                                                         | e.g., {"status": "OK"}               |
++-------------+---------------------------------------------------------+--------------------------------------+
+| values      | An array of :ref:`mlflowmetricdatapointvaluesentry`     | Metric values for this data point    |
+|             |                                                         | Keys are aggregation types           |
+|             |                                                         | e.g., {"AVG": 150, "P99": 234.5}     |
++-------------+---------------------------------------------------------+--------------------------------------+
 
 .. _mlflowMetricWithRunId:
 
@@ -4004,6 +6272,71 @@ Param associated with a run.
 | value      | ``STRING`` | Value associated with this param. |
 +------------+------------+-----------------------------------+
 
+.. _mlflowLinkPromptsToTracePromptVersionRef:
+
+PromptVersionRef
+----------------
+
+
+
+Prompt version references to link to the trace.
+Each reference contains the prompt name and version.
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| name       | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+| version    | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+
+.. _mlflowQueryTraceMetrics:
+
+QueryTraceMetrics
+-----------------
+
+
+
+Query aggregated metrics for traces, spans, or assessments.
+
+
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+|      Field Name       |                    Type                    |                                   Description                                    |
++=======================+============================================+==================================================================================+
+| experiment_ids        | An array of ``STRING``                     | Required: The experiment IDs to search traces.                                   |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| view_type             | :ref:`mlflowmetricviewtype`                | Required: The level at which to aggregate metrics.                               |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| metric_name           | ``STRING``                                 | Required: The name of the metric to query (e.g. "latency").                      |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| aggregations          | An array of :ref:`mlflowmetricaggregation` | Required: The aggregations to apply.                                             |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| dimensions            | An array of ``STRING``                     | Optional: Dimensions to group metrics by. (e.g. "name", "status")                |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| filters               | An array of ``STRING``                     | Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)                |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| time_interval_seconds | ``INT64``                                  | Optional: Time interval for grouping in seconds.                                 |
+|                       |                                            | When set, results automatically include a time dimension grouped by              |
+|                       |                                            | the specified interval.                                                          |
+|                       |                                            | Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month). |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| start_time_ms         | ``INT64``                                  | Optional: Start of time range in milliseconds since epoch.                       |
+|                       |                                            | Required if time_interval_seconds is set.                                        |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| end_time_ms           | ``INT64``                                  | Optional: End of time range in milliseconds since epoch.                         |
+|                       |                                            | Required if time_interval_seconds is set.                                        |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| max_results           | ``INT32``                                  | Optional: Maximum number of data points to return.                               |
+|                       |                                            | Default: 1000                                                                    |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+| page_token            | ``STRING``                                 | Optional: Pagination token for fetching the next page of results.                |
++-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
+
 .. _mlflowRegisteredModel:
 
 RegisteredModel
@@ -4075,6 +6408,26 @@ Tag for a registered model
 +------------+------------+----------------+
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
+
+.. _mlflowRemoveDatasetFromExperiments:
+
+RemoveDatasetFromExperiments
+----------------------------
+
+
+
+
+
+
++----------------+------------------------+-------------------------------------------------+
+|   Field Name   |          Type          |                   Description                   |
++================+========================+=================================================+
+| dataset_id     | ``STRING``             | Dataset ID to remove from experiments           |
+|                |                        | This field is required.                         |
+|                |                        |                                                 |
++----------------+------------------------+-------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Experiment IDs to disassociate from the dataset |
++----------------+------------------------+-------------------------------------------------+
 
 .. _mlflowGetMetricHistoryBulkIntervalResponse:
 
@@ -4204,6 +6557,38 @@ Response
 | trace      | :ref:`mlflowtrace` |             |
 +------------+--------------------+-------------+
 
+.. _mlflowBatchGetTracesResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+--------------------------------+--------------------------------+
+| Field Name |              Type              |          Description           |
++============+================================+================================+
+| traces     | An array of :ref:`mlflowtrace` | The fetched trace information. |
++------------+--------------------------------+--------------------------------+
+
+.. _mlflowGetTraceResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+--------------------+------------------------------------+
+| Field Name |        Type        |            Description             |
++============+====================+====================================+
+| trace      | :ref:`mlflowtrace` | The fetched trace including spans. |
++------------+--------------------+------------------------------------+
+
 .. _mlflowSearchTracesResponse:
 
 Response
@@ -4288,6 +6673,51 @@ Response
 +================+===========+=============+
 | traces_deleted | ``INT32`` |             |
 +----------------+-----------+-------------+
+
+.. _mlflowCalculateTraceFilterCorrelationResponse:
+
+Response
+--------
+
+
+
+
+
+
++---------------+------------+----------------------------------------------------------+
+|  Field Name   |    Type    |                       Description                        |
++===============+============+==========================================================+
+| npmi          | ``DOUBLE`` | Normalized Pointwise Mutual Information score (-1 to 1). |
++---------------+------------+----------------------------------------------------------+
+| npmi_smoothed | ``DOUBLE`` | Smoothed NPMI value with Jeffreys prior for robustness.  |
++---------------+------------+----------------------------------------------------------+
+| filter1_count | ``INT32``  | Number of traces matching the first filter.              |
++---------------+------------+----------------------------------------------------------+
+| filter2_count | ``INT32``  | Number of traces matching the second filter.             |
++---------------+------------+----------------------------------------------------------+
+| joint_count   | ``INT32``  | Number of traces matching both filters.                  |
++---------------+------------+----------------------------------------------------------+
+| total_count   | ``INT32``  | Total number of traces in the experiments.               |
++---------------+------------+----------------------------------------------------------+
+
+.. _mlflowQueryTraceMetricsResponse:
+
+Response
+--------
+
+
+
+
+
+
++-----------------+------------------------------------------+----------------------------------------------+
+|   Field Name    |                   Type                   |                 Description                  |
++=================+==========================================+==============================================+
+| data_points     | An array of :ref:`mlflowmetricdatapoint` | Data points grouped by dimensions.           |
++-----------------+------------------------------------------+----------------------------------------------+
+| next_page_token | ``STRING``                               | Pagination token for fetching the next page. |
+|                 |                                          | Empty if no more results are available.      |
++-----------------+------------------------------------------+----------------------------------------------+
 
 .. _mlflowStartTraceV3Response:
 
@@ -4441,6 +6871,174 @@ Response
 | next_page_token | ``STRING``                           |                                                          |
 +-----------------+--------------------------------------+----------------------------------------------------------+
 
+.. _mlflowCreateDatasetResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------------+---------------------+
+| Field Name |             Type             |     Description     |
++============+==============================+=====================+
+| dataset    | :ref:`mlflowdatasetsdataset` | The created dataset |
++------------+------------------------------+---------------------+
+
+.. _mlflowGetDatasetResponse:
+
+Response
+--------
+
+
+
+
+
+
++-----------------+------------------------------+------------------------------------------------+
+|   Field Name    |             Type             |                  Description                   |
++=================+==============================+================================================+
+| dataset         | :ref:`mlflowdatasetsdataset` | The dataset (without records for lazy loading) |
++-----------------+------------------------------+------------------------------------------------+
+| next_page_token | ``STRING``                   | Next page token if more records exist          |
++-----------------+------------------------------+------------------------------------------------+
+
+.. _mlflowSearchEvaluationDatasetsResponse:
+
+Response
+--------
+
+
+
+
+
+
++-----------------+------------------------------------------+---------------------------------------+
+|   Field Name    |                   Type                   |              Description              |
++=================+==========================================+=======================================+
+| datasets        | An array of :ref:`mlflowdatasetsdataset` | List of datasets (metadata only)      |
++-----------------+------------------------------------------+---------------------------------------+
+| next_page_token | ``STRING``                               | Next page token if more results exist |
++-----------------+------------------------------------------+---------------------------------------+
+
+.. _mlflowSetDatasetTagsResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------------+---------------------+
+| Field Name |             Type             |     Description     |
++============+==============================+=====================+
+| dataset    | :ref:`mlflowdatasetsdataset` | The updated dataset |
++------------+------------------------------+---------------------+
+
+.. _mlflowUpsertDatasetRecordsResponse:
+
+Response
+--------
+
+
+
+
+
+
++----------------+-----------+----------------------------+
+|   Field Name   |   Type    |        Description         |
++================+===========+============================+
+| inserted_count | ``INT32`` | Number of records inserted |
++----------------+-----------+----------------------------+
+| updated_count  | ``INT32`` | Number of records updated  |
++----------------+-----------+----------------------------+
+
+.. _mlflowGetDatasetExperimentIdsResponse:
+
+Response
+--------
+
+
+
+
+
+
++----------------+------------------------+----------------------------------------------------+
+|   Field Name   |          Type          |                    Description                     |
++================+========================+====================================================+
+| experiment_ids | An array of ``STRING`` | List of experiment IDs associated with the dataset |
++----------------+------------------------+----------------------------------------------------+
+
+.. _mlflowGetDatasetRecordsResponse:
+
+Response
+--------
+
+
+
+
+
+
++-----------------+------------+--------------------------------------------------------+
+|   Field Name    |    Type    |                      Description                       |
++=================+============+========================================================+
+| records         | ``STRING`` | Records in the dataset (JSON serialized list)          |
++-----------------+------------+--------------------------------------------------------+
+| next_page_token | ``STRING`` | Pagination token for next page (if more records exist) |
++-----------------+------------+--------------------------------------------------------+
+
+.. _mlflowAddDatasetToExperimentsResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------------+------------------------------------------------------+
+| Field Name |             Type             |                     Description                      |
++============+==============================+======================================================+
+| dataset    | :ref:`mlflowdatasetsdataset` | The updated dataset with new experiment associations |
++------------+------------------------------+------------------------------------------------------+
+
+.. _mlflowRemoveDatasetFromExperimentsResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------------+------------------------------------------------------------+
+| Field Name |             Type             |                        Description                         |
++============+==============================+============================================================+
+| dataset    | :ref:`mlflowdatasetsdataset` | The updated dataset after removing experiment associations |
++------------+------------------------------+------------------------------------------------------------+
+
+.. _mlflowGetSecretsConfigResponse:
+
+Response
+--------
+
+
+
+
+
+
++-------------------+----------+---------------------------------------------------------------------------+
+|    Field Name     |   Type   |                                Description                                |
++===================+==========+===========================================================================+
+| secrets_available | ``BOOL`` | Whether the server is configured to handle secrets (encryption available) |
++-------------------+----------+---------------------------------------------------------------------------+
+
 .. _mlflowRun:
 
 Run
@@ -4575,6 +7173,32 @@ Tag for a run.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+.. _mlflowScorer:
+
+Scorer
+------
+
+
+
+Scorer entity representing a scorer in the database.
+
+
++-------------------+------------+------------------------------------------------------------------------+
+|    Field Name     |    Type    |                              Description                               |
++===================+============+========================================================================+
+| experiment_id     | ``INT32``  | The experiment ID.                                                     |
++-------------------+------------+------------------------------------------------------------------------+
+| scorer_name       | ``STRING`` | The scorer name.                                                       |
++-------------------+------------+------------------------------------------------------------------------+
+| scorer_version    | ``INT32``  | The scorer version.                                                    |
++-------------------+------------+------------------------------------------------------------------------+
+| serialized_scorer | ``STRING`` | The serialized scorer string.                                          |
++-------------------+------------+------------------------------------------------------------------------+
+| creation_time     | ``INT64``  | The creation time of the scorer version (in milliseconds since epoch). |
++-------------------+------------+------------------------------------------------------------------------+
+| scorer_id         | ``STRING`` | The unique identifier for the scorer.                                  |
++-------------------+------------+------------------------------------------------------------------------+
+
 .. _mlflowSearchDatasets:
 
 SearchDatasets
@@ -4589,6 +7213,30 @@ SearchDatasets
 |   Field Name   |          Type          |              Description               |
 +================+========================+========================================+
 | experiment_ids | An array of ``STRING`` | List of experiment IDs to search over. |
++----------------+------------------------+----------------------------------------+
+
+.. _mlflowSearchEvaluationDatasets:
+
+SearchEvaluationDatasets
+------------------------
+
+
+
+
+
+
++----------------+------------------------+----------------------------------------+
+|   Field Name   |          Type          |              Description               |
++================+========================+========================================+
+| experiment_ids | An array of ``STRING`` | Associated experiment IDs to filter by |
++----------------+------------------------+----------------------------------------+
+| filter_string  | ``STRING``             | Filter string for dataset names        |
++----------------+------------------------+----------------------------------------+
+| max_results    | ``INT32``              | Maximum number of results              |
++----------------+------------------------+----------------------------------------+
+| order_by       | An array of ``STRING`` | Ordering criteria                      |
++----------------+------------------------+----------------------------------------+
+| page_token     | ``STRING``             | Page token for pagination              |
 +----------------+------------------------+----------------------------------------+
 
 .. _mlflowSearchLoggedModels:
@@ -4709,6 +7357,64 @@ SearchUnifiedTraces
 | page_token       | ``STRING``             | Token indicating the page of traces to fetch. This is a unified token that encodes both online and offline traces |
 |                  |                        | tokens.                                                                                                           |
 +------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowCreateGatewaySecretSecretValueEntry:
+
+SecretValueEntry
+----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowUpdateGatewaySecretSecretValueEntry:
+
+SecretValueEntry
+----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowSetDatasetTags:
+
+SetDatasetTags
+--------------
+
+
+
+
+
+
++------------+------------+-------------------------------+
+| Field Name |    Type    |          Description          |
++============+============+===============================+
+| dataset_id | ``STRING`` | Dataset ID to update tags for |
+|            |            | This field is required.       |
+|            |            |                               |
++------------+------------+-------------------------------+
+| tags       | ``STRING`` | Tags to update (JSON string). |
+|            |            | This field is required.       |
+|            |            |                               |
++------------+------------+-------------------------------+
 
 .. _mlflowSetLoggedModelTags:
 
@@ -4842,11 +7548,13 @@ Trace
 
 
 
-+------------+--------------------------+-------------+
-| Field Name |           Type           | Description |
-+============+==========================+=============+
-| trace_info | :ref:`mlflowtraceinfov3` |             |
-+------------+--------------------------+-------------+
++------------+--------------------------------------------------+-------------+
+| Field Name |                       Type                       | Description |
++============+==================================================+=============+
+| trace_info | :ref:`mlflowtraceinfov3`                         |             |
++------------+--------------------------------------------------+-------------+
+| spans      | An array of :ref:`opentelemetryprototracev1span` |             |
++------------+--------------------------------------------------+-------------+
 
 .. _mlflowTraceInfo:
 
@@ -5034,6 +7742,48 @@ A request to update an existing assessment.
 |             |                                    |                                                                                                                               |
 +-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
 
+.. _mlflowUpsertDatasetRecords:
+
+UpsertDatasetRecords
+--------------------
+
+
+
+
+
+
++------------+------------+-----------------------------------------------------------------+
+| Field Name |    Type    |                           Description                           |
++============+============+=================================================================+
+| dataset_id | ``STRING`` | Dataset ID to upsert records for                                |
+|            |            | This field is required.                                         |
+|            |            |                                                                 |
++------------+------------+-----------------------------------------------------------------+
+| records    | ``STRING`` | Records to upsert (JSON serialized list of record dictionaries) |
+|            |            | This field is required.                                         |
+|            |            |                                                                 |
++------------+------------+-----------------------------------------------------------------+
+| updated_by | ``STRING`` | User performing the update                                      |
++------------+------------+-----------------------------------------------------------------+
+
+.. _mlflowMetricDataPointValuesEntry:
+
+ValuesEntry
+-----------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``DOUBLE`` |             |
++------------+------------+-------------+
+
 .. _mlflowWebhook:
 
 Webhook
@@ -5108,6 +7858,30 @@ Test webhook result
 | error_message   | ``STRING`` | Error message if test failed           |
 +-----------------+------------+----------------------------------------+
 
+.. _mlflowAggregationType:
+
+AggregationType
+---------------
+
+
+Aggregation type for metrics.
+
++------------+---------------------------------------------------------------+
+|    Name    |                          Description                          |
++============+===============================================================+
+| COUNT      | Count of entities.                                            |
++------------+---------------------------------------------------------------+
+| SUM        | Sum of values.                                                |
++------------+---------------------------------------------------------------+
+| AVG        | Average of values.                                            |
++------------+---------------------------------------------------------------+
+| PERCENTILE | Percentile aggregation (requires percentile_value parameter). |
++------------+---------------------------------------------------------------+
+| MIN        | Minimum value.                                                |
++------------+---------------------------------------------------------------+
+| MAX        | Maximum value.                                                |
++------------+---------------------------------------------------------------+
+
 .. _mlflowModelVersionDeploymentJobStateDeploymentJobRunState:
 
 DeploymentJobRunState
@@ -5134,6 +7908,40 @@ DeploymentJobRunState
 | APPROVAL                             |             |
 +--------------------------------------+-------------+
 
+.. _mlflowFallbackStrategy:
+
+FallbackStrategy
+----------------
+
+
+Fallback strategy for routing (future-proof for additional strategies)
+
++-------------------------------+----------------------------------------------------------+
+|             Name              |                       Description                        |
++===============================+==========================================================+
+| FALLBACK_STRATEGY_UNSPECIFIED |                                                          |
++-------------------------------+----------------------------------------------------------+
+| SEQUENTIAL                    | Sequential fallback: tries models in the order specified |
++-------------------------------+----------------------------------------------------------+
+
+.. _mlflowGatewayModelLinkageType:
+
+GatewayModelLinkageType
+-----------------------
+
+
+Type of linkage between endpoint and model definition
+
++--------------------------+-------------------------------------------+
+|           Name           |                Description                |
++==========================+===========================================+
+| LINKAGE_TYPE_UNSPECIFIED |                                           |
++--------------------------+-------------------------------------------+
+| PRIMARY                  | Primary linkage: used for routing traffic |
++--------------------------+-------------------------------------------+
+| FALLBACK                 | Fallback linkage: used for failover       |
++--------------------------+-------------------------------------------+
+
 .. _mlflowLoggedModelStatus:
 
 LoggedModelStatus
@@ -5157,6 +7965,24 @@ model.
 |                                 | LoggedModel files such as model weights / agent code.                          |
 +---------------------------------+--------------------------------------------------------------------------------+
 
+.. _mlflowMetricViewType:
+
+MetricViewType
+--------------
+
+
+View type for metrics aggregation.
+
++-------------+--------------------------------+
+|    Name     |          Description           |
++=============+================================+
+| TRACES      | Aggregate at trace level.      |
++-------------+--------------------------------+
+| SPANS       | Aggregate at span level.       |
++-------------+--------------------------------+
+| ASSESSMENTS | Aggregate at assessment level. |
++-------------+--------------------------------+
+
 .. _mlflowModelVersionStatus:
 
 ModelVersionStatus
@@ -5174,6 +8000,22 @@ ModelVersionStatus
 +----------------------+-----------------------------------------------------------------------------------------+
 | READY                | Model version is ready for use.                                                         |
 +----------------------+-----------------------------------------------------------------------------------------+
+
+.. _mlflowRoutingStrategy:
+
+RoutingStrategy
+---------------
+
+
+Routing strategy for endpoints
+
++------------------------------+-------------------------------------------------------------------+
+|             Name             |                            Description                            |
++==============================+===================================================================+
+| ROUTING_STRATEGY_UNSPECIFIED |                                                                   |
++------------------------------+-------------------------------------------------------------------+
+| REQUEST_BASED_TRAFFIC_SPLIT  | Request-based traffic split: distributes traffic based on weights |
++------------------------------+-------------------------------------------------------------------+
 
 .. _mlflowRunStatus:
 
@@ -5360,6 +8202,16 @@ Webhook entity types
 | MODEL_VERSION_TAG   |             |
 +---------------------+-------------+
 | MODEL_VERSION_ALIAS |             |
++---------------------+-------------+
+| PROMPT              |             |
++---------------------+-------------+
+| PROMPT_VERSION      |             |
++---------------------+-------------+
+| PROMPT_TAG          |             |
++---------------------+-------------+
+| PROMPT_VERSION_TAG  |             |
++---------------------+-------------+
+| PROMPT_ALIAS        |             |
 +---------------------+-------------+
 
 .. _mlflowWebhookStatus:

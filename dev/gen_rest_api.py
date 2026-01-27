@@ -1,142 +1,122 @@
-"""
-TODO: Clena up this file.
-"""
+"""Generate RST documentation from protobuf JSON definitions."""
 
-import argparse
+from __future__ import annotations
+
 import json
 import logging
 import re
 from enum import Enum
+from pathlib import Path
 from textwrap import dedent
+from typing import Any
 
 from texttable import Texttable
 
-"""
-The functions in here are simple functions to help in managing RST from python
-"""
+_logger = logging.getLogger(__name__)
 
 
-def gen_break():
+def _gen_break() -> str:
     return "\n\n===========================\n\n"
 
 
-def gen_h1(link_id, title):
-    link = link_id
-    return """
+def _gen_h1(link_id: str, title: str) -> str:
+    return f"""
 
-.. _{link}:
+.. _{link_id}:
 
-{name}
-{name_header}
+{title}
+{"=" * len(title)}
 
-""".format(name=title, link=link, name_header="=" * len(title))
-
-
-def gen_h2(link_id, title):
-    link = link_id
-    return """
-
-.. _{link}:
-
-{name}
-{name_header}
-
-""".format(name=title, link=link, name_header="-" * len(title))
+"""
 
 
-def gen_page_title(title):
+def _gen_h2(link_id: str, title: str) -> str:
+    return f"""
+
+.. _{link_id}:
+
+{title}
+{"-" * len(title)}
+
+"""
+
+
+def _gen_page_title(title: str) -> str:
     link = title.lower().replace(" ", "-")
-    return """
+    header = "=" * len(title)
+    return f"""
 .. _{link}:
 
-{name_header}
-{name}
-{name_header}
+{header}
+{title}
+{header}
 
-""".format(name=title, link=link, name_header="=" * len(title))
-
-
-def ErrorHelper(msg):
-    return "JSON Validation Error: {}".format(msg)
+"""
 
 
-def validate_doc_public_json(docjson):
-    logging.info("Validating doc_public.json file.")
+def _validation_error(msg: str) -> str:
+    return f"JSON Validation Error: {msg}"
+
+
+def _validate_doc_public_json(docjson: dict[str, Any]) -> None:
+    _logger.info("Validating doc_public.json file.")
     if "files" not in docjson:
-        logging.error(docjson.keys())
-        raise Exception(ErrorHelper("No 'files' key"))
+        _logger.error(docjson.keys())
+        raise ValueError(_validation_error("No 'files' key"))
     files = docjson["files"][0]
-    logging.info("Checking 'content'")
+    _logger.info("Checking 'content'")
     if "content" not in files:
-        logging.error(files.keys())
-        raise Exception(ErrorHelper("No 'content' key"))
+        _logger.error(files.keys())
+        raise ValueError(_validation_error("No 'content' key"))
     content = files["content"][0]
-    logging.info("Checking 'message', 'service', 'enum'")
-    if "message" not in content:
-        logging.error(content.keys())
-        raise Exception(ErrorHelper("No 'message' key"))
-    if "service" not in content:
-        logging.error(content.keys())
-        raise Exception(ErrorHelper("No 'service' key"))
-    if "enum" not in content:
-        logging.error(content.keys())
-        raise Exception(ErrorHelper("No 'enum' key"))
-    logging.info("Structure Appears to be valid! Continuing...")
+    _logger.info("Checking 'message', 'service', 'enum'")
+    for key in ("message", "service", "enum"):
+        if key not in content:
+            _logger.error(content.keys())
+            raise ValueError(_validation_error(f"No '{key}' key"))
+    _logger.info("Structure Appears to be valid! Continuing...")
 
 
 class MsgType(Enum):
-    generic = 1
-    request = 2
-    response = 3
+    GENERIC = 1
+    REQUEST = 2
+    RESPONSE = 3
 
 
-def gen_id(full_path):
-    "Generates an ID from a proto path"
+def _gen_id(full_path: list[str]) -> str:
     return "".join(full_path)
 
 
 class Field:
-    """
-    A Field is a sub part of a message. It declares the field names, types, and descriptions
-    for a given message.
-    """
+    """A field within a protobuf message, containing name, type, and description."""
 
-    def __init__(self, full_path, name, description, field_type):
-        logging.debug("Creating Field {}".format(name))
-        self.id = gen_id(full_path)
+    def __init__(self, full_path: list[str], name: str, description: str, field_type: str) -> None:
+        _logger.debug(f"Creating Field {name}")
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
         self.field_type = field_type
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.name
 
-    def __str__(self):
-        return self.__repr__()
-
     @staticmethod
-    def table_header():
+    def table_header() -> list[str]:
         return ["Field Name", "Type", "Description"]
 
-    def to_table(self):
+    def to_table(self) -> list[str]:
         return [self.name, self.field_type, self.description]
 
     @staticmethod
-    def _parse_name(field_details):
+    def _parse_name(field_details: dict[str, Any]) -> str:
         declared_type = field_details["field_type"]
         if declared_type == "oneof":
-            names = ["``{}``".format(x["field_name"]) for x in field_details["oneof"]]
-            name = " OR ".join(names)
-        else:
-            name = field_details["field_name"]
-        return name
+            names = [f"``{x['field_name']}``" for x in field_details["oneof"]]
+            return " OR ".join(names)
+        return field_details["field_name"]
 
     @staticmethod
-    def _parse_type(field_details):
-        """
-        Parses the Field Type from a field object.
-        as of 8/31/2016 this is either a 'oneof' or some generic type(int, string, etc)
-        """
+    def _parse_type(field_details: dict[str, Any]) -> str:
         declared_type = field_details["field_type"]
         if declared_type == "oneof":
             field_types = [Field._convert_to_link(x["field_type"]) for x in field_details["oneof"]]
@@ -144,42 +124,33 @@ class Field:
         return Field._convert_to_link(field_details["field_type"])
 
     @staticmethod
-    def _parse_description(field_details):
-        """
-        Parses the description from a field object.
-        The description structure depends explicitly on the field type.
-        """
+    def _parse_description(field_details: dict[str, Any]) -> str:
         declared_type = field_details["field_type"]
-        deprecated = "" if not field_details["deprecated"] else "\nThis field is deprecated.\n"
-        required = "" if not field_details["validate_required"] else "\nThis field is required.\n"
-        if declared_type == "oneof":
-            options = []
+        deprecated = "\nThis field is deprecated.\n" if field_details["deprecated"] else ""
+        required = "\nThis field is required.\n" if field_details["validate_required"] else ""
 
-            def to_lowercase_first_char(s):
+        if declared_type == "oneof":
+
+            def to_lowercase_first_char(s: str) -> str:
                 return s[:1].lower() + s[1:] if s else ""
 
+            options = []
             for name, obj in zip(
                 Field._parse_name(field_details).split(" OR "), field_details["oneof"]
             ):
-                options.append(
-                    "\n\nIf {}, {}".format(name, to_lowercase_first_char(obj["description"]))
-                )
+                options.append(f"\n\nIf {name}, {to_lowercase_first_char(obj['description'])}")
             return "\n\n\n\n".join(options) + required + deprecated
+
         return field_details["description"] + required + deprecated
 
     @staticmethod
-    def _convert_to_link(raw_string):
-        "Optionally converts a raw string to an internal link"
+    def _convert_to_link(raw_string: str) -> str:
         if "." in raw_string:
-            return ":ref:`{}`".format(raw_string.replace(".", "").lower())
-        return "``{}``".format(raw_string)
+            return f":ref:`{raw_string.replace('.', '').lower()}`"
+        return f"``{raw_string}``"
 
     @classmethod
-    def parse_all_from(cls, field_list):
-        """
-        Parses all fields from a field list inside of a message.
-        Returns an array of Field objects.
-        """
+    def parse_all_from(cls, field_list: list[dict[str, Any]]) -> list[Field]:
         all_instances = []
         for field in field_list:
             full_path = field["full_path"]
@@ -189,269 +160,219 @@ class Field:
             assert not field["deprecated"]
             if field["repeated"]:
                 field_type = "An array of " + field_type
-            vis = field["visibility"]
-            if vis == "public":
+            if field["visibility"] == "public":
                 all_instances.append(cls(full_path, name, description, field_type))
         return all_instances
 
 
 class Value:
-    """
-    A value is a sub part of an ProtoEnum. It declares the potential values
-    that a given enum can take on.
-    """
+    """An enum value within a ProtoEnum."""
 
-    def __init__(self, full_path, name, description):
-        self.id = gen_id(full_path)
+    def __init__(self, full_path: list[str], name: str, description: str) -> None:
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
 
-    def __repr__(self):
-        return "{}".format(self.name)
-
-    def __str__(self):
-        return self.__repr__()
+    def __repr__(self) -> str:
+        return self.name
 
     @staticmethod
-    def table_header():
+    def table_header() -> list[str]:
         return ["Name", "Description"]
 
-    def to_table(self):
+    def to_table(self) -> list[str]:
         return [self.name, self.description]
 
     @classmethod
-    def parse_all_from(cls, value_list):
-        """
-        Parses all values from a value list inside of an enumeration.
-        Returns a list of Value Objects.
-        """
-        all_instances = []
-        for value in value_list:
-            all_instances.append(cls(value["full_path"], value["value"], value["description"]))
-        return all_instances
+    def parse_all_from(cls, value_list: list[dict[str, Any]]) -> list[Value]:
+        return [cls(v["full_path"], v["value"], v["description"]) for v in value_list]
 
 
 class ProtoEnum:
-    """
-    A ProtoEnum is an Enum defined by the Proto json. It has a series of Values.
-    """
+    """A protobuf enum with a series of Values."""
 
-    def __init__(self, full_path, name, description, values):
-        self.id = gen_id(full_path)
+    def __init__(
+        self, full_path: list[str], name: str, description: str, values: list[Value]
+    ) -> None:
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
         self.values = values
 
-    def __repr__(self):
-        return "{}\n {}".format(self.id, self.name)
+    def __repr__(self) -> str:
+        return f"{self.id}\n {self.name}"
 
-    def __str__(self):
-        return self.__repr__()
-
-    def _generate_values_table(self):
-        """
-        Each Enum can contain 0 or more values. This generates a plain text table
-        out of the value's information.
-        Returns a string.
-        """
+    def _generate_values_table(self) -> str:
         tbl = Texttable(max_width=200)
         header = Value.table_header()
         tbl.add_rows([header] + [f.to_table() for f in self.values])
         return tbl.draw()
 
-    def to_rst(self):
-        "Converts a ProtoEnum Instance into rst"
+    def to_rst(self) -> str:
         values = self._generate_values_table()
-        title = gen_h2(self.id, self.name)
-        section = "\n{description}\n\n{values}".format(description=self.description, values=values)
+        title = _gen_h2(self.id, self.name)
+        section = f"\n{self.description}\n\n{values}"
         return title + section
 
     @classmethod
-    def parse_all_from(cls, files):
-        """
-        Parses all ProtoEnums from the raw proto file json. (the top level `files` group).
-        Returns an array of ProtoEnums
-        """
+    def parse_all_from(cls, files: list[dict[str, Any]]) -> list[ProtoEnum]:
         all_instances = []
         for proto_file in files:
             # Top-level enums
             enums = [x["enum"] for x in proto_file["content"] if x["enum"]]
             # Enums inside of messages
-            for content in filter(lambda x: x["message"], proto_file["content"]):
-                enums += content["message"].get("enums") or []
+            for content in proto_file["content"]:
+                if content["message"]:
+                    enums += content["message"].get("enums") or []
             for enum in enums:
                 values = Value.parse_all_from(enum["values"])
-                description = enum["description"]
-                name = enum["name"]
-                all_instances.append(cls(enum["full_path"], name, description, values))
-
+                all_instances.append(
+                    cls(enum["full_path"], enum["name"], enum["description"], values)
+                )
         return all_instances
 
 
 class Message:
-    """
-    Mirrors a Proto Message like those that we find inside of the proto definition files
-    """
+    """A protobuf message containing fields."""
 
-    def __init__(self, full_path, name, description, fields):
-        logging.debug("Creating Message: {}".format(name))
-        self.id = gen_id(full_path)
+    def __init__(
+        self, full_path: list[str], name: str, description: str, fields: list[Field]
+    ) -> None:
+        _logger.debug(f"Creating Message: {name}")
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
         self.fields = fields
-        self.type = MsgType.generic
+        self.type = MsgType.GENERIC
 
-    def __repr__(self):
-        return "{}".format(self.id)
+    def __repr__(self) -> str:
+        return self.id
 
-    def __str__(self):
-        return self.__repr__()
-
-    def _generate_field_table(self):
+    def _generate_field_table(self) -> str:
         tbl = Texttable(max_width=200)
         header = [Field.table_header()]
-        non_empty_fields = [f for f in self.fields if len(f.name) != 0]
+        non_empty_fields = [f for f in self.fields if f.name]
         rows = [f.to_table() for f in non_empty_fields]
         tbl.add_rows(header + rows)
         return tbl.draw()
 
-    def _generate_rst_title(self):
-        if self.type == MsgType.request:
-            return gen_h2(self.id, "Request Structure")
-        elif self.type == MsgType.response:
-            return gen_h2(self.id, "Response Structure")
-        return gen_h2(self.id, self.name)
+    def _generate_rst_title(self) -> str:
+        if self.type == MsgType.REQUEST:
+            return _gen_h2(self.id, "Request Structure")
+        elif self.type == MsgType.RESPONSE:
+            return _gen_h2(self.id, "Response Structure")
+        return _gen_h2(self.id, self.name)
 
-    def to_rst(self):
+    def to_rst(self) -> str:
         if not self.fields:
             return ""
-
         fields = self._generate_field_table()
         title = self._generate_rst_title()
-
-        section = "\n\n{description}\n\n\n{fields}".format(
-            description=self.description, fields=fields
-        )
+        section = f"\n\n{self.description}\n\n\n{fields}"
         return title + section
 
     @classmethod
-    def parse_all_from_list(cls, message_list):
-        """
-        Parses all messages from a list of messages along with their associated sub messages
-        (recursively). Returns a list of messages
-        """
+    def parse_all_from_list(cls, message_list: list[dict[str, Any]]) -> list[Message]:
         all_instances = []
         for msg in message_list:
-            name = msg["name"]
-            description = msg["description"]
+            if msg["visibility"] != "public":
+                continue
             fields = Field.parse_all_from(msg["fields"])
-            full_path = msg["full_path"]
-            vis = msg["visibility"]
-            if vis == "public":
-                all_instances.append(cls(full_path, name, description, fields))
-                if msg["messages"]:
-                    sub_messages = Message.parse_all_from_list(msg["messages"])
-                    all_instances.extend(sub_messages)
-
+            all_instances.append(cls(msg["full_path"], msg["name"], msg["description"], fields))
+            if msg["messages"]:
+                all_instances.extend(cls.parse_all_from_list(msg["messages"]))
         return all_instances
 
     @classmethod
-    def parse_all_from(cls, files):
-        """
-        Parses all messages from raw proto file list along with their associated sub messages
-        (recursively). Returns a list of messages.
-        """
+    def parse_all_from(cls, files: list[dict[str, Any]]) -> list[Message]:
         all_instances = []
         for proto_file in files:
-            for content in filter(lambda x: x["message"], proto_file["content"]):
+            for content in proto_file["content"]:
+                if not content["message"]:
+                    continue
                 message = content["message"]
+                if message["visibility"] != "public":
+                    continue
                 fields = Field.parse_all_from(message["fields"])
-                description = message["description"]
-                full_path = message["full_path"]
-                name = message["name"]
-                vis = message["visibility"]
-                if vis == "public":
-                    all_instances.append(cls(full_path, name, description, fields))
-                    if message["messages"]:
-                        sub_messages = Message.parse_all_from_list(message["messages"])
-                        all_instances.extend(sub_messages)
-
+                all_instances.append(
+                    cls(message["full_path"], message["name"], message["description"], fields)
+                )
+                if message["messages"]:
+                    all_instances.extend(cls.parse_all_from_list(message["messages"]))
         return all_instances
 
 
 class Method:
-    """
-    A method belongs to a service and describes the methods that are
-    available to that given service. A method also contains messages
-    in the form of the request message and the response message.
-    """
+    """An RPC method within a service, containing request and response messages."""
 
-    def __init__(self, full_path, name, description, path, method, request, response, title):
-        self.id = gen_id(full_path)
+    def __init__(
+        self,
+        full_path: list[str],
+        name: str,
+        description: str,
+        path: str,
+        method: str,
+        request: list[str],
+        response: list[str],
+        title: str | None,
+    ) -> None:
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
         self.path = path
         self.method = method
-        self.request = gen_id(request)
-        self.response = gen_id(response)
-        self.request_message = None
-        self.response_message = None
-        self.API_VERSION = None
+        self.request = _gen_id(request)
+        self.response = _gen_id(response)
+        self.request_message: Message | None = None
+        self.response_message: Message | None = None
+        self.api_version: str | None = None
         self.title = title
 
     @classmethod
-    def parse_all_from(cls, method_list):
+    def parse_all_from(cls, method_list: list[dict[str, Any]]) -> list[Method]:
         all_instances = []
-        for method in method_list:
-            fp = method["full_path"]
-            n = method["name"]
-            d = method["description"]
-            p = method["rpc_options"]["path"]
-            m = method["rpc_options"]["method"]
-            req = method["request_full_path"]
-            resp = method["response_full_path"]
-            vis = method["rpc_options"]["visibility"]
-            title = method["rpc_options"].get("rpc_doc_title", None)
-            if vis == "public":
-                all_instances.append(cls(fp, n, d, p, m, req, resp, title))
-
+        for m in method_list:
+            rpc_options = m["rpc_options"]
+            if rpc_options["visibility"] != "public":
+                continue
+            all_instances.append(
+                cls(
+                    full_path=m["full_path"],
+                    name=m["name"],
+                    description=m["description"],
+                    path=rpc_options["path"],
+                    method=rpc_options["method"],
+                    request=m["request_full_path"],
+                    response=m["response_full_path"],
+                    title=rpc_options.get("rpc_doc_title"),
+                )
+            )
         return all_instances
 
-    def __repr__(self):
-        reqm = "NoMsg"
-        if self.request_message:
-            reqm = "HasMsg"
+    def __repr__(self) -> str:
+        reqm = "HasMsg" if self.request_message else "NoMsg"
+        resm = "HasMsg" if self.response_message else "NoMsg"
+        return f"{self.name}, {self.request} ({reqm}) -> {self.response} ({resm})"
 
-        resm = "NoMsg"
-        if self.response_message:
-            resm = "HasMsg"
-
-        return "{}, {} ({}) -> {} ({})".format(
-            self.name, "".join(self.request), reqm, "".join(self.response), resm
-        )
-
-    def __str__(self):
-        return self.__repr__()
-
-    def to_rst(self):
-        if not self.API_VERSION:
-            raise Exception("MUST SET API VERSION")
+    def to_rst(self) -> str:
+        if not self.api_version:
+            raise ValueError("API version must be set before generating RST")
         prepped_title = self.title or " ".join(re.split(r"\W+", self.path)[2:]).title().lstrip()
-        title = gen_h1(self.id, prepped_title)
+        title = _gen_h1(self.id, prepped_title)
         tbl = Texttable(max_width=200)
         tbl.add_rows(
             [
                 ["Endpoint", "HTTP Method"],
-                ["``{}{}``".format(self.API_VERSION, self.path), "``{}``".format(self.method)],
+                [f"``{self.api_version}{self.path}``", f"``{self.method}``"],
             ]
         )
         parameters = tbl.draw()
-        body = """
+        body = f"""
 {parameters}
 
-{description}
-""".format(parameters=parameters, description=self.description)
-        ret_value = gen_break() + title + body + "\n\n"
+{self.description}
+"""
+        ret_value = _gen_break() + title + body + "\n\n"
         if self.request_message:
             ret_value += self.request_message.to_rst()
         if self.response_message:
@@ -460,257 +381,301 @@ class Method:
 
 
 class Service:
-    "A Service as defined in our Proto Files"
+    """A protobuf service containing RPC methods."""
 
-    def __init__(self, full_path, name, description, methods):
-        self.id = gen_id(full_path)
+    def __init__(
+        self, full_path: list[str], name: str, description: str, methods: list[Method]
+    ) -> None:
+        self.id = _gen_id(full_path)
         self.name = name
         self.description = description
         self.methods = methods
 
     @classmethod
-    def parse_all_from(cls, files):
-        """
-        Parses all Services from a list of proto files as found in doc_public.json
-        returns a list of services.
-        """
+    def parse_all_from(cls, files: list[dict[str, Any]]) -> list[Service]:
         all_instances = []
         for proto_file in files:
-            for content in filter(lambda x: x["service"], proto_file["content"]):
+            for content in proto_file["content"]:
+                if not content["service"]:
+                    continue
                 service = content["service"]
                 methods = Method.parse_all_from(service["methods"])
-                name = service["name"]
-                description = service["description"]
-                all_instances.append(cls(service["full_path"], name, description, methods))
+                all_instances.append(
+                    cls(service["full_path"], service["name"], service["description"], methods)
+                )
         return all_instances
 
-    def __repr__(self):
-        return "{}\n Methods: {}".format(self.name, "\n  ".join([str(m) for m in self.methods]))
+    def __repr__(self) -> str:
+        method_strs = "\n  ".join(str(m) for m in self.methods)
+        return f"{self.name}\n Methods: {method_strs}"
 
-    def __str__(self):
-        return self.__repr__()
-
-    def to_rst(self, method_order=None):
-        sections = []
+    def to_rst(self, method_order: list[str] | None = None) -> str:
         sorted_methods = sorted(self.methods, key=lambda x: x.name)
         if method_order:
-            method_map = dict(zip(method_order, range(0, len(method_order))))
-            sorted_methods = sorted(self.methods, key=lambda x: method_map[x.request])
-        for method in sorted_methods:
-            sections.append(method.to_rst())
-        return "".join(sections)
+            method_map = {name: idx for idx, name in enumerate(method_order)}
+            sorted_methods = sorted(
+                self.methods, key=lambda x: method_map.get(x.request, len(method_order))
+            )
+        return "".join(method.to_rst() for method in sorted_methods)
 
 
 class API:
-    """
-    An API is the only user facing module inside of this library. We specify an API
-    along with a set of related endpoints.
-    """
+    """Main API class for generating REST API documentation."""
 
-    def __init__(self, name, description, api_version, dstPath, valid_proto_files):
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        api_version: str,
+        dst_path: Path,
+        valid_proto_files: list[str],
+    ) -> None:
         self.name = name
         self.description = description
-        self.dstPath = dstPath
+        self.dst_path = dst_path
         self.valid_proto_files = valid_proto_files
-        self.services = None
-        self.messages = None
-        self.enums = None
-        self.comments = None
-        self.API_VERSION = api_version
-        self.file_filter = lambda x: x["filename"] in self.valid_proto_files
+        self.services: list[Service] | None = None
+        self.messages: list[Message] | None = None
+        self.enums: list[ProtoEnum] | None = None
+        self.api_version = api_version
 
-    def __repr__(self):
-        return "{}".format(self.name)
+    def __repr__(self) -> str:
+        return self.name
 
-    def __str__(self):
-        return self.__repr__()
+    def _file_filter(self, proto_file: dict[str, Any]) -> bool:
+        return proto_file["filename"] in self.valid_proto_files
 
-    def validate_messages(self, valid_messages):
-        logging.info("Validating Messages for {}".format(self))
-        valid = set(valid_messages)
-        actual = {m.id for m in self.messages}
-        diff = actual - valid
-        if diff:
-            logging.error(
-                """
-The Specified Messages {} are not specified as a valid message for the docs but
-visibility is not set to PUBLIC_UNDOCUMENTED or PRIVATE.
-Please add it docs/api_sphinx_build.py under the relevant API endpoint or set it
-to the correct visibility level.
-""".format(diff)
-            )
-            raise
-
-    def set_services(self, proto_file_list):
-        """Parses the relevant services from a generic proto file list"""
-        logging.debug("starting service generation")
-        logging.debug(f"Starts with total of: {len(proto_file_list)}")
-        services_proto_list = list(filter(self.file_filter, proto_file_list))
-        try:
-            assert len(services_proto_list) != 0
-            assert len(services_proto_list) == len(self.valid_proto_files), (
-                len(services_proto_list),
-                len(self.valid_proto_files),
-            )
-        except AssertionError:
-            logging.error("length cannot be 0. This is likely due to a name error")
+    def _validate_proto_list(self, proto_list: list[dict[str, Any]], context: str) -> None:
+        if not proto_list or len(proto_list) != len(self.valid_proto_files):
+            _logger.error("Length mismatch. This is likely due to a name error")
             for f in self.valid_proto_files:
-                logging.error("Valid Proto File: {}".format(f))
-            for f in services_proto_list:
-                logging.error("Actual Proto File: {}".format(f))
-            logging.error("Maybe someone changed the name/location of a proto file?")
-            raise
+                _logger.error(f"Valid Proto File: {f}")
+            for f in proto_list:
+                _logger.error(f"Actual Proto File: {f}")
+            _logger.error("Maybe someone changed the name/location of a proto file?")
+            raise ValueError(f"Proto file mismatch in {context}")
+
+    def set_services(self, proto_file_list: list[dict[str, Any]]) -> None:
+        _logger.debug("Starting service generation")
+        _logger.debug(f"Starts with total of: {len(proto_file_list)}")
+        services_proto_list = [f for f in proto_file_list if self._file_filter(f)]
+        self._validate_proto_list(services_proto_list, "set_services")
         self.services = sorted(Service.parse_all_from(services_proto_list), key=lambda x: x.name)
-        logging.debug("completed service generation")
+        _logger.debug("Completed service generation")
 
-    def set_messages(self, proto_file_list):
-        """Parses the relevant messages from a generic proto file list"""
-        logging.debug("starting message generation")
-        logging.debug(f"Starts with total of: {len(proto_file_list)}")
-        messages_proto_list = list(filter(self.file_filter, proto_file_list))
-        try:
-            assert len(messages_proto_list) != 0
-            assert len(messages_proto_list) == len(self.valid_proto_files)
-        except AssertionError:
-            logging.error("length cannot be 0. This is likely due to a name error")
-            for f in self.valid_proto_files:
-                logging.error("Valid Proto File: {}".format(f))
-            logging.error("Maybe someone changed the name/location of a proto file?")
-            raise
-            raise
-
+    def set_messages(self, proto_file_list: list[dict[str, Any]]) -> None:
+        _logger.debug("Starting message generation")
+        _logger.debug(f"Starts with total of: {len(proto_file_list)}")
+        messages_proto_list = [f for f in proto_file_list if self._file_filter(f)]
+        self._validate_proto_list(messages_proto_list, "set_messages")
         self.messages = sorted(Message.parse_all_from(messages_proto_list), key=lambda x: x.name)
-        logging.debug("completed message generation")
+        _logger.debug("Completed message generation")
 
-    def set_enums(self, proto_file_list):
-        """Parses the relevant enums from a generic proto file list"""
-        logging.debug("starting enum generation")
-        logging.debug(f"Starts with total of: {len(proto_file_list)}")
-        enums_proto_list = list(filter(self.file_filter, proto_file_list))
-        try:
-            assert len(enums_proto_list) != 0
-            assert len(enums_proto_list) == len(self.valid_proto_files)
-        except AssertionError:
-            logging.error("length cannot be 0. This is likely due to a name error")
-            for f in self.valid_proto_files:
-                logging.error("Valid Proto File: {}".format(f))
-            logging.error("Maybe someone changed the name/location of a proto file?")
-            raise
+    def set_enums(self, proto_file_list: list[dict[str, Any]]) -> None:
+        _logger.debug("Starting enum generation")
+        _logger.debug(f"Starts with total of: {len(proto_file_list)}")
+        enums_proto_list = [f for f in proto_file_list if self._file_filter(f)]
+        self._validate_proto_list(enums_proto_list, "set_enums")
         self.enums = sorted(ProtoEnum.parse_all_from(enums_proto_list), key=lambda x: x.name)
-        logging.debug("completed enum generation")
+        _logger.debug("Completed enum generation")
 
-    def connect_methods_messages(self):
-        """
-        Every service has an associated list of methods. Each of those methods have a request
-        message and a response message. This method connects those two and labels the messages as
-        such as well as adding them to the relevant methods.
-        """
+    def connect_methods_messages(self) -> None:
+        """Connect request/response messages to their corresponding methods."""
         for service in self.services:
             for method in service.methods:
                 request_set = False
                 response_set = False
-                method.API_VERSION = self.API_VERSION
+                method.api_version = self.api_version
                 for message in self.messages:
                     if message.id == method.request and not request_set:
                         method.request_message = message
-                        message.type = MsgType.request
+                        message.type = MsgType.REQUEST
                         request_set = True
-                        logging.debug("Set Request Message for {}".format(str(method)))
+                        _logger.debug(f"Set Request Message for {method}")
                     elif message.id == method.response and not response_set:
                         method.response_message = message
                         response_set = True
-                        message.type = MsgType.response
-                        logging.debug("Set Response Message for {}".format(str(method)))
+                        message.type = MsgType.RESPONSE
+                        _logger.debug(f"Set Response Message for {method}")
 
                 if not request_set:
-                    logging.warn("Request not set {} for {}".format(method, str(self)))
-
+                    _logger.warning(f"Request not set {method} for {self}")
                 if not response_set:
-                    logging.warn("Response not set {} for {}".format(method, str(self)))
+                    _logger.warning(f"Response not set {method} for {self}")
 
-    def set_all(self, proto_file_list):
-        "Wraps all the above set methods"
-        logging.info("Setting Services for {}".format(self.name))
+    def set_all(self, proto_file_list: list[dict[str, Any]]) -> None:
+        _logger.info(f"Setting Services for {self.name}")
         self.set_services(proto_file_list)
-        logging.info("Finished Setting Services for {}".format(self.name))
-        logging.info("Setting Messages for {}".format(self.name))
+        _logger.info(f"Finished Setting Services for {self.name}")
+        _logger.info(f"Setting Messages for {self.name}")
         self.set_messages(proto_file_list)
-        logging.info("Finished Setting Messages for {}".format(self.name))
-        logging.info("Setting Enums for {}".format(self.name))
+        _logger.info(f"Finished Setting Messages for {self.name}")
+        _logger.info(f"Setting Enums for {self.name}")
         self.set_enums(proto_file_list)
-        logging.info("Finished Setting Enums for {}".format(self.name))
-        logging.info("Connecting Messages -> Services for {}".format(self.name))
+        _logger.info(f"Finished Setting Enums for {self.name}")
+        _logger.info(f"Connecting Messages -> Services for {self.name}")
         self.connect_methods_messages()
-        logging.info("Finished Connecting Messages -> Services under {} API".format(self.name))
+        _logger.info(f"Finished Connecting Messages -> Services under {self.name} API")
 
-    def write_rst(self, method_order=None):
-        try:
-            assert (
-                self.services is not None and self.messages is not None and self.enums is not None
+    def write_rst(self, method_order: list[str] | None = None) -> None:
+        if self.services is None or self.messages is None or self.enums is None:
+            raise ValueError("Must call set_all() before write_rst()")
+        if not self.services or not self.messages:
+            _logger.error(
+                f"Services: {len(self.services)} Messages: {len(self.messages)} "
+                f"Enums: {len(self.enums)}"
             )
-        except AssertionError:
-            logging.error("We haven't parsed anything. You're using the module incorrectly")
-            raise
-        try:
-            assert len(self.services) != 0 and len(self.messages) != 0
-        except AssertionError:
-            logging.error("There was likely an error parsing the doc_public.json file.")
-            logging.error(
-                "Services: %i Messages: %i Enums: %i",
-                len(self.services),
-                len(self.messages),
-                len(self.enums),
-            )
-            raise
-        services = [s.to_rst() for s in self.services]
-        enums = [s.to_rst() for s in self.enums]
-        generic_messages = [s.to_rst() for s in self.messages if s.type == MsgType.generic]
+            raise ValueError("No services or messages found - check doc_public.json")
 
-        with open(self.dstPath, "w") as f:
-            f.write(gen_page_title("{} API".format(self.name)))
+        services_rst = [s.to_rst() for s in self.services]
+        enums_rst = [s.to_rst() for s in self.enums]
+        generic_messages_rst = [s.to_rst() for s in self.messages if s.type == MsgType.GENERIC]
+
+        with self.dst_path.open("w") as f:
+            f.write(_gen_page_title(f"{self.name} API"))
             f.write(self.description)
             f.write("\n.. contents:: Table of Contents\n    :local:\n    :depth: 1")
-            f.write("".join(services))
-            f.write(gen_h1(self.name + "add", "Data Structures"))
-            f.write("".join(generic_messages))
-            f.write("".join(enums))
+            f.write("".join(services_rst))
+            f.write(_gen_h1(self.name + "add", "Data Structures"))
+            f.write("".join(generic_messages_rst))
+            f.write("".join(enums_rst))
 
 
-logging.basicConfig(format="%(levelname)s:%(lineno)d:%(message)s", level=logging.INFO)
+# Valid MLflow message names for documentation ordering
+VALID_MLFLOW_MESSAGES = [
+    # APIs
+    "mlflowCreateExperiment",
+    "mlflowListExperiments",
+    "mlflowSearchExperiments",
+    "mlflowGetExperiment",
+    "mlflowGetExperimentByName",
+    "mlflowDeleteExperiment",
+    "mlflowRestoreExperiment",
+    "mlflowUpdateExperiment",
+    "mlflowCreateRun",
+    "mlflowDeleteRun",
+    "mlflowDeleteRuns",
+    "mlflowRestoreRun",
+    "mlflowRestoreRuns",
+    "mlflowGetRun",
+    "mlflowLogMetric",
+    "mlflowLogBatch",
+    "mlflowLogModel",
+    "mlflowLogInputs",
+    "mlflowLogBatchResponse",
+    "mlflowSetExperimentTag",
+    "mlflowDeleteExperimentTag",
+    "mlflowSetTag",
+    "mlflowDeleteTag",
+    "mlflowLogParam",
+    "mlflowGetMetricHistory",
+    "mlflowSearchRuns",
+    "mlflowListArtifacts",
+    "mlflowUpdateRun",
+    "mlflowPurgeDeletedState",
+    "mlflowCreateRegisteredModel",
+    "mlflowGetRegisteredModel",
+    "mlflowRenameRegisteredModel",
+    "mlflowUpdateRegisteredModel",
+    "mlflowDeleteRegisteredModel",
+    "mlflowListRegisteredModels",
+    "mlflowGetLatestVersions",
+    "mlflowCreateModelVersion",
+    "mlflowGetModelVersion",
+    "mlflowUpdateModelVersion",
+    "mlflowDeleteModelVersion",
+    "mlflowSearchModelVersions",
+    "mlflowGetModelVersionDownloadUri",
+    "mlflowTransitionModelVersionStage",
+    "mlflowSearchRegisteredModels",
+    "mlflowSetRegisteredModelTag",
+    "mlflowSetModelVersionTag",
+    "mlflowDeleteRegisteredModelTag",
+    "mlflowDeleteModelVersionTag",
+    # Responses
+    "mlflowCreateExperimentResponse",
+    "mlflowListExperimentsResponse",
+    "mlflowSearchExperimentsResponse",
+    "mlflowGetExperimentResponse",
+    "mlflowGetExperimentByNameResponse",
+    "mlflowDeleteExperimentResponse",
+    "mlflowRestoreExperimentResponse",
+    "mlflowUpdateExperimentResponse",
+    "mlflowCreateRunResponse",
+    "mlflowDeleteRunResponse",
+    "mlflowDeleteRunsResponse",
+    "mlflowRestoreRunResponse",
+    "mlflowRestoreRunsResponse",
+    "mlflowGetRunResponse",
+    "mlflowLogMetricResponse",
+    "mlflowLogInputsResponse",
+    "mlflowLogParamResponse",
+    "mlflowSetExperimentTagResponse",
+    "mlflowSetTagResponse",
+    "mlflowDeleteTagResponse",
+    "mlflowGetMetricHistoryResponse",
+    "mlflowSearchRunsResponse",
+    "mlflowListArtifactsResponse",
+    "mlflowUpdateRunResponse",
+    "mlflowPurgeDeletedStateResponse",
+    "mlflowCreateRegisteredModelResponse",
+    "mlflowGetRegisteredModelResponse",
+    "mlflowRenameRegisteredModelResponse",
+    "mlflowUpdateRegisteredModelResponse",
+    "mlflowListRegisteredModelsResponse",
+    "mlflowGetLatestVersionsResponse",
+    "mlflowCreateModelVersionResponse",
+    "mlflowUpdateModelVersionResponse",
+    "mlflowGetModelVersionResponse",
+    "mlflowSearchModelVersionsResponse",
+    "mlflowGetModelVersionDownloadUriResponse",
+    "mlflowTransitionModelVersionStageResponse",
+    "mlflowSearchRegisteredModelsResponse",
+    "mlflowSetRegisteredModelTagResponse",
+    "mlflowSetModelVersionTagResponse",
+    "mlflowDeleteRegisteredModelTagResponse",
+    "mlflowDeleteModelVersionTagResponse",
+    "mlflowGetModelVersionByAliasResponse",
+    # Other messages
+    "mlflowExperiment",
+    "mlflowRun",
+    "mlflowRunInfo",
+    "mlflowRunTag",
+    "mlflowExperimentTag",
+    "mlflowRunData",
+    "mlflowRunInputs",
+    "mlflowMetric",
+    "mlflowParam",
+    "mlflowFileInfo",
+    "mlflowRegisteredModel",
+    "mlflowModelVersion",
+    "mlflowModelVersionDetailed",
+    "mlflowModelVersionStatus",
+    "mlflowRegisteredModelTag",
+    "mlflowModelVersionTag",
+    "mlflowDeleteRegisteredModelAlias",
+    "mlflowGetModelVersionByAlias",
+    "mlflowRegisteredModelAlias",
+    "mlflowSetRegisteredModelAlias",
+    "mlflowDatasetInput",
+    "mlflowDataset",
+    "mlflowInputTag",
+    "mlflowDeploymentJobConnection",
+    "mlflowModelVersionDeploymentJobState",
+    "mlflowModelMetric",
+    "mlflowModelOutput",
+    "mlflowModelInput",
+    "mlflowRunOutputs",
+    "mlflowModelParam",
+]
 
+MLFLOW_PROTOS = [
+    "service.proto",
+    "model_registry.proto",
+    "webhooks.proto",
+]
 
-def create_argparser():
-    parser = argparse.ArgumentParser(
-        description="""
-This module converts a doc_public.json file created from the API files into
-.rst files that can be integrated directly into the documentation.
-"""
-    )
-    parser.add_argument("src", type=str, help="Path the doc public json FILE")
-    parser.add_argument("dst", type=str, help="Destination FOLDER for the rst files")
-    return parser
-
-
-if __name__ == "__main__":
-    src = "mlflow/protos/protos.json"
-    dst = "docs/api_reference/source/rest-api.rst"
-
-    API_VERSION = "2.0"
-    logging.info(
-        "SETTING API VERSION TO: {} EDIT api-sphinx-build.py TO CHANGE THIS VERSION".format(
-            API_VERSION
-        )
-    )
-    logging.info("Reading Source: " + src)
-
-    with open(src) as f:
-        docjson = json.load(f)
-
-    validate_doc_public_json(docjson)
-
-    proto_files = docjson["files"]
-
-    mlflow_description = dedent("""
+MLFLOW_DESCRIPTION = dedent("""
     The MLflow REST API allows you to create, list, and get experiments and runs, and log
     parameters, metrics, and artifacts. The API is hosted under the ``/api`` route on the MLflow
     tracking server. For example, to search for experiments on a tracking server hosted at
@@ -720,145 +685,33 @@ if __name__ == "__main__":
         The MLflow REST API requires content type ``application/json`` for all POST requests.
     """)
 
-    mlflow_protos = [
-        "service.proto",
-        "model_registry.proto",
-        "webhooks.proto",
-    ]
-    valid_mlflow_messages = [
-        # APIs
-        "mlflowCreateExperiment",
-        "mlflowListExperiments",
-        "mlflowSearchExperiments",
-        "mlflowGetExperiment",
-        "mlflowGetExperimentByName",
-        "mlflowDeleteExperiment",
-        "mlflowRestoreExperiment",
-        "mlflowUpdateExperiment",
-        "mlflowCreateRun",
-        "mlflowDeleteRun",
-        "mlflowDeleteRuns",
-        "mlflowRestoreRun",
-        "mlflowRestoreRuns",
-        "mlflowGetRun",
-        "mlflowLogMetric",
-        "mlflowLogBatch",
-        "mlflowLogModel",
-        "mlflowLogInputs",
-        "mlflowLogBatchResponse",
-        "mlflowSetExperimentTag",
-        "mlflowDeleteExperimentTag",
-        "mlflowSetTag",
-        "mlflowDeleteTag",
-        "mlflowLogParam",
-        "mlflowGetMetricHistory",
-        "mlflowSearchRuns",
-        "mlflowListArtifacts",
-        "mlflowUpdateRun",
-        "mlflowPurgeDeletedState",
-        "mlflowCreateRegisteredModel",
-        "mlflowGetRegisteredModel",
-        "mlflowRenameRegisteredModel",
-        "mlflowUpdateRegisteredModel",
-        "mlflowDeleteRegisteredModel",
-        "mlflowListRegisteredModels",
-        "mlflowGetLatestVersions",
-        "mlflowCreateModelVersion",
-        "mlflowGetModelVersion",
-        "mlflowUpdateModelVersion",
-        "mlflowDeleteModelVersion",
-        "mlflowSearchModelVersions",
-        "mlflowGetModelVersionDownloadUri",
-        "mlflowTransitionModelVersionStage",
-        "mlflowSearchRegisteredModels",
-        "mlflowSetRegisteredModelTag",
-        "mlflowSetModelVersionTag",
-        "mlflowDeleteRegisteredModelTag",
-        "mlflowDeleteModelVersionTag",
-        # Responses
-        "mlflowCreateExperimentResponse",
-        "mlflowListExperimentsResponse",
-        "mlflowSearchExperimentsResponse",
-        "mlflowGetExperimentResponse",
-        "mlflowGetExperimentByNameResponse",
-        "mlflowDeleteExperimentResponse",
-        "mlflowRestoreExperimentResponse",
-        "mlflowUpdateExperimentResponse",
-        "mlflowCreateRunResponse",
-        "mlflowDeleteRunResponse",
-        "mlflowDeleteRunsResponse",
-        "mlflowRestoreRunResponse",
-        "mlflowRestoreRunsResponse",
-        "mlflowGetRunResponse",
-        "mlflowLogMetricResponse",
-        "mlflowLogInputsResponse",
-        "mlflowLogParamResponse",
-        "mlflowSetExperimentTagResponse",
-        "mlflowSetTagResponse",
-        "mlflowDeleteTagResponse",
-        "mlflowGetMetricHistoryResponse",
-        "mlflowSearchRunsResponse",
-        "mlflowListArtifactsResponse",
-        "mlflowUpdateRunResponse",
-        "mlflowPurgeDeletedStateResponse",
-        "mlflowCreateRegisteredModelResponse",
-        "mlflowGetRegisteredModelResponse",
-        "mlflowRenameRegisteredModelResponse",
-        "mlflowUpdateRegisteredModelResponse",
-        "mlflowListRegisteredModelsResponse",
-        "mlflowGetLatestVersionsResponse",
-        "mlflowCreateModelVersionResponse",
-        "mlflowUpdateModelVersionResponse",
-        "mlflowGetModelVersionResponse",
-        "mlflowSearchModelVersionsResponse",
-        "mlflowGetModelVersionDownloadUriResponse",
-        "mlflowTransitionModelVersionStageResponse",
-        "mlflowSearchRegisteredModelsResponse",
-        "mlflowSetRegisteredModelTagResponse",
-        "mlflowSetModelVersionTagResponse",
-        "mlflowDeleteRegisteredModelTagResponse",
-        "mlflowDeleteModelVersionTagResponse",
-        "mlflowGetModelVersionByAliasResponse",
-        # Other messages
-        "mlflowExperiment",
-        "mlflowRun",
-        "mlflowRunInfo",
-        "mlflowRunTag",
-        "mlflowExperimentTag",
-        "mlflowRunData",
-        "mlflowRunInputs",
-        "mlflowMetric",
-        "mlflowParam",
-        "mlflowFileInfo",
-        "mlflowRegisteredModel",
-        "mlflowModelVersion",
-        "mlflowModelVersionDetailed",
-        "mlflowModelVersionStatus",
-        "mlflowRegisteredModelTag",
-        "mlflowModelVersionTag",
-        "mlflowDeleteRegisteredModelAlias",
-        "mlflowGetModelVersionByAlias",
-        "mlflowRegisteredModelAlias",
-        "mlflowSetRegisteredModelAlias",
-        "mlflowDatasetInput",
-        "mlflowDataset",
-        "mlflowInputTag",
-        "mlflowDeploymentJobConnection",
-        "mlflowModelVersionDeploymentJobState",
-        "mlflowModelMetric",
-        "mlflowModelOutput",
-        "mlflowModelInput",
-        "mlflowRunOutputs",
-        "mlflowModelParam",
-    ]
 
-    mlflowAPI = API(
-        "REST",
-        mlflow_description,
-        API_VERSION,
-        dst,
-        mlflow_protos,
+def main() -> None:
+    logging.basicConfig(format="%(levelname)s:%(lineno)d:%(message)s", level=logging.INFO)
+
+    src = Path("mlflow/protos/protos.json")
+    dst = Path("docs/api_reference/source/rest-api.rst")
+    api_version = "2.0"
+
+    _logger.info(f"API VERSION: {api_version}")
+    _logger.info(f"Reading Source: {src}")
+
+    with src.open() as f:
+        docjson = json.load(f)
+
+    _validate_doc_public_json(docjson)
+    proto_files = docjson["files"]
+
+    mlflow_api = API(
+        name="REST",
+        description=MLFLOW_DESCRIPTION,
+        api_version=api_version,
+        dst_path=dst,
+        valid_proto_files=MLFLOW_PROTOS,
     )
-    mlflowAPI.set_all(proto_files)
-    # Sort the methods based on the order in `valid_mlflow_messages` list.
-    mlflowAPI.write_rst(valid_mlflow_messages)
+    mlflow_api.set_all(proto_files)
+    mlflow_api.write_rst(VALID_MLFLOW_MESSAGES)
+
+
+if __name__ == "__main__":
+    main()
