@@ -6,7 +6,7 @@ import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-
 import { setupServer } from '../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { ScorerEvaluationScope } from './constants';
-import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
 
 jest.useFakeTimers();
 
@@ -174,7 +174,7 @@ describe('useEvaluateTracesAsync', () => {
       );
 
       // Initial state should be idle
-      expect(result.current[1].data).toBeNull();
+      expect(result.current[1].latestEvaluation).toBeNull();
       expect(result.current[1].isLoading).toBe(false);
       expect(result.current[1].error).toBeNull();
 
@@ -193,14 +193,14 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for job to complete and results to be available
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, finalState] = result.current;
 
       // Verify final state
-      expect(finalState.data).toHaveLength(1);
-      expect(finalState.data?.[0]).toEqual({
+      expect(finalState.latestEvaluation).toHaveLength(1);
+      expect(finalState.latestEvaluation?.[0]).toEqual({
         trace: mockTrace,
         results: [
           {
@@ -463,7 +463,7 @@ describe('useEvaluateTracesAsync', () => {
 
       // Wait for results
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       // Reset
@@ -473,7 +473,7 @@ describe('useEvaluateTracesAsync', () => {
 
       // Verify state is reset
       await waitFor(() => {
-        expect(result.current[1].data).toBeNull();
+        expect(result.current[1].latestEvaluation).toBeNull();
         expect(result.current[1].isLoading).toBe(false);
       });
     });
@@ -529,7 +529,7 @@ describe('useEvaluateTracesAsync', () => {
       });
 
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
         expect(result.current[1].isLoading).toBe(false);
       });
 
@@ -538,9 +538,9 @@ describe('useEvaluateTracesAsync', () => {
       // Job succeeded overall
       expect(state.error).toBeNull();
       // But individual trace has failure error
-      expect(state.data).toHaveLength(1);
-      expect(state.data?.[0].error).toBe('Scorer failed to process trace');
-      expect(state.data?.[0].results).toEqual([]);
+      expect(state.latestEvaluation).toHaveLength(1);
+      expect(state.latestEvaluation?.[0].error).toBe('Scorer failed to process trace');
+      expect(state.latestEvaluation?.[0].results).toEqual([]);
     });
   });
 
@@ -598,7 +598,7 @@ describe('useEvaluateTracesAsync', () => {
       });
 
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const pollCountAfterSuccess = pollCount;
@@ -657,10 +657,10 @@ describe('useEvaluateTracesAsync', () => {
       });
 
       // Wait for first evaluation to complete
-      await waitFor(() => result.current[1].data !== null);
+      await waitFor(() => result.current[1].latestEvaluation !== null);
 
       // Verify first evaluation is tracked
-      expect(Object.keys(result.current[1].evaluations).length).toBe(1);
+      expect(Object.keys(result.current[1].allEvaluations).length).toBe(1);
 
       // Start second evaluation
       await act(async () => {
@@ -676,17 +676,17 @@ describe('useEvaluateTracesAsync', () => {
 
       // Wait for second evaluation to also complete
       await waitFor(() => {
-        const keys = Object.keys(result.current[1].evaluations);
+        const keys = Object.keys(result.current[1].allEvaluations);
         return keys.length === 2;
       });
 
       const [, state] = result.current;
 
       // Verify evaluations contains both evaluation requests
-      expect(Object.keys(state.evaluations).length).toBe(2);
+      expect(Object.keys(state.allEvaluations).length).toBe(2);
 
       // Verify each evaluation is tracked with its own state
-      const evaluations = Object.values(state.evaluations);
+      const evaluations = Object.values(state.allEvaluations);
       expect(evaluations).toHaveLength(2);
 
       // Both evaluations should have unique request keys
@@ -694,7 +694,7 @@ describe('useEvaluateTracesAsync', () => {
       expect(new Set(requestKeys).size).toBe(2);
 
       // The latest evaluation's data should be in `data`
-      expect(state.data).toBeDefined();
+      expect(state.latestEvaluation).toBeDefined();
     });
   });
 
@@ -771,17 +771,17 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for evaluation to complete with results
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, state] = result.current;
 
       // Overall status should be SUCCEEDED (at least one job succeeded)
       expect(state.error).toBeNull();
-      expect(state.data).toHaveLength(2);
+      expect(state.latestEvaluation).toHaveLength(2);
 
       // trace-1 should have successful assessment
-      const trace1Result = state.data?.find(
+      const trace1Result = state.latestEvaluation?.find(
         (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-1',
       );
       expect(trace1Result).toBeDefined();
@@ -790,7 +790,7 @@ describe('useEvaluateTracesAsync', () => {
       expect(trace1Result?.error).toBeNull();
 
       // trace-2 should have error message from failed job
-      const trace2Result = state.data?.find(
+      const trace2Result = state.latestEvaluation?.find(
         (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-2',
       );
       expect(trace2Result).toBeDefined();
@@ -884,31 +884,31 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for evaluation to complete - status is SUCCEEDED because at least one job succeeded
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, state] = result.current;
 
       // Should have results from both jobs
-      expect(state.data).toHaveLength(3);
+      expect(state.latestEvaluation).toHaveLength(3);
       expect(state.error).toBeNull();
 
       // trace-1 should have assessment from successful job
-      const trace1Result = state.data?.find(
+      const trace1Result = state.latestEvaluation?.find(
         (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-1',
       );
       expect(trace1Result?.results).toHaveLength(1);
       expect((trace1Result?.results[0] as { numeric_value?: number }).numeric_value).toBe(0.95);
 
       // trace-2 should have assessment from failed job's per-trace data
-      const trace2Result = state.data?.find(
+      const trace2Result = state.latestEvaluation?.find(
         (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-2',
       );
       expect(trace2Result?.results).toHaveLength(1);
       expect((trace2Result?.results[0] as { numeric_value?: number }).numeric_value).toBe(0.8);
 
       // trace-3 should have error from failed job's failures array
-      const trace3Result = state.data?.find(
+      const trace3Result = state.latestEvaluation?.find(
         (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-3',
       );
       expect(trace3Result?.results).toEqual([]);
@@ -1015,15 +1015,15 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for job to complete and results to be available
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, finalState] = result.current;
 
       // Verify final state - should have one session result
-      expect(finalState.data).toHaveLength(1);
+      expect(finalState.latestEvaluation).toHaveLength(1);
 
-      const sessionResult = finalState.data![0];
+      const sessionResult = finalState.latestEvaluation?.[0] as JudgeEvaluationResult;
 
       // Verify it's a SessionJudgeEvaluationResult
       expect(isSessionJudgeEvaluationResult(sessionResult)).toBe(true);

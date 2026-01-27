@@ -195,7 +195,7 @@ describe('useEvaluateTraces', () => {
 
       const [evaluateTraces, state] = result.current;
 
-      expect(state.data).toBeNull();
+      expect(state.latestEvaluation).toBeNull();
       expect(state.isLoading).toBe(false);
       expect(state.error).toBeNull();
 
@@ -222,7 +222,7 @@ describe('useEvaluateTraces', () => {
       expect(evaluationResults).toEqual([expectedResult]);
 
       await waitFor(() => {
-        expect(result.current[1].data).toEqual([expectedResult]);
+        expect(result.current[1].latestEvaluation).toEqual([expectedResult]);
         expect(result.current[1].isLoading).toBe(false);
         expect(result.current[1].error).toBeNull();
       });
@@ -694,7 +694,7 @@ describe('useEvaluateTraces', () => {
 
       await waitFor(() => {
         expect(result.current[1].error).toBeNull();
-        expect(result.current[1].data).toEqual(evaluationResults);
+        expect(result.current[1].latestEvaluation).toEqual(evaluationResults);
       });
     });
 
@@ -737,7 +737,7 @@ describe('useEvaluateTraces', () => {
 
       await waitFor(() => {
         expect(result.current[1].error).toBeNull();
-        expect(result.current[1].data).toEqual(evaluationResults);
+        expect(result.current[1].latestEvaluation).toEqual(evaluationResults);
         expect(result.current[1].isLoading).toBe(false);
       });
     });
@@ -815,7 +815,7 @@ describe('useEvaluateTraces', () => {
 
       await waitFor(() => {
         expect(result.current[1].error).toBeNull();
-        expect(result.current[1].data).toEqual(evaluationResults);
+        expect(result.current[1].latestEvaluation).toEqual(evaluationResults);
         expect(result.current[1].isLoading).toBe(false);
       });
     });
@@ -864,7 +864,7 @@ describe('useEvaluateTraces', () => {
 
       await waitFor(() => {
         expect(result.current[1].error).toBeNull();
-        expect(result.current[1].data).toEqual(evaluationResults);
+        expect(result.current[1].latestEvaluation).toEqual(evaluationResults);
       });
     });
   });
@@ -945,7 +945,7 @@ describe('useEvaluateTraces', () => {
         ]);
 
         await waitFor(() => {
-          expect(result.current[1].data).toEqual(evaluationResults);
+          expect(result.current[1].latestEvaluation).toEqual(evaluationResults);
           expect(result.current[1].isLoading).toBe(false);
           expect(result.current[1].error).toBeNull();
         });
