@@ -5318,6 +5318,8 @@ def _create_prompt_optimization_job():
 
 
 def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.genai.optimize.job import OptimizerType
+
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
@@ -5331,6 +5333,32 @@ def _build_prompt_optimization_job_from_entity(job_entity):
 
     if run_id := params.get("run_id"):
         optimization_job.run_id = run_id
+
+    # Populate config from job params
+    config = optimization_job.config
+    if "optimizer_type" in params:
+        try:
+            optimizer_type = OptimizerType(params["optimizer_type"])
+            config.optimizer_type = optimizer_type.to_proto()
+        except (ValueError, KeyError):
+            pass
+    if params.get("dataset_id"):
+        config.dataset_id = params["dataset_id"]
+    if "scorer_names" in params:
+        try:
+            scorer_names = params["scorer_names"]
+            if isinstance(scorer_names, str):
+                scorer_names = json.loads(scorer_names)
+            if isinstance(scorer_names, list):
+                config.scorers.extend(scorer_names)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if params.get("optimizer_config"):
+        optimizer_config = params["optimizer_config"]
+        if isinstance(optimizer_config, dict):
+            config.optimizer_config_json = json.dumps(optimizer_config)
+        elif isinstance(optimizer_config, str):
+            config.optimizer_config_json = optimizer_config
 
     # Get optimized_prompt_uri from job result (only available when job succeeds)
     if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
@@ -5348,28 +5376,15 @@ def _build_prompt_optimization_job_from_entity(job_entity):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_prompt_optimization_job(job_id):
-    from mlflow.genai.optimize.job import OptimizerType
     from mlflow.server.jobs import get_job
 
     job_entity = get_job(job_id)
     optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
 
-    # Fetch MLflow run to get config params and metrics
+    # Fetch MLflow run to get evaluation scores from metrics
     try:
         mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
-        run_params = mlflow_run.data.params
         run_metrics = mlflow_run.data.metrics
-
-        config = optimization_job.config
-        if "optimizer_type" in run_params:
-            optimizer_type = OptimizerType(run_params["optimizer_type"])
-            config.optimizer_type = optimizer_type.to_proto()
-        if "dataset_id" in run_params:
-            config.dataset_id = run_params["dataset_id"]
-        if "scorer_names" in run_params:
-            config.scorers.extend(json.loads(run_params["scorer_names"]))
-        if "optimizer_config_json" in run_params:
-            config.optimizer_config_json = run_params["optimizer_config_json"]
 
         # Populate evaluation scores from run metrics
         # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
