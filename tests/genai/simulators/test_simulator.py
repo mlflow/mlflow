@@ -103,7 +103,10 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace") as mock_update_current_trace,
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         # Each turn: generate_message + _check_goal_achieved
         mock_invoke.side_effect = [
@@ -137,7 +140,10 @@ def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predic
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_invoke.side_effect = [
             "Test message",  # turn 0 generate_message
@@ -169,7 +175,10 @@ def test_conversation_simulator_empty_response_stopping(simple_test_case):
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_invoke.return_value = "Test message"
         mock_get_trace_id.return_value = "trace_123"
@@ -207,7 +216,10 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_invoke.side_effect = [
             "Test message",  # turn 0 generate_message
@@ -241,7 +253,10 @@ def test_conversation_simulator_context_passing(test_case_with_context):
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_invoke.side_effect = [
             "Test message",
@@ -288,7 +303,10 @@ def test_conversation_simulator_multiple_test_cases(
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         # 2 test cases * 2 turns each * 2 calls per turn = 8 calls
         mock_invoke.side_effect = [
@@ -491,7 +509,10 @@ def test_custom_user_agent_class(simple_test_case, mock_predict_fn):
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_get_trace_id.return_value = "trace_123"
         mock_trace_decorator.return_value = lambda fn: fn
@@ -531,7 +552,10 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
         patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.genai.simulators.simulator.mlflow.get_trace", return_value=mock_trace),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(store=Mock(batch_get_traces=lambda ids: [mock_trace] * len(ids))),
+        ),
     ):
         mock_get_trace_id.return_value = "trace_123"
         mock_trace_decorator.return_value = lambda fn: fn
