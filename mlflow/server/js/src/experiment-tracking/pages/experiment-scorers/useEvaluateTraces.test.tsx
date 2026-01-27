@@ -301,8 +301,10 @@ describe('useEvaluateTraces', () => {
         experimentId,
       });
 
+      // In sync mode, evaluationResults is an array
+      expect(Array.isArray(evaluationResults)).toBe(true);
       expect(evaluationResults).toHaveLength(3);
-      evaluationResults?.forEach((evalResult, index) => {
+      (evaluationResults as JudgeEvaluationResult[]).forEach((evalResult, index) => {
         expect(evalResult).toEqual({
           trace: mockTraces[index],
           results: [
@@ -1017,8 +1019,10 @@ describe('useEvaluateTraces', () => {
           experimentId,
         });
 
+        // In sync mode, evaluationResults is an array
+        expect(Array.isArray(evaluationResults)).toBe(true);
         expect(evaluationResults).toHaveLength(2);
-        evaluationResults?.forEach((evalResult, index) => {
+        (evaluationResults as JudgeEvaluationResult[]).forEach((evalResult, index) => {
           expect(evalResult).toEqual({
             trace: mockTraces[index],
             results: [
