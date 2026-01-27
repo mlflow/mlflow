@@ -1,4 +1,4 @@
-import { partition, uniqBy } from 'lodash';
+import { cloneDeep, partition, uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
 import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';

@@ -3,7 +3,7 @@ import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { isEmpty, isNil, partition, some } from 'lodash';
+import { first, isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
