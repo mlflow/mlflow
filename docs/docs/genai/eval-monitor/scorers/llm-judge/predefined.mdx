@@ -91,10 +91,10 @@ results = mlflow.genai.evaluate(
 
 ### Tool Call
 
-| Judge                                                                                    | What does it evaluate?                                       | Requires ground-truth? | Requires traces?      |
+| Judge                                                                                    | What does it evaluate?                                         | Requires ground-truth? | Requires traces?      |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------- | --------------------- |
-| <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink>\*\* | Are the tool calls and arguments correct for the user query? | No                     | ⚠️ **Trace Required** |
-| <APILink fn="mlflow.genai.scorers.ToolCallEfficiency">ToolCallEfficiency</APILink>\*\*   | Are the tool calls efficient without redundancy?             | No                     | ⚠️ **Trace Required** |
+| [ToolCallCorrectness](/genai/eval-monitor/scorers/llm-judge/tool-call/correctness)\*\* | Are the tool calls and arguments correct for the user query? | No                     | ⚠️ **Trace Required** |
+| [ToolCallEfficiency](/genai/eval-monitor/scorers/llm-judge/tool-call/efficiency)\*\*   | Are the tool calls efficient without redundancy?             | No                     | ⚠️ **Trace Required** |
 
 \*Can extract expectations from trace assessments if available.
 
