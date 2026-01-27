@@ -73,10 +73,14 @@ def create_mock_spans(diff_trace_id=False):
     mock_span1 = mock.MagicMock(spec=Span)
     mock_span1.trace_id = "trace123"
     mock_span1.to_otel_proto.return_value = otel_span1
+    mock_span1._span = mock.MagicMock()
+    mock_span1._span.resource = None
 
     mock_span2 = mock.MagicMock(spec=Span)
     mock_span2.trace_id = "trace456" if diff_trace_id else "trace123"
     mock_span2.to_otel_proto.return_value = otel_span2
+    mock_span2._span = mock.MagicMock()
+    mock_span2._span.resource = None
 
     return [mock_span1, mock_span2]
 
