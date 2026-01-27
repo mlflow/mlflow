@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from '@jest/globals';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import {
   useRegisterAssistantContext,
@@ -187,8 +188,7 @@ describe('useRegisterSelectedIds', () => {
     expect(ctx.current).toMatchObject({
       selectedRunIds: expect.arrayContaining(['run-1', 'run-2']),
     });
-    const runIds = ctx.current as Record<string, unknown>;
-    expect(runIds.selectedRunIds).toHaveLength(2);
+    expect(ctx.current['selectedRunIds']).toHaveLength(2);
 
     rerender({ rowSelection: noSelection });
     expect(ctx.current).not.toHaveProperty('selectedRunIds');
