@@ -1,18 +1,7 @@
 import copy
 import logging
-import warnings
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
-
-# Suppress Pydantic serialization warnings from LiteLLM response objects
-# These warnings occur when Message/Choices objects have fewer fields than expected
-# but don't affect functionality
-warnings.filterwarnings(
-    "ignore",
-    message="Pydantic serializer warnings:",
-    category=UserWarning,
-    module="pydantic.main",
-)
 
 import mlflow
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
