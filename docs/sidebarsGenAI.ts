@@ -567,6 +567,11 @@ const sidebarsGenAI: SidebarsConfig = {
               },
               items: [
                 {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines',
+                },
+                {
                   type: 'category',
                   label: 'RAG',
                   link: {
@@ -645,11 +650,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/make-judge',
                   label: 'Template-based',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/guidelines',
-                  label: 'Guidelines-based',
                 },
               ],
               collapsed: false,
