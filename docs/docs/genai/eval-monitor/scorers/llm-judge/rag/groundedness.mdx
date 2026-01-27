@@ -16,7 +16,7 @@ This built-in LLM judge is designed for evaluating RAG applications that need to
 1. Install MLflow and required packages
 
    ```bash
-   pip install --upgrade "mlflow[databricks]>=3.4.0"
+   pip install --upgrade "mlflow>=3.4.0"
    ```
 
 2. Create an MLflow experiment by following the [setup your environment quickstart](/genai/getting-started/connect-environment/).
@@ -82,10 +82,6 @@ Here's a complete example showing how to create a RAG application and evaluate i
 
    # Enable auto-tracing for OpenAI
    mlflow.openai.autolog()
-
-   # Set up MLflow tracking to Databricks
-   mlflow.set_tracking_uri("databricks")
-   mlflow.set_experiment("/Shared/docs-demo")
 
    # Create an OpenAI client connected to OpenAI SDKs
    client = openai.OpenAI()
