@@ -424,7 +424,7 @@ def distill_guidelines(
 
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS.get(),
-        thread_name_prefix="distill_guidelines",
+        thread_name_prefix="MLflowMemAlignDistillation",
     ) as executor:
         futures = {executor.submit(process_batch, batch): batch for batch in batches}
 
