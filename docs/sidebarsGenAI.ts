@@ -563,63 +563,85 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'category',
-                  label: 'LLM-as-a-Judge',
+                  label: 'RAG',
                   items: [
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/index',
-                      label: 'Overview',
+                      id: 'eval-monitor/scorers/llm-judge/rag/relevance',
+                      label: 'Answer and Context Relevance',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/make-judge',
-                      label: 'Template-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/groundedness',
+                      label: 'Groundedness',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/guidelines',
-                      label: 'Guidelines-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/context-sufficiency',
+                      label: 'Context Sufficiency',
                     },
                   ],
                   collapsed: false,
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/agentic-overview',
-                  label: 'Agent-as-a-Judge',
-                },
-                {
-                  type: 'category',
-                  label: 'Third-party Scorers',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'eval-monitor/scorers/third-party/deepeval',
-                      label: 'DeepEval',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'eval-monitor/scorers/third-party/ragas',
-                      label: 'RAGAS',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'eval-monitor/scorers/third-party/phoenix',
-                      label: 'Arize Phoenix',
-                    },
-                  ],
-                  collapsed: false,
-                  link: {
-                    type: 'doc',
-                    id: 'eval-monitor/scorers/third-party/index',
-                  },
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/custom',
-                  label: 'Code-based Scorers',
                 },
               ],
+            },
+            {
+              type: 'category',
+              label: 'LLM-as-a-Judge',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/index',
+                  label: 'Overview',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/make-judge',
+                  label: 'Template-based',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines-based',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/llm-judge/agentic-overview',
+              label: 'Agent-as-a-Judge',
+            },
+            {
+              type: 'category',
+              label: 'Third-party Scorers',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/third-party/deepeval',
+                  label: 'DeepEval',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/third-party/ragas',
+                  label: 'RAGAS',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/third-party/phoenix',
+                  label: 'Arize Phoenix',
+                },
+              ],
+              collapsed: false,
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/third-party/index',
+              },
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/custom',
+              label: 'Code-based Scorers',
             },
             {
               type: 'category',
