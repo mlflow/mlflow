@@ -1,3 +1,6 @@
+# /// script
+# dependencies = ["texttable"]
+# ///
 """Generate RST documentation from protobuf JSON definitions."""
 
 from __future__ import annotations
