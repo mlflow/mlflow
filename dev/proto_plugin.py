@@ -145,15 +145,13 @@ class ProtobufDocGenerator:
 
         if field.type in type_names:
             return type_names[field.type]
-        elif (
-            field.type == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE
-            or field.type == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM
+        elif field.type in (
+            descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+            descriptor_pb2.FieldDescriptorProto.TYPE_ENUM,
         ):
             # Remove leading dot if present
             type_name = field.type_name
-            if type_name.startswith("."):
-                type_name = type_name[1:]
-            return type_name
+            return type_name.removeprefix(".")
         else:
             return "unknown"
 
@@ -422,11 +420,9 @@ class ProtobufDocGenerator:
 
         # Remove leading dots from type names
         input_type = method.input_type
-        if input_type.startswith("."):
-            input_type = input_type[1:]
+        input_type = input_type.removeprefix(".")
         output_type = method.output_type
-        if output_type.startswith("."):
-            output_type = output_type[1:]
+        output_type = output_type.removeprefix(".")
 
         input_path = input_type.split(".")
         output_path = output_type.split(".")
