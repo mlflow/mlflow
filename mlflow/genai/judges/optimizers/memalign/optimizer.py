@@ -532,6 +532,12 @@ class MemAlignOptimizer(AlignmentOptimizer):
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
 
+    Note:
+        The number of parallel threads for LLM calls during guideline distillation can be
+        configured via the ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable
+        (default: 8). Increasing this value can speed up alignment when processing many
+        feedback examples, but may increase API rate limit errors.
+
     Example:
         .. code-block:: python
 
