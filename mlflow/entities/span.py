@@ -18,7 +18,7 @@ import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
@@ -721,9 +721,24 @@ class LiveSpan(Span):
             experiment_id=experiment_id,
         )
 
+        # If the tracer provider returns a NonRecordingSpan (no-op span), we cannot
+        # clone it into the in-memory trace manager because it does not carry
+        # attributes or a proper context that we can use. Fail fast with a clear
+        # error so callers can decide how to proceed (skip copying, initialize a
+        # recordable tracer provider, etc.). This avoids later KeyError/TypeError
+        # when attempting to index trace_manager._traces[trace_id].
+        if isinstance(otel_span, NonRecordingSpan):
+            raise MlflowException(
+                "Tracing provider returned a NonRecordingSpan (no-op). "
+                "copy_trace_to_experiment cannot clone no-op spans. "
+                "This typically happens when an external TracerProvider is already "
+                "initialized (e.g., in Databricks). Please ensure a recordable "
+                "tracer provider is available or skip copying the trace.",
+                INVALID_STATE,
+            )
+
         # The latter one from attributes is the newly generated trace ID by the span processor.
-        # Handle NonRecordingSpan case where attributes are not available
-        if not isinstance(otel_span, NonRecordingSpan) and hasattr(otel_span, 'attributes'):
+        if hasattr(otel_span, "attributes"):
             trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
         # Span processor registers a new span in the in-memory trace manager, but we want to pop it
         clone_span = trace_manager._traces[trace_id].span_dict.pop(
