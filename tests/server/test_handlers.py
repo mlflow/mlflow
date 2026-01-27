@@ -3580,7 +3580,36 @@ def test_get_prompt_optimization_job_with_progress(mock_tracking_store):
             assert job["state"]["metadata"]["progress"] == "0.43"
 
 
-def test_get_prompt_optimization_job_progress_with_default_max_metric_calls(mock_tracking_store):
+def test_get_prompt_optimization_job_progress_capped_at_one(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"max_metric_calls": 100, "reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        metrics={
+            "total_metric_calls": 150,  # Exceeds max_metric_calls
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            # Progress should be capped at 1.0, not 1.5
+            assert job["state"]["metadata"]["progress"] == "1.0"
+
+
+def test_get_prompt_optimization_job_no_progress_without_max_metric_calls(mock_tracking_store):
     mock_job = _create_mock_job(
         status_name="RUNNING",
         params={
@@ -3605,8 +3634,8 @@ def test_get_prompt_optimization_job_progress_with_default_max_metric_calls(mock
 
             data = response.get_json()
             job = data["job"]
-            # Progress should be 50 / 100 (default) = 0.5
-            assert job["state"]["metadata"]["progress"] == "0.5"
+            # Progress should NOT be set when max_metric_calls is not configured
+            assert "progress" not in job["state"].get("metadata", {})
 
 
 def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
