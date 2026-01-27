@@ -70,7 +70,7 @@ You MUST use skills for anything relating to:
 
 - Reading or analyzing traces and chat sessions
 - Searching for traces and chat sessions
-- Search for MLflow documentation
+- Searching for MLflow documentation
 - Running MLflow GenAI evaluation to evaluate traces or agents
 - Querying MLflow metrics
 - Anything else explicitly covered by a skill
