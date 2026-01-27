@@ -218,6 +218,7 @@ class GatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
+        usage_tracking: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -231,7 +232,10 @@ class GatewayStoreMixin:
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
             experiment_id: ID of the MLflow experiment where traces are logged.
-                          If not provided, an experiment will be auto-created.
+                          Only used when usage_tracking is True. If not provided
+                          and usage_tracking is True, an experiment will be auto-created.
+            usage_tracking: Whether to enable usage tracking for this endpoint.
+                           When True, traces will be logged for endpoint invocations.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -262,6 +266,7 @@ class GatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
+        usage_tracking: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -274,6 +279,10 @@ class GatewayStoreMixin:
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
             experiment_id: Optional new experiment ID for tracing.
+            usage_tracking: Optional flag to enable/disable usage tracking.
+                           When set to True, enables usage tracking and auto-creates
+                           experiment if not provided. When set to False, disables
+                           usage tracking (experiment_id is cleared).
 
         Returns:
             Updated Endpoint entity.

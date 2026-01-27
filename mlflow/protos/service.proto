@@ -4364,6 +4364,10 @@ message GatewayEndpoint {
   optional FallbackConfig fallback_config = 10;
   // ID of the MLflow experiment where traces for this endpoint are logged
   optional string experiment_id = 11;
+  // Whether usage tracking is enabled for this endpoint.
+  // When true, an experiment will be auto-created if not provided,
+  // and traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 12;
 }
 
 // Tag associated with an endpoint
@@ -4597,8 +4601,12 @@ message CreateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 4;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 5;
-  // Optional experiment ID for tracing. If not provided, an experiment will be auto-created.
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
+  // If not provided and usage_tracking is true, an experiment will be auto-created.
   optional string experiment_id = 6;
+  // Whether to enable usage tracking for this endpoint. Defaults to false.
+  // When true, traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 7;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4630,8 +4638,12 @@ message UpdateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 5;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 6;
-  // Optional experiment ID for tracing
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
   optional string experiment_id = 7;
+  // Whether to enable usage tracking for this endpoint.
+  // When set to true, traces will be logged for endpoint invocations.
+  // When set to false, usage tracking is disabled and experiment_id is cleared.
+  optional bool usage_tracking = 8;
 
   message Response {
     // The updated endpoint

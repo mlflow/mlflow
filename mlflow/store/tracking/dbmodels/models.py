@@ -2298,6 +2298,11 @@ class SqlGatewayEndpoint(Base):
     Experiment ID: `String` (limit 32 characters). ID of the MLflow experiment
     where traces for this endpoint are logged.
     """
+    usage_tracking = Column(Boolean, nullable=False, default=False)
+    """
+    Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
+    When true, traces will be logged for endpoint invocations.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2337,6 +2342,7 @@ class SqlGatewayEndpoint(Base):
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
             experiment_id=self.experiment_id,
+            usage_tracking=self.usage_tracking,
         )
 
 

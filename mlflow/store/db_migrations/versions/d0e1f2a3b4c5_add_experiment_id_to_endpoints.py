@@ -1,4 +1,4 @@
-"""add experiment_id to endpoints table
+"""add experiment_id and usage_tracking to endpoints table
 
 Create Date: 2025-01-13 00:00:00.000000
 
@@ -15,12 +15,16 @@ depends_on = None
 
 
 def upgrade():
-    # Add experiment_id column to endpoints table
+    # Add experiment_id and usage_tracking columns to endpoints table
     with op.batch_alter_table("endpoints", schema=None) as batch_op:
         batch_op.add_column(sa.Column("experiment_id", sa.String(length=32), nullable=True))
+        batch_op.add_column(
+            sa.Column("usage_tracking", sa.Boolean(), nullable=False, server_default="0")
+        )
 
 
 def downgrade():
-    # Remove experiment_id column from endpoints table
+    # Remove experiment_id and usage_tracking columns from endpoints table
     with op.batch_alter_table("endpoints", schema=None) as batch_op:
+        batch_op.drop_column("usage_tracking")
         batch_op.drop_column("experiment_id")

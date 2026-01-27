@@ -338,6 +338,7 @@ class GatewayEndpoint(_MlflowObject):
         routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
         fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
         experiment_id: ID of the MLflow experiment where traces for this endpoint are logged.
+        usage_tracking: Whether usage tracking is enabled for this endpoint.
     """
 
     endpoint_id: str
@@ -351,6 +352,7 @@ class GatewayEndpoint(_MlflowObject):
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
+    usage_tracking: bool = False
 
     def to_proto(self):
         proto = ProtoGatewayEndpoint()
@@ -372,6 +374,8 @@ class GatewayEndpoint(_MlflowObject):
         if self.experiment_id is not None:
             proto.experiment_id = self.experiment_id
 
+        proto.usage_tracking = self.usage_tracking
+
         return proto
 
     @classmethod
@@ -389,6 +393,8 @@ class GatewayEndpoint(_MlflowObject):
         if proto.HasField("experiment_id"):
             experiment_id = proto.experiment_id or None
 
+        usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else False
+
         return cls(
             endpoint_id=proto.endpoint_id,
             name=proto.name or None,
@@ -403,6 +409,7 @@ class GatewayEndpoint(_MlflowObject):
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
             experiment_id=experiment_id,
+            usage_tracking=usage_tracking,
         )
 
 

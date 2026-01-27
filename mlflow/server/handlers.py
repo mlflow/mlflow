@@ -4262,6 +4262,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=request_message.experiment_id if request_message.HasField("experiment_id") else None,
+        usage_tracking=request_message.usage_tracking if request_message.HasField("usage_tracking") else False,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4329,6 +4331,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=request_message.experiment_id if request_message.HasField("experiment_id") else None,
+        usage_tracking=request_message.usage_tracking if request_message.HasField("usage_tracking") else None,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
