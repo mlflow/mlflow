@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any
 # These warnings occur when Message/Choices objects have fewer fields than expected
 # but don't affect functionality. This filter is applied at module load time because
 # the warnings can be triggered asynchronously (e.g., during garbage collection)
-# after the LiteLLM call completes.
+# after the LiteLLM call completes. The regex matches LiteLLM-specific types.
 warnings.filterwarnings(
     "ignore",
-    message="Pydantic serializer warnings:",
+    message=r"Pydantic serializer warnings:[\s\S]*Expected `(Message|Choices|StreamingChoices)`",
     category=UserWarning,
     module="pydantic.main",
 )
