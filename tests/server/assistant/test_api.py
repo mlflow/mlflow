@@ -53,6 +53,7 @@ class MockProvider(AssistantProvider):
     async def astream(
         self,
         prompt: str,
+        tracking_uri: str,
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict | None = None,

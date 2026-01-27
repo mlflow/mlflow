@@ -104,6 +104,7 @@ describe('PromptsDetailsPage', () => {
 
     await userEvent.click(within(rowForVersion3).getByLabelText('Select as baseline version'));
     await userEvent.click(within(rowForVersion2).getByLabelText('Select as compared version'));
+    await userEvent.click(screen.getByRole('radio', { name: 'Text' }));
 
     // Mocked data contains following content for versions:
     // Version 1: content of prompt version 1

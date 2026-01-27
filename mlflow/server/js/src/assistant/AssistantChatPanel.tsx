@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CloseIcon,
+  GearIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -26,10 +27,13 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
+import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
+import { useAssistantPrompts } from '../common/utils/RoutingUtils';
+import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
-const COMPONENT_ID = 'mlflow.assistant.chat_panel';
+type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
 // Shared animation keyframes
 const PULSE_ANIMATION = {
@@ -140,7 +144,7 @@ const ChatMessageBubble = ({
               }}
             >
               {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? activeTools[0].description
+                ? `Tool: ${activeTools[0].description}`
                 : 'Processing'}
             </span>
           </div>
@@ -159,13 +163,13 @@ const ChatMessageBubble = ({
             transition: 'opacity 0.2s ease',
           }}
         >
-          <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content={copyTooltip}>
-            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={copyIcon} onClick={handleCopy} />
+          <Tooltip componentId="mlflow.assistant.chat_panel.copy.tooltip" content={copyTooltip}>
+            <Button componentId="mlflow.assistant.chat_panel.copy" size="small" icon={copyIcon} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
-            <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
+            <Tooltip componentId="mlflow.assistant.chat_panel.regenerate.tooltip" content="Regenerate">
               <Button
-                componentId={`${COMPONENT_ID}.regenerate`}
+                componentId="mlflow.assistant.chat_panel.regenerate"
                 size="small"
                 icon={<RefreshIcon />}
                 onClick={handleRegenerate}
@@ -183,12 +187,7 @@ const ChatMessageBubble = ({
  */
 const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void }) => {
   const { theme } = useDesignSystemTheme();
-
-  const suggestions = [
-    'What does this trace show?',
-    'Debug the error in this trace.',
-    'What is the performance bottleneck in this trace?',
-  ];
+  const suggestions = useAssistantPrompts();
 
   return (
     <div
@@ -227,7 +226,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
       >
         {suggestions.map((suggestion) => (
           <Card
-            componentId={`${COMPONENT_ID}.suggestion.card`}
+            componentId="mlflow.assistant.chat_panel.suggestion.card"
             key={suggestion}
             onClick={() => onSelect(suggestion)}
             css={{
@@ -358,11 +357,10 @@ const ChatPanelContent = () => {
         >
           <div css={{ display: 'flex', alignItems: 'center' }}>
             <input
-              placeholder="Ask a question about this trace..."
+              placeholder="Ask a question..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isStreaming}
               css={{
                 flex: 1,
                 border: 'none',
@@ -377,10 +375,6 @@ const ChatPanelContent = () => {
                 '&:focus': {
                   border: 'none',
                   outline: 'none',
-                },
-                '&:disabled': {
-                  cursor: 'not-allowed',
-                  opacity: 0.5,
                 },
               }}
             />
@@ -441,8 +435,59 @@ const SetupLoadingState = () => {
 };
 
 /**
+ * Message shown when server is not running locally.
+ * Assistant only works with local MLflow servers.
+ */
+const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 0,
+        padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 3,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+
+      <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
+        <FormattedMessage
+          defaultMessage="Assistant Not Available"
+          description="Title shown when Assistant is not available for remote servers"
+        />
+      </Typography.Title>
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
+          description="Message explaining that Assistant only works with local servers"
+        />
+      </Typography.Text>
+
+      <Button componentId="mlflow.assistant.chat_panel.remote_close" onClick={onClose}>
+        <FormattedMessage defaultMessage="Close" description="Button to close the assistant panel on remote servers" />
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Setup prompt shown when assistant is not set up yet.
- * Shows description and setup button.
+ * Shows empty state illustration and setup button.
  */
 const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -455,24 +500,13 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        padding: theme.spacing.lg,
-        gap: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
-      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
+      <AssistantWelcomeCarousel />
 
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        Ask questions about your experiments, traces, evaluations, and more.
-      </Typography.Text>
-
-      <Button componentId={`${COMPONENT_ID}.setup`} type="primary" onClick={onSetup}>
+      <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
         Get Started
       </Button>
     </div>
@@ -486,12 +520,11 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, completeSetup } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
-  // Track whether the user is in the setup wizard
-  const [isInSetupWizard, setIsInSetupWizard] = useState(false);
+  const [currentView, setCurrentView] = useState<CurrentView>('chat');
 
   const handleClose = useCallback(() => {
     closePanel();
@@ -502,39 +535,56 @@ export const AssistantChatPanel = () => {
   }, [reset]);
 
   const handleStartSetup = useCallback(() => {
-    setIsInSetupWizard(true);
+    setCurrentView('setup-wizard');
   }, []);
 
   const handleSetupComplete = useCallback(() => {
-    setIsInSetupWizard(false);
+    setCurrentView('chat');
     completeSetup();
   }, [completeSetup]);
 
-  // Determine what to show in the content area
+  const handleOpenSettings = useCallback(() => {
+    setCurrentView('settings');
+  }, []);
+
+  const handleBackFromSettings = useCallback(() => {
+    setCurrentView('chat');
+  }, []);
+
   const renderContent = () => {
+    // Show message for remote servers - Assistant only works locally
+    if (!isLocalServer) {
+      return <RemoteServerMessage onClose={handleClose} />;
+    }
+
     // Show loading state while fetching config
     if (isLoadingConfig) {
       return <SetupLoadingState />;
     }
 
-    // Show setup wizard if user clicked "Setup"
-    if (isInSetupWizard) {
-      // TODO: Part 3 will add the actual AssistantSetupWizard component here
-      // return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
-      return <SetupLoadingState />; // Placeholder until part 3
+    switch (currentView) {
+      case 'setup-wizard':
+        return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+      case 'settings':
+        return (
+          <AssistantSetupWizard
+            experimentId={experimentId}
+            onComplete={handleSetupComplete}
+            initialStep="project"
+            onBack={handleBackFromSettings}
+          />
+        );
+      case 'chat':
+      default:
+        if (!setupComplete) {
+          return <SetupPrompt onSetup={handleStartSetup} />;
+        }
+        return <ChatPanelContent />;
     }
-
-    // Show setup prompt if setup is incomplete
-    if (!setupComplete) {
-      return <SetupPrompt onSetup={handleStartSetup} />;
-    }
-
-    // Show chat panel content
-    return <ChatPanelContent />;
   };
 
   // Determine if we should show the chat controls (new chat button)
-  const showChatControls = setupComplete && !isInSetupWizard;
+  const showChatControls = setupComplete && currentView === 'chat';
 
   return (
     <div
@@ -566,25 +616,36 @@ export const AssistantChatPanel = () => {
         >
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
           <FormattedMessage defaultMessage="MLflow Assistant" description="Title for the global Assistant chat panel" />
-          <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise">
+          <Tag componentId="mlflow.assistant.chat_panel.beta" color="turquoise">
             Beta
           </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
-            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="Clear Chat">
-              <Button
-                componentId={`${COMPONENT_ID}.reset`}
-                size="small"
-                icon={<RefreshIcon />}
-                onClick={handleReset}
-                aria-label="Clear Chat"
-              />
-            </Tooltip>
+            <>
+              <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="New Chat">
+                <Button
+                  componentId="mlflow.assistant.chat_panel.reset"
+                  size="small"
+                  icon={<RefreshIcon />}
+                  onClick={handleReset}
+                  aria-label="New Chat"
+                />
+              </Tooltip>
+              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+                <Button
+                  componentId="mlflow.assistant.chat_panel.settings"
+                  size="small"
+                  icon={<GearIcon />}
+                  onClick={handleOpenSettings}
+                  aria-label="Settings"
+                />
+              </Tooltip>
+            </>
           )}
-          <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
+          <Tooltip componentId="mlflow.assistant.chat_panel.close.tooltip" content="Close">
             <Button
-              componentId={`${COMPONENT_ID}.close`}
+              componentId="mlflow.assistant.chat_panel.close"
               size="small"
               icon={<CloseIcon />}
               onClick={handleClose}
