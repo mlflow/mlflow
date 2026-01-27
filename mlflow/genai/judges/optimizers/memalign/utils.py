@@ -441,13 +441,13 @@ def distill_guidelines(
 
     # Deduplicate guidelines (since batches ran in parallel with the same existing_guideline_texts)
     seen_texts = set(existing_guidelines)
-    deduplicated_guidelines = []
+    new_guidelines = []
     for guideline in all_guidelines:
         if guideline.guideline_text not in seen_texts:
             seen_texts.add(guideline.guideline_text)
-            deduplicated_guidelines.append(guideline)
+            new_guidelines.append(guideline)
 
-    return deduplicated_guidelines
+    return new_guidelines
 
 
 def retrieve_relevant_examples(
