@@ -393,6 +393,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   },
   // Gateways
   {
+    id: 'mlflow-ai-gateway',
+    name: 'MLflow AI Gateway',
+    logoPath: '/images/logos/mlflow-logo.svg',
+    link: '/genai/tracing/integrations/listing/mlflow-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'databricks-ai-gateway',
+    name: 'Databricks',
+    logoPath: '/images/logos/databricks-logo.png',
+    link: '/genai/tracing/integrations/listing/databricks-ai-gateway',
+    category: 'Gateways',
+  },
+  {
     id: 'litellm-proxy',
     name: 'LiteLLM Proxy',
     logoPath: '/images/logos/litellm-logo.png',
