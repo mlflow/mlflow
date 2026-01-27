@@ -389,11 +389,11 @@ export const useEvaluateTracesAsync = ({
   return [
     evaluateTracesAsync,
     {
-      data: latestEvaluation?.results ?? null,
+      latestEvaluation: latestEvaluation?.results ?? null,
       isLoading: isJobStarting || (latestEvaluation && !latestEvaluation.results && !latestEvaluation.error) || false,
       error: startEvaluationJobError ?? latestEvaluation?.error ?? null,
       reset,
-      evaluations,
+      allEvaluations: evaluations,
     },
   ] as const;
 };

@@ -312,14 +312,14 @@ function parseAssessmentResponse(
  * State returned by useEvaluateTraces
  */
 export interface EvaluateTracesState {
-  data: JudgeEvaluationResult[] | null;
+  latestEvaluation: JudgeEvaluationResult[] | null;
   isLoading: boolean;
   error: Error | null;
   reset: () => void;
   /**
    * Results of all evaluations
    */
-  evaluations?: Record<string, ScorerEvaluation>;
+  allEvaluations?: Record<string, ScorerEvaluation>;
 }
 
 /**
@@ -615,7 +615,7 @@ export function useEvaluateTraces({
   return [
     evaluateTracesSync,
     {
-      data,
+      latestEvaluation: data,
       isLoading,
       error,
       reset,
