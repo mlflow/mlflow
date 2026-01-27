@@ -950,3 +950,213 @@ async def test_chat_proxy_forwards_additional_paths_from_env_vars(
         response = client.get(test_path)
         assert response.status_code == 200
         mock_request.assert_called_once()
+
+
+def test_return_trace_header_invoke_responses_agent():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-123"
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+        response = client.post(
+            "/invocations",
+            json=request_data,
+            headers={"x-mlflow-return-trace-id": "true"},
+        )
+        assert response.status_code == 200
+        response_json = response.json()
+        assert "output" in response_json
+        assert response_json["metadata"] == {"trace_id": "test-trace-id-123"}
+
+
+def test_return_trace_header_invoke_responses_agent_without_header():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-123"
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+        response = client.post("/invocations", json=request_data)
+        assert response.status_code == 200
+        response_json = response.json()
+        assert "output" in response_json
+        assert response_json.get("metadata") is None
+
+
+def test_return_trace_header_stream_responses_agent():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-456"
+        mock_span.return_value = mock_span_instance
+
+        @stream()
+        def test_stream(request):
+            yield ResponsesAgentStreamEvent(
+                type="response.output_item.done",
+                item={
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                },
+            )
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ],
+            "stream": True,
+        }
+
+        response = client.post(
+            "/invocations",
+            json=request_data,
+            headers={"x-mlflow-return-trace-id": "true"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+        content = response.text
+        assert 'data: {"trace_id": "test-trace-id-456"}' in content
+        assert "data: [DONE]" in content
+
+
+def test_return_trace_header_stream_responses_agent_without_header():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-456"
+        mock_span.return_value = mock_span_instance
+
+        @stream()
+        def test_stream(request):
+            yield ResponsesAgentStreamEvent(
+                type="response.output_item.done",
+                item={
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                },
+            )
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ],
+            "stream": True,
+        }
+
+        response = client.post("/invocations", json=request_data)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+        content = response.text
+        assert "trace_id" not in content
+        assert "data: [DONE]" in content
+
+
+def test_return_trace_header_stream_non_responses_agent():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span_instance.trace_id = "test-trace-id-789"
+        mock_span.return_value = mock_span_instance
+
+        @stream()
+        def test_stream(request):
+            yield {"type": "custom_event", "data": "chunk"}
+
+        server = AgentServer()  # No agent_type (not ResponsesAgent)
+        client = TestClient(server.app)
+
+        request_data = {"input": "test", "stream": True}
+
+        response = client.post(
+            "/invocations",
+            json=request_data,
+            headers={"x-mlflow-return-trace-id": "true"},
+        )
+        assert response.status_code == 200
+
+        content = response.text
+        # trace_id should NOT be included for non-ResponsesAgent even with header
+        assert "trace_id" not in content
+        assert "data: [DONE]" in content

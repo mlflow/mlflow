@@ -260,7 +260,7 @@ class AgentServer:
         )
 
         is_streaming = data.pop(STREAM_KEY, False)
-        return_trace = bool(get_request_headers().get(RETURN_TRACE_HEADER, False))
+        return_trace_id = bool(get_request_headers().get(RETURN_TRACE_HEADER, False))
 
         try:
             request_data = self.validator.validate_and_convert_request(data)
@@ -271,12 +271,12 @@ class AgentServer:
             )
 
         if is_streaming:
-            return await self._handle_stream_request(request_data, return_trace)
+            return await self._handle_stream_request(request_data, return_trace_id)
         else:
-            return await self._handle_invoke_request(request_data, return_trace)
+            return await self._handle_invoke_request(request_data, return_trace_id)
 
     async def _handle_invoke_request(
-        self, request: dict[str, Any], return_trace: bool
+        self, request: dict[str, Any], return_trace_id: bool
     ) -> dict[str, Any]:
         if _invoke_function is None:
             raise HTTPException(status_code=500, detail="No invoke function registered")
@@ -295,8 +295,10 @@ class AgentServer:
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
-                    if return_trace:
-                        result.metadata = (result.metadata or {}) | {"trace_id": span.trace_id}
+                    if return_trace_id:
+                        result["metadata"] = (result.get("metadata") or {}) | {
+                            "trace_id": span.trace_id
+                        }
                 span.set_outputs(result)
 
             logger.debug(
@@ -326,7 +328,7 @@ class AgentServer:
         self,
         func: Callable[..., Any],
         request: dict[str, Any],
-        return_trace: bool,
+        return_trace_id: bool,
     ) -> AsyncGenerator[str, None]:
         func_name = func.__name__
         all_chunks: list[dict[str, Any]] = []
@@ -347,7 +349,7 @@ class AgentServer:
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
-                    if return_trace:
+                    if return_trace_id:
                         yield f"data: {json.dumps({'trace_id': span.trace_id})}\n\n"
                 else:
                     span.set_outputs(all_chunks)
@@ -378,12 +380,13 @@ class AgentServer:
             yield "data: [DONE]\n\n"
 
     async def _handle_stream_request(
-        self, request: dict[str, Any], return_trace: bool = False
+        self, request: dict[str, Any], return_trace_id: bool = False
     ) -> StreamingResponse:
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
         return StreamingResponse(
-            self._generate(_stream_function, request, return_trace), media_type="text/event-stream"
+            self._generate(_stream_function, request, return_trace_id),
+            media_type="text/event-stream",
         )
 
     @staticmethod
