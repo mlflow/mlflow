@@ -262,6 +262,7 @@ const RunJudgeModalImpl = ({
               }}
               hideCreateNewEndpointButton
               triggerSize="small"
+              autoSelectFirstEndpoint
             />
           </div>
         )}
