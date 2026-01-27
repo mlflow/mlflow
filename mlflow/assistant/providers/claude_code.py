@@ -97,10 +97,10 @@ ALWAYS abide by the following rules:
 ## CRITICAL: Complete All Work Before Finishing Your Response
 
 You may provide progress updates throughout the process, but do NOT finish your response until ALL
-work — including work done by subagents — is fully complete. The user
-interacts with you through a
-UI that does not support fetching results from async subagents. If you finish responding before
-subagent work is done, the user will never see those results. Always wait for all subagent tasks
+work — including work done by subagents — is fully complete. The user interacts with you
+through a UI that does not support fetching results from async subagents. If you finish
+responding before subagent work is done, the user will never see those results. Always wait for
+all subagent tasks
 to finish and include their results in your final response.
 
 ## MLflow Server Connection (Pre-configured)
