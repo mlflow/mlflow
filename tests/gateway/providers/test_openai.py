@@ -1101,6 +1101,19 @@ async def test_azure_openai_passthrough_chat_removes_model():
 
 
 @pytest.mark.asyncio
+async def test_validate_passthrough_action_error_shows_correct_endpoint():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    with pytest.raises(
+        AIGatewayException,
+        match=r"Unsupported passthrough endpoint "
+        r"'/gemini/v1beta/models/\{endpoint_name\}:generateContent' for OpenAI provider",
+    ):
+        provider._validate_passthrough_action(PassthroughAction.GEMINI_GENERATE_CONTENT)
+
+
+@pytest.mark.asyncio
 async def test_chat_with_structured_output():
     config = EndpointConfig(**chat_config())
     provider = OpenAIProvider(config)

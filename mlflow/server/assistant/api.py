@@ -8,14 +8,21 @@ enabling AI-powered helper through a chat interface.
 import ipaddress
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from mlflow.assistant import get_project_path
+from mlflow.assistant import clear_project_path_cache, get_project_path
+from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.providers.base import (
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    clear_config_cache,
+)
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager
 
@@ -71,9 +78,27 @@ class MessageResponse(BaseModel):
     stream_url: str
 
 
-class GetStatusResponse(BaseModel):
-    provider: str
-    available: bool
+# Config-related models
+class ConfigResponse(BaseModel):
+    providers: dict[str, Any] = Field(default_factory=dict)
+    projects: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConfigUpdateRequest(BaseModel):
+    providers: dict[str, Any] | None = None
+    projects: dict[str, Any] | None = None
+
+
+# Skills-related models
+class SkillsInstallRequest(BaseModel):
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None  # Required if type="custom"
+    experiment_id: str | None = None  # Used to get project_path for type="project"
+
+
+class SkillsInstallResponse(BaseModel):
+    installed_skills: list[str]
+    skills_directory: str
 
 
 @assistant_router.post("/message")
@@ -113,11 +138,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
-async def stream_response(session_id: str) -> StreamingResponse:
+async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
 
     Args:
+        request: The FastAPI request object
         session_id: The session ID returned from /message
 
     Returns:
@@ -133,10 +159,17 @@ async def stream_response(session_id: str) -> StreamingResponse:
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
 
+    # Extract the MLflow server URL from the request for the assistant to use.
+    # This assumes the assistant is accessing the same MLflow server that serves this API,
+    # which works because the assistant endpoint is localhost-only.
+    # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
+    tracking_uri = str(request.base_url).rstrip("/")
+
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
         async for event in _provider.astream(
             prompt=pending_message.content,
+            tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
             cwd=session.working_dir,
             context=session.context,
@@ -159,15 +192,154 @@ async def stream_response(session_id: str) -> StreamingResponse:
     )
 
 
-@assistant_router.get("/status")
-async def get_status() -> GetStatusResponse:
+@assistant_router.get("/providers/{provider}/health")
+async def provider_health_check(provider: str) -> dict[str, str]:
     """
-    Get the status of the assistant provider.
+    Check if a specific provider is ready (CLI installed and authenticated).
+
+    Args:
+        provider: The provider name (e.g., "claude_code").
 
     Returns:
-        Provider status including availability
+        200 with { status: "ok" } if ready.
+
+    Raises:
+        HTTPException 404: If provider is not found.
+        HTTPException 412: If preconditions not met (CLI not installed or not authenticated).
     """
-    return GetStatusResponse(
-        provider=_provider.name,
-        available=_provider.is_available(),
+    # TODO: Support multiple providers via registry
+    if provider != _provider.name:
+        raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
+
+    try:
+        _provider.check_connection()
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except NotAuthenticatedError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    return {"status": "ok"}
+
+
+@assistant_router.get("/config")
+async def get_config() -> ConfigResponse:
+    """
+    Get the current assistant configuration.
+
+    Returns:
+        Current configuration including providers and projects.
+    """
+    config = AssistantConfig.load()
+    return ConfigResponse(
+        providers={name: p.model_dump() for name, p in config.providers.items()},
+        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
     )
+
+
+@assistant_router.put("/config")
+async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
+    """
+    Update the assistant configuration.
+
+    Args:
+        request: Partial configuration update.
+
+    Returns:
+        Updated configuration.
+    """
+    config = AssistantConfig.load()
+
+    # Update providers
+    if request.providers:
+        for name, provider_data in request.providers.items():
+            model = provider_data.get("model", "default")
+            permissions = None
+            if "permissions" in provider_data:
+                perm_data = provider_data["permissions"]
+                permissions = PermissionsConfig(
+                    allow_edit_files=perm_data.get("allow_edit_files", True),
+                    allow_read_docs=perm_data.get("allow_read_docs", True),
+                    full_access=perm_data.get("full_access", False),
+                )
+            config.set_provider(name, model, permissions)
+
+    # Update projects
+    if request.projects:
+        for exp_id, project_data in request.projects.items():
+            if project_data is None:
+                # Remove project mapping
+                config.projects.pop(exp_id, None)
+            else:
+                location = project_data.get("location", "")
+                project_path = Path(location).expanduser()
+                if not project_path or not project_path.exists():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Project path does not exist: {location}",
+                    )
+                config.projects[exp_id] = ProjectConfig(
+                    type=project_data.get("type", "local"),
+                    location=str(project_path),
+                )
+
+    config.save()
+
+    # Clear caches so provider and project path lookups pick up new settings
+    clear_config_cache()
+    clear_project_path_cache()
+
+    return ConfigResponse(
+        providers={name: p.model_dump() for name, p in config.providers.items()},
+        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+    )
+
+
+@assistant_router.post("/skills/install")
+async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+    """
+    Install skills bundled with MLflow.
+    This endpoint only handles installation. Config updates should be done via PUT /config.
+
+    Args:
+        request: SkillsInstallRequest with type, custom_path, and experiment_id.
+
+    Returns:
+        SkillsInstallResponse with installed skill names and directory.
+
+    Raises:
+        HTTPException 400: If custom type without custom_path or project type without experiment_id.
+    """
+    config = AssistantConfig.load()
+
+    # Resolve project_path for "project" type
+    project_path: Path | None = None
+    if request.type == "project":
+        if not request.experiment_id:
+            raise HTTPException(status_code=400, detail="experiment_id required for 'project' type")
+        project_location = config.get_project_path(request.experiment_id)
+        if not project_location:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No project path configured for experiment {request.experiment_id}",
+            )
+        project_path = Path(project_location)
+
+    # Get the destination path to install skills to
+    match request.type:
+        case "global":
+            destination = _provider.resolve_skills_path(Path.home())
+        case "project":
+            destination = _provider.resolve_skills_path(project_path)
+        case "custom":
+            destination = Path(request.custom_path).expanduser()
+
+    # Check if skills already exist - skip re-installation
+    if destination.exists():
+        if current_skills := list_installed_skills(destination):
+            return SkillsInstallResponse(
+                installed_skills=current_skills, skills_directory=str(destination)
+            )
+
+    installed = install_skills(destination)
+
+    return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))

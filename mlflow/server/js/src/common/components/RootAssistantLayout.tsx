@@ -7,7 +7,6 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAssistant } from '../../assistant/AssistantContext';
 import { AssistantChatPanel } from '../../assistant/AssistantChatPanel';
-import { AssistantButton } from '../../assistant/AssistantButton';
 
 const MIN_PANEL_WIDTH = 300;
 const MAX_PANEL_WIDTH_PERCENT = 60;
@@ -21,31 +20,34 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
 
   const showPanel = isPanelOpen;
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingRef.current = true;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return;
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!isDraggingRef.current) return;
 
-      const windowWidth = window.innerWidth;
-      const distanceFromRight = windowWidth - e.clientX - theme.spacing.md;
-      const newWidthPercent = (distanceFromRight / windowWidth) * 100;
+        const windowWidth = window.innerWidth;
+        const distanceFromRight = windowWidth - e.clientX - theme.spacing.md;
+        const newWidthPercent = (distanceFromRight / windowWidth) * 100;
 
-      const minPercent = (MIN_PANEL_WIDTH / windowWidth) * 100;
-      const clampedWidth = Math.max(minPercent, Math.min(MAX_PANEL_WIDTH_PERCENT, newWidthPercent));
-      setPanelWidthPercent(clampedWidth);
-    };
+        const minPercent = (MIN_PANEL_WIDTH / windowWidth) * 100;
+        const clampedWidth = Math.max(minPercent, Math.min(MAX_PANEL_WIDTH_PERCENT, newWidthPercent));
+        setPanelWidthPercent(clampedWidth);
+      };
 
-    const handleMouseUp = () => {
-      isDraggingRef.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+      const handleMouseUp = () => {
+        isDraggingRef.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+    [theme.spacing.md],
+  );
 
   return (
     <>
@@ -91,8 +93,6 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
           </div>
         )}
       </div>
-
-      {!isPanelOpen && <AssistantButton />}
     </>
   );
 };

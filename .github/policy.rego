@@ -104,6 +104,12 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_scheduled_workflow_without_repo_check contains msg if {
+	input["true"].schedule
+	not any_job_has_repo_check(input.jobs)
+	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
+}
+
 ###########################   RULE HELPERS   ##################################
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs
@@ -144,4 +150,13 @@ unpinned_actions(inp) := unpinned if {
 		some step in inp.runs.steps
 		is_step_unpinned(step)
 	}
+}
+
+any_job_has_repo_check(jobs) if {
+	some job in jobs
+	job_has_repo_check(job)
+}
+
+job_has_repo_check(job) if {
+	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }
