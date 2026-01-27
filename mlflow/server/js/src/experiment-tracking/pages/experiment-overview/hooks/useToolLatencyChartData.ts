@@ -39,13 +39,23 @@ export interface UseToolLatencyChartDataResult {
  * @returns Processed chart data, tool names, loading state, and error state
  */
 export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
-  // Filter for TOOL type spans
-  const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
+  const {
+    experimentIds,
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
+    filters: contextFilters,
+  } = useOverviewChartContext();
+  // Filter for TOOL type spans, combined with context filters
+  const toolFilter = useMemo(
+    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), ...(contextFilters || [])],
+    [contextFilters],
+  );
 
   // Query average latency grouped by span_name and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

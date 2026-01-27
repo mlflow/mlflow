@@ -33,7 +33,8 @@ export interface DateRange {
 
 type TracesV3DateSelectorRefreshButtonComponentId =
   | 'mlflow.experiment-evaluation-monitoring.refresh-date-button'
-  | 'mlflow.experiment.overview.refresh-button';
+  | 'mlflow.experiment.overview.refresh-button'
+  | 'mlflow.gateway.endpoint.usage.refresh-button';
 
 interface TracesV3DateSelectorProps {
   /** Optional list of time label keys to exclude from the dropdown */

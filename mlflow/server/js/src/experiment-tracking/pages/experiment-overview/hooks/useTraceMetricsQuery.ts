@@ -26,7 +26,8 @@ async function queryTraceMetrics(params: QueryTraceMetricsRequest): Promise<Quer
 }
 
 interface UseTraceMetricsQueryParams {
-  experimentId: string;
+  /** Experiment IDs to query metrics for */
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   viewType: MetricViewType;
@@ -43,7 +44,7 @@ interface UseTraceMetricsQueryParams {
 }
 
 export function useTraceMetricsQuery({
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   viewType,
@@ -55,7 +56,7 @@ export function useTraceMetricsQuery({
   enabled = true,
 }: UseTraceMetricsQueryParams) {
   const queryParams: QueryTraceMetricsRequest = {
-    experiment_ids: [experimentId],
+    experiment_ids: experimentIds,
     view_type: viewType,
     metric_name: metricName,
     aggregations,
@@ -69,7 +70,7 @@ export function useTraceMetricsQuery({
   return useQuery({
     queryKey: [
       TRACE_METRICS_QUERY_KEY,
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       viewType,
@@ -83,7 +84,7 @@ export function useTraceMetricsQuery({
       const response = await queryTraceMetrics(queryParams);
       return response;
     },
-    enabled: !!experimentId && enabled,
+    enabled: experimentIds.length > 0 && enabled,
     refetchOnWindowFocus: false,
   });
 }

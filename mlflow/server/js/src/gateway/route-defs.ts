@@ -16,6 +16,12 @@ export const getGatewayRouteDefs = () => {
           handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
         },
         {
+          path: 'usage',
+          element: createLazyRouteElement(() => import('./pages/GatewayUsagePage')),
+          pageId: GatewayPageId.usagePage,
+          handle: { getPageTitle: () => 'Usage' } satisfies DocumentTitleHandle,
+        },
+        {
           path: 'endpoints/create',
           element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
           pageId: GatewayPageId.createEndpointPage,
