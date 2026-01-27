@@ -22,6 +22,259 @@ tracking server. For example, to search for experiments on a tracking server hos
 
 
 
+.. _mlflowartifactsMlflowArtifactsServiceabortMultipartUpload:
+
+Abort an Artifact Multipart Upload
+==================================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/mpu/abort/<path:artifact_path>`` | ``POST``    |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsAbortMultipartUpload:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| path       | ``STRING`` |             |
++------------+------------+-------------+
+| upload_id  | ``STRING`` |             |
++------------+------------+-------------+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicecompleteMultipartUpload:
+
+Complete an Artifact Multipart Upload
+=====================================
+
+
++------------------------------------------------------------+-------------+
+|                          Endpoint                          | HTTP Method |
++============================================================+=============+
+| ``2.0/mlflow-artifacts/mpu/complete/<path:artifact_path>`` | ``POST``    |
++------------------------------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsCompleteMultipartUpload:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+-------------------------------------------------------+-------------+
+| Field Name |                         Type                          | Description |
++============+=======================================================+=============+
+| path       | ``STRING``                                            |             |
++------------+-------------------------------------------------------+-------------+
+| upload_id  | ``STRING``                                            |             |
++------------+-------------------------------------------------------+-------------+
+| parts      | An array of :ref:`mlflowartifactsmultipartuploadpart` |             |
++------------+-------------------------------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicecreateMultipartUpload:
+
+Create an Artifact Multipart Upload
+===================================
+
+
++----------------------------------------------------------+-------------+
+|                         Endpoint                         | HTTP Method |
++==========================================================+=============+
+| ``2.0/mlflow-artifacts/mpu/create/<path:artifact_path>`` | ``POST``    |
++----------------------------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsCreateMultipartUpload:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| path       | ``STRING`` |             |
++------------+------------+-------------+
+| num_parts  | ``INT64``  |             |
++------------+------------+-------------+
+
+.. _mlflowartifactsCreateMultipartUploadResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-------------+-------------------------------------------------------------+-------------+
+| Field Name  |                            Type                             | Description |
++=============+=============================================================+=============+
+| upload_id   | ``STRING``                                                  |             |
++-------------+-------------------------------------------------------------+-------------+
+| credentials | An array of :ref:`mlflowartifactsmultipartuploadcredential` |             |
++-------------+-------------------------------------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicedeleteArtifact:
+
+Delete Artifacts
+================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/artifacts/<path:artifact_path>`` | ``DELETE``  |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicedownloadArtifact:
+
+Download Artifact
+=================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/artifacts/<path:artifact_path>`` | ``GET``     |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicelistArtifacts:
+
+List Artifacts
+==============
+
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``2.0/mlflow-artifacts/artifacts`` | ``GET``     |
++------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsListArtifacts:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-----------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                       Description                                       |
++============+============+=========================================================================================+
+| path       | ``STRING`` | Filter artifacts matching this path (a relative path from the root artifact directory). |
++------------+------------+-----------------------------------------------------------------------------------------+
+
+.. _mlflowartifactsListArtifactsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+--------------------------------------------+-------------------------------------------+
+| Field Name |                    Type                    |                Description                |
++============+============================================+===========================================+
+| files      | An array of :ref:`mlflowartifactsfileinfo` | File location and metadata for artifacts. |
++------------+--------------------------------------------+-------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServiceuploadArtifact:
+
+Upload Artifact
+===============
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/artifacts/<path:artifact_path>`` | ``PUT``     |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+===========================
+
+
+
 .. _mlflowMlflowServiceattachModelToEndpoint:
 
 Attach Model to Endpoint
@@ -4585,6 +4838,104 @@ AddDatasetToExperiments
 | experiment_ids | An array of ``STRING`` | Experiment IDs to associate with the dataset |
 +----------------+------------------------+----------------------------------------------+
 
+.. _mlflowassessmentsAssessment:
+
+Assessment
+----------
+
+
+
+Data and metadata for an assessment of a trace.
+
+
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+|           Field Name            |                                  Type                                   |                                       Description                                        |
++=================================+=========================================================================+==========================================================================================+
+| assessment_id                   | ``STRING``                                                              | Unique ID of the assessment.                                                             |
+|                                 |                                                                         | NB: This is not marked as required field via "validate_required", because the message is |
+|                                 |                                                                         |  used in the context of creating a new assessment, where the ID is not known.            |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| assessment_name                 | ``STRING``                                                              | Name of the assessment. The name must not contain ".".                                   |
+|                                 |                                                                         | This field is required.                                                                  |
+|                                 |                                                                         |                                                                                          |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| trace_id                        | ``STRING``                                                              | ID of the trace this assessment is associated with.                                      |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| span_id                         | ``STRING``                                                              | ID of the span if the assessment is for a particular span (optional).                    |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| source                          | :ref:`mlflowassessmentsassessmentsource`                                | The source this assessment came from.                                                    |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| create_time                     | :ref:`googleprotobuftimestamp`                                          | The creation time of this assessment.                                                    |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| last_update_time                | :ref:`googleprotobuftimestamp`                                          | The last update time of this assessment.                                                 |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| rationale                       | ``STRING``                                                              | Justification for the assessment.                                                        |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| metadata                        | An array of :ref:`mlflowassessmentsassessmentmetadataentry`             | Additional metadata describing the assessment and store additional information,          |
+|                                 |                                                                         | such as the chunk relevance chunk_index. This metadata is required to be JSON-           |
+|                                 |                                                                         | serializable.                                                                            |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| overrides                       | ``STRING``                                                              | The ID of the assessment which this assessment overrides.                                |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| valid                           | ``BOOL``                                                                | Whether this assessment is valid (i.e. has not been superseded)                          |
+|                                 |                                                                         | defaults to true, and is set to false if a new superseding assessment                    |
+|                                 |                                                                         | is created.                                                                              |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+| ``feedback`` OR ``expectation`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation` |                                                                                          |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         | If ``feedback``, the feedback on the trace from this assessment.                         |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         |                                                                                          |
+|                                 |                                                                         | If ``expectation``, a representation of the guidelines and/or expected response from the |
+|                                 |                                                                         | agent.                                                                                   |
++---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
+
+.. _mlflowassessmentsAssessmentError:
+
+AssessmentError
+---------------
+
+
+
+
+
+
++---------------+------------+---------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                         Description                                         |
++===============+============+=============================================================================================+
+| error_code    | ``STRING`` | Value of an assessment when an error has occurred.                                          |
++---------------+------------+---------------------------------------------------------------------------------------------+
+| error_message | ``STRING`` |                                                                                             |
++---------------+------------+---------------------------------------------------------------------------------------------+
+| stack_trace   | ``STRING`` | Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large. |
++---------------+------------+---------------------------------------------------------------------------------------------+
+
+.. _mlflowassessmentsAssessmentSource:
+
+AssessmentSource
+----------------
+
+
+
+
+
+
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
+| Field Name  |                        Type                        |                                                Description                                                |
++=============+====================================================+===========================================================================================================+
+| source_type | :ref:`mlflowassessmentsassessmentsourcesourcetype` | The type of the source.                                                                                   |
+|             |                                                    | This field is required.                                                                                   |
+|             |                                                    |                                                                                                           |
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
+| source_id   | ``STRING``                                         | Identifier for the source.                                                                                |
+|             |                                                    | Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty. |
+|             |                                                    | This field is required.                                                                                   |
+|             |                                                    |                                                                                                           |
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
+
 .. _mlflowGatewaySecretInfoAuthConfigEntry:
 
 AuthConfigEntry
@@ -4816,6 +5167,42 @@ Dataset
 | dataset_digest | ``STRING`` | The digest of the dataset. |
 +----------------+------------+----------------------------+
 
+.. _mlflowdatasetsDataset:
+
+Dataset
+-------
+
+
+
+
+
+
++------------------+------------------------+----------------------------------------------------------------------+
+|    Field Name    |          Type          |                             Description                              |
++==================+========================+======================================================================+
+| dataset_id       | ``STRING``             | Unique identifier for the dataset                                    |
++------------------+------------------------+----------------------------------------------------------------------+
+| name             | ``STRING``             | Dataset name (user-friendly identifier)                              |
++------------------+------------------------+----------------------------------------------------------------------+
+| tags             | ``STRING``             | Tags as JSON string (key-value pairs for metadata)                   |
++------------------+------------------------+----------------------------------------------------------------------+
+| schema           | ``STRING``             | Schema information (JSON)                                            |
++------------------+------------------------+----------------------------------------------------------------------+
+| profile          | ``STRING``             | Profile information (JSON)                                           |
++------------------+------------------------+----------------------------------------------------------------------+
+| digest           | ``STRING``             | Dataset digest for integrity checking                                |
++------------------+------------------------+----------------------------------------------------------------------+
+| created_time     | ``INT64``              | Creation timestamp in milliseconds                                   |
++------------------+------------------------+----------------------------------------------------------------------+
+| last_update_time | ``INT64``              | Last update timestamp in milliseconds                                |
++------------------+------------------------+----------------------------------------------------------------------+
+| created_by       | ``STRING``             | User who created the dataset                                         |
++------------------+------------------------+----------------------------------------------------------------------+
+| last_updated_by  | ``STRING``             | User who last updated the dataset                                    |
++------------------+------------------------+----------------------------------------------------------------------+
+| experiment_ids   | An array of ``STRING`` | Associated experiment IDs (populated from entity_associations table) |
++------------------+------------------------+----------------------------------------------------------------------+
+
 .. _mlflowDatasetInput:
 
 DatasetInput
@@ -4835,6 +5222,64 @@ DatasetInput. Represents a dataset and input tags.
 |            |                                   | This field is required.                                                          |
 |            |                                   |                                                                                  |
 +------------+-----------------------------------+----------------------------------------------------------------------------------+
+
+.. _mlflowdatasetsDatasetRecord:
+
+DatasetRecord
+-------------
+
+
+
+
+
+
++-------------------+----------------------------------------------------+----------------------------------------------+
+|    Field Name     |                        Type                        |                 Description                  |
++===================+====================================================+==============================================+
+| dataset_record_id | ``STRING``                                         | Unique identifier for the record             |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| dataset_id        | ``STRING``                                         | ID of the dataset this record belongs to     |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| inputs            | ``STRING``                                         | Inputs as JSON string                        |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| expectations      | ``STRING``                                         | Expectations as JSON string                  |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| tags              | ``STRING``                                         | Tags as JSON string                          |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| source            | ``STRING``                                         | Source information as JSON string            |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| source_id         | ``STRING``                                         | Source ID for quick lookups (e.g., trace_id) |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| source_type       | :ref:`mlflowdatasetsdatasetrecordsourcesourcetype` | Source type                                  |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| created_time      | ``INT64``                                          | Creation timestamp in milliseconds           |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| last_update_time  | ``INT64``                                          | Last update timestamp in milliseconds        |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| created_by        | ``STRING``                                         | User who created the record                  |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| last_updated_by   | ``STRING``                                         | User who last updated the record             |
++-------------------+----------------------------------------------------+----------------------------------------------+
+| outputs           | ``STRING``                                         | Outputs as JSON string                       |
++-------------------+----------------------------------------------------+----------------------------------------------+
+
+.. _mlflowdatasetsDatasetRecordSource:
+
+DatasetRecordSource
+-------------------
+
+
+
+
+
+
++-------------+----------------------------------------------------+------------------------------+
+| Field Name  |                        Type                        |         Description          |
++=============+====================================================+==============================+
+| source_type | :ref:`mlflowdatasetsdatasetrecordsourcesourcetype` | The type of the source.      |
++-------------+----------------------------------------------------+------------------------------+
+| source_data | ``STRING``                                         | Source-specific data as JSON |
++-------------+----------------------------------------------------+------------------------------+
 
 .. _mlflowDatasetSummary:
 
@@ -5098,6 +5543,37 @@ EndTrace
 | tags             | An array of :ref:`mlflowtracetag`             | Additional tags to add to the trace.                           |
 +------------------+-----------------------------------------------+----------------------------------------------------------------+
 
+.. _mlflowassessmentsExpectation:
+
+Expectation
+-----------
+
+
+
+An expectation for the values or guidelines for the outputs that a model or agent should produce
+from the inputs contained in the trace.
+
+
++------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
+|    Field Name    |                        Type                        |                                                     Description                                                     |
++==================+====================================================+=====================================================================================================================+
+| value            | :ref:`googleprotobufvalue`                         | The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a      |
+|                  |                                                    | flexible schema of expectation values but is validated to constrain it to specific types. This means the value must |
+|                  |                                                    | be JSON conforming to one of the following supported types:                                                         |
+|                  |                                                    | * Numeric values like integers or floats                                                                            |
+|                  |                                                    | * Boolean values                                                                                                    |
+|                  |                                                    | * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)               |
+|                  |                                                    | * List values containing only strings (empty lists allowed).                                                        |
+|                  |                                                    |                                                                                                                     |
+|                  |                                                    | Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as |
+|                  |                                                    | a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value`` |
+|                  |                                                    | may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security  |
+|                  |                                                    | risks around their serialization and deserialization.                                                               |
++------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
+| serialized_value | :ref:`mlflowassessmentsexpectationserializedvalue` | The value of the expecation-based assessment serialized as a string in a specified format. Only one of either       |
+|                  |                                                    | ``serialized_value`` or ``value`` may be defined.                                                                   |
++------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
+
 .. _mlflowExperiment:
 
 Experiment
@@ -5163,6 +5639,31 @@ Configuration for fallback routing
 | max_attempts | ``INT32``                     | The max attempts for fallback routing (cannot exceed number of destinations). |
 +--------------+-------------------------------+-------------------------------------------------------------------------------+
 
+.. _mlflowassessmentsFeedback:
+
+Feedback
+--------
+
+
+
+Feedback provided on the model / agent output(s) contained in the trace
+
+
++------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
+| Field Name |                  Type                   |                                              Description                                              |
++============+=========================================+=======================================================================================================+
+| value      | :ref:`googleprotobufvalue`              | Value of the feedback-based assessment.                                                               |
+|            |                                         | We use google.protobuf.Value to support a flexible schema of feedback values.                         |
+|            |                                         | Supported initial types:                                                                              |
+|            |                                         | - Numeric values like integers or floats                                                              |
+|            |                                         | - Boolean values                                                                                      |
+|            |                                         | - Text value (can contain json text the user wishes to store, but it will only be searchable as text) |
+|            |                                         | - Non-empty list values containing only strings                                                       |
+|            |                                         | - Other values like structs, non-string lists etc. will be rejected for now                           |
++------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
+| error      | :ref:`mlflowassessmentsassessmenterror` | An error encountered while generating the feedback. Required if value is set to null.                 |
++------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
+
 .. _mlflowFileInfo:
 
 FileInfo
@@ -5182,6 +5683,44 @@ Metadata of a single artifact file or directory.
 +------------+------------+---------------------------------------------------+
 | file_size  | ``INT64``  | Size in bytes. Unset for directories.             |
 +------------+------------+---------------------------------------------------+
+
+.. _mlflowartifactsFileInfo:
+
+FileInfo
+--------
+
+
+
+
+
+
++------------+------------+---------------------------------------------------+
+| Field Name |    Type    |                    Description                    |
++============+============+===================================================+
+| path       | ``STRING`` | Path relative to the root artifact directory run. |
++------------+------------+---------------------------------------------------+
+| is_dir     | ``BOOL``   | Whether the path is a directory.                  |
++------------+------------+---------------------------------------------------+
+| file_size  | ``INT64``  | Size in bytes. Unset for directories.             |
++------------+------------+---------------------------------------------------+
+
+.. _mlflowPromptOptimizationJobFinalEvalScoresEntry:
+
+FinalEvalScoresEntry
+--------------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``DOUBLE`` |             |
++------------+------------+-------------+
 
 .. _mlflowFinalizeLoggedModel:
 
@@ -5628,6 +6167,24 @@ GetTraceInfoV3
 | trace_id   | ``STRING`` | ID of the trace to fetch. Must be provided. |
 +------------+------------+---------------------------------------------+
 
+.. _mlflowartifactsMultipartUploadCredentialHeadersEntry:
+
+HeadersEntry
+------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
 .. _mlflowTraceLocationInferenceTableLocation:
 
 InferenceTableLocation
@@ -5643,6 +6200,24 @@ InferenceTableLocation
 +=================+============+====================================================================+
 | full_table_name | ``STRING`` | Full inference table name in the form of catalog.schema.table_name |
 +-----------------+------------+--------------------------------------------------------------------+
+
+.. _mlflowPromptOptimizationJobInitialEvalScoresEntry:
+
+InitialEvalScoresEntry
+----------------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``DOUBLE`` |             |
++------------+------------+-------------+
 
 .. _mlflowInputTag:
 
@@ -5665,6 +6240,29 @@ Tag for an input.
 |            |            | This field is required. |
 |            |            |                         |
 +------------+------------+-------------------------+
+
+.. _mlflowJobState:
+
+JobState
+--------
+
+
+
+Generic job state message combining status with metadata.
+Provides a unified way to represent job state across different job types.
+
+
++---------------+------------------------------------------------+------------------------------------------------------+
+|  Field Name   |                      Type                      |                     Description                      |
++===============+================================================+======================================================+
+| status        | :ref:`mlflowjobstatus`                         | Current status of the job.                           |
++---------------+------------------------------------------------+------------------------------------------------------+
+| error_message | ``STRING``                                     | Error message if the job failed.                     |
+|               |                                                | Only set when status is JOB_STATUS_FAILED.           |
++---------------+------------------------------------------------+------------------------------------------------------+
+| metadata      | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs.              |
+|               |                                                | Can be used to store job-specific state information. |
++---------------+------------------------------------------------+------------------------------------------------------+
 
 .. _mlflowLinkPromptsToTrace:
 
@@ -5906,6 +6504,42 @@ Tag for a LoggedModel.
 
 MaskedValuesEntry
 -----------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowassessmentsAssessmentMetadataEntry:
+
+MetadataEntry
+-------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowJobStateMetadataEntry:
+
+MetadataEntry
+-------------
 
 
 
@@ -6225,6 +6859,46 @@ Tag for a model version.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+.. _mlflowartifactsMultipartUploadCredential:
+
+MultipartUploadCredential
+-------------------------
+
+
+
+
+
+
++-------------+-------------------------------------------------------------------------+-------------+
+| Field Name  |                                  Type                                   | Description |
++=============+=========================================================================+=============+
+| url         | ``STRING``                                                              |             |
++-------------+-------------------------------------------------------------------------+-------------+
+| part_number | ``INT64``                                                               |             |
++-------------+-------------------------------------------------------------------------+-------------+
+| headers     | An array of :ref:`mlflowartifactsmultipartuploadcredentialheadersentry` |             |
++-------------+-------------------------------------------------------------------------+-------------+
+
+.. _mlflowartifactsMultipartUploadPart:
+
+MultipartUploadPart
+-------------------
+
+
+
+
+
+
++-------------+------------+-------------+
+| Field Name  |    Type    | Description |
++=============+============+=============+
+| part_number | ``INT64``  |             |
++-------------+------------+-------------+
+| etag        | ``STRING`` |             |
++-------------+------------+-------------+
+| url         | ``STRING`` |             |
++-------------+------------+-------------+
+
 .. _mlflowSearchLoggedModelsOrderBy:
 
 OrderBy
@@ -6271,6 +6945,95 @@ Param associated with a run.
 +------------+------------+-----------------------------------+
 | value      | ``STRING`` | Value associated with this param. |
 +------------+------------+-----------------------------------+
+
+.. _mlflowPromptOptimizationJob:
+
+PromptOptimizationJob
+---------------------
+
+
+
+Represents a prompt optimization job entity.
+
+
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+|       Field Name        |                                 Type                                 |                                       Description                                       |
++=========================+======================================================================+=========================================================================================+
+| job_id                  | ``STRING``                                                           | Unique identifier for the optimization job.                                             |
+|                         |                                                                      | Used to poll job execution status (pending/running/completed/failed).                   |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| run_id                  | ``STRING``                                                           | MLflow run ID where optimization metrics and results are stored.                        |
+|                         |                                                                      | Use this to view results in MLflow UI. Only available after job starts running.         |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| state                   | :ref:`mlflowjobstate`                                                | Current state of the job (status + error message + metadata).                           |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| experiment_id           | ``STRING``                                                           | ID of the MLflow experiment where this optimization job is tracked.                     |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| source_prompt_uri       | ``STRING``                                                           | URI of the source prompt that optimization started from (e.g., "prompts:/my-prompt/1"). |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| optimized_prompt_uri    | ``STRING``                                                           | URI of the optimized prompt (e.g., "prompts:/my-prompt/2").                             |
+|                         |                                                                      | Only set if optimization completed successfully.                                        |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| config                  | :ref:`mlflowpromptoptimizationjobconfig`                             | Configuration for the optimization job.                                                 |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| creation_timestamp_ms   | ``INT64``                                                            | Timestamp when the job was created (milliseconds since epoch).                          |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| completion_timestamp_ms | ``INT64``                                                            | Timestamp when the job completed (milliseconds since epoch).                            |
+|                         |                                                                      | Only set if status is COMPLETED, FAILED, or CANCELED.                                   |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| tags                    | An array of :ref:`mlflowpromptoptimizationjobtag`                    | Tags associated with this job.                                                          |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| initial_eval_scores     | An array of :ref:`mlflowpromptoptimizationjobinitialevalscoresentry` | Initial evaluation scores before optimization, keyed by scorer name.                    |
+|                         |                                                                      | Example: {"Correctness": 0.65, "Safety": 0.80}                                          |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+| final_eval_scores       | An array of :ref:`mlflowpromptoptimizationjobfinalevalscoresentry`   | Final evaluation scores after optimization, keyed by scorer name.                       |
+|                         |                                                                      | Example: {"Correctness": 0.89, "Safety": 0.95}                                          |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
+
+.. _mlflowPromptOptimizationJobConfig:
+
+PromptOptimizationJobConfig
+---------------------------
+
+
+
+Configuration for a prompt optimization job.
+Stored as run parameters in the underlying MLflow run.
+
+
++-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
+|      Field Name       |            Type            |                                         Description                                          |
++=======================+============================+==============================================================================================+
+| optimizer_type        | :ref:`mlflowoptimizertype` | The optimizer type to use.                                                                   |
++-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
+| dataset_id            | ``STRING``                 | ID of the EvaluationDataset containing training data.                                        |
++-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
+| scorers               | An array of ``STRING``     | List of scorer names. Can be built-in scorer class names                                     |
+|                       |                            | (e.g., "Correctness", "Safety") or registered scorer names.                                  |
++-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
+| optimizer_config_json | ``STRING``                 | JSON-serialized optimizer-specific configuration.                                            |
+|                       |                            | Different optimizers accept different parameters:                                            |
+|                       |                            | - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}                       |
+|                       |                            | - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}} |
++-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
+
+.. _mlflowPromptOptimizationJobTag:
+
+PromptOptimizationJobTag
+------------------------
+
+
+
+Tag for a prompt optimization job.
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
 
 .. _mlflowLinkPromptsToTracePromptVersionRef:
 
@@ -7394,6 +8157,25 @@ SecretValueEntry
 | value      | ``STRING`` |             |
 +------------+------------+-------------+
 
+.. _mlflowassessmentsExpectationSerializedValue:
+
+SerializedValue
+---------------
+
+
+
+
+
+
++----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
+|      Field Name      |    Type    |                                                       Description                                                       |
++======================+============+=========================================================================================================================+
+| serialization_format | ``STRING`` | Marks the serialization format for the expectation value. This is a contract specific to the client. The service        |
+|                      |            | will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".                   |
++----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
+| value                | ``STRING`` | The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``. |
++----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
+
 .. _mlflowSetDatasetTags:
 
 SetDatasetTags
@@ -7942,6 +8724,31 @@ Type of linkage between endpoint and model definition
 | FALLBACK                 | Fallback linkage: used for failover       |
 +--------------------------+-------------------------------------------+
 
+.. _mlflowJobStatus:
+
+JobStatus
+---------
+
+
+Generic status enum for MLflow jobs.
+Can be used across different job types (optimization, scorer, etc.).
+
++------------------------+----------------------------------+
+|          Name          |           Description            |
++========================+==================================+
+| JOB_STATUS_UNSPECIFIED |                                  |
++------------------------+----------------------------------+
+| JOB_STATUS_PENDING     | Job is queued, waiting to start. |
++------------------------+----------------------------------+
+| JOB_STATUS_IN_PROGRESS | Job is currently running.        |
++------------------------+----------------------------------+
+| JOB_STATUS_COMPLETED   | Job completed successfully.      |
++------------------------+----------------------------------+
+| JOB_STATUS_FAILED      | Job failed with an error.        |
++------------------------+----------------------------------+
+| JOB_STATUS_CANCELED    | Job was canceled by user.        |
++------------------------+----------------------------------+
+
 .. _mlflowLoggedModelStatus:
 
 LoggedModelStatus
@@ -8000,6 +8807,24 @@ ModelVersionStatus
 +----------------------+-----------------------------------------------------------------------------------------+
 | READY                | Model version is ready for use.                                                         |
 +----------------------+-----------------------------------------------------------------------------------------+
+
+.. _mlflowOptimizerType:
+
+OptimizerType
+-------------
+
+
+Type of optimizer algorithm to use.
+
++----------------------------+------------------------------------------------------------------------------------------+
+|            Name            |                                       Description                                        |
++============================+==========================================================================================+
+| OPTIMIZER_TYPE_UNSPECIFIED |                                                                                          |
++----------------------------+------------------------------------------------------------------------------------------+
+| OPTIMIZER_TYPE_GEPA        | GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)                        |
++----------------------------+------------------------------------------------------------------------------------------+
+| OPTIMIZER_TYPE_METAPROMPT  | MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass. |
++----------------------------+------------------------------------------------------------------------------------------+
 
 .. _mlflowRoutingStrategy:
 
@@ -8060,6 +8885,48 @@ Source that generated a run.
 +----------+------------------------------------------------------------------------+
 | UNKNOWN  | Unknown source type.                                                   |
 +----------+------------------------------------------------------------------------+
+
+.. _mlflowassessmentsAssessmentSourceSourceType:
+
+SourceType
+----------
+
+
+Type of the assessment source.
+
++-------------------------+-------------------------------------------+
+|          Name           |                Description                |
++=========================+===========================================+
+| SOURCE_TYPE_UNSPECIFIED |                                           |
++-------------------------+-------------------------------------------+
+| HUMAN                   | Assessment from a human.                  |
++-------------------------+-------------------------------------------+
+| LLM_JUDGE               | Assessment from an LLM Judge.             |
++-------------------------+-------------------------------------------+
+| CODE                    | Code-based assessment, (e.g. Python UDF). |
++-------------------------+-------------------------------------------+
+
+.. _mlflowdatasetsDatasetRecordSourceSourceType:
+
+SourceType
+----------
+
+
+Type of the dataset record source.
+
++-------------------------+-------------------------------+
+|          Name           |          Description          |
++=========================+===============================+
+| SOURCE_TYPE_UNSPECIFIED |                               |
++-------------------------+-------------------------------+
+| TRACE                   | Record from a trace/span.     |
++-------------------------+-------------------------------+
+| HUMAN                   | Record from human annotation. |
++-------------------------+-------------------------------+
+| DOCUMENT                | Record from a document.       |
++-------------------------+-------------------------------+
+| CODE                    | Record from code/computation. |
++-------------------------+-------------------------------+
 
 .. _mlflowTraceInfoV3State:
 
