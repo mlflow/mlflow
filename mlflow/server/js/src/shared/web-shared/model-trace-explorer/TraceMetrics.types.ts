@@ -71,6 +71,30 @@ export const createTraceFilter = (field: TraceFilterKey, value: string): string 
   `${TRACE_FILTER_VIEW_TYPE}.${field} = "${value}"`;
 
 /**
+ * Creates a trace tag filter expression string.
+ * @param tagKey - The tag key to filter on (e.g., "mlflow.gateway.provider")
+ * @param value - The value to match (e.g., "openai")
+ * @returns Filter expression string (e.g., 'trace.tag.`mlflow.gateway.provider` = "openai"')
+ */
+export const createTraceTagFilter = (tagKey: string, value: string): string =>
+  `${TRACE_FILTER_VIEW_TYPE}.${TraceFilterKey.TAG}.\`${tagKey}\` = "${value}"`;
+
+/**
+ * Gateway-specific tag keys for filtering.
+ * These correspond to tags set by the gateway tracing infrastructure.
+ */
+export enum GatewayTraceTagKey {
+  /** The gateway endpoint name */
+  ENDPOINT = 'mlflow.gateway.endpoint',
+  /** The request type (chat, embeddings, passthrough/...) */
+  REQUEST_TYPE = 'mlflow.gateway.requestType',
+  /** The LLM provider (openai, anthropic, gemini, etc.) */
+  PROVIDER = 'mlflow.gateway.provider',
+  /** The model name */
+  MODEL = 'mlflow.gateway.model',
+}
+
+/**
  * Keys for metrics on assessments view type.
  * Based on mlflow/tracing/constant.py AssessmentMetricKey
  */

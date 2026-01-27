@@ -32,6 +32,7 @@ const EndpointPage = () => {
         loadError={loadError}
         mutationError={mutationError}
         errorMessage={getReadableErrorMessage(mutationError)}
+        experimentId={endpoint?.experiment_id}
         endpoint={endpoint}
         existingEndpoints={existingEndpoints}
         isFormComplete={isFormComplete}

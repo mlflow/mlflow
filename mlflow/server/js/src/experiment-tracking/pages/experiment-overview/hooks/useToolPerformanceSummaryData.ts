@@ -42,9 +42,12 @@ export interface UseToolPerformanceSummaryDataResult {
  * @returns Tool performance data, loading state, and error state
  */
 export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
-  // Filter for TOOL type spans
-  const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
+  const { experimentIds, startTimeMs, endTimeMs, filters: contextFilters } = useOverviewChartContext();
+  // Filter for TOOL type spans, combined with context filters
+  const toolFilter = useMemo(
+    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), ...(contextFilters || [])],
+    [contextFilters],
+  );
 
   // Query tool call counts grouped by span_name and status
   const {
@@ -52,7 +55,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     isLoading: isLoadingCounts,
     error: countsError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -68,7 +71,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     isLoading: isLoadingLatency,
     error: latencyError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

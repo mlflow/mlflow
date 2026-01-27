@@ -5,13 +5,16 @@ import React, { createContext, useContext, useMemo } from 'react';
  * This eliminates prop drilling through intermediate components.
  */
 export interface OverviewChartContextValue {
-  experimentId: string;
+  /** Experiment IDs to query metrics for */
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   /** Time interval in seconds for grouping metrics by time bucket */
   timeIntervalSeconds: number;
   /** Pre-computed array of timestamp (ms) for all time buckets in the range */
   timeBuckets: number[];
+  /** Optional filter expressions to apply to all chart queries (e.g. `trace.tag.\`mlflow.gateway.provider\` = "openai"`) */
+  filters?: string[];
 }
 
 const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
@@ -26,21 +29,23 @@ interface OverviewChartProviderProps extends OverviewChartContextValue {
  */
 export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   children,
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
+  filters,
 }) => {
   const value = useMemo(
     () => ({
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
+      filters,
     }),
-    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;

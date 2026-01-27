@@ -51,7 +51,8 @@ export const QualityTabEmptyState = ({ hasAssessmentsOutsideTimeRange = false }:
   const intl = useIntl();
   const [monitoringFilters] = useMonitoringFilters();
   const namedDateFilters = useMemo(() => getNamedDateFilters(intl), [intl]);
-  const { experimentId } = useOverviewChartContext();
+  const { experimentIds } = useOverviewChartContext();
+  const experimentId = experimentIds[0] || '';
   const exampleCode = useMemo(() => getExampleCode(experimentId), [experimentId]);
 
   // If there are assessments outside the time range, show a simpler message suggesting a longer time range

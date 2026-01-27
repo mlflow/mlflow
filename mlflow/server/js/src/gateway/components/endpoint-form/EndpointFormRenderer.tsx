@@ -199,6 +199,41 @@ export const EndpointFormRenderer = ({
             />
           </LongFormSection>
 
+          {/* Experiment Section (only in create mode) */}
+          {mode === 'create' && (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Experiment',
+                description: 'Section title for experiment configuration',
+              })}
+            >
+              <Controller
+                control={form.control}
+                name="experimentId"
+                render={({ field }) => (
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                    <GatewayInput
+                      id={`${componentIdPrefix}.experiment-id`}
+                      componentId={`${componentIdPrefix}.experiment-id`}
+                      {...field}
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'Leave blank to auto-create',
+                        description: 'Placeholder for experiment ID input',
+                      })}
+                    />
+                    <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                      <FormattedMessage
+                        defaultMessage="Traces from endpoint invocations will be logged to this experiment. If not specified, an experiment will be auto-created."
+                        description="Help text for experiment ID input"
+                      />
+                    </Typography.Text>
+                  </div>
+                )}
+              />
+            </LongFormSection>
+          )}
+
           {/* Model Section */}
           <LongFormSection
             titleWidth={LONG_FORM_TITLE_WIDTH}
