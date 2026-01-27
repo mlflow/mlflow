@@ -17,6 +17,8 @@ from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlSpan,
+    SqlSpanAttributes,
+    SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceMetrics,
@@ -26,6 +28,7 @@ from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
     AssessmentMetricSearchKey,
+    SpanAttributeKey,
     SpanMetricDimensionKey,
     SpanMetricKey,
     SpanMetricSearchKey,
@@ -88,6 +91,18 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     SpanMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
         dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS},
+    ),
+    SpanMetricKey.INPUT_COST: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={SpanMetricDimensionKey.MODEL_NAME},
+    ),
+    SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={SpanMetricDimensionKey.MODEL_NAME},
+    ),
+    SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={SpanMetricDimensionKey.MODEL_NAME},
     ),
 }
 
@@ -303,6 +318,8 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
                 case SpanMetricKey.LATENCY:
                     # Span latency in milliseconds (nanoseconds converted to ms)
                     return (SqlSpan.end_time_unix_nano - SqlSpan.start_time_unix_nano) // 1000000
+                case metric_name if metric_name in SpanMetricKey.cost_keys():
+                    return SqlSpanMetrics.value
         case MetricViewType.ASSESSMENTS:
             match metric_name:
                 case AssessmentMetricKey.ASSESSMENT_COUNT:
@@ -352,6 +369,17 @@ def _apply_dimension_to_query(
                     return query, SqlSpan.type.label(SpanMetricDimensionKey.SPAN_TYPE)
                 case SpanMetricDimensionKey.SPAN_STATUS:
                     return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
+                case SpanMetricDimensionKey.MODEL_NAME:
+                    # Join with SqlSpanAttributes to get model name
+                    query = query.join(
+                        SqlSpanAttributes,
+                        and_(
+                            SqlSpan.trace_id == SqlSpanAttributes.trace_id,
+                            SqlSpan.span_id == SqlSpanAttributes.span_id,
+                            SqlSpanAttributes.key == SpanAttributeKey.MODEL,
+                        ),
+                    )
+                    return query, SqlSpanAttributes.value.label(SpanMetricDimensionKey.MODEL_NAME)
         case MetricViewType.ASSESSMENTS:
             match dimension:
                 case AssessmentMetricDimensionKey.ASSESSMENT_NAME:
@@ -409,6 +437,17 @@ def _apply_metric_specific_joins(
                     and_(
                         SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
                         SqlTraceMetrics.key == metric_name,
+                    ),
+                )
+        case MetricViewType.SPANS:
+            # Join with SqlSpanMetrics for cost metrics
+            if metric_name in SpanMetricKey.cost_keys():
+                query = query.join(
+                    SqlSpanMetrics,
+                    and_(
+                        SqlSpan.trace_id == SqlSpanMetrics.trace_id,
+                        SqlSpan.span_id == SqlSpanMetrics.span_id,
+                        SqlSpanMetrics.key == metric_name,
                     ),
                 )
     return query
