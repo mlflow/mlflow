@@ -35,6 +35,8 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
           targetUrl = `/experiments/${experimentId}/traces`;
         } else if (feature.demoFeatureId === 'evaluation') {
           targetUrl = `/experiments/${experimentId}/evaluation-runs`;
+        } else if (feature.demoFeatureId === 'judges') {
+          targetUrl = `/experiments/${experimentId}/judges`;
         }
         // prompts uses the global /prompts page, so keep navigationPath
       }

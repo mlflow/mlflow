@@ -1,4 +1,4 @@
-import { BeakerIcon, ModelsIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { BeakerIcon, ModelsIcon, NotebookIcon, SparkleIcon, WorkflowsIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { ComponentType, ReactNode } from 'react';
 
@@ -9,7 +9,7 @@ export interface FeatureDefinition {
   summary: ReactNode;
   docsLink: string;
   navigationPath: string;
-  demoFeatureId?: 'traces' | 'evaluation' | 'prompts';
+  demoFeatureId?: 'traces' | 'evaluation' | 'prompts' | 'judges';
 }
 
 export const featureDefinitions: FeatureDefinition[] = [
@@ -40,6 +40,20 @@ export const featureDefinitions: FeatureDefinition[] = [
     docsLink: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
     navigationPath: '/experiments',
     demoFeatureId: 'evaluation',
+  },
+  {
+    id: 'judges',
+    icon: SparkleIcon,
+    title: <FormattedMessage defaultMessage="Judges" description="Feature card title for judges" />,
+    summary: (
+      <FormattedMessage
+        defaultMessage="Create and register LLM judges to automatically evaluate your application's outputs. Use built-in judges or define custom ones with natural language instructions."
+        description="Feature card summary for judges"
+      />
+    ),
+    docsLink: 'https://mlflow.org/docs/latest/genai/scorers/',
+    navigationPath: '/experiments',
+    demoFeatureId: 'judges',
   },
   {
     id: 'prompts',

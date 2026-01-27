@@ -10,7 +10,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # Try the Demo
 
-Experience MLflow GenAI features instantly with pre-populated demo data. The demo launches a local MLflow server with sample traces, evaluation runs, datasets, and prompts - no configuration required.
+Experience MLflow GenAI features instantly with pre-populated demo data. The demo launches a local MLflow server with sample traces, evaluation runs, judges, datasets, and prompts - no configuration required.
 
 <ImageBox src="/images/demo/demo-overview.png" alt="Demo Overview" />
 
@@ -48,6 +48,15 @@ Observe your GenAI application's execution with detailed traces capturing inputs
 ### [Evaluation Runs](/genai/eval-monitor)
 
 Systematically measure quality with LLM judges and custom scorers. Compare versions side-by-side to track improvements and catch regressions.
+
+</TabItem>
+<TabItem value="judges" label="Judges">
+
+<ImageBox src="/images/demo/demo-judges.png" alt="Demo Judges" />
+
+### [Judges](/genai/concepts/scorers)
+
+Create and register LLM judges to evaluate your application's outputs. Define custom judges with natural language instructions or use built-in judges for common evaluation criteria.
 
 </TabItem>
 <TabItem value="datasets" label="Datasets">
@@ -122,7 +131,7 @@ The MLflow home page includes a banner offering to generate demo data. Click **"
 
 ## Cleanup
 
-To remove the demo data, go to **Settings** and click **"Delete Demo Data"**. This removes all demo traces, runs, datasets, and prompts.
+To remove the demo data, go to **Settings** and click **"Clear all demo data"**. This removes all demo traces, runs, judges, datasets, and prompts.
 
 <ImageBox src="/images/demo/demo-settings.png" alt="Demo Settings" />
 
