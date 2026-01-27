@@ -5381,6 +5381,13 @@ def _get_prompt_optimization_job(job_id):
     job_entity = get_job(job_id)
     optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
 
+    # Get max_metric_calls from optimizer config (GEPA-specific, default 100)
+    max_metric_calls = None
+    params = json.loads(job_entity.params)
+    optimizer_config = params.get("optimizer_config", {})
+    if isinstance(optimizer_config, dict):
+        max_metric_calls = optimizer_config.get("max_metric_calls", 100)
+
     # Fetch MLflow run to get evaluation scores from metrics
     try:
         mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
@@ -5390,6 +5397,7 @@ def _get_prompt_optimization_job(job_id):
         # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
         # Per-scorer scores are logged as "initial_eval_score.<scorer_name>" and
         # "final_eval_score.<scorer_name>"
+        total_metric_calls = None
         for metric_name, metric_value in run_metrics.items():
             if metric_name == "initial_eval_score":
                 optimization_job.initial_eval_scores["aggregate"] = metric_value
@@ -5401,6 +5409,13 @@ def _get_prompt_optimization_job(job_id):
             elif metric_name.startswith("final_eval_score."):
                 scorer_name = metric_name.removeprefix("final_eval_score.")
                 optimization_job.final_eval_scores[scorer_name] = metric_value
+            elif metric_name == "total_metric_calls":
+                total_metric_calls = metric_value
+
+        # Calculate and set progress for GEPA optimizer
+        if total_metric_calls is not None and max_metric_calls:
+            progress = round(total_metric_calls / max_metric_calls, 2)
+            optimization_job.state.metadata["progress"] = str(progress)
 
     except Exception as e:
         _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
