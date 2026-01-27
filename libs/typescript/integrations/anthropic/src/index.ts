@@ -10,7 +10,7 @@ import {
   SpanStatusCode,
   TokenUsage,
   LiveSpan,
-  withSpan
+  withSpan,
 } from 'mlflow-tracing';
 
 const SUPPORTED_MODULES = ['Messages'];
@@ -186,7 +186,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
               // eslint-disable-next-line @typescript-eslint/no-unsafe-return
               return message;
             },
-            { name, spanType }
+            { name, spanType },
           );
         };
       }
@@ -194,6 +194,13 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
       // Wrap async iterator for `for await (const event of stream)` pattern
       if (prop === Symbol.asyncIterator) {
         return function () {
+          if (tracingClaimed) {
+            // In practice, MessageStreams are typically consumed once and iterating again would
+            // yield no events, so this may not be a real issue but for completeness we return the
+            // unwrapped iterator in this case.
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            return target[Symbol.asyncIterator]();
+          }
           tracingClaimed = true;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return wrapAsyncIterator(target[Symbol.asyncIterator](), target, inputs, name, spanType);
@@ -206,7 +213,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return original;
-    }
+    },
   });
 }
 
@@ -215,7 +222,7 @@ async function* wrapAsyncIterator(
   stream: any,
   inputs: any,
   name: string,
-  spanType: SpanType
+  spanType: SpanType,
 ): AsyncGenerator<any> {
   // Use startSpan for manual lifecycle management since withSpan doesn't support async generators
   const parentSpan = getCurrentActiveSpan();
@@ -249,7 +256,7 @@ async function* wrapAsyncIterator(
         if (iteratorAny && typeof iteratorAny.finalMessage === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           finalMessage = await iteratorAny.finalMessage();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         } else if (stream && typeof stream.finalMessage === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           finalMessage = await stream.finalMessage();
@@ -269,7 +276,7 @@ async function* wrapAsyncIterator(
         span.setAttribute('mlflow.tracing.token_usage_capture_failed', true);
         span.setAttribute(
           'mlflow.tracing.token_usage_capture_error',
-          e instanceof Error ? e.message : String(e)
+          e instanceof Error ? e.message : String(e),
         );
       }
 
