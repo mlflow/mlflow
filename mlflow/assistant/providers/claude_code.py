@@ -174,12 +174,6 @@ and running. For example:
 - Do NOT tell the user to open a browser to view the MLflow UI - they are already using it.
 - Skip any setup/installation steps that are already complete for this user.
 Focus on the substantive content that is relevant to the user's actual question.
-
-## Skills
-
-MLflow provides a set of skills that can be used to perform various tasks. When handling
-MLflow-related tasks, except a simple one (e.g., fetching a single trace), ALWAYS prefer to start
-with searching for skills that can help you complete the task more efficiently.
 """
 
 
