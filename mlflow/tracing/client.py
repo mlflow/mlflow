@@ -723,3 +723,23 @@ class TracingClient:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends."
             )
+
+    def get_telemetry_profile(self, profile_id: str):
+        """
+        Fetch a TelemetryProfile from the backend.
+
+        Args:
+            profile_id: The telemetry profile ID (destination ID).
+
+        Returns:
+            The TelemetryProfile object.
+
+        Raises:
+            MlflowException: If not using a Databricks tracking URI.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_telemetry_profile(profile_id)
+        else:
+            raise MlflowException(
+                "Fetching TelemetryProfile is only supported on Databricks backends."
+            )

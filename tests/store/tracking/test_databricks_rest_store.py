@@ -1806,3 +1806,52 @@ def test_search_datasets_exact_match_no_offset():
         assert parsed.offset == 0  # No offset needed for exact match
 
         mock_http.assert_called_once()
+
+
+def test_get_telemetry_profile():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    response_data = {
+        "profile_id": "test-profile-123",
+        "profile_name": "Test Profile",
+        "created_at": 1234567890,
+        "created_by": "user@example.com",
+        "exporters": [
+            {
+                "type": "UNITY_CATALOG_TABLES",
+                "uc_tables": {
+                    "uc_catalog": "catalog",
+                    "uc_schema": "schema",
+                    "uc_table_prefix": "prefix_",
+                },
+            }
+        ],
+    }
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.json.return_value = response_data
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            return_value=response,
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.get_telemetry_profile("test-profile-123")
+
+        mock_http.assert_called_once()
+        call_kwargs = mock_http.call_args
+        assert call_kwargs[1]["method"] == "GET"
+        assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/profiles/test-profile-123"
+
+        assert result.profile_id == "test-profile-123"
+        assert result.profile_name == "Test Profile"
+        assert result.created_at == 1234567890
+        assert len(result.exporters) == 1
+        uc_config = result.get_uc_tables_config()
+        assert uc_config.uc_catalog == "catalog"
+        assert uc_config.uc_schema == "schema"
+        assert uc_config.uc_table_prefix == "prefix_"
