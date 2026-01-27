@@ -134,7 +134,7 @@ mlflow.set_experiment("MLflow AI Gateway")
 
 # Point Gemini client to MLflow AI Gateway
 client = genai.Client(
-    http_options={"base_url": "http://localhost:5000/gateway/gemini/"},
+    http_options={"base_url": "http://localhost:5000/gateway/gemini"},
     api_key="dummy",  # API key not needed, configured server-side
 )
 
