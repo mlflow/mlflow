@@ -235,6 +235,7 @@ async function* wrapAsyncIterator(
     throw error;
   } finally {
     if (iterationError) {
+      span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'anthropic');
       span.setStatus(SpanStatusCode.ERROR, iterationError.message);
       span.end();
     } else {
