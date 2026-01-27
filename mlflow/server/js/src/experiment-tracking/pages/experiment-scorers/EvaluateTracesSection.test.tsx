@@ -4,18 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from '@databricks/i18n';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { useForm } from 'react-hook-form';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import EvaluateTracesSection from './EvaluateTracesSection';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
-import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { LLM_TEMPLATE } from './types';
 
-describe('EvaluateTracesSectionRenderer', () => {
+describe('EvaluateTracesSection', () => {
   const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
     const { control, setValue } = useForm({ defaultValues });
     return (
       <IntlProvider locale="en">
         <DesignSystemProvider>
-          <EvaluateTracesSectionRenderer control={control} mode={mode} setValue={setValue} />
+          <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
         </DesignSystemProvider>
       </IntlProvider>
     );
@@ -151,7 +150,7 @@ describe('EvaluateTracesSectionRenderer', () => {
         return (
           <IntlProvider locale="en">
             <DesignSystemProvider>
-              <EvaluateTracesSectionRenderer control={control} mode={SCORER_FORM_MODE.CREATE} setValue={setValue} />
+              <EvaluateTracesSection control={control} mode={SCORER_FORM_MODE.CREATE} setValue={setValue} />
               <button onClick={() => setValue('llmTemplate', LLM_TEMPLATE.RELEVANCE_TO_QUERY)}>
                 Switch to Relevance
               </button>
@@ -179,7 +178,7 @@ describe('EvaluateTracesSectionRenderer', () => {
         <TestWrapper
           defaultValues={{
             sampleRate: 0,
-            modelInputMode: ModelProvider.OTHER,
+            model: 'openai:/gpt-4.1',
           }}
         />,
       );

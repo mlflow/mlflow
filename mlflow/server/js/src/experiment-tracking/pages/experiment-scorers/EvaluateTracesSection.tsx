@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -13,17 +13,17 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-hook-form';
 import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
-import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { ModelProvider, getModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { hasTemplateVariable } from './utils/templateUtils';
 import { isExpectationsTemplate } from './types';
 
-interface EvaluateTracesSectionRendererProps {
+interface EvaluateTracesSectionProps {
   control: Control<any>;
   mode: ScorerFormMode;
   setValue?: UseFormSetValue<any>;
 }
 
-const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps> = ({ control, mode, setValue }) => {
+const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, mode, setValue }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -45,20 +45,20 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'instructions',
   });
-  const modelInputMode = useWatch({
+  const model = useWatch({
     control,
-    name: 'modelInputMode',
+    name: 'model',
   });
   const llmTemplate = useWatch({
     control,
     name: 'llmTemplate',
   });
 
-  // Check if scorer requires expectations - either via built-in template or custom instructions containing {{ expectations }}
-  const hasExpectations = isExpectationsTemplate(llmTemplate) || hasTemplateVariable(instructions, 'expectations');
-
-  // Check if using a non-gateway model - automatic evaluation only works with gateway models
-  const isNonGatewayModel = modelInputMode === ModelProvider.OTHER;
+  const hasExpectations = useMemo(
+    () => isExpectationsTemplate(llmTemplate) || hasTemplateVariable(instructions, 'expectations'),
+    [llmTemplate, instructions],
+  );
+  const isNonGatewayModel = useMemo(() => getModelProvider(model) === ModelProvider.OTHER, [model]);
 
   // Set sampleRate based on whether automatic evaluation is allowed
   useEffect(() => {
@@ -308,4 +308,4 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
   );
 };
 
-export default EvaluateTracesSectionRenderer;
+export default EvaluateTracesSection;
