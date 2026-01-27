@@ -17,6 +17,7 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
+from mlflow.utils.os import is_windows
 
 
 class MockProvider(AssistantProvider):
@@ -347,4 +348,8 @@ def test_patch_session_cancel_with_process(client):
 
     # Wait for the process to actually terminate
     proc.wait(timeout=5)
-    assert not _is_process_running(proc.pid)
+    assert proc.returncode is not None
+    # On non-Windows, verify the process is no longer running via PID check.
+    # Skip on Windows because PIDs are reused more aggressively.
+    if is_windows():
+        assert not _is_process_running(proc.pid)
