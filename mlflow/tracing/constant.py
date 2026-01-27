@@ -201,6 +201,13 @@ class SpanMetricKey:
 
     SPAN_COUNT = "span_count"
     LATENCY = "latency"
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
+
+    @classmethod
+    def cost_keys(cls) -> list[str]:
+        return [cls.INPUT_COST, cls.OUTPUT_COST, cls.TOTAL_COST]
 
 
 class SpanMetricDimensionKey:
@@ -211,6 +218,7 @@ class SpanMetricDimensionKey:
     SPAN_NAME = "span_name"
     SPAN_TYPE = "span_type"
     SPAN_STATUS = "span_status"
+    MODEL_NAME = "span_model_name"
 
 
 class AssessmentMetricKey:
