@@ -1,0 +1,108 @@
+import { APILink } from "@site/src/components/APILink";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { CheckCircle, Bot, Target } from "lucide-react";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# ToolCallEfficiency judge
+
+The `ToolCallEfficiency` judge evaluates the agent's trajectory for redundancy in tool usage, such as tool calls with the same or similar arguments.
+
+This built-in LLM judge is designed for evaluating AI agents and tool-calling applications where you need to ensure the agent operates efficiently without making unnecessary or duplicate tool calls.
+
+## Usage examples
+
+The `ToolCallEfficiency` judge can be invoked directly for single trace assessment or used with MLflow's evaluation framework for batch evaluation.
+
+**Requirements:**
+
+- **Trace requirements**: - The MLflow Trace must contain at least one span with `span_type` set to `TOOL`
+
+<TabsWrapper>
+<Tabs groupId="invocation-method">
+  <TabItem value="direct" label="Invoke directly" default>
+
+```python
+from mlflow.genai.scorers import ToolCallEfficiency
+import mlflow
+
+# Get a trace from a previous run
+trace = mlflow.get_trace("<your-trace-id>")
+
+# Assess if tool calls are efficient
+feedback = ToolCallEfficiency(name="my_tool_call_efficiency")(trace=trace)
+print(feedback)
+```
+
+  </TabItem>
+  <TabItem value="evaluate" label="Invoke with evaluate()">
+
+```python
+import mlflow
+from mlflow.genai.scorers import ToolCallEfficiency
+
+# Evaluate traces from previous runs
+results = mlflow.genai.evaluate(
+    data=traces,  # DataFrame or list containing trace data
+    scorers=[ToolCallEfficiency()],
+)
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Select the LLM that powers the judge
+
+You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
+
+```python
+from mlflow.genai.scorers import ToolCallEfficiency
+
+# Use a different judge model
+efficiency_judge = ToolCallEfficiency(
+    model="openai:/gpt-4o-mini"  # Or any LiteLLM-compatible model
+)
+
+# Use in evaluation
+eval_results = mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=agent, scorers=[efficiency_judge]
+)
+```
+
+For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+
+## Interpret results
+
+The judge returns a Feedback object with:
+
+- **value**: "yes" if tool calls are efficient, "no" if otherwise
+- **rationale**: Detailed explanation identifying:
+  - Which specific tool calls are redundant (if any)
+  - Why certain calls are considered duplicates or could be consolidated
+  - Why the tool usage is efficient
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={CheckCircle}
+    title="Evaluate tool call correctness"
+    description="Check if tools are called with correct arguments"
+    href="/genai/eval-monitor/scorers/llm-judge/tool-call/correctness"
+  />
+  <TileCard
+    icon={Bot}
+    title="Evaluate agents"
+    description="Learn comprehensive agent evaluation techniques"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={Target}
+    title="Build evaluation datasets"
+    description="Create test cases for testing agent efficiency"
+    href="/genai/datasets/"
+  />
+</TilesGrid>
