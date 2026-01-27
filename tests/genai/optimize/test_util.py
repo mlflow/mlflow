@@ -177,6 +177,20 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     assert result[2] == {"scorer1": 1.0, "scorer2": 1.0}
 
 
+def test_create_metric_from_scorers_rejects_non_numeric_scorers():
+    @scorer(name="non_numeric_scorer")
+    def non_numeric_scorer(inputs, outputs):
+        return Feedback(name="non_numeric_scorer", value="resolved", rationale="some rationale")
+
+    metric = create_metric_from_scorers([non_numeric_scorer])
+
+    with pytest.raises(
+        MlflowException,
+        match="Scorer 'non_numeric_scorer' returned a non-numeric value.*'resolved'",
+    ):
+        metric({"input": "test"}, {"output": "result"}, {}, None)
+
+
 @pytest.mark.parametrize(
     ("train_data", "scorers", "expected_error"),
     [

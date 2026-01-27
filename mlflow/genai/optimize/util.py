@@ -160,8 +160,19 @@ def create_metric_from_scorers(
     from mlflow.entities import Feedback
     from mlflow.genai.judges import CategoricalRating
 
-    def _convert_to_numeric(score: Any) -> float | None:
-        """Convert a value to numeric, handling Feedback and primitive types."""
+    def _convert_to_numeric(scorer_name: str, score: Any) -> float:
+        """Convert a score to numeric, handling Feedback and primitive types.
+
+        Args:
+            scorer_name: Name of the scorer (for error messages).
+            score: The score value to convert.
+
+        Returns:
+            The numeric value (float).
+
+        Raises:
+            MlflowException: If the score cannot be converted to a numeric value.
+        """
         if isinstance(score, Feedback):
             score = score.value
         if score == CategoricalRating.YES:
@@ -170,7 +181,12 @@ def create_metric_from_scorers(
             return 0.0
         elif isinstance(score, (int, float, bool)):
             return float(score)
-        return None
+
+        raise MlflowException(
+            f"Scorer '{scorer_name}' returned a non-numeric value {score!r} that cannot "
+            "be used for prompt optimization. Prompt optimization only supports scorers that "
+            "return numeric values (int, float, bool) or categorical 'yes'/'no' values."
+        )
 
     def metric(
         inputs: Any,
@@ -190,31 +206,16 @@ def create_metric_from_scorers(
             if isinstance(score, Feedback):
                 rationales[key] = score.rationale
 
-        # Try to convert all scores to numeric
+        # Convert all scores to numeric (raises if any score is not convertible)
         numeric_scores = {}
         for name, score in scores.items():
-            numeric_value = _convert_to_numeric(score)
-            if numeric_value is not None:
-                numeric_scores[name] = numeric_value
+            numeric_scores[name] = _convert_to_numeric(name, score)
 
         if objective is not None:
             return objective(scores), rationales, numeric_scores
 
-        # If all scores were convertible, use sum as default aggregation
-        if len(numeric_scores) == len(scores):
-            # We average the scores to get the score between 0 and 1.
-            aggregated = sum(numeric_scores.values()) / len(numeric_scores)
-            return aggregated, rationales, numeric_scores
-
-        # Otherwise, report error with actual types
-        non_convertible = {
-            k: type(v).__name__ for k, v in scores.items() if k not in numeric_scores
-        }
-        scorer_details = ", ".join([f"{k} (type: {t})" for k, t in non_convertible.items()])
-        raise MlflowException(
-            f"Scorers [{scorer_details}] return non-numerical values that cannot be "
-            "automatically aggregated. Please provide an `objective` function to aggregate "
-            "these values into a single score for optimization."
-        )
+        # Average the scores to get a score between 0 and 1
+        aggregated = sum(numeric_scores.values()) / len(numeric_scores)
+        return aggregated, rationales, numeric_scores
 
     return metric
