@@ -227,13 +227,26 @@ async function* wrapAsyncIterator(
 
     // After iteration completes, get the final message for outputs and token usage
     try {
+      // Prefer a proxy-aware finalMessage if available on the iterator, and fall back to the stream.
+      let finalMessage: any | undefined;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      const iteratorAny = iterator as any;
+      if (iteratorAny && typeof iteratorAny.finalMessage === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        finalMessage = await iteratorAny.finalMessage();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const finalMessage = await stream.finalMessage();
-      span.setOutputs(finalMessage);
+      } else if (stream && typeof stream.finalMessage === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        finalMessage = await stream.finalMessage();
+      }
 
-      const usage = extractTokenUsage(finalMessage);
-      if (usage) {
-        span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
+      if (finalMessage !== undefined) {
+        span.setOutputs(finalMessage);
+
+        const usage = extractTokenUsage(finalMessage);
+        if (usage) {
+          span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
+        }
       }
     } catch (e) {
       // Stream may have completed without finalMessage available
