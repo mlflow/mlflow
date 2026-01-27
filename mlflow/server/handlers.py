@@ -5381,19 +5381,6 @@ def _get_prompt_optimization_job(job_id):
     job_entity = get_job(job_id)
     optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
 
-    # Get max_metric_calls from optimizer config (GEPA-specific)
-    # Skip progress tracking if max_metric_calls is not explicitly configured
-    max_metric_calls = None
-    params = json.loads(job_entity.params)
-    optimizer_config = params.get("optimizer_config", {})
-    if isinstance(optimizer_config, str):
-        try:
-            optimizer_config = json.loads(optimizer_config)
-        except json.JSONDecodeError:
-            optimizer_config = {}
-    if isinstance(optimizer_config, dict):
-        max_metric_calls = optimizer_config.get("max_metric_calls")
-
     # Fetch MLflow run to get evaluation scores from metrics
     try:
         mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
@@ -5418,10 +5405,13 @@ def _get_prompt_optimization_job(job_id):
             elif metric_name == "total_metric_calls":
                 total_metric_calls = metric_value
 
-        # Calculate and set progress for GEPA optimizer (capped at 1.0)
-        if total_metric_calls is not None and max_metric_calls:
-            progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
-            optimization_job.state.metadata["progress"] = str(progress)
+        if total_metric_calls is not None:
+            params = json.loads(job_entity.params)
+            optimizer_config = params.get("optimizer_config", {})
+            max_metric_calls = optimizer_config.get("max_metric_calls")
+            if max_metric_calls:
+                progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
+                optimization_job.state.metadata["progress"] = str(progress)
 
     except Exception as e:
         _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
