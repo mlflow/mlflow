@@ -81,6 +81,7 @@ description that explains when to use it.
 
 You MUST use skills for anything relating to:
 
+- Onboarding and getting started with MLflow (e.g. new user questions about MLflow)
 - Reading or analyzing traces and chat sessions
 - Searching for traces and chat sessions
 - Searching for MLflow documentation
