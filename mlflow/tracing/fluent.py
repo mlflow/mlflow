@@ -233,18 +233,7 @@ def trace(
 
 
 def _should_sample(sampling_ratio: float | None) -> bool:
-    """
-    Determine if the current call should be sampled based on the decorator-level sampling ratio.
-
-    Returns True if:
-    - There's already a parent span (child spans always follow parent)
-    - sampling_ratio is None (defer to global sampler)
-    - random.random() < sampling_ratio
-
-    Returns False if:
-    - We're inside a trace that was explicitly not sampled (propagated via context var)
-    - random.random() >= sampling_ratio
-    """
+    """Determine if a new trace should be created based on the decorator-level sampling ratio."""
     # If we're inside a trace that was explicitly not sampled, don't create any spans
     if _TRACE_SAMPLING_SKIPPED.get():
         return False

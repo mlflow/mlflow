@@ -171,7 +171,7 @@ def normal_endpoint(request):
 
 - When `sampling_ratio` is specified on the decorator, it **overrides** the global `MLFLOW_TRACE_SAMPLING_RATIO` setting for that function
 - When `sampling_ratio` is not specified (or set to `None`), the global sampling ratio is used
-- Nested function calls follow the parent's sampling decision: if a parent span is sampled, all child spans are also sampled regardless of their individual `sampling_ratio` settings
+- `sampling_ratio` only applies at the trace level (root spans). Nested calls within an existing trace are always included, and their `sampling_ratio` settings are ignored.
 - The `sampling_ratio` must be a float between `0.0` and `1.0`
 
 ## Adding Context to Production Traces
