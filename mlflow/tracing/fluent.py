@@ -311,8 +311,16 @@ def _wrap_function(
                     return await fn(*args, **kwargs)
                 finally:
                     _TRACE_SAMPLING_SKIPPED.reset(token)
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
-                return wrapping_coro.send(await fn(*args, **kwargs))
+            # If sampling_ratio is explicitly set, force the sampler to sample
+            force_token = None
+            if sampling_ratio is not None:
+                force_token = provider._FORCE_SAMPLE.set(True)
+            try:
+                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                    return wrapping_coro.send(await fn(*args, **kwargs))
+            finally:
+                if force_token is not None:
+                    provider._FORCE_SAMPLE.reset(force_token)
     else:
 
         def wrapper(*args, **kwargs):
@@ -324,8 +332,16 @@ def _wrap_function(
                     return fn(*args, **kwargs)
                 finally:
                     _TRACE_SAMPLING_SKIPPED.reset(token)
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
-                return wrapping_coro.send(fn(*args, **kwargs))
+            # If sampling_ratio is explicitly set, force the sampler to sample
+            force_token = None
+            if sampling_ratio is not None:
+                force_token = provider._FORCE_SAMPLE.set(True)
+            try:
+                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                    return wrapping_coro.send(fn(*args, **kwargs))
+            finally:
+                if force_token is not None:
+                    provider._FORCE_SAMPLE.reset(force_token)
 
     return _wrap_function_safe(fn, wrapper)
 
@@ -424,8 +440,16 @@ def _wrap_generator(
                     _TRACE_SAMPLING_SKIPPED.reset(token)
                 return
 
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            # If sampling_ratio is explicitly set, force the sampler to sample
+            force_token = None
+            if sampling_ratio is not None:
+                force_token = provider._FORCE_SAMPLE.set(True)
+            try:
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
+            finally:
+                if force_token is not None:
+                    provider._FORCE_SAMPLE.reset(force_token)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -460,8 +484,16 @@ def _wrap_generator(
                     _TRACE_SAMPLING_SKIPPED.reset(token)
                 return
 
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            # If sampling_ratio is explicitly set, force the sampler to sample
+            force_token = None
+            if sampling_ratio is not None:
+                force_token = provider._FORCE_SAMPLE.set(True)
+            try:
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
+            finally:
+                if force_token is not None:
+                    provider._FORCE_SAMPLE.reset(force_token)
             generator = fn(*args, **kwargs)
 
             i = 0
