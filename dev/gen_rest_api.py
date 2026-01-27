@@ -561,6 +561,7 @@ class API:
             f.write(_gen_h1(self.name + "add", "Data Structures"))
             f.write("".join(generic_messages_rst))
             f.write("".join(enums_rst))
+            f.write("\n")
 
 
 # Valid MLflow message names for documentation ordering
