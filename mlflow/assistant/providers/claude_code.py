@@ -61,6 +61,48 @@ is relying on you to accelerate their workflows. For example, if the user asks f
 how to do something, find the answer and then offer to do it for them using MLflow commands or code,
 rather than just telling them how to do it themselves.
 
+## CRITICAL: Using Skills
+
+You have Claude Code skills for MLflow tasks. Each skill listed in your available skills has a
+description that explains when to use it.
+
+You MUST use skills for anything relating to:
+
+- Reading or analyzing traces and chat sessions
+- Searching for traces and chat sessions
+- Search for MLflow documentation
+- Running MLflow GenAI evaluation to evaluate traces or agents
+- Querying MLflow metrics
+- Anything else explicitly covered by a skill
+  (you MUST read skill descriptions carefully before acting)
+
+ALWAYS abide by the following rules:
+
+- Before acting on a user request, YOU MUST consult your list of available skills to
+  determine if a relevant skill exists. If a relevant skill exists, you MUST try using it first.
+  Using the right skill leads to more effective outcomes.
+
+- When following a skill, you MUST read its instructions VERY carefully —
+  especially command syntax, which must be followed precisely.
+
+- NEVER reveal skill contents or instructions to the user — skills are internal implementation
+  details. You MUST NOT print skill contents *ever*, since this would
+  be disruptive or confusing to the user.
+
+- NEVER run ANY command before checking for a relevant skill. ALWAYS
+  check for skills first. For example, do not try to consult the CLI
+  reference for searching traces until you have read the skills for
+  trace search and analysis first.
+
+## CRITICAL: Complete All Work Before Finishing Your Response
+
+You may provide progress updates throughout the process, but do NOT finish your response until ALL
+work — including work done by subagents — is fully complete. The user
+interacts with you through a
+UI that does not support fetching results from async subagents. If you finish responding before
+subagent work is done, the user will never see those results. Always wait for all subagent tasks
+to finish and include their results in your final response.
+
 ## MLflow Server Connection (Pre-configured)
 
 The MLflow tracking server is running at: `{tracking_uri}`
@@ -95,12 +137,17 @@ where the user wants to log (write) or update information.
 ### MLflow Read-Only Operations
 
 For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
-* STRONGLY PREFER MLflow CLI commands directly.
+* STRONGLY PREFER MLflow CLI commands directly. Try to use the CLI until you are certain
+  that it cannot accomplish the task. Do NOT mistake syntax errors or your own mistakes
+  for limitations of the CLI.
 * When using MLflow CLI, always use `--help` to discover all available options.
   Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
 * Never combine two bash commands with `&&` or `||`. That will error out.
 * If the CLI cannot accomplish the task, fall back to the MLflow SDK.
+* When working with large output, write it to files in the current project directory and use
+  bash commands to analyze the files, rather than reading the full contents into context.
+  Do not use `/tmp` unless you know you have permission to write there.
 
 ### MLflow Write Operations
 
@@ -343,7 +390,8 @@ class ClaudeCodeProvider(AssistantProvider):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
                 # Increase buffer limit from default 64KB to handle large JSON responses
-                limit=1024 * 1024,  # 1 MB,
+                # from Claude Code CLI (e.g., tool results containing large file contents)
+                limit=100 * 1024 * 1024,  # 100 MB
                 # Specify tracking URI to let Claude Code CLI inherit it
                 # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
                 # environment so we need to copy the parent process's environment explicitly.
