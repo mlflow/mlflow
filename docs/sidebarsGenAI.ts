@@ -594,6 +594,23 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'category',
+                  label: 'Response Quality',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/safety',
+                      label: 'Safety',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/correctness',
+                      label: 'Correctness',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
                   label: 'Tool Call',
                   link: {
                     type: 'doc',
