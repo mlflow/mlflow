@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Control, UseFormSetValue } from 'react-hook-form';
 import { Controller, useWatch } from 'react-hook-form';
 import { useDesignSystemTheme, Typography, Input, FormUI } from '@databricks/design-system';
@@ -29,17 +29,24 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
   const { theme } = useDesignSystemTheme();
 
   const currentModel = useWatch({ control, name: 'model' });
-  const modelInputMode = useWatch({ control, name: 'modelInputMode' });
   const currentEndpointName = getEndpointNameFromGatewayModel(currentModel);
 
+  const [modelProviderState, setModelProvider] = useState<ModelProvider>(() => getModelProvider(currentModel));
   // In DISPLAY mode, always derive from the actual model value since it's read-only.
-  // In CREATE/EDIT mode, use the form field so users can toggle between input modes while editing.
-  const modelProvider =
-    mode === SCORER_FORM_MODE.DISPLAY ? getModelProvider(currentModel) : (modelInputMode ?? ModelProvider.GATEWAY);
+  // In CREATE/EDIT mode, use state so users can toggle between input modes while editing.
+  const modelProvider = mode === SCORER_FORM_MODE.DISPLAY ? getModelProvider(currentModel) : modelProviderState;
 
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
-    setValue('modelInputMode', targetProvider);
+    setModelProvider(targetProvider);
     setValue('model', '', { shouldValidate: true });
+    // Toggle automatic evaluation based on model provider:
+    // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
+    // - Re-enable when switching back to gateway model
+    if (targetProvider === ModelProvider.OTHER) {
+      setValue('sampleRate', 0);
+    } else if (targetProvider === ModelProvider.GATEWAY) {
+      setValue('sampleRate', 100);
+    }
   };
 
   const stopPropagationClick = (e: React.MouseEvent) => {

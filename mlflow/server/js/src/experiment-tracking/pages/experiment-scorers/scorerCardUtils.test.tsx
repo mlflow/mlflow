@@ -3,7 +3,6 @@ import { getFormValuesFromScorer } from './scorerCardUtils';
 import type { LLMScorer, CustomCodeScorer } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 import { ScorerEvaluationScope } from './constants';
-import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 describe('scorerCardUtils', () => {
   describe('getFormValuesFromScorer', () => {
@@ -33,7 +32,6 @@ describe('scorerCardUtils', () => {
           instructions: TEMPLATE_INSTRUCTIONS_MAP['Safety'],
           filterString: 'status == "success"',
           model: '',
-          modelInputMode: ModelProvider.GATEWAY,
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,
           evaluationScope: ScorerEvaluationScope.TRACES,
@@ -92,7 +90,6 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: '',
           model: '',
-          modelInputMode: ModelProvider.GATEWAY,
           evaluationScope: ScorerEvaluationScope.TRACES,
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,

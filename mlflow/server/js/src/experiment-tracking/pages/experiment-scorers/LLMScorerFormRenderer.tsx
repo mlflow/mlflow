@@ -28,7 +28,6 @@ import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSection from './EvaluateTracesSection';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
-import { ModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
@@ -43,7 +42,6 @@ export interface LLMScorerFormData {
   guidelines?: string;
   instructions?: string;
   model: string;
-  modelInputMode?: ModelProvider;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
   evaluationScope?: ScorerEvaluationScope;

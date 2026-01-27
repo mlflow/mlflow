@@ -10,7 +10,6 @@ import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 import { ScorerFormData, outputTypeSpecToFormData } from './utils/scorerTransformUtils';
 import { ScorerEvaluationScope } from './constants';
-import { getModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
   if (scorer.type === 'custom-code') {
@@ -99,7 +98,6 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     instructions,
     filterString: scorer.filterString || '',
     model,
-    modelInputMode: scorer.type === 'llm' ? getModelProvider(model) : undefined,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
     evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,
