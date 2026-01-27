@@ -5,6 +5,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.assistant.cli import commands
+from mlflow.assistant.config import ProviderConfig
 
 
 @pytest.fixture
@@ -74,8 +75,13 @@ def test_configure_success(runner, tmp_path):
     mock_result.stderr = ""
 
     mock_config = mock.Mock()
-    mock_config.providers = {}
+    mock_config.providers = {"claude_code": ProviderConfig()}
     mock_config.projects = {}
+
+    def mock_set_provider(name, model):
+        mock_config.providers[name] = ProviderConfig(model=model, selected=True)
+
+    mock_config.set_provider = mock_set_provider
 
     with (
         mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
@@ -92,7 +98,6 @@ def test_configure_success(runner, tmp_path):
             return_value=mock_config,
         ),
         mock.patch.object(mock_config, "save"),
-        mock.patch.object(mock_config, "set_provider"),
         runner.isolated_filesystem(temp_dir=tmp_path),
     ):
         # Input: provider=1, connect=y, experiment=1, project_path, model=default, skill_location=1
@@ -110,9 +115,14 @@ def test_configure_tilde_expansion(runner):
     mock_result.stderr = ""
 
     mock_config = mock.Mock()
-    mock_config.providers = {}
+    mock_config.providers = {"claude_code": ProviderConfig()}
     projects_dict = {}
     mock_config.projects = projects_dict
+
+    def mock_set_provider(name, model):
+        mock_config.providers[name] = ProviderConfig(model=model, selected=True)
+
+    mock_config.set_provider = mock_set_provider
 
     home_dir = os.path.expanduser("~")
 
@@ -131,7 +141,6 @@ def test_configure_tilde_expansion(runner):
             return_value=mock_config,
         ),
         mock.patch.object(mock_config, "save"),
-        mock.patch.object(mock_config, "set_provider"),
     ):
         # Input: provider=1, connect=y, tracking_uri, experiment=1, project_path=~,
         # model=default, skill_location=1
@@ -153,9 +162,14 @@ def test_configure_relative_path(runner):
     mock_result.stderr = ""
 
     mock_config = mock.Mock()
-    mock_config.providers = {}
+    mock_config.providers = {"claude_code": ProviderConfig()}
     projects_dict = {}
     mock_config.projects = projects_dict
+
+    def mock_set_provider(name, model):
+        mock_config.providers[name] = ProviderConfig(model=model, selected=True)
+
+    mock_config.set_provider = mock_set_provider
 
     with (
         mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
@@ -172,7 +186,6 @@ def test_configure_relative_path(runner):
             return_value=mock_config,
         ),
         mock.patch.object(mock_config, "save"),
-        mock.patch.object(mock_config, "set_provider"),
     ):
         # Use "." which should resolve to current directory
         # Input: provider=1, connect=y, tracking_uri, experiment=1, project_path=.,

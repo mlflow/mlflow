@@ -8,9 +8,10 @@ from pathlib import Path
 
 import click
 
-from mlflow.assistant.config import AssistantConfig, ProjectConfig
+from mlflow.assistant.config import AssistantConfig, ProjectConfig, SkillsConfig
 from mlflow.assistant.providers import AssistantProvider, list_providers
 from mlflow.assistant.providers.base import ProviderNotConfiguredError
+from mlflow.assistant.skill_installer import install_skills
 
 
 class Spinner:
@@ -116,13 +117,13 @@ def _run_configuration():
     model = _prompt_model()
 
     # Step 5: Ask for skill location
-    skill_path = _prompt_skill_location(project_path)
+    skills_config = _prompt_skill_location(project_path)
 
     # Step 6: Install skills
-    _install_skills(provider, skill_path)
+    skill_path = _install_skills(provider, skills_config, project_path)
 
     # Step 7: Save configuration
-    _save_config(provider, model)
+    _save_config(provider, model, skills_config)
 
     # Show success message
     _show_init_success(provider, model, skill_path)
@@ -389,14 +390,14 @@ def _prompt_model() -> str:
     return model
 
 
-def _prompt_skill_location(project_path: Path | None) -> Path:
+def _prompt_skill_location(project_path: Path | None) -> SkillsConfig:
     """Prompt user for skill installation location.
 
     Args:
         project_path: The project path from experiment setup, or None if skipped.
 
     Returns:
-        The path where skills should be installed.
+        SkillsConfig with the selected location type and optional custom path.
     """
     click.secho("Step 5/5: Skill Installation Location", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
@@ -436,9 +437,9 @@ def _prompt_skill_location(project_path: Path | None) -> Path:
     click.echo()
 
     if choice == "1":
-        return user_path
+        return SkillsConfig(type="global")
     elif choice == "2" and project_path:
-        return project_skill_path
+        return SkillsConfig(type="project")
     else:
         # Custom location
         while True:
@@ -450,30 +451,45 @@ def _prompt_skill_location(project_path: Path | None) -> Path:
             # For custom paths, we'll create the directory, so just check parent exists
             if expanded_path.parent.exists() or expanded_path.exists():
                 click.echo()
-                return expanded_path
+                return SkillsConfig(type="custom", custom_path=str(expanded_path))
             click.secho(
                 f"Parent directory '{expanded_path.parent}' does not exist. Please try again.",
                 fg="red",
             )
 
 
-def _install_skills(provider: AssistantProvider, skill_path: Path) -> None:
-    """Install provider-specific skills."""
-    installed_skills = provider.install_skills(skill_path)
+def _install_skills(
+    provider: AssistantProvider, skills_config: SkillsConfig, project_path: Path | None
+) -> Path:
+    """Install skills bundled with MLflow.
 
-    click.secho(f"Installed skills to {skill_path}:", fg="green")
-    for skill in installed_skills:
-        click.secho(f"  - {skill}")
+    Returns:
+        The resolved path where skills were installed.
+    """
+    match skills_config.type:
+        case "global":
+            skill_path = provider.resolve_skills_path(Path.home())
+        case "project":
+            skill_path = provider.resolve_skills_path(project_path)
+        case "custom":
+            skill_path = Path(skills_config.custom_path).expanduser()
+    if installed_skills := install_skills(skill_path):
+        for skill in installed_skills:
+            click.secho(f"  - {skill}")
+    else:
+        click.secho("No skills available to install.", fg="yellow")
     click.echo()
+    return skill_path
 
 
-def _save_config(provider: AssistantProvider, model: str) -> None:
+def _save_config(provider: AssistantProvider, model: str, skills_config: SkillsConfig) -> None:
     """Save configuration to file."""
     click.secho("Saving Configuration", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
 
     config = AssistantConfig.load()
     config.set_provider(provider.name, model)
+    config.providers[provider.name].skills = skills_config
     config.save()
 
     click.secho("Configuration saved", fg="green")
