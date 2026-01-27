@@ -21,7 +21,7 @@ from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
-RETURN_TRACE_HEADER = "x-mlflow-return-trace"
+RETURN_TRACE_HEADER = "x-mlflow-return-trace-id"
 
 AgentType = Literal["ResponsesAgent"]
 
@@ -347,10 +347,10 @@ class AgentServer:
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
+                    if return_trace:
+                        yield f"data: {json.dumps({'trace_id': span.trace_id})}\n\n"
                 else:
                     span.set_outputs(all_chunks)
-                if return_trace:
-                    yield f"data: {json.dumps({'trace_id': span.trace_id})}\n\n"
 
                 yield "data: [DONE]\n\n"
 
