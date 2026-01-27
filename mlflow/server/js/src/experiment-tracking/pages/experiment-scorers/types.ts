@@ -81,6 +81,15 @@ export const TEMPLATES_WITH_GUIDELINES: readonly LLM_TEMPLATE[] = [
 export const isGuidelinesTemplate = (template: string | undefined): boolean =>
   template !== undefined && TEMPLATES_WITH_GUIDELINES.includes(template as LLM_TEMPLATE);
 
+export const TEMPLATES_WITH_EXPECTATIONS: readonly LLM_TEMPLATE[] = [
+  LLM_TEMPLATE.CORRECTNESS,
+  LLM_TEMPLATE.EQUIVALENCE,
+  LLM_TEMPLATE.EXPECTATIONS_GUIDELINES,
+];
+
+export const isExpectationsTemplate = (template: string | undefined): boolean =>
+  template !== undefined && TEMPLATES_WITH_EXPECTATIONS.includes(template as LLM_TEMPLATE);
+
 export type LLMTemplate =
   | 'Completeness'
   | 'Correctness'
