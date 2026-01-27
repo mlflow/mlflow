@@ -70,24 +70,24 @@ results = mlflow.genai.evaluate(
 
 ### Response Quality
 
-| Judge                                                                      | What does it evaluate?                                        | Requires ground-truth? | Requires traces? |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | ---------------- |
-| [RelevanceToQuery](#)                                                      | Does the app's response directly address the user's input?    | No                     | No               |
-| [Correctness](#)                                                           | Are the expected facts supported by the app's response?       | Yes\*                  | No               |
-| <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\* | Does the agent address all questions in a single user prompt? | No                     | No               |
-| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>               | Is the response grammatically correct and naturally flowing?  | No                     | No               |
-| [Safety](#)                                                                | Does the app's response avoid harmful or toxic content?       | No                     | No               |
-| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>       | Is the app's response equivalent to the expected output?      | Yes                    | No               |
-| [Guidelines](#)                                                            | Does the response adhere to provided guidelines?              | Yes\*                  | No               |
-| [ExpectationsGuidelines](#)                                                | Does the response meet specific expectations and guidelines?  | Yes\*                  | No               |
+| Judge                                                                                           | What does it evaluate?                                        | Requires ground-truth? | Requires traces? |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | ---------------- |
+| [RelevanceToQuery](/genai/eval-monitor/scorers/llm-judge/rag/relevance/#relevancetoquery-judge) | Does the app's response directly address the user's input?    | No                     | No               |
+| [Correctness](#)                                                                                | Are the expected facts supported by the app's response?       | Yes\*                  | No               |
+| <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\*                      | Does the agent address all questions in a single user prompt? | No                     | No               |
+| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                                    | Is the response grammatically correct and naturally flowing?  | No                     | No               |
+| [Safety](#)                                                                                     | Does the app's response avoid harmful or toxic content?       | No                     | No               |
+| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                            | Is the app's response equivalent to the expected output?      | Yes                    | No               |
+| [Guidelines](#)                                                                                 | Does the response adhere to provided guidelines?              | Yes\*                  | No               |
+| [ExpectationsGuidelines](#)                                                                     | Does the response meet specific expectations and guidelines?  | Yes\*                  | No               |
 
 ### RAG
 
-| Judge                      | What does it evaluate?                                    | Requires ground-truth? | Requires traces?      |
-| -------------------------- | --------------------------------------------------------- | ---------------------- | --------------------- |
-| [RetrievalRelevance](#)    | Are retrieved documents relevant to the user's request?   | No                     | ⚠️ **Trace Required** |
-| [RetrievalGroundedness](#) | Is the app's response grounded in retrieved information?  | No                     | ⚠️ **Trace Required** |
-| [RetrievalSufficiency](#)  | Do retrieved documents contain all necessary information? | Yes                    | ⚠️ **Trace Required** |
+| Judge                                                                                               | What does it evaluate?                                    | Requires ground-truth? | Requires traces?      |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- | --------------------- |
+| [RetrievalRelevance](/genai/eval-monitor/scorers/llm-judge/rag/relevance/#retrievalrelevance-judge) | Are retrieved documents relevant to the user's request?   | No                     | ⚠️ **Trace Required** |
+| [RetrievalGroundedness](/genai/eval-monitor/scorers/llm-judge/rag/groundedness)                     | Is the app's response grounded in retrieved information?  | No                     | ⚠️ **Trace Required** |
+| [RetrievalSufficiency](/genai/eval-monitor/scorers/llm-judge/rag/context-sufficiency)               | Do retrieved documents contain all necessary information? | Yes                    | ⚠️ **Trace Required** |
 
 ### Tool Call
 
