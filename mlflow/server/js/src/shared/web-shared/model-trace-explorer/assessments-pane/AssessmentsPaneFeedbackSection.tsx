@@ -3,7 +3,7 @@ import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, partition, some } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
@@ -48,24 +48,22 @@ const AddFeedbackButton = ({ onClick }: { onClick: () => void }) => (
     icon={<PlusIcon />}
     onClick={onClick}
   >
-    {/* {TODO(next PR): Rename to "Add human feedback" when auto LLM judge feedback is implemented */}
     <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
   </Button>
 );
 
 export const AssessmentsPaneFeedbackSection = ({
+  enableRunScorer,
   feedbacks,
   activeSpanId,
   traceId,
 }: {
+  enableRunScorer: boolean;
   feedbacks: FeedbackAssessment[];
   activeSpanId?: string;
   traceId: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => {
-    // TODO(next PR): Extract LLM judge feedback groups to a separate section
-    return groupFeedbacks(feedbacks);
-  }, [feedbacks]);
+  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -95,6 +93,7 @@ export const AssessmentsPaneFeedbackSection = ({
           <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
+
       {groupedFeedbacks.map(([name, valuesMap]) => (
         <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
       ))}

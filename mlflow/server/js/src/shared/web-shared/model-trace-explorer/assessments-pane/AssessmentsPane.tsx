@@ -5,7 +5,7 @@ import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } 
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
-import { shouldUseTracesV4API } from '../FeatureUtils';
+import { isEvaluatingTracesInDetailsViewEnabled, shouldUseTracesV4API } from '../FeatureUtils';
 import type { Assessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
@@ -19,6 +19,7 @@ export const AssessmentsPane = ({
   className,
   assessmentsTitleOverride,
   disableCloseButton,
+  enableRunScorer = true,
 }: {
   assessments: Assessment[];
   traceId: string;
@@ -26,6 +27,7 @@ export const AssessmentsPane = ({
   className?: string;
   assessmentsTitleOverride?: (count?: number) => JSX.Element;
   disableCloseButton?: boolean;
+  enableRunScorer?: boolean;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
@@ -102,7 +104,12 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      <AssessmentsPaneFeedbackSection feedbacks={feedbacks} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneFeedbackSection
+        enableRunScorer={enableRunScorer && isEvaluatingTracesInDetailsViewEnabled()}
+        feedbacks={feedbacks}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+      />
       <Spacer size="sm" shrinks={false} />
       <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
     </div>
