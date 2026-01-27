@@ -77,14 +77,17 @@ To save traces to Databricks-managed MLflow, set the tracking URI to `databricks
 <TabsWrapper>
 <Tabs groupId="programming-language">
   <TabItem value="python" label="Python" default>
+
 ```python
 import mlflow
 
 mlflow.set_tracking_uri("databricks")
 mlflow.set_experiment("<your-databricks-workspace>")
 ```
+
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
+
 ```typescript
 import * as mlflow from "mlflow-tracing";
 
