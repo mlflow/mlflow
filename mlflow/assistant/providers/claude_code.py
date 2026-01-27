@@ -174,6 +174,12 @@ and running. For example:
 - Do NOT tell the user to open a browser to view the MLflow UI - they are already using it.
 - Skip any setup/installation steps that are already complete for this user.
 Focus on the substantive content that is relevant to the user's actual question.
+
+## Skills
+
+MLflow provides a set of skills that can be used to perform various tasks. When handling
+MLflow-related tasks, except a simple one (e.g., fetching a single trace), ALWAYS prefer to start
+with searching for skills that can help you complete the task more efficiently.
 """
 
 
@@ -357,6 +363,10 @@ class ClaudeCodeProvider(AssistantProvider):
 
                 try:
                     data = json.loads(line_str)
+
+                    if self._should_filter_out_message(data):
+                        continue
+
                     if msg := self._parse_message_to_event(data):
                         yield msg
 
@@ -499,3 +509,27 @@ class ClaudeCodeProvider(AssistantProvider):
 
             case _:
                 return Event.from_error(f"Unknown message type: {message_type}")
+
+    def _should_filter_out_message(self, data: dict[str, Any]) -> bool:
+        """
+        Check if an internal message that should be filtered out before being displayed to the user.
+
+        Currently filters:
+        - Skill prompt messages: When a Skill tool is called, Claude Code sends an internal
+          user message containing the full skill instructions (starting with "Base directory
+          for this skill:"). These messages are internal and should not be displayed to users.
+        """
+        if data.get("type") != "user":
+            return False
+
+        content = data.get("message", {}).get("content", [])
+        if not isinstance(content, list):
+            return False
+
+        return any(
+            block.get("type") == "text"
+            # TODO: This prefix is not guaranteed to be stable. We should find a better way to
+            # filter out these messages.
+            and block.get("text", "").startswith("Base directory for this skill:")
+            for block in content
+        )
