@@ -143,8 +143,9 @@ function wrapStreamWithTracing(fn: Function, moduleName: string): Function {
 
 function wrapMessageStream(stream: any, inputs: any, name: string, spanType: SpanType): any {
   // Use a flag that is set synchronously on first access to prevent duplicate spans.
-  // Both asyncIterator and finalMessage set this before any async work begins,
-  // so concurrent access from the same tick is not possible.
+  // It is claimed either when the async iterator getter is invoked or when the wrapped
+  // finalMessage function is called, before any asynchronous work begins, so only one
+  // of these access paths will perform tracing for a given stream instance.
   let tracingClaimed = false;
 
   return new Proxy(stream, {
