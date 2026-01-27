@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -2427,3 +2428,105 @@ def test_search_traces_with_full_text():
     )
     assert len(traces) == 1
     assert traces[0].info.trace_id == trace_id_1
+
+
+@pytest.mark.parametrize(
+    ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
+    [
+        (0.0, 10, 0, 0),
+        (0.5, 100, 30, 70),
+        (1.0, 10, 10, 10),
+    ],
+)
+def test_trace_decorator_sampling_ratio(
+    sampling_ratio: float, num_calls: int, expected_min: int, expected_max: int
+):
+    trace_ids = []
+
+    @mlflow.trace(sampling_ratio=sampling_ratio)
+    def traced_func():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(num_calls):
+        assert traced_func() == "result"
+
+    assert expected_min <= len(trace_ids) <= expected_max
+
+
+@pytest.mark.parametrize(
+    ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
+    [
+        (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
+        (0.0, 1.0, 0, 0),  # Parent not sampled -> child also not sampled
+    ],
+)
+def test_trace_decorator_sampling_ratio_nested(
+    outer_ratio: float, inner_ratio: float, expected_outer: int, expected_inner: int
+):
+    outer_trace_ids = []
+    inner_trace_ids = []
+
+    @mlflow.trace(sampling_ratio=outer_ratio)
+    def outer():
+        if trace_id := mlflow.get_active_trace_id():
+            outer_trace_ids.append(trace_id)
+        return inner()
+
+    @mlflow.trace(sampling_ratio=inner_ratio)
+    def inner():
+        if trace_id := mlflow.get_active_trace_id():
+            inner_trace_ids.append(trace_id)
+        return "inner result"
+
+    for _ in range(5):
+        assert outer() == "inner result"
+
+    assert len(outer_trace_ids) == expected_outer
+    assert len(inner_trace_ids) == expected_inner
+
+
+def test_trace_decorator_sampling_ratio_overrides_global():
+    code = """
+import mlflow
+
+trace_ids = []
+
+@mlflow.trace(sampling_ratio=1.0)  # Should override global 0.0
+def always_traced():
+    if trace_id := mlflow.get_active_trace_id():
+        trace_ids.append(trace_id)
+    return "traced"
+
+for _ in range(5):
+    always_traced()
+
+assert len(trace_ids) == 5
+"""
+    subprocess.check_call(
+        [sys.executable, "-c", code],
+        env={**os.environ, "MLFLOW_TRACE_SAMPLING_RATIO": "0.0"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_count"),
+    [
+        (0.0, 0),
+        (1.0, 2),
+    ],
+)
+def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expected_count: int):
+    trace_ids = []
+
+    @mlflow.trace(sampling_ratio=sampling_ratio)
+    def gen():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        for i in range(3):
+            yield i
+
+    assert list(gen()) == [0, 1, 2]
+    assert list(gen()) == [0, 1, 2]
+    assert len(trace_ids) == expected_count
