@@ -94,6 +94,63 @@ function createStreamingEvents(request: MessagesCreateRequest): string[] {
   ];
 }
 
+export function createStreamingErrorHandler() {
+  return http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
+    const body = (await request.json()) as MessagesCreateRequest;
+
+    if (body.stream) {
+      // Send a partial stream that ends with an error event
+      const messageId = `msg_${Math.random().toString(36).slice(2)}`;
+      const events = [
+        `event: message_start\ndata: ${JSON.stringify({
+          type: 'message_start',
+          message: {
+            id: messageId,
+            type: 'message',
+            role: 'assistant',
+            model: body.model,
+            content: [],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: { input_tokens: 128, output_tokens: 0 }
+          }
+        })}\n\n`,
+        `event: error\ndata: ${JSON.stringify({
+          type: 'error',
+          error: {
+            type: 'overloaded_error',
+            message: 'Overloaded'
+          }
+        })}\n\n`
+      ];
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          for (const event of events) {
+            controller.enqueue(encoder.encode(event));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+          controller.close();
+        }
+      });
+
+      return new HttpResponse(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive'
+        }
+      });
+    }
+
+    return HttpResponse.json(
+      { error: { type: 'overloaded_error', message: 'Overloaded' } },
+      { status: 529 }
+    );
+  });
+}
+
 export const anthropicMockHandlers = [
   http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
     const body = (await request.json()) as MessagesCreateRequest;

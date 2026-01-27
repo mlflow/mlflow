@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { anthropicMockHandlers } from './mockAnthropicServer';
+import { anthropicMockHandlers, createStreamingErrorHandler } from './mockAnthropicServer';
 import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
@@ -254,6 +254,62 @@ describe('tracedAnthropic', () => {
 
     const messageFormat = span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
     expect(messageFormat).toBe('anthropic');
+  });
+
+  it('should handle errors during streaming async iteration', async () => {
+    server.use(createStreamingErrorHandler());
+
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const stream = wrappedAnthropic.messages.stream({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello streaming error!' }]
+    });
+
+    await expect(async () => {
+      for await (const _event of stream) {
+        // consume events until error
+      }
+    }).rejects.toThrow();
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('ERROR');
+
+    const span = trace.data.spans[0];
+    expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    expect(span.inputs).toMatchObject({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello streaming error!' }]
+    });
+  });
+
+  it('should handle errors during streaming finalMessage()', async () => {
+    server.use(createStreamingErrorHandler());
+
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const stream = wrappedAnthropic.messages.stream({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello finalMessage error!' }]
+    });
+
+    await expect(stream.finalMessage()).rejects.toThrow();
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('ERROR');
+
+    const span = trace.data.spans[0];
+    expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    expect(span.inputs).toEqual({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello finalMessage error!' }]
+    });
   });
 
   it('should trace streaming request wrapped in a parent span', async () => {

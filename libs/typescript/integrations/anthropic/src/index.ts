@@ -142,7 +142,10 @@ function wrapStreamWithTracing(fn: Function, moduleName: string): Function {
 }
 
 function wrapMessageStream(stream: any, inputs: any, name: string, spanType: SpanType): any {
-  let traced = false;
+  // Use a flag that is set synchronously on first access to prevent duplicate spans.
+  // Both asyncIterator and finalMessage set this before any async work begins,
+  // so concurrent access from the same tick is not possible.
+  let tracingClaimed = false;
 
   return new Proxy(stream, {
     get(target, prop, receiver) {
@@ -151,12 +154,12 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
       // Wrap finalMessage() to add tracing
       if (prop === 'finalMessage') {
         return async function () {
-          if (traced) {
+          if (tracingClaimed) {
             // Already traced via async iteration, just return the message
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
             return target.finalMessage();
           }
-          traced = true;
+          tracingClaimed = true;
 
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return withSpan(
@@ -190,7 +193,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
       // Wrap async iterator for `for await (const event of stream)` pattern
       if (prop === Symbol.asyncIterator) {
         return function () {
-          traced = true;
+          tracingClaimed = true;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return wrapAsyncIterator(target[Symbol.asyncIterator](), target, inputs, name, spanType);
         };
@@ -218,53 +221,59 @@ async function* wrapAsyncIterator(
   const span = startSpan({ name, spanType, parent: parentSpan ?? undefined });
   span.setInputs(inputs);
 
+  let iterationError: Error | undefined;
+
   try {
     while (true) {
       const { value, done } = await iterator.next();
       if (done) break;
       yield value;
     }
-
-    // After iteration completes, get the final message for outputs and token usage
-    try {
-      // Prefer a proxy-aware finalMessage if available on the iterator, and fall back to the stream.
-      let finalMessage: any | undefined;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-      const iteratorAny = iterator as any;
-      if (iteratorAny && typeof iteratorAny.finalMessage === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        finalMessage = await iteratorAny.finalMessage();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      } else if (stream && typeof stream.finalMessage === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        finalMessage = await stream.finalMessage();
-      }
-
-      if (finalMessage !== undefined) {
-        span.setOutputs(finalMessage);
-
-        const usage = extractTokenUsage(finalMessage);
-        if (usage) {
-          span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
-        }
-      }
-    } catch (e) {
-      // Stream may have completed without finalMessage available
-      console.debug('Could not get final message from stream', e);
-      // Mark span with a partial-failure indicator so callers know token usage could not be captured
-      span.setAttribute('mlflow.tracing.token_usage_capture_failed', true);
-      span.setAttribute(
-        'mlflow.tracing.token_usage_capture_error',
-        e instanceof Error ? e.message : String(e)
-      );
-    }
-
-    span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'anthropic');
-    span.end();
   } catch (error) {
-    span.setStatus(SpanStatusCode.ERROR, (error as Error).message);
-    span.end();
+    iterationError = error as Error;
     throw error;
+  } finally {
+    if (iterationError) {
+      span.setStatus(SpanStatusCode.ERROR, iterationError.message);
+      span.end();
+    } else {
+      // After iteration completes (or early termination via break/return),
+      // get the final message for outputs and token usage
+      try {
+        // Prefer a proxy-aware finalMessage if available on the iterator, and fall back to the stream.
+        let finalMessage: any | undefined;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+        const iteratorAny = iterator as any;
+        if (iteratorAny && typeof iteratorAny.finalMessage === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          finalMessage = await iteratorAny.finalMessage();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        } else if (stream && typeof stream.finalMessage === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          finalMessage = await stream.finalMessage();
+        }
+
+        if (finalMessage !== undefined) {
+          span.setOutputs(finalMessage);
+
+          const usage = extractTokenUsage(finalMessage);
+          if (usage) {
+            span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
+          }
+        }
+      } catch (e) {
+        // Stream may have completed without finalMessage available
+        console.debug('Could not get final message from stream', e);
+        span.setAttribute('mlflow.tracing.token_usage_capture_failed', true);
+        span.setAttribute(
+          'mlflow.tracing.token_usage_capture_error',
+          e instanceof Error ? e.message : String(e)
+        );
+      }
+
+      span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'anthropic');
+      span.end();
+    }
   }
 }
 
