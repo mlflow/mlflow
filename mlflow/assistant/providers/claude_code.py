@@ -41,7 +41,11 @@ BASE_ALLOWED_TOOLS = [
 ]
 FILE_EDIT_TOOLS = [
     "Edit(*)",
+    "Edit(//tmp/**)",
     "Read(*)",
+    "Read(//tmp/**)",
+    "Write(*)",
+    "Write(//tmp/**)",
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
@@ -144,9 +148,8 @@ For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
 * Never combine two bash commands with `&&` or `||`. That will error out.
 * If the CLI cannot accomplish the task, fall back to the MLflow SDK.
-* When working with large output, write it to files in the current project directory and use
+* When working with large output, write it to files /tmp and use
   bash commands to analyze the files, rather than reading the full contents into context.
-  Do not use `/tmp` unless you know you have permission to write there.
 
 ### MLflow Write Operations
 
