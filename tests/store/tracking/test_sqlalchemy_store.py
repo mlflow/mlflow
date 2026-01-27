@@ -93,6 +93,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlSpan,
+    SqlSpanAttributes,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -102,6 +104,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TraceMetadataKey,
@@ -12398,6 +12401,67 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         }
 
 
+def test_log_spans_creates_span_metrics_and_attributes(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics_and_attrs")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .order_by(SqlSpanMetrics.key)
+            .all()
+        )
+        metrics_by_key = {metric.key: metric.value for metric in metrics}
+        assert metrics_by_key == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }
+
+        attributes = (
+            session.query(SqlSpanAttributes)
+            .filter(
+                SqlSpanAttributes.trace_id == trace_id, SqlSpanAttributes.span_id == span.span_id
+            )
+            .all()
+        )
+        attrs_by_key = {attr.key: attr.value for attr in attributes}
+        assert attrs_by_key == {
+            SpanAttributeKey.MODEL: "gpt-4-turbo",
+        }
+
+
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_incremental_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -12472,6 +12536,140 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
             "output_tokens": 125,
             "total_tokens": 425,
         }
+
+
+def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.001,
+                CostKey.OUTPUT_COST: 0.002,
+                CostKey.TOTAL_COST: 0.003,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span1, span2])
+
+    with store.ManagedSessionMaker() as session:
+        all_metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id)
+            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .all()
+        )
+
+        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
+        assert span1_metrics == {
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }
+
+        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
+        assert span2_metrics == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }
+
+
+def test_log_spans_stores_span_attributes_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_attrs_per_span")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4"),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.MODEL: json.dumps("gpt-3.5-turbo"),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span1, span2])
+
+    with store.ManagedSessionMaker() as session:
+        all_attributes = (
+            session.query(SqlSpanAttributes)
+            .filter(SqlSpanAttributes.trace_id == trace_id)
+            .order_by(SqlSpanAttributes.span_id)
+            .all()
+        )
+
+        span1_attrs = {a.key: a.value for a in all_attributes if a.span_id == span1.span_id}
+        assert span1_attrs == {SpanAttributeKey.MODEL: "gpt-4"}
+
+        span2_attrs = {a.key: a.value for a in all_attributes if a.span_id == span2.span_id}
+        assert span2_attrs == {SpanAttributeKey.MODEL: "gpt-3.5-turbo"}
 
 
 def test_get_trace_basic(store: SqlAlchemyStore) -> None:

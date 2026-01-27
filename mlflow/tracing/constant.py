@@ -56,6 +56,10 @@ class CostKey:
     OUTPUT_COST = "output_cost"
     TOTAL_COST = "total_cost"
 
+    @classmethod
+    def all_keys(cls):
+        return [cls.INPUT_COST, cls.OUTPUT_COST, cls.TOTAL_COST]
+
 
 class TraceSizeStatsKey:
     TOTAL_SIZE_BYTES = "total_size_bytes"
