@@ -295,6 +295,10 @@
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
   },
+  "03HDrw": {
+    "defaultMessage": "Add a custom feedback to this trace.",
+    "description": "Hint message prompting user to add a new feedback"
+  },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
@@ -510,10 +514,6 @@
   "2+EUFB": {
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
-  },
-  "2+O4wk": {
-    "defaultMessage": "Add new assessment",
-    "description": "Label for the button to add a new assessment"
   },
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
@@ -3402,9 +3402,17 @@
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
+  "OmK5nx": {
+    "defaultMessage": "Add feedback",
+    "description": "Label for the button to add a new feedback"
+  },
   "On3g1B": {
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
+  },
+  "OneX+E": {
+    "defaultMessage": "Add expectation",
+    "description": "Label for the button to add a new expectation"
   },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
@@ -3572,6 +3580,10 @@
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
+  },
+  "QK9qFL": {
+    "defaultMessage": "Hide assessments",
+    "description": "Label for the button to hide the assessments pane"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -5343,6 +5355,10 @@
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
   },
+  "dTjHiD": {
+    "defaultMessage": "Add a custom expectation to this trace.",
+    "description": "Hint message prompting user to add a new expectation"
+  },
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
@@ -6539,6 +6555,10 @@
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
   },
+  "mLr9U7": {
+    "defaultMessage": "Learn more.",
+    "description": "Link text for learning more about feedback"
+  },
   "mMR/YQ": {
     "defaultMessage": "Select a provider to configure your API key",
     "description": "Placeholder message when no provider selected"
@@ -6594,6 +6614,10 @@
   "mjNFJt": {
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
+  },
+  "mltH0e": {
+    "defaultMessage": "Show assessments",
+    "description": "Label for the button to show the assessments pane"
   },
   "mmiHAX": {
     "defaultMessage": "Parameters",
@@ -7163,10 +7187,6 @@
     "defaultMessage": "Parameter",
     "description": "Run page > Overview > Parameters table > Key column header"
   },
-  "r/fxMt": {
-    "defaultMessage": "Assessments",
-    "description": "Label for the assessments pane of the model trace explorer."
-  },
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
@@ -7658,6 +7678,10 @@
   "urvfNd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
+  },
+  "utyagz": {
+    "defaultMessage": "Feedback",
+    "description": "Label for the feedback section in the assessments pane"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
@@ -8226,6 +8250,10 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
+  },
+  "zMv2ev": {
+    "defaultMessage": "Learn more.",
+    "description": "Link text for learning more about expectations"
   },
   "zNWzj6": {
     "defaultMessage": "Search traces by request",

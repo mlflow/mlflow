@@ -1,58 +1,16 @@
-import { isNil, partition, uniqBy } from 'lodash';
+import { partition, uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
-import {
-  Button,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  CloseIcon,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { AssessmentCreateButton } from './AssessmentCreateButton';
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
-import { ExpectationItem } from './ExpectationItem';
-import { FeedbackGroup } from './FeedbackGroup';
 import { shouldUseTracesV4API } from '../FeatureUtils';
-import type { Assessment, FeedbackAssessment } from '../ModelTrace.types';
+import type { Assessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
-
-type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
-
-type GroupedFeedbacks = [assessmentName: string, feedbacks: GroupedFeedbacksByValue][];
-
-const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
-  const aggregated: Record<string, GroupedFeedbacksByValue> = {};
-  feedbacks.forEach((feedback) => {
-    if (feedback.valid === false) {
-      return;
-    }
-
-    let value = null;
-    if (feedback.feedback.value !== '') {
-      value = JSON.stringify(feedback.feedback.value);
-    }
-
-    const { assessment_name } = feedback;
-    if (!aggregated[assessment_name]) {
-      aggregated[assessment_name] = {};
-    }
-
-    const group = aggregated[assessment_name];
-    if (!isNil(value)) {
-      if (!group[value]) {
-        group[value] = [];
-      }
-      group[value].push(feedback);
-    }
-  });
-
-  return Object.entries(aggregated).toSorted(([leftName], [rightName]) => leftName.localeCompare(rightName));
-};
+import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
+import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
 
 export const AssessmentsPane = ({
   assessments,
@@ -83,14 +41,10 @@ export const AssessmentsPane = ({
   }, [assessments, reconstructAssessments, cachedActions]);
 
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded, assessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
     () => partition(allAssessments, (assessment) => 'feedback' in assessment),
     [allAssessments],
-  );
-  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
-  const sortedExpectations = expectations.toSorted((left, right) =>
-    left.assessment_name.localeCompare(right.assessment_name),
   );
 
   return (
@@ -110,12 +64,23 @@ export const AssessmentsPane = ({
       }}
       className={className}
     >
-      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: theme.spacing.sm,
+          marginBottom: theme.spacing.sm,
+        }}
+      >
         {!isInComparisonView &&
           (assessmentsTitleOverride ? (
             assessmentsTitleOverride()
           ) : (
-            <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+            <Typography.Title level={3} withoutMargins css={{ flexShrink: 0 }}>
+              <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+            </Typography.Title>
           ))}
         {!isInComparisonView && setAssessmentsPaneExpanded && !disableCloseButton && (
           <Tooltip
@@ -137,36 +102,9 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
-      ))}
-      {sortedExpectations.length > 0 && (
-        <>
-          <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Expectations"
-              description="Label for the expectations section in the assessments pane"
-            />
-          </Typography.Text>
-          <div
-            css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}
-          >
-            {sortedExpectations.map((expectation) => (
-              <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
-            ))}
-          </div>
-        </>
-      )}
-      <AssessmentCreateButton
-        title={
-          <FormattedMessage
-            defaultMessage="Add new assessment"
-            description="Label for the button to add a new assessment"
-          />
-        }
-        spanId={activeSpanId}
-        traceId={traceId}
-      />
+      <AssessmentsPaneFeedbackSection feedbacks={feedbacks} activeSpanId={activeSpanId} traceId={traceId} />
+      <Spacer size="sm" shrinks={false} />
+      <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
     </div>
   );
 };
