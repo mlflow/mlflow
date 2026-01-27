@@ -5408,8 +5408,7 @@ def _get_prompt_optimization_job(job_id):
         if total_metric_calls is not None:
             params = json.loads(job_entity.params)
             optimizer_config = params.get("optimizer_config", {})
-            max_metric_calls = optimizer_config.get("max_metric_calls")
-            if max_metric_calls:
+            if max_metric_calls := optimizer_config.get("max_metric_calls"):
                 progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
                 optimization_job.state.metadata["progress"] = str(progress)
 
