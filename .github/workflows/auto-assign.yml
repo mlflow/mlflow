@@ -16,6 +16,7 @@ defaults:
 
 jobs:
   scan-and-assign:
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:

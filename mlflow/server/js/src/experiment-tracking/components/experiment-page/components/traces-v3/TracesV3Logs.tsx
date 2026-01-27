@@ -83,6 +83,8 @@ const TracesV3LogsImpl = React.memo(
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    forceGroupBySession = false,
+    columnStorageKeyPrefix,
   }: {
     experimentId: string;
     endpointName?: string;
@@ -93,6 +95,12 @@ const TracesV3LogsImpl = React.memo(
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    forceGroupBySession?: boolean;
+    /**
+     * Optional prefix for the localStorage key used to persist column selection.
+     * Use this to separate column selection state between different views.
+     */
+    columnStorageKeyPrefix?: string;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -182,6 +190,8 @@ const TracesV3LogsImpl = React.memo(
       experimentId,
       allColumns,
       defaultSelectedColumns,
+      undefined, // runUuid
+      columnStorageKeyPrefix,
     );
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
@@ -357,7 +367,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
-                  isGroupedBySession={isGroupedBySession}
+                  isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 />
               </ContextProviders>
             )}
@@ -402,7 +412,8 @@ const TracesV3LogsImpl = React.memo(
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
               addons={toolbarAddons}
-              isGroupedBySession={isGroupedBySession}
+              isGroupedBySession={forceGroupBySession || isGroupedBySession}
+              forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
             />
             {renderMainContent()}
