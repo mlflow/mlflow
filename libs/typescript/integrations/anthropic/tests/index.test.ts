@@ -312,6 +312,73 @@ describe('tracedAnthropic', () => {
     });
   });
 
+  it('should create only one span when async iteration is followed by finalMessage()', async () => {
+    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    const stream = wrappedAnthropic.messages.stream({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello dedup!' }]
+    });
+
+    // First consume via async iteration (claims tracing)
+    for await (const _event of stream) {
+      // consume all events
+    }
+
+    // Then call finalMessage() on the same stream — should NOT create a second span
+    const finalMessage = await stream.finalMessage();
+    expect(finalMessage).toBeDefined();
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('OK');
+
+    // Only one LLM span should exist (no duplicate from finalMessage)
+    const llmSpans = trace.data.spans.filter((s) => s.spanType === mlflow.SpanType.LLM);
+    expect(llmSpans.length).toBe(1);
+  });
+
+  it('should not trace messages.create() when stream: true is passed directly', async () => {
+    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    const wrappedAnthropic = tracedAnthropic(anthropic);
+
+    // Calling create() with stream: true is skipped by the tracing wrapper
+    // because the SDK's stream() method internally calls create({ stream: true }),
+    // and tracing is handled by the stream wrapper instead.
+    // Users should use messages.stream() for traced streaming.
+    const response = await wrappedAnthropic.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: 'Hello direct stream!' }],
+      stream: true
+    });
+
+    // The SDK returns a Stream object when stream: true
+    expect(response).toBeDefined();
+
+    // Consume the stream to completion
+    for await (const _event of response as any) {
+      // consume
+    }
+
+    // No traced span should have been created by the create() wrapper
+    await mlflow.flushTraces();
+    const traceId = mlflow.getLastActiveTraceId();
+    // The last active trace should be from a previous test, not this call,
+    // OR if it is from this call, it should not have a Messages LLM span
+    // created by wrapWithTracing (since create with stream:true is skipped).
+    if (traceId) {
+      const trace = await client.getTrace(traceId);
+      const matchingSpans = trace.data.spans.filter(
+        (s) =>
+          s.spanType === mlflow.SpanType.LLM &&
+          s.inputs?.messages?.[0]?.content === 'Hello direct stream!'
+      );
+      expect(matchingSpans.length).toBe(0);
+    }
+  });
+
   it('should trace streaming request wrapped in a parent span', async () => {
     const anthropic = new Anthropic({ apiKey: 'test-key' });
     const wrappedAnthropic = tracedAnthropic(anthropic);
