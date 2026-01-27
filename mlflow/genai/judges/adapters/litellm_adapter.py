@@ -4,22 +4,11 @@ import json
 import logging
 import re
 import threading
-import warnings
 from contextlib import ContextDecorator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-# Suppress Pydantic serialization warnings from LiteLLM response objects.
-# These warnings occur when Message/Choices objects have fewer fields than expected
-# but don't affect functionality. This filter is applied at module load time because
-# the warnings can be triggered asynchronously (e.g., during garbage collection)
-# after the LiteLLM call completes. The regex matches LiteLLM-specific types.
-warnings.filterwarnings(
-    "ignore",
-    message=r"Pydantic serializer warnings:[\s\S]*Expected `(Message|Choices|StreamingChoices)`",
-    category=UserWarning,
-    module="pydantic.main",
-)
+
 
 import pydantic
 
