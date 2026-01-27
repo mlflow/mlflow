@@ -40,11 +40,14 @@ BASE_ALLOWED_TOOLS = [
     "Skill",  # Skill tool needs to be explicitly allowed
 ]
 FILE_EDIT_TOOLS = [
-    # Project directory: for evaluation scripts, code edits, etc.
+    # Allow writing evaluation scripts, editing code, reading
+    # project files, etc. in the project directory
     "Edit(*)",
     "Read(*)",
     "Write(*)",
-    # /tmp: for working with large command output (e.g. grep, jq)
+    # Allow writing large command output to files in /tmp so it
+    # can be analyzed with bash commands (e.g. grep, jq) without
+    # loading full contents into context
     "Edit(//tmp/**)",
     "Read(//tmp/**)",
     "Write(//tmp/**)",
