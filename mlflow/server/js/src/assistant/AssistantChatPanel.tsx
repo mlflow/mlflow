@@ -29,6 +29,8 @@ import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
+import { useAssistantPrompts } from '../common/utils/RoutingUtils';
+import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
 type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
@@ -170,12 +172,7 @@ const ChatMessageBubble = ({
  */
 const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void }) => {
   const { theme } = useDesignSystemTheme();
-
-  const suggestions = [
-    'What does this trace show?',
-    'Debug the error in this trace.',
-    'What is the performance bottleneck in this trace?',
-  ];
+  const suggestions = useAssistantPrompts();
 
   return (
     <div
@@ -422,8 +419,59 @@ const SetupLoadingState = () => {
 };
 
 /**
+ * Message shown when server is not running locally.
+ * Assistant only works with local MLflow servers.
+ */
+const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 0,
+        padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 3,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+
+      <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
+        <FormattedMessage
+          defaultMessage="Assistant Not Available"
+          description="Title shown when Assistant is not available for remote servers"
+        />
+      </Typography.Title>
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
+          description="Message explaining that Assistant only works with local servers"
+        />
+      </Typography.Text>
+
+      <Button componentId="mlflow.assistant.chat_panel.remote_close" onClick={onClose}>
+        <FormattedMessage defaultMessage="Close" description="Button to close the assistant panel on remote servers" />
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Setup prompt shown when assistant is not set up yet.
- * Shows description and setup button.
+ * Shows empty state illustration and setup button.
  */
 const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -436,23 +484,11 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        padding: theme.spacing.lg,
-        paddingBottom: theme.spacing.lg * 4,
-        gap: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
-      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
-
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        Ask questions about your experiments, traces, evaluations, and more.
-      </Typography.Text>
+      <AssistantWelcomeCarousel />
 
       <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
         Get Started
@@ -468,7 +504,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, completeSetup } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -500,6 +536,12 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const renderContent = () => {
+    // Show message for remote servers - Assistant only works locally
+    if (!isLocalServer) {
+      return <RemoteServerMessage onClose={handleClose} />;
+    }
+
+    // Show loading state while fetching config
     if (isLoadingConfig) {
       return <SetupLoadingState />;
     }
@@ -518,12 +560,15 @@ export const AssistantChatPanel = () => {
         );
       case 'chat':
       default:
-        return setupComplete ? <ChatPanelContent /> : <SetupPrompt onSetup={handleStartSetup} />;
+        if (!setupComplete) {
+          return <SetupPrompt onSetup={handleStartSetup} />;
+        }
+        return <ChatPanelContent />;
     }
   };
 
   // Determine if we should show the chat controls (new chat button)
-  const showChatControls = Boolean(experimentId) && setupComplete && currentView === 'chat';
+  const showChatControls = setupComplete && currentView === 'chat';
 
   return (
     <div

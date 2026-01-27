@@ -40,13 +40,16 @@ import {
   ExperimentPageSideNavCustomModelConfig,
   getExperimentPageSideNavSectionLabel,
   type ExperimentPageSideNavSectionKey,
+  useExperimentPageSideNavConfig,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
-import { ExperimentPageTabName } from '../../experiment-tracking/constants';
+import { ExperimentKind, ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { ChainIcon, KeyIcon } from '@databricks/design-system';
 import { useParams } from '../utils/RoutingUtils';
 import { shouldEnableWorkflowBasedNavigation } from '../utils/FeatureUtils';
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
+import { useExperimentEvaluationRunsData } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
+import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
@@ -56,7 +59,7 @@ const isExperimentsActive = (location: Location) =>
   );
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
-const isGatewayActive = (location: Location) => Boolean(matchPath({ path: '/gateway', end: true }, location.pathname));
+const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
 const isSettingsActive = (location: Location) => Boolean(matchPath('/settings/*', location.pathname));
 
 type MlFlowSidebarMenuDropdownComponentId =
@@ -134,13 +137,24 @@ export function MlflowSidebar() {
   const { experimentId } = useParams();
   const logTelemetryEvent = useLogTelemetryEvent();
 
+  const { trainingRuns } = useExperimentEvaluationRunsData({
+    experimentId: experimentId || '',
+    enabled: Boolean(experimentId) && workflowType === WorkflowType.GENAI,
+    filter: '', // not important in this case, we show the runs tab if there are any training runs
+  });
+
+  const config = useExperimentPageSideNavConfig({
+    experimentKind: getExperimentKindForWorkflowType(workflowType),
+    hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
+  });
+
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
   const { CreatePromptModal, openModal: openCreatePromptModal } = useCreatePromptModal({
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
-  const { openPanel, closePanel, isPanelOpen } = useAssistant();
+  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
   const handleAssistantToggle = useCallback(() => {
@@ -233,46 +247,13 @@ export function MlflowSidebar() {
       return [];
     }
 
-    if (workflowType === WorkflowType.GENAI) {
-      const config = ExperimentPageSideNavGenAIConfig;
-      const groups: NestedItemsGroup[] = [];
+    const groups: NestedItemsGroup[] = Object.entries(config).map(([sectionKey, items]) => ({
+      sectionKey: sectionKey as ExperimentPageSideNavSectionKey,
+      items: buildNestedItemsFromConfig(items, experimentId),
+    }));
 
-      if (config.observability) {
-        groups.push({
-          sectionKey: 'observability',
-          items: buildNestedItemsFromConfig(config.observability, experimentId),
-        });
-      }
-      if (config.evaluation) {
-        groups.push({
-          sectionKey: 'evaluation',
-          items: buildNestedItemsFromConfig(config.evaluation, experimentId),
-        });
-      }
-      if (config['prompts-versions']) {
-        groups.push({
-          sectionKey: 'prompts-versions',
-          items: buildNestedItemsFromConfig(config['prompts-versions'], experimentId),
-        });
-      }
-
-      return groups;
-    }
-
-    if (workflowType === WorkflowType.MACHINE_LEARNING) {
-      const config = ExperimentPageSideNavCustomModelConfig;
-      if (config['top-level']) {
-        return [
-          {
-            sectionKey: 'top-level',
-            items: buildNestedItemsFromConfig(config['top-level'], experimentId),
-          },
-        ];
-      }
-    }
-
-    return [];
-  }, [enableWorkflowBasedNavigation, workflowType, experimentId]);
+    return groups;
+  }, [enableWorkflowBasedNavigation, config, experimentId]);
 
   const menuItems: MenuItemWithNested[] = useMemo(
     () => [
@@ -559,47 +540,48 @@ export function MlflowSidebar() {
           ))}
         </ul>
         <div>
-          {enableWorkflowBasedNavigation && (
+          {isLocalServer && (
             <div
-              role="button"
-              tabIndex={0}
-              aria-pressed={isPanelOpen}
               css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.sm,
-                padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                borderRadius: theme.borders.borderRadiusSm,
-                cursor: 'pointer',
-                backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
-                color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                height: theme.typography.lineHeightBase,
-                boxSizing: 'content-box',
-                ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
+                padding: 2,
+                marginBottom: theme.spacing.xs,
+                borderRadius: theme.borders.borderRadiusMd,
+                background:
+                  'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
               }}
-              onClick={handleAssistantToggle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleAssistantToggle();
-                }
-              }}
-              onMouseEnter={() => setIsAssistantHovered(true)}
-              onMouseLeave={() => setIsAssistantHovered(false)}
             >
-              <Tooltip
-                componentId="mlflow.sidebar.assistant_tooltip"
-                content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
-                side="right"
-                delayDuration={0}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-pressed={isPanelOpen}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusMd - 2,
+                  cursor: 'pointer',
+                  background: theme.colors.backgroundSecondary,
+                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                }}
+                onClick={handleAssistantToggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleAssistantToggle();
+                  }
+                }}
+                onMouseEnter={() => setIsAssistantHovered(true)}
+                onMouseLeave={() => setIsAssistantHovered(false)}
               >
                 <AssistantSparkleIcon isHovered={isAssistantHovered} />
-              </Tooltip>
-              <Typography.Text bold={isPanelOpen} color="primary">
-                <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-              </Typography.Text>
-              <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                Beta
-              </Tag>
+                <Typography.Text color="primary">
+                  <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                </Typography.Text>
+                <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                  Beta
+                </Tag>
+              </div>
             </div>
           )}
           <Link

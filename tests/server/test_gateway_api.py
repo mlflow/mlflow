@@ -56,11 +56,9 @@ def set_kek_passphrase(monkeypatch):
 
 
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
     mlflow.set_tracking_uri(db_uri)
     yield SqlAlchemyStore(db_uri, artifact_uri.as_uri())
     mlflow.set_tracking_uri(None)

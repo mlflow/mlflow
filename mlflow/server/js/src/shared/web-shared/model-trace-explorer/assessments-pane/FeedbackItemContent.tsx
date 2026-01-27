@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useState } from 'react';
 
 import { Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
@@ -12,8 +12,14 @@ import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { Link, useParams } from '../RoutingUtils';
-import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  MLFLOW_ASSESSMENT_JUDGE_COST,
+  MLFLOW_ASSESSMENT_SCORER_TRACE_ID,
+} from '../constants';
 import { getExperimentPageTracesTabRoute } from '../routes';
+import { isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
+import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -24,9 +30,12 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   const value = feedback.feedback.value;
 
   const associatedSpan = feedback.span_id ? nodeMap[feedback.span_id] : null;
+  // indicate if the assessment is session-level
+  const sessionId = feedback.metadata?.[ASSESSMENT_SESSION_METADATA_KEY];
+  const showSessionTag = activeView === 'summary' && !isEmpty(sessionId);
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
-  const showAssociatedSpan = activeView === 'summary' && associatedSpan;
+  const showAssociatedSpan = activeView === 'summary' && associatedSpan && !showSessionTag;
 
   const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
   const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
@@ -66,6 +75,29 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             <FormattedMessage defaultMessage="Span" description="Label for the associated span of an assessment" />
           </Typography.Text>
           <SpanNameDetailViewLink node={associatedSpan} />
+        </div>
+      )}
+      {showSessionTag && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Session"
+              description="Label for the session to which an assessment belongs"
+            />
+          </Typography.Text>
+          <ModelTraceHeaderSessionIdTag
+            experimentId={experimentId ?? ''}
+            sessionId={sessionId ?? ''}
+            traceId={feedback.trace_id}
+            handleCopy={() => {}}
+            hideLabel
+          />
         </div>
       )}
       {isNil(feedback.feedback.error) && (
