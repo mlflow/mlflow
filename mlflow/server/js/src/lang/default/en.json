@@ -1086,10 +1086,6 @@
     "defaultMessage": "Create endpoint",
     "description": "Gateway > Endpoints page > Create endpoint button"
   },
-  "6eYtIQ": {
-    "defaultMessage": "Add categorized feedback",
-    "description": "Label for the button to add a new human feedback"
-  },
   "6fP+8o": {
     "defaultMessage": "See more",
     "description": "A button label in a message renderer that expands truncated content when clicked."
@@ -4782,6 +4778,10 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
+  },
+  "Zah+D4": {
+    "defaultMessage": "Run judge",
+    "description": "Label for the button to add a new feedback"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
