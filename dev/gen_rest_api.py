@@ -457,12 +457,23 @@ class API:
             _logger.error("Maybe someone changed the name/location of a proto file?")
             raise ValueError(f"Proto file mismatch in {context}")
 
-    def set_services(self, proto_file_list: list[dict[str, Any]]) -> None:
+    def set_services(
+        self, proto_file_list: list[dict[str, Any]], service_order: list[str] | None = None
+    ) -> None:
         _logger.debug("Starting service generation")
         _logger.debug(f"Starts with total of: {len(proto_file_list)}")
         services_proto_list = [f for f in proto_file_list if self._file_filter(f)]
         self._validate_proto_list(services_proto_list, "set_services")
-        self.services = sorted(Service.parse_all_from(services_proto_list), key=lambda x: x.name)
+        services = Service.parse_all_from(services_proto_list)
+        if service_order:
+            order_map = {name: idx for idx, name in enumerate(service_order)}
+            default_order = len(service_order)
+            services = sorted(
+                services, key=lambda x: (order_map.get(x.name, default_order), x.name)
+            )
+        else:
+            services = sorted(services, key=lambda x: x.name)
+        self.services = services
         _logger.debug("Completed service generation")
 
     def set_messages(self, proto_file_list: list[dict[str, Any]]) -> None:
@@ -505,9 +516,11 @@ class API:
                 if not response_set:
                     _logger.warning(f"Response not set {method} for {self}")
 
-    def set_all(self, proto_file_list: list[dict[str, Any]]) -> None:
+    def set_all(
+        self, proto_file_list: list[dict[str, Any]], service_order: list[str] | None = None
+    ) -> None:
         _logger.info(f"Setting Services for {self.name}")
-        self.set_services(proto_file_list)
+        self.set_services(proto_file_list, service_order)
         _logger.info(f"Finished Setting Services for {self.name}")
         _logger.info(f"Setting Messages for {self.name}")
         self.set_messages(proto_file_list)
@@ -529,7 +542,7 @@ class API:
             )
             raise ValueError("No services or messages found - check doc_public.json")
 
-        services_rst = [s.to_rst() for s in self.services]
+        services_rst = [s.to_rst(method_order) for s in self.services]
         enums_rst = [s.to_rst() for s in self.enums]
         generic_messages_rst = [s.to_rst() for s in self.messages if s.type == MsgType.GENERIC]
 
@@ -688,13 +701,14 @@ VALID_MLFLOW_MESSAGES = [
     "mlflowUpdateWebhook",
     "mlflowDeleteWebhook",
     "mlflowTestWebhook",
-    # ===== Artifacts (mlflow-artifacts service) =====
-    "mlflowDownloadArtifact",
-    "mlflowUploadArtifact",
-    "mlflowDeleteArtifact",
-    "mlflowCreateMultipartUpload",
-    "mlflowCompleteMultipartUpload",
-    "mlflowAbortMultipartUpload",
+    # ===== Artifacts (mlflow.artifacts package) =====
+    "mlflowartifactsDownloadArtifact",
+    "mlflowartifactsUploadArtifact",
+    "mlflowartifactsListArtifacts",
+    "mlflowartifactsDeleteArtifact",
+    "mlflowartifactsCreateMultipartUpload",
+    "mlflowartifactsCompleteMultipartUpload",
+    "mlflowartifactsAbortMultipartUpload",
     # ===== Data Types =====
     "mlflowExperiment",
     "mlflowRun",
@@ -757,8 +771,9 @@ VALID_MLFLOW_MESSAGES = [
     "mlflowPromptOptimizationJobTag",
     "mlflowPromptOptimizationJobConfig",
     "mlflowPromptOptimizationJob",
-    "mlflowMultipartUploadCredential",
-    "mlflowMultipartUploadPart",
+    "mlflowartifactsFileInfo",
+    "mlflowartifactsMultipartUploadCredential",
+    "mlflowartifactsMultipartUploadPart",
     "mlflowMetricWithRunId",
 ]
 
@@ -771,6 +786,14 @@ MLFLOW_PROTOS = [
     "datasets.proto",
     "jobs.proto",
     "prompt_optimization.proto",
+]
+
+# Order of services in documentation (services not listed will be sorted alphabetically at the end)
+SERVICE_ORDER = [
+    "MlflowService",
+    "ModelRegistryService",
+    "WebhookService",
+    "MlflowArtifactsService",
 ]
 
 MLFLOW_DESCRIPTION = dedent("""
@@ -807,7 +830,7 @@ def main() -> None:
         dst_path=dst,
         valid_proto_files=MLFLOW_PROTOS,
     )
-    mlflow_api.set_all(proto_files)
+    mlflow_api.set_all(proto_files, SERVICE_ORDER)
     mlflow_api.write_rst(VALID_MLFLOW_MESSAGES)
 
 
