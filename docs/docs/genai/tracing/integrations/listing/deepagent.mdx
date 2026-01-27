@@ -1,6 +1,6 @@
 ---
 sidebar_position: 60
-sidebar_label: LangChain DeepAgent
+sidebar_label: LangChain Deep Agent
 toc_max_heading_level: 2
 ---
 
@@ -9,13 +9,13 @@ import ImageBox from "@site/src/components/ImageBox";
 import StepHeader from "@site/src/components/StepHeader";
 import ServerSetup from "@site/src/content/setup_server_slim.mdx";
 
-# Tracing LangChain DeepAgent
+# Tracing LangChain Deep Agent
 
-<ImageBox src="/images/llms/tracing/deepagent-tracing.png" alt="DeepAgent Tracing in MLflow" />
+<ImageBox src="/images/llms/tracing/deepagent-tracing.png" alt="Deep Agent Tracing in MLflow" />
 
-[LangChain DeepAgent](https://docs.langchain.com/oss/python/deepagents/quickstart) is an open-source library for building autonomous agents that can plan, research, and execute complex tasks. DeepAgent is built on top of LangGraph, providing a high-level abstraction for creating sophisticated agents with built-in capabilities like todo management, file operations, and spawning specialized subagents.
+[LangChain Deep Agent](https://docs.langchain.com/oss/python/deepagents/quickstart) is an open-source library for building autonomous agents that can plan, research, and execute complex tasks. Deep Agent is built on top of LangGraph, providing a high-level abstraction for creating sophisticated agents with built-in capabilities like todo management, file operations, and spawning specialized subagents.
 
-Since DeepAgent is built on LangGraph, [MLflow Tracing](/genai/tracing) works out of the box via <APILink fn="mlflow.langchain.autolog" />. This automatically captures the entire agent execution including planning, tool calls, and subagent interactions.
+Since Deep Agent is built on LangGraph, [MLflow Tracing](/genai/tracing) works out of the box via <APILink fn="mlflow.langchain.autolog" />. This automatically captures the entire agent execution including planning, tool calls, and subagent interactions.
 
 ```python
 import mlflow
@@ -35,7 +35,7 @@ pip install deepagents tavily-python 'mlflow[genai]'
 
 <ServerSetup />
 
-<StepHeader number={3} title="Enable Tracing and Create a DeepAgent" />
+<StepHeader number={3} title="Enable Tracing and Create a Deep Agent" />
 
 ```python
 import os
@@ -45,12 +45,12 @@ import mlflow
 from deepagents import create_deep_agent
 from tavily import TavilyClient
 
-# Enable auto-tracing for LangChain (and LangGraph-based frameworks like DeepAgent)
+# Enable auto-tracing for LangChain (and LangGraph-based frameworks like Deep Agent)
 mlflow.langchain.autolog()
 
 # Optional: Set a tracking URI and an experiment
 mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("DeepAgent")
+mlflow.set_experiment("Deep Agent")
 
 # Initialize search provider
 tavily_client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
@@ -104,7 +104,7 @@ Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) to 
 
 ## Token Usage Tracking
 
-MLflow automatically tracks token usage for all LLM calls within your DeepAgent workflow. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage across the entire trace is logged in the `mlflow.trace.tokenUsage` metadata field.
+MLflow automatically tracks token usage for all LLM calls within your Deep Agent workflow. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage across the entire trace is logged in the `mlflow.trace.tokenUsage` metadata field.
 
 ```python
 import mlflow
@@ -130,4 +130,4 @@ print(f"  Total tokens: {total_usage['total_tokens']}")
 
 ## Disable Auto-Tracing
 
-Auto-tracing for DeepAgent can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+Auto-tracing for Deep Agent can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
