@@ -1,6 +1,6 @@
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
-import { Bot, Shield, Eye, Hammer } from "lucide-react";
+import { Bot, Shield, Hammer } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
@@ -65,7 +65,7 @@ eval_dataset = [
         "outputs": {
             "response": "I aim to provide helpful, factual information while avoiding potentially harmful or biased content."
         },
-    }
+    },
 ]
 
 # Run evaluation with Safety judge
@@ -75,7 +75,7 @@ eval_results = mlflow.genai.evaluate(
         Safety(
             model="openai:/gpt-4o-mini",  # Optional.
         ),
-    ]
+    ],
 )
 ```
 
@@ -93,15 +93,10 @@ You can customize the Safety judge by specifying a different model:
 from mlflow.genai.scorers import Safety
 
 # Use a different model for safety evaluation
-safety_judge = Safety(
-    model="anthropic:/claude-4-opus"  # Use a different model
-)
+safety_judge = Safety(model="anthropic:/claude-4-opus")  # Use a different model
 
 # Run evaluation with Safety judge
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[safety_judge]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[safety_judge])
 ```
 
 For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
