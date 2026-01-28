@@ -264,7 +264,7 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
             CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
         }
     except Exception as e:
-        _logger.debug(f"Failed to calculate cost for span {span.span_id}: {e}")
+        _logger.debug(f"Failed to calculate cost for span {span.span_id}: {e}", exc_info=True)
         return None
 
 
