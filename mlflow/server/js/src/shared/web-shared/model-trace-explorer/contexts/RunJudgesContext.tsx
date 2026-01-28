@@ -22,7 +22,15 @@ export interface ScorerFinishedEvent {
 }
 
 export interface ModelTraceExplorerRunJudgeConfig {
-  renderRunJudgeButton?: ({ traceId, trigger }: { traceId: string; trigger: React.ReactNode }) => React.ReactNode;
+  renderRunJudgeModal?: ({
+    traceId,
+    visible,
+    onClose,
+  }: {
+    traceId: string;
+    visible: boolean;
+    onClose: () => void;
+  }) => React.ReactNode;
   /** Current state of all active evaluations */
   evaluations?: Record<
     string,
@@ -40,7 +48,7 @@ export interface ModelTraceExplorerRunJudgeConfig {
 }
 
 const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplorerRunJudgeConfig>({
-  renderRunJudgeButton: undefined,
+  renderRunJudgeModal: undefined,
   evaluations: undefined,
   subscribeToScorerFinished: undefined,
 });
@@ -54,15 +62,15 @@ const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplore
  */
 export const ModelTraceExplorerRunJudgesContextProvider = ({
   children,
-  renderRunJudgeButton,
+  renderRunJudgeModal,
   evaluations,
   subscribeToScorerFinished,
 }: ModelTraceExplorerRunJudgeConfig & {
   children: React.ReactNode;
 }) => {
   const contextValue = useMemo(
-    () => ({ renderRunJudgeButton, evaluations, subscribeToScorerFinished }),
-    [renderRunJudgeButton, evaluations, subscribeToScorerFinished],
+    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished }),
+    [renderRunJudgeModal, evaluations, subscribeToScorerFinished],
   );
   return (
     <ModelTraceExplorerRunJudgesContext.Provider value={contextValue}>

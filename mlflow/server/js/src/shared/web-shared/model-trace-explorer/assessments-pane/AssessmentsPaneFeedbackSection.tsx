@@ -20,6 +20,7 @@ import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTrace
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
+import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -55,32 +56,56 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   return Object.entries(aggregated);
 };
 
-const AddFeedbackButton = ({ onClick }: { onClick: () => void }) => (
-  <Button
-    type="primary"
-    componentId="shared.model-trace-explorer.add-feedback"
-    size="small"
-    icon={<PlusIcon />}
-    onClick={onClick}
-  >
-    <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
-  </Button>
-);
-
-const RunJudgeButton = ({ traceId }: { traceId: string }) => {
+const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId: string }) => {
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
+  const [judgeModalVisible, setJudgeModalVisible] = useState(false);
 
-  if (!runJudgeConfiguration.renderRunJudgeButton) {
-    return null;
+  if (runJudgeConfiguration.renderRunJudgeModal && isEvaluatingTracesInDetailsViewEnabled()) {
+    return (
+      <>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Button
+              type="primary"
+              componentId="shared.model-trace-explorer.add-feedback"
+              size="small"
+              icon={<PlusIcon />}
+            >
+              <FormattedMessage
+                defaultMessage="Add feedback"
+                description="Label for the button to add a new feedback"
+              />
+            </Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content>
+            <DropdownMenu.Item componentId="TODO" onClick={onClick}>
+              Add human feedback
+            </DropdownMenu.Item>
+            <DropdownMenu.Item componentId="TODO" onClick={() => setJudgeModalVisible(true)}>
+              Run judge
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+        {runJudgeConfiguration.renderRunJudgeModal?.({
+          traceId,
+          visible: judgeModalVisible,
+          onClose: () => setJudgeModalVisible(false),
+        })}
+      </>
+    );
   }
 
-  const trigger = (
-    <Button type="primary" componentId="shared.model-trace-explorer.add-feedback" size="small" icon={<GavelIcon />}>
-      <FormattedMessage defaultMessage="Run judge" description="Label for the button to add a new feedback" />
+  return (
+    <Button
+      type="primary"
+      componentId="shared.model-trace-explorer.add-feedback"
+      size="small"
+      icon={<PlusIcon />}
+      onClick={onClick}
+    >
+      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
     </Button>
   );
-
-  return <>{runJudgeConfiguration.renderRunJudgeButton({ traceId, trigger })}</>;
 };
 
 export const AssessmentsPaneFeedbackSection = ({
@@ -165,8 +190,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <div
           css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
         >
-          <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
-          {enableRunScorer && <RunJudgeButton traceId={traceId} />}
+          <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
 
@@ -234,8 +258,7 @@ export const AssessmentsPaneFeedbackSection = ({
           </Typography.Hint>
           <Spacer size="sm" />
           <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-            <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
-            {enableRunScorer && <RunJudgeButton traceId={traceId} />}
+            <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
           </div>
         </div>
       )}
