@@ -2028,6 +2028,62 @@ service MlflowService {
     };
   }
 
+  // Get the details and status of a prompt optimization job.
+  // Returns the job configuration, current status, progress statistics,
+  // and the best prompt if the optimization has completed.
+  rpc getPromptOptimizationJob(GetPromptOptimizationJob) returns (GetPromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Prompt Optimization Job"
+    };
+  }
+
+  // Search for prompt optimization jobs.
+  // Returns a list of optimization jobs matching the specified filters.
+  rpc searchPromptOptimizationJobs(SearchPromptOptimizationJobs) returns (SearchPromptOptimizationJobs.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search Prompt Optimization Jobs"
+    };
+  }
+
   // Cancel an in-progress prompt optimization job.
   // If the job is already completed or cancelled, this operation has no effect.
   rpc cancelPromptOptimizationJob(CancelPromptOptimizationJob) returns (CancelPromptOptimizationJob.Response) {
@@ -2050,6 +2106,30 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Cancel Prompt Optimization Job"
+    };
+  }
+
+  // Delete a prompt optimization job and its associated data.
+  // This permanently removes the job and all related information.
+  rpc deletePromptOptimizationJob(DeletePromptOptimizationJob) returns (DeletePromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Prompt Optimization Job"
     };
   }
 }
@@ -4690,6 +4770,26 @@ message CreatePromptOptimizationJob {
   }
 }
 
+message GetPromptOptimizationJob {
+  // The unique identifier of the optimization job (same as run_id).
+  optional string job_id = 1;
+
+  message Response {
+    // The optimization job details.
+    optional PromptOptimizationJob job = 1;
+  }
+}
+
+message SearchPromptOptimizationJobs {
+  // ID of the MLflow experiment to search optimization jobs in.
+  optional string experiment_id = 1;
+
+  message Response {
+    // List of optimization jobs.
+    repeated PromptOptimizationJob jobs = 1;
+  }
+}
+
 message CancelPromptOptimizationJob {
   // The unique identifier of the optimization job to cancel.
   optional string job_id = 1;
@@ -4697,5 +4797,14 @@ message CancelPromptOptimizationJob {
   message Response {
     // The cancelled optimization job.
     optional PromptOptimizationJob job = 1;
+  }
+}
+
+message DeletePromptOptimizationJob {
+  // The unique identifier of the optimization job to delete.
+  optional string job_id = 1;
+
+  message Response {
+    // Empty response on successful deletion.
   }
 }

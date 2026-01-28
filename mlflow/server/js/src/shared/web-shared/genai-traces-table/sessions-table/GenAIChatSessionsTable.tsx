@@ -242,7 +242,6 @@ export const GenAIChatSessionsTable = ({
         flex: 1,
         minHeight: 0,
         position: 'relative',
-        marginTop: theme.spacing.sm,
       }}
     >
       <GenAIChatSessionsToolbar

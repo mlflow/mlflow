@@ -8,7 +8,12 @@ import type {
   GetTraceFunction,
   TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
-import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
+import {
+  shouldUseTracesV4API,
+  useUnifiedTraceTagsModal,
+  ModelTraceExplorerContextProvider,
+  ModelTraceExplorerRunJudgesContextProvider,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -49,6 +54,8 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
 const ContextProviders = ({
   children,
@@ -59,9 +66,12 @@ const ContextProviders = ({
   experimentId?: string;
   children: React.ReactNode;
 }) => {
+  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {children}
+      <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
+        {children}
+      </ModelTraceExplorerRunJudgesContextProvider>
     </GenAiTracesMarkdownConverterProvider>
   );
 };
@@ -78,6 +88,8 @@ const TracesV3LogsImpl = React.memo(
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    forceGroupBySession = false,
+    columnStorageKeyPrefix,
   }: {
     experimentId: string;
     endpointName?: string;
@@ -88,6 +100,12 @@ const TracesV3LogsImpl = React.memo(
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    forceGroupBySession?: boolean;
+    /**
+     * Optional prefix for the localStorage key used to persist column selection.
+     * Use this to separate column selection state between different views.
+     */
+    columnStorageKeyPrefix?: string;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -177,6 +195,8 @@ const TracesV3LogsImpl = React.memo(
       experimentId,
       allColumns,
       defaultSelectedColumns,
+      undefined, // runUuid
+      columnStorageKeyPrefix,
     );
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
@@ -352,7 +372,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
-                  isGroupedBySession={isGroupedBySession}
+                  isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 />
               </ContextProviders>
             )}
@@ -363,47 +383,48 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     const tableContent = (
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={getTrace}
+      <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        isGroupedBySession={isGroupedBySession}
+        DrawerComponent={AssistantAwareDrawer}
       >
-        <div
-          css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <GenAITracesTableToolbar
-            experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            toggleColumns={toggleColumns}
-            setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
-            usesV4APIs={usesV4APIs}
-            addons={toolbarAddons}
-            isGroupedBySession={isGroupedBySession}
-            onToggleSessionGrouping={onToggleSessionGrouping}
-          />
-          {renderMainContent()}
-        </div>
-      </GenAITracesTableProvider>
+        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+          <div
+            css={{
+              overflowY: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <GenAITracesTableToolbar
+              experimentId={experimentId}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilters={setFilters}
+              assessmentInfos={assessmentInfos}
+              traceInfos={traceInfos}
+              tableFilterOptions={tableFilterOptions}
+              countInfo={countInfo}
+              traceActions={traceActions}
+              tableSort={tableSort}
+              setTableSort={setTableSort}
+              allColumns={allColumns}
+              selectedColumns={selectedColumns}
+              toggleColumns={toggleColumns}
+              setSelectedColumns={setSelectedColumns}
+              isMetadataLoading={isMetadataLoading}
+              metadataError={metadataError}
+              usesV4APIs={usesV4APIs}
+              addons={toolbarAddons}
+              isGroupedBySession={forceGroupBySession || isGroupedBySession}
+              forceGroupBySession={forceGroupBySession}
+              onToggleSessionGrouping={onToggleSessionGrouping}
+            />
+            {renderMainContent()}
+          </div>
+        </GenAITracesTableProvider>
+      </ModelTraceExplorerContextProvider>
     );
 
     // If we're already inside an external provider (e.g., from SelectTracesModal),

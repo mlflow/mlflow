@@ -86,6 +86,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   onCompare,
   selectedRunUuid,
   compareToRunUuid,
+  isComparisonMode,
+  setIsComparisonMode,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -104,6 +106,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   onCompare: (runUuid1: string, runUuid2: string) => void;
   selectedRunUuid?: string;
   compareToRunUuid?: string;
+  isComparisonMode: boolean;
+  setIsComparisonMode: (isComparisonMode: boolean) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();

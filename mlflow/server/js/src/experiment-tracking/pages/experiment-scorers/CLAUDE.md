@@ -44,7 +44,7 @@ ScorerFormRenderer [form]
   │     ├─► ModelSectionRenderer [form]
   │     │     └─► EndpointSelector (reusable, self-contained)
   │     │           Data: useEndpointsQuery() → Endpoint[]
-  │     └─► EvaluateTracesSectionRenderer [form]
+  │     └─► EvaluateTracesSection [form]
   │
   ├─► CustomCodeScorerFormRenderer [form]
   │
