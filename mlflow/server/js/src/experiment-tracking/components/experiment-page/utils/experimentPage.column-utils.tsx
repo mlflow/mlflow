@@ -331,6 +331,8 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialWidth: 150,
+      // Allow users to reorder the date column
+      suppressMovable: false,
     });
 
     // Datasets column - guarded by a feature flag
@@ -345,6 +347,7 @@ export const useRunsColumnDefinitions = ({
       cellClass: 'is-multiline-cell',
       initialWidth: 300,
       suppressKeyboardEvent: DatasetsCellRendererSuppressKeyboardEvents,
+      suppressMovable: false,
     });
 
     // Duration column
@@ -352,6 +355,7 @@ export const useRunsColumnDefinitions = ({
       headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
       field: 'duration',
       initialWidth: 80,
+      suppressMovable: false,
     });
 
     // Experiment name column
@@ -365,6 +369,7 @@ export const useRunsColumnDefinitions = ({
         initialWidth: 140,
         initialHide: true,
         suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
+        suppressMovable: false,
       });
     }
 
@@ -382,6 +387,7 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialHide: true,
+      suppressMovable: false,
     });
 
     // Source column
@@ -400,6 +406,7 @@ export const useRunsColumnDefinitions = ({
       },
       initialHide: true,
       suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
+      suppressMovable: false,
     });
 
     // Version column
@@ -417,6 +424,7 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialHide: true,
+      suppressMovable: false,
     });
 
     // Models column
@@ -429,6 +437,7 @@ export const useRunsColumnDefinitions = ({
       equals: (models1 = {}, models2 = {}) => isEqual(models1, models2),
       initialHide: true,
       suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
+      suppressMovable: false,
     });
 
     columns.push({
@@ -445,6 +454,7 @@ export const useRunsColumnDefinitions = ({
       cellClassRules: {
         'is-ordered-by': cellClassIsOrderedBy,
       },
+      suppressMovable: false,
     });
 
     const { metricKeys, paramKeys, tagKeys } = cumulativeColumns;
@@ -454,6 +464,7 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Metrics',
         groupId: COLUMN_TYPES.METRICS,
+        suppressMovable: false,
         children: metricKeys.map((metricKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
           const customMetricColumnDef = customMetricBehaviorDefs[metricKey];
@@ -491,6 +502,7 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Parameters',
         groupId: COLUMN_TYPES.PARAMS,
+        suppressMovable: false,
         children: paramKeys.map((paramKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
           return {
@@ -519,6 +531,7 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Tags',
         colId: COLUMN_TYPES.TAGS,
+        suppressMovable: false,
         children: tagKeys.map((tagKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey);
           return {
