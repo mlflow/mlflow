@@ -2798,6 +2798,10 @@
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
   },
+  "KE/zZf": {
+    "defaultMessage": "Traces",
+    "description": "Title for the traces chart"
+  },
   "KGMbzq": {
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
@@ -4167,10 +4171,6 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
-  },
-  "VLonhQ": {
-    "defaultMessage": "Requests",
-    "description": "Title for the trace requests chart"
   },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
