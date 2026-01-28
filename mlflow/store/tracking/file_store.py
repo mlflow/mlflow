@@ -217,7 +217,7 @@ class FileStore(AbstractStore):
         """
         super().__init__()
         warnings.warn(
-            "The filesystem tracking backend (e.g., './mlruns') will be deprecated in "
+            "The filesystem tracking backend (e.g., './mlruns') is deprecated as of "
             "February 2026. Consider transitioning to a database backend (e.g., "
             "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
             "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
@@ -2875,3 +2875,10 @@ class FileStore(AbstractStore):
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )
+
+    # Trace metrics API is not supported in FileStore, override the
+    # abstract method to raise an explicit error.
+
+    @filestore_not_supported
+    def query_trace_metrics(self, *args, **kwargs):
+        pass

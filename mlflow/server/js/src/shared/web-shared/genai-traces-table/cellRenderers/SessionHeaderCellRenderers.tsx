@@ -45,6 +45,10 @@ import {
 import { compact } from 'lodash';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { TokenComponent } from './TokensCell';
+import { SessionHeaderPassFailAggregatedCell } from './SessionHeaderPassFailAggregatedCell';
+import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggregatedCell';
+import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
+import { calculateSessionDuration } from '../sessions-table/utils';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -67,7 +71,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
   let cellContent: React.ReactNode = null;
 
   // Render specific columns with data from the first trace
-  if (column.id === TRACE_ID_COLUMN_ID) {
+  if (column.id === SESSION_COLUMN_ID) {
     // Session ID column - render as a tag with link to session view
     cellContent = (
       <div css={{ overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
@@ -182,13 +186,23 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       }
     });
 
-    cellContent = cellContent = (
+    cellContent = (
       <TokenComponent
         inputTokens={totalInputTokens}
         outputTokens={totalOutputTokens}
         totalTokens={totalTokens}
         isComparing={false}
       />
+    );
+  } else if (column.id === EXECUTION_DURATION_COLUMN_ID && traces.length > 0) {
+    // Duration - sum all execution durations
+    const duration = calculateSessionDuration(traces);
+    cellContent = duration ? (
+      <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
+        {duration}
+      </div>
+    ) : (
+      <NullCell />
     );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
@@ -238,15 +252,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         })}
       </div>
     );
-  }
+  } else if (
+    column.type === TracesTableColumnType.ASSESSMENT &&
+    column.assessmentInfo &&
+    !column.assessmentInfo?.isSessionLevelAssessment &&
+    traces.length > 0
+  ) {
+    // Non-session-level assessment column - aggregate values from all traces
+    const assessmentInfo = column.assessmentInfo;
+    const { dtype } = assessmentInfo;
 
-  if (!cellContent) {
-    cellContent = <NullCell />;
+    if (dtype === 'pass-fail' || dtype === 'boolean') {
+      cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'numeric') {
+      cellContent = <SessionHeaderNumericAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else if (dtype === 'string' || dtype === 'unknown') {
+      cellContent = <SessionHeaderStringAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (
     <TableCell
       key={column.id}
+      wrapContent={false}
       style={{
         flex: `1 1 var(--col-${escapeCssSpecialCharacters(column.id)}-size)`,
       }}
@@ -256,7 +286,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
         alignItems: 'center',
       }}
     >
-      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0 }}>{cellContent}</div>
+      <div css={{ display: 'flex', overflow: 'hidden', minWidth: 0, flex: 1 }}>{cellContent}</div>
     </TableCell>
   );
 };
