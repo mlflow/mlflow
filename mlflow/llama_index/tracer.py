@@ -435,10 +435,9 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         """
         self._span_handler.resolve_pending_stream_span(span, event)
 
-    def _extract_and_set_model_name(self, event: BaseEvent, span: LiveSpan):
-        if model_dict := event.model_dict:
-            if model := model_dict.get("model"):
-                span.set_attribute(SpanAttributeKey.MODEL, model)
+    def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
+        if model_dict and (model := model_dict.get("model")):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:
