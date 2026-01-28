@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument("--headers", required=True, type=str)
     parser.add_argument("--download-path", required=True, type=str)
     parser.add_argument("--http-uri", required=True, type=str)
+    parser.add_argument("--timeout", required=True, type=int, default=30)
     return parser.parse_args()
 
 
@@ -36,6 +37,7 @@ def main():
         headers=json.loads(args.headers),
         download_path=args.download_path,
         http_uri=args.http_uri,
+        timeout=args.timeout,
     )
 
 
