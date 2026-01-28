@@ -346,7 +346,7 @@ def _is_process_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)
         return True
-    except (OSError, ValueError): # ValueError is raised on Windows
+    except (OSError, ValueError):  # ValueError is raised on Windows
         return False
 
 
@@ -414,4 +414,3 @@ def test_install_skills_skips_when_already_installed(client):
         assert data["installed_skills"] == ["existing_skill"]
         mock_install.assert_not_called()
         mock_list.assert_called_once()
->>>>>>> master

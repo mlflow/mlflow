@@ -160,7 +160,7 @@ class SessionManager:
 
     @staticmethod
     def load(session_id: str) -> Session | None:
-        """Load session from disk. Returns a Session instance, or None if not found """
+        """Load session from disk. Returns a Session instance, or None if not found"""
         try:
             session_file = SessionManager.get_session_file(session_id)
         except ValueError:

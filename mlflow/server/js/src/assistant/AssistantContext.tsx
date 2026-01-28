@@ -413,6 +413,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     finalizeStreamingMessage,
     handleStatus,
     handleSessionId,
+    handleToolUse,
+    handleInterrupted,
   ]);
 
   const value: AssistantAgentContextType = {
