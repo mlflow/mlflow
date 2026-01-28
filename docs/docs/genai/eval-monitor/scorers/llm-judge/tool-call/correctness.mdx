@@ -118,7 +118,11 @@ def agent(query: str):
         for tool_call in message.tool_calls:
             args = json.loads(tool_call.function.arguments)
             result = get_weather(**args)
-            responses.append({"response": f"Weather in {result['location']}: {result['condition']}, {result['temperature']}°F"})
+            responses.append(
+                {
+                    "response": f"Weather in {result['location']}: {result['condition']}, {result['temperature']}°F"
+                }
+            )
 
     return {"response": responses if responses else message.content}
 
