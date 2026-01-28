@@ -36,6 +36,19 @@ function getTimestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
 }
 
+function generatePrBody(uvLockOutput, runUrl) {
+  return `This PR was created automatically to update \`uv.lock\`.
+
+### \`uv lock\` output
+
+\`\`\`
+${uvLockOutput.trim()}
+\`\`\`
+
+Created by: ${runUrl}
+`;
+}
+
 module.exports = async ({ github, context }) => {
   // Note: We intentionally avoid early exits to maximize test coverage on PRs
   // This allows testing the entire workflow except git push and PR creation
@@ -91,6 +104,15 @@ module.exports = async ({ github, context }) => {
 
     if (!hasChanges) {
       console.log("No changes to uv.lock, not updating the existing PR");
+      // Clean up the temporary remote branch to avoid orphaned branches
+      if (!isPr) {
+        try {
+          exec("git", ["push", "origin", "--delete", branchName]);
+          console.log(`Deleted temporary remote branch: ${branchName}`);
+        } catch (error) {
+          console.log(`Failed to delete temporary remote branch ${branchName}: ${error.message}`);
+        }
+      }
       return;
     }
 
@@ -99,16 +121,7 @@ module.exports = async ({ github, context }) => {
     console.log(`Force pushed changes to existing branch: ${existingBranch}`);
 
     // Update the PR description with new uv lock output
-    const newBody = `This PR was created automatically to update \`uv.lock\`.
-
-### \`uv lock\` output
-
-\`\`\`
-${uvLockOutput.trim()}
-\`\`\`
-
-Last updated by: ${runUrl}
-`;
+    const newBody = generatePrBody(uvLockOutput, runUrl);
 
     await github.rest.pulls.update({
       owner,
@@ -130,16 +143,7 @@ Last updated by: ${runUrl}
     title: PR_TITLE,
     head: branchName,
     base: "master",
-    body: `This PR was created automatically to update \`uv.lock\`.
-
-### \`uv lock\` output
-
-\`\`\`
-${uvLockOutput.trim()}
-\`\`\`
-
-Created by: ${runUrl}
-`,
+    body: generatePrBody(uvLockOutput, runUrl),
   });
   console.log(`Created PR: ${pr.html_url}`);
 
