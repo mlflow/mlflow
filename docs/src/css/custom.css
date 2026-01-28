@@ -469,8 +469,8 @@ html[data-genai-theme='true'] {
   padding-left: 0 !important;
 }
 
-.menu__list-item:not(.sidebar-top-level-category) > .menu__link,
-.menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__link,
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
   padding-left: 1.5rem;
   padding-top: 0.5rem;
