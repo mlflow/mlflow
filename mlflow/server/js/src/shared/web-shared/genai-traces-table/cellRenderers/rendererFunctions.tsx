@@ -4,7 +4,15 @@ import React, { useContext } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import {
+  ArrowRightIcon,
+  Tag,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+  UserIcon,
+  ClockIcon,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
@@ -369,13 +377,14 @@ export const inputColumnCellRenderer = (
         {inputColumnTitle ? (
           inputColumnTitle
         ) : (
-          <span
+          <Typography.Text
+            color="secondary"
             css={{
               fontStyle: 'italic',
             }}
           >
             null
-          </span>
+          </Typography.Text>
         )}
       </Typography.Link>
       {isComparing && (
@@ -806,7 +815,17 @@ export const traceInfoCellRenderer = (
               {value}
             </div>
           ) : (
-            <NullCell isComparing={isComparing} />
+            <Typography.Text
+              color="secondary"
+              css={{
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              null
+            </Typography.Text>
           )
         }
         second={
@@ -816,7 +835,17 @@ export const traceInfoCellRenderer = (
               {otherValue}
             </div>
           ) : (
-            <NullCell isComparing={isComparing} />
+            <Typography.Text
+              color="secondary"
+              css={{
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              null
+            </Typography.Text>
           ))
         }
       />
@@ -887,9 +916,23 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           !isNil(value) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
-              {value}
-            </div>
+            <Tag
+              icon={<ClockIcon />}
+              css={{ width: 'fit-content', maxWidth: '100%' }}
+              componentId="mlflow.genai-traces-table.execution-time"
+            >
+              <span
+                css={{
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={value}
+              >
+                {value}
+              </span>
+            </Tag>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -897,9 +940,23 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (!isNil(otherValue) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
-              {otherValue}
-            </div>
+            <Tag
+              icon={<ClockIcon />}
+              css={{ width: 'fit-content', maxWidth: '100%' }}
+              componentId="mlflow.genai-traces-table.execution-time"
+            >
+              <span
+                css={{
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={otherValue}
+              >
+                {otherValue}
+              </span>
+            </Tag>
           ) : (
             <NullCell isComparing={isComparing} />
           ))
