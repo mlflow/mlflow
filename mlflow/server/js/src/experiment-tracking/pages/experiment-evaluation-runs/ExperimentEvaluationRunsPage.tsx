@@ -111,39 +111,28 @@ const ExperimentEvaluationRunsPageImpl = () => {
   }
 
   // Exit comparison mode when no runs are selected
-  useEffect(() => {
-    if (isComparisonMode && selectedRunUuidsFromCheckbox.length === 0) {
-      setIsComparisonMode(false);
-      setSelectedRunUuid(undefined);
-      setCompareToRunUuid(undefined);
-    }
-  }, [isComparisonMode, selectedRunUuidsFromCheckbox.length, setSelectedRunUuid, setCompareToRunUuid]);
+  if (isComparisonMode && selectedRunUuidsFromCheckbox.length === 0) {
+    setIsComparisonMode(false);
+    setSelectedRunUuid(undefined);
+    setCompareToRunUuid(undefined);
+  }
 
   // Keep selectedRunUuid in sync with checkbox selection when in comparison mode
-  useEffect(() => {
-    if (isComparisonMode && selectedRunUuidsFromCheckbox.length > 0) {
-      // Set selectedRunUuid to first selected run for the detail pane
-      if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
-        setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
-      }
-      // Set compareToRunUuid if 2 runs selected
-      if (selectedRunUuidsFromCheckbox.length >= 2) {
-        const otherRun = selectedRunUuidsFromCheckbox.find((uuid) => uuid !== selectedRunUuid);
-        if (otherRun && otherRun !== compareToRunUuid) {
-          setCompareToRunUuid(otherRun);
-        }
-      } else if (compareToRunUuid) {
-        setCompareToRunUuid(undefined);
-      }
+  if (isComparisonMode && selectedRunUuidsFromCheckbox.length > 0) {
+    // Set selectedRunUuid to first selected run for the detail pane
+    if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
+      setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
     }
-  }, [
-    isComparisonMode,
-    selectedRunUuidsFromCheckbox,
-    selectedRunUuid,
-    compareToRunUuid,
-    setSelectedRunUuid,
-    setCompareToRunUuid,
-  ]);
+    // Set compareToRunUuid if 2 runs selected
+    if (selectedRunUuidsFromCheckbox.length >= 2) {
+      const otherRun = selectedRunUuidsFromCheckbox.find((uuid) => uuid !== selectedRunUuid);
+      if (otherRun && otherRun !== compareToRunUuid) {
+        setCompareToRunUuid(otherRun);
+      }
+    } else if (compareToRunUuid) {
+      setCompareToRunUuid(undefined);
+    }
+  }
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.
