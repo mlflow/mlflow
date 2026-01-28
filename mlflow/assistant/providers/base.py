@@ -66,14 +66,14 @@ class AssistantProvider(ABC):
         """
 
     @abstractmethod
-    def install_skills(self, skill_path: Path) -> list[str]:
-        """Install provider-specific skills.
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        """Resolve the skills installation path.
 
         Args:
-            skill_path: Directory where skills should be installed.
+            base_directory: Base directory to resolve skills path from.
 
         Returns:
-            List of installed skill names.
+            Resolved absolute path for skills installation.
         """
 
     @abstractmethod

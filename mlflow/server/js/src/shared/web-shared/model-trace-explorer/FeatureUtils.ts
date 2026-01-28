@@ -51,3 +51,10 @@ export const shouldUseUnifiedModelTraceComparisonUI = () => {
   }
   return true;
 };
+
+/**
+ * Determines if running scorers from trace details drawer is enabled
+ */
+export const isEvaluatingTracesInDetailsViewEnabled = () => {
+  return false;
+};
