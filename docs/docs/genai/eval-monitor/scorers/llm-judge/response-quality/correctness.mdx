@@ -171,7 +171,7 @@ correctness_judge = Correctness(
 eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[correctness_judge])
 ```
 
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/custom-judges/#supported-models).
 
 ## Interpret results
 
@@ -193,7 +193,7 @@ The judge returns a Feedback object with:
     icon={Bot}
     title="Create custom judges"
     description="Build domain-specific evaluation judges"
-    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    href="/genai/eval-monitor/scorers/llm-judge/custom-judges"
   />
   <TileCard
     icon={Database}
