@@ -4625,8 +4625,17 @@ def _delete_gateway_endpoint_tag():
 
 
 def _get_server_info():
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
     store = _get_tracking_store()
-    store_type = type(store).__name__
+
+    if isinstance(store, FileStore):
+        store_type = "FileStore"
+    elif isinstance(store, SqlAlchemyStore):
+        store_type = "SqlAlchemyStore"
+    else:
+        store_type = "UnknownStore"
     return jsonify({"store_type": store_type})
 
 
