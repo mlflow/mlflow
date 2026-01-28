@@ -12,6 +12,7 @@ import {
   PlusIcon,
   Radio,
   SearchIcon,
+  TableSkeleton,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -79,7 +80,7 @@ const RunJudgeModalImpl = ({
   onClose: () => void;
 }) => {
   const [experimentId] = useExperimentIds();
-  const { data } = useGetScheduledScorers(experimentId);
+  const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled: visible });
   const intl = useIntl();
 
   const { theme } = useDesignSystemTheme();
@@ -187,6 +188,7 @@ const RunJudgeModalImpl = ({
             ...getShadowScrollStyles(theme, { orientation: 'vertical' }),
           }}
         >
+          {loadingScorers && <TableSkeleton lines={3} />}
           {displayedLLMScorers?.map((scorer) => (
             <ScorerOption
               scorer={scorer}
