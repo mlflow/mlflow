@@ -81,14 +81,14 @@ This judge evaluates if each document returned by your app's retriever(s) is rel
   <TabItem value="direct" label="Invoke directly" default>
 
 ```python
-from mlflow.genai.scorers import retrieval_relevance
+from mlflow.genai.scorers import RetrievalRelevance
 import mlflow
 
 # Get a trace from a previous run
 trace = mlflow.get_trace("<your-trace-id>")
 
 # Assess if each retrieved document is relevant
-feedbacks = retrieval_relevance(trace=trace)
+feedbacks = RetrievalRelevance()(trace=trace)
 print(feedbacks)
 ```
 
