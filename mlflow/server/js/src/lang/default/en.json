@@ -3949,10 +3949,6 @@
     "defaultMessage": "Used by",
     "description": "Used by column header"
   },
-  "T3RjOb": {
-    "defaultMessage": "Go to the run",
-    "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
-  },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
