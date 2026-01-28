@@ -353,6 +353,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     name: str | None = None,
+    **kwargs,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -423,29 +424,31 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
-    return Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        flavor=mlflow.sklearn,
-        sk_model=sk_model,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        serialization_format=serialization_format,
-        registered_model_name=registered_model_name,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        pyfunc_predict_fn=pyfunc_predict_fn,
-        metadata=metadata,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-    )
+    run_id = kwargs.pop("run_id", None)
 
+    return Model.log(
+    artifact_path=artifact_path,
+    name=name,
+    flavor=mlflow.sklearn,
+    sk_model=sk_model,
+    conda_env=conda_env,
+    code_paths=code_paths,
+    serialization_format=serialization_format,
+    registered_model_name=registered_model_name,
+    signature=signature,
+    input_example=input_example,
+    await_registration_for=await_registration_for,
+    pip_requirements=pip_requirements,
+    extra_pip_requirements=extra_pip_requirements,
+    pyfunc_predict_fn=pyfunc_predict_fn,
+    metadata=metadata,
+    params=params,
+    tags=tags,
+    model_type=model_type,
+    step=step,
+    model_id=model_id,
+    run_id=run_id,
+)
 
 def _load_model_from_local_file(path, serialization_format):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system.

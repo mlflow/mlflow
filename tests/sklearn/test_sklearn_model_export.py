@@ -901,3 +901,27 @@ def test_get_raw_model(sklearn_knn_model):
         raw_model.predict(sklearn_knn_model.inference_data),
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
     )
+
+    
+def test_sklearn_log_model_propagates_kwargs(tmp_path):
+    import mlflow
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+
+    X = np.array([[1, 2], [3, 4]])
+    y = np.array([0, 1])
+    model = LogisticRegression().fit(X, y)
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        # This should NOT crash and should accept kwargs
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            artifact_path="model",
+            run_id=run_id,
+            custom_test_kwarg="hello_world",
+        )
+
+        logged_run = mlflow.get_run(run_id)
+        assert logged_run is not None
