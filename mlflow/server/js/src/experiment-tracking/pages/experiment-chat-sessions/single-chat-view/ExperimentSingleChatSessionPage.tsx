@@ -44,6 +44,7 @@ import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessio
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 import { ExportTracesToDatasetModal } from '../../experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { first } from 'lodash';
 
 const ContextProviders = ({
   children,
@@ -179,7 +180,17 @@ const ExperimentSingleChatSessionPageImpl = () => {
               getAssessmentTitle={getAssessmentTitle}
             />
             {shouldEnableAssessmentsInSessions() && (
-              <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />
+              <ExperimentSingleChatSessionScoreResults
+                traces={traces ?? []}
+                sessionId={sessionId}
+                onRefreshSession={() => {
+                  const rootTrace = first(sortedTraceInfos);
+                  if (rootTrace) {
+                    // The first trace contains the assessments for the session
+                    invalidateSingleTraceQuery(rootTrace.trace_id);
+                  }
+                }}
+              />
             )}
           </div>
         )}

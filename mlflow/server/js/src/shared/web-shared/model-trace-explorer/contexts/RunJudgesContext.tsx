@@ -23,11 +23,14 @@ export interface ScorerFinishedEvent {
 
 export interface ModelTraceExplorerRunJudgeConfig {
   renderRunJudgeModal?: ({
-    traceId,
+    itemId,
     visible,
     onClose,
   }: {
-    traceId: string;
+    /**
+     * The ID of the trace or session to run the judge on.
+     */
+    itemId: string;
     visible: boolean;
     onClose: () => void;
   }) => React.ReactNode;
@@ -45,6 +48,7 @@ export interface ModelTraceExplorerRunJudgeConfig {
   >;
   /** Subscribe to scorer update events. Returns unsubscribe function. */
   subscribeToScorerFinished?: (callback: (event: ScorerFinishedEvent) => void) => () => void;
+  scope?: 'sessions' | 'traces';
 }
 
 const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplorerRunJudgeConfig>({
@@ -65,12 +69,13 @@ export const ModelTraceExplorerRunJudgesContextProvider = ({
   renderRunJudgeModal,
   evaluations,
   subscribeToScorerFinished,
+  scope,
 }: ModelTraceExplorerRunJudgeConfig & {
   children: React.ReactNode;
 }) => {
   const contextValue = useMemo(
-    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished }),
-    [renderRunJudgeModal, evaluations, subscribeToScorerFinished],
+    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished, scope }),
+    [renderRunJudgeModal, evaluations, subscribeToScorerFinished, scope],
   );
   return (
     <ModelTraceExplorerRunJudgesContext.Provider value={contextValue}>
