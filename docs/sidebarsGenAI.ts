@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
