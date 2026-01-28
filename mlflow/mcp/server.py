@@ -1,13 +1,32 @@
 import contextlib
 import io
+import os
 from typing import TYPE_CHECKING, Any, Callable
 
 import click
 from click.types import BOOL, FLOAT, INT, STRING, UUID
 
+import mlflow.deployments.cli as deployments_cli
+import mlflow.experiments
+import mlflow.models.cli as models_cli
+import mlflow.runs
+import mlflow.store.artifact.cli
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
 from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
+
+# Environment variable to control which tool categories are enabled
+# Supported values:
+#   - "genai": traces and scorers tools only (default)
+#   - "ml": experiments, runs, artifacts, models, and deployments tools
+#   - "all": all available tools
+#   - Comma-separated list: "traces,scorers,experiments,runs,artifacts,models,deployments"
+MLFLOW_MCP_TOOLS = os.environ.get("MLFLOW_MCP_TOOLS", "genai")
+
+# Tool category mappings
+_GENAI_TOOLS = {"traces", "scorers"}
+_ML_TOOLS = {"experiments", "runs", "artifacts", "models", "deployments"}
+_ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -71,21 +90,32 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
             contextlib.redirect_stdout(string_io),
             contextlib.redirect_stderr(string_io),
         ):
-            command.callback(**kwargs)
+            # Fill in defaults for missing optional arguments
+            for param in command.params:
+                if param.name not in kwargs:
+                    kwargs[param.name] = param.default
+            command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
 
     return wrapper
 
 
-def cmd_to_function_tool(cmd: click.Command) -> "FunctionTool":
+def cmd_to_function_tool(cmd: click.Command, suffix: str = "") -> "FunctionTool":
     """
     Converts a Click command to a FunctionTool.
+
+    Args:
+        cmd: The Click command to convert.
+        suffix: Optional suffix to add to the tool name (e.g., "experiments").
     """
     from fastmcp.tools import FunctionTool
 
+    # Use the command name (CLI name) with optional suffix
+    base_name = cmd.name or (cmd.callback.__name__ if cmd.callback else "unknown")
+    name = f"{base_name}_{suffix}" if suffix else base_name
     return FunctionTool(
         fn=fn_wrapper(cmd),
-        name=cmd.callback.__name__,
+        name=name,
         description=(cmd.help or "").strip(),
         parameters=get_input_schema(cmd.params),
     )
@@ -114,13 +144,69 @@ def register_prompts(mcp: "FastMCP") -> None:
         make_prompt(command["key"])
 
 
+def _is_tool_enabled(category: str) -> bool:
+    """Check if a tool category is enabled based on MLFLOW_MCP_TOOLS env var."""
+    tools_config = MLFLOW_MCP_TOOLS.lower().strip()
+
+    # Handle preset categories
+    if tools_config == "all":
+        return True
+    if tools_config == "genai":
+        return category.lower() in _GENAI_TOOLS
+    if tools_config == "ml":
+        return category.lower() in _ML_TOOLS
+
+    # Handle comma-separated list of individual tools
+    enabled_tools = {t.strip().lower() for t in tools_config.split(",")}
+    return category.lower() in enabled_tools
+
+
 def create_mcp() -> "FastMCP":
     from fastmcp import FastMCP
 
-    tools = [
-        *[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
-        *[cmd_to_function_tool(cmd) for cmd in scorers_cli.commands.values()],
-    ]
+    tools: list["FunctionTool"] = []
+
+    # Traces CLI tools (genai)
+    if _is_tool_enabled("traces"):
+        tools.extend(cmd_to_function_tool(cmd, "traces") for cmd in traces_cli.commands.values())
+
+    # Scorers CLI tools (genai)
+    if _is_tool_enabled("scorers"):
+        tools.extend(cmd_to_function_tool(cmd, "scorers") for cmd in scorers_cli.commands.values())
+
+    # Experiment tracking tools (ml)
+    if _is_tool_enabled("experiments"):
+        tools.extend(
+            cmd_to_function_tool(cmd, "experiments")
+            for cmd in mlflow.experiments.commands.commands.values()
+        )
+
+    # Run management tools (ml)
+    if _is_tool_enabled("runs"):
+        tools.extend(
+            cmd_to_function_tool(cmd, "runs") for cmd in mlflow.runs.commands.commands.values()
+        )
+
+    # Artifact handling tools (ml)
+    if _is_tool_enabled("artifacts"):
+        tools.extend(
+            cmd_to_function_tool(cmd, "artifacts")
+            for cmd in mlflow.store.artifact.cli.commands.commands.values()
+        )
+
+    # Model serving tools (ml)
+    if _is_tool_enabled("models"):
+        tools.extend(
+            cmd_to_function_tool(cmd, "models") for cmd in models_cli.commands.commands.values()
+        )
+
+    # Deployment tools (ml)
+    if _is_tool_enabled("deployments"):
+        tools.extend(
+            cmd_to_function_tool(cmd, "deployments")
+            for cmd in deployments_cli.commands.commands.values()
+        )
+
     mcp = FastMCP(
         name="Mlflow MCP",
         tools=tools,
