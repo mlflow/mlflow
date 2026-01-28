@@ -93,15 +93,13 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   // On mount, if selectedRunUuid is in URL, pre-select it and enter comparison mode
   const hasInitializedFromUrl = useRef(false);
-  useEffect(() => {
-    if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
-      hasInitializedFromUrl.current = true;
-      if (runUuids.includes(selectedRunUuid)) {
-        setRowSelection({ [selectedRunUuid]: true });
-        setIsComparisonMode(true);
-      }
+  if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
+    hasInitializedFromUrl.current = true;
+    if (runUuids.includes(selectedRunUuid)) {
+      setRowSelection({ [selectedRunUuid]: true });
+      setIsComparisonMode(true);
     }
-  }, [selectedRunUuid, runs, runUuids, setRowSelection]);
+  }
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.

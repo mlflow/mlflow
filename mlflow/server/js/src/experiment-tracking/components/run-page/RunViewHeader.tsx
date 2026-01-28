@@ -125,7 +125,8 @@ export const RunViewHeader = ({
       experiment.experimentId ?? '',
       ExperimentPageTabName.EvaluationRuns,
     );
-    navigate(`${evaluationRunsRoute}?selectedRunUuid=${runUuid}`);
+    const searchParams = new URLSearchParams({ selectedRunUuid: runUuid });
+    navigate(`${evaluationRunsRoute}?${searchParams.toString()}`);
   }, [navigate, experiment.experimentId, runUuid]);
 
   const renderCompareButton = () => {
