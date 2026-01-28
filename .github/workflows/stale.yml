@@ -11,6 +11,7 @@ defaults:
 
 jobs:
   stale:
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     permissions:
       issues: write

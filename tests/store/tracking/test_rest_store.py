@@ -3430,20 +3430,20 @@ def test_create_gateway_endpoint_binding():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
 
-    response_json = json.dumps({"binding": {"resource_type": "scorer_job"}})
+    response_json = json.dumps({"binding": {"resource_type": "scorer"}})
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text=response_json),
     ) as mock_http:
         store.create_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             CreateGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3459,13 +3459,13 @@ def test_delete_gateway_endpoint_binding():
     with mock_http_request() as mock_http:
         store.delete_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type="scorer_job",
+            resource_type="scorer",
             resource_id="job-456",
         )
         body = message_to_json(
             DeleteGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3481,13 +3481,13 @@ def test_list_gateway_endpoint_bindings():
     with mock_http_request() as mock_http:
         store.list_endpoint_bindings(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             ListGatewayEndpointBindings(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )

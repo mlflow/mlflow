@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from dataclasses import dataclass, field
+from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable
 
 import pydantic
@@ -51,6 +54,40 @@ _logger = logging.getLogger(__name__)
 _MAX_METADATA_LENGTH = 250
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
+
+PGBAR_FORMAT = (
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+)
+
+
+@dataclass
+class SimulationTimingTracker:
+    _lock: Lock = field(default_factory=Lock, repr=False)
+    predict_fn_seconds: float = 0.0
+    generate_message_seconds: float = 0.0
+    check_goal_seconds: float = 0.0
+
+    def add(
+        self,
+        predict_fn_seconds: float = 0,
+        generate_message_seconds: float = 0,
+        check_goal_seconds: float = 0,
+    ):
+        with self._lock:
+            self.predict_fn_seconds += predict_fn_seconds
+            self.generate_message_seconds += generate_message_seconds
+            self.check_goal_seconds += check_goal_seconds
+
+    def format_postfix(self) -> str:
+        with self._lock:
+            simulator_seconds = self.generate_message_seconds + self.check_goal_seconds
+            total = self.predict_fn_seconds + simulator_seconds
+            if total == 0:
+                return "(predict: 0%, simulator: 0%)"
+            predict_pct = 100 * self.predict_fn_seconds / total
+            simulator_pct = 100 * simulator_seconds / total
+            return f"(predict: {predict_pct:.1f}%, simulator: {simulator_pct:.1f}%)"
+
 
 _MODEL_API_DOC = {
     "model": """Model to use for generating user messages. Must be one of:
@@ -165,14 +202,25 @@ def _invoke_model_without_tracing(
             "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
+            # Drop unsupported params (e.g., temperature=0 for certain models)
+            "drop_params": True,
         }
         if inference_params:
             kwargs.update(inference_params)
 
-        # Drop unsupported params (e.g., temperature=0 for gpt-5)
-        litellm.drop_params = True
-        response = litellm.completion(**kwargs)
-        return response.choices[0].message.content
+        try:
+            response = litellm.completion(**kwargs)
+            return response.choices[0].message.content
+        except Exception as e:
+            # Check if error is about unsupported temperature parameter:
+            # "Unsupported value: 'temperature' does not support 0.0 with this model"
+            error_str = str(e)
+            if inference_params and "Unsupported value: 'temperature'" in error_str:
+                kwargs.pop("temperature", None)
+                response = litellm.completion(**kwargs)
+                return response.choices[0].message.content
+            else:
+                raise
 
 
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
@@ -395,12 +443,14 @@ class ConversationSimulator:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+        timings = SimulationTimingTracker()
 
         progress_bar = (
             tqdm(
                 total=num_test_cases,
                 desc="Simulating conversations",
-                unit="conversation",
+                bar_format=PGBAR_FORMAT,
+                postfix=timings.format_postfix(),
             )
             if tqdm
             else None
@@ -414,7 +464,7 @@ class ConversationSimulator:
             ) as executor,
         ):
             futures = {
-                executor.submit(self._run_conversation, test_case, predict_fn): i
+                executor.submit(self._run_conversation, test_case, predict_fn, timings): i
                 for i, test_case in enumerate(self.test_cases)
             }
             try:
@@ -428,6 +478,7 @@ class ConversationSimulator:
                             f"{self.test_cases[idx].get('goal')}: {e}"
                         )
                     if progress_bar:
+                        progress_bar.set_postfix_str(timings.format_postfix(), refresh=False)
                         progress_bar.update(1)
             finally:
                 if progress_bar:
@@ -436,7 +487,10 @@ class ConversationSimulator:
         return all_trace_ids
 
     def _run_conversation(
-        self, test_case: dict[str, Any], predict_fn: Callable[..., dict[str, Any]]
+        self,
+        test_case: dict[str, Any],
+        predict_fn: Callable[..., dict[str, Any]],
+        timings: SimulationTimingTracker,
     ) -> list[str]:
         goal = test_case["goal"]
         persona = test_case.get("persona")
@@ -456,12 +510,14 @@ class ConversationSimulator:
 
         for turn in range(self.max_turns):
             try:
-                # Generate a user message using the simulated user agent.
+                start_time = time.perf_counter()
                 user_message_content = user_agent.generate_message(conversation_history, turn)
+                timings.add(generate_message_seconds=time.perf_counter() - start_time)
+
                 user_message = {"role": "user", "content": user_message_content}
                 conversation_history.append(user_message)
 
-                # Invoke the predict_fn with the user message and context.
+                start_time = time.perf_counter()
                 response, trace_id = self._invoke_predict_fn(
                     predict_fn=predict_fn,
                     input_messages=conversation_history,
@@ -472,17 +528,24 @@ class ConversationSimulator:
                     expectations=expectations if turn == 0 else None,
                     turn=turn,
                 )
+                timings.add(predict_fn_seconds=time.perf_counter() - start_time)
 
                 if trace_id:
                     trace_ids.append(trace_id)
 
-                # Parse the assistant's response and check if the goal has been achieved.
                 assistant_content = parse_outputs_to_str(response)
                 if not assistant_content or not assistant_content.strip():
                     _logger.debug(f"Stopping conversation: empty response at turn {turn}")
                     break
                 conversation_history.append({"role": "assistant", "content": assistant_content})
-                if self._check_goal_achieved(conversation_history, assistant_content, goal):
+
+                start_time = time.perf_counter()
+                goal_achieved = self._check_goal_achieved(
+                    conversation_history, assistant_content, goal
+                )
+                timings.add(check_goal_seconds=time.perf_counter() - start_time)
+
+                if goal_achieved:
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
@@ -565,7 +628,7 @@ class ConversationSimulator:
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0},
+                inference_params={"temperature": 0.0, "response_format": GoalCheckResult},
             )
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"

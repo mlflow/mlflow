@@ -84,6 +84,8 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "webhooks.proto",
+    "jobs.proto",
+    "prompt_optimization.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -144,6 +146,14 @@ python_gencode_replacements = [
     (
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
+    ),
+    (
+        "import jobs_pb2 as jobs__pb2",
+        "from . import jobs_pb2 as jobs__pb2",
+    ),
+    (
+        "import prompt_optimization_pb2 as prompt__optimization__pb2",
+        "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
     ),
 ]
 

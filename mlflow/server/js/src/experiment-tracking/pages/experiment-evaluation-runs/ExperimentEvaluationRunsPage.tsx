@@ -5,7 +5,7 @@ import { useExperimentEvaluationRunsData } from '../../components/experiment-pag
 import { ExperimentEvaluationRunsPageWrapper } from './ExperimentEvaluationRunsPageWrapper';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import type { RowSelectionState } from '@tanstack/react-table';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
@@ -27,6 +27,10 @@ import { RunEvaluationButton } from './RunEvaluationButton';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
+import {
+  RunGroupingAggregateFunction,
+  RunGroupingMode,
+} from '../../components/experiment-page/utils/experimentPage.row-types';
 import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
 import {
   ExperimentEvaluationRunsPageMode,
@@ -36,6 +40,8 @@ import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluatio
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+
+const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
 
 const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
@@ -54,11 +60,16 @@ const ExperimentEvaluationRunsPageImpl = () => {
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
 
-  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>(null);
+  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>({
+    aggregateFunction: RunGroupingAggregateFunction.Average,
+    groupByKeys: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset' }],
+  });
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [, setSearchParams] = useSearchParams();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -79,12 +90,76 @@ const ExperimentEvaluationRunsPageImpl = () => {
     filter: searchFilter,
   });
 
-  const runUuids = runs?.map((run) => run.info.runUuid) ?? [];
-  // set the selected run to the first run if we don't already have one
-  // or if the selected run went out of scope (e.g. was deleted)
-  if (runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
-    setSelectedRunUuid(runs[0].info.runUuid);
-  }
+  const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
+
+  // Get selected run UUIDs from checkbox selection
+  const selectedRunUuidsFromCheckbox = useMemo(
+    () =>
+      Object.entries(rowSelection)
+        .filter(([_, value]) => value)
+        .map(([key]) => key),
+    [rowSelection],
+  );
+
+  // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection and enter comparison mode
+  // Initialize with BOTH URL params to prevent compareToRunUuid from being stripped
+  const hasInitializedFromUrl = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
+      if (runUuids.includes(selectedRunUuid)) {
+        hasInitializedFromUrl.current = true;
+        const initialSelection: RowSelectionState = { [selectedRunUuid]: true };
+        // Also include compareToRunUuid if present in URL
+        if (compareToRunUuid && runUuids.includes(compareToRunUuid)) {
+          initialSelection[compareToRunUuid] = true;
+        }
+        setRowSelection(initialSelection);
+        setIsComparisonMode(true);
+      }
+    }
+  }, [selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
+
+  // Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
+  useEffect(() => {
+    // Skip syncing if we haven't finished initializing yet
+    if (!isComparisonMode) {
+      return;
+    }
+
+    if (selectedRunUuidsFromCheckbox.length === 0) {
+      // No selection - exit comparison mode
+      setIsComparisonMode(false);
+      setSelectedRunUuid(undefined);
+      setCompareToRunUuid(undefined);
+    } else if (selectedRunUuidsFromCheckbox.length === 1) {
+      // Single selection
+      const selectedUuid = selectedRunUuidsFromCheckbox[0];
+      if (selectedRunUuid !== selectedUuid) {
+        setSelectedRunUuid(selectedUuid);
+      }
+      if (compareToRunUuid) {
+        setCompareToRunUuid(undefined);
+      }
+    } else if (selectedRunUuidsFromCheckbox.length >= 2) {
+      // Two selections - sync both URL params
+      // Keep existing selectedRunUuid if it's still selected
+      if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
+        setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
+      }
+      const otherRun = selectedRunUuidsFromCheckbox.find((uuid) => uuid !== selectedRunUuid);
+      if (otherRun && otherRun !== compareToRunUuid) {
+        setCompareToRunUuid(otherRun);
+      }
+    }
+  }, [
+    isComparisonMode,
+    selectedRunUuidsFromCheckbox,
+    selectedRunUuid,
+    compareToRunUuid,
+    setSelectedRunUuid,
+    setCompareToRunUuid,
+    setIsComparisonMode,
+  ]);
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.
@@ -129,9 +204,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // list of available metrics changed), reset the selected columns
   // to the default state to avoid displaying columns that don't exist
   if (columnDifference.length > 0) {
+    const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
+    const defaultEnabledMetrics = new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS));
+
     setSelectedColumns({
       ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
-      ...mapValues(keyBy(uniqueColumns), () => false),
+      ...mapValues(keyBy(uniqueColumns), (_, key) => defaultEnabledMetrics.has(key)),
     });
   }
 
@@ -141,30 +219,18 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
-      setSelectedRunUuid(runUuid1);
-      setCompareToRunUuid(runUuid2);
+      // Set both URL params atomically to avoid race conditions
+      setSearchParams(
+        (params) => {
+          params.set('selectedRunUuid', runUuid1);
+          params.set('compareToRunUuid', runUuid2);
+          return params;
+        },
+        { replace: true },
+      );
     },
-    [setSelectedRunUuid, setCompareToRunUuid],
+    [setSearchParams],
   );
-
-  useEffect(() => {
-    const selectedRunUuids = Object.entries(rowSelection)
-      .filter(([_, value]) => value)
-      .map(([key]) => key);
-
-    if (selectedRunUuid && compareToRunUuid) {
-      const isSelectedRunStillSelected = selectedRunUuids.includes(selectedRunUuid);
-      const isCompareToRunStillSelected = selectedRunUuids.includes(compareToRunUuid);
-
-      if (!isSelectedRunStillSelected || !isCompareToRunStillSelected) {
-        setCompareToRunUuid(undefined);
-
-        if (selectedRunUuids.length > 0) {
-          setSelectedRunUuid(selectedRunUuids[0]);
-        }
-      }
-    }
-  }, [rowSelection, selectedRunUuid, compareToRunUuid, setSelectedRunUuid, setCompareToRunUuid]);
 
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
@@ -205,6 +271,131 @@ const ExperimentEvaluationRunsPageImpl = () => {
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const renderTableControls = () => (
+    <ExperimentEvaluationRunsTableControls
+      runs={runs ?? []}
+      refetchRuns={refetch}
+      isFetching={isFetching || isLoading}
+      searchRunsError={error}
+      searchFilter={searchFilter}
+      setSearchFilter={setSearchFilter}
+      rowSelection={rowSelection}
+      setRowSelection={setRowSelection}
+      selectedColumns={selectedColumns}
+      setSelectedColumns={setSelectedColumns}
+      groupByConfig={groupBy}
+      setGroupByConfig={setGroupBy}
+      viewMode={viewMode}
+      setViewMode={setViewMode}
+      onCompare={handleCompare}
+      selectedRunUuid={selectedRunUuid}
+      compareToRunUuid={compareToRunUuid}
+      isComparisonMode={isComparisonMode}
+      setIsComparisonMode={setIsComparisonMode}
+    />
+  );
+
+  const renderTable = () => (
+    <ExperimentEvaluationRunsTable
+      data={runsAndGroupValues}
+      uniqueColumns={uniqueColumns}
+      selectedColumns={selectedColumns}
+      selectedRunUuid={
+        isComparisonMode && viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined
+      }
+      setSelectedRunUuid={(runUuid: string) => {
+        setSelectedRunUuid(runUuid);
+        setCompareToRunUuid(undefined);
+      }}
+      isLoading={isLoading}
+      hasNextPage={hasNextPage ?? false}
+      rowSelection={rowSelection}
+      setRowSelection={setRowSelection}
+      setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+      setIsDrawerOpen={setIsDrawerOpen}
+      viewMode={viewMode}
+      onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
+      ref={tableContainerRef}
+    />
+  );
+
+  const renderEmptyState = () => (
+    <div
+      css={{
+        display: 'flex',
+        flex: 1,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: theme.spacing.lg,
+        paddingLeft: theme.spacing.md,
+        maxWidth: '100%',
+      }}
+    >
+      <Typography.Title level={3} color="secondary">
+        <FormattedMessage
+          defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
+          description="Title of the empty state for the evaluation runs page"
+        />
+      </Typography.Title>
+      <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
+        <FormattedMessage
+          defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
+          description="Description of the empty state for the evaluation runs page"
+          values={{
+            learnMoreLink: (
+              <Typography.Link
+                componentId="mlflow.eval-runs.empty-state.learn-more-link"
+                href={getLearnMoreLink()}
+                css={{ whiteSpace: 'nowrap' }}
+                openInNewTab
+              >
+                {/* eslint-disable-next-line formatjs/enforce-description */}
+                <FormattedMessage defaultMessage="Learn more" />
+              </Typography.Link>
+            ),
+          }}
+        />
+      </Typography.Paragraph>
+      <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
+      <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
+        <RunEvaluationButton experimentId={experimentId} />
+      </div>
+    </div>
+  );
+
+  // Full-page list view (default, non-comparison mode)
+  if (!isComparisonMode) {
+    return (
+      <ExperimentEvaluationRunsRowVisibilityProvider>
+        <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '0px' }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              flex: 1,
+              minHeight: '0px',
+              overflow: 'hidden',
+            }}
+          >
+            {renderTableControls()}
+            {isEmpty ? renderEmptyState() : renderTable()}
+          </div>
+          {selectedDatasetWithRun && (
+            <ExperimentViewDatasetDrawer
+              isOpen={isDrawerOpen}
+              setIsOpen={setIsDrawerOpen}
+              selectedDatasetWithRun={selectedDatasetWithRun}
+              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+            />
+          )}
+        </div>
+      </ExperimentEvaluationRunsRowVisibilityProvider>
+    );
+  }
+
+  // Split view (comparison mode)
   return (
     <ExperimentEvaluationRunsRowVisibilityProvider>
       <div css={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: '0px' }}>
@@ -245,44 +436,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
               paddingRight: theme.spacing.sm,
             }}
           >
-            <ExperimentEvaluationRunsTableControls
-              runs={runs ?? []}
-              refetchRuns={refetch}
-              isFetching={isFetching || isLoading}
-              searchRunsError={error}
-              searchFilter={searchFilter}
-              setSearchFilter={setSearchFilter}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              groupByConfig={groupBy}
-              setGroupByConfig={setGroupBy}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              onCompare={handleCompare}
-              selectedRunUuid={selectedRunUuid}
-              compareToRunUuid={compareToRunUuid}
-            />
-            <ExperimentEvaluationRunsTable
-              data={runsAndGroupValues}
-              uniqueColumns={uniqueColumns}
-              selectedColumns={selectedColumns}
-              selectedRunUuid={viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined}
-              setSelectedRunUuid={(runUuid: string) => {
-                setSelectedRunUuid(runUuid);
-                setCompareToRunUuid(undefined);
-              }}
-              isLoading={isLoading}
-              hasNextPage={hasNextPage ?? false}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
-              setIsDrawerOpen={setIsDrawerOpen}
-              viewMode={viewMode}
-              onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
-              ref={tableContainerRef}
-            />
+            {renderTableControls()}
+            {renderTable()}
           </div>
         </ResizableBox>
         <div
@@ -307,48 +462,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
               {renderActiveTab(selectedRunUuid)}
             </div>
           ) : isEmpty ? (
-            <div
-              css={{
-                display: 'flex',
-                flex: 1,
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginTop: theme.spacing.lg,
-                paddingLeft: theme.spacing.md,
-                maxWidth: '100%',
-              }}
-            >
-              <Typography.Title level={3} color="secondary">
-                <FormattedMessage
-                  defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
-                  description="Title of the empty state for the evaluation runs page"
-                />
-              </Typography.Title>
-              <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
-                <FormattedMessage
-                  defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
-                  description="Description of the empty state for the evaluation runs page"
-                  values={{
-                    learnMoreLink: (
-                      <Typography.Link
-                        componentId="mlflow.eval-runs.empty-state.learn-more-link"
-                        href={getLearnMoreLink()}
-                        css={{ whiteSpace: 'nowrap' }}
-                        openInNewTab
-                      >
-                        {/* eslint-disable-next-line formatjs/enforce-description */}
-                        <FormattedMessage defaultMessage="Learn more" />
-                      </Typography.Link>
-                    ),
-                  }}
-                />
-              </Typography.Paragraph>
-              <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
-              <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-                <RunEvaluationButton experimentId={experimentId} />
-              </div>
-            </div>
+            renderEmptyState()
           ) : null}
         </div>
         {dragging && (

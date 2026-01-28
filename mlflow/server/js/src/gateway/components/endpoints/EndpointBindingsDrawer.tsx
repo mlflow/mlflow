@@ -21,8 +21,8 @@ interface EndpointBindingsDrawerProps {
 
 const formatResourceTypePlural = (resourceType: ResourceType): string => {
   switch (resourceType) {
-    case 'scorer_job':
-      return 'Scorer Jobs';
+    case 'scorer':
+      return 'Scorers';
     default:
       return resourceType;
   }
@@ -167,7 +167,7 @@ export const EndpointBindingsDrawer = ({ open, endpointName, bindings, onClose }
                           '&:last-child': { borderBottom: 'none' },
                         }}
                       >
-                        <Typography.Text css={{ fontFamily: 'monospace' }}>{binding.resource_id}</Typography.Text>
+                        <Typography.Text>{binding.display_name || binding.resource_id}</Typography.Text>
                         <div css={{ marginTop: theme.spacing.xs / 2 }}>
                           <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                             <FormattedMessage

@@ -39,6 +39,7 @@ import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types
 import type { ReduxState } from '../../redux-types';
 import { ErrorCodes } from '../../common/constants';
 import { injectIntl } from 'react-intl';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 type ModelVersionPageImplProps = WithRouterNextProps & {
   modelName: string;
@@ -62,6 +63,16 @@ type ModelVersionPageImplProps = WithRouterNextProps & {
 };
 
 type ModelVersionPageImplState = any;
+
+/**
+ * Wrapper component to register model name and version context for the Assistant.
+ * Used because ModelVersionPageImpl is a class component that can't use hooks.
+ */
+const ModelVersionAssistantContextProvider = ({ modelName, version }: { modelName?: string; version?: string }) => {
+  useRegisterAssistantContext('modelName', modelName);
+  useRegisterAssistantContext('modelVersion', version);
+  return null;
+};
 
 export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplProps, ModelVersionPageImplState> {
   listTransitionRequestId: any;
@@ -207,6 +218,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
     return (
       <PageContainer>
+        <ModelVersionAssistantContextProvider modelName={modelName} version={version} />
         <RequestStateWrapper
           requestIds={this.state.criticalInitialRequestIds}
           // eslint-disable-next-line no-trailing-spaces

@@ -9,7 +9,7 @@ import type { AssistantConfig } from '../types';
 
 type AssistantConfigQueryKey = ['assistant_config'];
 
-const queryFn = async ({}: QueryFunctionContext<AssistantConfigQueryKey>) => {
+const queryFn = async (_context: QueryFunctionContext<AssistantConfigQueryKey>) => {
   return getConfig();
 };
 

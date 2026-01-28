@@ -120,7 +120,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             onCopy={handleCopy}
           />
         )}
-        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {sessionId && experimentId && (
           <ModelTraceHeaderSessionIdTag
             handleCopy={handleCopy}

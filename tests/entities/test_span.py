@@ -5,6 +5,7 @@ import opentelemetry.trace as trace_api
 import pytest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
+from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import Status as OTelStatus
@@ -20,7 +21,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
-from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
+from mlflow.tracing.utils.otlp import (
+    _decode_otel_proto_anyvalue,
+    _set_otel_proto_anyvalue,
+    resource_to_otel_proto,
+)
 
 
 def test_create_live_span():
@@ -587,6 +592,33 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
+
+
+def test_resource_to_otel_proto():
+    resource = OTelResource.create(
+        {
+            "service.name": "test-service",
+            "service.version": "1.0.0",
+            "custom.int": 42,
+            "custom.bool": True,
+        }
+    )
+    resource_proto = resource_to_otel_proto(resource)
+
+    # Convert proto attributes to dict for easier verification
+    attrs = {}
+    for attr in resource_proto.attributes:
+        attrs[attr.key] = _decode_otel_proto_anyvalue(attr.value)
+
+    assert attrs["service.name"] == "test-service"
+    assert attrs["service.version"] == "1.0.0"
+    assert attrs["custom.int"] == 42
+    assert attrs["custom.bool"] is True
+
+
+def test_resource_to_otel_proto_none():
+    resource_proto = resource_to_otel_proto(None)
+    assert len(resource_proto.attributes) == 0
 
 
 def test_span_from_dict_old_format():

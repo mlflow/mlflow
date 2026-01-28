@@ -20,6 +20,9 @@ from tests.tracing.helper import get_traces, purge_traces
 
 AGNO_VERSION = Version(getattr(agno, "__version__", "1.0.0"))
 IS_AGNO_V2 = AGNO_VERSION >= Version("2.0.0")
+# In agno >= 2.3.14, errors are caught internally and returned as error status
+# instead of being raised as ModelProviderError
+AGNO_CATCHES_ERRORS = AGNO_VERSION >= Version("2.3.14")
 
 
 def get_v2_autolog_module():
@@ -318,7 +321,7 @@ async def test_v2_creates_otel_spans(simple_agent, is_async):
 
 
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
-def test_v2_failure_creates_error_spans(simple_agent):
+def test_v2_failure_creates_spans(simple_agent):
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -337,12 +340,23 @@ def test_v2_failure_creates_error_spans(simple_agent):
             mock_client = MagicMock()
             mock_client.messages.create.side_effect = RuntimeError("bang")
             with patch.object(Claude, "get_client", return_value=mock_client):
-                with pytest.raises(ModelProviderError, match="bang"):
-                    simple_agent.run("fail")
+                if AGNO_CATCHES_ERRORS:
+                    # In agno >= 2.3.14, errors are caught internally and returned as error status
+                    from agno.run import RunStatus
+
+                    result = simple_agent.run("fail")
+                    assert result.status == RunStatus.error
+                    assert "bang" in result.content
+                else:
+                    # In agno < 2.3.14, errors are raised as ModelProviderError
+                    with pytest.raises(ModelProviderError, match="bang"):
+                        simple_agent.run("fail")
 
             spans = memory_exporter.get_finished_spans()
             assert len(spans) > 0
-            error_spans = [s for s in spans if s.status.status_code == StatusCode.ERROR]
-            assert len(error_spans) > 0
+            if not AGNO_CATCHES_ERRORS:
+                # Error spans are only created when exceptions propagate
+                error_spans = [s for s in spans if s.status.status_code == StatusCode.ERROR]
+                assert len(error_spans) > 0
     finally:
         mlflow.agno.autolog(disable=True)

@@ -56,8 +56,18 @@ const assessmentColumnRank: Record<string, number> = Object.fromEntries(
   ASSESSMENT_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
 );
 
-export function sortGroupedColumns(columns: TracesTableColumn[], isComparing?: boolean): TracesTableColumn[] {
+export function sortGroupedColumns(
+  columns: TracesTableColumn[],
+  isComparing?: boolean,
+  isGroupedBySession?: boolean,
+): TracesTableColumn[] {
   return [...columns].sort((colA, colB) => {
+    // If grouped by session, always put session column first
+    if (isGroupedBySession) {
+      if (colA.id === SESSION_COLUMN_ID) return -1;
+      if (colB.id === SESSION_COLUMN_ID) return 1;
+    }
+
     // If comparing, always put request time column first
     if (isComparing) {
       if (colA.id === INPUTS_COLUMN_ID) return -1;

@@ -158,6 +158,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'deepagent',
+    name: 'LangChain DeepAgent',
+    logoPath: '/images/logos/deepagent-logo.svg',
+    link: '/genai/tracing/integrations/listing/deepagent',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'ag2',
     name: 'AG2',
     logoPath: '/images/logos/ag2-logo.png',
@@ -392,6 +399,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   // Gateways
+  {
+    id: 'mlflow-ai-gateway',
+    name: 'MLflow AI Gateway',
+    logoPath: '/images/logos/mlflow-logo.svg',
+    link: '/genai/tracing/integrations/listing/mlflow-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'databricks-ai-gateway',
+    name: 'Databricks',
+    logoPath: '/images/logos/databricks-logo.png',
+    link: '/genai/tracing/integrations/listing/databricks-ai-gateway',
+    category: 'Gateways',
+  },
   {
     id: 'litellm-proxy',
     name: 'LiteLLM Proxy',

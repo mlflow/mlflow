@@ -130,6 +130,17 @@ export function generateTimeBuckets(
 }
 
 /**
+ * Default dot style configuration for line charts.
+ * Creates small, solid dots that match the line color.
+ *
+ * @param color - The fill color for the dot (should match line stroke)
+ * @returns Dot props object for Recharts Line component
+ */
+export function getLineDotStyle(color: string) {
+  return { r: 2, fill: color, strokeWidth: 0 };
+}
+
+/**
  * Format a large number with K/M suffix for human-readable display
  * @param count - Number to format
  * @returns Formatted string (e.g., "1.50M", "15.00K", "1.50K", "500")

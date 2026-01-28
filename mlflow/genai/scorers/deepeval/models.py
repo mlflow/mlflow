@@ -74,7 +74,10 @@ def create_deepeval_model(model_uri: str):
         # (e.g., openai:/gpt-4, databricks:/databricks-gpt-5-1)
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-        return LiteLLMModel(model=f"{provider}/{model_name}")
+        return LiteLLMModel(
+            model=f"{provider}/{model_name}",
+            generation_kwargs={"drop_params": True},
+        )
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "

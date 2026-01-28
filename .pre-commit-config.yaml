@@ -231,3 +231,9 @@ repos:
         files: ^mlflow/server/js/
         stages: [pre-commit]
         require_serial: true
+
+      - id: no-spaces
+        name: no-spaces
+        language: fail
+        entry: "Filenames must not contain spaces"
+        files: " "

@@ -20,6 +20,7 @@ defaults:
 
 jobs:
   build:
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

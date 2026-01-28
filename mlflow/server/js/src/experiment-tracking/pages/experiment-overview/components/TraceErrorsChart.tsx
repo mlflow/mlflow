@@ -15,7 +15,7 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useLegendHighlight } from '../utils/chartUtils';
+import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -99,7 +99,7 @@ export const TraceErrorsChart: React.FC = () => {
                 dataKey="errorRate"
                 stroke={theme.colors.yellow500}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(theme.colors.yellow500)}
                 name="Error Rate"
                 strokeOpacity={getOpacity('Error Rate')}
                 legendType="plainline"

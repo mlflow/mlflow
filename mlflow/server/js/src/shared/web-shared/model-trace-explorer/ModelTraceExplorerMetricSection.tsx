@@ -9,6 +9,7 @@ export const ModelTraceHeaderMetricSection = ({
   color,
   getTruncatedLabel,
   onCopy,
+  hideLabel = false,
 }: {
   label: React.ReactNode;
   /**
@@ -23,6 +24,7 @@ export const ModelTraceHeaderMetricSection = ({
   color?: TagColors;
   getTruncatedLabel: (label: string) => string;
   onCopy: () => void;
+  hideLabel?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -36,14 +38,16 @@ export const ModelTraceHeaderMetricSection = ({
       css={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: hideLabel ? 'flex-start' : 'center',
         flexDirection: 'row',
         gap: theme.spacing.sm,
       }}
     >
-      <Typography.Text size="md" color="secondary">
-        {label}
-      </Typography.Text>
+      {!hideLabel && (
+        <Typography.Text size="md" color="secondary">
+          {label}
+        </Typography.Text>
+      )}
       <Tooltip componentId="shared.model-trace-explorer.header-details.tooltip" content={value} maxWidth={400}>
         <Tag
           componentId="shared.model-trace-explorer.header-details.tag"

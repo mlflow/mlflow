@@ -457,6 +457,44 @@ async def test_passthrough_anthropic_messages():
 
 
 @pytest.mark.asyncio
+async def test_passthrough_anthropic_messages_streaming():
+    config = chat_config_with_provider()
+
+    async def mock_stream():
+        # LiteLLM returns raw SSE bytes for Anthropic streaming
+        yield b'event: message_start\ndata: {"type":"message_start"}\n\n'
+        yield b'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"text":"Hello"}}\n\n'  # noqa: E501
+        yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
+
+    with mock.patch(
+        "litellm.anthropic.messages.acreate", return_value=mock_stream()
+    ) as mock_acreate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+            "stream": True,
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers=None,
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 3
+        assert b"message_start" in chunks[0]
+        assert b"content_block_delta" in chunks[1]
+        assert b"message_stop" in chunks[2]
+
+        mock_acreate.assert_called_once()
+        call_kwargs = mock_acreate.call_args[1]
+        assert call_kwargs["stream"] is True
+        assert call_kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+
+
+@pytest.mark.asyncio
 async def test_passthrough_gemini_generate_content():
     config = chat_config()
     mock_response = mock.MagicMock()
@@ -506,9 +544,8 @@ async def test_passthrough_gemini_stream_generate_content():
         )
 
         chunks = [chunk async for chunk in result]
-        assert len(chunks) == 3  # 2 data chunks + [DONE]
+        assert len(chunks) == 2  # 2 data chunks
         assert b"data:" in chunks[0]
-        assert b"[DONE]" in chunks[2]
 
 
 @pytest.mark.asyncio

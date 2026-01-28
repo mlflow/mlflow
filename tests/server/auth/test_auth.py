@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 
 import jwt
-import psutil
 import pytest
 import requests
 
@@ -32,7 +31,7 @@ from mlflow.server import auth as auth_module
 from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import random_str
+from tests.helper_functions import kill_process_tree, random_str
 from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -420,13 +419,6 @@ def _wait(url: str, timeout: int = 10) -> None:
     pytest.fail("Server did not start")
 
 
-def _kill_all(pid: str):
-    parent = psutil.Process(pid)
-    for child in parent.children(recursive=True):
-        child.kill()
-    parent.kill()
-
-
 def test_proxy_log_artifacts(monkeypatch, tmp_path):
     backend_uri = f"sqlite:///{tmp_path / 'sqlalchemy.db'}"
     port = get_safe_port()
@@ -481,7 +473,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
         finally:
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
-            _kill_all(prc.pid)
+            kill_process_tree(prc.pid)
 
 
 def test_create_user_from_ui_fails_without_csrf_token(client):

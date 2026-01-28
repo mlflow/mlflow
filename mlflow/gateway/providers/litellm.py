@@ -291,9 +291,8 @@ class LiteLLMProvider(BaseProvider):
 
             response = await litellm.anthropic.messages.acreate(**kwargs, stream=True)
             async for chunk in response:
-                data = json.dumps(self._response_to_dict(chunk))
-                yield f"data: {data}\n\n".encode()
-            yield b"data: [DONE]\n\n"
+                # LiteLLM returns bytes directly, so we can yield them directly
+                yield chunk
 
         return stream_generator()
 
@@ -319,7 +318,6 @@ class LiteLLMProvider(BaseProvider):
                 else:
                     data = json.dumps(self._response_to_dict(chunk))
                     yield f"data: {data}\n\n".encode()
-            yield b"data: [DONE]\n\n"
 
         return stream_generator()
 

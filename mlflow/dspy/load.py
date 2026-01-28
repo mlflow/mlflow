@@ -17,6 +17,10 @@ from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_mod
 from mlflow.models.model import _update_active_model_id_based_on_mlflow_model
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -44,8 +48,6 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 def _load_model(model_uri, dst_path=None):
     import dspy
 
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
@@ -55,7 +57,11 @@ def _load_model(model_uri, dst_path=None):
     task = flavor_conf.get("inference_task")
 
     if model_path.endswith(".pkl"):
-        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in pickle format. To address this issue, you need to set environment variable "

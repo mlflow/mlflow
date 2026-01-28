@@ -1,8 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
-
-// Pattern for template variables like {{ inputs }}, {{ outputs }}, etc.
-const TEMPLATE_VARIABLE_PATTERN = /(\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\})/g;
+import { TEMPLATE_VARIABLE_PATTERN } from './utils/templateUtils';
 
 interface HighlightedTextAreaProps {
   value: string;

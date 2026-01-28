@@ -182,7 +182,6 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
           disabled={Boolean(isFetching)}
           onClick={() => {
             monitoringConfig.refresh();
-            invalidateMlflowSearchTracesCache({ queryClient });
           }}
         >
           <RefreshIcon />

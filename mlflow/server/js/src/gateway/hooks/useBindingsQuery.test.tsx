@@ -21,9 +21,10 @@ function createWrapper() {
 
 const generateMockBinding = (id: string): EndpointBinding => ({
   endpoint_id: `ep-${id}`,
-  resource_type: 'scorer_job',
+  resource_type: 'scorer',
   resource_id: `job-${id}`,
   created_at: 1700000000000,
+  display_name: `Scorer ${id}`,
 });
 
 describe('useBindingsQuery', () => {

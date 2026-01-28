@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { WrenchIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { WrenchIcon, Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useToolPerformanceSummaryData } from '../hooks/useToolPerformanceSummaryData';
 import {
@@ -10,7 +10,7 @@ import {
   OverviewChartContainer,
 } from './OverviewChartComponents';
 import { formatCount, formatLatency, useChartColors } from '../utils/chartUtils';
-import { useSortState, useSummaryTableStyles, SortableHeader, NameCellWithColor } from './SummaryTableComponents';
+import { useSortState, useSummaryTableStyles, SortableHeader, LinkableNameCell } from './SummaryTableComponents';
 
 type SortColumn = 'toolName' | 'totalCalls' | 'successRate' | 'avgLatency';
 
@@ -19,7 +19,6 @@ type SortColumn = 'toolName' | 'totalCalls' | 'successRate' | 'avgLatency';
  * Shows tool name, call count, success rate, and average latency for each tool.
  */
 export const ToolPerformanceSummary: React.FC = () => {
-  const { theme } = useDesignSystemTheme();
   const { getChartColor } = useChartColors();
   const { sortColumn, sortDirection, handleSort } = useSortState<SortColumn>('totalCalls');
   const { headerRowStyle, bodyRowStyle, cellStyle } = useSummaryTableStyles('minmax(80px, 2fr) 1fr 1fr 1fr');
@@ -114,7 +113,11 @@ export const ToolPerformanceSummary: React.FC = () => {
               const colorIndex = originalIndex === -1 ? index : originalIndex;
               return (
                 <div key={tool.toolName} css={bodyRowStyle}>
-                  <NameCellWithColor name={tool.toolName} color={getChartColor(colorIndex)} />
+                  <LinkableNameCell
+                    name={tool.toolName}
+                    color={getChartColor(colorIndex)}
+                    scrollToElementId={`tool-chart-${tool.toolName}`}
+                  />
                   <Typography.Text css={cellStyle}>{formatCount(tool.totalCalls)}</Typography.Text>
                   <Typography.Text css={cellStyle}>{tool.successRate.toFixed(2)}%</Typography.Text>
                   <Typography.Text css={cellStyle}>{formatLatency(tool.avgLatency)}</Typography.Text>

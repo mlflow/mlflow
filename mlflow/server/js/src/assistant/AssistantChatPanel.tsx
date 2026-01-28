@@ -12,13 +12,14 @@ import {
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
-  Spinner,
+  StopIcon,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
   SendIcon,
   WrenchSparkleIcon,
-  Tag,
+  Spinner,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -29,6 +30,8 @@ import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
+import { useAssistantPrompts } from '../common/utils/RoutingUtils';
+import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
 type CurrentView = 'chat' | 'setup-wizard' | 'settings';
 
@@ -94,6 +97,20 @@ const ChatMessageBubble = ({
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
           <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+        )}
+        {/* Interrupted indicator */}
+        {message.isInterrupted && (
+          <span
+            css={{
+              display: 'block',
+              marginTop: theme.spacing.sm,
+              fontSize: theme.typography.fontSizeSm,
+              fontStyle: 'italic',
+              color: theme.colors.textSecondary,
+            }}
+          >
+            Interrupted by user
+          </span>
         )}
         {/* Loading indicator */}
         {message.isStreaming && (
@@ -170,12 +187,7 @@ const ChatMessageBubble = ({
  */
 const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void }) => {
   const { theme } = useDesignSystemTheme();
-
-  const suggestions = [
-    'What does this trace show?',
-    'Debug the error in this trace.',
-    'What is the performance bottleneck in this trace?',
-  ];
+  const suggestions = useAssistantPrompts();
 
   return (
     <div
@@ -248,7 +260,8 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
+    useAssistant();
   const pageContext = useAssistantPageContext();
   const hasExperimentContext = Boolean(pageContext['experimentId']);
 
@@ -365,31 +378,13 @@ const ChatPanelContent = () => {
                 },
               }}
             />
-            <button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: theme.spacing.xs,
-                border: 'none',
-                background: 'transparent',
-                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
-                borderRadius: theme.borders.borderRadiusSm,
-                color: theme.colors.actionPrimaryBackgroundDefault,
-                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
-                '&:hover:not(:disabled)': {
-                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                },
-                '&:active:not(:disabled)': {
-                  backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                },
-              }}
+            <Button
+              componentId="mlflow.assistant.chat_panel.send"
+              onClick={isStreaming ? cancelSession : handleSend}
+              disabled={!isStreaming && !inputValue.trim()}
+              icon={isStreaming ? <StopIcon /> : <SendIcon />}
               aria-label="Send message"
-            >
-              {isStreaming ? <Spinner size="small" /> : <SendIcon />}
-            </button>
+            />
           </div>
           <AssistantContextTags />
         </div>
@@ -474,7 +469,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
 
 /**
  * Setup prompt shown when assistant is not set up yet.
- * Shows description and setup button.
+ * Shows empty state illustration and setup button.
  */
 const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -487,23 +482,11 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        padding: theme.spacing.lg,
-        paddingBottom: theme.spacing.lg * 4,
-        gap: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
-      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.75 }} />
-
-      <Typography.Text
-        color="secondary"
-        css={{
-          fontSize: theme.typography.fontSizeMd,
-          textAlign: 'center',
-          maxWidth: 400,
-        }}
-      >
-        Ask questions about your experiments, traces, evaluations, and more.
-      </Typography.Text>
+      <AssistantWelcomeCarousel />
 
       <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
         Get Started
@@ -575,12 +558,15 @@ export const AssistantChatPanel = () => {
         );
       case 'chat':
       default:
-        return setupComplete ? <ChatPanelContent /> : <SetupPrompt onSetup={handleStartSetup} />;
+        if (!setupComplete) {
+          return <SetupPrompt onSetup={handleStartSetup} />;
+        }
+        return <ChatPanelContent />;
     }
   };
 
   // Determine if we should show the chat controls (new chat button)
-  const showChatControls = Boolean(experimentId) && setupComplete && currentView === 'chat';
+  const showChatControls = setupComplete && currentView === 'chat';
 
   return (
     <div

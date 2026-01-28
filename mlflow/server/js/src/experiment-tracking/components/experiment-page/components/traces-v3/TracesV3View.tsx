@@ -47,13 +47,12 @@ const TracesV3ViewImpl = ({
   isLoadingExperiment?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const monitoringConfig = useMonitoringConfig();
 
   // Traces view only works with one experiment
   const experimentId = experimentIds[0];
   const [viewState] = useMonitoringViewState();
 
-  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
+  const timeRange = useMonitoringFiltersTimeRange();
 
   return (
     <div

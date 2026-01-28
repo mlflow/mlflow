@@ -260,6 +260,8 @@ export const getColumnConfig = (
             comparisonEntry: EvalTraceComparisonEntry;
           };
 
+          const { traceIdToTurnMap } = cell.table?.options?.meta as any;
+
           return traceInfoCellRenderer(
             experimentId,
             isComparing,
@@ -269,6 +271,7 @@ export const getColumnConfig = (
             intl,
             theme,
             onTraceTagsEdit,
+            traceIdToTurnMap,
           );
         },
       };

@@ -24,7 +24,7 @@
     "prettier:check": "prettier '**/*.{js,jsx,ts,tsx,md,mdx,css}' --check",
     "check-links": "tsx scripts/check-links.mts",
     "sitemap": "tsx scripts/compare-sitemaps.ts",
-    "eslint": "eslint docs"
+    "eslint": "eslint docs --max-warnings 0"
   },
   "dependencies": {
     "@docusaurus/core": "^3.6.3",

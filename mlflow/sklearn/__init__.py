@@ -57,7 +57,10 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     update_wrapper_extended,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -505,7 +508,11 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in pickle format. To address this issue, you need to set environment variable "

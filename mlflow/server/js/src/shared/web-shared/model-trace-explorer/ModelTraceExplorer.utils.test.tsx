@@ -996,6 +996,14 @@ describe('isModelTrace', () => {
 });
 
 describe('getDefaultActiveTab', () => {
+  it('should return events if the node has exception events', () => {
+    const spanWithException: ModelTraceSpanNode = {
+      ...MOCK_CHAT_SPAN,
+      events: [{ name: 'exception', timestamp: 0, attributes: {} }],
+    };
+    expect(getDefaultActiveTab(spanWithException)).toBe('events');
+  });
+
   it('should return chat if the node has chat messages', () => {
     expect(getDefaultActiveTab(MOCK_CHAT_SPAN)).toBe('chat');
   });

@@ -1,5 +1,6 @@
 import logging
 
+from opentelemetry import trace as otel_trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -15,7 +16,7 @@ from opentelemetry.trace import (
 from mlflow.entities.span import create_mlflow_span
 from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, mlflow_runtime_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -81,6 +82,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
         # NB: Dummy NoOp exporter, because OTel span processor requires an exporter
         self.span_exporter = SpanExporter()
+        # Store context tokens for each span so we can detach them in on_end
+        self._context_tokens: dict[int, object] = {}
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         # Trigger MLflow's span processor
@@ -93,7 +96,22 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # Register new span in the in-memory trace manager
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
+        # Also set this span in MLflow's runtime context so that other autolog integrations
+        # (like OpenAI) can correctly parent their spans to Semantic Kernel spans.
+        # NB: We use otel_trace.set_span_in_context() directly instead of
+        # mlflow.tracing.provider.set_span_in_context() because the latter can produce
+        # two separate traces when MLFLOW_USE_DEFAULT_TRACER_PROVIDER is set to False.
+        # Using the OpenTelemetry API directly ensures consistent behavior for autologging.
+        context = otel_trace.set_span_in_context(span)
+        token = mlflow_runtime_context.attach(context)
+        self._context_tokens[span.context.span_id] = token
+
     def on_end(self, span: OTelReadableSpan) -> None:
+        # Detach the span from MLflow's runtime context
+        token = self._context_tokens.pop(span.context.span_id, None)
+        if token is not None:
+            mlflow_runtime_context.detach(token)
+
         mlflow_span = get_mlflow_span_for_otel_span(span)
         if mlflow_span is None:
             _logger.debug("Span not found in the map. Skipping end.")

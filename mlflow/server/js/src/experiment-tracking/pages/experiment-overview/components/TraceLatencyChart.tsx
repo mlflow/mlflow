@@ -15,7 +15,7 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatLatency, useLegendHighlight } from '../utils/chartUtils';
+import { formatLatency, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
 export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -71,7 +71,7 @@ export const TraceLatencyChart: React.FC = () => {
                 dataKey="p50"
                 stroke={lineColors.p50}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p50)}
                 name="p50"
                 strokeOpacity={getOpacity('p50')}
               />
@@ -80,7 +80,7 @@ export const TraceLatencyChart: React.FC = () => {
                 dataKey="p90"
                 stroke={lineColors.p90}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p90)}
                 name="p90"
                 strokeOpacity={getOpacity('p90')}
               />
@@ -89,7 +89,7 @@ export const TraceLatencyChart: React.FC = () => {
                 dataKey="p99"
                 stroke={lineColors.p99}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p99)}
                 name="p99"
                 strokeOpacity={getOpacity('p99')}
               />

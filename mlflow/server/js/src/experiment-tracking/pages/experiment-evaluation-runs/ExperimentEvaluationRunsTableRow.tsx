@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   TableRow,
   TableCell,
@@ -17,6 +17,9 @@ import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils'
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { FormattedMessage } from 'react-intl';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
+import { RunPageTabName } from '../../constants';
 
 type TracesViewTableRowProps = {
   row: Row<RunEntityOrGroupData>;
@@ -67,6 +70,14 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({ row, isActive }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
+    const navigate = useNavigate();
+
+    const handleRowClick = useCallback(() => {
+      if ('info' in row.original) {
+        const { experimentId, runUuid } = row.original.info;
+        navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
+      }
+    }, [navigate, row.original]);
 
     if ('groupValues' in row.original) {
       return (
@@ -96,7 +107,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     }
 
     return (
-      <TableRow key={row.id} className="eval-runs-table-row">
+      <TableRow key={row.id} className="eval-runs-table-row" onClick={handleRowClick} css={{ cursor: 'pointer' }}>
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}

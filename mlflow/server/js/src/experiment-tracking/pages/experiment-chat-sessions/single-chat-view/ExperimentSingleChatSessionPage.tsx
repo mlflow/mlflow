@@ -16,11 +16,13 @@ import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getModelTraceId,
   isV3ModelTraceInfo,
   ModelTraceExplorer,
+  ModelTraceExplorerContextProvider,
+  ModelTraceExplorerDrawer,
   ModelTraceExplorerUpdateTraceContextProvider,
   shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
@@ -35,10 +37,13 @@ import {
   ExperimentSingleChatConversation,
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
-import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
+import { ExportTracesToDatasetModal } from '../../experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -47,10 +52,18 @@ const ContextProviders = ({
   children: React.ReactNode;
   invalidateTraceQuery?: (traceId?: string) => void;
 }) => {
+  const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
+  const DrawerComponent = AssistantAwareDrawer;
+
   return (
-    <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-      {children}
-    </ModelTraceExplorerUpdateTraceContextProvider>
+    <ModelTraceExplorerContextProvider
+      renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+      DrawerComponent={DrawerComponent}
+    >
+      <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+        {children}
+      </ModelTraceExplorerUpdateTraceContextProvider>
+    </ModelTraceExplorerContextProvider>
   );
 };
 
@@ -64,6 +77,9 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
+
+  useRegisterAssistantContext('sessionId', sessionId);
+  useRegisterAssistantContext('traceId', selectedTrace ? getModelTraceId(selectedTrace) : null);
 
   const selectedTraceIdFromUrl = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -167,19 +183,32 @@ const ExperimentSingleChatSessionPageImpl = () => {
             )}
           </div>
         )}
-        <Drawer.Root
-          open={selectedTrace !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedTrace(null);
+        {selectedTrace !== null && selectedTurnIndex !== null && (
+          <ModelTraceExplorerDrawer
+            handleClose={() => setSelectedTrace(null)}
+            selectPreviousEval={() => {
+              if (selectedTurnIndex > 0 && traces) {
+                const prevIndex = selectedTurnIndex - 1;
+                setSelectedTurnIndex(prevIndex);
+                setSelectedTrace(traces[prevIndex]);
+              }
+            }}
+            selectNextEval={() => {
+              if (traces && selectedTurnIndex < traces.length - 1) {
+                const nextIndex = selectedTurnIndex + 1;
+                setSelectedTurnIndex(nextIndex);
+                setSelectedTrace(traces[nextIndex]);
+              }
+            }}
+            isPreviousAvailable={selectedTurnIndex > 0}
+            isNextAvailable={traces !== undefined && selectedTurnIndex < traces.length - 1}
+            renderModalTitle={() => getModelTraceId(selectedTrace)}
+            experimentId={experimentId}
+            traceInfo={
+              sortedTraceInfos?.[selectedTurnIndex] && isV3ModelTraceInfo(sortedTraceInfos[selectedTurnIndex])
+                ? (sortedTraceInfos[selectedTurnIndex] as ModelTraceInfoV3)
+                : undefined
             }
-          }}
-        >
-          <Drawer.Content
-            componentId="mlflow.experiment.chat-session.trace-drawer"
-            title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
-            width="90vw"
-            expandContentToFullHeight
           >
             <div
               css={{
@@ -189,10 +218,10 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 marginBottom: -theme.spacing.lg,
               }}
             >
-              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
+              <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
             </div>
-          </Drawer.Content>
-        </Drawer.Root>
+          </ModelTraceExplorerDrawer>
+        )}
       </div>
     </ContextProviders>
   );

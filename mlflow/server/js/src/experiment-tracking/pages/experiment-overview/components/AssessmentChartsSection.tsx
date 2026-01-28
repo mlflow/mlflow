@@ -69,12 +69,13 @@ export const AssessmentChartsSection: React.FC = () => {
 
       {/* Assessment charts - one row per scorer */}
       {assessmentNames.map((name, index) => (
-        <LazyTraceAssessmentChart
-          key={name}
-          assessmentName={name}
-          lineColor={getChartColor(index)}
-          avgValue={avgValuesByName.get(name)}
-        />
+        <div key={name} id={`assessment-chart-${name}`}>
+          <LazyTraceAssessmentChart
+            assessmentName={name}
+            lineColor={getChartColor(index)}
+            avgValue={avgValuesByName.get(name)}
+          />
+        </div>
       ))}
     </div>
   );

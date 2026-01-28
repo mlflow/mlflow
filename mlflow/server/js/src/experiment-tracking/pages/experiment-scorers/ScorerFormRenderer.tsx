@@ -8,7 +8,7 @@ import {
 } from 'react-hook-form';
 import { useDesignSystemTheme, Button, Alert } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import {
   ModelTraceExplorerResizablePane,
   type ModelTraceExplorerResizablePaneRef,
@@ -18,7 +18,6 @@ import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './C
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
-import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;
@@ -50,11 +49,6 @@ interface ScorerFormContentProps {
 const ScorerFormContent: React.FC<ScorerFormContentProps> = ({ mode, control, setValue, getValues, scorerType }) => {
   return (
     <>
-      {isEvaluatingSessionsInScorersEnabled() && scorerType === 'llm' && (
-        <div>
-          <ScorerFormEvaluationScopeSelect mode={mode} />
-        </div>
-      )}
       {/* Conditional Form Content */}
       {scorerType === 'llm' ? (
         <LLMScorerFormRenderer
