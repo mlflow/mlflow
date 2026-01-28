@@ -270,6 +270,14 @@ def test_version():
         assert response.get_data().decode() == mlflow.__version__
 
 
+def test_server_info():
+    with app.test_client() as c:
+        response = c.get("/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["store_type"] == "SqlStore"
+
+
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]

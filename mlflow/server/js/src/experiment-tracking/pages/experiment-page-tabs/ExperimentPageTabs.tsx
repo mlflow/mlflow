@@ -12,6 +12,7 @@ import {
   shouldEnableExperimentPageSideTabs,
   shouldEnableExperimentOverviewTab,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
@@ -27,6 +28,7 @@ const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const isFileStore = useIsFileStore();
 
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
@@ -110,10 +112,12 @@ const ExperimentPageTabsImpl = () => {
               onSettled: () => {
                 dismiss();
                 if (kind === ExperimentKind.GENAI_DEVELOPMENT) {
-                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled, otherwise Traces
-                  const targetTab = shouldEnableExperimentOverviewTab()
-                    ? ExperimentPageTabName.Overview
-                    : ExperimentPageTabName.Traces;
+                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled
+                  // and not using FileStore backend, otherwise Traces
+                  const targetTab =
+                    shouldEnableExperimentOverviewTab() && isFileStore === false
+                      ? ExperimentPageTabName.Overview
+                      : ExperimentPageTabName.Traces;
                   navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {
                     replace: true,
                   });
