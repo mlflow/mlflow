@@ -153,8 +153,7 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
     if (obj.type === 'tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
       // tool_result content can be a string or an array of content blocks (for images)
       const contentValid =
-        isString(obj.content) ||
-        (isArray(obj.content) && obj.content.every(isAnthropicToolResultContentBlock));
+        isString(obj.content) || (isArray(obj.content) && obj.content.every(isAnthropicToolResultContentBlock));
       return isString(obj.tool_use_id) && contentValid;
     }
 
