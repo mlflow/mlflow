@@ -552,3 +552,25 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
         assert judge_copy._embedder is None
         assert judge_copy._episodic_memory == []
         assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
+
+
+def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        mock_prediction = MagicMock()
+        mock_prediction.result = "yes"
+        mock_prediction.rationale = "Test rationale"
+        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+
+        # Call with only trace - inputs/outputs should be extracted from trace
+        test_trace = sample_traces[0]
+        aligned_judge(trace=test_trace)
+
+        # Verify predict_module was called with extracted inputs/outputs
+        call_kwargs = aligned_judge._predict_module.call_args.kwargs
+        assert call_kwargs["inputs"] == {"inputs": "input_0"}
+        assert call_kwargs["outputs"] == {"outputs": "output_0"}
