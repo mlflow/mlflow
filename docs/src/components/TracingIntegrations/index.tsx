@@ -158,6 +158,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'deepagent',
+    name: 'LangChain DeepAgent',
+    logoPath: '/images/logos/deepagent-logo.svg',
+    link: '/genai/tracing/integrations/listing/deepagent',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'ag2',
     name: 'AG2',
     logoPath: '/images/logos/ag2-logo.png',
