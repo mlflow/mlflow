@@ -152,6 +152,7 @@ mlflow = [
   "server/auth/db/migrations/alembic.ini",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
+  "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
 ]
