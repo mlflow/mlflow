@@ -362,31 +362,13 @@ const ChatPanelContent = () => {
                 },
               }}
             />
-            <button
+            <Button
+              componentId="mlflow.assistant.chat_panel.send"
               onClick={handleSend}
               disabled={!inputValue.trim() || isStreaming}
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: theme.spacing.xs,
-                border: 'none',
-                background: 'transparent',
-                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
-                borderRadius: theme.borders.borderRadiusSm,
-                color: theme.colors.actionPrimaryBackgroundDefault,
-                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
-                '&:hover:not(:disabled)': {
-                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                },
-                '&:active:not(:disabled)': {
-                  backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                },
-              }}
+              icon={isStreaming ? <Spinner size="small" /> : <SendIcon />}
               aria-label="Send message"
-            >
-              {isStreaming ? <Spinner size="small" /> : <SendIcon />}
-            </button>
+            />
           </div>
           <AssistantContextTags />
         </div>
