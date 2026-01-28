@@ -435,3 +435,82 @@ def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
 
         # After context exit, downloaded artifacts should be cleaned up
         assert not mock_artifacts_dir.exists()
+
+
+def get_files(path: Path) -> list[Path]:
+    return sorted(p for p in path.iterdir() if p.is_file())
+
+
+def test_split_tar_file_small_files(tmp_path):
+    tar_path = tmp_path / "small.tar"
+    with open(tar_path, "wb") as f:
+        f.write(b"x" * 512)
+
+    env_pack._split_tar_file(tar_path, chunk_size=1024)
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["small.tar"]
+
+
+def test_split_tar_file_large_files(tmp_path):
+    tar_path = tmp_path / "large.tar"
+    with open(tar_path, "wb") as f:
+        f.write(b"x" * 2560)
+
+    env_pack._split_tar_file(tar_path, chunk_size=1024)
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["large.tar.part0", "large.tar.part1", "large.tar.part2"]
+
+
+def test_split_tar_file_padding(tmp_path):
+    # 1-digit padding: 5 chunks
+    tar_path = tmp_path / "test1.tar"
+    with open(tar_path, "wb") as f:
+        f.write(b"x" * 5 * 1024)
+    env_pack._split_tar_file(tar_path, chunk_size=1024)
+    files = get_files(tmp_path)
+
+    assert len(files) == 5
+    assert files[0].name == "test1.tar.part0"
+    assert files[4].name == "test1.tar.part4"
+
+    # 3-digit padding: 150 chunks
+    tar_path3 = tmp_path / "test3.tar"
+    with open(tar_path3, "wb") as f:
+        f.write(b"x" * 150 * 1024)
+    env_pack._split_tar_file(tar_path3, chunk_size=1024)
+    files3 = [f for f in get_files(tmp_path) if f.name.startswith("test3.tar")]
+
+    assert len(files3) == 150
+    assert files3[0].name == "test3.tar.part000"
+    assert files3[149].name == "test3.tar.part149"
+
+
+def test_tar_chunk_reassembly(tmp_path):
+    tar_path = tmp_path / "test.tar"
+    expected_content = b"x" * 5 * 1024
+    with open(tar_path, "wb") as f:
+        f.write(expected_content)
+
+    env_pack._split_tar_file(tar_path, chunk_size=1024)
+    files = get_files(tmp_path)
+    assert len(files) == 5
+
+    reassembled_path = tmp_path / "reassembled.tar"
+    with open(reassembled_path, "wb") as output:
+        for file in files:
+            with open(file, "rb") as inp:
+                output.write(inp.read())
+
+    assert reassembled_path.read_bytes() == expected_content
+
+
+def test_tar_calls_split_tar_file(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "test.txt").write_text("test")
+
+    tar_path = tmp_path / "output.tar"
+
+    with mock.patch("mlflow.utils.env_pack._split_tar_file") as mock_split:
+        env_pack._tar(source_dir, tar_path)
+        mock_split.assert_called_once_with(tar_path)
