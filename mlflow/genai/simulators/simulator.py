@@ -242,7 +242,6 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
 
 
 def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
-    from mlflow.exceptions import MlflowNotImplementedException
     from mlflow.tracing.client import TracingClient
 
     flat_trace_ids = [tid for trace_ids in all_trace_ids for tid in trace_ids]
@@ -255,14 +254,11 @@ def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
     mlflow.flush_trace_async_logging()
 
     client = TracingClient()
-    try:
-        flat_traces = client.store.batch_get_traces(flat_trace_ids)
-    except MlflowNotImplementedException:
-        max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
-        with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
-        ) as executor:
-            flat_traces = list(executor.map(client.get_trace, flat_trace_ids))
+    max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
+    ) as executor:
+        flat_traces = list(executor.map(client.get_trace, flat_trace_ids))
 
     all_traces: list[list["Trace"]] = []
     idx = 0
