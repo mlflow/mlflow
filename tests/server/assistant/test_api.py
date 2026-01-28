@@ -337,7 +337,7 @@ def test_patch_session_cancel_with_process(client):
         assert _is_process_running(proc.pid)
 
         response = client.patch(
-            f"/ajax-api/3.0/mlflow/assistant/session/{session_id}",
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}",
             json={"status": "cancelled"},
         )
 

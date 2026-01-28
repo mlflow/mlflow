@@ -188,7 +188,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     )
 
 
-@assistant_router.patch("/session/{session_id}")
+@assistant_router.patch("/sessions/{session_id}")
 async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
     """
     Update session status.

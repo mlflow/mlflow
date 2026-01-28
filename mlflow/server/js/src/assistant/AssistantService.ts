@@ -93,8 +93,8 @@ export const createEventSource = (sessionId: string): EventSource => {
 /**
  * Cancel an active session by terminating the backend process.
  */
-export const cancelSession = async (sessionId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await fetch(`${API_BASE}/session/${sessionId}`, {
+export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
