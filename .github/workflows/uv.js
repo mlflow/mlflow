@@ -102,7 +102,7 @@ module.exports = async ({ github, context }) => {
     exec("git", ["checkout", branchName, "--", "uv.lock"]);
     exec("git", ["add", "uv.lock"]);
     exec("git", ["commit", "-s", "-m", "Update uv.lock"]);
-    exec("git", ["push", "--force-with-lease", "origin", existingBranch]);
+    exec("git", ["push", "--force", "origin", existingBranch]);
     console.log(`Force pushed changes to existing branch: ${existingBranch}`);
 
     // Clean up the temporary branch
