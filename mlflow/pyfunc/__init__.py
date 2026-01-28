@@ -2721,7 +2721,12 @@ e.g., struct<a:int, b:array<int>>.
 
             elif env_manager == _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
-                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                    # Serverless executors do not have access to NFS, so we use the model URI directly
+                    model_path = (
+                        dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                        if not is_in_databricks_serverless_runtime()
+                        else model_uri
+                    )
                     loaded_model = mlflow.pyfunc.load_model(model_path, model_config=model_config)
                 elif is_spark_connect and not should_spark_connect_use_nfs:
                     model_path = os.path.join(
