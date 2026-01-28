@@ -141,6 +141,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -163,6 +164,7 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
+    GetPromptOptimizationJob,
     GetRun,
     GetScorer,
     GetTrace,
@@ -195,6 +197,7 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
+    SearchPromptOptimizationJobs,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
@@ -4624,6 +4627,21 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+def _get_server_info():
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    store = _get_tracking_store()
+
+    if isinstance(store, FileStore):
+        store_type = "FileStore"
+    elif isinstance(store, SqlAlchemyStore):
+        store_type = "SqlStore"
+    else:
+        store_type = None
+    return jsonify({"store_type": store_type})
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_supported_providers():
@@ -4805,6 +4823,7 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
         + get_gateway_endpoints()
     )
 
@@ -5314,6 +5333,126 @@ def _create_prompt_optimization_job():
     return _wrap_response(response_message)
 
 
+def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.genai.optimize.job import OptimizerType
+
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.state.status = job_entity.status.to_proto()
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+
+    params = json.loads(job_entity.params)
+    if "experiment_id" in params:
+        optimization_job.experiment_id = params["experiment_id"]
+    if "prompt_uri" in params:
+        optimization_job.source_prompt_uri = params["prompt_uri"]
+
+    if run_id := params.get("run_id"):
+        optimization_job.run_id = run_id
+
+    # Populate config from job params
+    config = optimization_job.config
+    if "optimizer_type" in params:
+        try:
+            optimizer_type = OptimizerType(params["optimizer_type"])
+            config.optimizer_type = optimizer_type.to_proto()
+        except (ValueError, KeyError):
+            pass
+    if params.get("dataset_id"):
+        config.dataset_id = params["dataset_id"]
+    if "scorer_names" in params:
+        try:
+            scorer_names = params["scorer_names"]
+            if isinstance(scorer_names, str):
+                scorer_names = json.loads(scorer_names)
+            if isinstance(scorer_names, list):
+                config.scorers.extend(scorer_names)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if params.get("optimizer_config"):
+        optimizer_config = params["optimizer_config"]
+        if isinstance(optimizer_config, dict):
+            config.optimizer_config_json = json.dumps(optimizer_config)
+        elif isinstance(optimizer_config, str):
+            config.optimizer_config_json = optimizer_config
+
+    # Get optimized_prompt_uri from job result (only available when job succeeds)
+    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+        result = job_entity.parsed_result
+        if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+            optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
+
+    # If job failed, add error message to state
+    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
+        optimization_job.state.error_message = str(job_entity.parsed_result)
+
+    return optimization_job
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_prompt_optimization_job(job_id):
+    from mlflow.server.jobs import get_job
+
+    job_entity = get_job(job_id)
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+
+    # Fetch MLflow run to get evaluation scores from metrics
+    try:
+        mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
+        run_metrics = mlflow_run.data.metrics
+
+        # Populate evaluation scores from run metrics
+        # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
+        # Per-scorer scores are logged as "initial_eval_score.<scorer_name>" and
+        # "final_eval_score.<scorer_name>"
+        for metric_name, metric_value in run_metrics.items():
+            if metric_name == "initial_eval_score":
+                optimization_job.initial_eval_scores["aggregate"] = metric_value
+            elif metric_name == "final_eval_score":
+                optimization_job.final_eval_scores["aggregate"] = metric_value
+            elif metric_name.startswith("initial_eval_score."):
+                scorer_name = metric_name.removeprefix("initial_eval_score.")
+                optimization_job.initial_eval_scores[scorer_name] = metric_value
+            elif metric_name.startswith("final_eval_score."):
+                scorer_name = metric_name.removeprefix("final_eval_score.")
+                optimization_job.final_eval_scores[scorer_name] = metric_value
+
+    except Exception as e:
+        _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
+
+    response_message = GetPromptOptimizationJob.Response()
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_prompt_optimization_jobs():
+    request_message = _get_request_message(
+        SearchPromptOptimizationJobs(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+
+    job_store = _get_job_store()
+
+    # Search for optimize_prompts jobs in the specified experiment
+    jobs = job_store.list_jobs(
+        job_name="optimize_prompts",
+        params={"experiment_id": request_message.experiment_id},
+    )
+
+    response_message = SearchPromptOptimizationJobs.Response()
+
+    for job_entity in jobs:
+        optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+        response_message.jobs.append(optimization_job)
+
+    return _wrap_response(response_message)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _cancel_prompt_optimization_job(job_id):
@@ -5321,25 +5460,15 @@ def _cancel_prompt_optimization_job(job_id):
     from mlflow.server.jobs import cancel_job
 
     job_entity = cancel_job(job_id)
-
-    response_message = CancelPromptOptimizationJob.Response()
-    optimization_job = PromptOptimizationJobProto()
-    optimization_job.job_id = job_entity.job_id
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+    # Override status to CANCELED since cancel_job may not update the entity status immediately
     optimization_job.state.status = JobStatus.JOB_STATUS_CANCELED
-    optimization_job.creation_timestamp_ms = job_entity.creation_time
 
-    params = json.loads(job_entity.params)
-
-    if experiment_id := params.get("experiment_id"):
-        optimization_job.experiment_id = experiment_id
-    if prompt_uri := params.get("prompt_uri"):
-        optimization_job.source_prompt_uri = prompt_uri
-    if run_id := params.get("run_id"):
-        optimization_job.run_id = run_id
-        # Terminate the underlying MLflow run if it exists
+    # Terminate the underlying MLflow run if it exists
+    if optimization_job.run_id:
         try:
             _get_tracking_store().update_run_info(
-                run_id=run_id,
+                run_id=optimization_job.run_id,
                 run_status=RunStatus.KILLED,
                 end_time=get_current_time_millis(),
                 run_name=None,
@@ -5348,11 +5477,36 @@ def _cancel_prompt_optimization_job(job_id):
             # If the run doesn't exist or is already terminated, log warning and continue
             _logger.warning(
                 "Failed to terminate MLflow run '%s' when canceling job '%s'",
-                run_id,
+                optimization_job.run_id,
                 job_id,
             )
 
+    response_message = CancelPromptOptimizationJob.Response()
     response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_prompt_optimization_job(job_id):
+    job_store = _get_job_store()
+    job_entity = job_store.get_job(job_id)
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+    run_id = optimization_job.run_id
+
+    job_store.delete_jobs(job_ids=[job_id])
+
+    # Delete the associated MLflow run if it exists.
+    # Check if run exists before attempting deletion - user may have
+    # deleted it manually before the job deletion request.
+    if run_id:
+        try:
+            _get_tracking_store().get_run(run_id)
+            _get_tracking_store().delete_run(run_id)
+        except MlflowException:
+            pass
+
+    response_message = DeletePromptOptimizationJob.Response()
     return _wrap_response(response_message)
 
 
@@ -5503,7 +5657,10 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
-    # Prompt Optimization Job APIs
+    # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
+    GetPromptOptimizationJob: _get_prompt_optimization_job,
+    SearchPromptOptimizationJobs: _search_prompt_optimization_jobs,
     CancelPromptOptimizationJob: _cancel_prompt_optimization_job,
+    DeletePromptOptimizationJob: _delete_prompt_optimization_job,
 }

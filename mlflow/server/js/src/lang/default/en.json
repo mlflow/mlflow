@@ -295,6 +295,10 @@
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
   },
+  "03HDrw": {
+    "defaultMessage": "Add a custom feedback to this trace.",
+    "description": "Hint message prompting user to add a new feedback"
+  },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
@@ -511,10 +515,6 @@
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
   },
-  "2+O4wk": {
-    "defaultMessage": "Add new assessment",
-    "description": "Label for the button to add a new assessment"
-  },
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
@@ -630,10 +630,6 @@
   "2hwoFW": {
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
-  },
-  "2igs1f": {
-    "defaultMessage": "Compare",
-    "description": "Compare evaluation runs action"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -942,10 +938,6 @@
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
   },
-  "5fUTaz": {
-    "defaultMessage": "Or {enterManually}",
-    "description": "Text with link to switch to manual model entry"
-  },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
@@ -989,6 +981,10 @@
   "61P6Da": {
     "defaultMessage": "finetuning",
     "description": "A short label for experiments focused on model finetuning"
+  },
+  "64SfR8": {
+    "defaultMessage": "enter a model identifier",
+    "description": "Link text to switch to direct model identifier input"
   },
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
@@ -1065,6 +1061,10 @@
   "6ZhLfu": {
     "defaultMessage": "Visibility",
     "description": "Label for the visibility icon column in the evaluation runs table"
+  },
+  "6arejB": {
+    "defaultMessage": "Compare",
+    "description": "Compare runs button label"
   },
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
@@ -1149,6 +1149,10 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
+  },
+  "756RTp": {
+    "defaultMessage": "Select 2 runs to compare",
+    "description": "Tooltip for the compare button when disabled"
   },
   "757GVc": {
     "defaultMessage": "Cancel",
@@ -1918,6 +1922,10 @@
     "defaultMessage": "No prompts",
     "description": "No results message for linked prompts table on logged model details page"
   },
+  "CAzD7g": {
+    "defaultMessage": "Custom judge",
+    "description": "Label indicating a custom judge scorer"
+  },
   "CBnbqy": {
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
@@ -2050,6 +2058,10 @@
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
   },
+  "DHFf28": {
+    "defaultMessage": "Or {enterManually}",
+    "description": "Text with link to switch to direct model identifier input"
+  },
   "DHO5TT": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
@@ -2137,6 +2149,10 @@
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
+  },
+  "EDWwN/": {
+    "defaultMessage": "Compare",
+    "description": "Compare button on run detail page"
   },
   "EI7moF": {
     "defaultMessage": "Last year",
@@ -2522,6 +2538,10 @@
     "defaultMessage": "All",
     "description": "Option for the start select dropdown to filter runs from the beginning of time"
   },
+  "Hem4uh": {
+    "defaultMessage": "Compare this run with other evaluation runs",
+    "description": "Tooltip for the compare button on the run detail page"
+  },
   "HfcIG/": {
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
     "description": "Hint for ConversationalGuidelines template"
@@ -2825,6 +2845,10 @@
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
+  },
+  "KE/zZf": {
+    "defaultMessage": "Traces",
+    "description": "Title for the traces chart"
   },
   "KGMbzq": {
     "defaultMessage": "Commit message:",
@@ -3398,13 +3422,25 @@
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
   },
+  "OjWQ39": {
+    "defaultMessage": "Human feedback",
+    "description": "Tooltip content for human feedback"
+  },
   "OlytgO": {
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
+  "OmK5nx": {
+    "defaultMessage": "Add feedback",
+    "description": "Label for the button to add a new feedback"
+  },
   "On3g1B": {
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
+  },
+  "OneX+E": {
+    "defaultMessage": "Add expectation",
+    "description": "Label for the button to add a new expectation"
   },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
@@ -3572,6 +3608,10 @@
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
+  },
+  "QK9qFL": {
+    "defaultMessage": "Hide assessments",
+    "description": "Label for the button to hide the assessments pane"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -3861,6 +3901,10 @@
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
   },
+  "SihD1a": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Tooltip content for LLM judge feedback"
+  },
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
@@ -3884,6 +3928,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SuVsDp": {
+    "defaultMessage": "Custom code judge feedback",
+    "description": "Tooltip content for custom code judge feedback"
   },
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
@@ -3912,10 +3960,6 @@
   "T3Ew34": {
     "defaultMessage": "Used by",
     "description": "Used by column header"
-  },
-  "T3RjOb": {
-    "defaultMessage": "Go to the run",
-    "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
   },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
@@ -4092,6 +4136,10 @@
     "defaultMessage": "Tool Performance Summary",
     "description": "Title for the tool performance summary section"
   },
+  "USJvtX": {
+    "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
+    "description": "Hint text explaining why automatic evaluation is disabled for non-gateway models"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
@@ -4103,10 +4151,6 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
-  },
-  "Ub+VQh": {
-    "defaultMessage": "Please select 2 runs to compare",
-    "description": "Tooltip for disabled compare action in evaluation runs table actions"
   },
   "UbXw8O": {
     "defaultMessage": "Expectations",
@@ -4176,6 +4220,10 @@
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
   },
+  "VD7haA": {
+    "defaultMessage": "Custom LLM-as-a-judge",
+    "description": "Label for custom LLM judge type filter option"
+  },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
     "description": "Title for the quality summary table section"
@@ -4191,10 +4239,6 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
-  },
-  "VLonhQ": {
-    "defaultMessage": "Requests",
-    "description": "Title for the trace requests chart"
   },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
@@ -4215,6 +4259,10 @@
   "VSitCY": {
     "defaultMessage": "Top K",
     "description": "Label for top K input"
+  },
+  "VTNUPu": {
+    "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
+    "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
   },
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
@@ -4683,6 +4731,10 @@
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
   },
+  "Z+tEhr": {
+    "defaultMessage": "Compare selected runs",
+    "description": "Tooltip for the compare button when enabled"
+  },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
     "description": "Created by user"
@@ -4746,6 +4798,10 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
+  },
+  "Zah+D4": {
+    "defaultMessage": "Run judge",
+    "description": "Label for the button to add a new feedback"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
@@ -5343,6 +5399,10 @@
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
   },
+  "dTjHiD": {
+    "defaultMessage": "Add a custom expectation to this trace.",
+    "description": "Hint message prompting user to add a new expectation"
+  },
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
@@ -5622,6 +5682,10 @@
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
+  },
+  "fdfi96": {
+    "defaultMessage": "Create judge",
+    "description": "Button to create a new judge"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -6539,6 +6603,10 @@
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
   },
+  "mLr9U7": {
+    "defaultMessage": "Learn more.",
+    "description": "Link text for learning more about feedback"
+  },
   "mMR/YQ": {
     "defaultMessage": "Select a provider to configure your API key",
     "description": "Placeholder message when no provider selected"
@@ -6571,6 +6639,10 @@
     "defaultMessage": "Params",
     "description": "Header for parameter columns in the evaluation runs table column configuration"
   },
+  "mYcueV": {
+    "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
+    "description": "Warning banner shown on the Overview tab when using FileStore backend"
+  },
   "md81Lo": {
     "defaultMessage": "Error",
     "description": "MLflow trace notebook output > error state title"
@@ -6594,6 +6666,10 @@
   "mjNFJt": {
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
+  },
+  "mltH0e": {
+    "defaultMessage": "Show assessments",
+    "description": "Label for the button to show the assessments pane"
   },
   "mmiHAX": {
     "defaultMessage": "Parameters",
@@ -6838,10 +6914,6 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
-  },
-  "oSSfZ6": {
-    "defaultMessage": "enter model manually",
-    "description": "Link text to switch to manual model input"
   },
   "oShuJS": {
     "defaultMessage": "Logged from",
@@ -7162,10 +7234,6 @@
   "r+KCRg": {
     "defaultMessage": "Parameter",
     "description": "Run page > Overview > Parameters table > Key column header"
-  },
-  "r/fxMt": {
-    "defaultMessage": "Assessments",
-    "description": "Label for the assessments pane of the model trace explorer."
   },
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
@@ -7659,6 +7727,10 @@
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
   },
+  "utyagz": {
+    "defaultMessage": "Feedback",
+    "description": "Label for the feedback section in the assessments pane"
+  },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
     "description": "Link text for search traces documentation"
@@ -8111,6 +8183,10 @@
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
   },
+  "yO/HAZ": {
+    "defaultMessage": "Pre-built LLM-as-a-judge",
+    "description": "Label for pre-built LLM judge type filter option"
+  },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"
@@ -8226,6 +8302,10 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
+  },
+  "zMv2ev": {
+    "defaultMessage": "Learn more.",
+    "description": "Link text for learning more about expectations"
   },
   "zNWzj6": {
     "defaultMessage": "Search traces by request",

@@ -307,6 +307,7 @@ describe('ExperimentLoggedModelListPage', () => {
           ),
         ),
       ),
+      rest.get('/server-info', (req, res, ctx) => res(ctx.json({ store_type: 'SqlAlchemyStore' }))),
     );
 
     // Start on experiment page WITHOUT a tab
