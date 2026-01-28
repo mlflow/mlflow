@@ -126,11 +126,13 @@ export const ExperimentEvaluationRunsTableControls = ({
     [selectedColumns],
   );
 
-  const isCompareEnabled = selectedRunUuids.length === 2;
+  const isCompareEnabled = selectedRunUuids.length >= 1;
 
   const handleCompareClick = useCallback(() => {
-    if (selectedRunUuids.length === 2) {
-      onCompare(selectedRunUuids[0], selectedRunUuids[1]);
+    if (selectedRunUuids.length >= 1) {
+      if (selectedRunUuids.length >= 2) {
+        onCompare(selectedRunUuids[0], selectedRunUuids[1]);
+      }
       setIsComparisonMode(true);
     }
   }, [selectedRunUuids, onCompare, setIsComparisonMode]);
@@ -275,7 +277,7 @@ export const ExperimentEvaluationRunsTableControls = ({
               />
             ) : (
               <FormattedMessage
-                defaultMessage="Select 2 runs to compare"
+                defaultMessage="Select up to 2 runs to compare"
                 description="Tooltip for the compare button when disabled"
               />
             )
