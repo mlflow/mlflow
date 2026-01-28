@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
 import {
   Button,
+  ChevronDownIcon,
+  ClockIcon,
   DialogCombobox,
   DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
@@ -10,6 +13,7 @@ import {
   RefreshIcon,
   Tooltip,
   useDesignSystemTheme,
+  XCircleFillIcon,
 } from '@databricks/design-system';
 import {
   invalidateMlflowSearchTracesCache,
@@ -67,8 +71,8 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
 
   // List of labels for "start time" filter
   const currentStartTimeFilterLabel = intl.formatMessage({
-    defaultMessage: 'Time Range',
-    description: 'Label for the start range select dropdown for experiment runs view',
+    defaultMessage: 'Time',
+    description: 'Label for the time range select dropdown',
   });
 
   const monitoringConfig = useMonitoringConfig();
@@ -86,18 +90,42 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
         label={currentStartTimeFilterLabel}
         value={monitoringFilters.startTimeLabel ? [monitoringFilters.startTimeLabel] : [DEFAULT_START_TIME_LABEL]}
       >
-        <DialogComboboxTrigger
-          renderDisplayedValue={(value) => {
-            return namedDateFilters.find((namedDateFilter) => namedDateFilter.key === value)?.label;
-          }}
-          allowClear={
-            !isNil(monitoringFilters.startTimeLabel) && monitoringFilters.startTimeLabel !== DEFAULT_START_TIME_LABEL
-          }
-          onClear={() => {
-            setMonitoringFilters({ startTimeLabel: DEFAULT_START_TIME_LABEL });
-          }}
-          data-testid="time-range-select-dropdown"
-        />
+        <DialogComboboxCustomButtonTriggerWrapper>
+          <Button
+            componentId="mlflow.experiment-evaluation-monitoring.date-selector-button"
+            icon={<ClockIcon />}
+            endIcon={<ChevronDownIcon />}
+            data-testid="time-range-select-dropdown"
+          >
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              {currentStartTimeFilterLabel}:{' '}
+              {namedDateFilters.find(
+                (namedDateFilter) =>
+                  namedDateFilter.key === monitoringFilters.startTimeLabel ||
+                  (namedDateFilter.key === DEFAULT_START_TIME_LABEL && isNil(monitoringFilters.startTimeLabel)),
+              )?.label}
+              {!isNil(monitoringFilters.startTimeLabel) &&
+                monitoringFilters.startTimeLabel !== DEFAULT_START_TIME_LABEL && (
+                  <XCircleFillIcon
+                    aria-hidden="false"
+                    role="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setMonitoringFilters({ startTimeLabel: DEFAULT_START_TIME_LABEL });
+                    }}
+                    css={{
+                      color: theme.colors.textPlaceholder,
+                      fontSize: theme.typography.fontSizeSm,
+                      ':hover': {
+                        color: theme.colors.actionTertiaryTextHover,
+                      },
+                    }}
+                  />
+                )}
+            </div>
+          </Button>
+        </DialogComboboxCustomButtonTriggerWrapper>
         <DialogComboboxContent>
           <DialogComboboxOptionList>
             {namedDateFilters.map((namedDateFilter) => (
