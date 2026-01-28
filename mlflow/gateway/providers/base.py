@@ -386,8 +386,9 @@ class FallbackProvider(BaseProvider):
         )
 
     def _create_stream_span(self, provider, method_name: str, attempt: int):
-        """Create a span for streaming provider call. Returns context manager."""
+        """Create a span for streaming provider call. Returns a LiveSpan."""
         import mlflow
+        from mlflow.tracing.fluent import start_span_no_context
 
         active_span = mlflow.get_current_active_span()
         if active_span is None:
@@ -402,14 +403,18 @@ class FallbackProvider(BaseProvider):
         if model_name:
             span_name = f"{span_name}/{model_name}"
 
-        span = mlflow.start_span(name=span_name)
-        span.set_attribute("provider", provider_name)
-        span.set_attribute("attempt", attempt)
-        if model_name:
-            span.set_attribute("model", model_name)
-        span.set_attribute("method", method_name)
-        span.set_attribute("streaming", True)
-        return span
+        # Use start_span_no_context to get a LiveSpan that can be manually ended
+        return start_span_no_context(
+            name=span_name,
+            parent_span=active_span,
+            attributes={
+                "provider": provider_name,
+                "attempt": attempt,
+                "method": method_name,
+                "streaming": True,
+                **({"model": model_name} if model_name else {}),
+            },
+        )
 
     def _close_stream_span(
         self, span_ctx, success: bool, error: Exception | None = None, last_chunk=None
@@ -546,6 +551,7 @@ class TracingProviderWrapper(BaseProvider):
     async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
         """Execute a streaming method with tracing span."""
         import mlflow
+        from mlflow.tracing.fluent import start_span_no_context
 
         active_span = mlflow.get_current_active_span()
         if active_span is None:
@@ -554,11 +560,16 @@ class TracingProviderWrapper(BaseProvider):
             return
 
         span_name = self._get_span_name()
-        span = mlflow.start_span(name=span_name)
-        for key, value in self._get_provider_attributes().items():
-            span.set_attribute(key, value)
-        span.set_attribute("method", method_name)
-        span.set_attribute("streaming", True)
+        # Use start_span_no_context to get a LiveSpan that can be manually ended
+        span = start_span_no_context(
+            name=span_name,
+            parent_span=active_span,
+            attributes={
+                **self._get_provider_attributes(),
+                "method": method_name,
+                "streaming": True,
+            },
+        )
 
         try:
             last_chunk = None
