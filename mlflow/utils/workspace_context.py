@@ -6,6 +6,7 @@ from mlflow.environment_variables import MLFLOW_WORKSPACE
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _WORKSPACE: ContextVar[str | None] = ContextVar("mlflow_active_workspace", default=None)
+_IS_WORKSPACE_RESOLVED: ContextVar[bool] = ContextVar("mlflow_workspace_resolved", default=False)
 
 
 def get_request_workspace() -> str | None:
@@ -26,6 +27,11 @@ def get_request_workspace() -> str | None:
     return None
 
 
+def is_request_workspace_resolved() -> bool:
+    """Return whether the server resolved the request workspace."""
+    return _IS_WORKSPACE_RESOLVED.get()
+
+
 def _validate_workspace(workspace: str | None) -> None:
     if workspace is not None and workspace != DEFAULT_WORKSPACE_NAME:
         from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -39,6 +45,7 @@ def set_server_request_workspace(workspace: str | None) -> Token[str | None]:
     """
 
     _validate_workspace(workspace)
+    _IS_WORKSPACE_RESOLVED.set(True)
     return _WORKSPACE.set(workspace)
 
 
@@ -59,6 +66,7 @@ def set_workspace(workspace: str | None) -> Token[str | None]:
 
 def clear_server_request_workspace() -> None:
     """Clear the request-scoped ContextVar (does not touch the client env)."""
+    _IS_WORKSPACE_RESOLVED.set(False)
     _WORKSPACE.set(None)
 
 
