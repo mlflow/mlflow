@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import functools
 import importlib
+import json
 import logging
 import re
 from http import HTTPStatus
@@ -73,12 +74,14 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
+    CancelPromptOptimizationJob,
     CreateExperiment,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePromptOptimizationJob,
     CreateRun,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -89,6 +92,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -101,6 +105,7 @@ from mlflow.protos.service_pb2 import (
     GetGatewaySecretInfo,
     GetLoggedModel,
     GetMetricHistory,
+    GetPromptOptimizationJob,
     GetRun,
     GetScorer,
     ListArtifacts,
@@ -117,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
+    SearchPromptOptimizationJobs,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
@@ -197,6 +203,7 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.server.jobs import get_job
 from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -342,6 +349,20 @@ def _get_permission_from_model_id() -> Permission:
     )
 
 
+def _get_permission_from_prompt_optimization_job_id() -> Permission:
+    # prompt optimization job permissions inherit from parent resource (experiment)
+    # We get experiment_id directly from job params rather than from the run,
+    # because the run may have been deleted by the user.
+    job_id = _get_request_param("job_id")
+    job_entity = get_job(job_id)
+    params = json.loads(job_entity.params)
+    experiment_id = params.get("experiment_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -441,6 +462,19 @@ def validate_can_delete_run():
 
 def validate_can_manage_run():
     return _get_permission_from_run_id().can_manage
+
+
+# Prompt optimization jobs
+def validate_can_read_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_read
+
+
+def validate_can_update_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_update
+
+
+def validate_can_delete_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_delete
 
 
 # Logged models
@@ -938,6 +972,12 @@ BEFORE_REQUEST_HANDLERS = {
     # Routes for gateway endpoint tags
     SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    # Routes for prompt optimization jobs
+    CreatePromptOptimizationJob: validate_can_update_experiment,
+    GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
+    SearchPromptOptimizationJobs: validate_can_read_experiment,
+    CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
+    DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
 }
 
 
