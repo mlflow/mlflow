@@ -278,12 +278,13 @@ def calculate_cost_by_model_and_token_usage(
                 _logger.debug(
                     f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
                 )
-                return
+                return None
         else:
             _logger.debug(
                 f"Failed to calculate cost for model {model_name} without provider: {e}",
                 exc_info=True,
             )
+            return None
 
     return {
         CostKey.INPUT_COST: input_cost_usd,
