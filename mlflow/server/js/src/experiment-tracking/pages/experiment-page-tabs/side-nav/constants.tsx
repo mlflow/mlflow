@@ -9,6 +9,7 @@ import {
   ListIcon,
   ModelsIcon,
   PlusMinusSquareIcon,
+  SparkleDoubleIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
   UserGroupIcon,
@@ -92,6 +93,17 @@ const ExperimentPageSideNavGenAIConfig = {
       icon: <TextBoxIcon />,
       tabName: ExperimentPageTabName.Prompts,
       componentId: 'mlflow.experiment-side-nav.genai.prompts',
+    },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Prompt Optimization"
+          description="Label for the prompt optimization tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <SparkleDoubleIcon />,
+      tabName: ExperimentPageTabName.PromptOptimization,
+      componentId: 'mlflow.experiment-side-nav.genai.prompt-optimization',
     },
     {
       label: (

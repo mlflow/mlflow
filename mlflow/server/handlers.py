@@ -4627,6 +4627,21 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+def _get_server_info():
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    store = _get_tracking_store()
+
+    if isinstance(store, FileStore):
+        store_type = "FileStore"
+    elif isinstance(store, SqlAlchemyStore):
+        store_type = "SqlStore"
+    else:
+        store_type = None
+    return jsonify({"store_type": store_type})
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_supported_providers():
@@ -4808,6 +4823,7 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
         + get_gateway_endpoints()
     )
 
@@ -5318,6 +5334,8 @@ def _create_prompt_optimization_job():
 
 
 def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.genai.optimize.job import OptimizerType
+
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
@@ -5331,6 +5349,32 @@ def _build_prompt_optimization_job_from_entity(job_entity):
 
     if run_id := params.get("run_id"):
         optimization_job.run_id = run_id
+
+    # Populate config from job params
+    config = optimization_job.config
+    if "optimizer_type" in params:
+        try:
+            optimizer_type = OptimizerType(params["optimizer_type"])
+            config.optimizer_type = optimizer_type.to_proto()
+        except (ValueError, KeyError):
+            pass
+    if params.get("dataset_id"):
+        config.dataset_id = params["dataset_id"]
+    if "scorer_names" in params:
+        try:
+            scorer_names = params["scorer_names"]
+            if isinstance(scorer_names, str):
+                scorer_names = json.loads(scorer_names)
+            if isinstance(scorer_names, list):
+                config.scorers.extend(scorer_names)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if params.get("optimizer_config"):
+        optimizer_config = params["optimizer_config"]
+        if isinstance(optimizer_config, dict):
+            config.optimizer_config_json = json.dumps(optimizer_config)
+        elif isinstance(optimizer_config, str):
+            config.optimizer_config_json = optimizer_config
 
     # Get optimized_prompt_uri from job result (only available when job succeeds)
     if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
@@ -5348,60 +5392,40 @@ def _build_prompt_optimization_job_from_entity(job_entity):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_prompt_optimization_job(job_id):
-    from mlflow.genai.optimize.job import OptimizerType
     from mlflow.server.jobs import get_job
 
     job_entity = get_job(job_id)
     optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
 
-    # Fetch MLflow run to get config params and metrics
+    # Fetch MLflow run to get evaluation scores from metrics
     try:
         mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
-        run_params = mlflow_run.data.params
         run_metrics = mlflow_run.data.metrics
-
-        config = optimization_job.config
-        if "optimizer_type" in run_params:
-            optimizer_type = OptimizerType(run_params["optimizer_type"])
-            config.optimizer_type = optimizer_type.to_proto()
-        if "dataset_id" in run_params:
-            config.dataset_id = run_params["dataset_id"]
-        if "scorer_names" in run_params:
-            config.scorers.extend(json.loads(run_params["scorer_names"]))
-        if "optimizer_config_json" in run_params:
-            config.optimizer_config_json = run_params["optimizer_config_json"]
 
         # Populate evaluation scores from run metrics
         # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
         # Per-scorer scores are logged as "initial_eval_score.<scorer_name>" and
         # "final_eval_score.<scorer_name>"
+        total_metric_calls = None
         for metric_name, metric_value in run_metrics.items():
-            if metric_name == "initial_eval_score":
-                optimization_job.initial_eval_scores["aggregate"] = metric_value
-            elif metric_name == "final_eval_score":
-                optimization_job.final_eval_scores["aggregate"] = metric_value
-            elif metric_name.startswith("initial_eval_score."):
-                scorer_name = metric_name.removeprefix("initial_eval_score.")
-                optimization_job.initial_eval_scores[scorer_name] = metric_value
-            elif metric_name.startswith("final_eval_score."):
-                scorer_name = metric_name.removeprefix("final_eval_score.")
-                optimization_job.final_eval_scores[scorer_name] = metric_value
+            match metric_name.split(".", 1):
+                case ["initial_eval_score"]:
+                    optimization_job.initial_eval_scores["aggregate"] = metric_value
+                case ["final_eval_score"]:
+                    optimization_job.final_eval_scores["aggregate"] = metric_value
+                case ["initial_eval_score", scorer_name]:
+                    optimization_job.initial_eval_scores[scorer_name] = metric_value
+                case ["final_eval_score", scorer_name]:
+                    optimization_job.final_eval_scores[scorer_name] = metric_value
+                case ["total_metric_calls"]:
+                    total_metric_calls = metric_value
 
-        # Calculate progress for GEPA optimizer jobs
-        if (
-            config.optimizer_type == OptimizerType.GEPA.to_proto()
-            and "total_metric_calls" in run_metrics
-            and config.optimizer_config_json
-        ):
-            try:
-                optimizer_config = json.loads(config.optimizer_config_json)
-                max_metric_calls = optimizer_config.get("max_metric_calls")
-                if max_metric_calls and max_metric_calls > 0:
-                    total_metric_calls = run_metrics["total_metric_calls"]
-                    progress = round(total_metric_calls / max_metric_calls, 2)
-                    optimization_job.progress = min(progress, 1.0)
-            except (json.JSONDecodeError, TypeError, KeyError):
-                pass
+        if total_metric_calls is not None:
+            params = json.loads(job_entity.params)
+            optimizer_config = params.get("optimizer_config", {})
+            if max_metric_calls := optimizer_config.get("max_metric_calls"):
+                progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
+                optimization_job.state.metadata["progress"] = str(progress)
 
     except Exception as e:
         _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)

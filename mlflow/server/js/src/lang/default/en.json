@@ -11,6 +11,10 @@
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
   },
+  "+0UbKm": {
+    "defaultMessage": "Create New Optimization",
+    "description": "Title for the create optimization modal"
+  },
   "+1i81u": {
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
@@ -279,6 +283,10 @@
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
   },
+  "/zez0E": {
+    "defaultMessage": "Provider",
+    "description": "Label for reflection provider"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -294,6 +302,10 @@
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
+  },
+  "072qFJ": {
+    "defaultMessage": "Select a scorer",
+    "description": "Placeholder for scorer selection"
   },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
@@ -314,6 +326,10 @@
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
+  },
+  "0GT0SI": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label"
   },
   "0HbGko": {
     "defaultMessage": "Model",
@@ -354,6 +370,10 @@
   "0ja5l/": {
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
+  },
+  "0mbHIW": {
+    "defaultMessage": "Dataset",
+    "description": "Header for the dataset column in the optimization jobs table"
   },
   "0pdAuV": {
     "defaultMessage": "Active",
@@ -482,6 +502,10 @@
   "1l/c+M": {
     "defaultMessage": "User frustration",
     "description": "LLM template option"
+  },
+  "1sFbEV": {
+    "defaultMessage": "GEPA",
+    "description": "Label for GEPA optimizer type"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -619,6 +643,10 @@
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
   },
+  "2mgTCe": {
+    "defaultMessage": "Prompt optimization automatically rewrites your prompts to help you find the best one based on your metrics and data.",
+    "description": "Description text for the prompt optimization page"
+  },
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
@@ -647,9 +675,17 @@
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
   },
+  "319gqa": {
+    "defaultMessage": "Max Metric Calls",
+    "description": "Label for max metric calls input"
+  },
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
+  },
+  "3C8MFl": {
+    "defaultMessage": "Optimized Prompt",
+    "description": "Optimized prompt label"
   },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
@@ -669,6 +705,10 @@
   "3S3Ah4": {
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
+  },
+  "3UmQaG": {
+    "defaultMessage": "Optimizer",
+    "description": "Label for optimizer type selection"
   },
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
@@ -778,6 +818,10 @@
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
   },
+  "4JxKye": {
+    "defaultMessage": "Configuration",
+    "description": "Configuration section title"
+  },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
@@ -809,6 +853,14 @@
   "4V8wtm": {
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
+  },
+  "4VUO9U": {
+    "defaultMessage": "Optimized Prompt",
+    "description": "Header for the optimized prompt column in the optimization jobs table"
+  },
+  "4XaP9j": {
+    "defaultMessage": "Prompt",
+    "description": "Label for prompt selection"
   },
   "4a2Kqx": {
     "defaultMessage": "View trace",
@@ -1206,6 +1258,10 @@
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
   },
+  "7Xoujt": {
+    "defaultMessage": "Optimizer",
+    "description": "Header for the optimizer column in the optimization jobs table"
+  },
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
     "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
@@ -1213,6 +1269,10 @@
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
+  },
+  "7cWteu": {
+    "defaultMessage": "Reflection Model",
+    "description": "Label for reflection model"
   },
   "7hHw+R": {
     "defaultMessage": "Instructions",
@@ -1438,6 +1498,10 @@
     "defaultMessage": "The guidelines LLM judge determines whether the response adheres to the guidelines provided. All responses must adhere to guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines judge."
   },
+  "9BKVsR": {
+    "defaultMessage": "MetaPrompt",
+    "description": "Label for MetaPrompt optimizer type"
+  },
   "9Bj7oS": {
     "defaultMessage": "A network error occurred.",
     "description": "Error message for generic network error"
@@ -1550,6 +1614,10 @@
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
   },
+  "A/brmr": {
+    "defaultMessage": "Loading candidates...",
+    "description": "Loading candidates message"
+  },
   "A3bM/D": {
     "defaultMessage": "Assistant",
     "description": "Tooltip for assistant button"
@@ -1574,6 +1642,10 @@
     "defaultMessage": "Endpoints",
     "description": "Gateway side nav > Endpoints tab"
   },
+  "ABDMIx": {
+    "defaultMessage": "View MLflow Run",
+    "description": "View run button"
+  },
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
@@ -1593,6 +1665,10 @@
   "AFrm2A": {
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
+  },
+  "AG2TMd": {
+    "defaultMessage": "Loading prompt...",
+    "description": "Loading prompt message"
   },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
@@ -1709,6 +1785,10 @@
   "B1Upnc": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
+  },
+  "B1l9Wg": {
+    "defaultMessage": "Maximum number of evaluation calls during optimization.",
+    "description": "Help text for max metric calls"
   },
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
@@ -1829,6 +1909,10 @@
   "BrQez2": {
     "defaultMessage": "Provider",
     "description": "Label for provider select field"
+  },
+  "BrkI1d": {
+    "defaultMessage": "MetaPrompt uses an LLM to generate improved prompts without requiring evaluation data.",
+    "description": "Description for MetaPrompt optimizer"
   },
   "Bs2X0L": {
     "defaultMessage": "Created by",
@@ -2041,6 +2125,10 @@
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
+  },
+  "DrgEUU": {
+    "defaultMessage": "(optional)",
+    "description": "Optional label"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -2358,6 +2446,10 @@
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "GxN3RA": {
+    "defaultMessage": "GEPA uses evolutionary algorithms to iteratively improve prompts based on evaluation data.",
+    "description": "Description for GEPA optimizer"
+  },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
@@ -2393,6 +2485,10 @@
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
+  },
+  "HImnBd": {
+    "defaultMessage": "Are you sure you want to delete this optimization job? This action cannot be undone.",
+    "description": "Confirmation message for deleting an optimization job"
   },
   "HLbyGb": {
     "defaultMessage": "Show more",
@@ -2550,6 +2646,10 @@
     "defaultMessage": "404: Resource not found",
     "description": "Generic 404 user-friendly error for the MLflow UI"
   },
+  "IYMRM4": {
+    "defaultMessage": "Prompt Optimization",
+    "description": "Label for the prompt optimization tab in the MLflow experiment navbar"
+  },
   "IZ95jb": {
     "defaultMessage": "Datasets",
     "description": "Filtering label to filter runs based on datasets used"
@@ -2694,6 +2794,10 @@
     "defaultMessage": "Add row",
     "description": "Experiment page > artifact compare view > \"add new row\" modal title"
   },
+  "Jp3mgR": {
+    "defaultMessage": "Optimizer Configuration",
+    "description": "Section header for optimizer configuration"
+  },
   "Jp79WH": {
     "defaultMessage": "X-axis",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis section label"
@@ -2721,6 +2825,10 @@
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
+  },
+  "K1voSc": {
+    "defaultMessage": "Select a dataset",
+    "description": "Placeholder for dataset selection"
   },
   "K2IAP7": {
     "defaultMessage": "Success",
@@ -2798,6 +2906,10 @@
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
   },
+  "KcwzFt": {
+    "defaultMessage": "e.g., gpt-4o, claude-3-5-sonnet",
+    "description": "Placeholder for reflection model"
+  },
   "KdsrPi": {
     "defaultMessage": "Assessments",
     "description": "Label for the read-only assessments tab of the model trace explorer."
@@ -2874,6 +2986,10 @@
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
   },
+  "LHN5Tf": {
+    "defaultMessage": "Source Prompt",
+    "description": "Header for the source prompt column in the optimization jobs table"
+  },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
     "description": "LLM template option"
@@ -2901,6 +3017,10 @@
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
+  },
+  "LWIacY": {
+    "defaultMessage": "Prompt",
+    "description": "Prompt label"
   },
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
@@ -3210,6 +3330,10 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
   },
+  "NvXZyD": {
+    "defaultMessage": "Score: {score}",
+    "description": "Aggregate score display"
+  },
   "NwNrl4": {
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
@@ -3362,6 +3486,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PQKa/7": {
+    "defaultMessage": "Scorer(s)",
+    "description": "Scorers label"
+  },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select traces modal showing number of selected traces"
@@ -3493,6 +3621,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in the MLflow experiment chat sessions page"
   },
+  "QZ73WJ": {
+    "defaultMessage": "Created",
+    "description": "Header for the created column in the optimization jobs table"
+  },
   "QZXOSm": {
     "defaultMessage": "Frequency Penalty",
     "description": "Label for frequency penalty input"
@@ -3580,6 +3712,10 @@
   "RGKRP9": {
     "defaultMessage": "Feedback",
     "description": "Label for the value of an feedback assessment"
+  },
+  "RHQ1Ay": {
+    "defaultMessage": "Version",
+    "description": "Label for prompt version selection"
   },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
@@ -4060,6 +4196,10 @@
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
   },
+  "V6fQSa": {
+    "defaultMessage": "Create new optimization",
+    "description": "Label for the create optimization button"
+  },
   "V9FtFz": {
     "defaultMessage": "Use the parallel coordinates chart to compare how various parameters in model affect your model metrics.",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > description"
@@ -4096,6 +4236,10 @@
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
   },
+  "VQnL1K": {
+    "defaultMessage": "Prompt content not available",
+    "description": "No prompt content message"
+  },
   "VSitCY": {
     "defaultMessage": "Top K",
     "description": "Label for top K input"
@@ -4103,6 +4247,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VWHsNg": {
+    "defaultMessage": "Reflection Model Provider",
+    "description": "Label for reflection provider"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -4523,6 +4671,10 @@
     "defaultMessage": "Relevance",
     "description": "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
   },
+  "Yjxzbb": {
+    "defaultMessage": "Scorer",
+    "description": "Label for scorer selection"
+  },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to compare-experiments page on compare runs page"
@@ -4542,6 +4694,10 @@
   "YqW83+": {
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
+  },
+  "YrRwUn": {
+    "defaultMessage": "Evaluation Scores",
+    "description": "Scores section title"
   },
   "YuWDVj": {
     "defaultMessage": "Experiment",
@@ -4582,6 +4738,10 @@
   "ZBZBrn": {
     "defaultMessage": "Input /1M",
     "description": "Table header for input cost"
+  },
+  "ZFdlYx": {
+    "defaultMessage": "Cancel",
+    "description": "Label for the cancel action in the optimization jobs table"
   },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
@@ -4695,6 +4855,10 @@
     "defaultMessage": "Use \"Create experiment\" button in order to create a new experiment",
     "description": "Guidelines for the user on how to create a new experiment in the experiments list page"
   },
+  "Zv8Sev": {
+    "defaultMessage": "e.g., openai, anthropic",
+    "description": "Placeholder for reflection provider"
+  },
   "ZvJTXB": {
     "defaultMessage": "No tables selected",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > title"
@@ -4738,6 +4902,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aCm8o1": {
+    "defaultMessage": "Creating...",
+    "description": "Creating button label"
   },
   "aCzpU3": {
     "defaultMessage": "Off",
@@ -4919,6 +5087,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "baQglO": {
+    "defaultMessage": "Select a prompt",
+    "description": "Placeholder for prompt selection"
+  },
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
@@ -4926,6 +5098,10 @@
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
+  },
+  "biFLEO": {
+    "defaultMessage": "Dataset",
+    "description": "Label for dataset selection"
   },
   "bjoGjg": {
     "defaultMessage": "Last hour",
@@ -4947,6 +5123,10 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
+  "bu0rbd": {
+    "defaultMessage": "No intermediate candidates available yet.",
+    "description": "No candidates message"
+  },
   "by+x8N": {
     "defaultMessage": "Type",
     "description": "Run page > Overview > Experiment ID section label"
@@ -4958,6 +5138,10 @@
   "bz4brG": {
     "defaultMessage": "Fail",
     "description": "Failing evaluation status in the evaluations table."
+  },
+  "c/UjRS": {
+    "defaultMessage": "Job ID",
+    "description": "Header for the job ID column in the optimization jobs table"
   },
   "c0ljd6": {
     "defaultMessage": "MLflow documentation",
@@ -5299,6 +5483,10 @@
     "defaultMessage": "Search runs",
     "description": "Placeholder text for the search input in the runs table on the logged model details page"
   },
+  "eQYU60": {
+    "defaultMessage": "Source Prompt",
+    "description": "Source prompt label"
+  },
   "eQgPEi": {
     "defaultMessage": "{value} (step={step})",
     "description": "Formats a metric value along with the step number it corresponds to"
@@ -5527,6 +5715,10 @@
     "defaultMessage": "In order to register model in Unity Catalog, copy and run the following code in the notebook:",
     "description": "Instruction to register model in Unity Catalog on the logged model details page"
   },
+  "g3OnFh": {
+    "defaultMessage": "Delete",
+    "description": "Label for the delete action in the optimization jobs table"
+  },
   "g4hHzO": {
     "defaultMessage": "Copied",
     "description": "Tooltip message displayed on copy action after it has been clicked"
@@ -5650,6 +5842,10 @@
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
+  },
+  "gvLeN2": {
+    "defaultMessage": "Iteration {iteration}",
+    "description": "Iteration header"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -5782,6 +5978,10 @@
   "hyHL1n": {
     "defaultMessage": "No metrics match the search filter",
     "description": "Message displayed when no metrics match the search filter in the logged model details metrics table"
+  },
+  "hyn+dS": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel job button"
   },
   "i+RyPC": {
     "defaultMessage": "Your request could not be fulfilled. Please try again.",
@@ -6023,6 +6223,10 @@
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
+  "jncjib": {
+    "defaultMessage": "No optimization jobs",
+    "description": "A header for the empty state in the optimization jobs table"
+  },
   "jo4LfR": {
     "defaultMessage": "Pending",
     "description": "Label for pending state of a experiment logged model"
@@ -6102,6 +6306,10 @@
   "kJJqpX": {
     "defaultMessage": "Follow these steps to create a custom judge using your own code. {link}",
     "description": "Brief instructions for custom judge functions"
+  },
+  "kLK/J4": {
+    "defaultMessage": "Dataset",
+    "description": "Dataset label"
   },
   "kNTkr+": {
     "defaultMessage": "Discard",
@@ -6323,6 +6531,10 @@
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
   },
+  "m4fcV8": {
+    "defaultMessage": "Delete Optimization Job",
+    "description": "Title for the delete optimization job confirmation modal"
+  },
   "m8ztHR": {
     "defaultMessage": "Edited {timeSince} by {source}.",
     "description": "Evaluation review > assessments > tooltip > edited by human"
@@ -6330,6 +6542,10 @@
   "m9e01X": {
     "defaultMessage": "No tags to display.",
     "description": "Text shown when there are no tags to display"
+  },
+  "mAqR/Q": {
+    "defaultMessage": "Select a version",
+    "description": "Placeholder for prompt version selection"
   },
   "mBhoMH": {
     "defaultMessage": "Last modified",
@@ -6643,6 +6859,10 @@
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
   },
+  "oPtQe+": {
+    "defaultMessage": "Intermediate Candidates",
+    "description": "Intermediate candidates section title"
+  },
   "oSSfZ6": {
     "defaultMessage": "enter model manually",
     "description": "Link text to switch to manual model input"
@@ -6654,6 +6874,10 @@
   "oU/SPm": {
     "defaultMessage": "Add",
     "description": "Add new key-value tag modal > Add button text"
+  },
+  "oV6mY4": {
+    "defaultMessage": "Optimization",
+    "description": "Breadcrumb for optimization list"
   },
   "oWPgX7": {
     "defaultMessage": "Rename",
@@ -6731,6 +6955,10 @@
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
   },
+  "p2NKyw": {
+    "defaultMessage": "Use \"Create new optimization\" button to start optimizing your prompts",
+    "description": "Guidelines for the user on how to create an optimization job"
+  },
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
@@ -6802,6 +7030,10 @@
   "pfyUes": {
     "defaultMessage": "See details",
     "description": "Evaluation review > assessments > see details button"
+  },
+  "phfECe": {
+    "defaultMessage": "Status",
+    "description": "Header for the status column in the optimization jobs table"
   },
   "pjlcSc": {
     "defaultMessage": "Metric",
@@ -6922,6 +7154,10 @@
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
+  },
+  "qcLX/C": {
+    "defaultMessage": "Scores",
+    "description": "Scores label"
   },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
@@ -7115,6 +7351,14 @@
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",
     "description": "Experiment page > share viewstate > error > share key does not exist"
   },
+  "s2vDk7": {
+    "defaultMessage": "Refresh",
+    "description": "Label for refresh button"
+  },
+  "s2y5eG": {
+    "defaultMessage": "Status",
+    "description": "Status label"
+  },
   "s35HDG": {
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
@@ -7230,6 +7474,10 @@
   "srbhok": {
     "defaultMessage": "Use workspace settings",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
+  },
+  "srh/Be": {
+    "defaultMessage": "Optimization",
+    "description": "Header title for the prompt optimization page"
   },
   "ss//L4": {
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
@@ -7383,6 +7631,10 @@
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
   },
+  "uX+kom": {
+    "defaultMessage": "Optimizer",
+    "description": "Optimizer label"
+  },
   "uX2XCM": {
     "defaultMessage": "Edit Model Configuration",
     "description": "Title for the edit model config modal"
@@ -7511,6 +7763,10 @@
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
   },
+  "vg6mH9": {
+    "defaultMessage": "Model",
+    "description": "Label for reflection model"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
@@ -7546,6 +7802,10 @@
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
+  },
+  "vzllAf": {
+    "defaultMessage": "Default: 100",
+    "description": "Placeholder for max metric calls"
   },
   "w/sljb": {
     "defaultMessage": "Sort descending",
@@ -7618,6 +7878,10 @@
   "wRV8PN": {
     "defaultMessage": "Settings",
     "description": "Settings page title"
+  },
+  "wWqcR2": {
+    "defaultMessage": "Version {version}",
+    "description": "Label for prompt version option"
   },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
@@ -8006,6 +8270,10 @@
   "zUoxV1": {
     "defaultMessage": "Expectations",
     "description": "Label for expectations variable option"
+  },
+  "zVTApR": {
+    "defaultMessage": "Create optimization",
+    "description": "Submit button label for create optimization modal"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",

@@ -90,9 +90,4 @@ message PromptOptimizationJob {
   // Final evaluation scores after optimization, keyed by scorer name.
   // Example: {"Correctness": 0.89, "Safety": 0.95}
   map<string, double> final_eval_scores = 12;
-
-  // Optimization progress as a ratio (0.0 to 1.0).
-  // Only populated for GEPA optimizer jobs where progress can be tracked.
-  // Calculated as total_metric_calls / max_metric_calls.
-  optional double progress = 13;
 }
