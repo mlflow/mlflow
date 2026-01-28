@@ -1372,9 +1372,6 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
         mock_simulate.assert_called_once_with(mock_predict_fn)
 
 
-# ===================== Empty/None Expectations Tests =====================
-
-
 @scorer
 def always_pass(outputs):
     return True
