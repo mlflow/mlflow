@@ -135,7 +135,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
-    (!initialAssessmentsPaneCollapsed && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open',
+    !initialAssessmentsPaneCollapsed || initialAssessmentsPaneCollapsed === 'force-open',
   );
 
   useEffect(() => {
