@@ -100,18 +100,49 @@ export const createEventSource = (sessionId: string): EventSource => {
 };
 
 /**
+ * Cancel an active session by terminating the backend process.
+ */
+export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status: 'cancelled' }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to cancel session');
+  }
+
+  return response.json();
+};
+
+export interface SendMessageStreamCallbacks {
+  onMessage: (text: string) => void;
+  onError: (error: string) => void;
+  onDone: () => void;
+  onStatus?: (status: string) => void;
+  onSessionId?: (sessionId: string) => void;
+  onToolUse?: (tools: ToolUseInfo[]) => void;
+  onInterrupted?: () => void;
+}
+
+export interface SendMessageStreamResult {
+  eventSource: EventSource | null;
+}
+
+/**
  * Send a message and get the response stream via SSE.
  * First POSTs to /message to initiate, then connects to SSE endpoint.
+ * Returns the EventSource so caller can close it if needed (e.g., on cancel).
  */
 export const sendMessageStream = async (
   request: MessageRequest,
-  onMessage: (text: string) => void,
-  onError: (error: string) => void,
-  onDone: () => void,
-  onStatus?: (status: string) => void,
-  onSessionId?: (sessionId: string) => void,
-  onToolUse?: (tools: ToolUseInfo[]) => void,
-): Promise<void> => {
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted } = callbacks;
+
   try {
     // Step 1: POST the message to initiate processing
     const response = await fetch(`${API_BASE}/message`, {
@@ -125,7 +156,7 @@ export const sendMessageStream = async (
     if (!response.ok) {
       const error = await response.text();
       onError(`Failed to send message: ${error}`);
-      return;
+      return { eventSource: null };
     }
 
     // Step 2: Get the session_id from the response
@@ -134,7 +165,7 @@ export const sendMessageStream = async (
 
     if (!sessionId) {
       onError('No session_id returned from server');
-      return;
+      return { eventSource: null };
     }
 
     // Notify caller of the session ID
@@ -182,6 +213,17 @@ export const sendMessageStream = async (
     });
 
     // Listen for 'done' event (completion)
+    eventSource.addEventListener('done', () => {
+      onDone();
+      eventSource.close();
+    });
+
+    // Listen for 'interrupted' event (cancelled by user)
+    eventSource.addEventListener('interrupted', () => {
+      onInterrupted?.();
+      eventSource.close();
+    });
+
     eventSource.addEventListener('done', (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -208,14 +250,18 @@ export const sendMessageStream = async (
           onError('Connection error');
         }
       } else if (eventSource.readyState === EventSource.CLOSED) {
-        onError('Connection closed');
+        // Connection closed - this can happen after cancel, don't report as error
+        return;
       } else {
         onError('Connection error');
       }
       eventSource.close();
     });
+
+    return { eventSource };
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
+    return { eventSource: null };
   }
 };
 

@@ -12,13 +12,14 @@ import {
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
-  Spinner,
+  StopIcon,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
   SendIcon,
   WrenchSparkleIcon,
-  Tag,
+  Spinner,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -96,6 +97,20 @@ const ChatMessageBubble = ({
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
           <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+        )}
+        {/* Interrupted indicator */}
+        {message.isInterrupted && (
+          <span
+            css={{
+              display: 'block',
+              marginTop: theme.spacing.sm,
+              fontSize: theme.typography.fontSizeSm,
+              fontStyle: 'italic',
+              color: theme.colors.textSecondary,
+            }}
+          >
+            Interrupted by user
+          </span>
         )}
         {/* Loading indicator */}
         {message.isStreaming && (
@@ -245,7 +260,8 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage } = useAssistant();
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
+    useAssistant();
   const pageContext = useAssistantPageContext();
   const hasExperimentContext = Boolean(pageContext['experimentId']);
 
@@ -364,9 +380,9 @@ const ChatPanelContent = () => {
             />
             <Button
               componentId="mlflow.assistant.chat_panel.send"
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
-              icon={isStreaming ? <Spinner size="small" /> : <SendIcon />}
+              onClick={isStreaming ? cancelSession : handleSend}
+              disabled={!isStreaming && !inputValue.trim()}
+              icon={isStreaming ? <StopIcon /> : <SendIcon />}
               aria-label="Send message"
             />
           </div>
