@@ -441,32 +441,29 @@ def get_files(path: Path) -> list[Path]:
     return sorted(p for p in path.iterdir() if p.is_file())
 
 
-def test_split_tar_file_small_files(tmp_path):
+def test_chunked_tar_writer_small_files(tmp_path):
     tar_path = tmp_path / "small.tar"
-    with open(tar_path, "wb") as f:
-        f.write(b"x" * 512)
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 512)
 
-    env_pack._split_tar_file(tar_path, chunk_size=1024)
     files = get_files(tmp_path)
     assert [f.name for f in files] == ["small.tar"]
 
 
-def test_split_tar_file_large_files(tmp_path):
+def test_chunked_tar_writer_large_files(tmp_path):
     tar_path = tmp_path / "large.tar"
-    with open(tar_path, "wb") as f:
-        f.write(b"x" * 2560)
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 2560)
 
-    env_pack._split_tar_file(tar_path, chunk_size=1024)
     files = get_files(tmp_path)
     assert [f.name for f in files] == ["large.tar.part0", "large.tar.part1", "large.tar.part2"]
 
 
-def test_split_tar_file_padding(tmp_path):
+def test_chunked_tar_writer_padding(tmp_path):
     # 1-digit padding: 5 chunks
     tar_path = tmp_path / "test1.tar"
-    with open(tar_path, "wb") as f:
-        f.write(b"x" * 5 * 1024)
-    env_pack._split_tar_file(tar_path, chunk_size=1024)
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 5 * 1024)
     files = get_files(tmp_path)
 
     assert len(files) == 5
@@ -475,9 +472,8 @@ def test_split_tar_file_padding(tmp_path):
 
     # 3-digit padding: 150 chunks
     tar_path3 = tmp_path / "test3.tar"
-    with open(tar_path3, "wb") as f:
-        f.write(b"x" * 150 * 1024)
-    env_pack._split_tar_file(tar_path3, chunk_size=1024)
+    with env_pack._ChunkedTarWriter(tar_path3, chunk_size=1024) as writer:
+        writer.write(b"x" * 150 * 1024)
     files3 = [f for f in get_files(tmp_path) if f.name.startswith("test3.tar")]
 
     assert len(files3) == 150
@@ -488,10 +484,9 @@ def test_split_tar_file_padding(tmp_path):
 def test_tar_chunk_reassembly(tmp_path):
     tar_path = tmp_path / "test.tar"
     expected_content = b"x" * 5 * 1024
-    with open(tar_path, "wb") as f:
-        f.write(expected_content)
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(expected_content)
 
-    env_pack._split_tar_file(tar_path, chunk_size=1024)
     files = get_files(tmp_path)
     assert len(files) == 5
 
@@ -504,13 +499,14 @@ def test_tar_chunk_reassembly(tmp_path):
     assert reassembled_path.read_bytes() == expected_content
 
 
-def test_tar_calls_split_tar_file(tmp_path):
+def test_tar_creates_single_file_for_small_tar(tmp_path):
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     (source_dir / "test.txt").write_text("test")
 
     tar_path = tmp_path / "output.tar"
+    env_pack._tar(source_dir, tar_path)
 
-    with mock.patch("mlflow.utils.env_pack._split_tar_file") as mock_split:
-        env_pack._tar(source_dir, tar_path)
-        mock_split.assert_called_once_with(tar_path)
+    # Small tar should not be chunked
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["output.tar"]

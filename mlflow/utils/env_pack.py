@@ -1,4 +1,4 @@
-import math
+import os
 import shutil
 import subprocess
 import sys
@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Generator, Literal
 
 import yaml
-import os
 
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
@@ -35,31 +34,117 @@ _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
 _TAR_CHUNK_SIZE_BYTES = os.environ.get("TAR_CHUNK_SIZE_BYTES", 1024 * 1024 * 1024)
 _TAR_CHUNK_SIZE_BYTES = int(_TAR_CHUNK_SIZE_BYTES)
 
-def _split_tar_file(tar_path: Path, chunk_size: int = _TAR_CHUNK_SIZE_BYTES) -> None:
+class _ChunkedTarWriter:
     """
-    Split a tar file into lexicographically ordered chunks of specified size.
-    If tar is smaller than chunk_size, does nothing.
+    File-like object that writes tar data to chunks if size exceeds chunk_size.
+    If data fits in a single chunk, writes to the original path without suffix.
     """
-    file_size = tar_path.stat().st_size
 
-    if file_size <= chunk_size:
-        return
+    def __init__(self, tar_path: Path, chunk_size: int = _TAR_CHUNK_SIZE_BYTES):
+        self.base_path = tar_path
+        self.chunk_size = chunk_size
+        self.current_file = None
+        self.current_chunk_index = 0
+        self.current_chunk_bytes = 0
+        self.total_bytes = 0
+        self.is_chunked = False
+        # Start with 1-digit padding, will adjust at the end if needed
+        self.suffix_width = 1
+        self._open_next_chunk()
 
-    # Calculate number of chunks needed and determine suffix width
-    num_chunks = math.ceil(file_size / chunk_size)
-    suffix_width = len(str(num_chunks - 1))
+    def _open_next_chunk(self):
+        """Open the next chunk file for writing."""
+        if self.current_file is not None:
+            self.current_file.close()
 
-    # Split into chunks
-    with open(tar_path, "rb") as source:
-        for chunk_index in range(num_chunks):
-            chunk_path = Path(f"{tar_path}.part{chunk_index:0{suffix_width}d}")
-            chunk_data = source.read(chunk_size)
+        # First chunk always writes to base path (no suffix)
+        # We'll rename later if we need multiple chunks
+        if self.current_chunk_index == 0:
+            chunk_path = self.base_path
+        else:
+            # We're creating a second chunk, so we need to rename the first
+            if self.current_chunk_index == 1:
+                self._promote_to_chunked()
+            chunk_path = self._get_chunk_path(self.current_chunk_index)
 
-            with open(chunk_path, "wb") as chunk_file:
-                chunk_file.write(chunk_data)
+        self.current_file = open(chunk_path, "wb")
+        self.current_chunk_bytes = 0
 
-    # Delete original tar file after successful split
-    tar_path.unlink()
+    def _promote_to_chunked(self):
+        """
+        Rename the first chunk to .part0 when we realize we need multiple chunks.
+        This is called when opening the second chunk.
+        """
+        if not self.is_chunked:
+            self.is_chunked = True
+            # Rename the first chunk with initial padding
+            self.base_path.rename(self._get_chunk_path(0))
+
+    def _get_chunk_path(self, index: int) -> Path:
+        """Get the path for a specific chunk index."""
+        return Path(f"{self.base_path}.part{index:0{self.suffix_width}d}")
+
+    def write(self, data: bytes) -> int:
+        """Write data, creating new chunks as needed."""
+        bytes_written = 0
+        remaining = data
+
+        while remaining:
+            # Check if current chunk would exceed limit
+            if self.current_chunk_bytes >= self.chunk_size and self.current_chunk_index > 0:
+                # Open next chunk (but not on first chunk)
+                self.current_chunk_index += 1
+                self._open_next_chunk()
+
+            # Write as much as we can to current chunk
+            space_left = self.chunk_size - self.current_chunk_bytes
+            to_write = remaining[:space_left] if space_left < len(remaining) else remaining
+
+            written = self.current_file.write(to_write)
+            self.current_chunk_bytes += written
+            self.total_bytes += written
+            bytes_written += written
+            remaining = remaining[written:]
+
+            # If we've exceeded chunk size on first chunk, prepare for chunking
+            if self.current_chunk_index == 0 and self.current_chunk_bytes >= self.chunk_size:
+                self.current_chunk_index += 1
+                self._open_next_chunk()
+
+        return bytes_written
+
+    def tell(self) -> int:
+        """Return the current position (total bytes written)."""
+        return self.total_bytes
+
+    def flush(self):
+        """Flush the current file."""
+        if self.current_file is not None:
+            self.current_file.flush()
+
+    def close(self):
+        """Close the current file and finalize chunk naming."""
+        if self.current_file is not None:
+            self.current_file.close()
+            self.current_file = None
+
+        # If we ended up chunking, ensure suffix width is correct based on actual number of chunks
+        if self.is_chunked:
+            actual_suffix_width = len(str(self.current_chunk_index))
+            if actual_suffix_width != self.suffix_width:
+                # Rename all chunks with correct suffix width
+                for i in range(self.current_chunk_index + 1):
+                    old_path = Path(f"{self.base_path}.part{i:0{self.suffix_width}d}")
+                    new_path = Path(f"{self.base_path}.part{i:0{actual_suffix_width}d}")
+                    if old_path != new_path:
+                        old_path.rename(new_path)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 
 def _validate_env_pack(env_pack):
@@ -105,7 +190,7 @@ def _tar(root_path: Path, tar_path: Path) -> None:
     Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
     wheels_info.json.
 
-    Large tars will be split into multiple, lexicographically ordered chunks.
+    Large tars will be split into multiple, lexicographically ordered chunks during creation.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -115,12 +200,10 @@ def _tar(root_path: Path, tar_path: Path) -> None:
             return None
         return tarinfo
 
-    # Pull in symlinks
-    with tarfile.open(tar_path, "w", dereference=True) as tar:
-        tar.add(root_path, arcname=".", filter=exclude)
-
-    # Split into chunks if necessary
-    _split_tar_file(tar_path)
+    # Write tar to chunked writer which handles splitting automatically
+    with _ChunkedTarWriter(tar_path) as writer:
+        with tarfile.open(fileobj=writer, mode="w", dereference=True) as tar:
+            tar.add(root_path, arcname=".", filter=exclude)
 
 
 @contextmanager
