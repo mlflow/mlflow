@@ -31,6 +31,12 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'html',
       value: '<b>Core Components</b>',
       defaultStyle: true,
@@ -212,6 +218,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
                 },
                 {
                   type: 'doc',
@@ -406,6 +417,16 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'category',
               label: 'Gateways',
               items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mlflow-ai-gateway',
+                  label: 'MLflow AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks-ai-gateway',
+                  label: 'Databricks',
+                },
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/helicone',

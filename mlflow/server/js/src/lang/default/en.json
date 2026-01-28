@@ -631,10 +631,6 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
-  "2igs1f": {
-    "defaultMessage": "Compare",
-    "description": "Compare evaluation runs action"
-  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -942,10 +938,6 @@
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
   },
-  "5fUTaz": {
-    "defaultMessage": "Or {enterManually}",
-    "description": "Text with link to switch to manual model entry"
-  },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
@@ -989,6 +981,10 @@
   "61P6Da": {
     "defaultMessage": "finetuning",
     "description": "A short label for experiments focused on model finetuning"
+  },
+  "64SfR8": {
+    "defaultMessage": "enter a model identifier",
+    "description": "Link text to switch to direct model identifier input"
   },
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
@@ -1065,6 +1061,10 @@
   "6ZhLfu": {
     "defaultMessage": "Visibility",
     "description": "Label for the visibility icon column in the evaluation runs table"
+  },
+  "6arejB": {
+    "defaultMessage": "Compare",
+    "description": "Compare runs button label"
   },
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
@@ -1149,6 +1149,10 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
+  },
+  "756RTp": {
+    "defaultMessage": "Select 2 runs to compare",
+    "description": "Tooltip for the compare button when disabled"
   },
   "757GVc": {
     "defaultMessage": "Cancel",
@@ -2054,6 +2058,10 @@
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
   },
+  "DHFf28": {
+    "defaultMessage": "Or {enterManually}",
+    "description": "Text with link to switch to direct model identifier input"
+  },
   "DHO5TT": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
@@ -2829,6 +2837,10 @@
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
+  },
+  "KE/zZf": {
+    "defaultMessage": "Traces",
+    "description": "Title for the traces chart"
   },
   "KGMbzq": {
     "defaultMessage": "Commit message:",
@@ -3941,10 +3953,6 @@
     "defaultMessage": "Used by",
     "description": "Used by column header"
   },
-  "T3RjOb": {
-    "defaultMessage": "Go to the run",
-    "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
-  },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
@@ -4120,6 +4128,10 @@
     "defaultMessage": "Tool Performance Summary",
     "description": "Title for the tool performance summary section"
   },
+  "USJvtX": {
+    "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
+    "description": "Hint text explaining why automatic evaluation is disabled for non-gateway models"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
@@ -4131,10 +4143,6 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
-  },
-  "Ub+VQh": {
-    "defaultMessage": "Please select 2 runs to compare",
-    "description": "Tooltip for disabled compare action in evaluation runs table actions"
   },
   "UbXw8O": {
     "defaultMessage": "Expectations",
@@ -4224,10 +4232,6 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
-  "VLonhQ": {
-    "defaultMessage": "Requests",
-    "description": "Title for the trace requests chart"
-  },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
     "description": "A message shown on the experiment page if the experiment is not found"
@@ -4247,6 +4251,10 @@
   "VSitCY": {
     "defaultMessage": "Top K",
     "description": "Label for top K input"
+  },
+  "VTNUPu": {
+    "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
+    "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
   },
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
@@ -4714,6 +4722,10 @@
   "Yx79Vd": {
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
+  },
+  "Z+tEhr": {
+    "defaultMessage": "Compare selected runs",
+    "description": "Tooltip for the compare button when enabled"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
@@ -6890,10 +6902,6 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
-  },
-  "oSSfZ6": {
-    "defaultMessage": "enter model manually",
-    "description": "Link text to switch to manual model input"
   },
   "oShuJS": {
     "defaultMessage": "Logged from",

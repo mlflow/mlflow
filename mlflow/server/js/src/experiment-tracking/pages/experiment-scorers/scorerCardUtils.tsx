@@ -86,6 +86,8 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
 
   const outputTypeFormFields = scorer.type === 'llm' ? outputTypeSpecToFormData((scorer as LLMScorer).outputType) : {};
 
+  const model = scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '';
+
   return {
     llmTemplate: scorer.type === 'llm' ? (scorer as LLMScorer).llmTemplate || '' : '',
     name: scorer.name || '',
@@ -95,7 +97,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     guidelines: scorer.type === 'llm' ? (scorer as LLMScorer).guidelines?.join('\n') || '' : '',
     instructions,
     filterString: scorer.filterString || '',
-    model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
+    model,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
     evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,

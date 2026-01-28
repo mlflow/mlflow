@@ -6,7 +6,7 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 import { useWatch, type Control } from 'react-hook-form';
 import type { SCORER_TYPE } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import EvaluateTracesSection from './EvaluateTracesSection';
 
 const getDocLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/custom/';
@@ -222,7 +222,7 @@ mlflow.genai.evaluate(
         />
       </div>
 
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      <EvaluateTracesSection control={control} mode={mode} />
     </div>
   );
 };
