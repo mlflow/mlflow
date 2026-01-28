@@ -11,7 +11,7 @@ Judges are a key component of the MLflow GenAI evaluation framework. They provid
 
 Choose the right type of judge depending on how much customization and control you need. Each approach builds on the previous one, adding more complexity and control.
 
-Start with [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) for quick evaluation. As your needs evolve, build [custom LLM judges](#) for domain-specific criteria and create [custom code-based scorers](#) for programmatic business logic.
+Start with [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) for quick evaluation. As your needs evolve, build [custom LLM judges](/genai/eval-monitor/scorers/llm-judge/custom-judges) for domain-specific criteria and create [custom code-based scorers](#) for programmatic business logic.
 
 | Approach                                                                              | Level of customization | Use cases                                                                                                                                                             |
 | ------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -56,7 +56,7 @@ In addition to the built-in judges, MLflow makes it easy to create your own judg
 
 Use custom LLM judges when you need to define specialized evaluation tasks, need more control over grades (not just pass/fail), or need to validate that your agent made appropriate decisions and performed operations correctly for your specific use case.
 
-See [Custom judges](#). Once you've created custom judges, you can further improve their accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
+See [Custom judges](/genai/eval-monitor/scorers/llm-judge/custom-judges). Once you've created custom judges, you can further improve their accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
 
 ### Select the LLM that powers the judge
 

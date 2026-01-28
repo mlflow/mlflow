@@ -51,10 +51,12 @@ from typing import List, Dict, Any, cast
 # This is a global variable that is used to toggle the behavior of the customer support agent
 RESOLVE_ISSUES = False
 
+
 @mlflow.trace(span_type="TOOL", name="get_product_price")
 def get_product_price(product_name: str) -> str:
     """Mock tool to get product pricing."""
     return f"${45.99}"
+
 
 @mlflow.trace(span_type="TOOL", name="check_return_policy")
 def check_return_policy(product_name: str, days_since_purchase: int) -> str:
@@ -62,6 +64,7 @@ def check_return_policy(product_name: str, days_since_purchase: int) -> str:
     if days_since_purchase <= 30:
         return "Yes, you can return this item within 30 days"
     return "Sorry, returns are only accepted within 30 days of purchase"
+
 
 @mlflow.trace
 def customer_support_agent(messages: List[Dict[str, str]]):
@@ -93,10 +96,9 @@ def customer_support_agent(messages: List[Dict[str, str]]):
     ]
 
     if tool_results:
-        messages_for_llm.append({
-            "role": "system",
-            "content": f"Tool results: {', '.join(tool_results)}"
-        })
+        messages_for_llm.append(
+            {"role": "system", "content": f"Tool results: {', '.join(tool_results)}"}
+        )
 
     # Call LLM to generate a response
     output = client.chat.completions.create(
@@ -176,13 +178,15 @@ from typing import Literal
 
 # Create a judge that evaluates issue resolution using inputs and outputs
 issue_resolution_judge = make_judge(
-   name="issue_resolution",
-   instructions=(
-       "Evaluate if the customer's issue was resolved in the conversation.\n\n"
-       "User's messages: {{ inputs }}\n"
-       "Agent's responses: {{ outputs }}"
-   ),
-   feedback_value_type=Literal["fully_resolved", "partially_resolved", "needs_follow_up"],
+    name="issue_resolution",
+    instructions=(
+        "Evaluate if the customer's issue was resolved in the conversation.\n\n"
+        "User's messages: {{ inputs }}\n"
+        "Agent's responses: {{ outputs }}"
+    ),
+    feedback_value_type=Literal[
+        "fully_resolved", "partially_resolved", "needs_follow_up"
+    ],
 )
 ```
 
@@ -193,12 +197,14 @@ This judge verifies that agent responses demonstrate specific expected behaviors
 ```python
 # Create a judge that checks against expected behaviors
 expected_behaviors_judge = make_judge(
-   name="expected_behaviors",
-   instructions=(
-       "Compare the agent's response in {{ outputs }} against the expected behaviors in {{ expectations }}.\n\n"
-       "User's question: {{ inputs }}"
-   ),
-   feedback_value_type=Literal["meets_expectations", "partially_meets", "does_not_meet"],
+    name="expected_behaviors",
+    instructions=(
+        "Compare the agent's response in {{ outputs }} against the expected behaviors in {{ expectations }}.\n\n"
+        "User's question: {{ inputs }}"
+    ),
+    feedback_value_type=Literal[
+        "meets_expectations", "partially_meets", "does_not_meet"
+    ],
 )
 ```
 
@@ -209,17 +215,17 @@ This judge analyzes execution traces to validate that appropriate tools were cal
 ```python
 # Create a trace-based judge that validates tool calls from the trace
 tool_call_judge = make_judge(
-   name="tool_call_correctness",
-   instructions=(
-       "Analyze the execution {{ trace }} to determine if the agent called appropriate tools for the user's request.\n\n"
-       "Examine the trace to:\n"
-       "1. Identify what tools were available and their purposes\n"
-       "2. Determine which tools were actually called\n"
-       "3. Assess whether the tool calls were reasonable for addressing the user's question"
-   ),
-   feedback_value_type=bool,
-   # To analyze a full trace with a trace-based judge, a model must be specified
-   model="openai:/gpt-5-mini",
+    name="tool_call_correctness",
+    instructions=(
+        "Analyze the execution {{ trace }} to determine if the agent called appropriate tools for the user's request.\n\n"
+        "Examine the trace to:\n"
+        "1. Identify what tools were available and their purposes\n"
+        "2. Determine which tools were actually called\n"
+        "3. Assess whether the tool calls were reasonable for addressing the user's question"
+    ),
+    feedback_value_type=bool,
+    # To analyze a full trace with a trace-based judge, a model must be specified
+    model="openai:/gpt-5-mini",
 )
 ```
 
@@ -233,69 +239,69 @@ Each `inputs` is passed to the agent by <APILink fn="mlflow.genai.evaluate">`mlf
 
 ```python
 eval_dataset = [
-   {
-       "inputs": {
-           "messages": [
-               {"role": "user", "content": "How much does a microwave cost?"},
-           ],
-       },
-       "expectations": {
-           "should_provide_pricing": True,
-           "should_offer_alternatives": True,
-       },
-   },
-   {
-       "inputs": {
-           "messages": [
-               {
-                   "role": "user",
-                   "content": "Can I return the microwave I bought 2 months ago?",
-               },
-           ],
-       },
-       "expectations": {
-           "should_mention_return_policy": True,
-           "should_ask_for_receipt": False,
-       },
-   },
-   {
-       "inputs": {
-           "messages": [
-               {
-                   "role": "user",
-                   "content": "I'm having trouble with my account.  I can't log in.",
-               },
-               {
-                   "role": "assistant",
-                   "content": "I'm sorry to hear that you're having trouble with your account.  Are you using our website or mobile app?",
-               },
-               {"role": "user", "content": "Website"},
-           ],
-       },
-       "expectations": {
-           "should_provide_troubleshooting_steps": True,
-           "should_escalate_if_needed": True,
-       },
-   },
-   {
-       "inputs": {
-           "messages": [
-               {
-                   "role": "user",
-                   "content": "I'm having trouble with my account.  I can't log in.",
-               },
-               {
-                   "role": "assistant",
-                   "content": "I'm sorry to hear that you're having trouble with your account.  Are you using our website or mobile app?",
-               },
-               {"role": "user", "content": "JUST FIX IT FOR ME"},
-           ],
-       },
-       "expectations": {
-           "should_remain_calm": True,
-           "should_provide_solution": True,
-       },
-   },
+    {
+        "inputs": {
+            "messages": [
+                {"role": "user", "content": "How much does a microwave cost?"},
+            ],
+        },
+        "expectations": {
+            "should_provide_pricing": True,
+            "should_offer_alternatives": True,
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
+            ],
+        },
+        "expectations": {
+            "should_mention_return_policy": True,
+            "should_ask_for_receipt": False,
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account.  I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account.  Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "Website"},
+            ],
+        },
+        "expectations": {
+            "should_provide_troubleshooting_steps": True,
+            "should_escalate_if_needed": True,
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account.  I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account.  Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "JUST FIX IT FOR ME"},
+            ],
+        },
+        "expectations": {
+            "should_remain_calm": True,
+            "should_provide_solution": True,
+        },
+    },
 ]
 ```
 
@@ -310,26 +316,26 @@ import mlflow
 RESOLVE_ISSUES = False
 
 result_unresolved = mlflow.genai.evaluate(
-   data=eval_dataset,
-   predict_fn=customer_support_agent,
-   scorers=[
-       issue_resolution_judge,      # Checks inputs/outputs
-       expected_behaviors_judge,    # Checks expected behaviors
-       tool_call_judge,             # Validates tool usage
-   ],
+    data=eval_dataset,
+    predict_fn=customer_support_agent,
+    scorers=[
+        issue_resolution_judge,  # Checks inputs/outputs
+        expected_behaviors_judge,  # Checks expected behaviors
+        tool_call_judge,  # Validates tool usage
+    ],
 )
 
 # Evaluate when the agent DOES try to resolve issues
 RESOLVE_ISSUES = True
 
 result_resolved = mlflow.genai.evaluate(
-   data=eval_dataset,
-   predict_fn=customer_support_agent,
-   scorers=[
-       issue_resolution_judge,
-       expected_behaviors_judge,
-       tool_call_judge,
-   ],
+    data=eval_dataset,
+    predict_fn=customer_support_agent,
+    scorers=[
+        issue_resolution_judge,
+        expected_behaviors_judge,
+        tool_call_judge,
+    ],
 )
 ```
 

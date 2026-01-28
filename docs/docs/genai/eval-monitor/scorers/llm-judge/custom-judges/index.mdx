@@ -53,14 +53,14 @@ from typing import Literal
 
 # Agent judge for tool calling correctness
 tool_usage_judge = make_judge(
-   name="tool_usage_validator",
-   instructions=(
-       "Analyze the {{ trace }} to verify correct tool usage.\n\n"
-       "Check that the agent selected appropriate tools for the user's request "
-       "and called them with correct parameters."
-   ),
-   feedback_value_type=Literal["correct", "incorrect"],
-   model="openai:/gpt-5-mini"  # Required for trace-based judges
+    name="tool_usage_validator",
+    instructions=(
+        "Analyze the {{ trace }} to verify correct tool usage.\n\n"
+        "Check that the agent selected appropriate tools for the user's request "
+        "and called them with correct parameters."
+    ),
+    feedback_value_type=Literal["correct", "incorrect"],
+    model="openai:/gpt-5-mini",  # Required for trace-based judges
 )
 ```
 
