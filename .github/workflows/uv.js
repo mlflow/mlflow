@@ -94,18 +94,9 @@ module.exports = async ({ github, context }) => {
       return;
     }
 
-    // Checkout a new branch with the same name as the existing PR branch
-    exec("git", ["checkout", "-b", existingBranch]);
-
-    // Apply the uv.lock changes from the temporary branch
-    exec("git", ["checkout", branchName, "--", "uv.lock"]);
-    exec("git", ["add", "uv.lock"]);
-    exec("git", ["commit", "-s", "-m", "Update uv.lock"]);
-    exec("git", ["push", "--force", "origin", existingBranch]);
+    // Force push the temporary branch to the existing PR branch
+    exec("git", ["push", "--force", "origin", `${branchName}:${existingBranch}`]);
     console.log(`Force pushed changes to existing branch: ${existingBranch}`);
-
-    // Clean up the temporary branch
-    exec("git", ["branch", "-D", branchName]);
 
     // Update the PR description with new uv lock output
     const newBody = `This PR was created automatically to update \`uv.lock\`.
