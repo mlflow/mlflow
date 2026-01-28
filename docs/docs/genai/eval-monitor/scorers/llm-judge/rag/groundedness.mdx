@@ -37,14 +37,14 @@ Trace requirements:
   <TabItem value="direct" label="Invoke directly" default>
 
 ```python
-from mlflow.genai.scorers import retrieval_groundedness
+from mlflow.genai.scorers import RetrievalGroundedness
 import mlflow
 
 # Get a trace from a previous run
 trace = mlflow.get_trace("<your-trace-id>")
 
 # Assess if the response is grounded in the retrieved context
-feedback = retrieval_groundedness(trace=trace)
+feedback = RetrievalGroundedness()(trace=trace)
 print(feedback)
 ```
 

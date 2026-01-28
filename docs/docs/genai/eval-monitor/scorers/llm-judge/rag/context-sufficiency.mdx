@@ -38,14 +38,14 @@ The `RetrievalSufficiency` judge can be invoked directly for single trace assess
   <TabItem value="direct" label="Invoke directly" default>
 
 ```python
-from mlflow.genai.scorers import retrieval_sufficiency
+from mlflow.genai.scorers import RetrievalSufficiency
 import mlflow
 
 # Get a trace from a previous run
 trace = mlflow.get_trace("<your-trace-id>")
 
 # Assess if the retrieved context is sufficient for the expected facts
-feedback = retrieval_sufficiency(
+feedback = RetrievalSufficiency()(
     trace=trace,
     expectations={
         "expected_facts": [
