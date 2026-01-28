@@ -358,6 +358,61 @@ Required Permissions for accessing experiments:
   </tbody>
 </table>
 
+Required Permissions for accessing prompt optimization jobs:
+
+:::note
+Prompt optimization jobs inherit permissions from their parent experiment. When you create a job within an experiment, the job's permissions are determined by your permissions on that experiment.
+:::
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Create Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs`</td>
+      <td>`POST`</td>
+      <td>can_update (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Get Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>Search Prompt Optimization Jobs</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/search`</td>
+      <td>`POST`</td>
+      <td>can_read (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Search Prompt Optimization Jobs</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/search`</td>
+      <td>`GET`</td>
+      <td>can_read (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Cancel Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}/cancel`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>Delete Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+  </tbody>
+</table>
+
 Required Permissions for accessing registered models:
 
 <table>
