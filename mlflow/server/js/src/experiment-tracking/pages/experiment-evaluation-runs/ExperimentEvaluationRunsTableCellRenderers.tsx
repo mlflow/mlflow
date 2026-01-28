@@ -38,16 +38,15 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <Checkbox
-        componentId="mlflow.eval-runs.checkbox-cell"
-        data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
-        disabled={!row.getCanSelect()}
-        isChecked={row.getIsSelected()}
-        wrapperStyle={{ padding: 0, margin: 0 }}
-        onChange={() => row.toggleSelected()}
-      />
-    </div>
+    <Checkbox
+      componentId="mlflow.eval-runs.checkbox-cell"
+      data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
+      disabled={!row.getCanSelect()}
+      isChecked={row.getIsSelected()}
+      wrapperStyle={{ padding: 0, margin: 0 }}
+      onChange={() => row.toggleSelected()}
+      onClick={(e) => e.stopPropagation()}
+    />
   );
 };
 
