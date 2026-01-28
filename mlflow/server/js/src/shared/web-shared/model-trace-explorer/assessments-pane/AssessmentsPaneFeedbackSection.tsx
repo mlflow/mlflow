@@ -13,7 +13,7 @@ import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { first, isEmpty, isNil, partition, some } from 'lodash';
+import { isEmpty, isNil, uniqBy } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
@@ -131,10 +131,17 @@ export const AssessmentsPaneFeedbackSection = ({
     return Object.values(evaluations).filter((event) => traceId in (event.tracesData ?? {}));
   }, [evaluations, traceId]);
 
-  const currentTracePendingEvaluations = useMemo(
-    () => currentTraceEvaluations.filter((event) => event.isLoading),
-    [currentTraceEvaluations],
-  );
+  const { newTracePendingEvaluations, loadingEvaluations } = useMemo(() => {
+    const loadingEvaluations = currentTraceEvaluations.filter((event) => event.isLoading);
+    const newTracePendingEvaluations = uniqBy(
+      loadingEvaluations.filter(
+        (evaluation) => !groupedFeedbacks.some(([groupName]) => groupName === evaluation.label),
+      ),
+      'label',
+    );
+    return { newTracePendingEvaluations, loadingEvaluations };
+  }, [currentTraceEvaluations, groupedFeedbacks]);
+
   const currentTraceEvaluationErrors = useMemo(
     () => currentTraceEvaluations.filter((event) => event.error),
     [currentTraceEvaluations],
@@ -162,7 +169,7 @@ export const AssessmentsPaneFeedbackSection = ({
   }, [subscribeToScorerFinished, traceId, invalidateTraceQuery, queryClient]);
 
   const isSectionEmpty =
-    isEmpty(groupedFeedbacks) && isEmpty(currentTraceEvaluationErrors) && isEmpty(currentTracePendingEvaluations);
+    isEmpty(groupedFeedbacks) && isEmpty(currentTraceEvaluationErrors) && isEmpty(newTracePendingEvaluations);
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -211,7 +218,7 @@ export const AssessmentsPaneFeedbackSection = ({
           />
         </div>
       ))}
-      {currentTracePendingEvaluations.map((evaluation) => (
+      {newTracePendingEvaluations.map((evaluation) => (
         <div
           key={evaluation.requestKey}
           css={{
@@ -232,7 +239,14 @@ export const AssessmentsPaneFeedbackSection = ({
       ))}
 
       {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+        <FeedbackGroup
+          key={name}
+          name={name}
+          valuesMap={valuesMap}
+          traceId={traceId}
+          activeSpanId={activeSpanId}
+          loading={loadingEvaluations.some((evaluation) => evaluation.label === name)}
+        />
       ))}
       {isSectionEmpty && !createFormVisible && (
         <div
