@@ -6,7 +6,7 @@ import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
-import { useIsFileStore } from '../../../hooks/useTrackingStoreInfo';
+import { useIsFileStore } from '../../../hooks/useServerInfo';
 
 /**
  * This hook navigates user to the appropriate tab in the experiment page based on the experiment kind.

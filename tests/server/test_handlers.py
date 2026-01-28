@@ -283,13 +283,12 @@ def test_version():
         assert response.get_data().decode() == mlflow.__version__
 
 
-def test_tracking_store_info_with_file_store():
+def test_server_info():
     with app.test_client() as c:
-        response = c.get("/tracking-store-info")
+        response = c.get("/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert "is_file_store" in data
-        assert data["is_file_store"] is False
+        assert data["store_type"] == "SqlAlchemyStore"
 
 
 def test_get_endpoints():

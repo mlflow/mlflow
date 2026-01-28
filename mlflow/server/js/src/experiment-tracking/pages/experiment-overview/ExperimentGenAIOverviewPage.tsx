@@ -3,7 +3,7 @@ import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useIsFileStore } from '../../hooks/useTrackingStoreInfo';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';

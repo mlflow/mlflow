@@ -16,8 +16,8 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 describe('useNavigateToExperimentPageTab', () => {
   const server = setupServer(
     // Mock the tracking store info endpoint - default to non-FileStore
-    rest.get('/tracking-store-info', (_req, res, ctx) => {
-      return res(ctx.json({ is_file_store: false }));
+    rest.get('/server-info', (_req, res, ctx) => {
+      return res(ctx.json({ store_type: 'SqlAlchemyStore' }));
     }),
   );
 
@@ -114,8 +114,8 @@ describe('useNavigateToExperimentPageTab', () => {
   test('should redirect to the traces tab on GenAI experiment kind when using FileStore', async () => {
     // Override the default mock to return FileStore
     server.use(
-      rest.get('/tracking-store-info', (_req, res, ctx) => {
-        return res(ctx.json({ is_file_store: true }));
+      rest.get('/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'FileStore' }));
       }),
     );
     mockResponseWithExperimentKind(ExperimentKind.GENAI_DEVELOPMENT);

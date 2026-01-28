@@ -13,7 +13,7 @@ import {
   shouldEnableExperimentOverviewTab,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { useIsFileStore } from '../../hooks/useTrackingStoreInfo';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';

@@ -1,22 +1,22 @@
 import { useQuery } from '../../common/utils/reactQueryHooks';
 import { getAjaxUrl } from '../../common/utils/FetchUtils';
 
-export const TRACKING_STORE_INFO_QUERY_KEY = 'trackingStoreInfo';
+export const SERVER_INFO_QUERY_KEY = 'serverInfo';
 
-interface TrackingStoreInfoResponse {
-  is_file_store: boolean;
+interface ServerInfoResponse {
+  store_type: string;
 }
 
 // Default response when the API call fails (e.g., older server without this endpoint)
-const DEFAULT_RESPONSE: TrackingStoreInfoResponse = { is_file_store: false };
+const DEFAULT_RESPONSE: ServerInfoResponse = { store_type: '' };
 
 /**
- * Fetches tracking store info from the backend.
- * Returns default response (is_file_store: false) if the request fails.
+ * Fetches server info from the backend.
+ * Returns default response (store_type: '') if the request fails.
  */
-async function fetchTrackingStoreInfo(): Promise<TrackingStoreInfoResponse> {
+async function fetchServerInfo(): Promise<ServerInfoResponse> {
   try {
-    const response = await fetch(getAjaxUrl('tracking-store-info'), {
+    const response = await fetch(getAjaxUrl('server-info'), {
       method: 'GET',
     });
     if (!response.ok) {
@@ -31,13 +31,13 @@ async function fetchTrackingStoreInfo(): Promise<TrackingStoreInfoResponse> {
 }
 
 /**
- * Hook to check if the tracking store backend is using FileStore.
+ * Hook to get server info from the backend.
  * This information is fetched once and cached for the session.
  */
-export function useTrackingStoreInfo() {
+export function useServerInfo() {
   return useQuery({
-    queryKey: [TRACKING_STORE_INFO_QUERY_KEY],
-    queryFn: fetchTrackingStoreInfo,
+    queryKey: [SERVER_INFO_QUERY_KEY],
+    queryFn: fetchServerInfo,
     staleTime: Infinity, // This info doesn't change during the session
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -51,6 +51,6 @@ export function useTrackingStoreInfo() {
  * Returns undefined while loading.
  */
 export function useIsFileStore(): boolean | undefined {
-  const { data } = useTrackingStoreInfo();
-  return data?.is_file_store;
+  const { data } = useServerInfo();
+  return data ? data.store_type === 'FileStore' : undefined;
 }

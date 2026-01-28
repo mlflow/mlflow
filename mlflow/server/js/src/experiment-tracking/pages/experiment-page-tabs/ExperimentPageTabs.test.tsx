@@ -307,7 +307,7 @@ describe('ExperimentLoggedModelListPage', () => {
           ),
         ),
       ),
-      rest.get('/tracking-store-info', (req, res, ctx) => res(ctx.json({ is_file_store: false }))),
+      rest.get('/server-info', (req, res, ctx) => res(ctx.json({ store_type: 'SqlAlchemyStore' }))),
     );
 
     // Start on experiment page WITHOUT a tab
