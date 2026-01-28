@@ -35,7 +35,7 @@ export const useRunSerializedScorer = ({
         evaluationScope: ScorerEvaluationScope.TRACES,
         saveAssessment: true,
       };
-      if (isObject(scorerOrTemplate) && scorerOrTemplate.type === 'llm') {
+      if (isObject(scorerOrTemplate)) {
         const scorer = scorerOrTemplate;
         const scorerConfig = transformScheduledScorer(scorer);
         return {
@@ -45,15 +45,26 @@ export const useRunSerializedScorer = ({
         };
       }
 
-      // Built an ad-hoc custom LLM-as-a-judge scorer
-      const adHocScheduledScorer: ScheduledScorer = {
-        name: displayMap[scorerOrTemplate as LLM_TEMPLATE],
-        type: 'llm',
-        llmTemplate: 'Custom',
-        instructions: TEMPLATE_INSTRUCTIONS_MAP[scorerOrTemplate as LLM_TEMPLATE],
-        model: endpointName,
-        is_instructions_judge: true,
-      };
+      const instructionsForCustomTemplate = TEMPLATE_INSTRUCTIONS_MAP[scorerOrTemplate];
+
+      // Built an ad-hoc custom LLM-as-a-judge scorer.
+      // If the template has instructions, use them as 'Custom' judge. Otherwise, assume it's a pre-built template.
+      const adHocScheduledScorer: ScheduledScorer = instructionsForCustomTemplate
+        ? {
+            name: displayMap[scorerOrTemplate],
+            type: 'llm',
+            llmTemplate: 'Custom',
+            instructions: instructionsForCustomTemplate,
+            model: endpointName,
+            is_instructions_judge: true,
+          }
+        : {
+            name: displayMap[scorerOrTemplate],
+            type: 'llm',
+            llmTemplate: scorerOrTemplate,
+            model: endpointName,
+            is_instructions_judge: false,
+          };
 
       // Create backend-compatible scorer config
       const scorerConfig = transformScheduledScorer(adHocScheduledScorer);
