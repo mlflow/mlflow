@@ -510,6 +510,13 @@ const config: Config = {
             to: '/genai',
             from: ['/tracing/tutorials'],
           },
+          {
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges/',
+            from: [
+              '/genai/eval-monitor/scorers/llm-judge/make-judge/',
+              '/genai/eval-monitor/scorers/llm-judge/agentic-overview/',
+            ],
+          },
 
           // Tracing Redirects
           {
@@ -639,7 +646,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/eval-monitor/scorers/llm-judge/agentic-overview',
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges',
             from: [
               '/genai/eval-monitor/scorers/llm-judge/trace-analysis',
               '/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns',

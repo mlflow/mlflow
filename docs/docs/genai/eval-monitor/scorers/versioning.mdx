@@ -7,20 +7,19 @@ Scorers can be registered to MLflow experiments for version control and team col
 
 ## Supported Scorers
 
-| Scorer Type                                                                      | Supported                                                         |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Agent-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview)       | ✅                                                                |
-| [Template-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge)   | ✅                                                                |
-| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                         | ❌                                                                |
-| [Guidelines-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/guidelines) | ❌ (Use [MLflow Prompt Registry](/genai/prompt-registry) instead) |
-| [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined)              | ✅                                                                |
+| Scorer Type                                                              | Supported                                                         |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| [Custom LLM Judges](/genai/eval-monitor/scorers/llm-judge/custom-judges) | ✅                                                                |
+| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                 | ❌                                                                |
+| [Guidelines Judges](/genai/eval-monitor/scorers/llm-judge/guidelines)    | ❌ (Use [MLflow Prompt Registry](/genai/prompt-registry) instead) |
+| [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined)      | ✅                                                                |
 
 <Tabs groupId="method">
   <TabItem value="ui" label="UI" default>
 
 ### Registering a Scorer
 
-When you create a judge using the [Judge Builder UI](/genai/eval-monitor/scorers/llm-judge/make-judge), it is automatically registered to the current experiment as version 1.
+When you create a judge using the [Judge Builder UI](/genai/eval-monitor/scorers/llm-judge/custom-judges), it is automatically registered to the current experiment as version 1.
 
 ### Updating a Scorer
 
