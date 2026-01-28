@@ -215,6 +215,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/llama_index',
                   label: 'LlamaIndex',
                 },
