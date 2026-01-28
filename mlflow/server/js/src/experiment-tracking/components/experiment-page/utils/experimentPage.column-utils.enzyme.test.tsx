@@ -46,15 +46,17 @@ describe('ExperimentViewRuns column utils', () => {
   test('it creates proper column definitions with basic attributes', () => {
     const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS);
 
-    // Assert existence of regular attribute columns
+    // Assert existence of regular attribute columns with colId for visibility control
     expect(columnDefinitions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
+          colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE),
           cellRenderer: 'DateCellRenderer',
         }),
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+          colId: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION),
         }),
         expect.objectContaining({
           headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
@@ -245,5 +247,20 @@ describe('ExperimentViewRuns column utils', () => {
     expect(result.find((r) => r.groupId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }: ColDef) => colId)).toEqual(
       ['metrics.`metric_1`', 'metrics.`metric_2`'],
     );
+  });
+
+  test('tag columns are sortable', () => {
+    const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS) as unknown as ColGroupDef[];
+
+    // Find the tags column group
+    const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS) as ColGroupDef;
+    expect(tagsGroup).toBeDefined();
+
+    // Verify each tag column has sortable: true and headerComponentParams with canonicalSortKey
+    tagsGroup.children?.forEach((tagCol: ColDef) => {
+      expect(tagCol.sortable).toBe(true);
+      expect(tagCol.headerComponentParams).toBeDefined();
+      expect(tagCol.headerComponentParams?.canonicalSortKey).toBeDefined();
+    });
   });
 });

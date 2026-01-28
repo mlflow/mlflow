@@ -28,6 +28,9 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
 
 const getDefaultSelectedColumns = () => {
   const result = [
+    // "Date" and "Duration" columns are visible by default
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE),
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION),
     // "Source" and "Model" columns are visible by default
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),

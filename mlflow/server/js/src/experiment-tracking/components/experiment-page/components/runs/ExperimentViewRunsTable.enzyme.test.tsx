@@ -308,6 +308,8 @@ describe('ExperimentViewRunsTable', () => {
       'metrics.`m1`',
       'tags.`testtag1`',
       'tags.`testtag2`',
+      'attributes.`Created`',
+      'attributes.`Duration`',
       'attributes.`User`',
       'attributes.`Source`',
       'attributes.`Version`',
