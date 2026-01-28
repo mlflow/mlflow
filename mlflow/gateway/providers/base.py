@@ -361,10 +361,12 @@ class FallbackProvider(BaseProvider):
             span_ctx = self._create_stream_span(provider, method_name, attempt)
             try:
                 method = getattr(provider, method_name)
+                last_chunk = None
                 async for chunk in method(*args, **kwargs):
+                    last_chunk = chunk
                     yield chunk
                 # Stream completed successfully
-                self._close_stream_span(span_ctx, success=True)
+                self._close_stream_span(span_ctx, success=True, last_chunk=last_chunk)
                 return
             except Exception as e:
                 self._close_stream_span(span_ctx, success=False, error=e)
@@ -409,13 +411,24 @@ class FallbackProvider(BaseProvider):
         span.set_attribute("streaming", True)
         return span
 
-    def _close_stream_span(self, span_ctx, success: bool, error: Exception | None = None):
+    def _close_stream_span(
+        self, span_ctx, success: bool, error: Exception | None = None, last_chunk=None
+    ):
         """Close a streaming span with appropriate status."""
         if span_ctx is None:
             return
         try:
             if success:
                 span_ctx.set_status("OK")
+                # Extract usage from the final chunk if available
+                if last_chunk is not None and hasattr(last_chunk, "usage") and last_chunk.usage:
+                    usage = last_chunk.usage
+                    if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
+                        span_ctx.set_attribute("prompt_tokens", usage.prompt_tokens)
+                    if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
+                        span_ctx.set_attribute("completion_tokens", usage.completion_tokens)
+                    if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
+                        span_ctx.set_attribute("total_tokens", usage.total_tokens)
             else:
                 span_ctx.set_status("ERROR")
                 if error:
@@ -549,8 +562,22 @@ class TracingProviderWrapper(BaseProvider):
         span.set_attribute("streaming", True)
 
         try:
+            last_chunk = None
             async for chunk in method(*args, **kwargs):
+                last_chunk = chunk
                 yield chunk
+
+            # Extract usage from the final chunk if available (OpenAI includes this
+            # when stream_options.include_usage=true)
+            if last_chunk is not None and hasattr(last_chunk, "usage") and last_chunk.usage:
+                usage = last_chunk.usage
+                if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
+                    span.set_attribute("prompt_tokens", usage.prompt_tokens)
+                if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
+                    span.set_attribute("completion_tokens", usage.completion_tokens)
+                if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
+                    span.set_attribute("total_tokens", usage.total_tokens)
+
             span.set_status("OK")
             span.end()
         except Exception as e:
