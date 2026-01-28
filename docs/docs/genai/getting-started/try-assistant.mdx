@@ -12,7 +12,7 @@ import { DollarSign, FolderOpen, RefreshCw, Wrench } from "lucide-react";
 
 # MLflow Assistant
 
-MLflow Assistant is a powerful AI-powered helper that transforms cutting-edge coding agents like Claude Code into experienced AI engineers by your side. Unlike typical chatbots, MLflow Assistant is **aware of your codebase and context**. It is not just a question-answering, but a full-fledged AI engineer that can find root causes for issues, setup quality tests, and apply llmops best practices into your project.
+MLflow Assistant is a powerful AI-powered helper that transforms cutting-edge coding agents like Claude Code into experienced AI engineers by your side. Unlike typical chatbots, MLflow Assistant is **aware of your codebase and context**. It is not just a question-answering tool, but a full-fledged AI engineer that can find root causes for issues, setup quality tests, and apply LLMOps best practices into your project.
 
 <ImageBox src="/images/assistant/hero.png" alt="MLflow Assistant" />
 
@@ -27,7 +27,7 @@ MLflow Assistant is a powerful AI-powered helper that transforms cutting-edge co
   {
     icon: FolderOpen,
     title: "Context Rich",
-    description: "The assistant understands your local codebase, project structure, and llmops best practices. It provides tailored recommendations for your specific project, not generic advice."
+    description: "The assistant understands your local codebase, project structure, and LLMOps best practices. It provides tailored recommendations for your specific project, not generic advice."
   },
   {
     icon: RefreshCw,
@@ -52,7 +52,7 @@ Explore the use cases below to see MLflow Assistant in action.
         <div class="flex-item" style={{ flex: 5, display: "flex", flexDirection: "column", justifyContent: "center" }}>
 #### Set Up MLflow for You
 <br/>
-Just ask **"How do I set up MLflow for my project?"** and the assistant will guide you through the process of setting up MLflow for your project. Since the assistant has access to your codebase, it can automatically understand what you are trying to build and determine the required.
+Just ask **"How do I set up MLflow for my project?"** and the assistant will guide you through the process of setting up MLflow for your project. Since the assistant has access to your codebase, it can automatically understand what you are trying to build and determine the required setup steps.
 
 <br/>
 <br/>
@@ -133,7 +133,7 @@ Evaluation is important for the success of ML/AI projects, however, getting it r
 
 <br/>
 
-Prompt engineering is still a critical part of building LLM applications, yet manually iterating over prompts is time-consuming and error-prone. The assistant helps you improve prompt templates and free you from the repetitive work.
+Prompt engineering is still a critical part of building LLM applications, yet manually iterating over prompts is time-consuming and error-prone. The assistant helps you improve prompt templates and frees you from the repetitive work.
 
 <br/>
 <br/>
@@ -164,7 +164,7 @@ Open MLflow UI at http://localhost:5000 or your custom port.
 
 ### 2. Open Assistant Panel
 
-If you are using the local MLflow server, the Assistant panel should open automatically. If not, you can navigate to it manually by clicking the todo button at the top right or the Assistant tab on the left sidebar in the experiment page.
+If you are using the local MLflow server, the Assistant panel should open automatically. If not, you can navigate to it manually by clicking the Assistant tab on the left sidebar in the experiment page.
 
 ### 3. Follow the setup wizard
 
@@ -224,7 +224,7 @@ Depending on the question you asked, Assistant may think it needs an action that
 
 - **Execute MLflow CLI**: The assistant will have access to run MLflow CLI commands to fetch traces, runs, and experiment data. This is required for the assistant to work.
 - **Read MLflow documentation**: The assistant will have access to read the latest MLflow documentation. This is optional but highly recommended for getting the best out of the assistant.
-- **Edit project code**: The assistant will have access to edit your project code. This is optional and only required if you want the assistant to update your project code for fixing issues, adding tracing, and applying llm practices.
+- **Edit project code**: The assistant will have access to edit your project code. This is optional and only required if you want the assistant to update your project code for fixing issues, adding tracing, and applying LLMOps best practices.
 - **Full access**: This will grant the assistant full access to the Assistant. For example, enabling this will run Claude Code with the `bypassPermissions` mode.
 
 To give more granular control, you can also edit the permission setting of your backend coding agent directly. For example, if you are using Claude Code, you can edit `.claude/settings.json` file in your home directory or a project-scoped one.
