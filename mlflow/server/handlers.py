@@ -4635,7 +4635,7 @@ def _get_server_info():
     elif isinstance(store, SqlAlchemyStore):
         store_type = "SqlStore"
     else:
-        store_type = "UnknownStore"
+        store_type = None
     return jsonify({"store_type": store_type})
 
 

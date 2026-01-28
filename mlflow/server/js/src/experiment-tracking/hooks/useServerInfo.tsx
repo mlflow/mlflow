@@ -4,7 +4,7 @@ import { getAjaxUrl } from '../../common/utils/FetchUtils';
 export const SERVER_INFO_QUERY_KEY = 'serverInfo';
 
 interface ServerInfoResponse {
-  store_type: string;
+  store_type: string | null;
 }
 
 // Default response when the API call fails (e.g., older server without this endpoint)
