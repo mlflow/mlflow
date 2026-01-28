@@ -38,6 +38,7 @@ export {
   shouldEnableAssessmentsInSessions,
   shouldUseModelTraceExplorerDrawerUI,
   shouldUseUnifiedModelTraceComparisonUI,
+  isEvaluatingTracesInDetailsViewEnabled,
 } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';

@@ -25,7 +25,8 @@ import {
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import { ScorerEvaluation, ScorerFinishedEvent, useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 /**
  * Response from the chat completions API
@@ -311,10 +312,14 @@ function parseAssessmentResponse(
  * State returned by useEvaluateTraces
  */
 export interface EvaluateTracesState {
-  data: JudgeEvaluationResult[] | null;
+  latestEvaluation: JudgeEvaluationResult[] | null;
   isLoading: boolean;
   error: Error | null;
   reset: () => void;
+  /**
+   * Results of all evaluations
+   */
+  allEvaluations?: Record<string, ScorerEvaluation>;
 }
 
 /**
@@ -329,8 +334,8 @@ export function useEvaluateTraces({
   /**
    * Callback to be called when the evaluation is finished.
    */
-  onScorerFinished?: () => void;
-} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
+  onScorerFinished?: (event: ScorerFinishedEvent) => void;
+} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | string | void>, EvaluateTracesState] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -346,7 +351,6 @@ export function useEvaluateTraces({
 
   const evaluateTracesSync = useCallback(
     async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
-      // Track this invocation to ensure only the latest one calls onScorerFinished
       invocationCounterRef.current += 1;
       const currentInvocationId = invocationCounterRef.current;
 
@@ -573,8 +577,13 @@ export function useEvaluateTraces({
         setData(evaluationResults);
 
         // Only call onScorerFinished if this is still the latest invocation
-        if (currentInvocationId === invocationCounterRef.current && onScorerFinished) {
-          onScorerFinished();
+        if (currentInvocationId === invocationCounterRef.current) {
+          onScorerFinished?.({
+            // Generate a semi-unique request key for the evaluation
+            requestKey: Date.now().toString(),
+            status: TrackingJobStatus.SUCCEEDED,
+            results: evaluationResults,
+          });
         }
 
         return evaluationResults;
@@ -606,7 +615,7 @@ export function useEvaluateTraces({
   return [
     evaluateTracesSync,
     {
-      data,
+      latestEvaluation: data,
       isLoading,
       error,
       reset,

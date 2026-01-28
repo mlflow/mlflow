@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ModelTraceExplorerRunJudgeConfig } from '../../../../shared/web-shared/model-trace-explorer';
 import { LLMScorer } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
@@ -23,6 +22,11 @@ import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
+import {
+  isEvaluatingTracesInDetailsViewEnabled,
+  ModelTraceExplorerRunJudgeConfig,
+  ModelTraceExplorerRunJudgesContextProvider,
+} from '@databricks/web-shared/model-trace-explorer';
 
 export const useRunScorerInTracesViewConfiguration = (): ModelTraceExplorerRunJudgeConfig => {
   const [experimentId] = useExperimentIds();

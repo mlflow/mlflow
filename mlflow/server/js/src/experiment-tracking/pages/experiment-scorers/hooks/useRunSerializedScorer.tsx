@@ -14,7 +14,7 @@ export const useRunSerializedScorer = ({
   experimentId?: string;
   onScorerFinished?: () => void;
 }) => {
-  const [evaluateTracesFn, { data, isLoading }] = useEvaluateTraces({ onScorerFinished });
+  const [evaluateTracesFn, { latestEvaluation, isLoading }] = useEvaluateTraces({ onScorerFinished });
 
   const evaluateTraces = useCallback(
     (scorer: LLMScorer, traceIds: string[]) => {
@@ -40,7 +40,7 @@ export const useRunSerializedScorer = ({
 
   return {
     evaluateTraces,
-    data,
+    latestEvaluation,
     isLoading,
   };
 };
