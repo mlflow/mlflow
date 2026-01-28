@@ -380,7 +380,7 @@ class AgentServer:
             yield "data: [DONE]\n\n"
 
     async def _handle_stream_request(
-        self, request: dict[str, Any], return_trace_id: bool = False
+        self, request: dict[str, Any], return_trace_id: bool
     ) -> StreamingResponse:
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
