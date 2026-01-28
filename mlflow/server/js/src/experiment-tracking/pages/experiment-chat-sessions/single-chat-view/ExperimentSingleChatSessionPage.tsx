@@ -79,6 +79,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   invariant(sessionId, 'Session ID must be defined');
 
   useRegisterAssistantContext('sessionId', sessionId);
+  useRegisterAssistantContext('traceId', selectedTrace ? getModelTraceId(selectedTrace) : null);
 
   const selectedTraceIdFromUrl = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);

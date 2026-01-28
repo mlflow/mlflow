@@ -88,7 +88,10 @@ def get_tracing_status(settings_path: Path) -> TracingStatus:
 
 
 def get_env_var(var_name: str, default: str = "") -> str:
-    """Get environment variable from OS or Claude settings as fallback.
+    """Get environment variable from Claude settings or OS environment as fallback.
+
+    Project-specific configuration in settings.json takes precedence over
+    global OS environment variables.
 
     Args:
         var_name: Environment variable name
@@ -97,20 +100,22 @@ def get_env_var(var_name: str, default: str = "") -> str:
     Returns:
         Environment variable value
     """
-    # First check OS environment
-    value = os.getenv(var_name)
-    if value is not None:
-        return value
-
-    # Fallback to Claude settings
+    # First check Claude settings (project-specific configuration takes priority)
     try:
         settings_path = Path(".claude/settings.json")
         if settings_path.exists():
             config = load_claude_config(settings_path)
             env_vars = config.get(ENVIRONMENT_FIELD, {})
-            return env_vars.get(var_name, default)
+            value = env_vars.get(var_name)
+            if value is not None:
+                return value
     except Exception:
         pass
+
+    # Fallback to OS environment
+    value = os.getenv(var_name)
+    if value is not None:
+        return value
 
     return default
 
