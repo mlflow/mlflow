@@ -4633,7 +4633,7 @@ def _get_server_info():
     if isinstance(store, FileStore):
         store_type = "FileStore"
     elif isinstance(store, SqlAlchemyStore):
-        store_type = "SqlAlchemyStore"
+        store_type = "SqlStore"
     else:
         store_type = "UnknownStore"
     return jsonify({"store_type": store_type})

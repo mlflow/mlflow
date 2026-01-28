@@ -288,7 +288,7 @@ def test_server_info():
         response = c.get("/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["store_type"] == "SqlAlchemyStore"
+        assert data["store_type"] == "SqlStore"
 
 
 def test_get_endpoints():
