@@ -127,10 +127,18 @@ class Field:
         return Field._convert_to_link(field_details["field_type"])
 
     @staticmethod
+    def _normalize_description(text: str) -> str:
+        """Normalize whitespace in description text to avoid RST indentation issues."""
+        # Split into lines, strip leading/trailing whitespace from each, rejoin
+        lines = text.split("\n")
+        normalized_lines = [line.strip() for line in lines]
+        return " ".join(line for line in normalized_lines if line)
+
+    @staticmethod
     def _parse_description(field_details: dict[str, Any]) -> str:
         declared_type = field_details["field_type"]
-        deprecated = "\nThis field is deprecated.\n" if field_details["deprecated"] else ""
-        required = "\nThis field is required.\n" if field_details["validate_required"] else ""
+        deprecated = " This field is deprecated." if field_details["deprecated"] else ""
+        required = " This field is required." if field_details["validate_required"] else ""
 
         if declared_type == "oneof":
 
@@ -141,10 +149,12 @@ class Field:
             for name, obj in zip(
                 Field._parse_name(field_details).split(" OR "), field_details["oneof"]
             ):
-                options.append(f"\n\nIf {name}, {to_lowercase_first_char(obj['description'])}")
-            return "\n\n\n\n".join(options) + required + deprecated
+                desc = Field._normalize_description(obj["description"])
+                options.append(f"If {name}, {to_lowercase_first_char(desc)}")
+            return " ".join(options) + required + deprecated
 
-        return field_details["description"] + required + deprecated
+        desc = Field._normalize_description(field_details["description"])
+        return desc + required + deprecated
 
     @staticmethod
     def _convert_to_link(raw_string: str) -> str:

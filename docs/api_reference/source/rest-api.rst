@@ -54,21 +54,17 @@ Request Structure
 
 
 
-+-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
-|    Field Name     |                  Type                  |                                          Description                                           |
-+===================+========================================+================================================================================================+
-| name              | ``STRING``                             | Experiment name.                                                                               |
-|                   |                                        | This field is required.                                                                        |
-|                   |                                        |                                                                                                |
-+-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
-| artifact_location | ``STRING``                             | Location where all artifacts for the experiment are stored.                                    |
-|                   |                                        | If not provided, the remote server will select an appropriate default.                         |
-+-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
-| tags              | An array of :ref:`mlflowexperimenttag` | A collection of tags to set on the experiment. Maximum tag size and number of tags per request |
-|                   |                                        | depends on the storage backend. All storage backends are guaranteed to support tag keys up     |
-|                   |                                        | to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also    |
-|                   |                                        | guaranteed to support up to 20 tags per request.                                               |
-+-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
++-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+|    Field Name     |                  Type                  |                                                               Description                                                               |
++===================+========================================+=========================================================================================================================================+
+| name              | ``STRING``                             | Experiment name. This field is required.                                                                                                |
++-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| artifact_location | ``STRING``                             | Location where all artifacts for the experiment are stored. If not provided, the remote server will select an appropriate default.      |
++-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| tags              | An array of :ref:`mlflowexperimenttag` | A collection of tags to set on the experiment. Maximum tag size and number of tags per request depends on the storage backend. All      |
+|                   |                                        | storage backends are guaranteed to support tag keys up to 250 bytes in size and tag values up to 5000 bytes in size. All storage        |
+|                   |                                        | backends are also guaranteed to support up to 20 tags per request.                                                                      |
++-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateExperimentResponse:
 
@@ -117,37 +113,25 @@ Request Structure
 
 
 
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| Field Name  |          Type          |                                        Description                                         |
-+=============+========================+============================================================================================+
-| max_results | ``INT64``              | Maximum number of experiments desired.                                                     |
-|             |                        | Servers may select a desired default `max_results` value. All servers are                  |
-|             |                        | guaranteed to support a `max_results` threshold of at least 1,000 but may                  |
-|             |                        | support more. Callers of this endpoint are encouraged to pass max_results                  |
-|             |                        | explicitly and leverage page_token to iterate through experiments.                         |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| page_token  | ``STRING``             | Token indicating the page of experiments to fetch                                          |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| filter      | ``STRING``             | A filter expression over experiment attributes and tags that allows returning a subset of  |
-|             |                        | experiments. The syntax is a subset of SQL that supports ANDing together binary operations |
-|             |                        | between an attribute or tag, and a constant.                                               |
-|             |                        |                                                                                            |
-|             |                        | Example: ``name LIKE 'test-%' AND tags.key = 'value'``                                     |
-|             |                        |                                                                                            |
-|             |                        | You can select columns with special characters (hyphen, space, period, etc.) by using      |
-|             |                        | double quotes or backticks.                                                                |
-|             |                        |                                                                                            |
-|             |                        | Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``                  |
-|             |                        |                                                                                            |
-|             |                        | Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.                            |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| order_by    | An array of ``STRING`` | List of columns for ordering search results, which can include experiment name and id      |
-|             |                        | with an optional "DESC" or "ASC" annotation, where "ASC" is the default.                   |
-|             |                        | Tiebreaks are done by experiment id DESC.                                                  |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| view_type   | :ref:`mlflowviewtype`  | Qualifier for type of experiments to be returned.                                          |
-|             |                        | If unspecified, return only active experiments.                                            |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |          Type          |                                                                          Description                                                                          |
++=============+========================+===============================================================================================================================================================+
+| max_results | ``INT64``              | Maximum number of experiments desired. Servers may select a desired default `max_results` value. All servers are guaranteed to support a `max_results`        |
+|             |                        | threshold of at least 1,000 but may support more. Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token to iterate   |
+|             |                        | through experiments.                                                                                                                                          |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``             | Token indicating the page of experiments to fetch                                                                                                             |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| filter      | ``STRING``             | A filter expression over experiment attributes and tags that allows returning a subset of experiments. The syntax is a subset of SQL that supports ANDing     |
+|             |                        | together binary operations between an attribute or tag, and a constant. Example: ``name LIKE 'test-%' AND tags.key = 'value'`` You can select columns with    |
+|             |                        | special characters (hyphen, space, period, etc.) by using double quotes or backticks. Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` =         |
+|             |                        | 'value'`` Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.                                                                                     |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING`` | List of columns for ordering search results, which can include experiment name and id with an optional "DESC" or "ASC" annotation, where "ASC" is the         |
+|             |                        | default. Tiebreaks are done by experiment id DESC.                                                                                                            |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| view_type   | :ref:`mlflowviewtype`  | Qualifier for type of experiments to be returned. If unspecified, return only active experiments.                                                             |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchExperimentsResponse:
 
@@ -159,14 +143,13 @@ Response Structure
 
 
 
-+-----------------+-------------------------------------+----------------------------------------------------------------------------+
-|   Field Name    |                Type                 |                                Description                                 |
-+=================+=====================================+============================================================================+
-| experiments     | An array of :ref:`mlflowexperiment` | Experiments that match the search criteria                                 |
-+-----------------+-------------------------------------+----------------------------------------------------------------------------+
-| next_page_token | ``STRING``                          | Token that can be used to retrieve the next page of experiments.           |
-|                 |                                     | An empty token means that no more experiments are available for retrieval. |
-+-----------------+-------------------------------------+----------------------------------------------------------------------------+
++-----------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |                Type                 |                                                                 Description                                                                 |
++=================+=====================================+=============================================================================================================================================+
+| experiments     | An array of :ref:`mlflowexperiment` | Experiments that match the search criteria                                                                                                  |
++-----------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| next_page_token | ``STRING``                          | Token that can be used to retrieve the next page of experiments. An empty token means that no more experiments are available for retrieval. |
++-----------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -199,13 +182,11 @@ Request Structure
 
 
 
-+---------------+------------+----------------------------------+
-|  Field Name   |    Type    |           Description            |
-+===============+============+==================================+
-| experiment_id | ``STRING`` | ID of the associated experiment. |
-|               |            | This field is required.          |
-|               |            |                                  |
-+---------------+------------+----------------------------------+
++---------------+------------+----------------------------------------------------------+
+|  Field Name   |    Type    |                       Description                        |
++===============+============+==========================================================+
+| experiment_id | ``STRING`` | ID of the associated experiment. This field is required. |
++---------------+------------+----------------------------------------------------------+
 
 .. _mlflowGetExperimentResponse:
 
@@ -260,13 +241,11 @@ Request Structure
 
 
 
-+-----------------+------------+------------------------------------+
-|   Field Name    |    Type    |            Description             |
-+=================+============+====================================+
-| experiment_name | ``STRING`` | Name of the associated experiment. |
-|                 |            | This field is required.            |
-|                 |            |                                    |
-+-----------------+------------+------------------------------------+
++-----------------+------------+------------------------------------------------------------+
+|   Field Name    |    Type    |                        Description                         |
++=================+============+============================================================+
+| experiment_name | ``STRING`` | Name of the associated experiment. This field is required. |
++-----------------+------------+------------------------------------------------------------+
 
 .. _mlflowGetExperimentByNameResponse:
 
@@ -316,13 +295,11 @@ Request Structure
 
 
 
-+---------------+------------+----------------------------------+
-|  Field Name   |    Type    |           Description            |
-+===============+============+==================================+
-| experiment_id | ``STRING`` | ID of the associated experiment. |
-|               |            | This field is required.          |
-|               |            |                                  |
-+---------------+------------+----------------------------------+
++---------------+------------+----------------------------------------------------------+
+|  Field Name   |    Type    |                       Description                        |
++===============+============+==========================================================+
+| experiment_id | ``STRING`` | ID of the associated experiment. This field is required. |
++---------------+------------+----------------------------------------------------------+
 
 ===========================
 
@@ -359,13 +336,11 @@ Request Structure
 
 
 
-+---------------+------------+----------------------------------+
-|  Field Name   |    Type    |           Description            |
-+===============+============+==================================+
-| experiment_id | ``STRING`` | ID of the associated experiment. |
-|               |            | This field is required.          |
-|               |            |                                  |
-+---------------+------------+----------------------------------+
++---------------+------------+----------------------------------------------------------+
+|  Field Name   |    Type    |                       Description                        |
++===============+============+==========================================================+
+| experiment_id | ``STRING`` | ID of the associated experiment. This field is required. |
++---------------+------------+----------------------------------------------------------+
 
 ===========================
 
@@ -401,9 +376,7 @@ Request Structure
 +---------------+------------+---------------------------------------------------------------------------------------------+
 |  Field Name   |    Type    |                                         Description                                         |
 +===============+============+=============================================================================================+
-| experiment_id | ``STRING`` | ID of the associated experiment.                                                            |
-|               |            | This field is required.                                                                     |
-|               |            |                                                                                             |
+| experiment_id | ``STRING`` | ID of the associated experiment. This field is required.                                    |
 +---------------+------------+---------------------------------------------------------------------------------------------+
 | new_name      | ``STRING`` | If provided, the experiment's name is changed to the new name. The new name must be unique. |
 +---------------+------------+---------------------------------------------------------------------------------------------+
@@ -439,23 +412,16 @@ Request Structure
 
 
 
-+---------------+------------+-------------------------------------------------------------------------------------+
-|  Field Name   |    Type    |                                     Description                                     |
-+===============+============+=====================================================================================+
-| experiment_id | ``STRING`` | ID of the experiment under which to log the tag. Must be provided.                  |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
-| key           | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                           |
-|               |            | All storage backends are guaranteed to support key values up to 250 bytes in size.  |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
-| value         | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.      |
-|               |            | All storage backends are guaranteed to support key values up to 5000 bytes in size. |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
++---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                                                               Description                                                                               |
++===============+============+=========================================================================================================================================================================+
+| experiment_id | ``STRING`` | ID of the experiment under which to log the tag. Must be provided. This field is required.                                                                              |
++---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key           | ``STRING`` | Name of the tag. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size. This field is required.    |
++---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value         | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 5000 bytes in size. This |
+|               |            | field is required.                                                                                                                                                      |
++---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -488,17 +454,13 @@ Request Structure
 
 
 
-+---------------+------------+-----------------------------------------------------------------------+
-|  Field Name   |    Type    |                              Description                              |
-+===============+============+=======================================================================+
-| experiment_id | ``STRING`` | ID of the experiment that the tag was logged under. Must be provided. |
-|               |            | This field is required.                                               |
-|               |            |                                                                       |
-+---------------+------------+-----------------------------------------------------------------------+
-| key           | ``STRING`` | Name of the tag. Maximum size is 255 bytes. Must be provided.         |
-|               |            | This field is required.                                               |
-|               |            |                                                                       |
-+---------------+------------+-----------------------------------------------------------------------+
++---------------+------------+-----------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                          Description                                          |
++===============+============+===============================================================================================+
+| experiment_id | ``STRING`` | ID of the experiment that the tag was logged under. Must be provided. This field is required. |
++---------------+------------+-----------------------------------------------------------------------------------------------+
+| key           | ``STRING`` | Name of the tag. Maximum size is 255 bytes. Must be provided. This field is required.         |
++---------------+------------+-----------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -533,21 +495,20 @@ Request Structure
 
 
 
-+---------------+---------------------------------+----------------------------------------------------------------------------+
-|  Field Name   |              Type               |                                Description                                 |
-+===============+=================================+============================================================================+
-| experiment_id | ``STRING``                      | ID of the associated experiment.                                           |
-+---------------+---------------------------------+----------------------------------------------------------------------------+
-| user_id       | ``STRING``                      | ID of the user executing the run.                                          |
-|               |                                 | This field is deprecated as of MLflow 1.0, and will be removed in a future |
-|               |                                 | MLflow release. Use 'mlflow.user' tag instead.                             |
-+---------------+---------------------------------+----------------------------------------------------------------------------+
-| run_name      | ``STRING``                      | Name of the run.                                                           |
-+---------------+---------------------------------+----------------------------------------------------------------------------+
-| start_time    | ``INT64``                       | Unix timestamp in milliseconds of when the run started.                    |
-+---------------+---------------------------------+----------------------------------------------------------------------------+
-| tags          | An array of :ref:`mlflowruntag` | Additional metadata for run.                                               |
-+---------------+---------------------------------+----------------------------------------------------------------------------+
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+|  Field Name   |              Type               |                                                                    Description                                                                     |
++===============+=================================+====================================================================================================================================================+
+| experiment_id | ``STRING``                      | ID of the associated experiment.                                                                                                                   |
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| user_id       | ``STRING``                      | ID of the user executing the run. This field is deprecated as of MLflow 1.0, and will be removed in a future MLflow release. Use 'mlflow.user' tag |
+|               |                                 | instead.                                                                                                                                           |
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_name      | ``STRING``                      | Name of the run.                                                                                                                                   |
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| start_time    | ``INT64``                       | Unix timestamp in milliseconds of when the run started.                                                                                            |
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| tags          | An array of :ref:`mlflowruntag` | Additional metadata for run.                                                                                                                       |
++---------------+---------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateRunResponse:
 
@@ -596,20 +557,19 @@ Request Structure
 
 
 
-+------------+------------------------+----------------------------------------------------------------------------+
-| Field Name |          Type          |                                Description                                 |
-+============+========================+============================================================================+
-| run_id     | ``STRING``             | ID of the run to update. Must be provided.                                 |
-+------------+------------------------+----------------------------------------------------------------------------+
-| run_uuid   | ``STRING``             | [Deprecated, use run_id instead] ID of the run to update.. This field will |
-|            |                        | be removed in a future MLflow version.                                     |
-+------------+------------------------+----------------------------------------------------------------------------+
-| status     | :ref:`mlflowrunstatus` | Updated status of the run.                                                 |
-+------------+------------------------+----------------------------------------------------------------------------+
-| end_time   | ``INT64``              | Unix timestamp in milliseconds of when the run ended.                      |
-+------------+------------------------+----------------------------------------------------------------------------+
-| run_name   | ``STRING``             | Updated name of the run.                                                   |
-+------------+------------------------+----------------------------------------------------------------------------+
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+| Field Name |          Type          |                                                    Description                                                    |
++============+========================+===================================================================================================================+
+| run_id     | ``STRING``             | ID of the run to update. Must be provided.                                                                        |
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+| run_uuid   | ``STRING``             | [Deprecated, use run_id instead] ID of the run to update.. This field will be removed in a future MLflow version. |
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+| status     | :ref:`mlflowrunstatus` | Updated status of the run.                                                                                        |
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+| end_time   | ``INT64``              | Unix timestamp in milliseconds of when the run ended.                                                             |
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
+| run_name   | ``STRING``             | Updated name of the run.                                                                                          |
++------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowUpdateRunResponse:
 
@@ -658,13 +618,11 @@ Request Structure
 
 
 
-+------------+------------+--------------------------+
-| Field Name |    Type    |       Description        |
-+============+============+==========================+
-| run_id     | ``STRING`` | ID of the run to delete. |
-|            |            | This field is required.  |
-|            |            |                          |
-+------------+------------+--------------------------+
++------------+------------+--------------------------------------------------+
+| Field Name |    Type    |                   Description                    |
++============+============+==================================================+
+| run_id     | ``STRING`` | ID of the run to delete. This field is required. |
++------------+------------+--------------------------------------------------+
 
 ===========================
 
@@ -697,13 +655,11 @@ Request Structure
 
 
 
-+------------+------------+---------------------------+
-| Field Name |    Type    |        Description        |
-+============+============+===========================+
-| run_id     | ``STRING`` | ID of the run to restore. |
-|            |            | This field is required.   |
-|            |            |                           |
-+------------+------------+---------------------------+
++------------+------------+---------------------------------------------------+
+| Field Name |    Type    |                    Description                    |
++============+============+===================================================+
+| run_id     | ``STRING`` | ID of the run to restore. This field is required. |
++------------+------------+---------------------------------------------------+
 
 ===========================
 
@@ -738,14 +694,13 @@ Request Structure
 
 
 
-+------------+------------+--------------------------------------------------------------------------+
-| Field Name |    Type    |                               Description                                |
-+============+============+==========================================================================+
-| run_id     | ``STRING`` | ID of the run to fetch. Must be provided.                                |
-+------------+------------+--------------------------------------------------------------------------+
-| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run to fetch. This field will |
-|            |            | be removed in a future MLflow version.                                   |
-+------------+------------+--------------------------------------------------------------------------+
++------------+------------+-----------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                   Description                                                   |
++============+============+=================================================================================================================+
+| run_id     | ``STRING`` | ID of the run to fetch. Must be provided.                                                                       |
++------------+------------+-----------------------------------------------------------------------------------------------------------------+
+| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run to fetch. This field will be removed in a future MLflow version. |
++------------+------------+-----------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGetRunResponse:
 
@@ -795,38 +750,27 @@ Request Structure
 
 
 
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-|   Field Name   |          Type          |                                             Description                                              |
-+================+========================+======================================================================================================+
-| experiment_ids | An array of ``STRING`` | List of experiment IDs to search over.                                                               |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| filter         | ``STRING``             | A filter expression over params, metrics, and tags, that allows returning a subset of                |
-|                |                        | runs. The syntax is a subset of SQL that supports ANDing together binary operations                  |
-|                |                        | between a param, metric, or tag and a constant.                                                      |
-|                |                        |                                                                                                      |
-|                |                        | Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'``                          |
-|                |                        |                                                                                                      |
-|                |                        | You can select columns with special characters (hyphen, space, period, etc.) by using double quotes: |
-|                |                        | ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``                        |
-|                |                        |                                                                                                      |
-|                |                        | Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.                             |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| run_view_type  | :ref:`mlflowviewtype`  | Whether to display only active, only deleted, or all runs.                                           |
-|                |                        | Defaults to only active runs.                                                                        |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| max_results    | ``INT32``              | Maximum number of runs desired. If unspecified, defaults to 1000.                                    |
-|                |                        | All servers are guaranteed to support a `max_results` threshold of at least 50,000                   |
-|                |                        | but may support more. Callers of this endpoint are encouraged to pass max_results                    |
-|                |                        | explicitly and leverage page_token to iterate through experiments.                                   |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| order_by       | An array of ``STRING`` | List of columns to be ordered by, including attributes, params, metrics, and tags with an            |
-|                |                        | optional "DESC" or "ASC" annotation, where "ASC" is the default.                                     |
-|                |                        | Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]                                  |
-|                |                        | Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time           |
-|                |                        | (and this is the default ordering criterion if order_by is not provided).                            |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| page_token     | ``STRING``             |                                                                                                      |
-+----------------+------------------------+------------------------------------------------------------------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| experiment_ids | An array of ``STRING`` | List of experiment IDs to search over.                                                                                                                     |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| filter         | ``STRING``             | A filter expression over params, metrics, and tags, that allows returning a subset of runs. The syntax is a subset of SQL that supports ANDing together    |
+|                |                        | binary operations between a param, metric, or tag and a constant. Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'`` You can      |
+|                |                        | select columns with special characters (hyphen, space, period, etc.) by using double quotes: ``metrics."model class" = 'LinearRegression' and tags."user-  |
+|                |                        | name" = 'Tomas'`` Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.                                                                 |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_view_type  | :ref:`mlflowviewtype`  | Whether to display only active, only deleted, or all runs. Defaults to only active runs.                                                                   |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results    | ``INT32``              | Maximum number of runs desired. If unspecified, defaults to 1000. All servers are guaranteed to support a `max_results` threshold of at least 50,000 but   |
+|                |                        | may support more. Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token to iterate through experiments.           |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by       | An array of ``STRING`` | List of columns to be ordered by, including attributes, params, metrics, and tags with an optional "DESC" or "ASC" annotation, where "ASC" is the default. |
+|                |                        | Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"] Tiebreaks are done by start_time DESC followed by run_id for runs with the same start  |
+|                |                        | time (and this is the default ordering criterion if order_by is not provided).                                                                             |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token     | ``STRING``             |                                                                                                                                                            |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchRunsResponse:
 
@@ -879,37 +823,27 @@ Request Structure
 
 
 
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-|   Field Name   |    Type    |                                          Description                                          |
-+================+============+===============================================================================================+
-| run_id         | ``STRING`` | ID of the run under which to log the metric. Must be provided.                                |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| run_uuid       | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will |
-|                |            | be removed in a future MLflow version.                                                        |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| key            | ``STRING`` | Name of the metric.                                                                           |
-|                |            | This field is required.                                                                       |
-|                |            |                                                                                               |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| value          | ``DOUBLE`` | Double value of the metric being logged.                                                      |
-|                |            | This field is required.                                                                       |
-|                |            |                                                                                               |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| timestamp      | ``INT64``  | Unix timestamp in milliseconds at the time metric was logged.                                 |
-|                |            | This field is required.                                                                       |
-|                |            |                                                                                               |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| step           | ``INT64``  | Step at which to log the metric                                                               |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| model_id       | ``STRING`` | ID of the logged model associated with the metric, if applicable                              |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| dataset_name   | ``STRING`` | The name of the dataset associated with the metric.                                           |
-|                |            | E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"                                    |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
-| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric,                                     |
-|                |            | e.g. an md5 hash of the dataset that uniquely identifies it                                   |
-|                |            | within datasets of the same name.                                                             |
-+----------------+------------+-----------------------------------------------------------------------------------------------+
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |    Type    |                                                                       Description                                                                       |
++================+============+=========================================================================================================================================================+
+| run_id         | ``STRING`` | ID of the run under which to log the metric. Must be provided.                                                                                          |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid       | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will be removed in a future MLflow version.                    |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key            | ``STRING`` | Name of the metric. This field is required.                                                                                                             |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value          | ``DOUBLE`` | Double value of the metric being logged. This field is required.                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| timestamp      | ``INT64``  | Unix timestamp in milliseconds at the time metric was logged. This field is required.                                                                   |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| step           | ``INT64``  | Step at which to log the metric                                                                                                                         |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id       | ``STRING`` | ID of the logged model associated with the metric, if applicable                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_name   | ``STRING`` | The name of the dataset associated with the metric. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"                                          |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric, e.g. an md5 hash of the dataset that uniquely identifies it within datasets of the same name. |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -944,22 +878,17 @@ Request Structure
 
 
 
-+------------+------------+----------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                         Description                                          |
-+============+============+==============================================================================================+
-| run_id     | ``STRING`` | ID of the run under which to log the param. Must be provided.                                |
-+------------+------------+----------------------------------------------------------------------------------------------+
-| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the param. This field will |
-|            |            | be removed in a future MLflow version.                                                       |
-+------------+------------+----------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the param. Maximum size is 255 bytes.                                                |
-|            |            | This field is required.                                                                      |
-|            |            |                                                                                              |
-+------------+------------+----------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the param being logged. Maximum size is 6000 bytes.                          |
-|            |            | This field is required.                                                                      |
-|            |            |                                                                                              |
-+------------+------------+----------------------------------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                             Description                                                             |
++============+============+=====================================================================================================================================+
+| run_id     | ``STRING`` | ID of the run under which to log the param. Must be provided.                                                                       |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the param. This field will be removed in a future MLflow version. |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the param. Maximum size is 255 bytes. This field is required.                                                               |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the param being logged. Maximum size is 6000 bytes. This field is required.                                         |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -1039,20 +968,17 @@ Request Structure
 
 
 
-+------------+---------------------------------+---------------------------------------------------------------------------------+
-| Field Name |              Type               |                                   Description                                   |
-+============+=================================+=================================================================================+
-| run_id     | ``STRING``                      | ID of the run to log under                                                      |
-+------------+---------------------------------+---------------------------------------------------------------------------------+
-| metrics    | An array of :ref:`mlflowmetric` | Metrics to log. A single request can contain up to 1000 metrics, and up to 1000 |
-|            |                                 | metrics, params, and tags in total.                                             |
-+------------+---------------------------------+---------------------------------------------------------------------------------+
-| params     | An array of :ref:`mlflowparam`  | Params to log. A single request can contain up to 100 params, and up to 1000    |
-|            |                                 | metrics, params, and tags in total.                                             |
-+------------+---------------------------------+---------------------------------------------------------------------------------+
-| tags       | An array of :ref:`mlflowruntag` | Tags to log. A single request can contain up to 100 tags, and up to 1000        |
-|            |                                 | metrics, params, and tags in total.                                             |
-+------------+---------------------------------+---------------------------------------------------------------------------------+
++------------+---------------------------------+---------------------------------------------------------------------------------------------------------------------+
+| Field Name |              Type               |                                                     Description                                                     |
++============+=================================+=====================================================================================================================+
+| run_id     | ``STRING``                      | ID of the run to log under                                                                                          |
++------------+---------------------------------+---------------------------------------------------------------------------------------------------------------------+
+| metrics    | An array of :ref:`mlflowmetric` | Metrics to log. A single request can contain up to 1000 metrics, and up to 1000 metrics, params, and tags in total. |
++------------+---------------------------------+---------------------------------------------------------------------------------------------------------------------+
+| params     | An array of :ref:`mlflowparam`  | Params to log. A single request can contain up to 100 params, and up to 1000 metrics, params, and tags in total.    |
++------------+---------------------------------+---------------------------------------------------------------------------------------------------------------------+
+| tags       | An array of :ref:`mlflowruntag` | Tags to log. A single request can contain up to 100 tags, and up to 1000 metrics, params, and tags in total.        |
++------------+---------------------------------+---------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -1125,18 +1051,15 @@ Request Structure
 
 
 
-+------------+---------------------------------------+-----------------------------------------------------------+
-| Field Name |                 Type                  |                        Description                        |
-+============+=======================================+===========================================================+
-| run_id     | ``STRING``                            | ID of the run to log under                                |
-|            |                                       | This field is required.                                   |
-|            |                                       |                                                           |
-+------------+---------------------------------------+-----------------------------------------------------------+
-| datasets   | An array of :ref:`mlflowdatasetinput` | Dataset inputs                                            |
-+------------+---------------------------------------+-----------------------------------------------------------+
-| models     | An array of :ref:`mlflowmodelinput`   | Model inputs                                              |
-|            |                                       | (Currently undocumented for LoggedModels private preview) |
-+------------+---------------------------------------+-----------------------------------------------------------+
++------------+---------------------------------------+------------------------------------------------------------------------+
+| Field Name |                 Type                  |                              Description                               |
++============+=======================================+========================================================================+
+| run_id     | ``STRING``                            | ID of the run to log under This field is required.                     |
++------------+---------------------------------------+------------------------------------------------------------------------+
+| datasets   | An array of :ref:`mlflowdatasetinput` | Dataset inputs                                                         |
++------------+---------------------------------------+------------------------------------------------------------------------+
+| models     | An array of :ref:`mlflowmodelinput`   | Model inputs (Currently undocumented for LoggedModels private preview) |
++------------+---------------------------------------+------------------------------------------------------------------------+
 
 ===========================
 
@@ -1170,24 +1093,18 @@ Request Structure
 
 
 
-+------------+------------+--------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                        Description                                         |
-+============+============+============================================================================================+
-| run_id     | ``STRING`` | ID of the run under which to log the tag. Must be provided.                                |
-+------------+------------+--------------------------------------------------------------------------------------------+
-| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will |
-|            |            | be removed in a future MLflow version.                                                     |
-+------------+------------+--------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                  |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.         |
-|            |            | This field is required.                                                                    |
-|            |            |                                                                                            |
-+------------+------------+--------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.             |
-|            |            | All storage backends are guaranteed to support key values up to 5000 bytes in size.        |
-|            |            | This field is required.                                                                    |
-|            |            |                                                                                            |
-+------------+------------+--------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| run_id     | ``STRING`` | ID of the run under which to log the tag. Must be provided.                                                                                                                |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will be removed in a future MLflow version.                                          |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size. This field is required.       |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 5000 bytes in size. This    |
+|            |            | field is required.                                                                                                                                                         |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -1221,17 +1138,13 @@ Request Structure
 
 
 
-+------------+------------+----------------------------------------------------------------+
-| Field Name |    Type    |                          Description                           |
-+============+============+================================================================+
-| run_id     | ``STRING`` | ID of the run that the tag was logged under. Must be provided. |
-|            |            | This field is required.                                        |
-|            |            |                                                                |
-+------------+------------+----------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes. Must be provided.  |
-|            |            | This field is required.                                        |
-|            |            |                                                                |
-+------------+------------+----------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                      Description                                       |
++============+============+========================================================================================+
+| run_id     | ``STRING`` | ID of the run that the tag was logged under. Must be provided. This field is required. |
++------------+------------+----------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes. Must be provided. This field is required.  |
++------------+------------+----------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -1264,25 +1177,21 @@ Request Structure
 
 
 
-+-------------+------------+------------------------------------------------------------------------------------------------+
-| Field Name  |    Type    |                                          Description                                           |
-+=============+============+================================================================================================+
-| run_id      | ``STRING`` | ID of the run from which to fetch metric values. Must be provided.                             |
-+-------------+------------+------------------------------------------------------------------------------------------------+
-| run_uuid    | ``STRING`` | [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field   |
-|             |            | will be removed in a future MLflow version.                                                    |
-+-------------+------------+------------------------------------------------------------------------------------------------+
-| metric_key  | ``STRING`` | Name of the metric.                                                                            |
-|             |            | This field is required.                                                                        |
-|             |            |                                                                                                |
-+-------------+------------+------------------------------------------------------------------------------------------------+
-| page_token  | ``STRING`` | Token indicating the page of metric history to fetch                                           |
-+-------------+------------+------------------------------------------------------------------------------------------------+
-| max_results | ``INT32``  | Maximum number of logged instances of a metric for a run to return per call.                   |
-|             |            | Backend servers may restrict the value of `max_results` depending on performance requirements. |
-|             |            | Requests that do not specify this value will behave as non-paginated queries where all         |
-|             |            | metric history values for a given metric within a run are returned in a single response.       |
-+-------------+------------+------------------------------------------------------------------------------------------------+
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |    Type    |                                                                                Description                                                                                |
++=============+============+===========================================================================================================================================================================+
+| run_id      | ``STRING`` | ID of the run from which to fetch metric values. Must be provided.                                                                                                        |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid    | ``STRING`` | [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field will be removed in a future MLflow version.                                  |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| metric_key  | ``STRING`` | Name of the metric. This field is required.                                                                                                                               |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING`` | Token indicating the page of metric history to fetch                                                                                                                      |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT32``  | Maximum number of logged instances of a metric for a run to return per call. Backend servers may restrict the value of `max_results` depending on performance             |
+|             |            | requirements. Requests that do not specify this value will behave as non-paginated queries where all metric history values for a given metric within a run are returned   |
+|             |            | in a single response.                                                                                                                                                     |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGetMetricHistoryResponse:
 
@@ -1294,14 +1203,14 @@ Response Structure
 
 
 
-+-----------------+---------------------------------+-------------------------------------------------------------------------------------+
-|   Field Name    |              Type               |                                     Description                                     |
-+=================+=================================+=====================================================================================+
-| metrics         | An array of :ref:`mlflowmetric` | All logged values for this metric.                                                  |
-+-----------------+---------------------------------+-------------------------------------------------------------------------------------+
-| next_page_token | ``STRING``                      | Token that can be used to issue a query for the next page of metric history values. |
-|                 |                                 | A missing token indicates that no additional metrics are available to fetch.        |
-+-----------------+---------------------------------+-------------------------------------------------------------------------------------+
++-----------------+---------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |              Type               |                                                                   Description                                                                    |
++=================+=================================+==================================================================================================================================================+
+| metrics         | An array of :ref:`mlflowmetric` | All logged values for this metric.                                                                                                               |
++-----------------+---------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| next_page_token | ``STRING``                      | Token that can be used to issue a query for the next page of metric history values. A missing token indicates that no additional metrics are     |
+|                 |                                 | available to fetch.                                                                                                                              |
++-----------------+---------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -1335,18 +1244,17 @@ Request Structure
 
 
 
-+------------+------------+-----------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                       Description                                       |
-+============+============+=========================================================================================+
-| run_id     | ``STRING`` | ID of the run whose artifacts to list. Must be provided.                                |
-+------------+------------+-----------------------------------------------------------------------------------------+
-| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will |
-|            |            | be removed in a future MLflow version.                                                  |
-+------------+------------+-----------------------------------------------------------------------------------------+
-| path       | ``STRING`` | Filter artifacts matching this path (a relative path from the root artifact directory). |
-+------------+------------+-----------------------------------------------------------------------------------------+
-| page_token | ``STRING`` | Token indicating the page of artifact results to fetch                                  |
-+------------+------------+-----------------------------------------------------------------------------------------+
++------------+------------+--------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                          Description                                                           |
++============+============+================================================================================================================================+
+| run_id     | ``STRING`` | ID of the run whose artifacts to list. Must be provided.                                                                       |
++------------+------------+--------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will be removed in a future MLflow version. |
++------------+------------+--------------------------------------------------------------------------------------------------------------------------------+
+| path       | ``STRING`` | Filter artifacts matching this path (a relative path from the root artifact directory).                                        |
++------------+------------+--------------------------------------------------------------------------------------------------------------------------------+
+| page_token | ``STRING`` | Token indicating the page of artifact results to fetch                                                                         |
++------------+------------+--------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListArtifactsResponse:
 
@@ -1677,14 +1585,13 @@ Request Structure
 +==============+==============================================================+========================================================================================================================+
 | secret_name  | ``STRING``                                                   | User-friendly name for the secret (must be unique)                                                                     |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| secret_value | An array of :ref:`mlflowcreategatewaysecretsecretvalueentry` | The secret value(s) to encrypt as key-value pairs.                                                                     |
-|              |                                                              | For simple API keys: {"api_key": "sk-xxx"}                                                                             |
-|              |                                                              | For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}                                 |
+| secret_value | An array of :ref:`mlflowcreategatewaysecretsecretvalueentry` | The secret value(s) to encrypt as key-value pairs. For simple API keys: {"api_key": "sk-xxx"} For compound             |
+|              |                                                              | credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}                                              |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | provider     | ``STRING``                                                   | Optional LLM provider (e.g., "openai", "anthropic")                                                                    |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| auth_config  | An array of :ref:`mlflowcreategatewaysecretauthconfigentry`  | Optional provider-specific auth configuration.                                                                         |
-|              |                                                              | For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}) |
+| auth_config  | An array of :ref:`mlflowcreategatewaysecretauthconfigentry`  | Optional provider-specific auth configuration. For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode":  |
+|              |                                                              | "access_keys", "aws_region_name": "us-east-1"})                                                                        |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | created_by   | ``STRING``                                                   | Username of the creator                                                                                                |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
@@ -1796,12 +1703,11 @@ Request Structure
 +==============+==============================================================+========================================================================================================================+
 | secret_id    | ``STRING``                                                   | ID of the secret to update                                                                                             |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| secret_value | An array of :ref:`mlflowupdategatewaysecretsecretvalueentry` | Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).                              |
-|              |                                                              | For simple API keys: {"api_key": "sk-xxx"}                                                                             |
-|              |                                                              | For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}                                 |
+| secret_value | An array of :ref:`mlflowupdategatewaysecretsecretvalueentry` | Optional new secret value(s) for key rotation as key-value pairs (empty map = no change). For simple API keys:         |
+|              |                                                              | {"api_key": "sk-xxx"} For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}           |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| auth_config  | An array of :ref:`mlflowupdategatewaysecretauthconfigentry`  | Optional new auth configuration.                                                                                       |
-|              |                                                              | For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}) |
+| auth_config  | An array of :ref:`mlflowupdategatewaysecretauthconfigentry`  | Optional new auth configuration. For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", |
+|              |                                                              | "aws_region_name": "us-east-1"})                                                                                       |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | updated_by   | ``STRING``                                                   | Username of the updater                                                                                                |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
@@ -3078,19 +2984,17 @@ Request Structure
 
 
 
-+-------------------+---------------------------------------------+--------------------------------------------+
-|    Field Name     |                    Type                     |                Description                 |
-+===================+=============================================+============================================+
-| name              | ``STRING``                                  | Register models under this name            |
-|                   |                                             | This field is required.                    |
-|                   |                                             |                                            |
-+-------------------+---------------------------------------------+--------------------------------------------+
-| tags              | An array of :ref:`mlflowregisteredmodeltag` | Additional metadata for registered model.  |
-+-------------------+---------------------------------------------+--------------------------------------------+
-| description       | ``STRING``                                  | Optional description for registered model. |
-+-------------------+---------------------------------------------+--------------------------------------------+
-| deployment_job_id | ``STRING``                                  | Deployment job id for this model.          |
-+-------------------+---------------------------------------------+--------------------------------------------+
++-------------------+---------------------------------------------+---------------------------------------------------------+
+|    Field Name     |                    Type                     |                       Description                       |
++===================+=============================================+=========================================================+
+| name              | ``STRING``                                  | Register models under this name This field is required. |
++-------------------+---------------------------------------------+---------------------------------------------------------+
+| tags              | An array of :ref:`mlflowregisteredmodeltag` | Additional metadata for registered model.               |
++-------------------+---------------------------------------------+---------------------------------------------------------+
+| description       | ``STRING``                                  | Optional description for registered model.              |
++-------------------+---------------------------------------------+---------------------------------------------------------+
+| deployment_job_id | ``STRING``                                  | Deployment job id for this model.                       |
++-------------------+---------------------------------------------+---------------------------------------------------------+
 
 .. _mlflowCreateRegisteredModelResponse:
 
@@ -3139,13 +3043,11 @@ Request Structure
 
 
 
-+------------+------------+------------------------------------------+
-| Field Name |    Type    |               Description                |
-+============+============+==========================================+
-| name       | ``STRING`` | Registered model unique name identifier. |
-|            |            | This field is required.                  |
-|            |            |                                          |
-+------------+------------+------------------------------------------+
++------------+------------+------------------------------------------------------------------+
+| Field Name |    Type    |                           Description                            |
++============+============+==================================================================+
+| name       | ``STRING`` | Registered model unique name identifier. This field is required. |
++------------+------------+------------------------------------------------------------------+
 
 .. _mlflowGetRegisteredModelResponse:
 
@@ -3194,15 +3096,13 @@ Request Structure
 
 
 
-+------------+------------+--------------------------------------------------------------+
-| Field Name |    Type    |                         Description                          |
-+============+============+==============================================================+
-| name       | ``STRING`` | Registered model unique name identifier.                     |
-|            |            | This field is required.                                      |
-|            |            |                                                              |
-+------------+------------+--------------------------------------------------------------+
-| new_name   | ``STRING`` | If provided, updates the name for this ``registered_model``. |
-+------------+------------+--------------------------------------------------------------+
++------------+------------+------------------------------------------------------------------+
+| Field Name |    Type    |                           Description                            |
++============+============+==================================================================+
+| name       | ``STRING`` | Registered model unique name identifier. This field is required. |
++------------+------------+------------------------------------------------------------------+
+| new_name   | ``STRING`` | If provided, updates the name for this ``registered_model``.     |
++------------+------------+------------------------------------------------------------------+
 
 .. _mlflowRenameRegisteredModelResponse:
 
@@ -3254,9 +3154,7 @@ Request Structure
 +-------------------+------------+---------------------------------------------------------------------+
 |    Field Name     |    Type    |                             Description                             |
 +===================+============+=====================================================================+
-| name              | ``STRING`` | Registered model unique name identifier.                            |
-|                   |            | This field is required.                                             |
-|                   |            |                                                                     |
+| name              | ``STRING`` | Registered model unique name identifier. This field is required.    |
 +-------------------+------------+---------------------------------------------------------------------+
 | description       | ``STRING`` | If provided, updates the description for this ``registered_model``. |
 +-------------------+------------+---------------------------------------------------------------------+
@@ -3310,13 +3208,11 @@ Request Structure
 
 
 
-+------------+------------+------------------------------------------+
-| Field Name |    Type    |               Description                |
-+============+============+==========================================+
-| name       | ``STRING`` | Registered model unique name identifier. |
-|            |            | This field is required.                  |
-|            |            |                                          |
-+------------+------------+------------------------------------------+
++------------+------------+------------------------------------------------------------------+
+| Field Name |    Type    |                           Description                            |
++============+============+==================================================================+
+| name       | ``STRING`` | Registered model unique name identifier. This field is required. |
++------------+------------+------------------------------------------------------------------+
 
 ===========================
 
@@ -3349,21 +3245,19 @@ Request Structure
 
 
 
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| Field Name  |          Type          |                                        Description                                         |
-+=============+========================+============================================================================================+
-| filter      | ``STRING``             | String filter condition, like "name LIKE 'my-model-name'".                                 |
-|             |                        | Interpreted in the backend automatically as "name LIKE '%my-model-name%'".                 |
-|             |                        | Single boolean condition, with string values wrapped in single quotes.                     |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| max_results | ``INT64``              | Maximum number of models desired. Default is 100. Max threshold is 1000.                   |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| order_by    | An array of ``STRING`` | List of columns for ordering search results, which can include model name and last updated |
-|             |                        | timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.         |
-|             |                        | Tiebreaks are done by model name ASC.                                                      |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
-| page_token  | ``STRING``             | Pagination token to go to the next page based on a previous search query.                  |
-+-------------+------------------------+--------------------------------------------------------------------------------------------+
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |          Type          |                                                                          Description                                                                          |
++=============+========================+===============================================================================================================================================================+
+| filter      | ``STRING``             | String filter condition, like "name LIKE 'my-model-name'". Interpreted in the backend automatically as "name LIKE '%my-model-name%'". Single boolean          |
+|             |                        | condition, with string values wrapped in single quotes.                                                                                                       |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT64``              | Maximum number of models desired. Default is 100. Max threshold is 1000.                                                                                      |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING`` | List of columns for ordering search results, which can include model name and last updated timestamp with an optional "DESC" or "ASC" annotation, where "ASC" |
+|             |                        | is the default. Tiebreaks are done by model name ASC.                                                                                                         |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``             | Pagination token to go to the next page based on a previous search query.                                                                                     |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchRegisteredModelsResponse:
 
@@ -3414,15 +3308,13 @@ Request Structure
 
 
 
-+------------+------------------------+------------------------------------------+
-| Field Name |          Type          |               Description                |
-+============+========================+==========================================+
-| name       | ``STRING``             | Registered model unique name identifier. |
-|            |                        | This field is required.                  |
-|            |                        |                                          |
-+------------+------------------------+------------------------------------------+
-| stages     | An array of ``STRING`` | List of stages.                          |
-+------------+------------------------+------------------------------------------+
++------------+------------------------+------------------------------------------------------------------+
+| Field Name |          Type          |                           Description                            |
++============+========================+==================================================================+
+| name       | ``STRING``             | Registered model unique name identifier. This field is required. |
++------------+------------------------+------------------------------------------------------------------+
+| stages     | An array of ``STRING`` | List of stages.                                                  |
++------------+------------------------+------------------------------------------------------------------+
 
 .. _mlflowGetLatestVersionsResponse:
 
@@ -3434,12 +3326,12 @@ Response Structure
 
 
 
-+----------------+---------------------------------------+--------------------------------------------------------------------------------------------------+
-|   Field Name   |                 Type                  |                                           Description                                            |
-+================+=======================================+==================================================================================================+
-| model_versions | An array of :ref:`mlflowmodelversion` | Latest version models for each requests stage. Only return models with current ``READY`` status. |
-|                |                                       | If no ``stages`` provided, returns the latest version for each stage, including ``"None"``.      |
-+----------------+---------------------------------------+--------------------------------------------------------------------------------------------------+
++----------------+---------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |                 Type                  |                                                                 Description                                                                 |
++================+=======================================+=============================================================================================================================================+
+| model_versions | An array of :ref:`mlflowmodelversion` | Latest version models for each requests stage. Only return models with current ``READY`` status. If no ``stages`` provided, returns the     |
+|                |                                       | latest version for each stage, including ``"None"``.                                                                                        |
++----------------+---------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -3472,29 +3364,23 @@ Request Structure
 
 
 
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| Field Name  |                   Type                   |                                                Description                                                 |
-+=============+==========================================+============================================================================================================+
-| name        | ``STRING``                               | Register model under this name                                                                             |
-|             |                                          | This field is required.                                                                                    |
-|             |                                          |                                                                                                            |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| source      | ``STRING``                               | URI indicating the location of the model artifacts.                                                        |
-|             |                                          | This field is required.                                                                                    |
-|             |                                          |                                                                                                            |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| run_id      | ``STRING``                               | MLflow run ID for correlation, if ``source`` was generated by an experiment run in                         |
-|             |                                          | MLflow tracking server                                                                                     |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| tags        | An array of :ref:`mlflowmodelversiontag` | Additional metadata for model version.                                                                     |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| run_link    | ``STRING``                               | MLflow run link - this is the exact link of the run that generated this model version,                     |
-|             |                                          | potentially hosted at another instance of MLflow.                                                          |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| description | ``STRING``                               | Optional description for model version.                                                                    |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
-| model_id    | ``STRING``                               | Optional `model_id` for model version that is used to link the registered model to the source logged model |
-+-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------+
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |                   Type                   |                                                               Description                                                                |
++=============+==========================================+==========================================================================================================================================+
+| name        | ``STRING``                               | Register model under this name This field is required.                                                                                   |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| source      | ``STRING``                               | URI indicating the location of the model artifacts. This field is required.                                                              |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| run_id      | ``STRING``                               | MLflow run ID for correlation, if ``source`` was generated by an experiment run in MLflow tracking server                                |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| tags        | An array of :ref:`mlflowmodelversiontag` | Additional metadata for model version.                                                                                                   |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| run_link    | ``STRING``                               | MLflow run link - this is the exact link of the run that generated this model version, potentially hosted at another instance of MLflow. |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| description | ``STRING``                               | Optional description for model version.                                                                                                  |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id    | ``STRING``                               | Optional `model_id` for model version that is used to link the registered model to the source logged model                               |
++-------------+------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateModelVersionResponse:
 
@@ -3543,17 +3429,13 @@ Request Structure
 
 
 
-+------------+------------+------------------------------+
-| Field Name |    Type    |         Description          |
-+============+============+==============================+
-| name       | ``STRING`` | Name of the registered model |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
-| version    | ``STRING`` | Model version number         |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
++------------+------------+------------------------------------------------------+
+| Field Name |    Type    |                     Description                      |
++============+============+======================================================+
+| name       | ``STRING`` | Name of the registered model This field is required. |
++------------+------------+------------------------------------------------------+
+| version    | ``STRING`` | Model version number This field is required.         |
++------------+------------+------------------------------------------------------+
 
 .. _mlflowGetModelVersionResponse:
 
@@ -3605,13 +3487,9 @@ Request Structure
 +-------------+------------+---------------------------------------------------------------------+
 | Field Name  |    Type    |                             Description                             |
 +=============+============+=====================================================================+
-| name        | ``STRING`` | Name of the registered model                                        |
-|             |            | This field is required.                                             |
-|             |            |                                                                     |
+| name        | ``STRING`` | Name of the registered model This field is required.                |
 +-------------+------------+---------------------------------------------------------------------+
-| version     | ``STRING`` | Model version number                                                |
-|             |            | This field is required.                                             |
-|             |            |                                                                     |
+| version     | ``STRING`` | Model version number This field is required.                        |
 +-------------+------------+---------------------------------------------------------------------+
 | description | ``STRING`` | If provided, updates the description for this ``registered_model``. |
 +-------------+------------+---------------------------------------------------------------------+
@@ -3663,17 +3541,13 @@ Request Structure
 
 
 
-+------------+------------+------------------------------+
-| Field Name |    Type    |         Description          |
-+============+============+==============================+
-| name       | ``STRING`` | Name of the registered model |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
-| version    | ``STRING`` | Model version number         |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
++------------+------------+------------------------------------------------------+
+| Field Name |    Type    |                     Description                      |
++============+============+======================================================+
+| name       | ``STRING`` | Name of the registered model This field is required. |
++------------+------------+------------------------------------------------------+
+| version    | ``STRING`` | Model version number This field is required.         |
++------------+------------+------------------------------------------------------+
 
 ===========================
 
@@ -3706,22 +3580,18 @@ Request Structure
 
 
 
-+-------------+------------------------+----------------------------------------------------------------------------------------------+
-| Field Name  |          Type          |                                         Description                                          |
-+=============+========================+==============================================================================================+
-| filter      | ``STRING``             | String filter condition, like "name='my-model-name'". Must be a single boolean condition,    |
-|             |                        | with string values wrapped in single quotes.                                                 |
-+-------------+------------------------+----------------------------------------------------------------------------------------------+
-| max_results | ``INT64``              | Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default |
-|             |                        | value and maximum threshold.                                                                 |
-+-------------+------------------------+----------------------------------------------------------------------------------------------+
-| order_by    | An array of ``STRING`` | List of columns to be ordered by including model name, version, stage with an                |
-|             |                        | optional "DESC" or "ASC" annotation, where "ASC" is the default.                             |
-|             |                        | Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by   |
-|             |                        | version DESC.                                                                                |
-+-------------+------------------------+----------------------------------------------------------------------------------------------+
-| page_token  | ``STRING``             | Pagination token to go to next page based on previous search query.                          |
-+-------------+------------------------+----------------------------------------------------------------------------------------------+
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |          Type          |                                                                          Description                                                                          |
++=============+========================+===============================================================================================================================================================+
+| filter      | ``STRING``             | String filter condition, like "name='my-model-name'". Must be a single boolean condition, with string values wrapped in single quotes.                        |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT64``              | Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default value and maximum threshold.                                     |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING`` | List of columns to be ordered by including model name, version, stage with an optional "DESC" or "ASC" annotation, where "ASC" is the default. Tiebreaks are  |
+|             |                        | done by latest stage transition timestamp, followed by name ASC, followed by version DESC.                                                                    |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``             | Pagination token to go to next page based on previous search query.                                                                                           |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchModelVersionsResponse:
 
@@ -3772,17 +3642,13 @@ Request Structure
 
 
 
-+------------+------------+------------------------------+
-| Field Name |    Type    |         Description          |
-+============+============+==============================+
-| name       | ``STRING`` | Name of the registered model |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
-| version    | ``STRING`` | Model version number         |
-|            |            | This field is required.      |
-|            |            |                              |
-+------------+------------+------------------------------+
++------------+------------+------------------------------------------------------+
+| Field Name |    Type    |                     Description                      |
++============+============+======================================================+
+| name       | ``STRING`` | Name of the registered model This field is required. |
++------------+------------+------------------------------------------------------+
+| version    | ``STRING`` | Model version number This field is required.         |
++------------+------------+------------------------------------------------------+
 
 .. _mlflowGetModelVersionDownloadUriResponse:
 
@@ -3831,28 +3697,19 @@ Request Structure
 
 
 
-+---------------------------+------------+-------------------------------------------------------------------------------------------+
-|        Field Name         |    Type    |                                        Description                                        |
-+===========================+============+===========================================================================================+
-| name                      | ``STRING`` | Name of the registered model                                                              |
-|                           |            | This field is required.                                                                   |
-|                           |            |                                                                                           |
-+---------------------------+------------+-------------------------------------------------------------------------------------------+
-| version                   | ``STRING`` | Model version number                                                                      |
-|                           |            | This field is required.                                                                   |
-|                           |            |                                                                                           |
-+---------------------------+------------+-------------------------------------------------------------------------------------------+
-| stage                     | ``STRING`` | Transition `model_version` to new stage.                                                  |
-|                           |            | This field is required.                                                                   |
-|                           |            |                                                                                           |
-+---------------------------+------------+-------------------------------------------------------------------------------------------+
-| archive_existing_versions | ``BOOL``   | When transitioning a model version to a particular stage, this flag dictates whether all  |
-|                           |            | existing model versions in that stage should be atomically moved to the "archived" stage. |
-|                           |            | This ensures that at-most-one model version exists in the target stage.                   |
-|                           |            | This field is *required* when transitioning a model versions's stage                      |
-|                           |            | This field is required.                                                                   |
-|                           |            |                                                                                           |
-+---------------------------+------------+-------------------------------------------------------------------------------------------+
++---------------------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|        Field Name         |    Type    |                                                                         Description                                                                         |
++===========================+============+=============================================================================================================================================================+
+| name                      | ``STRING`` | Name of the registered model This field is required.                                                                                                        |
++---------------------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| version                   | ``STRING`` | Model version number This field is required.                                                                                                                |
++---------------------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| stage                     | ``STRING`` | Transition `model_version` to new stage. This field is required.                                                                                            |
++---------------------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| archive_existing_versions | ``BOOL``   | When transitioning a model version to a particular stage, this flag dictates whether all existing model versions in that stage should be atomically moved   |
+|                           |            | to the "archived" stage. This ensures that at-most-one model version exists in the target stage. This field is *required* when transitioning a model        |
+|                           |            | versions's stage This field is required.                                                                                                                    |
++---------------------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowTransitionModelVersionStageResponse:
 
@@ -3901,23 +3758,16 @@ Request Structure
 
 
 
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                               Description                                                |
-+============+============+==========================================================================================================+
-| name       | ``STRING`` | Unique name of the model.                                                                                |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                                |
-|            |            | If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.                       |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.                           |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| name       | ``STRING`` | Unique name of the model. This field is required.                                                                                                                          |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend. If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. All     |
+|            |            | storage backends are guaranteed to support key values up to 250 bytes in size. This field is required.                                                                     |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. This field is required.                                                                     |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -3950,27 +3800,18 @@ Request Structure
 
 
 
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                               Description                                                |
-+============+============+==========================================================================================================+
-| name       | ``STRING`` | Unique name of the model.                                                                                |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| version    | ``STRING`` | Model version number.                                                                                    |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                                |
-|            |            | If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.                       |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.                           |
-|            |            | This field is required.                                                                                  |
-|            |            |                                                                                                          |
-+------------+------------+----------------------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| name       | ``STRING`` | Unique name of the model. This field is required.                                                                                                                          |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| version    | ``STRING`` | Model version number. This field is required.                                                                                                                              |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend. If a tag with this name already exists, its preexisting value will be replaced by the specified `value`. All     |
+|            |            | storage backends are guaranteed to support key values up to 250 bytes in size. This field is required.                                                                     |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. This field is required.                                                                     |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -4003,17 +3844,13 @@ Request Structure
 
 
 
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                                    Description                                                    |
-+============+============+===================================================================================================================+
-| name       | ``STRING`` | Name of the registered model that the tag was logged under.                                                       |
-|            |            | This field is required.                                                                                           |
-|            |            |                                                                                                                   |
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes. |
-|            |            | This field is required.                                                                                           |
-|            |            |                                                                                                                   |
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                Description                                                                |
++============+============+===========================================================================================================================================+
+| name       | ``STRING`` | Name of the registered model that the tag was logged under. This field is required.                                                       |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes. This field is required. |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -4046,21 +3883,15 @@ Request Structure
 
 
 
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                                    Description                                                    |
-+============+============+===================================================================================================================+
-| name       | ``STRING`` | Name of the registered model that the tag was logged under.                                                       |
-|            |            | This field is required.                                                                                           |
-|            |            |                                                                                                                   |
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
-| version    | ``STRING`` | Model version number that the tag was logged under.                                                               |
-|            |            | This field is required.                                                                                           |
-|            |            |                                                                                                                   |
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes. |
-|            |            | This field is required.                                                                                           |
-|            |            |                                                                                                                   |
-+------------+------------+-------------------------------------------------------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                Description                                                                |
++============+============+===========================================================================================================================================+
+| name       | ``STRING`` | Name of the registered model that the tag was logged under. This field is required.                                                       |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
+| version    | ``STRING`` | Model version number that the tag was logged under. This field is required.                                                               |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes. This field is required. |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -4093,23 +3924,16 @@ Request Structure
 
 
 
-+------------+------------+---------------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                                  Description                                                  |
-+============+============+===============================================================================================================+
-| name       | ``STRING`` | Name of the registered model.                                                                                 |
-|            |            | This field is required.                                                                                       |
-|            |            |                                                                                                               |
-+------------+------------+---------------------------------------------------------------------------------------------------------------+
-| alias      | ``STRING`` | Name of the alias. Maximum size depends on storage backend.                                                   |
-|            |            | If an alias with this name already exists, its preexisting value will be replaced by the specified `version`. |
-|            |            | All storage backends are guaranteed to support alias name values up to 256 bytes in size.                     |
-|            |            | This field is required.                                                                                       |
-|            |            |                                                                                                               |
-+------------+------------+---------------------------------------------------------------------------------------------------------------+
-| version    | ``STRING`` | Model version number.                                                                                         |
-|            |            | This field is required.                                                                                       |
-|            |            |                                                                                                               |
-+------------+------------+---------------------------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| name       | ``STRING`` | Name of the registered model. This field is required.                                                                                                                      |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| alias      | ``STRING`` | Name of the alias. Maximum size depends on storage backend. If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.  |
+|            |            | All storage backends are guaranteed to support alias name values up to 256 bytes in size. This field is required.                                                          |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| version    | ``STRING`` | Model version number. This field is required.                                                                                                                              |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -4142,17 +3966,13 @@ Request Structure
 
 
 
-+------------+------------+---------------------------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                                     Description                                                     |
-+============+============+=====================================================================================================================+
-| name       | ``STRING`` | Name of the registered model.                                                                                       |
-|            |            | This field is required.                                                                                             |
-|            |            |                                                                                                                     |
-+------------+------------+---------------------------------------------------------------------------------------------------------------------+
-| alias      | ``STRING`` | Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes. |
-|            |            | This field is required.                                                                                             |
-|            |            |                                                                                                                     |
-+------------+------------+---------------------------------------------------------------------------------------------------------------------+
++------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                 Description                                                                 |
++============+============+=============================================================================================================================================+
+| name       | ``STRING`` | Name of the registered model. This field is required.                                                                                       |
++------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+| alias      | ``STRING`` | Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes. This field is required. |
++------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================
 
@@ -4185,17 +4005,13 @@ Request Structure
 
 
 
-+------------+------------+-----------------------------------------------+
-| Field Name |    Type    |                  Description                  |
-+============+============+===============================================+
-| name       | ``STRING`` | Name of the registered model.                 |
-|            |            | This field is required.                       |
-|            |            |                                               |
-+------------+------------+-----------------------------------------------+
-| alias      | ``STRING`` | Name of the alias. Maximum size is 256 bytes. |
-|            |            | This field is required.                       |
-|            |            |                                               |
-+------------+------------+-----------------------------------------------+
++------------+------------+-----------------------------------------------------------------------+
+| Field Name |    Type    |                              Description                              |
++============+============+=======================================================================+
+| name       | ``STRING`` | Name of the registered model. This field is required.                 |
++------------+------------+-----------------------------------------------------------------------+
+| alias      | ``STRING`` | Name of the alias. Maximum size is 256 bytes. This field is required. |
++------------+------------+-----------------------------------------------------------------------+
 
 .. _mlflowGetModelVersionByAliasResponse:
 
@@ -4244,27 +4060,21 @@ Request Structure
 Create webhook request
 
 
-+-------------+---------------------------------------+------------------------------------------------------+
-| Field Name  |                 Type                  |                     Description                      |
-+=============+=======================================+======================================================+
-| name        | ``STRING``                            | Name of the webhook                                  |
-|             |                                       | This field is required.                              |
-|             |                                       |                                                      |
-+-------------+---------------------------------------+------------------------------------------------------+
-| description | ``STRING``                            | Optional description for the webhook                 |
-+-------------+---------------------------------------+------------------------------------------------------+
-| url         | ``STRING``                            | URL to send webhook events to                        |
-|             |                                       | This field is required.                              |
-|             |                                       |                                                      |
-+-------------+---------------------------------------+------------------------------------------------------+
-| events      | An array of :ref:`mlflowwebhookevent` | List of events to subscribe to                       |
-|             |                                       | This field is required.                              |
-|             |                                       |                                                      |
-+-------------+---------------------------------------+------------------------------------------------------+
-| secret      | ``STRING``                            | Secret key for HMAC signature verification           |
-+-------------+---------------------------------------+------------------------------------------------------+
-| status      | :ref:`mlflowwebhookstatus`            | Initial status (defaults to ACTIVE if not specified) |
-+-------------+---------------------------------------+------------------------------------------------------+
++-------------+---------------------------------------+--------------------------------------------------------+
+| Field Name  |                 Type                  |                      Description                       |
++=============+=======================================+========================================================+
+| name        | ``STRING``                            | Name of the webhook This field is required.            |
++-------------+---------------------------------------+--------------------------------------------------------+
+| description | ``STRING``                            | Optional description for the webhook                   |
++-------------+---------------------------------------+--------------------------------------------------------+
+| url         | ``STRING``                            | URL to send webhook events to This field is required.  |
++-------------+---------------------------------------+--------------------------------------------------------+
+| events      | An array of :ref:`mlflowwebhookevent` | List of events to subscribe to This field is required. |
++-------------+---------------------------------------+--------------------------------------------------------+
+| secret      | ``STRING``                            | Secret key for HMAC signature verification             |
++-------------+---------------------------------------+--------------------------------------------------------+
+| status      | :ref:`mlflowwebhookstatus`            | Initial status (defaults to ACTIVE if not specified)   |
++-------------+---------------------------------------+--------------------------------------------------------+
 
 .. _mlflowCreateWebhookResponse:
 
@@ -4370,13 +4180,11 @@ Request Structure
 Get webhook request
 
 
-+------------+------------+-------------------------------+
-| Field Name |    Type    |          Description          |
-+============+============+===============================+
-| webhook_id | ``STRING`` | ID of the webhook to retrieve |
-|            |            | This field is required.       |
-|            |            |                               |
-+------------+------------+-------------------------------+
++------------+------------+-------------------------------------------------------+
+| Field Name |    Type    |                      Description                      |
++============+============+=======================================================+
+| webhook_id | ``STRING`` | ID of the webhook to retrieve This field is required. |
++------------+------------+-------------------------------------------------------+
 
 .. _mlflowGetWebhookResponse:
 
@@ -4425,25 +4233,23 @@ Request Structure
 Update webhook request
 
 
-+-------------+---------------------------------------+------------------------------------+
-| Field Name  |                 Type                  |            Description             |
-+=============+=======================================+====================================+
-| webhook_id  | ``STRING``                            | ID of the webhook to update        |
-|             |                                       | This field is required.            |
-|             |                                       |                                    |
-+-------------+---------------------------------------+------------------------------------+
-| name        | ``STRING``                            | New name for the webhook           |
-+-------------+---------------------------------------+------------------------------------+
-| description | ``STRING``                            | New description for the webhook    |
-+-------------+---------------------------------------+------------------------------------+
-| url         | ``STRING``                            | New URL for the webhook            |
-+-------------+---------------------------------------+------------------------------------+
-| events      | An array of :ref:`mlflowwebhookevent` | New list of events to subscribe to |
-+-------------+---------------------------------------+------------------------------------+
-| secret      | ``STRING``                            | New secret key for HMAC signature  |
-+-------------+---------------------------------------+------------------------------------+
-| status      | :ref:`mlflowwebhookstatus`            | New status for the webhook         |
-+-------------+---------------------------------------+------------------------------------+
++-------------+---------------------------------------+-----------------------------------------------------+
+| Field Name  |                 Type                  |                     Description                     |
++=============+=======================================+=====================================================+
+| webhook_id  | ``STRING``                            | ID of the webhook to update This field is required. |
++-------------+---------------------------------------+-----------------------------------------------------+
+| name        | ``STRING``                            | New name for the webhook                            |
++-------------+---------------------------------------+-----------------------------------------------------+
+| description | ``STRING``                            | New description for the webhook                     |
++-------------+---------------------------------------+-----------------------------------------------------+
+| url         | ``STRING``                            | New URL for the webhook                             |
++-------------+---------------------------------------+-----------------------------------------------------+
+| events      | An array of :ref:`mlflowwebhookevent` | New list of events to subscribe to                  |
++-------------+---------------------------------------+-----------------------------------------------------+
+| secret      | ``STRING``                            | New secret key for HMAC signature                   |
++-------------+---------------------------------------+-----------------------------------------------------+
+| status      | :ref:`mlflowwebhookstatus`            | New status for the webhook                          |
++-------------+---------------------------------------+-----------------------------------------------------+
 
 .. _mlflowUpdateWebhookResponse:
 
@@ -4492,13 +4298,11 @@ Request Structure
 Delete webhook request
 
 
-+------------+------------+-----------------------------+
-| Field Name |    Type    |         Description         |
-+============+============+=============================+
-| webhook_id | ``STRING`` | ID of the webhook to delete |
-|            |            | This field is required.     |
-|            |            |                             |
-+------------+------------+-----------------------------+
++------------+------------+-----------------------------------------------------+
+| Field Name |    Type    |                     Description                     |
++============+============+=====================================================+
+| webhook_id | ``STRING`` | ID of the webhook to delete This field is required. |
++------------+------------+-----------------------------------------------------+
 
 ===========================
 
@@ -4531,16 +4335,13 @@ Request Structure
 Test webhook request
 
 
-+------------+---------------------------+---------------------------------------------------------------------------------+
-| Field Name |           Type            |                                   Description                                   |
-+============+===========================+=================================================================================+
-| webhook_id | ``STRING``                | ID of the webhook to test                                                       |
-|            |                           | This field is required.                                                         |
-|            |                           |                                                                                 |
-+------------+---------------------------+---------------------------------------------------------------------------------+
-| event      | :ref:`mlflowwebhookevent` | Optional event type to test. If not specified, defaults to the first event type |
-|            |                           | in the webhook's subscribed events.                                             |
-+------------+---------------------------+---------------------------------------------------------------------------------+
++------------+---------------------------+---------------------------------------------------------------------------------------------------------------------+
+| Field Name |           Type            |                                                     Description                                                     |
++============+===========================+=====================================================================================================================+
+| webhook_id | ``STRING``                | ID of the webhook to test This field is required.                                                                   |
++------------+---------------------------+---------------------------------------------------------------------------------------------------------------------+
+| event      | :ref:`mlflowwebhookevent` | Optional event type to test. If not specified, defaults to the first event type in the webhook's subscribed events. |
++------------+---------------------------+---------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowTestWebhookResponse:
 
@@ -4828,15 +4629,13 @@ AddDatasetToExperiments
 
 
 
-+----------------+------------------------+----------------------------------------------+
-|   Field Name   |          Type          |                 Description                  |
-+================+========================+==============================================+
-| dataset_id     | ``STRING``             | Dataset ID to add to experiments             |
-|                |                        | This field is required.                      |
-|                |                        |                                              |
-+----------------+------------------------+----------------------------------------------+
-| experiment_ids | An array of ``STRING`` | Experiment IDs to associate with the dataset |
-+----------------+------------------------+----------------------------------------------+
++----------------+------------------------+----------------------------------------------------------+
+|   Field Name   |          Type          |                       Description                        |
++================+========================+==========================================================+
+| dataset_id     | ``STRING``             | Dataset ID to add to experiments This field is required. |
++----------------+------------------------+----------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Experiment IDs to associate with the dataset             |
++----------------+------------------------+----------------------------------------------------------+
 
 .. _mlflowassessmentsAssessment:
 
@@ -4851,13 +4650,11 @@ Data and metadata for an assessment of a trace.
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 |           Field Name            |                                  Type                                   |                                       Description                                        |
 +=================================+=========================================================================+==========================================================================================+
-| assessment_id                   | ``STRING``                                                              | Unique ID of the assessment.                                                             |
-|                                 |                                                                         | NB: This is not marked as required field via "validate_required", because the message is |
-|                                 |                                                                         |  used in the context of creating a new assessment, where the ID is not known.            |
+| assessment_id                   | ``STRING``                                                              | Unique ID of the assessment. NB: This is not marked as required field via                |
+|                                 |                                                                         | "validate_required", because the message is used in the context of creating a new        |
+|                                 |                                                                         | assessment, where the ID is not known.                                                   |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| assessment_name                 | ``STRING``                                                              | Name of the assessment. The name must not contain ".".                                   |
-|                                 |                                                                         | This field is required.                                                                  |
-|                                 |                                                                         |                                                                                          |
+| assessment_name                 | ``STRING``                                                              | Name of the assessment. The name must not contain ".". This field is required.           |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 | trace_id                        | ``STRING``                                                              | ID of the trace this assessment is associated with.                                      |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
@@ -4871,26 +4668,16 @@ Data and metadata for an assessment of a trace.
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 | rationale                       | ``STRING``                                                              | Justification for the assessment.                                                        |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| metadata                        | An array of :ref:`mlflowassessmentsassessmentmetadataentry`             | Additional metadata describing the assessment and store additional information,          |
-|                                 |                                                                         | such as the chunk relevance chunk_index. This metadata is required to be JSON-           |
-|                                 |                                                                         | serializable.                                                                            |
+| metadata                        | An array of :ref:`mlflowassessmentsassessmentmetadataentry`             | Additional metadata describing the assessment and store additional information, such as  |
+|                                 |                                                                         | the chunk relevance chunk_index. This metadata is required to be JSON-serializable.      |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 | overrides                       | ``STRING``                                                              | The ID of the assessment which this assessment overrides.                                |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| valid                           | ``BOOL``                                                                | Whether this assessment is valid (i.e. has not been superseded)                          |
-|                                 |                                                                         | defaults to true, and is set to false if a new superseding assessment                    |
-|                                 |                                                                         | is created.                                                                              |
+| valid                           | ``BOOL``                                                                | Whether this assessment is valid (i.e. has not been superseded) defaults to true, and is |
+|                                 |                                                                         | set to false if a new superseding assessment is created.                                 |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| ``feedback`` OR ``expectation`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation` |                                                                                          |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         | If ``feedback``, the feedback on the trace from this assessment.                         |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         |                                                                                          |
-|                                 |                                                                         | If ``expectation``, a representation of the guidelines and/or expected response from the |
-|                                 |                                                                         | agent.                                                                                   |
+| ``feedback`` OR ``expectation`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation` | If ``feedback``, the feedback on the trace from this assessment. If ``expectation``, a   |
+|                                 |                                                                         | representation of the guidelines and/or expected response from the agent.                |
 +---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
 
 .. _mlflowassessmentsAssessmentError:
@@ -4923,18 +4710,14 @@ AssessmentSource
 
 
 
-+-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
-| Field Name  |                        Type                        |                                                Description                                                |
-+=============+====================================================+===========================================================================================================+
-| source_type | :ref:`mlflowassessmentsassessmentsourcesourcetype` | The type of the source.                                                                                   |
-|             |                                                    | This field is required.                                                                                   |
-|             |                                                    |                                                                                                           |
-+-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
-| source_id   | ``STRING``                                         | Identifier for the source.                                                                                |
-|             |                                                    | Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty. |
-|             |                                                    | This field is required.                                                                                   |
-|             |                                                    |                                                                                                           |
-+-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------+
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |                        Type                        |                                                            Description                                                            |
++=============+====================================================+===================================================================================================================================+
+| source_type | :ref:`mlflowassessmentsassessmentsourcesourcetype` | The type of the source. This field is required.                                                                                   |
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
+| source_id   | ``STRING``                                         | Identifier for the source. Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code ->     |
+|             |                                                    | empty. This field is required.                                                                                                    |
++-------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGatewaySecretInfoAuthConfigEntry:
 
@@ -5016,18 +4799,17 @@ CalculateTraceFilterCorrelation
 
 
 
-+----------------+------------------------+-------------------------------------------------------------------------+
-|   Field Name   |          Type          |                               Description                               |
-+================+========================+=========================================================================+
-| experiment_ids | An array of ``STRING`` | List of experiment IDs to search within.                                |
-+----------------+------------------------+-------------------------------------------------------------------------+
-| filter_string1 | ``STRING``             | First filter condition (e.g., "span.type = 'LLM'").                     |
-+----------------+------------------------+-------------------------------------------------------------------------+
-| filter_string2 | ``STRING``             | Second filter condition (e.g., "feedback.quality > 0.8").               |
-+----------------+------------------------+-------------------------------------------------------------------------+
-| base_filter    | ``STRING``             | Optional base filter that both filter1 and filter2 are tested on top of |
-|                |                        | (e.g., 'request_time > ... and request_time < ...' for time windows).   |
-+----------------+------------------------+-------------------------------------------------------------------------+
++----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                  Description                                                                  |
++================+========================+===============================================================================================================================================+
+| experiment_ids | An array of ``STRING`` | List of experiment IDs to search within.                                                                                                      |
++----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| filter_string1 | ``STRING``             | First filter condition (e.g., "span.type = 'LLM'").                                                                                           |
++----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| filter_string2 | ``STRING``             | Second filter condition (e.g., "feedback.quality > 0.8").                                                                                     |
++----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| base_filter    | ``STRING``             | Optional base filter that both filter1 and filter2 are tested on top of (e.g., 'request_time > ... and request_time < ...' for time windows). |
++----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateAssessment:
 
@@ -5039,13 +4821,11 @@ CreateAssessment
 
 
 
-+------------+------------------------------------+---------------------------+
-| Field Name |                Type                |        Description        |
-+============+====================================+===========================+
-| assessment | :ref:`mlflowassessmentsassessment` | The assessment to create. |
-|            |                                    | This field is required.   |
-|            |                                    |                           |
-+------------+------------------------------------+---------------------------+
++------------+------------------------------------+---------------------------------------------------+
+| Field Name |                Type                |                    Description                    |
++============+====================================+===================================================+
+| assessment | :ref:`mlflowassessmentsassessment` | The assessment to create. This field is required. |
++------------+------------------------------------+---------------------------------------------------+
 
 .. _mlflowCreateDataset:
 
@@ -5060,9 +4840,7 @@ CreateDataset
 +----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
 |   Field Name   |                        Type                        |                                      Description                                       |
 +================+====================================================+========================================================================================+
-| name           | ``STRING``                                         | Dataset name                                                                           |
-|                |                                                    | This field is required.                                                                |
-|                |                                                    |                                                                                        |
+| name           | ``STRING``                                         | Dataset name This field is required.                                                   |
 +----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
 | experiment_ids | An array of ``STRING``                             | Associated experiment IDs. If not provided, defaults to the current active experiment. |
 +----------------+----------------------------------------------------+----------------------------------------------------------------------------------------+
@@ -5092,9 +4870,7 @@ CreateLoggedModel
 +---------------+-----------------------------------------------+-------------------------------------------------------------------------------+
 |  Field Name   |                     Type                      |                                  Description                                  |
 +===============+===============================================+===============================================================================+
-| experiment_id | ``STRING``                                    | ID of the associated experiment.                                              |
-|               |                                               | This field is required.                                                       |
-|               |                                               |                                                                               |
+| experiment_id | ``STRING``                                    | ID of the associated experiment. This field is required.                      |
 +---------------+-----------------------------------------------+-------------------------------------------------------------------------------+
 | name          | ``STRING``                                    | Name of the model. Optional. If not specified, the backend will generate one. |
 +---------------+-----------------------------------------------+-------------------------------------------------------------------------------+
@@ -5118,34 +4894,23 @@ Dataset. Represents a reference to data used for training, testing, or evaluatio
 the model development process.
 
 
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| Field Name  |    Type    |                                         Description                                          |
-+=============+============+==============================================================================================+
-| name        | ``STRING`` | The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"          |
-|             |            | This field is required.                                                                      |
-|             |            |                                                                                              |
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| digest      | ``STRING`` | Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it                  |
-|             |            | within datasets of the same name.                                                            |
-|             |            | This field is required.                                                                      |
-|             |            |                                                                                              |
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| source_type | ``STRING`` | The type of the dataset source, e.g. 'databricks-uc-table', 'DBFS', 'S3', ...                |
-|             |            | This field is required.                                                                      |
-|             |            |                                                                                              |
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| source      | ``STRING`` | Source information for the dataset. Note that the source may not exactly reproduce the       |
-|             |            | dataset if it was transformed / modified before use with MLflow.                             |
-|             |            | This field is required.                                                                      |
-|             |            |                                                                                              |
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| schema      | ``STRING`` | The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, MLflow TensorSpec JSON |
-|             |            | for an ndarray, or another schema format.                                                    |
-+-------------+------------+----------------------------------------------------------------------------------------------+
-| profile     | ``STRING`` | The profile of the dataset. Summary statistics for the dataset, such as the number of rows   |
-|             |            | in a table, the mean / std / mode of each column in a table, or the number of elements       |
-|             |            | in an array.                                                                                 |
-+-------------+------------+----------------------------------------------------------------------------------------------+
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |    Type    |                                                                                Description                                                                                |
++=============+============+===========================================================================================================================================================================+
+| name        | ``STRING`` | The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3" This field is required.                                                               |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| digest      | ``STRING`` | Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it within datasets of the same name. This field is required.                                     |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| source_type | ``STRING`` | The type of the dataset source, e.g. 'databricks-uc-table', 'DBFS', 'S3', ... This field is required.                                                                     |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| source      | ``STRING`` | Source information for the dataset. Note that the source may not exactly reproduce the dataset if it was transformed / modified before use with MLflow. This field is     |
+|             |            | required.                                                                                                                                                                 |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| schema      | ``STRING`` | The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, MLflow TensorSpec JSON for an ndarray, or another schema format.                                    |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| profile     | ``STRING`` | The profile of the dataset. Summary statistics for the dataset, such as the number of rows in a table, the mean / std / mode of each column in a table, or the number of  |
+|             |            | elements in an array.                                                                                                                                                     |
++-------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchLoggedModelsDataset:
 
@@ -5157,15 +4922,13 @@ Dataset
 
 
 
-+----------------+------------+----------------------------+
-|   Field Name   |    Type    |        Description         |
-+================+============+============================+
-| dataset_name   | ``STRING`` | The name of the dataset.   |
-|                |            | This field is required.    |
-|                |            |                            |
-+----------------+------------+----------------------------+
-| dataset_digest | ``STRING`` | The digest of the dataset. |
-+----------------+------------+----------------------------+
++----------------+------------+--------------------------------------------------+
+|   Field Name   |    Type    |                   Description                    |
++================+============+==================================================+
+| dataset_name   | ``STRING`` | The name of the dataset. This field is required. |
++----------------+------------+--------------------------------------------------+
+| dataset_digest | ``STRING`` | The digest of the dataset.                       |
++----------------+------------+--------------------------------------------------+
 
 .. _mlflowdatasetsDataset:
 
@@ -5218,9 +4981,7 @@ DatasetInput. Represents a dataset and input tags.
 +============+===================================+==================================================================================+
 | tags       | An array of :ref:`mlflowinputtag` | A list of tags for the dataset input, e.g. a "context" tag with value "training" |
 +------------+-----------------------------------+----------------------------------------------------------------------------------+
-| dataset    | :ref:`mlflowdataset`              | The dataset being used as a Run input.                                           |
-|            |                                   | This field is required.                                                          |
-|            |                                   |                                                                                  |
+| dataset    | :ref:`mlflowdataset`              | The dataset being used as a Run input. This field is required.                   |
 +------------+-----------------------------------+----------------------------------------------------------------------------------+
 
 .. _mlflowdatasetsDatasetRecord:
@@ -5291,24 +5052,17 @@ DatasetSummary
 DatasetSummary. Represents a summary of information about a dataset.
 
 
-+---------------+------------+-------------------------------------------------------------------------------------+
-|  Field Name   |    Type    |                                     Description                                     |
-+===============+============+=====================================================================================+
-| experiment_id | ``STRING`` | Unique identifier for the experiment.                                               |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
-| name          | ``STRING`` | The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3" |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
-| digest        | ``STRING`` | Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it         |
-|               |            | within datasets of the same name.                                                   |
-|               |            | This field is required.                                                             |
-|               |            |                                                                                     |
-+---------------+------------+-------------------------------------------------------------------------------------+
-| context       | ``STRING`` | Value of "context" tag if set for the given dataset.                                |
-+---------------+------------+-------------------------------------------------------------------------------------+
++---------------+------------+---------------------------------------------------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                                              Description                                                              |
++===============+============+=======================================================================================================================================+
+| experiment_id | ``STRING`` | Unique identifier for the experiment. This field is required.                                                                         |
++---------------+------------+---------------------------------------------------------------------------------------------------------------------------------------+
+| name          | ``STRING`` | The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3" This field is required.                           |
++---------------+------------+---------------------------------------------------------------------------------------------------------------------------------------+
+| digest        | ``STRING`` | Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it within datasets of the same name. This field is required. |
++---------------+------------+---------------------------------------------------------------------------------------------------------------------------------------+
+| context       | ``STRING`` | Value of "context" tag if set for the given dataset.                                                                                  |
++---------------+------------+---------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowDeleteAssessment:
 
@@ -5321,17 +5075,13 @@ A request to delete an assessment identified by its trace_id and assessment_id.
 The response is empty on successful deletion.
 
 
-+---------------+------------+---------------------------+
-|  Field Name   |    Type    |        Description        |
-+===============+============+===========================+
-| trace_id      | ``STRING`` | The ID of the trace.      |
-|               |            | This field is required.   |
-|               |            |                           |
-+---------------+------------+---------------------------+
-| assessment_id | ``STRING`` | The ID of the assessment. |
-|               |            | This field is required.   |
-|               |            |                           |
-+---------------+------------+---------------------------+
++---------------+------------+---------------------------------------------------+
+|  Field Name   |    Type    |                    Description                    |
++===============+============+===================================================+
+| trace_id      | ``STRING`` | The ID of the trace. This field is required.      |
++---------------+------------+---------------------------------------------------+
+| assessment_id | ``STRING`` | The ID of the assessment. This field is required. |
++---------------+------------+---------------------------------------------------+
 
 .. _mlflowDeleteDataset:
 
@@ -5343,13 +5093,11 @@ DeleteDataset
 
 
 
-+------------+------------+-------------------------+
-| Field Name |    Type    |       Description       |
-+============+============+=========================+
-| dataset_id | ``STRING`` | Dataset ID to delete    |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
++------------+------------+----------------------------------------------+
+| Field Name |    Type    |                 Description                  |
++============+============+==============================================+
+| dataset_id | ``STRING`` | Dataset ID to delete This field is required. |
++------------+------------+----------------------------------------------+
 
 .. _mlflowDeleteDatasetTag:
 
@@ -5361,17 +5109,13 @@ DeleteDatasetTag
 
 
 
-+------------+------------+-------------------------------+
-| Field Name |    Type    |          Description          |
-+============+============+===============================+
-| dataset_id | ``STRING`` | Dataset ID to delete tag from |
-|            |            | This field is required.       |
-|            |            |                               |
-+------------+------------+-------------------------------+
-| key        | ``STRING`` | Tag key to delete             |
-|            |            | This field is required.       |
-|            |            |                               |
-+------------+------------+-------------------------------+
++------------+------------+-------------------------------------------------------+
+| Field Name |    Type    |                      Description                      |
++============+============+=======================================================+
+| dataset_id | ``STRING`` | Dataset ID to delete tag from This field is required. |
++------------+------------+-------------------------------------------------------+
+| key        | ``STRING`` | Tag key to delete This field is required.             |
++------------+------------+-------------------------------------------------------+
 
 .. _mlflowDeleteLoggedModel:
 
@@ -5383,13 +5127,11 @@ DeleteLoggedModel
 
 
 
-+------------+------------+--------------------------------------+
-| Field Name |    Type    |             Description              |
-+============+============+======================================+
-| model_id   | ``STRING`` | The ID of the LoggedModel to delete. |
-|            |            | This field is required.              |
-|            |            |                                      |
-+------------+------------+--------------------------------------+
++------------+------------+--------------------------------------------------------------+
+| Field Name |    Type    |                         Description                          |
++============+============+==============================================================+
+| model_id   | ``STRING`` | The ID of the LoggedModel to delete. This field is required. |
++------------+------------+--------------------------------------------------------------+
 
 .. _mlflowDeleteLoggedModelTag:
 
@@ -5401,17 +5143,13 @@ DeleteLoggedModelTag
 
 
 
-+------------+------------+---------------------------------------------------+
-| Field Name |    Type    |                    Description                    |
-+============+============+===================================================+
-| model_id   | ``STRING`` | The ID of the LoggedModel to delete the tag from. |
-|            |            | This field is required.                           |
-|            |            |                                                   |
-+------------+------------+---------------------------------------------------+
-| tag_key    | ``STRING`` | The tag key.                                      |
-|            |            | This field is required.                           |
-|            |            |                                                   |
-+------------+------------+---------------------------------------------------+
++------------+------------+---------------------------------------------------------------------------+
+| Field Name |    Type    |                                Description                                |
++============+============+===========================================================================+
+| model_id   | ``STRING`` | The ID of the LoggedModel to delete the tag from. This field is required. |
++------------+------------+---------------------------------------------------------------------------+
+| tag_key    | ``STRING`` | The tag key. This field is required.                                      |
++------------+------------+---------------------------------------------------------------------------+
 
 .. _mlflowDeleteTraceTag:
 
@@ -5459,21 +5197,18 @@ DeleteTraces
 
 
 
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-|      Field Name      |          Type          |                                      Description                                      |
-+======================+========================+=======================================================================================+
-| experiment_id        | ``STRING``             | ID of the associated experiment.                                                      |
-|                      |                        | This field is required.                                                               |
-|                      |                        |                                                                                       |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| max_timestamp_millis | ``INT64``              | Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion |
-|                      |                        | The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.       |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| max_traces           | ``INT32``              | The maximum number of traces to delete.                                               |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion                           |
-|                      |                        | A set of request IDs to delete                                                        |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+|      Field Name      |          Type          |                                                                     Description                                                                      |
++======================+========================+======================================================================================================================================================+
+| experiment_id        | ``STRING``             | ID of the associated experiment. This field is required.                                                                                             |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_timestamp_millis | ``INT64``              | Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion The maximum timestamp in milliseconds since the UNIX epoch for |
+|                      |                        | deleting traces.                                                                                                                                     |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_traces           | ``INT32``              | The maximum number of traces to delete.                                                                                                              |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion A set of request IDs to delete                                                           |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowDeleteTracesV3:
 
@@ -5485,21 +5220,18 @@ DeleteTracesV3
 
 
 
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-|      Field Name      |          Type          |                                      Description                                      |
-+======================+========================+=======================================================================================+
-| experiment_id        | ``STRING``             | ID of the associated experiment.                                                      |
-|                      |                        | This field is required.                                                               |
-|                      |                        |                                                                                       |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| max_timestamp_millis | ``INT64``              | Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion |
-|                      |                        | The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.       |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| max_traces           | ``INT32``              | The maximum number of traces to delete.                                               |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
-| request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion                           |
-|                      |                        | A set of request IDs to delete                                                        |
-+----------------------+------------------------+---------------------------------------------------------------------------------------+
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+|      Field Name      |          Type          |                                                                     Description                                                                      |
++======================+========================+======================================================================================================================================================+
+| experiment_id        | ``STRING``             | ID of the associated experiment. This field is required.                                                                                             |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_timestamp_millis | ``INT64``              | Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion The maximum timestamp in milliseconds since the UNIX epoch for |
+|                      |                        | deleting traces.                                                                                                                                     |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_traces           | ``INT32``              | The maximum number of traces to delete.                                                                                                              |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion A set of request IDs to delete                                                           |
++----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowMetricDataPointDimensionsEntry:
 
@@ -5554,25 +5286,21 @@ An expectation for the values or guidelines for the outputs that a model or agen
 from the inputs contained in the trace.
 
 
-+------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
-|    Field Name    |                        Type                        |                                                     Description                                                     |
-+==================+====================================================+=====================================================================================================================+
-| value            | ``google.protobuf.Value``                          | The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a      |
-|                  |                                                    | flexible schema of expectation values but is validated to constrain it to specific types. This means the value must |
-|                  |                                                    | be JSON conforming to one of the following supported types:                                                         |
-|                  |                                                    | * Numeric values like integers or floats                                                                            |
-|                  |                                                    | * Boolean values                                                                                                    |
-|                  |                                                    | * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)               |
-|                  |                                                    | * List values containing only strings (empty lists allowed).                                                        |
-|                  |                                                    |                                                                                                                     |
-|                  |                                                    | Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as |
-|                  |                                                    | a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value`` |
-|                  |                                                    | may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security  |
-|                  |                                                    | risks around their serialization and deserialization.                                                               |
-+------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
-| serialized_value | :ref:`mlflowassessmentsexpectationserializedvalue` | The value of the expecation-based assessment serialized as a string in a specified format. Only one of either       |
-|                  |                                                    | ``serialized_value`` or ``value`` may be defined.                                                                   |
-+------------------+----------------------------------------------------+---------------------------------------------------------------------------------------------------------------------+
++------------------+----------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------+
+|    Field Name    |                        Type                        |                                                         Description                                                          |
++==================+====================================================+==============================================================================================================================+
+| value            | ``google.protobuf.Value``                          | The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a flexible      |
+|                  |                                                    | schema of expectation values but is validated to constrain it to specific types. This means the value must be JSON           |
+|                  |                                                    | conforming to one of the following supported types: * Numeric values like integers or floats * Boolean values * Text value   |
+|                  |                                                    | (can contain JSON text the user wishes to store, but it will only be searchable as text) * List values containing only       |
+|                  |                                                    | strings (empty lists allowed). Other values like null, structs, non-string lists etc. will be rejected. However, they can    |
+|                  |                                                    | instead be serialized as a string and stored in the ``serialized_value`` field instead. Only one of either                   |
+|                  |                                                    | ``serialized_value`` or ``value`` may be defined. We do not support these other formats directly despite using               |
+|                  |                                                    | google.protobuf.Value due to security risks around their serialization and deserialization.                                  |
++------------------+----------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------+
+| serialized_value | :ref:`mlflowassessmentsexpectationserializedvalue` | The value of the expecation-based assessment serialized as a string in a specified format. Only one of either                |
+|                  |                                                    | ``serialized_value`` or ``value`` may be defined.                                                                            |
++------------------+----------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowExperiment:
 
@@ -5584,24 +5312,23 @@ Experiment
 Experiment
 
 
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-|    Field Name     |                  Type                  |                            Description                             |
-+===================+========================================+====================================================================+
-| experiment_id     | ``STRING``                             | Unique identifier for the experiment.                              |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| name              | ``STRING``                             | Human readable name that identifies the experiment.                |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| artifact_location | ``STRING``                             | Location where artifacts for the experiment are stored.            |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| lifecycle_stage   | ``STRING``                             | Current life cycle stage of the experiment: "active" or "deleted". |
-|                   |                                        | Deleted experiments are not returned by APIs.                      |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| last_update_time  | ``INT64``                              | Last update time                                                   |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| creation_time     | ``INT64``                              | Creation time                                                      |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
-| tags              | An array of :ref:`mlflowexperimenttag` | Tags: Additional metadata key-value pairs.                         |
-+-------------------+----------------------------------------+--------------------------------------------------------------------+
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+|    Field Name     |                  Type                  |                                                   Description                                                    |
++===================+========================================+==================================================================================================================+
+| experiment_id     | ``STRING``                             | Unique identifier for the experiment.                                                                            |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| name              | ``STRING``                             | Human readable name that identifies the experiment.                                                              |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| artifact_location | ``STRING``                             | Location where artifacts for the experiment are stored.                                                          |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| lifecycle_stage   | ``STRING``                             | Current life cycle stage of the experiment: "active" or "deleted". Deleted experiments are not returned by APIs. |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| last_update_time  | ``INT64``                              | Last update time                                                                                                 |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| creation_time     | ``INT64``                              | Creation time                                                                                                    |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| tags              | An array of :ref:`mlflowexperimenttag` | Tags: Additional metadata key-value pairs.                                                                       |
++-------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowExperimentTag:
 
@@ -5649,20 +5376,16 @@ Feedback
 Feedback provided on the model / agent output(s) contained in the trace
 
 
-+------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
-| Field Name |                  Type                   |                                              Description                                              |
-+============+=========================================+=======================================================================================================+
-| value      | ``google.protobuf.Value``               | Value of the feedback-based assessment.                                                               |
-|            |                                         | We use google.protobuf.Value to support a flexible schema of feedback values.                         |
-|            |                                         | Supported initial types:                                                                              |
-|            |                                         | - Numeric values like integers or floats                                                              |
-|            |                                         | - Boolean values                                                                                      |
-|            |                                         | - Text value (can contain json text the user wishes to store, but it will only be searchable as text) |
-|            |                                         | - Non-empty list values containing only strings                                                       |
-|            |                                         | - Other values like structs, non-string lists etc. will be rejected for now                           |
-+------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
-| error      | :ref:`mlflowassessmentsassessmenterror` | An error encountered while generating the feedback. Required if value is set to null.                 |
-+------------+-----------------------------------------+-------------------------------------------------------------------------------------------------------+
++------------+-----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |                  Type                   |                                                                  Description                                                                  |
++============+=========================================+===============================================================================================================================================+
+| value      | ``google.protobuf.Value``               | Value of the feedback-based assessment. We use google.protobuf.Value to support a flexible schema of feedback values. Supported initial       |
+|            |                                         | types: - Numeric values like integers or floats - Boolean values - Text value (can contain json text the user wishes to store, but it will    |
+|            |                                         | only be searchable as text) - Non-empty list values containing only strings - Other values like structs, non-string lists etc. will be        |
+|            |                                         | rejected for now                                                                                                                              |
++------------+-----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| error      | :ref:`mlflowassessmentsassessmenterror` | An error encountered while generating the feedback. Required if value is set to null.                                                         |
++------------+-----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowFileInfo:
 
@@ -5732,20 +5455,14 @@ FinalizeLoggedModel
 
 
 
-+------------+--------------------------------+------------------------------------------------------------------------------------+
-| Field Name |              Type              |                                    Description                                     |
-+============+================================+====================================================================================+
-| model_id   | ``STRING``                     | The ID of the LoggedModel to finalize                                              |
-|            |                                | This field is required.                                                            |
-|            |                                |                                                                                    |
-+------------+--------------------------------+------------------------------------------------------------------------------------+
-| status     | :ref:`mlflowloggedmodelstatus` | Whether or not the model is ready for use.                                         |
-|            |                                | Valid values in this message: ENUM<LOGGED_MODEL_READY, LOGGED_MODEL_UPLOAD_FAILED> |
-|            |                                | ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging     |
-|            |                                | the model weights / agent code)                                                    |
-|            |                                | This field is required.                                                            |
-|            |                                |                                                                                    |
-+------------+--------------------------------+------------------------------------------------------------------------------------+
++------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |              Type              |                                                                      Description                                                                       |
++============+================================+========================================================================================================================================================+
+| model_id   | ``STRING``                     | The ID of the LoggedModel to finalize This field is required.                                                                                          |
++------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+| status     | :ref:`mlflowloggedmodelstatus` | Whether or not the model is ready for use. Valid values in this message: ENUM<LOGGED_MODEL_READY, LOGGED_MODEL_UPLOAD_FAILED>                          |
+|            |                                | ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging the model weights / agent code) This field is required.                 |
++------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGatewayEndpoint:
 
@@ -5792,26 +5509,25 @@ Binding between an endpoint and an MLflow resource.
 Uses composite key (endpoint_id, resource_type, resource_id) for identification.
 
 
-+-----------------+------------+-----------------------------------------------------------------------------------+
-|   Field Name    |    Type    |                                    Description                                    |
-+=================+============+===================================================================================+
-| endpoint_id     | ``STRING`` | ID of the endpoint this binding references                                        |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| resource_type   | ``STRING`` | Type of MLflow resource (e.g., "scorer")                                          |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| resource_id     | ``STRING`` | ID of the specific resource instance                                              |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| created_at      | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was created                 |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| last_updated_at | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was last updated            |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| created_by      | ``STRING`` | User ID who created the binding                                                   |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| last_updated_by | ``STRING`` | User ID who last updated the binding                                              |
-+-----------------+------------+-----------------------------------------------------------------------------------+
-| display_name    | ``STRING`` | Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side) |
-|                 |            | Human-readable display name for the resource (e.g., scorer name)                  |
-+-----------------+------------+-----------------------------------------------------------------------------------+
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |    Type    |                                                                    Description                                                                     |
++=================+============+====================================================================================================================================================+
+| endpoint_id     | ``STRING`` | ID of the endpoint this binding references                                                                                                         |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| resource_type   | ``STRING`` | Type of MLflow resource (e.g., "scorer")                                                                                                           |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| resource_id     | ``STRING`` | ID of the specific resource instance                                                                                                               |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| created_at      | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was created                                                                                  |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| last_updated_at | ``INT64``  | Timestamp (milliseconds since epoch) when the binding was last updated                                                                             |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| created_by      | ``STRING`` | User ID who created the binding                                                                                                                    |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| last_updated_by | ``STRING`` | User ID who last updated the binding                                                                                                               |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| display_name    | ``STRING`` | Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side) Human-readable display name for the resource (e.g., scorer name) |
++-----------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGatewayEndpointModelConfig:
 
@@ -5929,29 +5645,28 @@ GatewaySecretInfo
 Secret metadata entity (does not include the decrypted secret value)
 
 
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-|   Field Name    |                            Type                             |                                            Description                                            |
-+=================+=============================================================+===================================================================================================+
-| secret_id       | ``STRING``                                                  | Unique identifier for the secret (UUID)                                                           |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| secret_name     | ``STRING``                                                  | User-friendly name for the secret (must be unique)                                                |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| masked_values   | An array of :ref:`mlflowgatewaysecretinfomaskedvaluesentry` | Masked version of the secret values for display as key-value pairs.                               |
-|                 |                                                             | For simple API keys: {"api_key": "sk-...xyz123"}                                                  |
-|                 |                                                             | For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}`` |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| created_at      | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was created                                  |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| last_updated_at | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was last updated                             |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| provider        | ``STRING``                                                  | LLM provider identifier (e.g., "openai", "anthropic", "cohere")                                   |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| created_by      | ``STRING``                                                  | User ID who created the secret                                                                    |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| last_updated_by | ``STRING``                                                  | User ID who last updated the secret                                                               |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
-| auth_config     | An array of :ref:`mlflowgatewaysecretinfoauthconfigentry`   | Provider-specific auth configuration (e.g., auth_mode, region, project_id)                        |
-+-----------------+-------------------------------------------------------------+---------------------------------------------------------------------------------------------------+
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |                            Type                             |                                                     Description                                                      |
++=================+=============================================================+======================================================================================================================+
+| secret_id       | ``STRING``                                                  | Unique identifier for the secret (UUID)                                                                              |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| secret_name     | ``STRING``                                                  | User-friendly name for the secret (must be unique)                                                                   |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| masked_values   | An array of :ref:`mlflowgatewaysecretinfomaskedvaluesentry` | Masked version of the secret values for display as key-value pairs. For simple API keys: {"api_key": "sk-...xyz123"} |
+|                 |                                                             | For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}``                    |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| created_at      | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was created                                                     |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| last_updated_at | ``INT64``                                                   | Timestamp (milliseconds since epoch) when the secret was last updated                                                |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| provider        | ``STRING``                                                  | LLM provider identifier (e.g., "openai", "anthropic", "cohere")                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| created_by      | ``STRING``                                                  | User ID who created the secret                                                                                       |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| last_updated_by | ``STRING``                                                  | User ID who last updated the secret                                                                                  |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| auth_config     | An array of :ref:`mlflowgatewaysecretinfoauthconfigentry`   | Provider-specific auth configuration (e.g., auth_mode, region, project_id)                                           |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGetAssessmentRequest:
 
@@ -5963,17 +5678,13 @@ GetAssessmentRequest
 
 
 
-+---------------+------------+------------------------------------------------+
-|  Field Name   |    Type    |                  Description                   |
-+===============+============+================================================+
-| trace_id      | ``STRING`` | The ID of the trace the assessment belongs to. |
-|               |            | This field is required.                        |
-|               |            |                                                |
-+---------------+------------+------------------------------------------------+
-| assessment_id | ``STRING`` | The ID of the assessment.                      |
-|               |            | This field is required.                        |
-|               |            |                                                |
-+---------------+------------+------------------------------------------------+
++---------------+------------+------------------------------------------------------------------------+
+|  Field Name   |    Type    |                              Description                               |
++===============+============+========================================================================+
+| trace_id      | ``STRING`` | The ID of the trace the assessment belongs to. This field is required. |
++---------------+------------+------------------------------------------------------------------------+
+| assessment_id | ``STRING`` | The ID of the assessment. This field is required.                      |
++---------------+------------+------------------------------------------------------------------------+
 
 .. _mlflowGetDataset:
 
@@ -5988,9 +5699,7 @@ GetDataset
 +------------+------------+--------------------------------------------+
 | Field Name |    Type    |                Description                 |
 +============+============+============================================+
-| dataset_id | ``STRING`` | Dataset ID                                 |
-|            |            | This field is required.                    |
-|            |            |                                            |
+| dataset_id | ``STRING`` | Dataset ID This field is required.         |
 +------------+------------+--------------------------------------------+
 | page_token | ``STRING`` | Optional page token for paginating records |
 +------------+------------+--------------------------------------------+
@@ -6005,13 +5714,11 @@ GetDatasetExperimentIds
 
 
 
-+------------+------------+--------------------------------------+
-| Field Name |    Type    |             Description              |
-+============+============+======================================+
-| dataset_id | ``STRING`` | Dataset ID to get experiment IDs for |
-|            |            | This field is required.              |
-|            |            |                                      |
-+------------+------------+--------------------------------------+
++------------+------------+--------------------------------------------------------------+
+| Field Name |    Type    |                         Description                          |
++============+============+==============================================================+
+| dataset_id | ``STRING`` | Dataset ID to get experiment IDs for This field is required. |
++------------+------------+--------------------------------------------------------------+
 
 .. _mlflowGetDatasetRecords:
 
@@ -6026,9 +5733,7 @@ GetDatasetRecords
 +-------------+------------+-----------------------------------------------------------+
 | Field Name  |    Type    |                        Description                        |
 +=============+============+===========================================================+
-| dataset_id  | ``STRING`` | Dataset ID to get records for                             |
-|             |            | This field is required.                                   |
-|             |            |                                                           |
+| dataset_id  | ``STRING`` | Dataset ID to get records for This field is required.     |
 +-------------+------------+-----------------------------------------------------------+
 | max_results | ``INT32``  | Optional pagination - maximum number of records to return |
 +-------------+------------+-----------------------------------------------------------+
@@ -6045,13 +5750,11 @@ GetLoggedModel
 
 
 
-+------------+------------+----------------------------------------+
-| Field Name |    Type    |              Description               |
-+============+============+========================================+
-| model_id   | ``STRING`` | The ID of the LoggedModel to retrieve. |
-|            |            | This field is required.                |
-|            |            |                                        |
-+------------+------------+----------------------------------------+
++------------+------------+----------------------------------------------------------------+
+| Field Name |    Type    |                          Description                           |
++============+============+================================================================+
+| model_id   | ``STRING`` | The ID of the LoggedModel to retrieve. This field is required. |
++------------+------------+----------------------------------------------------------------+
 
 .. _mlflowGetMetricHistoryBulkInterval:
 
@@ -6063,25 +5766,20 @@ GetMetricHistoryBulkInterval
 
 
 
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
-| Field Name  |          Type          |                                         Description                                         |
-+=============+========================+=============================================================================================+
-| run_ids     | An array of ``STRING`` | ID(s) of the run(s) from which to fetch metric values. Must be provided.                    |
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
-| metric_key  | ``STRING``             | Name of the metric.                                                                         |
-|             |                        | This field is required.                                                                     |
-|             |                        |                                                                                             |
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
-| start_step  | ``INT32``              | Optional start step to only fetch metrics after the specified step. Must be defined if      |
-|             |                        | end_step is defined.                                                                        |
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
-| end_step    | ``INT32``              | Optional end step to only fetch metrics before the specified step. Must be defined if       |
-|             |                        | start_step is defined.                                                                      |
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
-| max_results | ``INT32``              | Maximum number of results to fetch per run specified. Must be set to a positive number.     |
-|             |                        | Note, in reality, the API returns at most (max_results + # of run IDs) x (# run IDs) metric |
-|             |                        | data points.                                                                                |
-+-------------+------------------------+---------------------------------------------------------------------------------------------+
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |          Type          |                                                                          Description                                                                          |
++=============+========================+===============================================================================================================================================================+
+| run_ids     | An array of ``STRING`` | ID(s) of the run(s) from which to fetch metric values. Must be provided.                                                                                      |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| metric_key  | ``STRING``             | Name of the metric. This field is required.                                                                                                                   |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| start_step  | ``INT32``              | Optional start step to only fetch metrics after the specified step. Must be defined if end_step is defined.                                                   |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| end_step    | ``INT32``              | Optional end step to only fetch metrics before the specified step. Must be defined if start_step is defined.                                                  |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT32``              | Maximum number of results to fetch per run specified. Must be set to a positive number. Note, in reality, the API returns at most (max_results + # of run     |
+|             |                        | IDs) x (# run IDs) metric data points.                                                                                                                        |
++-------------+------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGetOnlineTraceDetails:
 
@@ -6093,27 +5791,17 @@ GetOnlineTraceDetails
 
 
 
-+------------------------------+------------+-----------------------------------------------+
-|          Field Name          |    Type    |                  Description                  |
-+==============================+============+===============================================+
-| trace_id                     | ``STRING`` | Trace ID to retrieve                          |
-|                              |            | This field is required.                       |
-|                              |            |                                               |
-+------------------------------+------------+-----------------------------------------------+
-| sql_warehouse_id             | ``STRING`` | SQL warehouse to use for query                |
-|                              |            | This field is required.                       |
-|                              |            |                                               |
-+------------------------------+------------+-----------------------------------------------+
-| source_inference_table       | ``STRING`` | Source inference table to use for query       |
-|                              |            | ie. "ml.bbqiu.codegen_payload"                |
-|                              |            | This field is required.                       |
-|                              |            |                                               |
-+------------------------------+------------+-----------------------------------------------+
-| source_databricks_request_id | ``STRING`` | Source databricks request id to use for query |
-|                              |            | ie. "8d1992ce-ba3d-49e9-9701-e9b323c5cc8c"    |
-|                              |            | This field is required.                       |
-|                              |            |                                               |
-+------------------------------+------------+-----------------------------------------------+
++------------------------------+------------+------------------------------------------------------------------------------------------------------------------+
+|          Field Name          |    Type    |                                                   Description                                                    |
++==============================+============+==================================================================================================================+
+| trace_id                     | ``STRING`` | Trace ID to retrieve This field is required.                                                                     |
++------------------------------+------------+------------------------------------------------------------------------------------------------------------------+
+| sql_warehouse_id             | ``STRING`` | SQL warehouse to use for query This field is required.                                                           |
++------------------------------+------------+------------------------------------------------------------------------------------------------------------------+
+| source_inference_table       | ``STRING`` | Source inference table to use for query ie. "ml.bbqiu.codegen_payload" This field is required.                   |
++------------------------------+------------+------------------------------------------------------------------------------------------------------------------+
+| source_databricks_request_id | ``STRING`` | Source databricks request id to use for query ie. "8d1992ce-ba3d-49e9-9701-e9b323c5cc8c" This field is required. |
++------------------------------+------------+------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGetTrace:
 
@@ -6125,15 +5813,13 @@ GetTrace
 
 
 
-+---------------+------------+----------------------------------------------------+
-|  Field Name   |    Type    |                    Description                     |
-+===============+============+====================================================+
-| trace_id      | ``STRING`` | ID of the trace to fetch. Must be provided.        |
-|               |            | This field is required.                            |
-|               |            |                                                    |
-+---------------+------------+----------------------------------------------------+
-| allow_partial | ``BOOL``   | Whether to allow partial traces. Default to False. |
-+---------------+------------+----------------------------------------------------+
++---------------+------------+---------------------------------------------------------------------+
+|  Field Name   |    Type    |                             Description                             |
++===============+============+=====================================================================+
+| trace_id      | ``STRING`` | ID of the trace to fetch. Must be provided. This field is required. |
++---------------+------------+---------------------------------------------------------------------+
+| allow_partial | ``BOOL``   | Whether to allow partial traces. Default to False.                  |
++---------------+------------+---------------------------------------------------------------------+
 
 .. _mlflowGetTraceInfo:
 
@@ -6229,17 +5915,13 @@ InputTag
 Tag for an input.
 
 
-+------------+------------+-------------------------+
-| Field Name |    Type    |       Description       |
-+============+============+=========================+
-| key        | ``STRING`` | The tag key.            |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
-| value      | ``STRING`` | The tag value.          |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
++------------+------------+----------------------------------------+
+| Field Name |    Type    |              Description               |
++============+============+========================================+
+| key        | ``STRING`` | The tag key. This field is required.   |
++------------+------------+----------------------------------------+
+| value      | ``STRING`` | The tag value. This field is required. |
++------------+------------+----------------------------------------+
 
 .. _mlflowJobState:
 
@@ -6252,17 +5934,15 @@ Generic job state message combining status with metadata.
 Provides a unified way to represent job state across different job types.
 
 
-+---------------+------------------------------------------------+------------------------------------------------------+
-|  Field Name   |                      Type                      |                     Description                      |
-+===============+================================================+======================================================+
-| status        | :ref:`mlflowjobstatus`                         | Current status of the job.                           |
-+---------------+------------------------------------------------+------------------------------------------------------+
-| error_message | ``STRING``                                     | Error message if the job failed.                     |
-|               |                                                | Only set when status is JOB_STATUS_FAILED.           |
-+---------------+------------------------------------------------+------------------------------------------------------+
-| metadata      | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs.              |
-|               |                                                | Can be used to store job-specific state information. |
-+---------------+------------------------------------------------+------------------------------------------------------+
++---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+|  Field Name   |                      Type                      |                                         Description                                          |
++===============+================================================+==============================================================================================+
+| status        | :ref:`mlflowjobstatus`                         | Current status of the job.                                                                   |
++---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| error_message | ``STRING``                                     | Error message if the job failed. Only set when status is JOB_STATUS_FAILED.                  |
++---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| metadata      | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
++---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
 
 .. _mlflowLinkPromptsToTrace:
 
@@ -6274,15 +5954,13 @@ LinkPromptsToTrace
 
 
 
-+-----------------+-------------------------------------------------------------+---------------------------------------------+
-|   Field Name    |                            Type                             |                 Description                 |
-+=================+=============================================================+=============================================+
-| trace_id        | ``STRING``                                                  | ID of the trace to link prompt versions to. |
-|                 |                                                             | This field is required.                     |
-|                 |                                                             |                                             |
-+-----------------+-------------------------------------------------------------+---------------------------------------------+
-| prompt_versions | An array of :ref:`mlflowlinkpromptstotracepromptversionref` |                                             |
-+-----------------+-------------------------------------------------------------+---------------------------------------------+
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------+
+|   Field Name    |                            Type                             |                             Description                             |
++=================+=============================================================+=====================================================================+
+| trace_id        | ``STRING``                                                  | ID of the trace to link prompt versions to. This field is required. |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------+
+| prompt_versions | An array of :ref:`mlflowlinkpromptstotracepromptversionref` |                                                                     |
++-----------------+-------------------------------------------------------------+---------------------------------------------------------------------+
 
 .. _mlflowLinkTracesToRun:
 
@@ -6294,16 +5972,13 @@ LinkTracesToRun
 
 
 
-+------------+------------------------+--------------------------------------------------------------------------------+
-| Field Name |          Type          |                                  Description                                   |
-+============+========================+================================================================================+
-| trace_ids  | An array of ``STRING`` | IDs of the traces to link to the run.                                          |
-|            |                        | The maximum number of trace IDs that can be linked in a single request is 100. |
-+------------+------------------------+--------------------------------------------------------------------------------+
-| run_id     | ``STRING``             | ID of the run to link the traces to.                                           |
-|            |                        | This field is required.                                                        |
-|            |                        |                                                                                |
-+------------+------------------------+--------------------------------------------------------------------------------+
++------------+------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Field Name |          Type          |                                                     Description                                                      |
++============+========================+======================================================================================================================+
+| trace_ids  | An array of ``STRING`` | IDs of the traces to link to the run. The maximum number of trace IDs that can be linked in a single request is 100. |
++------------+------------------------+----------------------------------------------------------------------------------------------------------------------+
+| run_id     | ``STRING``             | ID of the run to link the traces to. This field is required.                                                         |
++------------+------------------------+----------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListLoggedModelArtifacts:
 
@@ -6318,9 +5993,7 @@ ListLoggedModelArtifacts
 +-------------------------+------------+-----------------------------------------------------------------------------------------+
 |       Field Name        |    Type    |                                       Description                                       |
 +=========================+============+=========================================================================================+
-| model_id                | ``STRING`` | The ID of the LoggedModel for which to list the artifacts                               |
-|                         |            | This field is required.                                                                 |
-|                         |            |                                                                                         |
+| model_id                | ``STRING`` | The ID of the LoggedModel for which to list the artifacts This field is required.       |
 +-------------------------+------------+-----------------------------------------------------------------------------------------+
 | artifact_directory_path | ``STRING`` | Filter artifacts matching this path (a relative path from the root artifact directory). |
 +-------------------------+------------+-----------------------------------------------------------------------------------------+
@@ -6337,15 +6010,13 @@ LogLoggedModelParamsRequest
 
 
 
-+------------+-----------------------------------------------+-----------------------------------------------+
-| Field Name |                     Type                      |                  Description                  |
-+============+===============================================+===============================================+
-| model_id   | ``STRING``                                    | The ID of the logged model to log params for. |
-|            |                                               | This field is required.                       |
-|            |                                               |                                               |
-+------------+-----------------------------------------------+-----------------------------------------------+
-| params     | An array of :ref:`mlflowloggedmodelparameter` | Parameters attached to the model.             |
-+------------+-----------------------------------------------+-----------------------------------------------+
++------------+-----------------------------------------------+-----------------------------------------------------------------------+
+| Field Name |                     Type                      |                              Description                              |
++============+===============================================+=======================================================================+
+| model_id   | ``STRING``                                    | The ID of the logged model to log params for. This field is required. |
++------------+-----------------------------------------------+-----------------------------------------------------------------------+
+| params     | An array of :ref:`mlflowloggedmodelparameter` | Parameters attached to the model.                                     |
++------------+-----------------------------------------------+-----------------------------------------------------------------------+
 
 .. _mlflowLogOutputs:
 
@@ -6357,15 +6028,13 @@ LogOutputs
 
 
 
-+------------+--------------------------------------+------------------------------------------+
-| Field Name |                 Type                 |               Description                |
-+============+======================================+==========================================+
-| run_id     | ``STRING``                           | ID of the Run from which to log outputs. |
-|            |                                      | This field is required.                  |
-|            |                                      |                                          |
-+------------+--------------------------------------+------------------------------------------+
-| models     | An array of :ref:`mlflowmodeloutput` | Model outputs from the Run.              |
-+------------+--------------------------------------+------------------------------------------+
++------------+--------------------------------------+------------------------------------------------------------------+
+| Field Name |                 Type                 |                           Description                            |
++============+======================================+==================================================================+
+| run_id     | ``STRING``                           | ID of the Run from which to log outputs. This field is required. |
++------------+--------------------------------------+------------------------------------------------------------------+
+| models     | An array of :ref:`mlflowmodeloutput` | Model outputs from the Run.                                      |
++------------+--------------------------------------+------------------------------------------------------------------+
 
 .. _mlflowLoggedModel:
 
@@ -6415,36 +6084,36 @@ A LoggedModelInfo includes logged model attributes,
 tags, and registration info.
 
 
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-|        Field Name         |                         Type                         |                                   Description                                   |
-+===========================+======================================================+=================================================================================+
-| model_id                  | ``STRING``                                           | A unique identifier for the model.                                              |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| experiment_id             | ``STRING``                                           | The ID of the experiment that owns the model.                                   |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| name                      | ``STRING``                                           | Name of the model.                                                              |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| creation_timestamp_ms     | ``INT64``                                            | Timestamp when the model was created, in milliseconds since the UNIX epoch.     |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| last_updated_timestamp_ms | ``INT64``                                            | Timestamp when the model was last updated, in milliseconds since the UNIX epoch |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| artifact_uri              | ``STRING``                                           | URI of the directory where model artifacts are stored.                          |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| status                    | :ref:`mlflowloggedmodelstatus`                       | Whether or not the model is ready for use.                                      |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| creator_id                | ``INT64``                                            | The ID of the user or principal that created the model.                         |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| model_type                | ``STRING``                                           | The type of model, such as "Agent", "Classifier", "LLM".                        |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| source_run_id             | ``STRING``                                           | Run ID of the run that created the model.                                       |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| status_message            | ``STRING``                                           | Details on the current status.                                                  |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| tags                      | An array of :ref:`mlflowloggedmodeltag`              | Mutable String key-value pairs set on the model.                                |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
-| registrations             | An array of :ref:`mlflowloggedmodelregistrationinfo` | If the model has been promoted to the Model Registry, this field includes       |
-|                           |                                                      | information like the Registered Model name, Model Version number, etc.          |
-+---------------------------+------------------------------------------------------+---------------------------------------------------------------------------------+
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+|        Field Name         |                         Type                         |                                                    Description                                                    |
++===========================+======================================================+===================================================================================================================+
+| model_id                  | ``STRING``                                           | A unique identifier for the model.                                                                                |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| experiment_id             | ``STRING``                                           | The ID of the experiment that owns the model.                                                                     |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| name                      | ``STRING``                                           | Name of the model.                                                                                                |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| creation_timestamp_ms     | ``INT64``                                            | Timestamp when the model was created, in milliseconds since the UNIX epoch.                                       |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| last_updated_timestamp_ms | ``INT64``                                            | Timestamp when the model was last updated, in milliseconds since the UNIX epoch                                   |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| artifact_uri              | ``STRING``                                           | URI of the directory where model artifacts are stored.                                                            |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| status                    | :ref:`mlflowloggedmodelstatus`                       | Whether or not the model is ready for use.                                                                        |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| creator_id                | ``INT64``                                            | The ID of the user or principal that created the model.                                                           |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| model_type                | ``STRING``                                           | The type of model, such as "Agent", "Classifier", "LLM".                                                          |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| source_run_id             | ``STRING``                                           | Run ID of the run that created the model.                                                                         |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| status_message            | ``STRING``                                           | Details on the current status.                                                                                    |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| tags                      | An array of :ref:`mlflowloggedmodeltag`              | Mutable String key-value pairs set on the model.                                                                  |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+| registrations             | An array of :ref:`mlflowloggedmodelregistrationinfo` | If the model has been promoted to the Model Registry, this field includes information like the Registered Model   |
+|                           |                                                      | name, Model Version number, etc.                                                                                  |
++---------------------------+------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowLoggedModelParameter:
 
@@ -6564,29 +6233,25 @@ Metric
 Metric associated with a run, represented as a key-value pair.
 
 
-+----------------+------------+-----------------------------------------------------------------------+
-|   Field Name   |    Type    |                              Description                              |
-+================+============+=======================================================================+
-| key            | ``STRING`` | Key identifying this metric.                                          |
-+----------------+------------+-----------------------------------------------------------------------+
-| value          | ``DOUBLE`` | Value associated with this metric.                                    |
-+----------------+------------+-----------------------------------------------------------------------+
-| timestamp      | ``INT64``  | The timestamp at which this metric was recorded.                      |
-+----------------+------------+-----------------------------------------------------------------------+
-| step           | ``INT64``  | Step at which to log the metric.                                      |
-+----------------+------------+-----------------------------------------------------------------------+
-| dataset_name   | ``STRING`` | The name of the dataset associated with the metric.                   |
-|                |            | E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"            |
-+----------------+------------+-----------------------------------------------------------------------+
-| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric,             |
-|                |            | e.g. an md5 hash of the dataset that uniquely identifies it           |
-|                |            | within datasets of the same name.                                     |
-+----------------+------------+-----------------------------------------------------------------------+
-| model_id       | ``STRING`` | The ID of the LoggedModel or Registered Model Version associated with |
-|                |            | the metric, if applicable.                                            |
-+----------------+------------+-----------------------------------------------------------------------+
-| run_id         | ``STRING`` | The ID of the run containing the metric.                              |
-+----------------+------------+-----------------------------------------------------------------------+
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |    Type    |                                                                       Description                                                                       |
++================+============+=========================================================================================================================================================+
+| key            | ``STRING`` | Key identifying this metric.                                                                                                                            |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value          | ``DOUBLE`` | Value associated with this metric.                                                                                                                      |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| timestamp      | ``INT64``  | The timestamp at which this metric was recorded.                                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| step           | ``INT64``  | Step at which to log the metric.                                                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_name   | ``STRING`` | The name of the dataset associated with the metric. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"                                          |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric, e.g. an md5 hash of the dataset that uniquely identifies it within datasets of the same name. |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id       | ``STRING`` | The ID of the LoggedModel or Registered Model Version associated with the metric, if applicable.                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_id         | ``STRING`` | The ID of the run containing the metric.                                                                                                                |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowMetricAggregation:
 
@@ -6598,15 +6263,14 @@ MetricAggregation
 
 
 
-+------------------+------------------------------+----------------------------------------------------------------------------------------+
-|    Field Name    |             Type             |                                      Description                                       |
-+==================+==============================+========================================================================================+
-| aggregation_type | :ref:`mlflowaggregationtype` | The type of aggregation to perform.                                                    |
-+------------------+------------------------------+----------------------------------------------------------------------------------------+
-| percentile_value | ``DOUBLE``                   | The percentile value to compute (0-100), required when aggregation_type is PERCENTILE. |
-|                  |                              | Examples: 50 (median), 75, 90, 95, 99.                                                 |
-|                  |                              | This field is ignored for other aggregation types.                                     |
-+------------------+------------------------------+----------------------------------------------------------------------------------------+
++------------------+------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+|    Field Name    |             Type             |                                                                    Description                                                                     |
++==================+==============================+====================================================================================================================================================+
+| aggregation_type | :ref:`mlflowaggregationtype` | The type of aggregation to perform.                                                                                                                |
++------------------+------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| percentile_value | ``DOUBLE``                   | The percentile value to compute (0-100), required when aggregation_type is PERCENTILE. Examples: 50 (median), 75, 90, 95, 99. This field is        |
+|                  |                              | ignored for other aggregation types.                                                                                                               |
++------------------+------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowMetricDataPoint:
 
@@ -6618,19 +6282,15 @@ MetricDataPoint
 A single data point with dimension values and metric values.
 
 
-+-------------+---------------------------------------------------------+--------------------------------------+
-| Field Name  |                          Type                           |             Description              |
-+=============+=========================================================+======================================+
-| metric_name | ``STRING``                                              | Metric name, e.g. "latency"          |
-+-------------+---------------------------------------------------------+--------------------------------------+
-| dimensions  | An array of :ref:`mlflowmetricdatapointdimensionsentry` | Dimension values for this data point |
-|             |                                                         | Keys correspond to dimensions        |
-|             |                                                         | e.g., {"status": "OK"}               |
-+-------------+---------------------------------------------------------+--------------------------------------+
-| values      | An array of :ref:`mlflowmetricdatapointvaluesentry`     | Metric values for this data point    |
-|             |                                                         | Keys are aggregation types           |
-|             |                                                         | e.g., {"AVG": 150, "P99": 234.5}     |
-+-------------+---------------------------------------------------------+--------------------------------------+
++-------------+---------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+| Field Name  |                          Type                           |                                          Description                                          |
++=============+=========================================================+===============================================================================================+
+| metric_name | ``STRING``                                              | Metric name, e.g. "latency"                                                                   |
++-------------+---------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+| dimensions  | An array of :ref:`mlflowmetricdatapointdimensionsentry` | Dimension values for this data point Keys correspond to dimensions e.g., {"status": "OK"}     |
++-------------+---------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+| values      | An array of :ref:`mlflowmetricdatapointvaluesentry`     | Metric values for this data point Keys are aggregation types e.g., {"AVG": 150, "P99": 234.5} |
++-------------+---------------------------------------------------------+-----------------------------------------------------------------------------------------------+
 
 .. _mlflowMetricWithRunId:
 
@@ -6682,13 +6342,11 @@ ModelInput
 Represents a LoggedModel or Registered Model Version input to a Run.
 
 
-+------------+------------+-------------------------------------+
-| Field Name |    Type    |             Description             |
-+============+============+=====================================+
-| model_id   | ``STRING`` | The unique identifier of the model. |
-|            |            | This field is required.             |
-|            |            |                                     |
-+------------+------------+-------------------------------------+
++------------+------------+-------------------------------------------------------------+
+| Field Name |    Type    |                         Description                         |
++============+============+=============================================================+
+| model_id   | ``STRING`` | The unique identifier of the model. This field is required. |
++------------+------------+-------------------------------------------------------------+
 
 .. _mlflowModelMetric:
 
@@ -6701,29 +6359,25 @@ Metric associated with a model, represented as a key-value pair.
 Copied from MLflow metric
 
 
-+----------------+------------+-----------------------------------------------------------------------+
-|   Field Name   |    Type    |                              Description                              |
-+================+============+=======================================================================+
-| key            | ``STRING`` | Key identifying this metric.                                          |
-+----------------+------------+-----------------------------------------------------------------------+
-| value          | ``DOUBLE`` | Value associated with this metric.                                    |
-+----------------+------------+-----------------------------------------------------------------------+
-| timestamp      | ``INT64``  | The timestamp at which this metric was recorded.                      |
-+----------------+------------+-----------------------------------------------------------------------+
-| step           | ``INT64``  | Step at which to log the metric.                                      |
-+----------------+------------+-----------------------------------------------------------------------+
-| dataset_name   | ``STRING`` | The name of the dataset associated with the metric.                   |
-|                |            | E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"            |
-+----------------+------------+-----------------------------------------------------------------------+
-| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric,             |
-|                |            | e.g. an md5 hash of the dataset that uniquely identifies it           |
-|                |            | within datasets of the same name.                                     |
-+----------------+------------+-----------------------------------------------------------------------+
-| model_id       | ``STRING`` | The ID of the LoggedModel or Registered Model Version associated with |
-|                |            | the metric                                                            |
-+----------------+------------+-----------------------------------------------------------------------+
-| run_id         | ``STRING`` | The ID of the run containing the metric.                              |
-+----------------+------------+-----------------------------------------------------------------------+
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |    Type    |                                                                       Description                                                                       |
++================+============+=========================================================================================================================================================+
+| key            | ``STRING`` | Key identifying this metric.                                                                                                                            |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value          | ``DOUBLE`` | Value associated with this metric.                                                                                                                      |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| timestamp      | ``INT64``  | The timestamp at which this metric was recorded.                                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| step           | ``INT64``  | Step at which to log the metric.                                                                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_name   | ``STRING`` | The name of the dataset associated with the metric. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"                                          |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_digest | ``STRING`` | Dataset digest of the dataset associated with the metric, e.g. an md5 hash of the dataset that uniquely identifies it within datasets of the same name. |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id       | ``STRING`` | The ID of the LoggedModel or Registered Model Version associated with the metric                                                                        |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_id         | ``STRING`` | The ID of the run containing the metric.                                                                                                                |
++----------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowModelOutput:
 
@@ -6735,17 +6389,13 @@ ModelOutput
 Represents a LoggedModel output of a Run.
 
 
-+------------+------------+---------------------------------------+
-| Field Name |    Type    |              Description              |
-+============+============+=======================================+
-| model_id   | ``STRING`` | The unique identifier of the model.   |
-|            |            | This field is required.               |
-|            |            |                                       |
-+------------+------------+---------------------------------------+
-| step       | ``INT64``  | Step at which the model was produced. |
-|            |            | This field is required.               |
-|            |            |                                       |
-+------------+------------+---------------------------------------+
++------------+------------+---------------------------------------------------------------+
+| Field Name |    Type    |                          Description                          |
++============+============+===============================================================+
+| model_id   | ``STRING`` | The unique identifier of the model. This field is required.   |
++------------+------------+---------------------------------------------------------------+
+| step       | ``INT64``  | Step at which the model was produced. This field is required. |
++------------+------------+---------------------------------------------------------------+
 
 .. _mlflowModelParam:
 
@@ -6775,47 +6425,47 @@ ModelVersion
 
 
 
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-|       Field Name       |                    Type                     |                                                  Description                                                   |
-+========================+=============================================+================================================================================================================+
-| name                   | ``STRING``                                  | Unique name of the model                                                                                       |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| version                | ``STRING``                                  | Model's version number.                                                                                        |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| creation_timestamp     | ``INT64``                                   | Timestamp recorded when this ``model_version`` was created.                                                    |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| last_updated_timestamp | ``INT64``                                   | Timestamp recorded when metadata for this ``model_version`` was last updated.                                  |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| user_id                | ``STRING``                                  | User that created this ``model_version``.                                                                      |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| current_stage          | ``STRING``                                  | Current stage for this ``model_version``.                                                                      |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| description            | ``STRING``                                  | Description of this ``model_version``.                                                                         |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| source                 | ``STRING``                                  | URI indicating the location of the source model artifacts, used when creating ``model_version``                |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| run_id                 | ``STRING``                                  | MLflow run ID used when creating ``model_version``, if ``source`` was generated by an                          |
-|                        |                                             | experiment run stored in MLflow tracking server.                                                               |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| status                 | :ref:`mlflowmodelversionstatus`             | Current status of ``model_version``                                                                            |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| status_message         | ``STRING``                                  | Details on current ``status``, if it is pending or failed.                                                     |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| tags                   | An array of :ref:`mlflowmodelversiontag`    | Tags: Additional metadata key-value pairs for this ``model_version``.                                          |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| run_link               | ``STRING``                                  | Run Link: Direct link to the run that generated this version. This field is set at model version creation time |
-|                        |                                             | only for model versions whose source run is from a tracking server that is different from the registry server. |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| aliases                | An array of ``STRING``                      | Aliases pointing to this ``model_version``.                                                                    |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| model_id               | ``STRING``                                  | Optional `model_id` for model version that is used to link the registered model to the source logged model     |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| model_params           | An array of :ref:`mlflowmodelparam`         | Optional parameters for the model.                                                                             |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| model_metrics          | An array of :ref:`mlflowmodelmetric`        | Optional metrics for the model.                                                                                |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
-| deployment_job_state   | :ref:`mlflowmodelversiondeploymentjobstate` | Deployment job state for this model version.                                                                   |
-+------------------------+---------------------------------------------+----------------------------------------------------------------------------------------------------------------+
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+|       Field Name       |                    Type                     |                                                          Description                                                          |
++========================+=============================================+===============================================================================================================================+
+| name                   | ``STRING``                                  | Unique name of the model                                                                                                      |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| version                | ``STRING``                                  | Model's version number.                                                                                                       |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| creation_timestamp     | ``INT64``                                   | Timestamp recorded when this ``model_version`` was created.                                                                   |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| last_updated_timestamp | ``INT64``                                   | Timestamp recorded when metadata for this ``model_version`` was last updated.                                                 |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| user_id                | ``STRING``                                  | User that created this ``model_version``.                                                                                     |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| current_stage          | ``STRING``                                  | Current stage for this ``model_version``.                                                                                     |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| description            | ``STRING``                                  | Description of this ``model_version``.                                                                                        |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| source                 | ``STRING``                                  | URI indicating the location of the source model artifacts, used when creating ``model_version``                               |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| run_id                 | ``STRING``                                  | MLflow run ID used when creating ``model_version``, if ``source`` was generated by an experiment run stored in MLflow         |
+|                        |                                             | tracking server.                                                                                                              |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| status                 | :ref:`mlflowmodelversionstatus`             | Current status of ``model_version``                                                                                           |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| status_message         | ``STRING``                                  | Details on current ``status``, if it is pending or failed.                                                                    |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| tags                   | An array of :ref:`mlflowmodelversiontag`    | Tags: Additional metadata key-value pairs for this ``model_version``.                                                         |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| run_link               | ``STRING``                                  | Run Link: Direct link to the run that generated this version. This field is set at model version creation time only for model |
+|                        |                                             | versions whose source run is from a tracking server that is different from the registry server.                               |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| aliases                | An array of ``STRING``                      | Aliases pointing to this ``model_version``.                                                                                   |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| model_id               | ``STRING``                                  | Optional `model_id` for model version that is used to link the registered model to the source logged model                    |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| model_params           | An array of :ref:`mlflowmodelparam`         | Optional parameters for the model.                                                                                            |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| model_metrics          | An array of :ref:`mlflowmodelmetric`        | Optional metrics for the model.                                                                                               |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| deployment_job_state   | :ref:`mlflowmodelversiondeploymentjobstate` | Deployment job state for this model version.                                                                                  |
++------------------------+---------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowModelVersionDeploymentJobState:
 
@@ -6909,24 +6559,19 @@ OrderBy
 
 
 
-+----------------+------------+---------------------------------------------------------------------------------------------+
-|   Field Name   |    Type    |                                         Description                                         |
-+================+============+=============================================================================================+
-| field_name     | ``STRING`` | Name of the field to order by, e.g. "metrics.accuracy".                                     |
-|                |            | This field is required.                                                                     |
-|                |            |                                                                                             |
-+----------------+------------+---------------------------------------------------------------------------------------------+
-| ascending      | ``BOOL``   | Whether the order is ascending or not.                                                      |
-+----------------+------------+---------------------------------------------------------------------------------------------+
-| dataset_name   | ``STRING`` | If ``field_name`` refers to a metric, this field specifies the name of the dataset          |
-|                |            | associated with the metric. Only metrics associated with the specified dataset name will be |
-|                |            | considered for ordering. This field may only be set if ``field_name`` refers to a metric.   |
-+----------------+------------+---------------------------------------------------------------------------------------------+
-| dataset_digest | ``STRING`` | If ``field_name`` refers to a metric, this field specifies the digest of the dataset        |
-|                |            | associated with the metric. Only metrics associated with the specified dataset name         |
-|                |            | and digest will be considered for ordering. This field may only be set if ``dataset_name``  |
-|                |            | is also set.                                                                                |
-+----------------+------------+---------------------------------------------------------------------------------------------+
++----------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |    Type    |                                                                              Description                                                                               |
++================+============+========================================================================================================================================================================+
+| field_name     | ``STRING`` | Name of the field to order by, e.g. "metrics.accuracy". This field is required.                                                                                        |
++----------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ascending      | ``BOOL``   | Whether the order is ascending or not.                                                                                                                                 |
++----------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_name   | ``STRING`` | If ``field_name`` refers to a metric, this field specifies the name of the dataset associated with the metric. Only metrics associated with the specified dataset name |
+|                |            | will be considered for ordering. This field may only be set if ``field_name`` refers to a metric.                                                                      |
++----------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_digest | ``STRING`` | If ``field_name`` refers to a metric, this field specifies the digest of the dataset associated with the metric. Only metrics associated with the specified dataset    |
+|                |            | name and digest will be considered for ordering. This field may only be set if ``dataset_name`` is also set.                                                           |
++----------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowParam:
 
@@ -6956,39 +6601,39 @@ PromptOptimizationJob
 Represents a prompt optimization job entity.
 
 
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-|       Field Name        |                                 Type                                 |                                       Description                                       |
-+=========================+======================================================================+=========================================================================================+
-| job_id                  | ``STRING``                                                           | Unique identifier for the optimization job.                                             |
-|                         |                                                                      | Used to poll job execution status (pending/running/completed/failed).                   |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| run_id                  | ``STRING``                                                           | MLflow run ID where optimization metrics and results are stored.                        |
-|                         |                                                                      | Use this to view results in MLflow UI. Only available after job starts running.         |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| state                   | :ref:`mlflowjobstate`                                                | Current state of the job (status + error message + metadata).                           |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| experiment_id           | ``STRING``                                                           | ID of the MLflow experiment where this optimization job is tracked.                     |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| source_prompt_uri       | ``STRING``                                                           | URI of the source prompt that optimization started from (e.g., "prompts:/my-prompt/1"). |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| optimized_prompt_uri    | ``STRING``                                                           | URI of the optimized prompt (e.g., "prompts:/my-prompt/2").                             |
-|                         |                                                                      | Only set if optimization completed successfully.                                        |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| config                  | :ref:`mlflowpromptoptimizationjobconfig`                             | Configuration for the optimization job.                                                 |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| creation_timestamp_ms   | ``INT64``                                                            | Timestamp when the job was created (milliseconds since epoch).                          |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| completion_timestamp_ms | ``INT64``                                                            | Timestamp when the job completed (milliseconds since epoch).                            |
-|                         |                                                                      | Only set if status is COMPLETED, FAILED, or CANCELED.                                   |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| tags                    | An array of :ref:`mlflowpromptoptimizationjobtag`                    | Tags associated with this job.                                                          |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| initial_eval_scores     | An array of :ref:`mlflowpromptoptimizationjobinitialevalscoresentry` | Initial evaluation scores before optimization, keyed by scorer name.                    |
-|                         |                                                                      | Example: {"Correctness": 0.65, "Safety": 0.80}                                          |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
-| final_eval_scores       | An array of :ref:`mlflowpromptoptimizationjobfinalevalscoresentry`   | Final evaluation scores after optimization, keyed by scorer name.                       |
-|                         |                                                                      | Example: {"Correctness": 0.89, "Safety": 0.95}                                          |
-+-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------+
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+|       Field Name        |                                 Type                                 |                                             Description                                             |
++=========================+======================================================================+=====================================================================================================+
+| job_id                  | ``STRING``                                                           | Unique identifier for the optimization job. Used to poll job execution status                       |
+|                         |                                                                      | (pending/running/completed/failed).                                                                 |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| run_id                  | ``STRING``                                                           | MLflow run ID where optimization metrics and results are stored. Use this to view results in MLflow |
+|                         |                                                                      | UI. Only available after job starts running.                                                        |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| state                   | :ref:`mlflowjobstate`                                                | Current state of the job (status + error message + metadata).                                       |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| experiment_id           | ``STRING``                                                           | ID of the MLflow experiment where this optimization job is tracked.                                 |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| source_prompt_uri       | ``STRING``                                                           | URI of the source prompt that optimization started from (e.g., "prompts:/my-prompt/1").             |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| optimized_prompt_uri    | ``STRING``                                                           | URI of the optimized prompt (e.g., "prompts:/my-prompt/2"). Only set if optimization completed      |
+|                         |                                                                      | successfully.                                                                                       |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| config                  | :ref:`mlflowpromptoptimizationjobconfig`                             | Configuration for the optimization job.                                                             |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| creation_timestamp_ms   | ``INT64``                                                            | Timestamp when the job was created (milliseconds since epoch).                                      |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| completion_timestamp_ms | ``INT64``                                                            | Timestamp when the job completed (milliseconds since epoch). Only set if status is COMPLETED,       |
+|                         |                                                                      | FAILED, or CANCELED.                                                                                |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| tags                    | An array of :ref:`mlflowpromptoptimizationjobtag`                    | Tags associated with this job.                                                                      |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| initial_eval_scores     | An array of :ref:`mlflowpromptoptimizationjobinitialevalscoresentry` | Initial evaluation scores before optimization, keyed by scorer name. Example: {"Correctness": 0.65, |
+|                         |                                                                      | "Safety": 0.80}                                                                                     |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
+| final_eval_scores       | An array of :ref:`mlflowpromptoptimizationjobfinalevalscoresentry`   | Final evaluation scores after optimization, keyed by scorer name. Example: {"Correctness": 0.89,    |
+|                         |                                                                      | "Safety": 0.95}                                                                                     |
++-------------------------+----------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+
 
 .. _mlflowPromptOptimizationJobConfig:
 
@@ -7001,21 +6646,18 @@ Configuration for a prompt optimization job.
 Stored as run parameters in the underlying MLflow run.
 
 
-+-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
-|      Field Name       |            Type            |                                         Description                                          |
-+=======================+============================+==============================================================================================+
-| optimizer_type        | :ref:`mlflowoptimizertype` | The optimizer type to use.                                                                   |
-+-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
-| dataset_id            | ``STRING``                 | ID of the EvaluationDataset containing training data.                                        |
-+-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
-| scorers               | An array of ``STRING``     | List of scorer names. Can be built-in scorer class names                                     |
-|                       |                            | (e.g., "Correctness", "Safety") or registered scorer names.                                  |
-+-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
-| optimizer_config_json | ``STRING``                 | JSON-serialized optimizer-specific configuration.                                            |
-|                       |                            | Different optimizers accept different parameters:                                            |
-|                       |                            | - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}                       |
-|                       |                            | - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}} |
-+-----------------------+----------------------------+----------------------------------------------------------------------------------------------+
++-----------------------+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+|      Field Name       |            Type            |                                                                   Description                                                                   |
++=======================+============================+=================================================================================================================================================+
+| optimizer_type        | :ref:`mlflowoptimizertype` | The optimizer type to use.                                                                                                                      |
++-----------------------+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| dataset_id            | ``STRING``                 | ID of the EvaluationDataset containing training data.                                                                                           |
++-----------------------+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| scorers               | An array of ``STRING``     | List of scorer names. Can be built-in scorer class names (e.g., "Correctness", "Safety") or registered scorer names.                            |
++-----------------------+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
+| optimizer_config_json | ``STRING``                 | JSON-serialized optimizer-specific configuration. Different optimizers accept different parameters: - GEPA: {"reflection_model":                |
+|                       |                            | "openai:/gpt-5", "max_metric_calls": 300} - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}          |
++-----------------------+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowPromptOptimizationJobTag:
 
@@ -7046,17 +6688,13 @@ Prompt version references to link to the trace.
 Each reference contains the prompt name and version.
 
 
-+------------+------------+-------------------------+
-| Field Name |    Type    |       Description       |
-+============+============+=========================+
-| name       | ``STRING`` |                         |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
-| version    | ``STRING`` |                         |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
++------------+------------+--------------------------+
+| Field Name |    Type    |       Description        |
++============+============+==========================+
+| name       | ``STRING`` |  This field is required. |
++------------+------------+--------------------------+
+| version    | ``STRING`` |  This field is required. |
++------------+------------+--------------------------+
 
 .. _mlflowQueryTraceMetrics:
 
@@ -7068,37 +6706,32 @@ QueryTraceMetrics
 Query aggregated metrics for traces, spans, or assessments.
 
 
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-|      Field Name       |                    Type                    |                                   Description                                    |
-+=======================+============================================+==================================================================================+
-| experiment_ids        | An array of ``STRING``                     | Required: The experiment IDs to search traces.                                   |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| view_type             | :ref:`mlflowmetricviewtype`                | Required: The level at which to aggregate metrics.                               |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| metric_name           | ``STRING``                                 | Required: The name of the metric to query (e.g. "latency").                      |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| aggregations          | An array of :ref:`mlflowmetricaggregation` | Required: The aggregations to apply.                                             |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| dimensions            | An array of ``STRING``                     | Optional: Dimensions to group metrics by. (e.g. "name", "status")                |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| filters               | An array of ``STRING``                     | Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)                |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| time_interval_seconds | ``INT64``                                  | Optional: Time interval for grouping in seconds.                                 |
-|                       |                                            | When set, results automatically include a time dimension grouped by              |
-|                       |                                            | the specified interval.                                                          |
-|                       |                                            | Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month). |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| start_time_ms         | ``INT64``                                  | Optional: Start of time range in milliseconds since epoch.                       |
-|                       |                                            | Required if time_interval_seconds is set.                                        |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| end_time_ms           | ``INT64``                                  | Optional: End of time range in milliseconds since epoch.                         |
-|                       |                                            | Required if time_interval_seconds is set.                                        |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| max_results           | ``INT32``                                  | Optional: Maximum number of data points to return.                               |
-|                       |                                            | Default: 1000                                                                    |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
-| page_token            | ``STRING``                                 | Optional: Pagination token for fetching the next page of results.                |
-+-----------------------+--------------------------------------------+----------------------------------------------------------------------------------+
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+|      Field Name       |                    Type                    |                                                           Description                                                           |
++=======================+============================================+=================================================================================================================================+
+| experiment_ids        | An array of ``STRING``                     | Required: The experiment IDs to search traces.                                                                                  |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| view_type             | :ref:`mlflowmetricviewtype`                | Required: The level at which to aggregate metrics.                                                                              |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| metric_name           | ``STRING``                                 | Required: The name of the metric to query (e.g. "latency").                                                                     |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| aggregations          | An array of :ref:`mlflowmetricaggregation` | Required: The aggregations to apply.                                                                                            |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| dimensions            | An array of ``STRING``                     | Optional: Dimensions to group metrics by. (e.g. "name", "status")                                                               |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| filters               | An array of ``STRING``                     | Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)                                                               |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| time_interval_seconds | ``INT64``                                  | Optional: Time interval for grouping in seconds. When set, results automatically include a time dimension grouped by the        |
+|                       |                                            | specified interval. Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month).                            |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| start_time_ms         | ``INT64``                                  | Optional: Start of time range in milliseconds since epoch. Required if time_interval_seconds is set.                            |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| end_time_ms           | ``INT64``                                  | Optional: End of time range in milliseconds since epoch. Required if time_interval_seconds is set.                              |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| max_results           | ``INT32``                                  | Optional: Maximum number of data points to return. Default: 1000                                                                |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
+| page_token            | ``STRING``                                 | Optional: Pagination token for fetching the next page of results.                                                               |
++-----------------------+--------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowRegisteredModel:
 
@@ -7110,31 +6743,29 @@ RegisteredModel
 
 
 
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-|       Field Name       |                     Type                      |                                   Description                                    |
-+========================+===============================================+==================================================================================+
-| name                   | ``STRING``                                    | Unique name for the model.                                                       |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| creation_timestamp     | ``INT64``                                     | Timestamp recorded when this ``registered_model`` was created.                   |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| last_updated_timestamp | ``INT64``                                     | Timestamp recorded when metadata for this ``registered_model`` was last updated. |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| user_id                | ``STRING``                                    | User that created this ``registered_model``                                      |
-|                        |                                               | NOTE: this field is not currently returned.                                      |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| description            | ``STRING``                                    | Description of this ``registered_model``.                                        |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| latest_versions        | An array of :ref:`mlflowmodelversion`         | Collection of latest model versions for each stage.                              |
-|                        |                                               | Only contains models with current ``READY`` status.                              |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| tags                   | An array of :ref:`mlflowregisteredmodeltag`   | Tags: Additional metadata key-value pairs for this ``registered_model``.         |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| aliases                | An array of :ref:`mlflowregisteredmodelalias` | Aliases pointing to model versions associated with this ``registered_model``.    |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| deployment_job_id      | ``STRING``                                    | Deployment job id for this model.                                                |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
-| deployment_job_state   | :ref:`mlflowdeploymentjobconnectionstate`     | Deployment job state for this model.                                             |
-+------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|       Field Name       |                     Type                      |                                               Description                                               |
++========================+===============================================+=========================================================================================================+
+| name                   | ``STRING``                                    | Unique name for the model.                                                                              |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| creation_timestamp     | ``INT64``                                     | Timestamp recorded when this ``registered_model`` was created.                                          |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| last_updated_timestamp | ``INT64``                                     | Timestamp recorded when metadata for this ``registered_model`` was last updated.                        |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| user_id                | ``STRING``                                    | User that created this ``registered_model`` NOTE: this field is not currently returned.                 |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| description            | ``STRING``                                    | Description of this ``registered_model``.                                                               |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| latest_versions        | An array of :ref:`mlflowmodelversion`         | Collection of latest model versions for each stage. Only contains models with current ``READY`` status. |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| tags                   | An array of :ref:`mlflowregisteredmodeltag`   | Tags: Additional metadata key-value pairs for this ``registered_model``.                                |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| aliases                | An array of :ref:`mlflowregisteredmodelalias` | Aliases pointing to model versions associated with this ``registered_model``.                           |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| deployment_job_id      | ``STRING``                                    | Deployment job id for this model.                                                                       |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| deployment_job_state   | :ref:`mlflowdeploymentjobconnectionstate`     | Deployment job state for this model.                                                                    |
++------------------------+-----------------------------------------------+---------------------------------------------------------------------------------------------------------+
 
 .. _mlflowRegisteredModelAlias:
 
@@ -7182,15 +6813,13 @@ RemoveDatasetFromExperiments
 
 
 
-+----------------+------------------------+-------------------------------------------------+
-|   Field Name   |          Type          |                   Description                   |
-+================+========================+=================================================+
-| dataset_id     | ``STRING``             | Dataset ID to remove from experiments           |
-|                |                        | This field is required.                         |
-|                |                        |                                                 |
-+----------------+------------------------+-------------------------------------------------+
-| experiment_ids | An array of ``STRING`` | Experiment IDs to disassociate from the dataset |
-+----------------+------------------------+-------------------------------------------------+
++----------------+------------------------+---------------------------------------------------------------+
+|   Field Name   |          Type          |                          Description                          |
++================+========================+===============================================================+
+| dataset_id     | ``STRING``             | Dataset ID to remove from experiments This field is required. |
++----------------+------------------------+---------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Experiment IDs to disassociate from the dataset               |
++----------------+------------------------+---------------------------------------------------------------+
 
 .. _mlflowGetMetricHistoryBulkIntervalResponse:
 
@@ -7398,12 +7027,11 @@ Response
 
 
 
-+------------+------------+--------------------------------------------------------------+
-| Field Name |    Type    |                         Description                          |
-+============+============+==============================================================+
-| trace_data | ``STRING`` | Return trace JSON in string form                             |
-|            |            | Note: we may change this to a TraceData object in the future |
-+------------+------------+--------------------------------------------------------------+
++------------+------------+-----------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                          Description                                          |
++============+============+===============================================================================================+
+| trace_data | ``STRING`` | Return trace JSON in string form Note: we may change this to a TraceData object in the future |
++------------+------------+-----------------------------------------------------------------------------------------------+
 
 .. _mlflowDeleteTracesResponse:
 
@@ -7473,14 +7101,13 @@ Response
 
 
 
-+-----------------+------------------------------------------+----------------------------------------------+
-|   Field Name    |                   Type                   |                 Description                  |
-+=================+==========================================+==============================================+
-| data_points     | An array of :ref:`mlflowmetricdatapoint` | Data points grouped by dimensions.           |
-+-----------------+------------------------------------------+----------------------------------------------+
-| next_page_token | ``STRING``                               | Pagination token for fetching the next page. |
-|                 |                                          | Empty if no more results are available.      |
-+-----------------+------------------------------------------+----------------------------------------------+
++-----------------+------------------------------------------+--------------------------------------------------------------------------------------+
+|   Field Name    |                   Type                   |                                     Description                                      |
++=================+==========================================+======================================================================================+
+| data_points     | An array of :ref:`mlflowmetricdatapoint` | Data points grouped by dimensions.                                                   |
++-----------------+------------------------------------------+--------------------------------------------------------------------------------------+
+| next_page_token | ``STRING``                               | Pagination token for fetching the next page. Empty if no more results are available. |
++-----------------+------------------------------------------+--------------------------------------------------------------------------------------+
 
 .. _mlflowStartTraceV3Response:
 
@@ -7854,35 +7481,30 @@ RunInfo
 Metadata of a single run.
 
 
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-|   Field Name    |          Type          |                                   Description                                    |
-+=================+========================+==================================================================================+
-| run_id          | ``STRING``             | Unique identifier for the run.                                                   |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| run_uuid        | ``STRING``             | [Deprecated, use run_id instead] Unique identifier for the run. This field will  |
-|                 |                        | be removed in a future MLflow version.                                           |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| run_name        | ``STRING``             | The name of the run.                                                             |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| experiment_id   | ``STRING``             | The experiment ID.                                                               |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| user_id         | ``STRING``             | User who initiated the run.                                                      |
-|                 |                        | This field is deprecated as of MLflow 1.0, and will be removed in a future       |
-|                 |                        | MLflow release. Use 'mlflow.user' tag instead.                                   |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| status          | :ref:`mlflowrunstatus` | Current status of the run.                                                       |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| start_time      | ``INT64``              | Unix timestamp of when the run started in milliseconds.                          |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| end_time        | ``INT64``              | Unix timestamp of when the run ended in milliseconds.                            |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| artifact_uri    | ``STRING``             | URI of the directory where artifacts should be uploaded.                         |
-|                 |                        | This can be a local path (starting with "/"), or a distributed file system (DFS) |
-|                 |                        | path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.                  |
-|                 |                        | If not set, the local ``./mlruns`` directory is  chosen.                         |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
-| lifecycle_stage | ``STRING``             | Current life cycle stage of the experiment : OneOf("active", "deleted")          |
-+-----------------+------------------------+----------------------------------------------------------------------------------+
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |          Type          |                                                                        Description                                                                        |
++=================+========================+===========================================================================================================================================================+
+| run_id          | ``STRING``             | Unique identifier for the run.                                                                                                                            |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_uuid        | ``STRING``             | [Deprecated, use run_id instead] Unique identifier for the run. This field will be removed in a future MLflow version.                                    |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| run_name        | ``STRING``             | The name of the run.                                                                                                                                      |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_id   | ``STRING``             | The experiment ID.                                                                                                                                        |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| user_id         | ``STRING``             | User who initiated the run. This field is deprecated as of MLflow 1.0, and will be removed in a future MLflow release. Use 'mlflow.user' tag instead.     |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| status          | :ref:`mlflowrunstatus` | Current status of the run.                                                                                                                                |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| start_time      | ``INT64``              | Unix timestamp of when the run started in milliseconds.                                                                                                   |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| end_time        | ``INT64``              | Unix timestamp of when the run ended in milliseconds.                                                                                                     |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| artifact_uri    | ``STRING``             | URI of the directory where artifacts should be uploaded. This can be a local path (starting with "/"), or a distributed file system (DFS) path, like      |
+|                 |                        | ``s3://bucket/directory`` or ``dbfs:/my/directory``. If not set, the local ``./mlruns`` directory is  chosen.                                             |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| lifecycle_stage | ``STRING``             | Current life cycle stage of the experiment : OneOf("active", "deleted")                                                                                   |
++-----------------+------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowRunInputs:
 
@@ -8012,27 +7634,25 @@ SearchLoggedModels
 
 
 
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-|   Field Name   |                        Type                        |                                          Description                                          |
-+================+====================================================+===============================================================================================+
-| experiment_ids | An array of ``STRING``                             | IDs of the Experiments in which to search for Logged Models.                                  |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-| filter         | ``STRING``                                         | A filter expression over Logged Model info and data that allows returning a subset of         |
-|                |                                                    | Logged Models. The syntax is a subset of SQL that supports ANDing together binary operations  |
-|                |                                                    | Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.                                   |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-| datasets       | An array of :ref:`mlflowsearchloggedmodelsdataset` | List of datasets on which to apply the metrics filter clauses.                                |
-|                |                                                    | For example, a filter with `metrics.accuracy > 0.9` and dataset info with name "test_dataset" |
-|                |                                                    | means we will return all logged models with accuracy > 0.9 on the test_dataset.               |
-|                |                                                    | Metric values from ANY dataset matching the criteria are considered.                          |
-|                |                                                    | If no datasets are specified, then metrics across all datasets are considered in the filter.  |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-| max_results    | ``INT32``                                          | Maximum number of Logged Models to return. Max threshold is 50.                               |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-| order_by       | An array of :ref:`mlflowsearchloggedmodelsorderby` | List of columns for ordering the results, with additional fields for sorting criteria.        |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
-| page_token     | ``STRING``                                         | Token indicating the page of Logged Models to fetch.                                          |
-+----------------+----------------------------------------------------+-----------------------------------------------------------------------------------------------+
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |                        Type                        |                                                          Description                                                           |
++================+====================================================+================================================================================================================================+
+| experiment_ids | An array of ``STRING``                             | IDs of the Experiments in which to search for Logged Models.                                                                   |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+| filter         | ``STRING``                                         | A filter expression over Logged Model info and data that allows returning a subset of Logged Models. The syntax is a subset of |
+|                |                                                    | SQL that supports ANDing together binary operations Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.                |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+| datasets       | An array of :ref:`mlflowsearchloggedmodelsdataset` | List of datasets on which to apply the metrics filter clauses. For example, a filter with `metrics.accuracy > 0.9` and dataset |
+|                |                                                    | info with name "test_dataset" means we will return all logged models with accuracy > 0.9 on the test_dataset. Metric values    |
+|                |                                                    | from ANY dataset matching the criteria are considered. If no datasets are specified, then metrics across all datasets are      |
+|                |                                                    | considered in the filter.                                                                                                      |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+| max_results    | ``INT32``                                          | Maximum number of Logged Models to return. Max threshold is 50.                                                                |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+| order_by       | An array of :ref:`mlflowsearchloggedmodelsorderby` | List of columns for ordering the results, with additional fields for sorting criteria.                                         |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
+| page_token     | ``STRING``                                         | Token indicating the page of Logged Models to fetch.                                                                           |
++----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchTraces:
 
@@ -8044,21 +7664,20 @@ SearchTraces
 
 
 
-+----------------+------------------------+---------------------------------------------------------------------------------------+
-|   Field Name   |          Type          |                                      Description                                      |
-+================+========================+=======================================================================================+
-| experiment_ids | An array of ``STRING`` | List of experiment IDs to search over.                                                |
-+----------------+------------------------+---------------------------------------------------------------------------------------+
-| filter         | ``STRING``             | A filter expression over trace attributes and tags that allows returning a subset of  |
-|                |                        | traces. The syntax is a subset of SQL that supports ANDing together binary operations |
-|                |                        | Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.              |
-+----------------+------------------------+---------------------------------------------------------------------------------------+
-| max_results    | ``INT32``              | Maximum number of traces desired. Max threshold is 500.                               |
-+----------------+------------------------+---------------------------------------------------------------------------------------+
-| order_by       | An array of ``STRING`` | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.             |
-+----------------+------------------------+---------------------------------------------------------------------------------------+
-| page_token     | ``STRING``             | Token indicating the page of traces to fetch.                                         |
-+----------------+------------------------+---------------------------------------------------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| experiment_ids | An array of ``STRING`` | List of experiment IDs to search over.                                                                                                                     |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| filter         | ``STRING``             | A filter expression over trace attributes and tags that allows returning a subset of traces. The syntax is a subset of SQL that supports ANDing together   |
+|                |                        | binary operations Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.                                                                 |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results    | ``INT32``              | Maximum number of traces desired. Max threshold is 500.                                                                                                    |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by       | An array of ``STRING`` | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.                                                                                  |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token     | ``STRING``             | Token indicating the page of traces to fetch.                                                                                                              |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchTracesV3:
 
@@ -8070,21 +7689,20 @@ SearchTracesV3
 
 
 
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
-| Field Name  |                  Type                  |                                      Description                                      |
-+=============+========================================+=======================================================================================+
-| locations   | An array of :ref:`mlflowtracelocation` | A list of MLflow experiments to search over.                                          |
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
-| filter      | ``STRING``                             | A filter expression over trace attributes and tags that allows returning a subset of  |
-|             |                                        | traces. The syntax is a subset of SQL that supports ANDing together binary operations |
-|             |                                        | Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.              |
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
-| max_results | ``INT32``                              | Maximum number of traces desired. Max threshold is 500.                               |
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
-| order_by    | An array of ``STRING``                 | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.             |
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
-| page_token  | ``STRING``                             | Token indicating the page of traces to fetch.                                         |
-+-------------+----------------------------------------+---------------------------------------------------------------------------------------+
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |                  Type                  |                                                                  Description                                                                  |
++=============+========================================+===============================================================================================================================================+
+| locations   | An array of :ref:`mlflowtracelocation` | A list of MLflow experiments to search over.                                                                                                  |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| filter      | ``STRING``                             | A filter expression over trace attributes and tags that allows returning a subset of traces. The syntax is a subset of SQL that supports      |
+|             |                                        | ANDing together binary operations Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.                                    |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT32``                              | Maximum number of traces desired. Max threshold is 500.                                                                                       |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING``                 | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.                                                                     |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``                             | Token indicating the page of traces to fetch.                                                                                                 |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchUnifiedTraces:
 
@@ -8096,30 +7714,24 @@ SearchUnifiedTraces
 
 
 
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-|    Field Name    |          Type          |                                                    Description                                                    |
-+==================+========================+===================================================================================================================+
-| model_id         | ``STRING``             |                                                                                                                   |
-|                  |                        | This field is required.                                                                                           |
-|                  |                        |                                                                                                                   |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| sql_warehouse_id | ``STRING``             |                                                                                                                   |
-|                  |                        | This field is required.                                                                                           |
-|                  |                        |                                                                                                                   |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| experiment_ids   | An array of ``STRING`` | TODO: Eventually we want to provide an API that only uses model_id                                                |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| filter           | ``STRING``             | A filter expression over trace attributes and tags that allows returning a subset of                              |
-|                  |                        | traces. The syntax is a subset of SQL that supports ANDing together binary operations                             |
-|                  |                        | Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.                                          |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| max_results      | ``INT32``              | Maximum number of traces desired. Max threshold is 500.                                                           |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| order_by         | An array of ``STRING`` | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.                                         |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
-| page_token       | ``STRING``             | Token indicating the page of traces to fetch. This is a unified token that encodes both online and offline traces |
-|                  |                        | tokens.                                                                                                           |
-+------------------+------------------------+-------------------------------------------------------------------------------------------------------------------+
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+|    Field Name    |          Type          |                                                                       Description                                                                        |
++==================+========================+==========================================================================================================================================================+
+| model_id         | ``STRING``             |  This field is required.                                                                                                                                 |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| sql_warehouse_id | ``STRING``             |  This field is required.                                                                                                                                 |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids   | An array of ``STRING`` | TODO: Eventually we want to provide an API that only uses model_id                                                                                       |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| filter           | ``STRING``             | A filter expression over trace attributes and tags that allows returning a subset of traces. The syntax is a subset of SQL that supports ANDing together |
+|                  |                        | binary operations Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.                                                               |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| max_results      | ``INT32``              | Maximum number of traces desired. Max threshold is 500.                                                                                                  |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| order_by         | An array of ``STRING`` | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.                                                                                |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+| page_token       | ``STRING``             | Token indicating the page of traces to fetch. This is a unified token that encodes both online and offline traces tokens.                                |
++------------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateGatewaySecretSecretValueEntry:
 
@@ -8167,14 +7779,14 @@ SerializedValue
 
 
 
-+----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
-|      Field Name      |    Type    |                                                       Description                                                       |
-+======================+============+=========================================================================================================================+
-| serialization_format | ``STRING`` | Marks the serialization format for the expectation value. This is a contract specific to the client. The service        |
-|                      |            | will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".                   |
-+----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
-| value                | ``STRING`` | The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``. |
-+----------------------+------------+-------------------------------------------------------------------------------------------------------------------------+
++----------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|      Field Name      |    Type    |                                                                           Description                                                                            |
++======================+============+==================================================================================================================================================================+
+| serialization_format | ``STRING`` | Marks the serialization format for the expectation value. This is a contract specific to the client. The service will not attempt to deserialize the value or    |
+|                      |            | validate the format. An example format is "JSON_FORMAT".                                                                                                         |
++----------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value                | ``STRING`` | The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.                                          |
++----------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSetDatasetTags:
 
@@ -8186,17 +7798,13 @@ SetDatasetTags
 
 
 
-+------------+------------+-------------------------------+
-| Field Name |    Type    |          Description          |
-+============+============+===============================+
-| dataset_id | ``STRING`` | Dataset ID to update tags for |
-|            |            | This field is required.       |
-|            |            |                               |
-+------------+------------+-------------------------------+
-| tags       | ``STRING`` | Tags to update (JSON string). |
-|            |            | This field is required.       |
-|            |            |                               |
-+------------+------------+-------------------------------+
++------------+------------+-------------------------------------------------------+
+| Field Name |    Type    |                      Description                      |
++============+============+=======================================================+
+| dataset_id | ``STRING`` | Dataset ID to update tags for This field is required. |
++------------+------------+-------------------------------------------------------+
+| tags       | ``STRING`` | Tags to update (JSON string). This field is required. |
++------------+------------+-------------------------------------------------------+
 
 .. _mlflowSetLoggedModelTags:
 
@@ -8208,15 +7816,13 @@ SetLoggedModelTags
 
 
 
-+------------+-----------------------------------------+----------------------------------------------+
-| Field Name |                  Type                   |                 Description                  |
-+============+=========================================+==============================================+
-| model_id   | ``STRING``                              | The ID of the LoggedModel to set the tag on. |
-|            |                                         | This field is required.                      |
-|            |                                         |                                              |
-+------------+-----------------------------------------+----------------------------------------------+
-| tags       | An array of :ref:`mlflowloggedmodeltag` | The tag key.                                 |
-+------------+-----------------------------------------+----------------------------------------------+
++------------+-----------------------------------------+----------------------------------------------------------------------+
+| Field Name |                  Type                   |                             Description                              |
++============+=========================================+======================================================================+
+| model_id   | ``STRING``                              | The ID of the LoggedModel to set the tag on. This field is required. |
++------------+-----------------------------------------+----------------------------------------------------------------------+
+| tags       | An array of :ref:`mlflowloggedmodeltag` | The tag key.                                                         |
++------------+-----------------------------------------+----------------------------------------------------------------------+
 
 .. _mlflowSetTraceTag:
 
@@ -8228,17 +7834,15 @@ SetTraceTag
 
 
 
-+------------+------------+------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                    Description                                     |
-+============+============+====================================================================================+
-| request_id | ``STRING`` | ID of the trace on which to set a tag.                                             |
-+------------+------------+------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                          |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size. |
-+------------+------------+------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.     |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size. |
-+------------+------------+------------------------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                            Description                                                                            |
++============+============+===================================================================================================================================================================+
+| request_id | ``STRING`` | ID of the trace on which to set a tag.                                                                                                                            |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size.                      |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size. |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSetTraceTagV3:
 
@@ -8250,17 +7854,15 @@ SetTraceTagV3
 
 
 
-+------------+------------+------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                    Description                                     |
-+============+============+====================================================================================+
-| trace_id   | ``STRING`` | ID of the trace on which to set a tag.                                             |
-+------------+------------+------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                          |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size. |
-+------------+------------+------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.     |
-|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size. |
-+------------+------------+------------------------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                            Description                                                                            |
++============+============+===================================================================================================================================================================+
+| trace_id   | ``STRING`` | ID of the trace on which to set a tag.                                                                                                                            |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size.                      |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size. |
++------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowStartTrace:
 
@@ -8294,13 +7896,11 @@ StartTraceV3
 
 
 
-+------------+--------------------+----------------------------------------------+
-| Field Name |        Type        |                 Description                  |
-+============+====================+==============================================+
-| trace      | :ref:`mlflowtrace` | The information for the trace being created. |
-|            |                    | This field is required.                      |
-|            |                    |                                              |
-+------------+--------------------+----------------------------------------------+
++------------+--------------------+----------------------------------------------------------------------+
+| Field Name |        Type        |                             Description                              |
++============+====================+======================================================================+
+| trace      | :ref:`mlflowtrace` | The information for the trace being created. This field is required. |
++------------+--------------------+----------------------------------------------------------------------+
 
 .. _mlflowTraceInfoV3TagsEntry:
 
@@ -8386,15 +7986,11 @@ TraceInfoV3
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | trace_location     | :ref:`mlflowtracelocation`                             |                                                                                                                        |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| request            | ``STRING``                                             | [Deprecated, please use `request_preview` instead.]                                                                    |
-|                    |                                                        | Request to the model/agent.                                                                                            |
-|                    |                                                        | Equivalent to the input of the root span but added for ease of access.                                                 |
-|                    |                                                        | Represented as a JSON string.                                                                                          |
+| request            | ``STRING``                                             | [Deprecated, please use `request_preview` instead.] Request to the model/agent. Equivalent to the input of the root    |
+|                    |                                                        | span but added for ease of access. Represented as a JSON string.                                                       |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| response           | ``STRING``                                             | [Deprecated, please use `request_preview` instead.]                                                                    |
-|                    |                                                        | Response of the model/agent.                                                                                           |
-|                    |                                                        | Equivalent to the output of the root span but added for ease of access.                                                |
-|                    |                                                        | Represented as a JSON string.                                                                                          |
+| response           | ``STRING``                                             | [Deprecated, please use `request_preview` instead.] Response of the model/agent. Equivalent to the output of the root  |
+|                    |                                                        | span but added for ease of access. Represented as a JSON string.                                                       |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | request_preview    | ``STRING``                                             | A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root  |
 |                    |                                                        | span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.      |
@@ -8408,14 +8004,12 @@ TraceInfoV3
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | state              | :ref:`mlflowtraceinfov3state`                          |                                                                                                                        |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| trace_metadata     | An array of :ref:`mlflowtraceinfov3tracemetadataentry` | Metadata associated with the trace.                                                                                    |
-|                    |                                                        | Examples include:                                                                                                      |
-|                    |                                                        | - run_id: The ID of the mlflow Run (i.e. evaluation job) that produced the trace. May not be                           |
-|                    |                                                        |           applicable in certain situations such as if the trace was created via interactive vibe checks)               |
-|                    |                                                        | - model_id: The ID of the associated model that produced the trace.                                                    |
-|                    |                                                        | - dataset_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)                              |
-|                    |                                                        | - dataset_record_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)                       |
-|                    |                                                        | - session_id: The ID of the session (e.g. chat conversation) where the request came from                               |
+| trace_metadata     | An array of :ref:`mlflowtraceinfov3tracemetadataentry` | Metadata associated with the trace. Examples include: - run_id: The ID of the mlflow Run (i.e. evaluation job) that    |
+|                    |                                                        | produced the trace. May not be applicable in certain situations such as if the trace was created via interactive vibe  |
+|                    |                                                        | checks) - model_id: The ID of the associated model that produced the trace. - dataset_id: The ID of the mlflow Dataset |
+|                    |                                                        | (usually used together with dataset_record_id) - dataset_record_id: The ID of the mlflow Dataset (usually used         |
+|                    |                                                        | together with dataset_record_id) - session_id: The ID of the session (e.g. chat conversation) where the request came   |
+|                    |                                                        | from                                                                                                                   |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | assessments        | An array of :ref:`mlflowassessmentsassessment`         |                                                                                                                        |
 +--------------------+--------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
@@ -8432,21 +8026,14 @@ TraceLocation
 The location where the traces was stored and produced
 
 
-+----------------------------------------------+--------------------------------------------------------------------------------------------------------+----------------------------+
-|                  Field Name                  |                                                  Type                                                  |        Description         |
-+==============================================+========================================================================================================+============================+
-| type                                         | :ref:`mlflowtracelocationtracelocationtype`                                                            |                            |
-+----------------------------------------------+--------------------------------------------------------------------------------------------------------+----------------------------+
-| ``mlflow_experiment`` OR ``inference_table`` | :ref:`mlflowtracelocationmlflowexperimentlocation` OR :ref:`mlflowtracelocationinferencetablelocation` |                            |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        | If ``mlflow_experiment``,  |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        |                            |
-|                                              |                                                                                                        | If ``inference_table``,    |
-+----------------------------------------------+--------------------------------------------------------------------------------------------------------+----------------------------+
++----------------------------------------------+-------------------------------------------------------------------------------------------------+-----------------------------------------------------+
+|                  Field Name                  |                                              Type                                               |                     Description                     |
++==============================================+=================================================================================================+=====================================================+
+| type                                         | :ref:`mlflowtracelocationtracelocationtype`                                                     |                                                     |
++----------------------------------------------+-------------------------------------------------------------------------------------------------+-----------------------------------------------------+
+| ``mlflow_experiment`` OR ``inference_table`` | :ref:`mlflowtracelocationmlflowexperimentlocation` OR                                           | If ``mlflow_experiment``,  If ``inference_table``,  |
+|                                              | :ref:`mlflowtracelocationinferencetablelocation`                                                |                                                     |
++----------------------------------------------+-------------------------------------------------------------------------------------------------+-----------------------------------------------------+
 
 .. _mlflowTraceInfoV3TraceMetadataEntry:
 
@@ -8512,17 +8099,14 @@ UpdateAssessment
 A request to update an existing assessment.
 
 
-+-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Field Name  |                Type                |                                                          Description                                                          |
-+=============+====================================+===============================================================================================================================+
-| assessment  | :ref:`mlflowassessmentsassessment` | The Assessment containing the fields which should be updated.                                                                 |
-|             |                                    | This field is required.                                                                                                       |
-|             |                                    |                                                                                                                               |
-+-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| update_mask | ``google.protobuf.FieldMask``      | The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`. |
-|             |                                    | This field is required.                                                                                                       |
-|             |                                    |                                                                                                                               |
-+-------------+------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
++-------------+------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name  |                Type                |                                                                    Description                                                                    |
++=============+====================================+===================================================================================================================================================+
+| assessment  | :ref:`mlflowassessmentsassessment` | The Assessment containing the fields which should be updated. This field is required.                                                             |
++-------------+------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------+
+| update_mask | ``google.protobuf.FieldMask``      | The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`. This field is       |
+|             |                                    | required.                                                                                                                                         |
++-------------+------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowUpsertDatasetRecords:
 
@@ -8534,19 +8118,15 @@ UpsertDatasetRecords
 
 
 
-+------------+------------+-----------------------------------------------------------------+
-| Field Name |    Type    |                           Description                           |
-+============+============+=================================================================+
-| dataset_id | ``STRING`` | Dataset ID to upsert records for                                |
-|            |            | This field is required.                                         |
-|            |            |                                                                 |
-+------------+------------+-----------------------------------------------------------------+
-| records    | ``STRING`` | Records to upsert (JSON serialized list of record dictionaries) |
-|            |            | This field is required.                                         |
-|            |            |                                                                 |
-+------------+------------+-----------------------------------------------------------------+
-| updated_by | ``STRING`` | User performing the update                                      |
-+------------+------------+-----------------------------------------------------------------+
++------------+------------+-----------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                       Description                                       |
++============+============+=========================================================================================+
+| dataset_id | ``STRING`` | Dataset ID to upsert records for This field is required.                                |
++------------+------------+-----------------------------------------------------------------------------------------+
+| records    | ``STRING`` | Records to upsert (JSON serialized list of record dictionaries) This field is required. |
++------------+------------+-----------------------------------------------------------------------------------------+
+| updated_by | ``STRING`` | User performing the update                                                              |
++------------+------------+-----------------------------------------------------------------------------------------+
 
 .. _mlflowMetricDataPointValuesEntry:
 
@@ -8606,17 +8186,13 @@ WebhookEvent
 Webhook event definition
 
 
-+------------+----------------------------+-------------------------+
-| Field Name |            Type            |       Description       |
-+============+============================+=========================+
-| entity     | :ref:`mlflowwebhookentity` | Entity type (required)  |
-|            |                            | This field is required. |
-|            |                            |                         |
-+------------+----------------------------+-------------------------+
-| action     | :ref:`mlflowwebhookaction` | Action type (required)  |
-|            |                            | This field is required. |
-|            |                            |                         |
-+------------+----------------------------+-------------------------+
++------------+----------------------------+------------------------------------------------+
+| Field Name |            Type            |                  Description                   |
++============+============================+================================================+
+| entity     | :ref:`mlflowwebhookentity` | Entity type (required) This field is required. |
++------------+----------------------------+------------------------------------------------+
+| action     | :ref:`mlflowwebhookaction` | Action type (required) This field is required. |
++------------+----------------------------+------------------------------------------------+
 
 .. _mlflowWebhookTestResult:
 
