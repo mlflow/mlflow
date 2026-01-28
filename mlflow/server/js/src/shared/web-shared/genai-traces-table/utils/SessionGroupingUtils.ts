@@ -3,6 +3,7 @@ import { compact } from 'lodash';
 import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import type { EvalTraceComparisonEntry } from '../types';
+import { shouldEnableSessionGrouping } from './FeatureUtils';
 
 export type GroupedTraceTableRowData =
   | { type: 'trace'; data: EvalTraceComparisonEntry }
@@ -28,19 +29,23 @@ const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
 
 /**
  * Get a matching key for sessions. Sessions are matched by goal and persona metadata
- * when available, falling back to session ID if no goal/persona is present.
- * This allows sessions with different IDs but the same goal/persona to be grouped together.
+ * when available (and session grouping is enabled), falling back to session ID if no
+ * goal/persona is present. This allows sessions with different IDs but the same
+ * goal/persona to be grouped together.
  */
 const getSessionMatchKey = (trace: ModelTraceInfoV3): string => {
-  const goal = trace.trace_metadata?.[SIMULATION_GOAL_KEY];
-  const persona = trace.trace_metadata?.[SIMULATION_PERSONA_KEY];
+  // Only use goal/persona matching when session grouping feature is enabled
+  if (shouldEnableSessionGrouping()) {
+    const goal = trace.trace_metadata?.[SIMULATION_GOAL_KEY];
+    const persona = trace.trace_metadata?.[SIMULATION_PERSONA_KEY];
 
-  // Prefer matching by goal/persona since session IDs are often unique per run
-  if (goal && persona) {
-    return `metadata:${goal}:${persona}`;
+    // Prefer matching by goal/persona since session IDs are often unique per run
+    if (goal && persona) {
+      return `metadata:${goal}:${persona}`;
+    }
   }
 
-  // Fallback to session ID if no goal/persona available
+  // Fallback to session ID if no goal/persona available or feature is disabled
   const sessionId = getSessionIdFromTrace(trace);
   if (sessionId) {
     return `session:${sessionId}`;

@@ -7,7 +7,7 @@ import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import type { AssessmentInfo, RunEvaluationTracesDataEntry, TracesTableColumn } from '../types';
 import { TracesTableColumnGroup, TracesTableColumnType } from '../types';
-import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
+import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   createCustomMetadataColumnId,
   createTagColumnId,
@@ -268,16 +268,19 @@ export const useTableColumns = (
       const customMetadataColumns: Record<string, TracesTableColumn> = {};
       let hasGoal = false;
       let hasPersona = false;
+      const sessionGroupingEnabled = shouldEnableSessionGrouping();
 
       allResults.forEach((result: RunEvaluationTracesDataEntry) => {
         const traceMetadata = result.traceInfo?.trace_metadata;
         if (traceMetadata) {
-          // Check for simulation goal and persona
-          if (traceMetadata['mlflow.simulation.goal']) {
-            hasGoal = true;
-          }
-          if (traceMetadata['mlflow.simulation.persona']) {
-            hasPersona = true;
+          // Check for simulation goal and persona (only when session grouping is enabled)
+          if (sessionGroupingEnabled) {
+            if (traceMetadata['mlflow.simulation.goal']) {
+              hasGoal = true;
+            }
+            if (traceMetadata['mlflow.simulation.persona']) {
+              hasPersona = true;
+            }
           }
 
           Object.keys(traceMetadata).forEach((key) => {

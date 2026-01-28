@@ -24,6 +24,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   toggleSessionExpanded: (sessionId: string) => void;
   experimentId: string;
   getRunColor?: (runUuid: string) => string;
+  rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
 }
 
 interface SessionHeaderRowProps {
@@ -55,6 +56,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   expandedSessions,
   toggleSessionExpanded,
   getRunColor,
+  rowSelectionChangeHandler,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
   // actual table row from the tanstack data model. When grouping by
@@ -144,6 +146,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
               isSelected={enableRowSelection ? row.getIsSelected() : undefined}
               isComparing={isComparing}
               selectedColumns={selectedColumns}
+              rowSelectionChangeHandler={rowSelectionChangeHandler}
             />
           </div>
         );
