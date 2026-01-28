@@ -15,7 +15,7 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
 export const TraceTokenUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -76,6 +76,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeOpacity={getOpacity('Input Tokens')}
                 fillOpacity={getOpacity('Input Tokens')}
                 strokeWidth={2}
+                dot={getLineDotStyle(areaColors.inputTokens)}
                 name="Input Tokens"
               />
               <Area
@@ -87,6 +88,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeOpacity={getOpacity('Output Tokens')}
                 fillOpacity={getOpacity('Output Tokens')}
                 strokeWidth={2}
+                dot={getLineDotStyle(areaColors.outputTokens)}
                 name="Output Tokens"
               />
               <Legend

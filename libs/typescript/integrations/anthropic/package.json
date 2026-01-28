@@ -33,7 +33,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

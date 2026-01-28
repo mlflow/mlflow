@@ -172,7 +172,7 @@ describe('ToolPerformanceSummary', () => {
         expect(screen.getByText('Tool')).toBeInTheDocument();
         expect(screen.getByText('Calls')).toBeInTheDocument();
         expect(screen.getByText('Success')).toBeInTheDocument();
-        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Latency (AVG)')).toBeInTheDocument();
       });
     });
 
@@ -378,7 +378,7 @@ describe('ToolPerformanceSummary', () => {
       });
 
       // Click Latency header
-      const latencyHeader = screen.getByRole('button', { name: /Latency/i });
+      const latencyHeader = screen.getByRole('button', { name: /Latency \(AVG\)/i });
       await userEvent.click(latencyHeader);
 
       // Should sort by latency descending
@@ -426,6 +426,52 @@ describe('ToolPerformanceSummary', () => {
       // Tool header should not have sort icon
       const toolHeader = screen.getByRole('button', { name: /^Tool$/i });
       expect(within(toolHeader).queryByRole('img', { hidden: true })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll to chart functionality', () => {
+    it('should make tool names clickable', async () => {
+      setupTraceMetricsHandler(
+        [createCountDataPoint('test_tool', SpanStatus.OK, 100)],
+        [createLatencyDataPoint('test_tool', 200)],
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('test_tool')).toBeInTheDocument();
+      });
+
+      // Tool name should be in a clickable element
+      const toolCell = screen.getByText('test_tool').closest('[role="button"]');
+      expect(toolCell).toBeInTheDocument();
+    });
+
+    it('should scroll to chart when tool name is clicked', async () => {
+      // Create a mock element to scroll to
+      const mockElement = document.createElement('div');
+      mockElement.id = 'tool-chart-click_tool';
+      mockElement.scrollIntoView = jest.fn();
+      document.body.appendChild(mockElement);
+
+      setupTraceMetricsHandler(
+        [createCountDataPoint('click_tool', SpanStatus.OK, 100)],
+        [createLatencyDataPoint('click_tool', 200)],
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('click_tool')).toBeInTheDocument();
+      });
+
+      const toolCell = screen.getByText('click_tool').closest('[role="button"]');
+      await userEvent.click(toolCell!);
+
+      expect(mockElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+      // Cleanup
+      document.body.removeChild(mockElement);
     });
   });
 });
