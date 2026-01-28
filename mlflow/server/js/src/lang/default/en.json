@@ -631,10 +631,6 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
-  "2igs1f": {
-    "defaultMessage": "Compare",
-    "description": "Compare evaluation runs action"
-  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -1066,6 +1062,10 @@
     "defaultMessage": "Visibility",
     "description": "Label for the visibility icon column in the evaluation runs table"
   },
+  "6arejB": {
+    "defaultMessage": "Compare",
+    "description": "Compare runs button label"
+  },
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
     "description": "Label to suggests users to select a file to preview the output"
@@ -1149,6 +1149,10 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
+  },
+  "756RTp": {
+    "defaultMessage": "Select 2 runs to compare",
+    "description": "Tooltip for the compare button when disabled"
   },
   "757GVc": {
     "defaultMessage": "Cancel",
@@ -4140,10 +4144,6 @@
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
   },
-  "Ub+VQh": {
-    "defaultMessage": "Please select 2 runs to compare",
-    "description": "Tooltip for disabled compare action in evaluation runs table actions"
-  },
   "UbXw8O": {
     "defaultMessage": "Expectations",
     "description": "Label for the expectations section in the assessments pane"
@@ -4722,6 +4722,10 @@
   "Yx79Vd": {
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
+  },
+  "Z+tEhr": {
+    "defaultMessage": "Compare selected runs",
+    "description": "Tooltip for the compare button when enabled"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
