@@ -86,6 +86,9 @@ export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, classNam
       side={tooltipSide}
       delayDuration={0}
     >
+      {/* data-assistant-ui marks this as part of the assistant UI so that
+          AssistantAwareDrawer can identify clicks on assistant elements and
+          prevent the drawer from closing. See AssistantAwareDrawer.tsx. */}
       <div
         role="button"
         data-assistant-ui="true"
