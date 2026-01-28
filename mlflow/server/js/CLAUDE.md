@@ -145,6 +145,54 @@ const Component = () => {
 };
 ```
 
+### Empty States
+
+**IMPORTANT**: Empty states must always be centered both vertically and horizontally within their container.
+
+When implementing empty states using the `Empty` component from `@databricks/design-system`, always wrap it in a centered container with styles to override the Design System's internal layout:
+
+```typescript
+import { Empty, SearchIcon } from '@databricks/design-system';
+
+// ✅ GOOD - Empty state centered in container with Design System style overrides
+const emptyComponent = (
+  <div
+    css={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',       // Take full height of parent
+      minHeight: 400,       // Ensure minimum height for visibility
+      width: '100%',
+      // Override Design System's Empty component internal styles
+      '& > div': {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+    }}
+  >
+    <Empty
+      description="No items found. Try clearing your filters."
+      image={<SearchIcon />}
+    />
+  </div>
+);
+
+// ❌ BAD - Empty state not centered
+const emptyComponent = <Empty description="No items found" image={<SearchIcon />} />;
+```
+
+Key points for empty states:
+- Use `display: 'flex'` with `alignItems: 'center'` and `justifyContent: 'center'`
+- Set `height: '100%'` to fill the parent container's height
+- Set `minHeight` (typically 400px or more) to ensure vertical centering is visible
+- Always set `width: '100%'` to ensure proper horizontal centering
+- **CRITICAL**: Override the Design System's `Empty` component internal wrapper styles using `'& > div'` selector to ensure it takes full height and centers content
+- Use meaningful icons and descriptions to guide users
+
 ### Spacing Guidelines
 
 **ALWAYS use `theme.spacing` values instead of hard-coded pixel widths.** This ensures consistency and maintainability across the application.
