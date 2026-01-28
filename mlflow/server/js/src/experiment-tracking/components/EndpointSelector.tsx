@@ -14,7 +14,6 @@ import {
   Spinner,
   InfoSmallIcon,
   Alert,
-  ButtonSize,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
@@ -42,10 +41,6 @@ export interface EndpointSelectorProps {
   componentIdPrefix?: string;
   /** Called when a new endpoint is created */
   onEndpointCreated?: (endpoint: Endpoint) => void;
-  /** Whether to hide the create new endpoint button */
-  hideCreateNewEndpointButton?: boolean;
-  /** Size of the trigger */
-  triggerSize?: ButtonSize;
   /** Whether to auto-select the first endpoint */
   autoSelectFirstEndpoint?: boolean;
 }
@@ -57,8 +52,6 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   placeholder,
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
-  hideCreateNewEndpointButton = false,
-  triggerSize,
   autoSelectFirstEndpoint = false,
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -143,7 +136,6 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
         value={currentEndpointName ? [currentEndpointName] : []}
       >
         <DialogComboboxTrigger
-          triggerSize={triggerSize}
           withInlineLabel={false}
           allowClear={false}
           disabled={disabled}
@@ -203,16 +195,14 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 </DialogComboboxOptionListSelectItem>
               ))}
             </DialogComboboxOptionList>
-            {!hideCreateNewEndpointButton && (
-              <DialogComboboxFooter>
-                <DialogComboboxAddButton onClick={handleOpenCreateModal}>
-                  <FormattedMessage
-                    defaultMessage="Create new endpoint"
-                    description="Button text to create a new endpoint"
-                  />
-                </DialogComboboxAddButton>
-              </DialogComboboxFooter>
-            )}
+            <DialogComboboxFooter>
+              <DialogComboboxAddButton onClick={handleOpenCreateModal}>
+                <FormattedMessage
+                  defaultMessage="Create new endpoint"
+                  description="Button text to create a new endpoint"
+                />
+              </DialogComboboxAddButton>
+            </DialogComboboxFooter>
           </DialogComboboxContent>
         )}
       </DialogCombobox>

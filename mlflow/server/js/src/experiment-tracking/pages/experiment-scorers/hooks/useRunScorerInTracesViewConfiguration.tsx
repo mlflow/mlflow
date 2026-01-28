@@ -107,9 +107,11 @@ const RunJudgeModalImpl = ({
   }, [data?.scheduledScorers, searchValue]);
 
   const displayedTemplates = useMemo(() => {
+    // We don't support custom judges or guidelines templates in the traces view.
+    const disabledTemplates = [LLM_TEMPLATE.CUSTOM, LLM_TEMPLATE.GUIDELINES];
     return templateOptions.filter(
       (template) =>
-        TEMPLATE_INSTRUCTIONS_MAP[template.value] && template.label.toLowerCase().includes(searchValue.toLowerCase()),
+        !disabledTemplates.includes(template.value) && template.label.toLowerCase().includes(searchValue.toLowerCase()),
     );
   }, [templateOptions, searchValue]);
 
@@ -187,14 +189,16 @@ const RunJudgeModalImpl = ({
           >
             <PillControl.Item value="llm">
               <FormattedMessage
-                defaultMessage="Custom LLM-as-a-judge"
+                defaultMessage="Custom LLM-as-a-judge ({llmCount})"
                 description="Label for custom LLM judge type filter option"
+                values={{ llmCount: displayedLLMScorers.length }}
               />
             </PillControl.Item>
             <PillControl.Item value="template">
               <FormattedMessage
-                defaultMessage="Pre-built LLM-as-a-judge"
+                defaultMessage="Pre-built LLM-as-a-judge ({templateCount})"
                 description="Label for pre-built LLM judge type filter option"
+                values={{ templateCount: displayedTemplates.length }}
               />
             </PillControl.Item>
           </PillControl.Root>
@@ -248,20 +252,19 @@ const RunJudgeModalImpl = ({
             css={{
               display: 'flex',
               marginTop: theme.spacing.sm,
-              alignItems: 'center',
               gap: theme.spacing.sm,
-              marginLeft: theme.spacing.sm,
+              flexDirection: 'column',
             }}
           >
-            <Typography.Text>Model:</Typography.Text>
+            <Typography.Text bold>
+              <FormattedMessage defaultMessage="Endpoint:" description="Label for endpoint selection" />
+            </Typography.Text>
             <EndpointSelector
               currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointName)}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);
                 setCurrentEndpointName(modelValue);
               }}
-              hideCreateNewEndpointButton
-              triggerSize="small"
               autoSelectFirstEndpoint
             />
           </div>
