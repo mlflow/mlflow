@@ -34,9 +34,11 @@ The code snippet below defines these custom scorers and uses it with <APILink fn
 from mlflow.genai import scorer
 from mlflow.entities import Feedback
 
+
 @scorer
 def exact_match(outputs: dict, expectations: dict) -> bool:
     return outputs == expectations["expected_response"]
+
 
 @scorer
 def is_short(outputs: dict) -> Feedback:
@@ -47,6 +49,7 @@ def is_short(outputs: dict) -> Feedback:
         else f"The response is not short enough because it has ({len(outputs.split())} words)."
     )
     return Feedback(value=score, rationale=rationale)
+
 
 eval_dataset = [
     {
@@ -86,15 +89,21 @@ from mlflow.genai.scorers import scorer
 from typing import Optional, Any
 from mlflow.entities import Feedback
 
+
 @scorer
 def my_custom_scorer(
     *,  # All arguments are keyword-only
-    inputs: Optional[dict[str, Any]],       # App's raw input, a dictionary of input argument names and values
-    outputs: Optional[Any],                 # App's raw output
-    expectations: Optional[dict[str, Any]], # Ground truth, a dictionary of label names and values
+    inputs: Optional[
+        dict[str, Any]
+    ],  # App's raw input, a dictionary of input argument names and values
+    outputs: Optional[Any],  # App's raw output
+    expectations: Optional[
+        dict[str, Any]
+    ],  # Ground truth, a dictionary of label names and values
     trace: Optional[mlflow.entities.Trace]  # Complete trace with all spans and metadata
 ) -> Union[int, float, bool, str, Feedback, List[Feedback]]:
     # Your evaluation logic here
+    ...
 ```
 
 For more flexibility than the `@scorer` decorator allows, you can instead define scorers using the [`Scorer` class](#define-scorers-with-the-scorer-class).
@@ -132,6 +141,7 @@ def response_length(outputs: str) -> int:
     # Return a numeric metric
     return len(outputs.split())
 
+
 @scorer
 def contains_citation(outputs: str) -> str:
     # Return pass/fail string
@@ -145,6 +155,7 @@ Return a <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object or l
 ```python
 from mlflow.entities import Feedback, AssessmentSource
 
+
 @scorer
 def content_quality(outputs):
     return Feedback(
@@ -152,14 +163,11 @@ def content_quality(outputs):
         rationale="Clear and accurate, minor grammar issues",
         # Optional: source of the assessment. Several source types are supported,
         # such as "HUMAN", "CODE", "LLM_JUDGE".
-        source=AssessmentSource(
-            source_type="HUMAN",
-            source_id="grammar_checker_v1"
-        ),
+        source=AssessmentSource(source_type="HUMAN", source_id="grammar_checker_v1"),
         # Optional: additional metadata about the assessment.
         metadata={
             "annotator": "me@example.com",
-        }
+        },
     )
 ```
 
@@ -170,8 +178,10 @@ Multiple feedback objects can be returned as a list. Each feedback should have t
 def comprehensive_check(inputs, outputs):
     return [
         Feedback(name="relevance", value=True, rationale="Directly addresses query"),
-        Feedback(name="tone", value="professional", rationale="Appropriate for audience"),
-        Feedback(name="length", value=150, rationale="Word count within limits")
+        Feedback(
+            name="tone", value="professional", rationale="Appropriate for audience"
+        ),
+        Feedback(name="length", value=150, rationale="Word count within limits"),
     ]
 ```
 
@@ -329,14 +339,14 @@ When a scorer encounters an error for a trace, MLflow can capture error details 
 The simplest approach is to let exceptions throw naturally. MLflow automatically captures the exception and creates a <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object with the error details. In the example below, the scorer expects JSON with specific fields.
 
 ```python
+import json
 import mlflow
 from mlflow.entities import Feedback
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def is_valid_response(outputs: str) -> Feedback:
-    import json
-
     # Let json.JSONDecodeError propagate if response isn't valid JSON
     data = json.loads(outputs)
 
@@ -344,10 +354,8 @@ def is_valid_response(outputs: str) -> Feedback:
     summary = data["summary"]
     confidence = data["confidence"]
 
-    return Feedback(
-        value=True,
-        rationale=f"Valid JSON with confidence: {confidence}"
-    )
+    return Feedback(value=True, rationale=f"Valid JSON with confidence: {confidence}")
+
 
 # Run the scorer on invalid data that triggers exceptions
 invalid_data = [
@@ -385,12 +393,12 @@ The error information will be displayed in the evaluation results. Open the corr
 For custom error handling or to provide specific error messages, catch exceptions and return a <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> with `None` value and error details:
 
 ```python
+import json
 from mlflow.entities import AssessmentError, Feedback
+
 
 @scorer
 def is_valid_response(outputs):
-    import json
-
     try:
         data = json.loads(outputs)
         required_fields = ["summary", "confidence", "sources"]
@@ -404,13 +412,12 @@ def is_valid_response(outputs):
                 ),
             )
 
-        return Feedback(
-            value=True,
-            rationale="Valid JSON with all required fields"
-        )
+        return Feedback(value=True, rationale="Valid JSON with all required fields")
 
     except json.JSONDecodeError as e:
-        return Feedback(error=e)  # Can pass exception object directly to the error parameter
+        return Feedback(
+            error=e
+        )  # Can pass exception object directly to the error parameter
 ```
 
 The `error` parameter accepts:
@@ -429,6 +436,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.entities import Feedback
 from typing import Optional
 
+
 # Scorer class is a Pydantic object
 class CustomScorer(Scorer):
     # The `name` field is mandatory
@@ -440,10 +448,7 @@ class CustomScorer(Scorer):
     # Override the __call__ method to implement the scorer logic
     def __call__(self, outputs: str) -> Feedback:
         # Your logic here
-        return Feedback(
-            value=True,
-            rationale="Response meets all quality criteria"
-        )
+        return Feedback(value=True, rationale="Response meets all quality criteria")
 ```
 
 ### State management
@@ -454,6 +459,7 @@ When writing scorers using the `Scorer` class, be aware of rules for managing st
 from mlflow.genai.scorers import Scorer
 from mlflow.entities import Feedback
 
+
 # WRONG: Don't use mutable class attributes
 class BadScorer(Scorer):
     results = []  # Shared across all instances!
@@ -463,6 +469,7 @@ class BadScorer(Scorer):
     def __call__(self, outputs, **kwargs):
         self.results.append(outputs)  # Causes issues
         return Feedback(value=True)
+
 
 # CORRECT: Use instance attributes
 class GoodScorer(Scorer):
