@@ -5,6 +5,7 @@ from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
+import prompt_optimization_pb2 as _prompt_optimization_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -1858,7 +1859,7 @@ class GatewayEndpointTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpointBinding(_message.Message):
-    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by", "display_name")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1866,6 +1867,7 @@ class GatewayEndpointBinding(_message.Message):
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     resource_type: str
     resource_id: str
@@ -1873,7 +1875,8 @@ class GatewayEndpointBinding(_message.Message):
     last_updated_at: int
     created_by: str
     last_updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+    display_name: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
 
 class CreateGatewaySecret(_message.Message):
     __slots__ = ("secret_name", "secret_value", "provider", "auth_config", "created_by")
@@ -2243,6 +2246,65 @@ class GetSecretsConfig(_message.Message):
         secrets_available: bool
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
+
+class CreatePromptOptimizationJob(_message.Message):
+    __slots__ = ("experiment_id", "source_prompt_uri", "config", "tags")
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    source_prompt_uri: str
+    config: _prompt_optimization_pb2.PromptOptimizationJobConfig
+    tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJobTag]
+    def __init__(self, experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
+
+class GetPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class SearchPromptOptimizationJobs(_message.Message):
+    __slots__ = ("experiment_id",)
+    class Response(_message.Message):
+        __slots__ = ("jobs",)
+        JOBS_FIELD_NUMBER: _ClassVar[int]
+        jobs: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJob]
+        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+
+class CancelPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class DeletePromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

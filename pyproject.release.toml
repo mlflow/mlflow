@@ -36,7 +36,7 @@ dependencies = [
   "docker<8,>=4.0.0",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "huey<3,>=2.5.0",
+  "huey<3,>=2.5.4",
   "matplotlib<4",
   "numpy<3",
   "pandas<3",
@@ -67,6 +67,7 @@ extras = [
   "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",
@@ -134,6 +135,7 @@ mlflow = [
   "server/auth/db/migrations/alembic.ini",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
+  "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
 ]

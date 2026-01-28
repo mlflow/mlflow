@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from mlflow.exceptions import MlflowException
 
-# (classpath, is_deterministic)
-_METRIC_REGISTRY = {
+
+@dataclass(frozen=True)
+class MetricConfig:
+    classpath: str
+    is_agentic_or_multiturn: bool = False
+    requires_embeddings: bool = False
+    requires_llm_in_constructor: bool = True
+    requires_llm_at_score_time: bool = False
+    requires_args_from_placeholders: bool = False
+
+
+_METRIC_REGISTRY: dict[str, MetricConfig] = {
     # Retrieval Augmented Generation
     "ContextPrecision": ("ragas.metrics.ContextPrecision", False),
     "NonLLMContextPrecisionWithReference": (
@@ -67,14 +79,8 @@ def get_metric_class(metric_name: str):
         class cannot be imported (for example, when RAGAS metrics are requested
         but the ``ragas`` package is not installed).
     """
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-
-    classpath, _ = _METRIC_REGISTRY[metric_name]
-    module_path, class_name = classpath.rsplit(".", 1)
+    config = _get_config(metric_name)
+    module_path, class_name = config.classpath.rsplit(".", 1)
 
     try:
         module = __import__(module_path, fromlist=[class_name])
@@ -85,7 +91,30 @@ def get_metric_class(metric_name: str):
         ) from e
 
 
-def is_deterministic_metric(metric_name: str) -> bool:
-    _, is_deterministic = _METRIC_REGISTRY[metric_name]
+def is_agentic_or_multiturn_metric(metric_name: str) -> bool:
+    return _get_config(metric_name).is_agentic_or_multiturn
 
-    return is_deterministic
+
+def requires_llm_in_constructor(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_llm_in_constructor
+
+
+def requires_embeddings(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_embeddings
+
+
+def requires_llm_at_score_time(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_llm_at_score_time
+
+
+def requires_args_from_placeholders(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_args_from_placeholders
+
+
+def _get_config(metric_name: str) -> MetricConfig:
+    if metric_name not in _METRIC_REGISTRY:
+        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
+        )
+    return _METRIC_REGISTRY[metric_name]

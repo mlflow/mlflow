@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 import tempfile
 import uuid
 from dataclasses import dataclass, field
@@ -159,14 +160,7 @@ class SessionManager:
 
     @staticmethod
     def load(session_id: str) -> Session | None:
-        """Load session from disk.
-
-        Args:
-            session_id: Session ID
-
-        Returns:
-            Session instance, or None if not found
-        """
+        """Load session from disk. Returns a Session instance, or None if not found"""
         try:
             session_file = SessionManager.get_session_file(session_id)
         except ValueError:
@@ -188,3 +182,55 @@ class SessionManager:
             New Session instance
         """
         return Session(context=context or {}, working_dir=working_dir)
+
+
+def get_process_file(session_id: str) -> Path:
+    """Get the file path for storing process PID."""
+    SessionManager.validate_session_id(session_id)
+    return SESSION_DIR / f"{session_id}.process.json"
+
+
+def save_process_pid(session_id: str, pid: int) -> None:
+    """Save process PID to file for cancellation support."""
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    process_file = get_process_file(session_id)
+    process_file.write_text(json.dumps({"pid": pid}))
+
+
+def get_process_pid(session_id: str) -> int | None:
+    try:
+        process_file = get_process_file(session_id)
+    except ValueError:
+        return None
+    if not process_file.exists():
+        return None
+    data = json.loads(process_file.read_text())
+    return data.get("pid")
+
+
+def clear_process_pid(session_id: str) -> None:
+    try:
+        process_file = get_process_file(session_id)
+    except ValueError:
+        return
+    if process_file.exists():
+        process_file.unlink()
+
+
+def terminate_session_process(session_id: str) -> bool:
+    """Terminate the process associated with a session.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        True if process was terminated, False otherwise
+    """
+    if pid := get_process_pid(session_id):
+        try:
+            os.kill(pid, signal.SIGTERM)
+            clear_process_pid(session_id)
+            return True
+        except ProcessLookupError:
+            clear_process_pid(session_id)
+    return False

@@ -55,13 +55,8 @@ repos:
           )$
         exclude: |
           (?x)^(
-            dev/check_patch_prs\.py|
             dev/set_matrix\.py|
-            dev/show_package_release_dates\.py|
-            dev/update_changelog\.py|
             dev/update_ml_package_versions\.py|
-            dev/update_requirements\.py|
-            dev/xtest_viz\.py|
             dev/proto_to_graphql/.*\.py|
             dev/tests/.*\.py
           )$
@@ -236,3 +231,9 @@ repos:
         files: ^mlflow/server/js/
         stages: [pre-commit]
         require_serial: true
+
+      - id: no-spaces
+        name: no-spaces
+        language: fail
+        entry: "Filenames must not contain spaces"
+        files: " "

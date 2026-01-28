@@ -48,4 +48,10 @@ runs:
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
         echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
+        # Disable progress bars and spinners to reduce CI log clutter
+        # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
+        echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
+        # Disable Hugging Face download progress bars to reduce CI log clutter
+        # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
+        echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
       shell: bash

@@ -65,6 +65,7 @@ extras = [
   "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",
@@ -132,6 +133,7 @@ mlflow = [
   "server/auth/db/migrations/alembic.ini",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
+  "assistant/skills/**/*",
 ]
 
 [tool.setuptools.packages.find]

@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 
 import jwt
-import psutil
 import pytest
 import requests
 
@@ -28,10 +27,11 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
+from mlflow.server import auth as auth_module
 from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import random_str
+from tests.helper_functions import kill_process_tree, random_str
 from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -53,6 +53,26 @@ def client(request, tmp_path):
         extra_env=extra_env,
         app="mlflow.server.auth:create_app",
         server_type="flask",
+    ) as url:
+        yield MlflowClient(url)
+
+
+@pytest.fixture
+def fastapi_client(request, tmp_path):
+    """FastAPI client fixture for testing FastAPI-specific middleware (e.g., gateway routes)."""
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    extra_env = getattr(request, "param", {})
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
+    # Set _MLFLOW_SGI_NAME to "uvicorn" so auth module returns FastAPI app
+    extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
     ) as url:
         yield MlflowClient(url)
 
@@ -82,6 +102,29 @@ def test_authenticate(client, monkeypatch):
 def test_validate_username_and_password(client, username, password):
     with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
         create_user(client.tracking_uri, username=username, password=password)
+
+
+def test_proxy_artifact_path_detection():
+    assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
+    assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
+
+
+def test_proxy_artifact_authorization_required(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-authz-test")
+
+    response = requests.put(
+        url=(
+            client.tracking_uri
+            + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
+        ),
+        data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):
@@ -376,13 +419,6 @@ def _wait(url: str, timeout: int = 10) -> None:
     pytest.fail("Server did not start")
 
 
-def _kill_all(pid: str):
-    parent = psutil.Process(pid)
-    for child in parent.children(recursive=True):
-        child.kill()
-    parent.kill()
-
-
 def test_proxy_log_artifacts(monkeypatch, tmp_path):
     backend_uri = f"sqlite:///{tmp_path / 'sqlalchemy.db'}"
     port = get_safe_port()
@@ -437,7 +473,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
         finally:
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
-            _kill_all(prc.pid)
+            kill_process_tree(prc.pid)
 
 
 def test_create_user_from_ui_fails_without_csrf_token(client):
@@ -1546,14 +1582,14 @@ def test_gateway_unauthenticated_access_denied(client, monkeypatch):
     assert response.status_code == 401
 
 
-def test_gateway_endpoint_use_permission(client, monkeypatch):
-    user1, password1 = create_user(client.tracking_uri)
-    user2, password2 = create_user(client.tracking_uri)
+def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
 
     # User1 creates a secret, model definition, and endpoint
     with User(user1, password1, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
             json={
                 "secret_name": "test_secret",
                 "secret_value": {"api_key": "test-key"},
@@ -1566,7 +1602,7 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
 
     with User(user1, password1, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
             json={
                 "name": "test_model_def",
                 "secret_id": secret_id,
@@ -1580,7 +1616,7 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
 
     with User(user1, password1, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "test_endpoint",
                 "model_configs": [
@@ -1599,7 +1635,7 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
     # User2 without permission cannot invoke the endpoint
     with User(user2, password2, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+            url=fastapi_client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
             json={"messages": [{"role": "user", "content": "test"}]},
             auth=(user2, password2),
         )
@@ -1608,7 +1644,7 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
     # Grant USE permission to user2
     with User(user1, password1, monkeypatch):
         _send_rest_tracking_post_request(
-            client.tracking_uri,
+            fastapi_client.tracking_uri,
             "/api/3.0/mlflow/gateway/endpoints/permissions/create",
             json_payload={
                 "endpoint_id": endpoint_id,
@@ -1621,7 +1657,7 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
     # User2 with USE permission can invoke
     with User(user2, password2, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+            url=fastapi_client.tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
             json={"messages": [{"role": "user", "content": "test"}]},
             auth=(user2, password2),
         )
@@ -1631,17 +1667,17 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
     # Cleanup
     with User(user1, password1, monkeypatch):
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
             json={"endpoint_id": endpoint_id},
             auth=(user1, password1),
         ).raise_for_status()
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
             json={"model_definition_id": model_definition_id},
             auth=(user1, password1),
         ).raise_for_status()
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": secret_id},
             auth=(user1, password1),
         ).raise_for_status()
@@ -2083,14 +2119,14 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
         ).raise_for_status()
 
 
-def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch):
-    user1, password1 = create_user(client.tracking_uri)
-    user2, password2 = create_user(client.tracking_uri)
+def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
 
     # User1 creates a secret, model definition, and endpoint
     with User(user1, password1, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
             json={
                 "secret_name": "user1_secret",
                 "secret_value": {"api_key": "test-key"},
@@ -2102,7 +2138,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
         secret_id = response.json()["secret"]["secret_id"]
 
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
             json={
                 "name": "test_model_def",
                 "secret_id": secret_id,
@@ -2115,7 +2151,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
         model_def_id = response.json()["model_definition"]["model_definition_id"]
 
         response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "test_endpoint",
                 "model_configs": [
@@ -2133,7 +2169,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # User2 cannot invoke the endpoint (no permission)
     with User(user2, password2, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            url=fastapi_client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
             json={"messages": [{"role": "user", "content": "Hello"}]},
             auth=(user2, password2),
         )
@@ -2142,7 +2178,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # Grant READ permission to user2 (not enough for invocation)
     with User(user1, password1, monkeypatch):
         _send_rest_tracking_post_request(
-            client.tracking_uri,
+            fastapi_client.tracking_uri,
             "/api/3.0/mlflow/gateway/endpoints/permissions/create",
             json_payload={
                 "endpoint_id": endpoint_id,
@@ -2155,7 +2191,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # User2 still cannot invoke (READ is not sufficient)
     with User(user2, password2, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            url=fastapi_client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
             json={"messages": [{"role": "user", "content": "Hello"}]},
             auth=(user2, password2),
         )
@@ -2164,7 +2200,8 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # Upgrade to USE permission
     with User(user1, password1, monkeypatch):
         response = requests.patch(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/permissions/update",
+            url=fastapi_client.tracking_uri
+            + "/api/3.0/mlflow/gateway/endpoints/permissions/update",
             json={
                 "endpoint_id": endpoint_id,
                 "username": user2,
@@ -2178,7 +2215,7 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # We just check that we get past the permission check (403) to a different error
     with User(user2, password2, monkeypatch):
         response = requests.post(
-            url=client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
+            url=fastapi_client.tracking_uri + "/gateway/test_endpoint/mlflow/invocations",
             json={"messages": [{"role": "user", "content": "Hello"}]},
             auth=(user2, password2),
         )
@@ -2189,17 +2226,17 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
     # Cleanup
     with User(user1, password1, monkeypatch):
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
             json={"endpoint_id": endpoint_id},
             auth=(user1, password1),
         ).raise_for_status()
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
             json={"model_definition_id": model_def_id},
             auth=(user1, password1),
         ).raise_for_status()
         requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": secret_id},
             auth=(user1, password1),
         ).raise_for_status()

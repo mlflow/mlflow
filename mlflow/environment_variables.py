@@ -691,6 +691,13 @@ MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS", int, 10
 )
 
+#: Maximum number of parallel threads to use for LLM calls during optimization (e.g., MemAlign).
+#: Increasing this value can speed up alignment when processing
+#: many feedback examples, but may increase API rate limit errors. (default: ``8``)
+MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS", int, 8
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
@@ -1190,6 +1197,13 @@ MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
 #: (default: ``5``)
 MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
+)
+
+#: Default buffer time in seconds to wait before considering a session complete for online scoring.
+#: Sessions with no new traces for this duration are considered complete and ready for scoring.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
 

@@ -52,13 +52,18 @@ import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
-import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  isV3ModelTraceInfo,
+  ModelTraceExplorerContextProvider,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
 import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
 import { useIntl } from 'react-intl';
 import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 const ContextProviders = ({
   children,
@@ -292,78 +297,79 @@ const RunViewEvaluationsTabInner = ({
           </span>
         </div>
       )}
-      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <GenAITracesTableProvider
-          experimentId={experimentId}
-          getTrace={getTrace}
-          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-        >
-          <div
-            css={{
-              overflowY: 'hidden',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <GenAITracesTableToolbar
-              experimentId={experimentId}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              filters={filters}
-              setFilters={setFilters}
-              assessmentInfos={assessmentInfos}
-              countInfo={countInfo}
-              traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
-              allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              toggleColumns={toggleColumns}
-              traceInfos={traceInfos}
-              tableFilterOptions={tableFilterOptions}
-              onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
-              isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
-              isGroupedBySession={isGroupedBySession}
-              onToggleSessionGrouping={onToggleSessionGrouping}
-            />
-            {
-              // prettier-ignore
-              isTableLoading ? (
-            <LoadingSkeleton />
-          ) : traceInfosError ? (
-            <div>
-              <pre>{String(traceInfosError)}</pre>
-            </div>
-          ) : (
-            <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
-              <GenAITracesTableBodyContainer
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={AssistantAwareDrawer}
+      >
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+            <div
+              css={{
+                overflowY: 'hidden',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <GenAITracesTableToolbar
                 experimentId={experimentId}
-                currentRunDisplayName={runDisplayName}
-                compareToRunDisplayName={compareToRunDisplayName}
-                compareToRunUuid={compareToRunUuid}
-                getTrace={getTrace}
-                getRunColor={getRunColor}
-                assessmentInfos={assessmentInfos}
-                setFilters={setFilters}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
                 filters={filters}
-                selectedColumns={selectedColumns}
-                allColumns={allColumns}
+                setFilters={setFilters}
+                assessmentInfos={assessmentInfos}
+                countInfo={countInfo}
+                traceActions={traceActions}
                 tableSort={tableSort}
-                currentTraceInfoV3={traceInfos || []}
-                compareToTraceInfoV3={compareToRunData}
-                onTraceTagsEdit={showEditTagsModalForTrace}
-                displayLoadingOverlay={displayLoadingOverlay}
+                setTableSort={setTableSort}
+                allColumns={allColumns}
+                selectedColumns={selectedColumns}
+                setSelectedColumns={setSelectedColumns}
+                toggleColumns={toggleColumns}
+                traceInfos={traceInfos}
+                tableFilterOptions={tableFilterOptions}
+                onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
+                isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
                 isGroupedBySession={isGroupedBySession}
+                onToggleSessionGrouping={onToggleSessionGrouping}
               />
-            </ContextProviders>
-          )
-            }
-            {EditTagsModal}
-          </div>
-        </GenAITracesTableProvider>
-      </GenAiTraceTableRowSelectionProvider>
+              {
+                // prettier-ignore
+                isTableLoading ? (
+                <LoadingSkeleton />
+              ) : traceInfosError ? (
+                <div>
+                  <pre>{String(traceInfosError)}</pre>
+                </div>
+              ) : (
+                <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
+                  <GenAITracesTableBodyContainer
+                    experimentId={experimentId}
+                    currentRunDisplayName={runDisplayName}
+                    compareToRunDisplayName={compareToRunDisplayName}
+                    compareToRunUuid={compareToRunUuid}
+                    getTrace={getTrace}
+                    getRunColor={getRunColor}
+                    assessmentInfos={assessmentInfos}
+                    setFilters={setFilters}
+                    filters={filters}
+                    selectedColumns={selectedColumns}
+                    allColumns={allColumns}
+                    tableSort={tableSort}
+                    currentTraceInfoV3={traceInfos || []}
+                    compareToTraceInfoV3={compareToRunData}
+                    onTraceTagsEdit={showEditTagsModalForTrace}
+                    displayLoadingOverlay={displayLoadingOverlay}
+                    isGroupedBySession={isGroupedBySession}
+                  />
+                </ContextProviders>
+              )
+              }
+              {EditTagsModal}
+            </div>
+          </GenAITracesTableProvider>
+        </GenAiTraceTableRowSelectionProvider>
+      </ModelTraceExplorerContextProvider>
     </div>
   );
 };

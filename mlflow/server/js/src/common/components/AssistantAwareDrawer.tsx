@@ -71,9 +71,15 @@ function Content({
       size={size}
       css={cssProp}
       onInteractOutside={(event) => {
-        // Prevent closing when clicking on assistant chat panel
-        const target = event.detail.originalEvent.target as HTMLElement;
-        if (target?.closest?.('[data-assistant-ui="true"]')) {
+        // Prevent drawer from closing when clicking on assistant UI elements.
+        // We use a data attribute selector instead of React patterns (e.g., stopPropagation)
+        // because Radix's DismissableLayer uses document-level listeners that bypass
+        // React's event propagation. The onInteractOutside handler is the correct
+        // interception point, and we identify assistant elements via data-assistant-ui
+        // attribute set on AssistantIconButton and RootAssistantLayout.
+        const target = event.target as HTMLElement;
+        const isAssistantClick = target?.closest('[data-assistant-ui="true"]');
+        if (isAssistantClick) {
           event.preventDefault();
         }
       }}

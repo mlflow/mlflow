@@ -7,10 +7,14 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
 
-:::tip
+:::info
 
 Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow for GenAI](/genai) documentation</ins> instead. This guide is intended for data scientists who train traditional machine learning models, such as decision trees.
 
+:::
+
+:::tip MLflow Assistant
+Need help setting up tracking? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow tracking for your project.
 :::
 
 Welcome to MLflow! The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
@@ -60,7 +64,6 @@ X_train, X_test, y_train, y_test = train_test_split(
 params = {
     "solver": "lbfgs",
     "max_iter": 1000,
-    "multi_class": "auto",
     "random_state": 8888,
 }
 ```
