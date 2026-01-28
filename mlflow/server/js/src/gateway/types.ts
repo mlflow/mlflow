@@ -141,6 +141,8 @@ export interface Endpoint {
     strategy: string;
     max_attempts: number;
   };
+  experiment_id?: string;
+  usage_tracking?: boolean;
 }
 
 export interface CreateEndpointRequest {

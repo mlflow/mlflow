@@ -729,9 +729,7 @@ class SqlAlchemyGatewayStoreMixin:
                         except MlflowException:
                             # Experiment may already exist, try to get it
                             sql_exp = (
-                                session.query(SqlExperiment)
-                                .filter_by(name=experiment_name)
-                                .first()
+                                session.query(SqlExperiment).filter_by(name=experiment_name).first()
                             )
                             if sql_exp:
                                 experiment_id = str(sql_exp.experiment_id)
