@@ -5392,18 +5392,17 @@ def _get_prompt_optimization_job(job_id):
         # "final_eval_score.<scorer_name>"
         total_metric_calls = None
         for metric_name, metric_value in run_metrics.items():
-            if metric_name == "initial_eval_score":
-                optimization_job.initial_eval_scores["aggregate"] = metric_value
-            elif metric_name == "final_eval_score":
-                optimization_job.final_eval_scores["aggregate"] = metric_value
-            elif metric_name.startswith("initial_eval_score."):
-                scorer_name = metric_name.removeprefix("initial_eval_score.")
-                optimization_job.initial_eval_scores[scorer_name] = metric_value
-            elif metric_name.startswith("final_eval_score."):
-                scorer_name = metric_name.removeprefix("final_eval_score.")
-                optimization_job.final_eval_scores[scorer_name] = metric_value
-            elif metric_name == "total_metric_calls":
-                total_metric_calls = metric_value
+            match metric_name.split(".", 1):
+                case ["initial_eval_score"]:
+                    optimization_job.initial_eval_scores["aggregate"] = metric_value
+                case ["final_eval_score"]:
+                    optimization_job.final_eval_scores["aggregate"] = metric_value
+                case ["initial_eval_score", scorer_name]:
+                    optimization_job.initial_eval_scores[scorer_name] = metric_value
+                case ["final_eval_score", scorer_name]:
+                    optimization_job.final_eval_scores[scorer_name] = metric_value
+                case ["total_metric_calls"]:
+                    total_metric_calls = metric_value
 
         if total_metric_calls is not None:
             params = json.loads(job_entity.params)
