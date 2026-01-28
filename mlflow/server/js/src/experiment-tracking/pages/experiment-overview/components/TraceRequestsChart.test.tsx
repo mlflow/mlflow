@@ -90,7 +90,7 @@ describe('TraceRequestsChart', () => {
       renderComponent();
 
       // Check that actual chart content is not rendered during loading
-      expect(screen.queryByText('Requests')).not.toBeInTheDocument();
+      expect(screen.queryByText('Traces')).not.toBeInTheDocument();
     });
   });
 
@@ -163,13 +163,13 @@ describe('TraceRequestsChart', () => {
       });
     });
 
-    it('should display the "Requests" title', async () => {
+    it('should display the "Traces" title', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Traces')).toBeInTheDocument();
       });
     });
 
@@ -341,7 +341,7 @@ describe('TraceRequestsChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Traces')).toBeInTheDocument();
       });
 
       // Zoom Out button should not be visible when not zoomed

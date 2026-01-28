@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -6,7 +7,14 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from mlflow.assistant.providers.base import AssistantProvider, ProviderConfig
+from mlflow.assistant.config import AssistantConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    ProviderConfig,
+)
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager
@@ -40,18 +48,33 @@ class MockProvider(AssistantProvider):
     def check_connection(self, echo=print) -> None:
         pass
 
-    def install_skills(self) -> list[str]:
-        pass
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        return base_directory / ".mock" / "skills"
 
     async def astream(
         self,
         prompt: str,
+        tracking_uri: str,
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict | None = None,
     ):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
+
+
+@pytest.fixture(autouse=True)
+def isolated_config(tmp_path, monkeypatch):
+    """Redirect config to tmp_path to avoid modifying real user config."""
+    import mlflow.assistant.config as config_module
+
+    config_home = tmp_path / ".mlflow" / "assistant"
+    config_path = config_home / "config.json"
+
+    monkeypatch.setattr(config_module, "MLFLOW_ASSISTANT_HOME", config_home)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    return config_home
 
 
 @pytest.fixture(autouse=True)
@@ -139,12 +162,125 @@ def test_stream_returns_sse_events(client):
     assert "Hello from mock" in content
 
 
-def test_status_returns_provider_info(client):
-    response = client.get("/ajax-api/3.0/mlflow/assistant/status")
+def test_health_check_returns_ok_when_healthy(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_check_returns_404_for_unknown_provider(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/unknown_provider/health")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_health_check_returns_412_when_cli_not_installed():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class CLINotInstalledProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise CLINotInstalledError("CLI not installed")
+
+    with patch("mlflow.server.assistant.api._provider", CLINotInstalledProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 412
+        assert "CLI not installed" in response.json()["detail"]
+
+
+def test_health_check_returns_401_when_not_authenticated():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class NotAuthenticatedProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise NotAuthenticatedError("Not authenticated")
+
+    with patch("mlflow.server.assistant.api._provider", NotAuthenticatedProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 401
+        assert "Not authenticated" in response.json()["detail"]
+
+
+def test_get_config_returns_empty_config(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
     assert response.status_code == 200
     data = response.json()
-    assert data["provider"] == "mock_provider"
-    assert data["available"] is True
+    assert data["providers"] == {}
+    assert data["projects"] == {}
+
+
+def test_get_config_returns_existing_config(client, tmp_path):
+    # Set up existing config by saving it first
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    config = AssistantConfig(
+        providers={"claude_code": AssistantProviderConfig(model="default", selected=True)},
+        projects={"exp-123": ProjectConfig(type="local", location=str(project_dir))},
+    )
+    config.save()
+
+    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["model"] == "default"
+    assert data["providers"]["claude_code"]["selected"] is True
+    assert data["projects"]["exp-123"]["location"] == str(project_dir)
+
+
+def test_update_config_sets_provider(client):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": {"model": "opus", "selected": True}}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["selected"] is True
+
+
+def test_update_config_sets_project(client, tmp_path):
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"projects": {"exp-456": {"type": "local", "location": str(project_dir)}}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["projects"]["exp-456"]["location"] == str(project_dir)
+
+
+def test_update_config_expand_user_home(client, tmp_path):
+    # Create a directory under a "fake home" structure to test ~ expansion
+    fake_home = tmp_path / "home" / "user"
+    project_dir = fake_home / "my_project"
+    project_dir.mkdir(parents=True)
+
+    with patch("mlflow.server.assistant.api.Path.expanduser") as mock_expanduser:
+        # Make expanduser return our tmp_path directory
+        mock_expanduser.return_value = project_dir
+
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={"projects": {"exp-456": {"type": "local", "location": "~/my_project"}}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["projects"]["exp-456"]["location"] == str(project_dir)
 
 
 @pytest.mark.asyncio
@@ -201,3 +337,41 @@ def test_validate_session_id_rejects_invalid_format():
 def test_validate_session_id_rejects_path_traversal():
     with pytest.raises(ValueError, match="Invalid session ID format"):
         SessionManager.validate_session_id("../../../etc/passwd")
+
+
+def test_install_skills_success(client):
+    with patch(
+        "mlflow.server.assistant.api.install_skills", return_value=["skill1", "skill2"]
+    ) as mock_install:
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["skill1", "skill2"]
+        expected_path = os.path.join(os.sep, "tmp", "test-skills")
+        assert data["skills_directory"] == expected_path
+        mock_install.assert_called_once_with(Path(expected_path))
+
+
+def test_install_skills_skips_when_already_installed(client):
+    with (
+        patch("mlflow.server.assistant.api.Path.exists", return_value=True),
+        patch(
+            "mlflow.server.assistant.api.list_installed_skills",
+            return_value=["existing_skill"],
+        ) as mock_list,
+        patch("mlflow.server.assistant.api.install_skills") as mock_install,
+    ):
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["existing_skill"]
+        mock_install.assert_not_called()
+        mock_list.assert_called_once()

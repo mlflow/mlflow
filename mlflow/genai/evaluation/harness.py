@@ -218,8 +218,15 @@ def run(
     # all traces in the result.
     traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
 
+    # Collect trace IDs from eval results to preserve them during cleanup.
+    input_trace_ids = {
+        result.eval_item.trace.info.trace_id
+        for result in eval_results
+        if result.eval_item.trace is not None
+    }
+
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time)
+    clean_up_extra_traces(traces, eval_start_time, input_trace_ids)
 
     return EvaluationResult(
         run_id=run_id,

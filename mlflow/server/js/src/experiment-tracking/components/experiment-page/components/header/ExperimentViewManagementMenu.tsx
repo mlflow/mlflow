@@ -11,8 +11,6 @@ import {
   isExperimentTypeNotebook,
 } from '../../utils/experimentPage.common-utils';
 import { getShareFeedbackOverflowMenuItem } from './ExperimentViewHeader.utils';
-import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
-import { ExperimentKind } from '../../../../constants';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';

@@ -9,8 +9,8 @@ describe('TraceInfo', () => {
       traceLocation: {
         type: TraceLocationType.MLFLOW_EXPERIMENT,
         mlflowExperiment: {
-          experimentId: 'test-experiment-id'
-        }
+          experimentId: 'test-experiment-id',
+        },
       },
       requestTime: 1000,
       state: TraceState.OK,
@@ -20,7 +20,7 @@ describe('TraceInfo', () => {
       executionDuration: 500,
       traceMetadata: { 'meta-key': 'meta-value' },
       tags: { 'tag-key': 'tag-value' },
-      assessments: []
+      assessments: [],
     });
   };
 

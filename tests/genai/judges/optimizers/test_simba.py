@@ -1,6 +1,7 @@
 from importlib import reload
 from unittest.mock import MagicMock, patch
 
+import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -23,32 +24,33 @@ def test_dspy_optimize_no_dspy():
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
     mock_simba.compile.return_value = mock_compiled_program
 
-    with patch("dspy.SIMBA", MagicMock()) as mock_simba_class, patch("dspy.LM", MagicMock()):
+    with (
+        patch("dspy.SIMBA", MagicMock()) as mock_simba_class,
+        patch("dspy.LM", MagicMock()),
+    ):
         mock_simba_class.return_value = mock_simba
         optimizer = SIMBAAlignmentOptimizer()
         # Mock get_min_traces_required to work with 5 traces from fixture
         with patch.object(SIMBAAlignmentOptimizer, "get_min_traces_required", return_value=5):
             result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-    # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions should be the raw optimized instructions
-    expected_instructions = "Optimized instructions with {{inputs}} and {{outputs}}"
-    assert result.instructions == expected_instructions
+    # The judge instructions should include the optimized instructions
+    assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
+    # Instructions already contain {{inputs}} and {{outputs}}, so fields section is not appended
+    assert "Inputs for assessment:" not in result.instructions
 
 
 def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )
@@ -90,8 +92,7 @@ def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
 
 def test_default_parameters_not_passed(mock_judge, sample_traces_with_assessments):
     mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
+    mock_compiled_program = dspy.Predict("inputs, outputs -> result, rationale")
     mock_compiled_program.signature.instructions = (
         "Optimized instructions with {{inputs}} and {{outputs}}"
     )

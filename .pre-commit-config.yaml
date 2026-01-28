@@ -48,7 +48,18 @@ repos:
       - id: mypy
         name: mypy
         language: system
-        files: '^(dev/clint/|\.claude/skills/).*\.py$'
+        files: |
+          (?x)^(
+            dev/.*\.py|
+            \.claude/skills/.*\.py
+          )$
+        exclude: |
+          (?x)^(
+            dev/set_matrix\.py|
+            dev/update_ml_package_versions\.py|
+            dev/proto_to_graphql/.*\.py|
+            dev/tests/.*\.py
+          )$
         entry: uv run --only-group lint mypy
         require_serial: true
 
@@ -142,7 +153,13 @@ repos:
 
       - id: lint-proto
         name: lint-proto
-        entry: dev/lint-proto.sh
+        entry: |
+          bash -c '
+            if grep -n "com.databricks.mlflow.api.MlflowTrackingMessage" "$@"; then
+              echo "Remove com.databricks.mlflow.api.MlflowTrackingMessage"
+              exit 1
+            fi
+          ' --
         files: '\.proto$'
         language: system
         stages: [pre-commit]
@@ -214,3 +231,9 @@ repos:
         files: ^mlflow/server/js/
         stages: [pre-commit]
         require_serial: true
+
+      - id: no-spaces
+        name: no-spaces
+        language: fail
+        entry: "Filenames must not contain spaces"
+        files: " "

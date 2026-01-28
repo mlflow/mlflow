@@ -6,7 +6,7 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 import { useWatch, type Control } from 'react-hook-form';
 import type { SCORER_TYPE } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import EvaluateTracesSection from './EvaluateTracesSection';
 
 const getDocLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/custom/';
@@ -128,7 +128,7 @@ mlflow.genai.evaluate(
         </Typography.Text>
         {/* Step 1: Install MLflow */}
         <div>
-          <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Step 1: Install MLflow"
               description="Step 1 title for custom judge creation"
@@ -149,7 +149,7 @@ mlflow.genai.evaluate(
         </div>
         {/* Step 2: Define your scorer */}
         <div>
-          <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Step 2: Define your judge function"
               description="Step 2 title for custom judge creation"
@@ -182,7 +182,7 @@ mlflow.genai.evaluate(
         </div>
         {/* Step 3: Run the scorer */}
         <div>
-          <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Step 3: Run the judge"
               description="Step 3 title for custom judge creation"
@@ -222,7 +222,7 @@ mlflow.genai.evaluate(
         />
       </div>
 
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      <EvaluateTracesSection control={control} mode={mode} />
     </div>
   );
 };

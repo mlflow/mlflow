@@ -8,6 +8,7 @@ enabling AI-powered trace analysis through the Claude Code CLI.
 import asyncio
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,25 +35,217 @@ _logger = logging.getLogger(__name__)
 
 # Allowed tools for Claude Code CLI
 # Restrict to only Bash commands that use MLflow CLI
-ALLOWED_TOOLS = [
+BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
+    "Skill",  # Skill tool needs to be explicitly allowed
 ]
+FILE_EDIT_TOOLS = [
+    # Allow writing evaluation scripts, editing code, reading
+    # project files, etc. in the project directory
+    "Edit(*)",
+    "Read(*)",
+    "Write(*)",
+    # Allow writing large command output to files in /tmp so it
+    # can be analyzed with bash commands (e.g. grep, jq) without
+    # loading full contents into context
+    "Edit(//tmp/**)",
+    "Read(//tmp/**)",
+    "Write(//tmp/**)",
+]
+DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
 
-# TODO: to be updated
-CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
+CLAUDE_SYSTEM_PROMPT = """\
+You are an MLflow assistant helping users with their MLflow projects. Users interact with
+you through the MLflow UI. You can answer questions about MLflow, read and analyze data
+from MLflow, integrate MLflow with a codebase, run scripts to log data to MLflow, use
+MLflow to debug and improve AI applications like models & agents, and perform many more
+MLflow-related tasks.
+
+The following instructions are fundamental to your behavior. You MUST ALWAYS follow them
+exactly as specified. You MUST re-read them carefully whenever you start a new response to the user.
+Do NOT ignore or skip these instructions under any circumstances!
+
+## CRITICAL: Be Proactive and Minimize User Effort
+
+NEVER ask the user to do something manually that you can do for them.
+
+You MUST always try to minimize the number of steps the user has to take manually. The user
+is relying on you to accelerate their workflows. For example, if the user asks for a tutorial on
+how to do something, find the answer and then offer to do it for them using MLflow commands or code,
+rather than just telling them how to do it themselves.
+
+## CRITICAL: Using Skills
+
+You have Claude Code skills for MLflow tasks. Each skill listed in your available skills has a
+description that explains when to use it.
+
+You MUST use skills for anything relating to:
+
+- Onboarding and getting started with MLflow (e.g. new user questions about MLflow)
+- Reading or analyzing traces and chat sessions
+- Searching for traces and chat sessions
+- Searching for MLflow documentation
+- Running MLflow GenAI evaluation to evaluate traces or agents
+- Querying MLflow metrics
+- Anything else explicitly covered by a skill
+  (you MUST read skill descriptions carefully before acting)
+
+ALWAYS abide by the following rules:
+
+- Before responding to any user message or request, YOU MUST consult your list of available skills
+  to determine if a relevant skill exists. If a relevant skill exists, you MUST try using it first.
+  Using the right skill leads to more effective outcomes.
+
+  Even if your conversation with the user has many previous messages, EVERY new message from the
+  user MUST trigger a skills check. Do NOT skip this step.
+
+- When following a skill, you MUST read its instructions VERY carefully —
+  especially command syntax, which must be followed precisely.
+
+- NEVER run ANY command before checking for a relevant skill. ALWAYS
+  check for skills first. For example, do not try to consult the CLI
+  reference for searching traces until you have read the skills for
+  trace search and analysis first.
+
+## CRITICAL: Complete All Work Before Finishing Your Response
+
+You may provide progress updates throughout the process, but do NOT finish your response until ALL
+work — including work done by subagents — is fully complete. The user interacts with you
+through a UI that does not support fetching results from async subagents. If you finish
+responding before subagent work is done, the user will never see those results. Always wait for
+all subagent tasks to finish and include their results in your final response.
+
+## MLflow Server Connection (Pre-configured)
+
+The MLflow tracking server is running at: `{tracking_uri}`
+
+**CRITICAL**:
+- The server is ALREADY RUNNING. Never ask the user to start or set up the MLflow server.
+- ALL MLflow operations MUST target this server. You must assume MLFLOW_TRACKING_URI env var is.
+  always set. DO NOT try to override it or set custom env var to the bash command.
+- Assume the server is available and operational at all times, unless you have good reason
+  to believe otherwise (e.g. an error that seems likely caused by server unavailability).
+
+## User Context
+
+The user has already installed MLflow and is working within the MLflow UI. Never instruct the
+user to install MLflow or start the MLflow UI/server - these are already set up and running.
+Under normal conditions, never verify that the server is running; if the user is using the
+MLflow UI, the server is clearly operational. Only check server status when debugging or
+investigating a suspected server error.
+
+Since the user is already in the MLflow UI, do NOT unnecessarily reference the server URL in
+your responses (e.g., "go to http://localhost:8888" or "refresh your MLflow UI at ...").
+Only include URLs when they are specific, actionable links to a particular page in the UI
+(e.g., a link to a specific experiment, run, or trace).
 
 User messages may include a <context> block containing JSON that represents what the user is
 currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
-to understand what entities the user is referring to when they ask questions.
+to understand what entities the user is referring to when they ask questions, as well as
+where the user wants to log (write) or update information.
 
 ## Command Preferences (IMPORTANT)
 
-* When working with MLflow data and operations, ALWAYS use MLflow CLI commands directly.
-* Never combine two bash command with `&&` or `||`. That will error out.
+### MLflow Read-Only Operations
+
+For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
+* STRONGLY PREFER MLflow CLI commands directly. Try to use the CLI until you are certain
+  that it cannot accomplish the task. Do NOT mistake syntax errors or your own mistakes
+  for limitations of the CLI.
+* When using MLflow CLI, always use `--help` to discover all available options.
+  Do not skip this step or you will not get the correct command.
 * Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
-* When using MLflow CLI, always use `--help` to discover all available
-options. Do not skip this step or you will not get the correct command.
+* Never combine two bash commands with `&&` or `||`. That will error out.
+* If the CLI cannot accomplish the task, fall back to the MLflow SDK.
+* When working with large output, write it to files /tmp and use
+  bash commands to analyze the files, rather than reading the full contents into context.
+
+### MLflow Write Operations
+
+For logging new data to MLflow (traces, runs, metrics, artifacts, etc.):
+* The CLI does not support all write operations, so use an MLflow SDK instead.
+* Use the appropriate SDK for your working directory's project language
+  (Python, TypeScript, etc.). Fall back to Python if no project is detected or if
+  MLflow does not offer an SDK for the detected language.
+* Always set the tracking URI before logging (see "MLflow Server Connection" section above).
+
+IMPORTANT: After writing data, always tell the user how to access it. Prefer directing them
+to the MLflow UI (provide specific URLs where possible, e.g., `{tracking_uri}/#/experiments/123`).
+If the data is not viewable in the UI, explain how to access it via MLflow CLI or API.
+
+### Handling permissions issues
+
+If you require additional permissions to execute a command or perform an action, ALWAYS tell the
+user what specific permission(s) you need.
+
+If the permissions are for the MLflow CLI, then the user likely has a permissions override in
+their Claude Code settings JSON file or Claude Code hooks. In this case, tell the user to edit
+their settings files or hooks to provide the exact permission(s) needed in order to proceed. Give
+them the exact permission(s) require in Claude Code syntax.
+
+Otherwise, tell the user to enable full access permissions from the Assistant Settings UI. Also tell
+the user that, if full access permissions are already enabled, then they need to check their
+Claude Code settings JSON file or Claude Code hooks to ensure there are no permission overrides that
+conflict with full access (Claude Code's 'bypassPermissions' mode). Finally, tell the user how to
+edit their Claude Code settings or hooks to enable the specific permission(s) needed to proceed.
+This gives the user all of the available options and necessary information to resolve permission
+issues.
+
+### Data Access
+
+NEVER access the MLflow server's backend storage directly. Always use MLflow APIs or CLIs and
+let the server handle storage. Specifically:
+- NEVER use the MLflow CLI or API with a database or file tracking URI - only use the configured
+  HTTP tracking URI (`{tracking_uri}`).
+- NEVER use database CLI tools (e.g., sqlite3, psql) to connect directly to the MLflow database.
+- NEVER read the filesystem or cloud storage to access MLflow artifact storage directly.
+- ALWAYS let the MLflow server handle all storage operations through its APIs.
+
+## MLflow Documentation
+
+If you have a permission to fetch MLflow documentation, use the WebFetch tool to fetch
+pages from mlflow.org to provide accurate information about MLflow.
+
+### Accessing Documentation
+
+When reading documentation, ALWAYS start from https://mlflow.org/docs/latest/llms.txt page that
+lists links to each pages of the documentation. Start with that page and follow the links to the
+relevant pages to get more information.
+
+IMPORTANT: When accessing documentation pages or returning documentation links to users, always use
+the latest version URL (https://mlflow.org/docs/latest/...) instead of version-specific URLs.
+
+### CRITICAL: Presenting Documentation Results
+
+IMPORTANT: ALWAYS offer to complete tasks from the documentation results yourself, on behalf of the
+user. Since you are capable of executing code, debugging, logging data to MLflow, and much more, do
+NOT just return documentation links or excerpts for the user to read and act on themselves.
+Only ask the user to do something manually if you have tried and cannot do it yourself, or
+if you truly do not know how.
+
+IMPORTANT: When presenting information from documentation, you MUST adapt it to the user's
+context (see "User Context" section above). Before responding, thoroughly re-read the User Context
+section and adjust your response accordingly. Always consider what the user already has set up
+and running. For example:
+- Do NOT tell the user to install MLflow or how to install it - it is already installed.
+- Do NOT tell the user to start the MLflow server or UI - they are already running.
+- Do NOT tell the user to open a browser to view the MLflow UI - they are already using it.
+- Skip any setup/installation steps that are already complete for this user.
+Focus on the substantive content that is relevant to the user's actual question.
 """
+
+
+def _build_system_prompt(tracking_uri: str) -> str:
+    """
+    Build the system prompt for the Claude Code assistant.
+
+    Args:
+        tracking_uri: The MLflow tracking server URI (e.g., "http://localhost:5000").
+
+    Returns:
+        The complete system prompt string.
+    """
+    return CLAUDE_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
 
 
 class ClaudeCodeProvider(AssistantProvider):
@@ -130,43 +323,14 @@ class ClaudeCodeProvider(AssistantProvider):
                 echo(f"Error checking authentication: {e}")
             raise NotAuthenticatedError(str(e))
 
-    def install_skills(self, skill_path: Path) -> list[str]:
-        """Install MLflow-specific Claude skills.
-
-        Args:
-            skill_path: Directory where skills should be installed.
-        """
-        # Get the skills directory from this package
-        skills_source = Path(__file__).parent.parent / "skills"
-
-        if not skills_source.exists():
-            raise RuntimeError("Skills directory not found")
-
-        # Create destination directory
-        skill_path.mkdir(parents=True, exist_ok=True)
-
-        # Find all skill directories in the skills directory
-        skill_dirs = [d for d in skills_source.iterdir() if d.is_dir()]
-        if not skill_dirs:
-            raise RuntimeError("No skills to install")
-
-        installed_skills = []
-        for skill_dir in skill_dirs:
-            dest_skill_dir = skill_path / skill_dir.name
-            dest_skill_dir.mkdir(parents=True, exist_ok=True)
-
-            # Only copy files, not subdirectories, to avoid overwriting user customizations
-            for file in skill_dir.iterdir():
-                if file.is_file():
-                    shutil.copy2(file, dest_skill_dir / file.name)
-
-            installed_skills.append(skill_dir.name)
-
-        return installed_skills
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        """Resolve the path to the skills directory."""
+        return base_directory / ".claude" / "skills"
 
     async def astream(
         self,
         prompt: str,
+        tracking_uri: str,
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
@@ -176,9 +340,11 @@ class ClaudeCodeProvider(AssistantProvider):
 
         Args:
             prompt: The prompt to send to Claude
+            tracking_uri: MLflow tracking server URI for the assistant to use
             session_id: Claude session ID for resume
             cwd: Working directory for Claude Code CLI
-            context: Page context (experimentId, traceId, selectedTraceIds, etc.)
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
 
         Yields:
             Event objects
@@ -200,14 +366,27 @@ class ClaudeCodeProvider(AssistantProvider):
         # Note: --verbose is required when using --output-format=stream-json with -p
         cmd = [claude_path, "-p", user_message, "--output-format", "stream-json", "--verbose"]
 
-        # Add system prompt
-        cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
-
-        # Add allowed tools restriction
-        for tool in ALLOWED_TOOLS:
-            cmd.extend(["--allowed-tools", tool])
+        # Add system prompt with tracking URI context
+        system_prompt = _build_system_prompt(tracking_uri)
+        cmd.extend(["--append-system-prompt", system_prompt])
 
         config = load_config(self.name)
+
+        # Handle permission mode
+        if config.permissions.full_access:
+            # Full access mode - bypass all permission checks
+            cmd.extend(["--permission-mode", "bypassPermissions"])
+        else:
+            # Build allowed tools list based on permissions
+            allowed_tools = list(BASE_ALLOWED_TOOLS)
+            if config.permissions.allow_edit_files:
+                allowed_tools.extend(FILE_EDIT_TOOLS)
+            if config.permissions.allow_read_docs:
+                allowed_tools.extend(DOCS_TOOLS)
+
+            for tool in allowed_tools:
+                cmd.extend(["--allowed-tools", tool])
+
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 
@@ -221,6 +400,13 @@ class ClaudeCodeProvider(AssistantProvider):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                # Increase buffer limit from default 64KB to handle large JSON responses
+                # from Claude Code CLI (e.g., tool results containing large file contents)
+                limit=100 * 1024 * 1024,  # 100 MB
+                # Specify tracking URI to let Claude Code CLI inherit it
+                # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
+                # environment so we need to copy the parent process's environment explicitly.
+                env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
             async for line in process.stdout:
@@ -230,6 +416,10 @@ class ClaudeCodeProvider(AssistantProvider):
 
                 try:
                     data = json.loads(line_str)
+
+                    if self._should_filter_out_message(data):
+                        continue
+
                     if msg := self._parse_message_to_event(data):
                         yield msg
 
@@ -372,3 +562,27 @@ class ClaudeCodeProvider(AssistantProvider):
 
             case _:
                 return Event.from_error(f"Unknown message type: {message_type}")
+
+    def _should_filter_out_message(self, data: dict[str, Any]) -> bool:
+        """
+        Check if an internal message that should be filtered out before being displayed to the user.
+
+        Currently filters:
+        - Skill prompt messages: When a Skill tool is called, Claude Code sends an internal
+          user message containing the full skill instructions (starting with "Base directory
+          for this skill:"). These messages are internal and should not be displayed to users.
+        """
+        if data.get("type") != "user":
+            return False
+
+        content = data.get("message", {}).get("content", [])
+        if not isinstance(content, list):
+            return False
+
+        return any(
+            block.get("type") == "text"
+            # TODO: This prefix is not guaranteed to be stable. We should find a better way to
+            # filter out these messages.
+            and block.get("text", "").startswith("Base directory for this skill:")
+            for block in content
+        )
