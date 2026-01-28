@@ -71,8 +71,58 @@ module.exports = async ({ github, context }) => {
   if (isPr) {
     console.log("In pull request mode, not pushing changes or creating a new PR");
     return;
-  } else if (searchResults.total_count > 0) {
-    console.log(`An open PR already exists: ${searchResults.items[0].html_url}`);
+  }
+
+  const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+
+  if (searchResults.total_count > 0) {
+    // Existing PR found - get its branch and update it
+    const existingPr = searchResults.items[0];
+    console.log(`An open PR already exists: ${existingPr.html_url}`);
+
+    // Get the PR details to extract the head branch
+    const { data: prDetails } = await github.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: existingPr.number,
+    });
+    const existingBranch = prDetails.head.ref;
+    console.log(`Existing PR branch: ${existingBranch}`);
+
+    // Switch back to master and delete the temporary branch we created
+    exec("git", ["checkout", "master"]);
+    exec("git", ["branch", "-D", branchName]);
+
+    // Fetch and checkout the existing branch, then reset to match uv.lock changes
+    exec("git", ["fetch", "origin", existingBranch]);
+    exec("git", ["checkout", "-B", existingBranch, `origin/${existingBranch}`]);
+
+    // Apply the uv.lock changes from master
+    exec("git", ["checkout", "master", "--", "uv.lock"]);
+    exec("git", ["add", "uv.lock"]);
+    exec("git", ["commit", "-s", "--allow-empty", "-m", "Update uv.lock"]);
+    exec("git", ["push", "--force-with-lease", "origin", existingBranch]);
+    console.log(`Force pushed changes to existing branch: ${existingBranch}`);
+
+    // Update the PR description with new uv lock output
+    const newBody = `This PR was created automatically to update \`uv.lock\`.
+
+### \`uv lock\` output
+
+\`\`\`
+${uvLockOutput.trim()}
+\`\`\`
+
+Last updated by: ${runUrl}
+`;
+
+    await github.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: existingPr.number,
+      body: newBody,
+    });
+    console.log("Updated PR description with new uv lock output");
     return;
   } else if (!hasChanges) {
     console.log("No changes to uv.lock, not creating a PR");
@@ -80,7 +130,6 @@ module.exports = async ({ github, context }) => {
   }
 
   // Create PR
-  const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
   const { data: pr } = await github.rest.pulls.create({
     owner,
     repo,
