@@ -94,9 +94,8 @@ module.exports = async ({ github, context }) => {
       return;
     }
 
-    // Fetch the existing branch
-    exec("git", ["fetch", "origin", existingBranch]);
-    exec("git", ["checkout", "-B", existingBranch, `origin/${existingBranch}`]);
+    // Checkout a new branch with the same name as the existing PR branch
+    exec("git", ["checkout", "-b", existingBranch]);
 
     // Apply the uv.lock changes from the temporary branch
     exec("git", ["checkout", branchName, "--", "uv.lock"]);
