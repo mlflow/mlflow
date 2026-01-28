@@ -12,6 +12,7 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -171,6 +172,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
               </ChartGrid>
+
+              {/* Cost Breakdown chart */}
+              <LazyTraceCostBreakdownChart />
             </TabContentContainer>
           </Tabs.Content>
 

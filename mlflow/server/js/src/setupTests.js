@@ -80,6 +80,14 @@ jest.mock('recharts', () => ({
       {children}
     </div>
   ),
+  PieChart: ({ children }) => <div data-testid="pie-chart">{children}</div>,
+  Pie: ({ children, data }) => (
+    <div data-testid="pie" data-count={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  Cell: () => <div data-testid="cell" />,
+  Sector: () => <div data-testid="sector" />,
   Line: ({ name }) => <div data-testid={name ? `line-${name}` : 'line'} />,
   Bar: ({ name }) => <div data-testid={name ? `bar-${name}` : 'bar'} />,
   Area: ({ name, dataKey }) => <div data-testid={`area-${dataKey}`} data-name={name} />,
