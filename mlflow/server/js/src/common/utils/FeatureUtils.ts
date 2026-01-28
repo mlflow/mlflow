@@ -160,3 +160,11 @@ export const shouldEnableExperimentOverviewTab = () => {
 export const shouldEnableWorkflowBasedNavigation = () => {
   return false;
 };
+
+/**
+ * Determines if improved evaluation run comparison feature is enabled.
+ * This controls the ability to select and compare evaluation runs in split view.
+ */
+export const shouldEnableImprovedEvalRunsComparison = () => {
+  return false;
+};
