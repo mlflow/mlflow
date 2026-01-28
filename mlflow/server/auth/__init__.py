@@ -351,8 +351,6 @@ def _get_permission_from_model_id() -> Permission:
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
     # prompt optimization job permissions inherit from parent resource (experiment)
-    # We get experiment_id directly from job params rather than from the run,
-    # because the run may have been deleted by the user.
     job_id = _get_request_param("job_id")
     job_entity = get_job(job_id)
     params = json.loads(job_entity.params)
