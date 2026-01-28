@@ -31,7 +31,6 @@ from mlflow.gateway.config import (
     Provider,
     _AuthConfigKey,
 )
-from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -117,43 +116,39 @@ def _create_gateway_trace(
     Yields:
         The trace context or None if tracing is not configured.
     """
+    import mlflow
+
     if not endpoint.experiment_id:
         yield None
         return
 
-    try:
-        import mlflow
+    # Build trace tags for filtering
+    tags = {
+        "mlflow.gateway.endpoint": endpoint.name,
+        "mlflow.gateway.requestType": request_type,
+    }
 
-        # Build trace tags for filtering
-        tags = {
-            "mlflow.gateway.endpoint": endpoint.name,
-            "mlflow.gateway.requestType": request_type,
-        }
+    # Add provider info if available
+    if provider:
+        provider_info = _get_provider_info(provider)
+        if "provider" in provider_info:
+            tags["mlflow.gateway.provider"] = provider_info["provider"]
+        if "model" in provider_info:
+            tags["mlflow.gateway.model"] = provider_info["model"]
 
-        # Add provider info if available
-        if provider:
-            provider_info = _get_provider_info(provider)
-            if "provider" in provider_info:
-                tags["mlflow.gateway.provider"] = provider_info["provider"]
-            if "model" in provider_info:
-                tags["mlflow.gateway.model"] = provider_info["model"]
+    with mlflow.start_span(
+        name=f"gateway/{endpoint.name}",
+        trace_destination=MlflowExperimentLocation(experiment_id=endpoint.experiment_id),
+    ) as span:
+        span.set_inputs(inputs)
+        span.set_attribute("request_type", request_type)
+        span.set_attribute("endpoint_id", endpoint.endpoint_id)
+        span.set_attribute("endpoint_name", endpoint.name)
 
-        with mlflow.start_span(
-            name=f"gateway/{endpoint.name}",
-            trace_destination=MlflowExperimentLocation(experiment_id=endpoint.experiment_id),
-        ) as span:
-            span.set_inputs(inputs)
-            span.set_attribute("request_type", request_type)
-            span.set_attribute("endpoint_id", endpoint.endpoint_id)
-            span.set_attribute("endpoint_name", endpoint.name)
+        # Set trace-level tags for filtering in metrics API
+        mlflow.update_current_trace(tags=tags)
 
-            # Set trace-level tags for filtering in metrics API
-            mlflow.update_current_trace(tags=tags)
-
-            yield span
-    except Exception as e:
-        _logger.warning(f"Failed to create trace for gateway invocation: {e}")
-        yield None
+        yield span
 
 
 def _set_trace_outputs(trace, outputs: Any):
@@ -175,7 +170,7 @@ def _set_trace_outputs(trace, outputs: Any):
             _logger.debug(f"Failed to set trace outputs: {e}")
 
 
-def _set_trace_token_usage(trace, output_dict: dict):
+def _set_trace_token_usage(trace, output_dict: dict[str, Any]):
     """
     Extract token usage from gateway response and set it on the span.
 
@@ -599,13 +594,12 @@ async def invocations(endpoint_name: str, request: Request):
 
         provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
 
-        with _create_gateway_trace(endpoint, "chat", body, provider) as trace:
+        with _create_gateway_trace(endpoint, "chat", body, provider) as span:
             if payload.stream:
-                # For streaming, we can't easily capture output in trace
                 return await make_streaming_response(provider.chat_stream(payload))
             else:
                 result = await provider.chat(payload)
-                _set_trace_outputs(trace, result)
+                _set_trace_outputs(span, result)
                 return result
 
     elif "input" in body:
@@ -670,7 +664,6 @@ async def chat_completions(request: Request):
 
     with _create_gateway_trace(endpoint, "chat", body, provider) as trace:
         if payload.stream:
-            # For streaming, we can't easily capture output in trace
             return await make_streaming_response(provider.chat_stream(payload))
         else:
             result = await provider.chat(payload)
@@ -715,7 +708,6 @@ async def openai_passthrough_chat(request: Request):
 
     with _create_gateway_trace(endpoint, "passthrough/openai/chat", body, provider) as trace:
         if body.get("stream"):
-            # For streaming, call directly (tracing handled by wrapper)
             response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
             return StreamingResponse(response, media_type="text/event-stream")
         response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)

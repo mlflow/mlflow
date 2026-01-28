@@ -122,6 +122,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = chat.ChatUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             object=resp["object"],
@@ -142,6 +151,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -193,6 +203,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = completions.CompletionsUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return completions.StreamResponsePayload(
             id=resp["id"],
             # The chat models response from OpenAI is of object type "chat.completion.chunk".
@@ -209,6 +228,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -371,6 +391,12 @@ class OpenAIProvider(BaseProvider):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if "stream_options" not in payload or payload["stream_options"] is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
 
         stream = send_stream_request(
             headers=self.headers,
@@ -603,6 +629,13 @@ class OpenAIProvider(BaseProvider):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if "stream_options" not in payload or payload["stream_options"] is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
+
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,

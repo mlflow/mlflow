@@ -243,7 +243,7 @@ def chat_stream_response():
         b"\n",
         b"event: message_delta\n",
         b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
-        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b'"stop_sequence":null}, "usage":{"output_tokens": 15}}\n',
         b"\n",
         b"event: message_stop\n",
         b'data: {"type": "message_stop"}\n',
@@ -498,6 +498,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -515,6 +516,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -532,6 +534,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -549,6 +552,11 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 25,
+                    "completion_tokens": 15,
+                    "total_tokens": 40,
+                },
             },
         ]
         mock_post.assert_called_once_with(
@@ -595,7 +603,7 @@ def chat_function_calling_stream_response():
         b"\n",
         b"event: message_delta\n",
         b'data: {"type": "message_delta", "delta": {"stop_reason": "tool_use", '
-        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b'"stop_sequence":null}, "usage":{"output_tokens": 15}}\n',
         b"\n",
         b"event: message_stop\n",
         b'data: {"type": "message_stop"}\n',
@@ -641,6 +649,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -665,6 +674,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -689,6 +699,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -702,6 +713,11 @@ async def test_chat_function_calling_stream():
                         "delta": {"role": None, "content": None, "tool_calls": None},
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 25,
+                    "completion_tokens": 15,
+                    "total_tokens": 40,
+                },
             },
         ]
         mock_post.assert_called_once_with(

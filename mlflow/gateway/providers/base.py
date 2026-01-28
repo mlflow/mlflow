@@ -516,8 +516,7 @@ class TracingProviderWrapper(BaseProvider):
             "provider": getattr(self._provider, "NAME", type(self._provider).__name__),
         }
         if hasattr(self._provider, "config") and hasattr(self._provider.config, "model"):
-            model_name = getattr(self._provider.config.model, "name", "")
-            if model_name:
+            if model_name := getattr(self._provider.config.model, "name", ""):
                 attrs["model"] = model_name
         return attrs
 
