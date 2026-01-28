@@ -2150,6 +2150,10 @@
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
   },
+  "EDWwN/": {
+    "defaultMessage": "Compare",
+    "description": "Compare button on run detail page"
+  },
   "EI7moF": {
     "defaultMessage": "Last year",
     "description": "Option for the start select dropdown to filter runs since the last 1 year"
@@ -2533,6 +2537,10 @@
   "HeNa8H": {
     "defaultMessage": "All",
     "description": "Option for the start select dropdown to filter runs from the beginning of time"
+  },
+  "Hem4uh": {
+    "defaultMessage": "Compare this run with other evaluation runs",
+    "description": "Tooltip for the compare button on the run detail page"
   },
   "HfcIG/": {
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
