@@ -160,14 +160,7 @@ class SessionManager:
 
     @staticmethod
     def load(session_id: str) -> Session | None:
-        """Load session from disk.
-
-        Args:
-            session_id: Session ID
-
-        Returns:
-            Session instance, or None if not found
-        """
+        """Load session from disk. Returns a Session instance, or None if not found """
         try:
             session_file = SessionManager.get_session_file(session_id)
         except ValueError:
@@ -192,39 +185,19 @@ class SessionManager:
 
 
 def get_process_file(session_id: str) -> Path:
-    """Get the file path for storing process PID.
-
-    Args:
-        session_id: Session ID
-
-    Returns:
-        Path to process file
-    """
+    """Get the file path for storing process PID."""
     SessionManager.validate_session_id(session_id)
     return SESSION_DIR / f"{session_id}.process.json"
 
 
 def save_process_pid(session_id: str, pid: int) -> None:
-    """Save process PID to file for cancellation support.
-
-    Args:
-        session_id: Session ID
-        pid: Process ID to save
-    """
+    """Save process PID to file for cancellation support."""
     SESSION_DIR.mkdir(parents=True, exist_ok=True)
     process_file = get_process_file(session_id)
     process_file.write_text(json.dumps({"pid": pid}))
 
 
 def get_process_pid(session_id: str) -> int | None:
-    """Get process PID from file.
-
-    Args:
-        session_id: Session ID
-
-    Returns:
-        Process ID, or None if not found
-    """
     try:
         process_file = get_process_file(session_id)
     except ValueError:
@@ -236,11 +209,6 @@ def get_process_pid(session_id: str) -> int | None:
 
 
 def clear_process_pid(session_id: str) -> None:
-    """Clear process PID file.
-
-    Args:
-        session_id: Session ID
-    """
     try:
         process_file = get_process_file(session_id)
     except ValueError:

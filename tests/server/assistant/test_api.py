@@ -322,7 +322,7 @@ def _is_process_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)
         return True
-    except OSError:
+    except (OSError, ValueError): # ValueError is raised on Windows
         return False
 
 
@@ -331,25 +331,24 @@ def test_patch_session_cancel_with_process(client):
     session_id = r.json()["session_id"]
 
     # Start a real subprocess and register it with the session
-    proc = subprocess.Popen(["sleep", "10"])
-    save_process_pid(session_id, proc.pid)
+    with subprocess.Popen(["sleep", "10"]) as proc:
+        save_process_pid(session_id, proc.pid)
 
-    assert _is_process_running(proc.pid)
+        assert _is_process_running(proc.pid)
 
-    response = client.patch(
-        f"/ajax-api/3.0/mlflow/assistant/session/{session_id}",
-        json={"status": "cancelled"},
-    )
+        response = client.patch(
+            f"/ajax-api/3.0/mlflow/assistant/session/{session_id}",
+            json={"status": "cancelled"},
+        )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert "terminated" in data["message"]
+        assert response.status_code == 200
+        data = response.json()
+        assert "terminated" in data["message"]
 
-    # Wait for the process to actually terminate
-    proc.wait(timeout=5)
-    assert proc.returncode is not None
-    # On non-Windows, verify the process is no longer running via PID check.
-    # Skip on Windows because PIDs are reused more aggressively.
-    if is_windows():
-        assert not _is_process_running(proc.pid)
+        # Wait for the process to actually terminate
+        proc.wait(timeout=5)
+        assert proc.returncode is not None
+        # On non-Windows, verify the process is no longer running via PID check.
+        # Skip on Windows because PIDs are reused more aggressively.
+        if not is_windows():
+            assert not _is_process_running(proc.pid)

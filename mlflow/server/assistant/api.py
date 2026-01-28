@@ -93,7 +93,6 @@ class SessionPatchRequest(BaseModel):
 
 
 class SessionPatchResponse(BaseModel):
-    success: bool
     message: str
 
 
@@ -211,7 +210,7 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     if request.status == "cancelled":
         terminated = terminate_session_process(session_id)
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
-        return SessionPatchResponse(success=True, message=msg)
+        return SessionPatchResponse(message=msg)
 
     # This branch is unreachable due to Literal type, but satisfies type checker
     raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")

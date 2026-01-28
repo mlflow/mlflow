@@ -143,6 +143,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const handleInterrupted = useCallback(() => {
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
     eventSourceRef.current = null;
     streamingMessageRef.current = '';
     setMessages((prev) => {
@@ -301,7 +302,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       sessionId,
       startChat,
       getPageContext,
-      startChat,
       appendToStreamingMessage,
       handleStreamError,
       finalizeStreamingMessage,
@@ -337,6 +337,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
     streamingMessageRef.current = '';
   }, [sessionId, isStreaming]);
 
