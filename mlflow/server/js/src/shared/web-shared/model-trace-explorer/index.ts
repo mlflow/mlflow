@@ -82,3 +82,4 @@ export {
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
+export { formatCostUSD } from './CostUtils';
