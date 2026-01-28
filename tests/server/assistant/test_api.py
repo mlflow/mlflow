@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -17,7 +18,8 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
-from mlflow.server.assistant.session import SESSION_DIR, SessionManager
+from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
+from mlflow.utils.os import is_windows
 
 
 class MockProvider(AssistantProvider):
@@ -58,6 +60,7 @@ class MockProvider(AssistantProvider):
         session_id: str | None = None,
         cwd: Path | None = None,
         context: dict | None = None,
+        mlflow_session_id: str | None = None,
     ):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
@@ -337,6 +340,42 @@ def test_validate_session_id_rejects_invalid_format():
 def test_validate_session_id_rejects_path_traversal():
     with pytest.raises(ValueError, match="Invalid session ID format"):
         SessionManager.validate_session_id("../../../etc/passwd")
+
+
+def _is_process_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):  # ValueError is raised on Windows
+        return False
+
+
+def test_patch_session_cancel_with_process(client):
+    r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+    session_id = r.json()["session_id"]
+
+    # Start a real subprocess and register it with the session
+    with subprocess.Popen(["sleep", "10"]) as proc:
+        save_process_pid(session_id, proc.pid)
+
+        assert _is_process_running(proc.pid)
+
+        response = client.patch(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}",
+            json={"status": "cancelled"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "terminated" in data["message"]
+
+        # Wait for the process to actually terminate
+        proc.wait(timeout=5)
+        assert proc.returncode is not None
+        # On non-Windows, verify the process is no longer running via PID check.
+        # Skip on Windows because PIDs are reused more aggressively.
+        if not is_windows():
+            assert not _is_process_running(proc.pid)
 
 
 def test_install_skills_success(client):
