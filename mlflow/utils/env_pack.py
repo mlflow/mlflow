@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Generator, Literal
 
 import yaml
+import os
 
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
@@ -31,8 +32,7 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
-_TAR_CHUNK_SIZE_BYTES = 256 * 1024 * 1024
-
+_TAR_CHUNK_SIZE_BYTES = os.environ.get("TAR_CHUNK_SIZE_BYTES", 1024 * 1024 * 1024)
 
 def _split_tar_file(tar_path: Path, chunk_size: int = _TAR_CHUNK_SIZE_BYTES) -> None:
     """
