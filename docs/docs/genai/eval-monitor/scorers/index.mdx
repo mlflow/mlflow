@@ -17,7 +17,7 @@ Start with [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#a
 | [Built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) | Minimal                | Quickly try LLM evaluation with built-in judges such as `Correctness` and `RetrievalGroundedness`.                                                                    |
 | [Guidelines judges](/genai/eval-monitor/scorers/llm-judge/guidelines)                 | Moderate               | A built-in judge that checks whether responses pass or fail custom natural-language rules, such as style or factuality guidelines.                                    |
 | [Custom judges](#)                                                                    | Full                   | Create fully customized LLM judges with detailed evaluation criteria and feedback optimization. Capable of returning numerical scores, categories, or boolean values. |
-| [Code-based scorers](#)                                                               | Full                   | Programmatic and deterministic scorers that evaluate things like exact matching, format validation, and performance metrics.                                          |
+| [Code-based scorers](#)                                                               | Full                   | Programmatic scorers that evaluate things like exact matching, format validation, and performance metrics.                                                            |
 
 ## How judges work
 
@@ -31,7 +31,7 @@ A judge receives a [Trace](/genai/concepts/trace) from `evaluate()`. It then doe
 
 LLM judges are a type of MLflow `Scorer` that uses Large Language Models for quality assessment.
 
-Think of a judge as an AI assistant specialized in quality assessment. It can evaluate your app's inputs, outputs, and even explore the entire execution trace to make assessments based on criteria you define. For example, a judge can understand that `give me healthy food options` and `food to keep me fit` are similar queries.
+Think of a judge as an AI assistant specialized in quality assessment. It can evaluate your app's inputs, outputs, and even explore the entire execution trace to make assessments based on criteria you define. For example, when checking correctness, exact string matching would fail to recognize that `give me healthy food options` and `food to keep me fit` are semantically the same answer, but an LLM judge can understand they're both correct.
 
 :::note
 
@@ -43,7 +43,7 @@ Judges are a type of scorer that use LLMs for evaluation. Use them directly with
 
 MLflow provides research-validated judges for common use cases, including judges for RAG applications, tool calling, and multi-turn conversations.
 
-See the [complete list of built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) for details on each judge and their usage.
+See the [complete list of built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) for details on each judge and their usage. You can further improve the judges' accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
 
 ### Custom LLM judges
 
@@ -51,9 +51,7 @@ In addition to the built-in judges, MLflow makes it easy to create your own judg
 
 Use custom LLM judges when you need to define specialized evaluation tasks, need more control over grades (not just pass/fail), or need to validate that your agent made appropriate decisions and performed operations correctly for your specific use case.
 
-See [Custom judges](#).
-
-Once you've created custom judges, you can further improve their accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
+See [Custom judges](#). Once you've created custom judges, you can further improve their accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
 
 ### Select the LLM that powers the judge
 
@@ -108,7 +106,7 @@ See [Create custom code-based scorers](/genai/eval-monitor/scorers/custom).
 
 ## How to Write a Good Judge?
 
-The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practice. Successful practitioners analyze real data to uncover domain-specific failure modes and then define custom evaluation criteria from the ground up. Here is the general workflow of how to define a good scorer and iterate on it with MLflow.
+In practice, out-of-the-box judges such as 'Groundedness' or 'Safety' struggle to understand your domain-specific data and criteria. Successful practitioners analyze real data to uncover domain-specific failure modes and then define custom evaluation criteria from the ground up. Here is the general workflow of how to define a good judge and iterate on it with MLflow.
 
 <WorkflowSteps
   width="wide"
