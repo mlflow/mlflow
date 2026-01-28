@@ -1,5 +1,6 @@
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,7 @@ except ImportError:
     _JINJA2_AVAILABLE = False
 
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS
 from mlflow.genai.judges.optimizers.dspy_utils import (
     construct_dspy_lm,
     convert_mlflow_uri_to_litellm,
@@ -331,6 +333,9 @@ def distill_guidelines(
 ) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
 
+    The number of parallel threads for LLM calls can be configured via the
+    ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable (default: 8).
+
     Args:
         examples: List of DSPy examples containing feedback (with _trace_id attribute)
         judge_instructions: Original judge instructions
@@ -374,19 +379,11 @@ def distill_guidelines(
         )
         return []
 
-    # Distill guidelines from each batch of feedback records
+    # Distill guidelines from each batch of feedback records in parallel
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
-    all_guidelines = []
     existing_guideline_texts = set(existing_guidelines)
 
-    try:
-        from tqdm.auto import tqdm
-
-        batch_iter = tqdm(batches, desc="Distilling guidelines")
-    except ImportError:
-        batch_iter = batches
-
-    for batch_indices in batch_iter:
+    def process_batch(batch_indices: list[int]) -> list[Guideline]:
         batch_examples = [examples_data[i] for i in batch_indices]
 
         prompt = template.render(
@@ -404,25 +401,53 @@ def distill_guidelines(
                 response_format=Guidelines,
             )[0]
 
-            batch_guidelines = _parse_batch_response(
+            return _parse_batch_response(
                 response=response,
                 index_to_trace_id=index_to_trace_id,
                 existing_guideline_texts=existing_guideline_texts,
             )
-
-            # Add new guidelines and update existing set to avoid duplicates across batches
-            for guideline in batch_guidelines:
-                all_guidelines.append(guideline)
-                existing_guideline_texts.add(guideline.guideline_text)
-
         except Exception as e:
             _logger.error(
                 f"Failed to generate/validate distilled guidelines for batch "
                 f"with indices {batch_indices}: {e}"
             )
-            continue
+            return []
 
-    return all_guidelines
+    # Process batches in parallel using ThreadPoolExecutor
+    all_guidelines = []
+    try:
+        from tqdm.auto import tqdm
+
+        use_tqdm = True
+    except ImportError:
+        use_tqdm = False
+
+    with ThreadPoolExecutor(
+        max_workers=MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS.get(),
+        thread_name_prefix="MLflowMemAlignDistillation",
+    ) as executor:
+        futures = {executor.submit(process_batch, batch): batch for batch in batches}
+
+        if use_tqdm:
+            futures_iter = tqdm(
+                as_completed(futures), total=len(futures), desc="Distilling guidelines"
+            )
+        else:
+            futures_iter = as_completed(futures)
+
+        for future in futures_iter:
+            batch_guidelines = future.result()
+            all_guidelines.extend(batch_guidelines)
+
+    # Deduplicate guidelines (since batches ran in parallel with the same existing_guideline_texts)
+    seen_texts = set(existing_guidelines)
+    new_guidelines = []
+    for guideline in all_guidelines:
+        if guideline.guideline_text not in seen_texts:
+            seen_texts.add(guideline.guideline_text)
+            new_guidelines.append(guideline)
+
+    return new_guidelines
 
 
 def retrieve_relevant_examples(

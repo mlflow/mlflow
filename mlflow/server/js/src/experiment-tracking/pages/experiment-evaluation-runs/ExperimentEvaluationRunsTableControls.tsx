@@ -23,7 +23,7 @@ import type { RunEntity } from '../../types';
 import type { ExperimentRunsSelectorResult } from '../../components/experiment-page/utils/experimentRuns.selector';
 import type { KeyValueEntity } from '../../../common/types';
 import type { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { EvalRunsTableColumnId } from './ExperimentEvaluationRunsTable.constants';
 import {
   EVAL_RUNS_COLUMN_LABELS,
@@ -86,6 +86,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   onCompare,
   selectedRunUuid,
   compareToRunUuid,
+  isComparisonMode,
+  setIsComparisonMode,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -104,6 +106,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   onCompare: (runUuid1: string, runUuid2: string) => void;
   selectedRunUuid?: string;
   compareToRunUuid?: string;
+  isComparisonMode: boolean;
+  setIsComparisonMode: (isComparisonMode: boolean) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -121,6 +125,15 @@ export const ExperimentEvaluationRunsTableControls = ({
       ),
     [selectedColumns],
   );
+
+  const isCompareEnabled = selectedRunUuids.length === 2;
+
+  const handleCompareClick = useCallback(() => {
+    if (selectedRunUuids.length === 2) {
+      onCompare(selectedRunUuids[0], selectedRunUuids[1]);
+      setIsComparisonMode(true);
+    }
+  }, [selectedRunUuids, onCompare, setIsComparisonMode]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
@@ -252,13 +265,35 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
+        <Tooltip
+          componentId="mlflow.eval-runs.compare-button.tooltip"
+          content={
+            isCompareEnabled ? (
+              <FormattedMessage
+                defaultMessage="Compare selected runs"
+                description="Tooltip for the compare button when enabled"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Select 2 runs to compare"
+                description="Tooltip for the compare button when disabled"
+              />
+            )
+          }
+        >
+          <Button
+            componentId="mlflow.eval-runs.compare-button"
+            onClick={handleCompareClick}
+            disabled={!isCompareEnabled}
+          >
+            <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
+          </Button>
+        </Tooltip>
+
         <ExperimentEvaluationRunsTableActions
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           refetchRuns={refetchRuns}
-          onCompare={onCompare}
-          selectedRunUuid={selectedRunUuid}
-          compareToRunUuid={compareToRunUuid}
         />
       </div>
     </div>

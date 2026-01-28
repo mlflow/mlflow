@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  Button,
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   SparkleFillIcon,
@@ -73,12 +74,6 @@ export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, classNam
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      togglePanel();
-    }
-  };
-
   return (
     <Tooltip
       componentId="mlflow.assistant.icon_button.tooltip"
@@ -89,30 +84,19 @@ export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, classNam
       {/* data-assistant-ui marks this as part of the assistant UI so that
           AssistantAwareDrawer can identify clicks on assistant elements and
           prevent the drawer from closing. See AssistantAwareDrawer.tsx. */}
-      <div
-        role="button"
+      <Button
+        componentId="mlflow.assistant.icon_button"
         data-assistant-ui="true"
-        tabIndex={0}
         aria-pressed={isPanelOpen}
         className={className}
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: theme.spacing.xs,
-          borderRadius: theme.borders.borderRadiusSm,
-          cursor: 'pointer',
-          backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
-          color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-          ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-        }}
+        icon={<AssistantSparkleIcon isHovered={isHovered} iconSize={iconSize} />}
         onClick={togglePanel}
-        onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-      >
-        <AssistantSparkleIcon isHovered={isHovered} iconSize={iconSize} />
-      </div>
+        css={{
+          backgroundColor: isPanelOpen ? theme.colors.actionDefaultBackgroundHover : undefined,
+        }}
+      />
     </Tooltip>
   );
 };
