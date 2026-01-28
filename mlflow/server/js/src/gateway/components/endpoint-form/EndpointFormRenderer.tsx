@@ -1,10 +1,11 @@
 import { useMemo, useCallback } from 'react';
-import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, FormUI, Switch, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
+import { ExperimentSelect } from '../create-endpoint/ExperimentSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -199,35 +200,68 @@ export const EndpointFormRenderer = ({
             />
           </LongFormSection>
 
-          {/* Experiment Section (only in create mode) */}
+          {/* Usage Tracking Section (only in create mode) */}
           {mode === 'create' && (
             <LongFormSection
               titleWidth={LONG_FORM_TITLE_WIDTH}
               title={intl.formatMessage({
-                defaultMessage: 'Experiment',
-                description: 'Section title for experiment configuration',
+                defaultMessage: 'Usage Tracking',
+                description: 'Section title for usage tracking configuration',
               })}
             >
               <Controller
                 control={form.control}
-                name="experimentId"
+                name="usageTracking"
                 render={({ field }) => (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <GatewayInput
-                      id={`${componentIdPrefix}.experiment-id`}
-                      componentId={`${componentIdPrefix}.experiment-id`}
-                      {...field}
-                      placeholder={intl.formatMessage({
-                        defaultMessage: 'Leave blank to auto-create',
-                        description: 'Placeholder for experiment ID input',
-                      })}
-                    />
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                      <Switch
+                        componentId={`${componentIdPrefix}.usage-tracking`}
+                        checked={field.value}
+                        onChange={(checked) => field.onChange(checked)}
+                      />
+                      <Typography.Text>
+                        <FormattedMessage
+                          defaultMessage="Enable usage tracking"
+                          description="Label for usage tracking toggle"
+                        />
+                      </Typography.Text>
+                    </div>
                     <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                       <FormattedMessage
-                        defaultMessage="Traces from endpoint invocations will be logged to this experiment. If not specified, an experiment will be auto-created."
-                        description="Help text for experiment ID input"
+                        defaultMessage="When enabled, traces from endpoint invocations will be logged for monitoring and analytics."
+                        description="Help text for usage tracking toggle"
                       />
                     </Typography.Text>
+
+                    {/* Experiment selector - only shown when usage tracking is enabled */}
+                    {field.value && (
+                      <Controller
+                        control={form.control}
+                        name="experimentId"
+                        render={({ field: experimentField }) => (
+                          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                            <FormUI.Label htmlFor={`${componentIdPrefix}.experiment-id`}>
+                              <FormattedMessage
+                                defaultMessage="Experiment"
+                                description="Label for experiment selector"
+                              />
+                            </FormUI.Label>
+                            <ExperimentSelect
+                              value={experimentField.value ?? ''}
+                              onChange={experimentField.onChange}
+                              componentIdPrefix={`${componentIdPrefix}.experiment-id`}
+                            />
+                            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                              <FormattedMessage
+                                defaultMessage="Select an experiment or leave blank to auto-create one."
+                                description="Help text for experiment selector"
+                              />
+                            </Typography.Text>
+                          </div>
+                        )}
+                      />
+                    )}
                   </div>
                 )}
               />

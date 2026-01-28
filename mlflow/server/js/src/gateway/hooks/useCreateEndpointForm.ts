@@ -21,6 +21,7 @@ export interface CreateEndpointFormData {
     secretFields: Record<string, string>;
     configFields: Record<string, string>;
   };
+  usageTracking: boolean;
   experimentId: string;
 }
 
@@ -59,6 +60,7 @@ export function useCreateEndpointForm({
         secretFields: {},
         configFields: {},
       },
+      usageTracking: true,
       experimentId: '',
     },
   });
@@ -131,7 +133,8 @@ export function useCreateEndpointForm({
             weight: 1.0,
           },
         ],
-        experiment_id: values.experimentId || undefined,
+        usage_tracking: values.usageTracking,
+        experiment_id: values.usageTracking ? values.experimentId || undefined : undefined,
       });
 
       onSuccess?.(endpointResponse.endpoint);

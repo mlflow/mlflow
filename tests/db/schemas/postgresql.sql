@@ -14,6 +14,8 @@ CREATE TABLE endpoints (
 	last_updated_at BIGINT NOT NULL,
 	routing_strategy VARCHAR(64),
 	fallback_config_json TEXT,
+	experiment_id VARCHAR(32),
+	usage_tracking BOOLEAN DEFAULT false NOT NULL,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
