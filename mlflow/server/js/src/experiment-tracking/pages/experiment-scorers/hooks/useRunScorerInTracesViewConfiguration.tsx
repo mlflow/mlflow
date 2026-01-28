@@ -191,14 +191,14 @@ const RunJudgeModalImpl = ({
               <FormattedMessage
                 defaultMessage="Custom LLM-as-a-judge ({llmCount})"
                 description="Label for custom LLM judge type filter option"
-                values={{ llmCount: displayedLLMScorers.length }}
+                values={{ llmCount: displayedLLMScorers?.length ?? 0 }}
               />
             </PillControl.Item>
             <PillControl.Item value="template">
               <FormattedMessage
                 defaultMessage="Pre-built LLM-as-a-judge ({templateCount})"
                 description="Label for pre-built LLM judge type filter option"
-                values={{ templateCount: displayedTemplates.length }}
+                values={{ templateCount: displayedTemplates?.length ?? 0 }}
               />
             </PillControl.Item>
           </PillControl.Root>
