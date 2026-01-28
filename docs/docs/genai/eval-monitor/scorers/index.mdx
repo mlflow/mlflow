@@ -29,13 +29,13 @@ A judge receives a [Trace](/genai/concepts/trace) from `evaluate()`. It then doe
 
 ## LLMs as judges
 
-LLM judges are a type of MLflow `Scorer` that uses Large Language Models for quality assessment.
+LLM judges use Large Language Models for quality assessment.
 
 Think of a judge as an AI assistant specialized in quality assessment. It can evaluate your app's inputs, outputs, and even explore the entire execution trace to make assessments based on criteria you define. For example, when checking correctness, exact string matching would fail to recognize that `give me healthy food options` and `food to keep me fit` are semantically the same answer, but an LLM judge can understand they're both correct.
 
 :::note
 
-Judges are a type of scorer that use LLMs for evaluation. Use them directly with `mlflow.genai.evaluate()` or wrap them in [custom scorers](/genai/eval-monitor/scorers/custom) for advanced scoring logic.
+Judges use LLMs for evaluation. Use them directly with `mlflow.genai.evaluate()` or wrap them in [custom scorers](/genai/eval-monitor/scorers/custom) for advanced scoring logic.
 
 :::
 
@@ -125,7 +125,7 @@ In practice, out-of-the-box judges such as 'Groundedness' or 'Safety' struggle t
     },
     {
       title: "Translate failure modes into Judges",
-      description: <div>Define judges that check for the common failure modes. For example, if the answer is in an incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
+      description: <div>Define judges that check for the common failure modes. For example, if the answer is in an incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM Judge</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
     },
     {
       title: "Align judges with human feedback.",
@@ -136,7 +136,7 @@ In practice, out-of-the-box judges such as 'Groundedness' or 'Safety' struggle t
 
 :::tip Pro tip: Version Control Judges
 
-As you iterate on the scorer, version control becomes important. MLflow can track <ins>[Scorer Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved judges with your team.
+As you iterate on the judge, version control becomes important. MLflow can track <ins>[Judge Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved judges with your team.
 
 :::
 
