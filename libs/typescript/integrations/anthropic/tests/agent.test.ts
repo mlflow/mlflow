@@ -159,6 +159,13 @@ describe('createTracedQuery', () => {
       expect(span.name).toBe('claude_agent_query');
       expect(span.spanType).toBe(mlflow.SpanType.AGENT);
       expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.inputs).toEqual({
+        model: 'claude-3-5-sonnet',
+        messages: [
+          { role: 'user', content: 'What is 2 + 2?' },
+          { role: 'assistant', content: [{ type: 'text', text: 'Hello! The answer is 4.' }] },
+        ],
+      });
 
       // Check token usage
       const tokenUsage = span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];

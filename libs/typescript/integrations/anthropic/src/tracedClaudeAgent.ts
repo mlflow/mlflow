@@ -109,9 +109,7 @@ class TracingContext {
         : content;
     }
 
-    if (hasType('tool_use')) {
-      this.messages.push({ role: 'assistant', content });
-    }
+    this.messages.push({ role: 'assistant', content });
   }
 
   addToolResult(toolUseId: string, result: unknown) {
