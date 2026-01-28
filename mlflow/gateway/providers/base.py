@@ -304,40 +304,37 @@ class FallbackProvider(BaseProvider):
         self, provider, method_name: str, attempt: int, method, *args, **kwargs
     ):
         """Execute a provider method wrapped in a tracing span if tracing is active."""
-        try:
-            import mlflow
+        import mlflow
 
-            # Only create spans if there's an active trace
-            active_span = mlflow.get_current_active_span()
-            if active_span is None:
-                return await method(*args, **kwargs)
-
-            provider_name = getattr(provider, "NAME", type(provider).__name__)
-            model_name = ""
-            if hasattr(provider, "config") and hasattr(provider.config, "model"):
-                model_name = getattr(provider.config.model, "name", "")
-
-            span_name = f"provider/{provider_name}"
-            if model_name:
-                span_name = f"{span_name}/{model_name}"
-
-            with mlflow.start_span(name=span_name) as span:
-                span.set_attribute("provider", provider_name)
-                span.set_attribute("attempt", attempt)
-                if model_name:
-                    span.set_attribute("model", model_name)
-                span.set_attribute("method", method_name)
-
-                try:
-                    result = await method(*args, **kwargs)
-                    span.set_status("OK")
-                    return result
-                except Exception as e:
-                    span.set_status("ERROR")
-                    span.set_attribute("error", str(e))
-                    raise
-        except ImportError:
+        # Only create spans if there's an active trace
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
             return await method(*args, **kwargs)
+
+        provider_name = getattr(provider, "NAME", type(provider).__name__)
+        model_name = ""
+        if hasattr(provider, "config") and hasattr(provider.config, "model"):
+            model_name = getattr(provider.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+
+        with mlflow.start_span(name=span_name) as span:
+            span.set_attribute("provider", provider_name)
+            span.set_attribute("attempt", attempt)
+            if model_name:
+                span.set_attribute("model", model_name)
+            span.set_attribute("method", method_name)
+
+            try:
+                result = await method(*args, **kwargs)
+                span.set_status("OK")
+                return result
+            except Exception as e:
+                span.set_status("ERROR")
+                span.set_attribute("error", str(e))
+                raise
 
     async def _execute_stream_with_fallback(self, method_name: str, *args, **kwargs):
         """
@@ -388,32 +385,29 @@ class FallbackProvider(BaseProvider):
 
     def _create_stream_span(self, provider, method_name: str, attempt: int):
         """Create a span for streaming provider call. Returns context manager."""
-        try:
-            import mlflow
+        import mlflow
 
-            active_span = mlflow.get_current_active_span()
-            if active_span is None:
-                return None
-
-            provider_name = getattr(provider, "NAME", type(provider).__name__)
-            model_name = ""
-            if hasattr(provider, "config") and hasattr(provider.config, "model"):
-                model_name = getattr(provider.config.model, "name", "")
-
-            span_name = f"provider/{provider_name}"
-            if model_name:
-                span_name = f"{span_name}/{model_name}"
-
-            span = mlflow.start_span(name=span_name)
-            span.set_attribute("provider", provider_name)
-            span.set_attribute("attempt", attempt)
-            if model_name:
-                span.set_attribute("model", model_name)
-            span.set_attribute("method", method_name)
-            span.set_attribute("streaming", True)
-            return span
-        except ImportError:
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
             return None
+
+        provider_name = getattr(provider, "NAME", type(provider).__name__)
+        model_name = ""
+        if hasattr(provider, "config") and hasattr(provider.config, "model"):
+            model_name = getattr(provider.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+
+        span = mlflow.start_span(name=span_name)
+        span.set_attribute("provider", provider_name)
+        span.set_attribute("attempt", attempt)
+        if model_name:
+            span.set_attribute("model", model_name)
+        span.set_attribute("method", method_name)
+        span.set_attribute("streaming", True)
+        return span
 
     def _close_stream_span(self, span_ctx, success: bool, error: Exception | None = None):
         """Close a streaming span with appropriate status."""
@@ -516,58 +510,53 @@ class TracingProviderWrapper(BaseProvider):
 
     async def _trace_method(self, method_name: str, method, *args, **kwargs):
         """Execute a method with tracing span."""
-        try:
-            import mlflow
+        import mlflow
 
-            active_span = mlflow.get_current_active_span()
-            if active_span is None:
-                return await method(*args, **kwargs)
-
-            span_name = self._get_span_name()
-            with mlflow.start_span(name=span_name) as span:
-                for key, value in self._get_provider_attributes().items():
-                    span.set_attribute(key, value)
-                span.set_attribute("method", method_name)
-
-                try:
-                    result = await method(*args, **kwargs)
-                    span.set_status("OK")
-                    return result
-                except Exception as e:
-                    span.set_status("ERROR")
-                    span.set_attribute("error", str(e))
-                    raise
-        except ImportError:
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
             return await method(*args, **kwargs)
+
+        span_name = self._get_span_name()
+        with mlflow.start_span(name=span_name) as span:
+            for key, value in self._get_provider_attributes().items():
+                span.set_attribute(key, value)
+            span.set_attribute("method", method_name)
+
+            try:
+                result = await method(*args, **kwargs)
+                span.set_status("OK")
+                return result
+            except Exception as e:
+                span.set_status("ERROR")
+                span.set_attribute("error", str(e))
+                raise
 
     async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
         """Execute a streaming method with tracing span."""
-        span = None
-        try:
-            import mlflow
+        import mlflow
 
-            active_span = mlflow.get_current_active_span()
-            if active_span is not None:
-                span_name = self._get_span_name()
-                span = mlflow.start_span(name=span_name)
-                for key, value in self._get_provider_attributes().items():
-                    span.set_attribute(key, value)
-                span.set_attribute("method", method_name)
-                span.set_attribute("streaming", True)
-        except ImportError:
-            pass
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            async for chunk in method(*args, **kwargs):
+                yield chunk
+            return
+
+        span_name = self._get_span_name()
+        span = mlflow.start_span(name=span_name)
+        for key, value in self._get_provider_attributes().items():
+            span.set_attribute(key, value)
+        span.set_attribute("method", method_name)
+        span.set_attribute("streaming", True)
 
         try:
             async for chunk in method(*args, **kwargs):
                 yield chunk
-            if span:
-                span.set_status("OK")
-                span.end()
+            span.set_status("OK")
+            span.end()
         except Exception as e:
-            if span:
-                span.set_status("ERROR")
-                span.set_attribute("error", str(e))
-                span.end()
+            span.set_status("ERROR")
+            span.set_attribute("error", str(e))
+            span.end()
             raise
 
     async def chat_stream(
