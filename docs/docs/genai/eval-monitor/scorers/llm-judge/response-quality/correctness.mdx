@@ -35,13 +35,15 @@ correctness_judge = Correctness()
 # Example 1: Response contains expected facts
 feedback = correctness_judge(
     inputs={"request": "What is MLflow?"},
-    outputs={"response": "MLflow is an open-source platform for managing the ML lifecycle."},
+    outputs={
+        "response": "MLflow is an open-source platform for managing the ML lifecycle."
+    },
     expectations={
         "expected_facts": [
             "MLflow is open-source",
-            "MLflow is a platform for ML lifecycle"
+            "MLflow is a platform for ML lifecycle",
         ]
-    }
+    },
 )
 print(feedback.value)  # "yes"
 print(feedback.rationale)  # Explanation of which facts are supported
@@ -50,14 +52,14 @@ print(feedback.rationale)  # Explanation of which facts are supported
 feedback = correctness_judge(
     inputs={"request": "When was MLflow released?"},
     outputs={"response": "MLflow was released in 2017."},
-    expectations={"expected_facts": ["MLflow was released in June 2018"]}
+    expectations={"expected_facts": ["MLflow was released in June 2018"]},
 )
 
 # Example 3: Using expected_response instead of expected_facts
 feedback = correctness_judge(
     inputs={"request": "What is the capital of France?"},
     outputs={"response": "The capital of France is Paris."},
-    expectations={"expected_response": "Paris is the capital of France."}
+    expectations={"expected_response": "Paris is the capital of France."},
 )
 ```
 
@@ -82,9 +84,7 @@ eval_dataset = [
         "outputs": {
             "response": "Paris is the magnificent capital city of France, known for the Eiffel Tower and rich culture."
         },
-        "expectations": {
-            "expected_facts": ["Paris is the capital of France."]
-        },
+        "expectations": {"expected_facts": ["Paris is the capital of France."]},
     },
     {
         "inputs": {"query": "What are the main components of MLflow?"},
@@ -97,19 +97,15 @@ eval_dataset = [
                 "Components include Tracking",
                 "Components include Projects",
                 "Components include Models",
-                "Components include Registry"
+                "Components include Registry",
             ]
         },
     },
     {
         "inputs": {"query": "When was MLflow released?"},
-        "outputs": {
-            "response": "MLflow was released in 2017."
-        },
-        "expectations": {
-            "expected_facts": ["MLflow was released in June 2018"]
-        },
-    }
+        "outputs": {"response": "MLflow was released in 2017."},
+        "expectations": {"expected_facts": ["MLflow was released in June 2018"]},
+    },
 ]
 
 # Run evaluation with Correctness judge
@@ -119,7 +115,7 @@ eval_results = mlflow.genai.evaluate(
         Correctness(
             model="openai:/gpt-4o-mini",  # Optional.
         )
-    ]
+    ],
 )
 ```
 
@@ -149,8 +145,7 @@ eval_dataset_with_response = [
 
 # Run evaluation with expected_response
 eval_results = mlflow.genai.evaluate(
-    data=eval_dataset_with_response,
-    scorers=[Correctness()]
+    data=eval_dataset_with_response, scorers=[Correctness()]
 )
 ```
 
@@ -173,10 +168,7 @@ correctness_judge = Correctness(
 )
 
 # Use in evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[correctness_judge]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[correctness_judge])
 ```
 
 For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
