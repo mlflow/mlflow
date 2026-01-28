@@ -35,7 +35,9 @@ interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExpl
   RunJudgeModalElement: React.ReactNode;
 }
 
-export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesViewConfigurationReturnType => {
+export const useRunScorerInTracesViewConfiguration = (
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+): ModelTraceExplorerRunJudgeConfig => {
   const [experimentId] = useExperimentIds();
 
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
@@ -53,21 +55,28 @@ export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesVie
     };
   }, []);
 
-  const { evaluateTraces, allEvaluations } = useRunSerializedScorer({ experimentId, onScorerFinished });
+  const { evaluateTraces, allEvaluations } = useRunSerializedScorer({ experimentId, onScorerFinished, scope });
 
   const renderRunJudgeModal = useCallback<NonNullable<ModelTraceExplorerRunJudgeConfig['renderRunJudgeModal']>>(
-    ({ traceId, onClose, visible }) => {
+    ({ itemId, onClose, visible }) => {
       return (
-        <RunJudgeModalImpl visible={visible} traceId={traceId} evaluateTraces={evaluateTraces} onClose={onClose} />
+        <RunJudgeModalImpl
+          scope={scope}
+          visible={visible}
+          itemId={itemId}
+          evaluateTraces={evaluateTraces}
+          onClose={onClose}
+        />
       );
     },
-    [evaluateTraces],
+    [evaluateTraces, scope],
   );
 
   return {
     renderRunJudgeModal,
     evaluations: allEvaluations,
     subscribeToScorerFinished,
+    scope,
   } as UseRunScorerInTracesViewConfigurationReturnType;
 };
 
@@ -75,13 +84,13 @@ export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesVie
  * Dropdown for selecting a judge to run against a trace.
  */
 const RunJudgeModalImpl = ({
-  traceId,
+  itemId,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
-  traceId: string;
+  itemId: string;
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
@@ -101,10 +110,14 @@ const RunJudgeModalImpl = ({
   const [currentEndpointName, setCurrentEndpointName] = useState<string | undefined>(undefined);
 
   const displayedLLMScorers = useMemo(() => {
+    const isDisplayingSessionLevelScorers = scope === ScorerEvaluationScope.SESSIONS;
     return data?.scheduledScorers.filter(
-      (scorer) => scorer.type === 'llm' && scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
+      (scorer) =>
+        scorer.type === 'llm' &&
+        scorer.isSessionLevelScorer === isDisplayingSessionLevelScorers &&
+        scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
     ) as LLMScorer[];
-  }, [data?.scheduledScorers, searchValue]);
+  }, [data?.scheduledScorers, searchValue, scope]);
 
   const displayedTemplates = useMemo(() => {
     // We don't support custom judges or guidelines templates in the traces view.
@@ -124,7 +137,7 @@ const RunJudgeModalImpl = ({
     }
     setError(undefined);
     try {
-      evaluateTraces(selectedJudge, [traceId], currentEndpointName);
+      evaluateTraces(selectedJudge, [itemId], currentEndpointName);
       onClose();
     } catch (error) {
       setError(error as Error);
