@@ -7,7 +7,6 @@ import { ExperimentLoggedModelDetailsNav } from '../../components/experiment-log
 import { ExperimentLoggedModelDetailsOverview } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsOverview';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import React from 'react';
 import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsArtifacts';
 import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
