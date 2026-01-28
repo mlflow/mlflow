@@ -354,7 +354,6 @@ def test_v2_failure_creates_spans(simple_agent):
 
             spans = memory_exporter.get_finished_spans()
             assert len(spans) > 0
-
             if not AGNO_CATCHES_ERRORS:
                 # Error spans are only created when exceptions propagate
                 error_spans = [s for s in spans if s.status.status_code == StatusCode.ERROR]
