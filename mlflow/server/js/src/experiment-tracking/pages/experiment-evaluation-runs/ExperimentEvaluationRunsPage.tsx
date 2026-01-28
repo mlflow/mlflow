@@ -5,7 +5,7 @@ import { useExperimentEvaluationRunsData } from '../../components/experiment-pag
 import { ExperimentEvaluationRunsPageWrapper } from './ExperimentEvaluationRunsPageWrapper';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import type { RowSelectionState } from '@tanstack/react-table';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
@@ -69,6 +69,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [, setSearchParams] = useSearchParams();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -100,39 +101,65 @@ const ExperimentEvaluationRunsPageImpl = () => {
     [rowSelection],
   );
 
-  // On mount, if selectedRunUuid is in URL, pre-select it and enter comparison mode
+  // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection and enter comparison mode
+  // Initialize with BOTH URL params to prevent compareToRunUuid from being stripped
   const hasInitializedFromUrl = useRef(false);
-  if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
-    hasInitializedFromUrl.current = true;
-    if (runUuids.includes(selectedRunUuid)) {
-      setRowSelection({ [selectedRunUuid]: true });
-      setIsComparisonMode(true);
+  useEffect(() => {
+    if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
+      if (runUuids.includes(selectedRunUuid)) {
+        hasInitializedFromUrl.current = true;
+        const initialSelection: RowSelectionState = { [selectedRunUuid]: true };
+        // Also include compareToRunUuid if present in URL
+        if (compareToRunUuid && runUuids.includes(compareToRunUuid)) {
+          initialSelection[compareToRunUuid] = true;
+        }
+        setRowSelection(initialSelection);
+        setIsComparisonMode(true);
+      }
     }
-  }
+  }, [selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
 
-  // Exit comparison mode when no runs are selected
-  if (isComparisonMode && selectedRunUuidsFromCheckbox.length === 0) {
-    setIsComparisonMode(false);
-    setSelectedRunUuid(undefined);
-    setCompareToRunUuid(undefined);
-  }
-
-  // Keep selectedRunUuid in sync with checkbox selection when in comparison mode
-  if (isComparisonMode && selectedRunUuidsFromCheckbox.length > 0) {
-    // Set selectedRunUuid to first selected run for the detail pane
-    if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
-      setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
+  // Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
+  useEffect(() => {
+    // Skip syncing if we haven't finished initializing yet
+    if (!isComparisonMode) {
+      return;
     }
-    // Set compareToRunUuid if 2 runs selected
-    if (selectedRunUuidsFromCheckbox.length >= 2) {
+
+    if (selectedRunUuidsFromCheckbox.length === 0) {
+      // No selection - exit comparison mode
+      setIsComparisonMode(false);
+      setSelectedRunUuid(undefined);
+      setCompareToRunUuid(undefined);
+    } else if (selectedRunUuidsFromCheckbox.length === 1) {
+      // Single selection
+      const selectedUuid = selectedRunUuidsFromCheckbox[0];
+      if (selectedRunUuid !== selectedUuid) {
+        setSelectedRunUuid(selectedUuid);
+      }
+      if (compareToRunUuid) {
+        setCompareToRunUuid(undefined);
+      }
+    } else if (selectedRunUuidsFromCheckbox.length >= 2) {
+      // Two selections - sync both URL params
+      // Keep existing selectedRunUuid if it's still selected
+      if (!selectedRunUuid || !selectedRunUuidsFromCheckbox.includes(selectedRunUuid)) {
+        setSelectedRunUuid(selectedRunUuidsFromCheckbox[0]);
+      }
       const otherRun = selectedRunUuidsFromCheckbox.find((uuid) => uuid !== selectedRunUuid);
       if (otherRun && otherRun !== compareToRunUuid) {
         setCompareToRunUuid(otherRun);
       }
-    } else if (compareToRunUuid) {
-      setCompareToRunUuid(undefined);
     }
-  }
+  }, [
+    isComparisonMode,
+    selectedRunUuidsFromCheckbox,
+    selectedRunUuid,
+    compareToRunUuid,
+    setSelectedRunUuid,
+    setCompareToRunUuid,
+    setIsComparisonMode,
+  ]);
 
   /**
    * Generate a list of unique data columns based on runs' metrics, params, and tags.
@@ -192,10 +219,17 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
-      setSelectedRunUuid(runUuid1);
-      setCompareToRunUuid(runUuid2);
+      // Set both URL params atomically to avoid race conditions
+      setSearchParams(
+        (params) => {
+          params.set('selectedRunUuid', runUuid1);
+          params.set('compareToRunUuid', runUuid2);
+          return params;
+        },
+        { replace: true },
+      );
     },
-    [setSelectedRunUuid, setCompareToRunUuid],
+    [setSearchParams],
   );
 
   const renderActiveTab = (selectedRunUuid: string) => {
