@@ -48,8 +48,6 @@ class _ChunkedTarWriter:
         self.current_chunk_bytes = 0
         self.total_bytes = 0
         self.is_chunked = False
-        # Start with 1-digit padding, will adjust at the end if needed
-        self.suffix_width = 1
         self._open_next_chunk()
 
     def _open_next_chunk(self):
@@ -65,7 +63,7 @@ class _ChunkedTarWriter:
             # We're creating a second chunk, so we need to rename the first
             if self.current_chunk_index == 1:
                 self._promote_to_chunked()
-            chunk_path = self._get_chunk_path(self.current_chunk_index)
+            chunk_path = self._get_chunk_path_unpadded(self.current_chunk_index)
 
         self.current_file = open(chunk_path, "wb")
         self.current_chunk_bytes = 0
@@ -77,12 +75,16 @@ class _ChunkedTarWriter:
         """
         if not self.is_chunked:
             self.is_chunked = True
-            # Rename the first chunk with initial padding
-            self.base_path.rename(self._get_chunk_path(0))
+            # Rename the first chunk without padding (will be padded in close())
+            self.base_path.rename(self._get_chunk_path_unpadded(0))
 
-    def _get_chunk_path(self, index: int) -> Path:
-        """Get the path for a specific chunk index."""
-        return Path(f"{self.base_path}.part{index:0{self.suffix_width}d}")
+    def _get_chunk_path_unpadded(self, index: int) -> Path:
+        """Get the path for a specific chunk index without padding."""
+        return Path(f"{self.base_path}.part{index}")
+
+    def _get_chunk_path_padded(self, index: int, width: int) -> Path:
+        """Get the path for a specific chunk index with padding."""
+        return Path(f"{self.base_path}.part{index:0{width}d}")
 
     def write(self, data: bytes) -> int:
         """Write data, creating new chunks as needed."""
@@ -128,16 +130,15 @@ class _ChunkedTarWriter:
             self.current_file.close()
             self.current_file = None
 
-        # If we ended up chunking, ensure suffix width is correct based on actual number of chunks
+        # If we ended up chunking, add minimal padding to all chunks
         if self.is_chunked:
-            actual_suffix_width = len(str(self.current_chunk_index))
-            if actual_suffix_width != self.suffix_width:
-                # Rename all chunks with correct suffix width
-                for i in range(self.current_chunk_index + 1):
-                    old_path = Path(f"{self.base_path}.part{i:0{self.suffix_width}d}")
-                    new_path = Path(f"{self.base_path}.part{i:0{actual_suffix_width}d}")
-                    if old_path != new_path:
-                        old_path.rename(new_path)
+            # Calculate minimal padding needed based on actual number of chunks
+            suffix_width = len(str(self.current_chunk_index))
+            # Rename all chunks from unpadded to padded
+            for i in range(self.current_chunk_index + 1):
+                old_path = self._get_chunk_path_unpadded(i)
+                new_path = self._get_chunk_path_padded(i, suffix_width)
+                old_path.rename(new_path)
 
     def __enter__(self):
         return self
