@@ -5,10 +5,13 @@ from collections.abc import Callable
 
 import pytest
 from fastapi import HTTPException
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
@@ -276,3 +279,69 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+
+def test_metadata_added_in_root_span_with_otel_export(monkeypatch):
+    saved_spans = []
+
+    def mock_on_end(self, span: OTelReadableSpan):
+        saved_spans.append(span)
+
+    # Endpoint not used as on_end is mocked
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:42/v1/traces")
+    monkeypatch.setattr(BatchSpanProcessor, "on_end", mock_on_end)
+    mlflow.set_experiment("metadata_export_test")
+
+    processors = _get_tracer("test").span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], OtelSpanProcessor)
+
+    @mlflow.trace(name="parent_span")
+    def parent_function():
+        result = child_function("Hello", "World")
+        return f"Parent: {result}"
+
+    @mlflow.trace(name="child_span")
+    def child_function(arg1, arg2):
+        mlflow.update_current_trace(
+            metadata={"str": "42", "int": 123, "obj": {"hello": "world"}},
+        )
+        return f"{arg1} {arg2}"
+
+    result = parent_function()
+    assert result == "Parent: Hello World"
+
+    assert len(saved_spans) == 2
+
+    for span in saved_spans:
+        if span.parent is None:
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="str")) == '"42"'
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="int")) == "123"
+            assert (
+                span.attributes.get(SpanAttributeKey.METADATA.format(key="obj"))
+                == '{"hello": "world"}'
+            )
+            assert any(
+                k.startswith(SpanAttributeKey.METADATA.format(key="mlflow"))
+                for k in span.attributes.keys()
+            )
+        else:
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="str")) is None
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="int")) is None
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="obj")) is None
+            assert not any(
+                k.startswith(SpanAttributeKey.METADATA.format(key="mlflow"))
+                for k in span.attributes.keys()
+            )
+
+    # Test exception when setting metadata
+    def mock_get_mlflow_span(span):
+        raise Exception("Simulated error during metadata retrieval")
+
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel.get_mlflow_span_for_otel_span", mock_get_mlflow_span
+    )
+    saved_spans = []
+    result = parent_function()
+    assert result == "Parent: Hello World"
+    assert len(saved_spans) == 2
