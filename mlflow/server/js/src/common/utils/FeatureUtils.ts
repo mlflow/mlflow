@@ -166,5 +166,5 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  * This controls the ability to select and compare evaluation runs in split view.
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
-  return false;
+  return true;
 };
