@@ -1,8 +1,11 @@
 import {
   Button,
   Tag,
+  ChevronDownIcon,
+  ClockIcon,
   DialogCombobox,
   DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSelectItem,
@@ -24,6 +27,7 @@ import {
   ListIcon,
   ChartLineIcon,
   TableIcon,
+  XCircleFillIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
@@ -115,8 +119,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           });
 
     const currentStartTimeFilterLabel = intl.formatMessage({
-      defaultMessage: 'Time created',
-      description: 'Label for the start time select dropdown for experiment runs view',
+      defaultMessage: 'Time',
+      description: 'Label for the time select dropdown for experiment runs view',
     });
 
     // Show preview sidebar only on table view and artifact view
@@ -244,13 +248,37 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             label={currentStartTimeFilterLabel}
             value={startTime !== 'ALL' ? [startTimeColumnLabels[startTime]] : []}
           >
-            <DialogComboboxTrigger
-              allowClear={startTime !== 'ALL'}
-              onClear={() => {
-                setUrlSearchFacets({ startTime: 'ALL' });
-              }}
-              data-testid="start-time-select-dropdown"
-            />
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_time_button"
+                icon={<ClockIcon />}
+                endIcon={<ChevronDownIcon />}
+                data-testid="start-time-select-dropdown"
+              >
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  {currentStartTimeFilterLabel}:{' '}
+                  {startTime !== 'ALL' ? startTimeColumnLabels[startTime] : 'All time'}
+                  {startTime !== 'ALL' && (
+                    <XCircleFillIcon
+                      aria-hidden="false"
+                      role="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setUrlSearchFacets({ startTime: 'ALL' });
+                      }}
+                      css={{
+                        color: theme.colors.textPlaceholder,
+                        fontSize: theme.typography.fontSizeSm,
+                        ':hover': {
+                          color: theme.colors.actionTertiaryTextHover,
+                        },
+                      }}
+                    />
+                  )}
+                </div>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
             <DialogComboboxContent>
               <DialogComboboxOptionList>
                 {Object.keys(startTimeColumnLabels).map((startTimeKey) => (

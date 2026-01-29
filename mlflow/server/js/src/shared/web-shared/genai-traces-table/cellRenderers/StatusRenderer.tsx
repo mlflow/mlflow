@@ -1,6 +1,6 @@
 import type { Theme } from '@emotion/react';
 
-import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon } from '@databricks/design-system';
+import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon, Tag, type TagColors } from '@databricks/design-system';
 import { useIntl, defineMessage } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
@@ -38,6 +38,22 @@ const getIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
   return null;
 };
 
+const getTagColor = (state: ModelTraceInfoV3['state']): TagColors | undefined => {
+  if (state === 'IN_PROGRESS') {
+    return 'lemon';
+  }
+
+  if (state === 'OK') {
+    return 'teal';
+  }
+
+  if (state === 'ERROR') {
+    return 'coral';
+  }
+
+  return undefined;
+};
+
 export const StatusCellRenderer = ({
   original,
   isComparing,
@@ -49,12 +65,36 @@ export const StatusCellRenderer = ({
   const intl = useIntl();
 
   const labelDescriptor = ExperimentViewTracesStatusLabels[original?.state || 'STATE_UNSPECIFIED'];
+  const state = original?.state || 'STATE_UNSPECIFIED';
 
   return labelDescriptor ? (
-    <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
-      {getIcon(original?.state || 'STATE_UNSPECIFIED', theme)}
-      {labelDescriptor ? intl.formatMessage(labelDescriptor) : ''}
-    </div>
+    <Tag
+      color={getTagColor(state)}
+      css={{ width: 'fit-content', maxWidth: '100%' }}
+      componentId="mlflow.genai-traces-table.status"
+    >
+      <span
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {getIcon(state, theme)}
+        <span
+          css={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {intl.formatMessage(labelDescriptor)}
+        </span>
+      </span>
+    </Tag>
   ) : (
     <NullCell isComparing={isComparing} />
   );
