@@ -37,16 +37,33 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  return (
+  const isDisabled = !row.getCanSelect();
+  const checkbox = (
     <Checkbox
       componentId="mlflow.eval-runs.checkbox-cell"
       data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
-      disabled={!row.getCanSelect()}
+      disabled={isDisabled}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
       onChange={() => row.toggleSelected()}
       onClick={(e) => e.stopPropagation()}
     />
+  );
+
+  return isDisabled ? (
+    <Tooltip
+      componentId="mlflow.eval-runs.checkbox-disabled-tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Maximum of 2 runs can be selected for comparison"
+          description="Tooltip explaining why a checkbox is disabled when max selection is reached"
+        />
+      }
+    >
+      <span>{checkbox}</span>
+    </Tooltip>
+  ) : (
+    checkbox
   );
 };
 
