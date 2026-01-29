@@ -247,7 +247,7 @@ def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     def dfs(span: LiveSpan, ancestor_has_cost: bool) -> None:
         nonlocal input_cost, output_cost, total_cost, has_cost_data
 
-        cost = span.get_attribute(SpanAttributeKey.CHAT_COST)
+        cost = span.get_attribute(SpanAttributeKey.LLM_COST)
         span_has_cost = cost is not None
 
         if span_has_cost and not ancestor_has_cost:

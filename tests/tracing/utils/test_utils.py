@@ -154,7 +154,7 @@ def test_aggregate_cost_from_spans():
         for i in range(3)
     ]
     spans[0].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {
             CostKey.INPUT_COST: 10,
             CostKey.OUTPUT_COST: 20,
@@ -162,11 +162,11 @@ def test_aggregate_cost_from_spans():
         },
     )
     spans[1].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {CostKey.OUTPUT_COST: 15, CostKey.TOTAL_COST: 15},
     )
     spans[2].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {
             CostKey.INPUT_COST: 5,
             CostKey.OUTPUT_COST: 10,
@@ -199,7 +199,7 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     ]
 
     spans[0].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {
             CostKey.INPUT_COST: 10,
             CostKey.OUTPUT_COST: 20,
@@ -208,7 +208,7 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     )
 
     spans[2].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {
             CostKey.INPUT_COST: 5,
             CostKey.OUTPUT_COST: 10,
@@ -217,7 +217,7 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     )
 
     spans[3].set_attribute(
-        SpanAttributeKey.CHAT_COST,
+        SpanAttributeKey.LLM_COST,
         {
             CostKey.INPUT_COST: 3,
             CostKey.OUTPUT_COST: 6,
