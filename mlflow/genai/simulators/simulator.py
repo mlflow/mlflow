@@ -562,6 +562,19 @@ class ConversationSimulator:
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
 
+    def _compute_test_case_digest(self) -> str:
+        """Compute a digest based on the test cases for consistent dataset identification.
+
+        This ensures the same test cases produce the same digest regardless of
+        simulation output variations caused by LLM non-determinism.
+        """
+        import pandas as pd
+
+        from mlflow.data.digest_utils import compute_pandas_digest
+
+        test_case_df = pd.DataFrame(self.test_cases)
+        return compute_pandas_digest(test_case_df)
+
     @experimental(version="3.10.0")
     @record_usage_event(SimulateConversationEvent)
     def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:

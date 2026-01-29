@@ -318,12 +318,17 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     scorers = validate_scorers(scorers)
 
     # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    precomputed_digest = None
     if isinstance(data, ConversationSimulator):
         if predict_fn is None:
             raise MlflowException.invalid_parameter_value(
                 "predict_fn is required when using ConversationSimulator as data. "
                 "The simulator needs a predict function to generate conversations."
             )
+
+        # Compute digest from test cases BEFORE simulation. This ensures the same test cases
+        # produce the same digest regardless of LLM non-determinism in generated conversations.
+        precomputed_digest = data._compute_test_case_digest()
 
         # Wrap async predict_fn for synchronous execution during simulation
         sim_predict_fn = predict_fn
@@ -387,8 +392,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Use default name for evaluation dataset when converting from DataFrame
-        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
+        # Use default name for evaluation dataset when converting from DataFrame.
+        # Pass precomputed_digest if available (e.g., from ConversationSimulator test cases).
+        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset", digest=precomputed_digest)
         df = data
 
     try:
