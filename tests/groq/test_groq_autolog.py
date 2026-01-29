@@ -91,7 +91,7 @@ def test_chat_completion_autolog(mock_litellm_cost):
         "total_tokens": 668,
     }
     # Verify cost is calculated (20 input tokens * 1.0 + 648 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 20.0,
         "output_cost": 1296.0,
         "total_cost": 1316.0,

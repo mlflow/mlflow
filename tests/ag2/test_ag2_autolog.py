@@ -132,7 +132,7 @@ def test_tracing_agent(llm_config, mock_litellm_cost):
     }
     assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert llm_span.cost == {
+    assert llm_span.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,
@@ -145,7 +145,7 @@ def test_tracing_agent(llm_config, mock_litellm_cost):
     }
     assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert llm_span_2.cost == {
+    assert llm_span_2.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,

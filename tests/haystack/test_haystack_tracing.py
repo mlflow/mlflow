@@ -113,7 +113,7 @@ def test_token_usage_parsed_for_llm_component(mock_litellm_cost):
     }
     assert span.model_name == "gpt-4"
     # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 1.0,
         "output_cost": 4.0,
         "total_cost": 5.0,

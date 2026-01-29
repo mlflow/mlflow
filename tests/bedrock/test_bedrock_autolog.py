@@ -905,7 +905,7 @@ def test_bedrock_autolog_converse_stream(
         "total_cost": float(expected_usage["input_tokens"])
         + float(expected_usage["output_tokens"]) * 2.0,
     }
-    assert span.cost == expected_cost
+    assert span.llm_cost == expected_cost
 
 
 def _event_stream(raw_response, chunk_size=10):

@@ -177,7 +177,7 @@ def test_chat_complete_autolog(mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
     # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 10.0,
         "output_cost": 36.0,
         "total_cost": 46.0,

@@ -296,7 +296,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_li
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_3.model_name == "openai/gpt-4o-mini"
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span_3.cost == {
+    assert span_3.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,
@@ -434,7 +434,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert "Action: TestTool" in span_3.outputs
     assert span_3.model_name == "openai/gpt-4o-mini"
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span_3.cost == {
+    assert span_3.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,
@@ -456,7 +456,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_5.model_name == "openai/gpt-4o-mini"
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span_5.cost == {
+    assert span_5.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,

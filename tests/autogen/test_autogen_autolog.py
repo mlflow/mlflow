@@ -97,7 +97,7 @@ async def test_autolog_assistant_agent(disable, mock_litellm_cost):
             "total_tokens": 7,
         }
         # Verify cost is calculated (6 input tokens * 1.0 + 1 output tokens * 2.0)
-        assert span.cost == {
+        assert span.llm_cost == {
             "input_cost": 6.0,
             "output_cost": 2.0,
             "total_cost": 8.0,
@@ -256,7 +256,7 @@ async def test_autolog_tool_agent(mock_litellm_cost):
         "output_tokens": 1,
         "total_tokens": 7,
     }
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 6.0,
         "output_cost": 2.0,
         "total_cost": 8.0,
@@ -354,7 +354,7 @@ async def test_autolog_multi_modal(mock_litellm_cost):
         "output_tokens": 1,
         "total_tokens": 15,
     }
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 14.0,
         "output_cost": 2.0,
         "total_cost": 16.0,
