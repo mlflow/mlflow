@@ -2038,6 +2038,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "Cwuzyr": {
+    "defaultMessage": "Human feedback",
+    "description": "Label for the button to add a human feedback to the trace"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -2437,6 +2441,10 @@
   "GgPNAZ": {
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
+  },
+  "Gj3Zbz": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
+    "description": "Label indicating a pre-built LLM-as-a-judge template"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -3773,6 +3781,10 @@
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
   },
+  "RXUGmX": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Label for the button to add a LLM judge feedback to the trace"
+  },
   "RaGnOQ": {
     "defaultMessage": "Compare",
     "description": "String for the compare button to compare experiment runs to find an ideal model"
@@ -3808,6 +3820,10 @@
   "RmmAwm": {
     "defaultMessage": "Top P",
     "description": "Label for top P input"
+  },
+  "RpxR8e": {
+    "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
+    "description": "Label for custom LLM judge type filter option"
   },
   "Rqy/A/": {
     "defaultMessage": "Loading...",
@@ -3876,6 +3892,10 @@
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
+  },
+  "SJk8DQ": {
+    "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
+    "description": "Label for pre-built LLM judge type filter option"
   },
   "SLHSXV": {
     "defaultMessage": "Search parameters",
@@ -4112,6 +4132,10 @@
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
   },
+  "U2x2cM": {
+    "defaultMessage": "Endpoint:",
+    "description": "Label for endpoint selection"
+  },
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
@@ -4251,10 +4275,6 @@
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
-  },
-  "VD7haA": {
-    "defaultMessage": "Custom LLM-as-a-judge",
-    "description": "Label for custom LLM judge type filter option"
   },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
@@ -7799,6 +7819,10 @@
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
   },
+  "vGf4dg": {
+    "defaultMessage": "No custom LLM-as-a-judge scorers found",
+    "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
+  },
   "vHNP+J": {
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
@@ -8226,10 +8250,6 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
-  },
-  "yO/HAZ": {
-    "defaultMessage": "Pre-built LLM-as-a-judge",
-    "description": "Label for pre-built LLM judge type filter option"
   },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
