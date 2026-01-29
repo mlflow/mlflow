@@ -25,6 +25,9 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceSizeStatsKey,
 )
+from mlflow.tracing.constant import (
+    CostKey as CostKey,
+)
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -221,6 +224,119 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
         TokenUsageKey.INPUT_TOKENS: input_tokens,
         TokenUsageKey.OUTPUT_TOKENS: output_tokens,
         TokenUsageKey.TOTAL_TOKENS: total_tokens,
+    }
+
+
+def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
+    input_cost = 0.0
+    output_cost = 0.0
+    total_cost = 0.0
+    has_cost_data = False
+
+    span_id_to_spans = {span.span_id: span for span in spans}
+    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
+    roots: list[LiveSpan] = []
+
+    for span in spans:
+        parent_id = span.parent_id
+        if parent_id and parent_id in span_id_to_spans:
+            children_map[parent_id].append(span)
+        else:
+            roots.append(span)
+
+    def dfs(span: LiveSpan, ancestor_has_cost: bool) -> None:
+        nonlocal input_cost, output_cost, total_cost, has_cost_data
+
+        cost = span.get_attribute(SpanAttributeKey.CHAT_COST)
+        span_has_cost = cost is not None
+
+        if span_has_cost and not ancestor_has_cost:
+            input_cost += cost.get(CostKey.INPUT_COST, 0.0)
+            output_cost += cost.get(CostKey.OUTPUT_COST, 0.0)
+            total_cost += cost.get(CostKey.TOTAL_COST, 0.0)
+            has_cost_data = True
+
+        next_ancestor_has_cost = ancestor_has_cost or span_has_cost
+        for child in children_map.get(span.span_id, []):
+            dfs(child, next_ancestor_has_cost)
+
+    for root in roots:
+        dfs(root, False)
+
+    # If none of the spans have cost data, we shouldn't log cost metadata.
+    if not has_cost_data:
+        return None
+
+    return {
+        CostKey.INPUT_COST: input_cost,
+        CostKey.OUTPUT_COST: output_cost,
+        CostKey.TOTAL_COST: total_cost,
+    }
+
+
+def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
+    """Calculate cost for a single span using LiteLLM pricing data.
+
+    Args:
+        span: The span to calculate cost for.
+
+    Returns:
+        Dictionary with input_cost, output_cost, and total_cost in USD,
+        or None if cost cannot be calculated.
+    """
+    model_name = span.get_attribute(SpanAttributeKey.MODEL)
+    usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    model_provider = span.get_attribute(SpanAttributeKey.MODEL_PROVIDER)
+    return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
+
+
+def calculate_cost_by_model_and_token_usage(
+    model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
+) -> dict[str, float] | None:
+    if not model_name or not usage:
+        return None
+
+    try:
+        from litellm import cost_per_token
+    except ImportError:
+        _logger.debug("LiteLLM not available for cost calculation")
+        return None
+
+    prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+    completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+
+    if prompt_tokens == 0 and completion_tokens == 0:
+        return None
+
+    try:
+        input_cost_usd, output_cost_usd = cost_per_token(
+            model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
+    except Exception as e:
+        if model_provider:
+            try:
+                model_name = f"{json.loads(model_provider)}/{json.loads(model_name)}"
+                input_cost_usd, output_cost_usd = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
+                )
+                return None
+        else:
+            _logger.debug(
+                f"Failed to calculate cost for model {model_name} without provider: {e}",
+                exc_info=True,
+            )
+            return None
+
+    return {
+        CostKey.INPUT_COST: input_cost_usd,
+        CostKey.OUTPUT_COST: output_cost_usd,
+        CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
     }
 
 
@@ -655,3 +771,51 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     Construct a trace ID for the given location and trace ID.
     """
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+
+def parse_model_from_inputs(inputs: dict[str, Any]) -> str | None:
+    """
+    Parse model name from request inputs.
+
+    This utility function is used by autologging implementations to extract
+    model names from API call inputs.
+
+    Args:
+        inputs: The request inputs dictionary
+
+    Returns:
+        Model name string or None if not found
+    """
+    if model := inputs.get("model"):
+        return model if isinstance(model, str) and model else None
+    return None
+
+
+def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
+    """
+    Set the model attribute on a span using parsed model information.
+
+    This utility function extracts the model name from inputs and
+    sets it as a span attribute. It's used by autologging implementations to
+    consistently set model information across different LLM providers.
+
+    Args:
+        span: The LiveSpan to set the model attribute on
+        inputs: The request inputs dictionary
+    """
+    try:
+        if model := parse_model_from_inputs(inputs):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
+    except Exception as e:
+        _logger.debug(f"Failed to set model for {span}. Error: {e}")
+
+
+def set_span_cost_attribute(span: LiveSpan) -> None:
+    """
+    Set the cost attribute on a span using calculated cost information.
+    """
+    try:
+        if cost := calculate_span_cost(span):
+            span.set_attribute(SpanAttributeKey.CHAT_COST, cost)
+    except Exception as e:
+        _logger.debug(f"Failed to set cost for {span}. Error: {e}")
