@@ -259,21 +259,18 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
         if (s := str(sec).strip())
     ]
     new_changelog = "\n\n".join(sections)
-    changelog_header = "# CHANGELOG"
-    changelog = Path("CHANGELOG.md")
-    old_changelog = changelog.read_text().replace(f"{changelog_header}\n\n", "", 1)
-    new_changelog = "\n\n".join(
-        [
-            changelog_header,
-            new_changelog,
-            old_changelog,
-        ]
-    )
-    changelog.write_text(new_changelog)
+
+    # Write to version-specific file in changelogs directory
+    changelogs_dir = Path("changelogs")
+    changelogs_dir.mkdir(exist_ok=True)
+    version_changelog = changelogs_dir / f"v{release_version}.md"
+    version_changelog.write_text(new_changelog + "\n")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Update CHANGELOG.md")
+    parser = argparse.ArgumentParser(
+        description="Generate version-specific changelog in changelogs directory"
+    )
     parser.add_argument("--prev-version", required=True, help="Previous version")
     parser.add_argument("--release-version", required=True, help="MLflow version to release")
     parser.add_argument("--remote", default="origin", help="Git remote to use (default: origin)")
