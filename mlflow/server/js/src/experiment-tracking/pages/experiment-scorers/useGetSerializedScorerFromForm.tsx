@@ -18,7 +18,6 @@ export const useGetSerializedScorerFromForm = () => {
     const scheduledScorer = convertFormDataToScheduledScorer(formData, undefined);
     // Transform the scheduled scorer to a backend scorer config
     const scorerConfig = transformScheduledScorer(scheduledScorer);
-
     // Return the serialized scorer
     return scorerConfig.serialized_scorer;
   }, [getValues]);
