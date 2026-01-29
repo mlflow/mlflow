@@ -648,12 +648,14 @@ async def test_chat_proxy_forwards_post_requests_with_body():
     # POST to root path (allowed) to test body forwarding
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_response),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.post("/", json={"message": "hello"})
         assert response.status_code == 200
         assert response.content == b'{"result": "success"}'
 
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
         call_args = mock_build_request.call_args
         assert call_args.kwargs["method"] == "POST"
         assert call_args.kwargs["content"] is not None
@@ -673,10 +675,11 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_response),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         client.get("/assets/test.js")
         mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
         call_args = mock_build_request.call_args
         assert call_args.kwargs["url"] == "http://localhost:8080/assets/test.js"
 
@@ -902,11 +905,12 @@ async def test_chat_proxy_forwards_allowlisted_paths(path):
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_response),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get(path)
         assert response.status_code == 200
         mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
         assert mock_build_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
 
 
@@ -977,11 +981,12 @@ async def test_chat_proxy_forwards_additional_paths_from_env_vars(
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_response),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get(test_path)
         assert response.status_code == 200
         mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
 
 
 @pytest.mark.asyncio
