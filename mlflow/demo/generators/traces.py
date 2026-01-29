@@ -99,7 +99,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 2  # Bumped for timestamp and token count changes
+    version = 1
 
     def generate(self) -> DemoResult:
         experiment = mlflow.set_experiment(DEMO_EXPERIMENT_NAME)

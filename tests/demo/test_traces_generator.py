@@ -1,6 +1,4 @@
-import pytest
-
-from mlflow import MlflowClient, get_experiment_by_name, set_experiment, set_tracking_uri
+from mlflow import MlflowClient, get_experiment_by_name, set_experiment
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.generators.traces import (
     DEMO_TRACE_TYPE_TAG,
@@ -9,33 +7,24 @@ from mlflow.demo.generators.traces import (
 )
 
 
-@pytest.fixture
-def tracking_uri(tmp_path):
-    uri = tmp_path / "mlruns"
-    uri.mkdir()
-    set_tracking_uri(uri.as_uri())
-    yield uri.as_uri()
-    set_tracking_uri(None)
-
-
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
     assert generator.version == 1
 
 
-def test_data_exists_false_when_no_experiment(tracking_uri):
+def test_data_exists_false_when_no_experiment():
     generator = TracesDemoGenerator()
     assert generator._data_exists() is False
 
 
-def test_data_exists_false_when_experiment_empty(tracking_uri):
+def test_data_exists_false_when_experiment_empty():
     set_experiment(DEMO_EXPERIMENT_NAME)
     generator = TracesDemoGenerator()
     assert generator._data_exists() is False
 
 
-def test_generate_creates_traces(tracking_uri):
+def test_generate_creates_traces():
     generator = TracesDemoGenerator()
     result = generator.generate()
 
@@ -45,7 +34,7 @@ def test_generate_creates_traces(tracking_uri):
     assert "traces" in result.navigation_url
 
 
-def test_generate_creates_experiment(tracking_uri):
+def test_generate_creates_experiment():
     generator = TracesDemoGenerator()
     generator.generate()
 
@@ -54,7 +43,7 @@ def test_generate_creates_experiment(tracking_uri):
     assert experiment.lifecycle_stage == "active"
 
 
-def test_data_exists_true_after_generate(tracking_uri):
+def test_data_exists_true_after_generate():
     generator = TracesDemoGenerator()
     assert generator._data_exists() is False
 
@@ -63,7 +52,7 @@ def test_data_exists_true_after_generate(tracking_uri):
     assert generator._data_exists() is True
 
 
-def test_delete_demo_removes_traces(tracking_uri):
+def test_delete_demo_removes_traces():
     generator = TracesDemoGenerator()
     generator.generate()
     assert generator._data_exists() is True
@@ -73,7 +62,7 @@ def test_delete_demo_removes_traces(tracking_uri):
     assert generator._data_exists() is False
 
 
-def test_traces_have_expected_structure(tracking_uri):
+def test_traces_have_expected_structure():
     generator = TracesDemoGenerator()
     generator.generate()
 
@@ -97,7 +86,7 @@ def test_traces_have_expected_structure(tracking_uri):
     assert "generate_response" in all_span_names
 
 
-def test_traces_have_version_metadata(tracking_uri):
+def test_traces_have_version_metadata():
     generator = TracesDemoGenerator()
     generator.generate()
 
@@ -114,7 +103,7 @@ def test_traces_have_version_metadata(tracking_uri):
     assert len(traces) == 34
 
 
-def test_traces_have_type_metadata(tracking_uri):
+def test_traces_have_type_metadata():
     generator = TracesDemoGenerator()
     generator.generate()
 
@@ -141,7 +130,7 @@ def test_traces_have_type_metadata(tracking_uri):
     assert len(session_traces) == 14
 
 
-def test_is_generated_checks_version(tracking_uri):
+def test_is_generated_checks_version():
     generator = TracesDemoGenerator()
     generator.generate()
     generator.store_version()
