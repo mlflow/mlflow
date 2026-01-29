@@ -110,7 +110,7 @@ export const AssessmentsPane = ({
         enableRunScorer={
           enableRunScorer &&
           isEvaluatingTracesInDetailsViewEnabled() &&
-          Boolean(runJudgeConfiguration.renderRunJudgeButton)
+          Boolean(runJudgeConfiguration.renderRunJudgeModal)
         }
         feedbacks={feedbacks}
         activeSpanId={activeSpanId}

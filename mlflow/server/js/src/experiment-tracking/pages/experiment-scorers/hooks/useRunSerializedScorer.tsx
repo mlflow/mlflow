@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
-import { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
-import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from '../constants';
+import { EvaluateTracesParams, LLMScorer } from '../types';
+import { ScorerEvaluationScope } from '../constants';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
+import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 
 /**
  * Runs a known serialized scorer on a set of traces.
@@ -12,9 +13,9 @@ export const useRunSerializedScorer = ({
   onScorerFinished,
 }: {
   experimentId?: string;
-  onScorerFinished?: () => void;
+  onScorerFinished?: (event: ScorerFinishedEvent) => void;
 }) => {
-  const [evaluateTracesFn, { latestEvaluation, isLoading }] = useEvaluateTraces({ onScorerFinished });
+  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations }] = useEvaluateTraces({ onScorerFinished });
 
   const evaluateTraces = useCallback(
     (scorer: LLMScorer, traceIds: string[]) => {
@@ -42,5 +43,6 @@ export const useRunSerializedScorer = ({
     evaluateTraces,
     latestEvaluation,
     isLoading,
+    allEvaluations,
   };
 };

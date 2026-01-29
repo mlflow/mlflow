@@ -1,26 +1,77 @@
 import React, { useMemo } from 'react';
+import { FeedbackAssessment, ModelTrace } from '../ModelTrace.types';
+
+interface TraceScorerJudgeEvaluationResult {
+  trace: ModelTrace | null;
+  results: FeedbackAssessment[];
+  error: string | null;
+}
+
+interface SessionScorerJudgeEvaluationResult {
+  sessionId: string;
+  traces: ModelTrace[] | null;
+  results: FeedbackAssessment[];
+  error: string | null;
+}
+
+export interface ScorerFinishedEvent {
+  requestKey: string;
+  status: string;
+  results?: (TraceScorerJudgeEvaluationResult | SessionScorerJudgeEvaluationResult)[];
+  error?: Error | null;
+}
 
 export interface ModelTraceExplorerRunJudgeConfig {
-  renderRunJudgeButton?: ({ traceId, trigger }: { traceId: string; trigger: React.ReactNode }) => React.ReactNode;
+  renderRunJudgeModal?: ({
+    traceId,
+    visible,
+    onClose,
+  }: {
+    traceId: string;
+    visible: boolean;
+    onClose: () => void;
+  }) => React.ReactNode;
+  /** Current state of all active evaluations */
+  evaluations?: Record<
+    string,
+    {
+      requestKey: string;
+      tracesData?: Record<string, ModelTrace>;
+      results?: (TraceScorerJudgeEvaluationResult | SessionScorerJudgeEvaluationResult)[];
+      isLoading: boolean;
+      label: string;
+      error?: Error | null;
+    }
+  >;
+  /** Subscribe to scorer update events. Returns unsubscribe function. */
+  subscribeToScorerFinished?: (callback: (event: ScorerFinishedEvent) => void) => () => void;
 }
 
 const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplorerRunJudgeConfig>({
-  renderRunJudgeButton: undefined,
+  renderRunJudgeModal: undefined,
+  evaluations: undefined,
+  subscribeToScorerFinished: undefined,
 });
 
 /**
  * Provides context for running judges on traces.
  * Contains:
  * - a function to render a button to run a judge on a trace
- * - TODO: logic for monitoring and updating the status of the judge runs
+ * - current state of all active evaluations
+ * - a function to subscribe to scorer update events
  */
 export const ModelTraceExplorerRunJudgesContextProvider = ({
   children,
-  renderRunJudgeButton,
+  renderRunJudgeModal,
+  evaluations,
+  subscribeToScorerFinished,
 }: ModelTraceExplorerRunJudgeConfig & {
   children: React.ReactNode;
 }) => {
-  const contextValue = useMemo(() => ({ renderRunJudgeButton }), [renderRunJudgeButton]);
+  const contextValue = useMemo(
+    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished }),
+    [renderRunJudgeModal, evaluations, subscribeToScorerFinished],
+  );
   return (
     <ModelTraceExplorerRunJudgesContext.Provider value={contextValue}>
       {children}
