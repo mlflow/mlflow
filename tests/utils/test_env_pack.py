@@ -435,3 +435,78 @@ def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
 
         # After context exit, downloaded artifacts should be cleaned up
         assert not mock_artifacts_dir.exists()
+
+
+def get_files(path: Path) -> list[Path]:
+    return sorted(p for p in path.iterdir() if p.is_file())
+
+
+def test_chunked_tar_writer_small_files(tmp_path):
+    tar_path = tmp_path / "small.tar"
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 512)
+
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["small.tar"]
+
+
+def test_chunked_tar_writer_large_files(tmp_path):
+    tar_path = tmp_path / "large.tar"
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 2560)
+
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["large.tar.part0", "large.tar.part1", "large.tar.part2"]
+
+
+def test_chunked_tar_writer_padding(tmp_path):
+    # 1-digit padding: 5 chunks
+    tar_path = tmp_path / "test1.tar"
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 5 * 1024)
+    files = get_files(tmp_path)
+
+    assert len(files) == 5
+    assert files[0].name == "test1.tar.part0"
+    assert files[4].name == "test1.tar.part4"
+
+    # 3-digit padding: 150 chunks
+    tar_path3 = tmp_path / "test3.tar"
+    with env_pack._ChunkedTarWriter(tar_path3, chunk_size=1024) as writer:
+        writer.write(b"x" * 150 * 1024)
+    files3 = [f for f in get_files(tmp_path) if f.name.startswith("test3.tar")]
+
+    assert len(files3) == 150
+    assert files3[0].name == "test3.tar.part000"
+    assert files3[149].name == "test3.tar.part149"
+
+
+def test_tar_chunk_reassembly(tmp_path):
+    tar_path = tmp_path / "test.tar"
+    expected_content = b"x" * 5 * 1024
+    with env_pack._ChunkedTarWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(expected_content)
+
+    files = get_files(tmp_path)
+    assert len(files) == 5
+
+    reassembled_path = tmp_path / "reassembled.tar"
+    with open(reassembled_path, "wb") as output:
+        for file in files:
+            with open(file, "rb") as inp:
+                output.write(inp.read())
+
+    assert reassembled_path.read_bytes() == expected_content
+
+
+def test_tar_creates_single_file_for_small_tar(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "test.txt").write_text("test")
+
+    tar_path = tmp_path / "output.tar"
+    env_pack._tar(source_dir, tar_path)
+
+    # Small tar should not be chunked
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["output.tar"]

@@ -1485,17 +1485,7 @@ def get_databricks_local_temp_dir():
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
-    response = http_request(
-        host_creds=get_databricks_host_creds(),
-        endpoint="/api/2.0/serving-endpoints:stageDeployment",
-        method="POST",
-        raise_on_status=False,
-        json={
-            "model_name": model_name,
-            "model_version": model_version,
-        },
-    )
-    augmented_raise_for_status(response)
+    return
 
 
 P = ParamSpec("P")
