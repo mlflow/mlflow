@@ -108,7 +108,8 @@ describe('tracedAnthropic', () => {
       ),
     );
 
-    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    // Disable retries to prevent the SDK from retrying on 429 errors
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
     const wrappedAnthropic = tracedAnthropic(anthropic);
 
     await expect(

@@ -38,7 +38,7 @@
   },
   "peerDependencies": {
     "mlflow-tracing": "^0.1.2",
-    "@anthropic-ai/sdk": "^0.32.0"
+    "@anthropic-ai/sdk": "^0.71.0"
   },
   "devDependencies": {
     "jest": "^29.6.2",
