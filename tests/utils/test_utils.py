@@ -1,3 +1,4 @@
+import socket
 from unittest import mock
 
 import pytest
@@ -200,3 +201,27 @@ def test_delattr_non_existent():
     d = AttrDict({"a": 1, "b": 2, "c": 3})
     with pytest.raises(KeyError, match="nonexistent"):
         del d.nonexistent
+
+
+def test_find_free_port():
+    from mlflow.utils import find_free_port
+
+    port = find_free_port()
+    assert isinstance(port, int)
+    assert 1024 <= port <= 65535
+
+
+def test_is_port_available_returns_true_for_free_port():
+    from mlflow.utils import find_free_port, is_port_available
+
+    port = find_free_port()
+    assert is_port_available(port) is True
+
+
+def test_is_port_available_returns_false_for_bound_port():
+    from mlflow.utils import is_port_available
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        bound_port = s.getsockname()[1]
+        assert is_port_available(bound_port) is False
