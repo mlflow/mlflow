@@ -39,7 +39,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools, set_span_cost_attribute
 
 _logger = logging.getLogger(__name__)
 
@@ -293,6 +293,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
+            attr[SpanAttributeKey.MODEL] = metadata.model_name
             if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
         return attr
@@ -301,6 +302,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def _(self, instance: BaseEmbedding):
         return {
             "model_name": instance.model_name,
+            SpanAttributeKey.MODEL: instance.model_name,
             "embed_batch_size": instance.embed_batch_size,
         }
 
@@ -361,6 +363,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: EmbeddingStartEvent, span: LiveSpan):
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMPredictStartEvent, span: LiveSpan):
@@ -387,24 +390,28 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
         span.set_attribute("prompt", event.prompt)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
+        set_span_cost_attribute(span)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.CHAT_MODEL)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
+        set_span_cost_attribute(span)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -427,6 +434,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         streaming after it exit. Therefore, we need to resolve the span here.
         """
         self._span_handler.resolve_pending_stream_span(span, event)
+
+    def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
+        if model_dict and (model := model_dict.get("model")):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:

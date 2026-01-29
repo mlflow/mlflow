@@ -20,6 +20,7 @@ import {
 import { getExperimentPageTracesTabRoute } from '../routes';
 import { isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
 import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
+import { formatCostUSD } from '../CostUtils';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -51,12 +52,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
       return undefined;
     }
 
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    }).format(numericCost);
+    return formatCostUSD(numericCost);
   })();
   const shouldShowCostSection = Boolean(formattedCost);
 
