@@ -1,4 +1,4 @@
-import { useQuery, type UseQueryResult } from '@databricks/web-shared/query-client';
+import { useQuery, UseQueryOptions, type UseQueryResult } from '@databricks/web-shared/query-client';
 import { UnknownError, type PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
@@ -19,6 +19,7 @@ export interface ScheduledScorersResponse {
 
 export function useGetScheduledScorers(
   experimentId?: string,
+  options?: UseQueryOptions<ScheduledScorersResponse, PredefinedError>,
 ): UseQueryResult<ScheduledScorersResponse, PredefinedError> {
   return useQuery<ScheduledScorersResponse, PredefinedError>({
     queryKey: ['mlflow', 'scheduled-scorers', experimentId],
@@ -74,8 +75,9 @@ export function useGetScheduledScorers(
         scheduledScorers,
       };
     },
-    enabled: !!experimentId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
+    ...options,
+    enabled: Boolean(experimentId) && (options?.enabled ?? true),
   });
 }

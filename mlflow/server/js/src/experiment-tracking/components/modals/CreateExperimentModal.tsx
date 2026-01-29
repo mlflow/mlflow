@@ -42,6 +42,7 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
     const {
       value: { experiment_id: newExperimentId },
     } = response;
+
     if (newExperimentId) {
       this.props.navigate(Routes.getExperimentPageRoute(newExperimentId));
     }
@@ -79,6 +80,6 @@ const mapDispatchToProps = {
   createExperimentApi,
 };
 
-export const CreateExperimentModal = withRouterNext(
-  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl),
-);
+const ConnectedCreateExperimentModal = connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl);
+
+export const CreateExperimentModal = withRouterNext(ConnectedCreateExperimentModal);

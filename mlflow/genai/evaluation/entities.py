@@ -82,6 +82,8 @@ class EvalItem:
 
         # Extract expectations column from the dataset.
         expectations = row.get(InputDatasetColumn.EXPECTATIONS, {})
+        if is_none_or_nan(expectations):
+            expectations = {}
 
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})

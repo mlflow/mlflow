@@ -902,6 +902,7 @@ pydantic_ai:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
     test_tracing_sdk: true
+    test_every_n_versions: 10
 
 smolagents:
   package_info:

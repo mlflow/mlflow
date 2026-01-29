@@ -28,6 +28,7 @@ export const GenAITraceComparisonModal = ({
   return (
     <AssistantAwareDrawer.Root
       open
+      modal
       onOpenChange={(open) => {
         if (!open) {
           onClose?.();
@@ -55,7 +56,7 @@ export const GenAITraceComparisonModal = ({
             '&>div': {
               overflow: 'hidden',
             },
-            '&>div:first-child': {
+            '&>div:first-of-type': {
               paddingLeft: theme.spacing.md,
             },
           },

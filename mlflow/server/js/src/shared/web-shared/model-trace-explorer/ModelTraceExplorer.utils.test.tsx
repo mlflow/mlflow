@@ -6,7 +6,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType } from './ModelTrace.types';
+import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -809,6 +809,59 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.children?.[1].key).toBe('child3');
     expect(normalized.children?.[2].key).toBe('child1');
   });
+
+  it('should extract model name from mlflow.llm.model attribute', () => {
+    const spanWithModel: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.model': 'gpt-4o-mini',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithModel, 0, 0, [], {}, '');
+    expect(normalized.modelName).toBe('gpt-4o-mini');
+  });
+
+  it('should extract cost from mlflow.llm.cost attribute', () => {
+    const spanWithCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({
+          input_cost: 0.001,
+          output_cost: 0.002,
+          total_cost: 0.003,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return undefined cost when mlflow.llm.cost is malformed', () => {
+    const spanWithMalformedCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({ invalid: 'format' }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithMalformedCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toBeUndefined();
+  });
+
+  it('should return undefined model and cost when attributes are not present', () => {
+    const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
+    expect(normalized.modelName).toBeUndefined();
+    expect(normalized.cost).toBeUndefined();
+  });
 });
 
 describe('isRawModelTraceChatMessage', () => {
@@ -996,6 +1049,14 @@ describe('isModelTrace', () => {
 });
 
 describe('getDefaultActiveTab', () => {
+  it('should return events if the node has exception events', () => {
+    const spanWithException: ModelTraceSpanNode = {
+      ...MOCK_CHAT_SPAN,
+      events: [{ name: 'exception', timestamp: 0, attributes: {} }],
+    };
+    expect(getDefaultActiveTab(spanWithException)).toBe('events');
+  });
+
   it('should return chat if the node has chat messages', () => {
     expect(getDefaultActiveTab(MOCK_CHAT_SPAN)).toBe('chat');
   });

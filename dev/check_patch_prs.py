@@ -1,13 +1,49 @@
 import argparse
+import concurrent.futures
+import itertools
 import os
 import re
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
+from packaging.version import Version
+
+
+def get_token() -> str | None:
+    if token := os.environ.get("GH_TOKEN"):
+        return token
+    try:
+        token = subprocess.check_output(
+            ["gh", "auth", "token"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if token:
+            return token
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return None
+
+
+def get_headers() -> dict[str, str]:
+    if token := get_token():
+        return {"Authorization": f"token {token}"}
+    return {}
+
+
+def validate_version(version: str) -> None:
+    """
+    Validate that the version has a micro version component.
+    Raises ValueError if the version is invalid.
+    """
+    parsed_version = Version(version)
+    if len(parsed_version.release) != 3:
+        raise ValueError(
+            f"Invalid version: '{version}'. "
+            "Version must be in the format <major>.<minor>.<micro> (e.g., '2.10.0')"
+        )
 
 
 def get_release_branch(version: str) -> str:
@@ -19,39 +55,89 @@ def get_release_branch(version: str) -> str:
 class Commit:
     sha: str
     pr_num: int
+    date: str
+
+
+def get_commit_count(branch: str, since: str) -> int:
+    """
+    Get the total count of commits in the branch since the given date using GraphQL API.
+    """
+    query = """
+    query($branch: String!, $since: GitTimestamp!) {
+      repository(owner: "mlflow", name: "mlflow") {
+        ref(qualifiedName: $branch) {
+          target {
+            ... on Commit {
+              history(since: $since) {
+                totalCount
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    response = requests.post(
+        "https://api.github.com/graphql",
+        json={"query": query, "variables": {"branch": branch, "since": since}},
+        headers=get_headers(),
+    )
+    response.raise_for_status()
+    data = response.json()
+    ref = data["data"]["repository"]["ref"]
+    if ref is None:
+        raise ValueError(f"Branch '{branch}' not found")
+    total_count: int = ref["target"]["history"]["totalCount"]
+    return total_count
 
 
 def get_commits(branch: str) -> list[Commit]:
     """
-    Get the commits in the release branch.
+    Get the commits in the release branch via GitHub API (last 90 days).
+    Returns commits sorted by date (oldest first).
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.check_call(
-            [
-                "git",
-                "clone",
-                "--shallow-since=3 months ago",
-                "--branch",
-                branch,
-                "https://github.com/mlflow/mlflow.git",
-                tmpdir,
-            ],
+    per_page = 100
+    pr_rgx = re.compile(r".+\s+\(#(\d+)\)$")
+    since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+
+    # Get total commit count first
+    total_count = get_commit_count(branch, since)
+    if total_count == 0:
+        print(f"No commits found in {branch} since {since}")
+        return []
+
+    total_pages = (total_count + per_page - 1) // per_page
+    print(f"Total commits: {total_count}, fetching {total_pages} page(s)...")
+
+    def fetch_page(page: int) -> list[Commit]:
+        print(f"Fetching page {page}/{total_pages}...")
+        params: dict[str, str | int] = {
+            "sha": branch,
+            "per_page": per_page,
+            "page": page,
+            "since": since,
+        }
+        response = requests.get(
+            "https://api.github.com/repos/mlflow/mlflow/commits",
+            params=params,
+            headers=get_headers(),
         )
-        log_stdout = subprocess.check_output(
-            [
-                "git",
-                "log",
-                "--pretty=format:%H %s",
-            ],
-            text=True,
-            cwd=tmpdir,
-        )
-        pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
-        return [
-            Commit(sha=m.group(1), pr_num=int(m.group(2)))
-            for commit in log_stdout.splitlines()
-            if (m := pr_rgx.search(commit.rstrip()))
-        ]
+        response.raise_for_status()
+        commits = []
+        for item in response.json():
+            msg = item["commit"]["message"].split("\n")[0]
+            if m := pr_rgx.search(msg):
+                # Use committer date (not author date) because cherry-picked commits
+                # retain the original author date but get a new committer date.
+                date = item["commit"]["committer"]["date"]
+                commits.append(Commit(sha=item["sha"], pr_num=int(m.group(1)), date=date))
+        return commits
+
+    # Fetch all pages in parallel. executor.map preserves order.
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = executor.map(fetch_page, range(1, total_pages + 1))
+
+    return sorted(itertools.chain.from_iterable(results), key=lambda c: c.date)
 
 
 @dataclass(frozen=True)
@@ -75,12 +161,13 @@ def fetch_patch_prs(version: str) -> dict[int, bool]:
     while True:
         response = requests.get(
             f'https://api.github.com/search/issues?q=is:pr+repo:mlflow/mlflow+label:"{label}"&per_page={per_page}&page={page}',
+            headers=get_headers(),
         )
         response.raise_for_status()
         data = response.json()
         # Exclude closed PRs that are not merged
         pulls.extend(pr for pr in data["items"] if not is_closed(pr))
-        if len(data) < per_page:
+        if len(data["items"]) < per_page:
             break
         page += 1
 
@@ -88,6 +175,7 @@ def fetch_patch_prs(version: str) -> dict[int, bool]:
 
 
 def main(version: str, dry_run: bool) -> None:
+    validate_version(version)
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
@@ -103,7 +191,6 @@ def main(version: str, dry_run: bool) -> None:
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
-        # reverse the order of cherry-picks to maintain the order of PRs
         print("\n# Steps to cherry-pick the patch PRs:")
         print(
             f"1. Make sure your local master and {release_branch} branches are synced with "
@@ -111,7 +198,7 @@ def main(version: str, dry_run: bool) -> None:
         )
         print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
         print("3. Run the following command on the new branch:\n")
-        print("git cherry-pick " + " ".join(cherry_picks[::-1]))
+        print("git cherry-pick " + " ".join(cherry_picks))
         print(f"\n4. File a PR against {release_branch}.")
         sys.exit(0 if dry_run else 1)
 

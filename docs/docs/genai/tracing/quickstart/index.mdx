@@ -7,6 +7,10 @@ import { CardGroup, TitleCard } from "@site/src/components/Card";
 
 # Tracing Quickstart
 
+:::tip MLflow Assistant
+Need help setting up tracing? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can add MLflow tracing to your project automatically.
+:::
+
 This quickstart guide will walk you through setting up a simple GenAI application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
 
 ## Prerequisites
@@ -38,7 +42,7 @@ To connect your GenAI application to the MLflow server, you will need to install
 <Tabs groupId="programming-language">
 <TabItem value="python" label="Python(OpenAI)" default>
 ```bash
-pip install --upgrade mlflow openai>=1.0.0
+pip install --upgrade 'mlflow[genai]' openai>=1.0.0
 ```
 </TabItem>
 

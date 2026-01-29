@@ -330,20 +330,18 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if inspect.iscoroutinefunction(predict_fn):
             sim_predict_fn = _wrap_async_predict_fn(predict_fn)
 
-        all_trace_ids = data._simulate(sim_predict_fn)
+        all_traces = data.simulate(sim_predict_fn)
         logger.debug(
-            f"Simulation produced {len(all_trace_ids)} conversation(s) with "
-            f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
+            f"Simulation produced {len(all_traces)} conversation(s) with "
+            f"{[len(traces) for traces in all_traces]} trace(s) each"
         )
-        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
+        data = [trace for traces in all_traces for trace in traces]
 
-        if not flat_trace_ids:
+        if not data:
             raise MlflowException.invalid_parameter_value(
                 "Simulation produced no traces. This may indicate that all conversations "
                 "failed during simulation. Check the logs above for error details."
             )
-
-        data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
         # Set predict_fn to None since the simulation already invoked it for each conversation
         # turn. The resulting traces contain all the prediction outputs, so the evaluation
         # harness will use those traces directly rather than calling predict_fn again.

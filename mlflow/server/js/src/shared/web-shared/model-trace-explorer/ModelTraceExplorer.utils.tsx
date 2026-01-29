@@ -40,7 +40,7 @@ import type {
   ModelTraceEvent,
   ModelTraceLocation,
 } from './ModelTrace.types';
-import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY } from './ModelTrace.types';
+import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
 import {
@@ -75,7 +75,12 @@ import {
   synthesizeVoltAgentChatMessages,
 } from './chat-utils';
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
-import { ASSESSMENT_SESSION_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_MODEL_KEY,
+  TOKEN_USAGE_METADATA_KEY,
+} from './constants';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
 
@@ -415,6 +420,19 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
   return undefined;
 };
 
+const getCostFromSpan = (costAttributeValue: any): SpanCostInfo | undefined => {
+  if (
+    costAttributeValue &&
+    typeof costAttributeValue === 'object' &&
+    'input_cost' in costAttributeValue &&
+    'output_cost' in costAttributeValue &&
+    'total_cost' in costAttributeValue
+  ) {
+    return costAttributeValue as SpanCostInfo;
+  }
+  return undefined;
+};
+
 export const normalizeNewSpanData = (
   span: ModelTraceSpan,
   rootStartTime: number,
@@ -445,6 +463,12 @@ export const normalizeNewSpanData = (
   const chatTools = getChatToolsFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
     inputs,
+  );
+
+  // Extract model name and cost info
+  const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
+  const cost = getCostFromSpan(
+    tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
   );
 
   // remove other private mlflow attributes
@@ -480,6 +504,8 @@ export const normalizeNewSpanData = (
     parentId,
     assessments,
     traceId,
+    modelName,
+    cost,
   };
 };
 
@@ -1169,6 +1195,11 @@ export const getDefaultActiveTab = (
     return 'content';
   }
 
+  // Auto-navigate to events tab when span has errors
+  if (getSpanExceptionCount(selectedNode) > 0) {
+    return 'events';
+  }
+
   if (selectedNode.chatMessages) {
     return 'chat';
   }
@@ -1354,6 +1385,7 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
   assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+
 export const isValidException = (
   event: ModelTraceEvent,
 ): event is ModelTraceEvent & {

@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
@@ -28,6 +28,12 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'link',
       href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
       className: 'sidebar-top-level-category',
     },
     {
@@ -67,6 +73,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/app-instrumentation/opentelemetry',
                   label: 'Tracing with OpenTelemetry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
                 },
               ],
             },
@@ -200,8 +211,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
                 },
                 {
                   type: 'doc',
@@ -396,18 +417,26 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'category',
               label: 'Gateways',
               items: [
-                // TODO: Add MLflow AI Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/mlflow-gateway',
-                //   label: 'MLflow AI Gateway',
-                // },
-                // TODO: Add Databricks integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/databricks-gateway',
-                //   label: 'Databricks',
-                // },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mlflow-ai-gateway',
+                  label: 'MLflow AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks-ai-gateway',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/helicone',
+                  label: 'Helicone',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/kong',
+                  label: 'Kong AI Gateway',
+                },
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/litellm-proxy',
@@ -415,38 +444,29 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/vercel-ai-gateway',
-                  label: 'Vercel AI Gateway',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/openrouter',
                   label: 'OpenRouter',
                 },
-                // TODO: Add Kong Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/kong-gateway',
-                //   label: 'Kong Gateway',
-                // },
-                // TODO: Add Portkey integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/portkey',
-                //   label: 'Portkey',
-                // },
-                // TODO: Add Pydantic AI Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/pydantic-ai-gateway',
-                //   label: 'Pydantic AI Gateway',
-                // },
-                // TODO: Add Helicone integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/helicone',
-                //   label: 'Helicone',
-                // },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/portkey',
+                  label: 'Portkey',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                  label: 'Pydantic AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/truefoundry',
+                  label: 'TrueFoundry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
+                },
               ],
             },
             {
@@ -532,6 +552,11 @@ const sidebarsGenAI: SidebarsConfig = {
           ],
         },
         {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
+        },
+        {
           type: 'category',
           label: 'Scorers',
           items: [
@@ -590,6 +615,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/ragas',
                       label: 'RAGAS',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -605,9 +635,29 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',

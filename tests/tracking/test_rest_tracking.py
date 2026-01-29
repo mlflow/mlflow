@@ -1884,7 +1884,7 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
-def test_create_model_version_with_validation_regex(tmp_path: Path):
+def test_create_model_version_with_validation_regex(db_uri: str):
     port = get_safe_port()
     with subprocess.Popen(
         [
@@ -1895,7 +1895,7 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "--port",
             str(port),
             "--backend-store-uri",
-            f"sqlite:///{tmp_path / 'mlflow.db'}",
+            db_uri,
         ],
         env=(
             os.environ.copy()
@@ -4749,24 +4749,24 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     binding1 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-123",
     )
 
     binding2 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-456",
     )
 
     binding3 = store.create_endpoint_binding(
         endpoint_id=endpoint2.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-789",
     )
 
     assert binding1.endpoint_id == endpoint1.endpoint_id
-    assert binding1.resource_type == GatewayResourceType.SCORER_JOB
+    assert binding1.resource_type == GatewayResourceType.SCORER
     assert binding1.resource_id == "job-123"
 
     bindings_endpoint1 = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
@@ -4776,7 +4776,7 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
     assert binding2.resource_id in resource_ids
     assert binding3.resource_id not in resource_ids
 
-    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER_JOB)
+    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER)
     assert len(bindings_by_type) >= 3
 
     bindings_by_resource = store.list_endpoint_bindings(resource_id="job-123")
@@ -4785,7 +4785,7 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     bindings_multi = store.list_endpoint_bindings(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
     )
     assert len(bindings_multi) == 2
 
@@ -4845,7 +4845,7 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
 
     binding = store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="integration-job",
     )
 

@@ -100,6 +100,8 @@ def _set_span_attributes(span: LiveSpan, instance):
         if isinstance(instance, InstrumentedModel):
             model_attrs = _get_model_attributes(instance)
             span.set_attributes({k: v for k, v in model_attrs.items() if v is not None})
+            if model_name := getattr(instance, "model_name", None):
+                span.set_attribute(SpanAttributeKey.MODEL, model_name)
     except Exception as e:
         _logger.warning("Failed saving InstrumentedModel attributes: %s", e)
 

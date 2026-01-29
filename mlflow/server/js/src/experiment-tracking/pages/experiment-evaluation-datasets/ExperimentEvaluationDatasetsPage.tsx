@@ -11,6 +11,7 @@ import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationD
 import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
 import { useSelectedDatasetBySearchParam } from './hooks/useSelectedDatasetBySearchParam';
 import { useSearchEvaluationDatasets } from './hooks/useSearchEvaluationDatasets';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 const ExperimentEvaluationDatasetsPageImpl = () => {
   const { experimentId } = useParams();
@@ -19,6 +20,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [dragging, setDragging] = useState(false);
   const [datasetListHidden, setDatasetListHidden] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useSelectedDatasetBySearchParam();
+  useRegisterAssistantContext('selectedDatasetId', selectedDatasetId);
   // searchFilter only gets updated after the user presses enter
   const [searchFilter, setSearchFilter] = useState('');
 
