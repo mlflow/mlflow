@@ -27,7 +27,7 @@ import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
-import { EvaluationsOverviewColumnSelector } from './components/EvaluationsOverviewColumnSelector';
+import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
 import { GenAiEvaluationBadge } from './components/GenAiEvaluationBadge';
 import {
@@ -486,10 +486,11 @@ function GenAiTracesTableImpl({
                 />
 
                 {/* Column selector */}
-                <EvaluationsOverviewColumnSelector
+                <EvaluationsOverviewColumnSelectorGrouped
                   columns={allColumns}
                   selectedColumns={selectedColumns}
-                  setSelectedColumnsWithHiddenColumns={toggleColumns}
+                  toggleColumns={toggleColumns}
+                  setSelectedColumns={setSelectedColumns}
                 />
                 <GenAITracesTableActions
                   experimentId={experimentId}
