@@ -492,6 +492,13 @@ class ConversationSimulator:
         user_agent_class: type[BaseSimulatedUserAgent] | None = None,
         **user_llm_params,
     ):
+        if user_agent_class is not None and not issubclass(
+            user_agent_class, BaseSimulatedUserAgent
+        ):
+            raise TypeError(
+                f"user_agent_class must be a subclass of BaseSimulatedUserAgent, "
+                f"got {user_agent_class.__name__}"
+            )
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()

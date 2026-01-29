@@ -96,242 +96,169 @@ def test_simulated_user_agent_default_persona():
         assert "inquisitive user" in prompt.lower()
 
 
-def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_fn):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace") as mock_update_current_trace,
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        # Each turn: generate_message + _check_goal_achieved
-        mock_invoke.side_effect = [
-            "What is MLflow?",  # turn 0 generate_message
-            '{"rationale": "Goal not achieved yet", "result": "no"}',  # turn 0 goal check
-            "Can you explain more?",  # turn 1 generate_message
-            '{"rationale": "Goal not achieved yet", "result": "no"}',  # turn 1 goal check
-        ]
+def test_conversation_simulator_basic_simulation(
+    simple_test_case, mock_predict_fn, simulation_mocks
+):
+    # Each turn: generate_message + _check_goal_achieved
+    simulation_mocks["invoke"].side_effect = [
+        "What is MLflow?",  # turn 0 generate_message
+        '{"rationale": "Goal not achieved yet", "result": "no"}',  # turn 0 goal check
+        "Can you explain more?",  # turn 1 generate_message
+        '{"rationale": "Goal not achieved yet", "result": "no"}',  # turn 1 goal check
+    ]
 
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+    )
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=2,
-        )
+    all_traces = simulator.simulate(mock_predict_fn)
 
-        all_traces = simulator.simulate(mock_predict_fn)
-
-        assert len(all_traces) == 1  # 1 test case
-        assert len(all_traces[0]) == 2  # 2 traces
-        assert all(t is mock_trace for t in all_traces[0])
-        assert mock_invoke.call_count == 4  # 2 turns * 2 calls each
-        assert mock_update_current_trace.call_count == 2
+    assert len(all_traces) == 1  # 1 test case
+    assert len(all_traces[0]) == 2  # 2 traces
+    assert all(t is simulation_mocks["trace"] for t in all_traces[0])
+    assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
+    assert simulation_mocks["update_trace"].call_count == 2
 
 
-def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predict_fn):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_invoke.side_effect = [
-            "Test message",  # turn 0 generate_message
-            '{"rationale": "Not yet", "result": "no"}',  # turn 0 goal check
-            "Test message",  # turn 1 generate_message
-            '{"rationale": "Not yet", "result": "no"}',  # turn 1 goal check
-            "Test message",  # turn 2 generate_message
-            '{"rationale": "Not yet", "result": "no"}',  # turn 2 goal check
-        ]
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+def test_conversation_simulator_max_turns_stopping(
+    simple_test_case, mock_predict_fn, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",  # turn 0 generate_message
+        '{"rationale": "Not yet", "result": "no"}',  # turn 0 goal check
+        "Test message",  # turn 1 generate_message
+        '{"rationale": "Not yet", "result": "no"}',  # turn 1 goal check
+        "Test message",  # turn 2 generate_message
+        '{"rationale": "Not yet", "result": "no"}',  # turn 2 goal check
+    ]
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=3,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=3,
+    )
 
-        all_traces = simulator.simulate(mock_predict_fn)
+    all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_traces) == 1  # 1 test case
-        assert len(all_traces[0]) == 3  # 3 traces
-        assert mock_invoke.call_count == 6  # 3 turns * 2 calls each
+    assert len(all_traces) == 1  # 1 test case
+    assert len(all_traces[0]) == 3  # 3 traces
+    assert simulation_mocks["invoke"].call_count == 6  # 3 turns * 2 calls each
 
 
-def test_conversation_simulator_empty_response_stopping(simple_test_case):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_invoke.return_value = "Test message"
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+def test_conversation_simulator_empty_response_stopping(simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].return_value = "Test message"
 
-        def empty_predict_fn(input=None, messages=None):
-            return {
-                "output": [
-                    {
-                        "id": "msg_123",
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": ""}],
-                    }
-                ]
-            }
+    def empty_predict_fn(input=None, messages=None):
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": ""}],
+                }
+            ]
+        }
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=5,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=5,
+    )
 
-        all_traces = simulator.simulate(empty_predict_fn)
+    all_traces = simulator.simulate(empty_predict_fn)
 
-        assert len(all_traces) == 1
-        assert len(all_traces[0]) == 1  # Only 1 trace before stopping
-        # Only generate_message called, goal check not called due to empty response
-        assert mock_invoke.call_count == 1
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1  # Only 1 trace before stopping
+    # Only generate_message called, goal check not called due to empty response
+    assert simulation_mocks["invoke"].call_count == 1
 
 
-def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_predict_fn):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_invoke.side_effect = [
-            "Test message",  # turn 0 generate_message
-            '{"rationale": "Goal achieved!", "result": "yes"}',  # turn 0 goal check -> stop
-        ]
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+def test_conversation_simulator_goal_achieved_stopping(
+    simple_test_case, mock_predict_fn, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",  # turn 0 generate_message
+        '{"rationale": "Goal achieved!", "result": "yes"}',  # turn 0 goal check -> stop
+    ]
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=5,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=5,
+    )
 
-        all_traces = simulator.simulate(mock_predict_fn)
+    all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_traces) == 1
-        # Only 1 trace before goal was achieved
-        assert len(all_traces[0]) == 1
-        # 2 calls: generate_message + goal check
-        assert mock_invoke.call_count == 2
-        # Verify goal check was the second call with goal check prompt
-        goal_check_call = mock_invoke.call_args_list[1]
-        goal_check_prompt = goal_check_call.kwargs["messages"][0].content
-        assert "achieved" in goal_check_prompt.lower()
+    assert len(all_traces) == 1
+    # Only 1 trace before goal was achieved
+    assert len(all_traces[0]) == 1
+    # 2 calls: generate_message + goal check
+    assert simulation_mocks["invoke"].call_count == 2
+    # Verify goal check was the second call with goal check prompt
+    goal_check_call = simulation_mocks["invoke"].call_args_list[1]
+    goal_check_prompt = goal_check_call.kwargs["messages"][0].content
+    assert "achieved" in goal_check_prompt.lower()
 
 
-def test_conversation_simulator_context_passing(test_case_with_context):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_invoke.side_effect = [
-            "Test message",
-            '{"rationale": "Not achieved", "result": "no"}',
-        ]
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+def test_conversation_simulator_context_passing(test_case_with_context, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Not achieved", "result": "no"}',
+    ]
 
-        captured_kwargs = {}
+    captured_kwargs = {}
 
-        def capturing_predict_fn(input=None, **kwargs):
-            captured_kwargs.update(kwargs)
-            return {
-                "output": [
-                    {
-                        "id": "msg_123",
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": "Response"}],
-                    }
-                ]
-            }
+    def capturing_predict_fn(input=None, **kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Response"}],
+                }
+            ]
+        }
 
-        simulator = ConversationSimulator(
-            test_cases=[test_case_with_context],
-            max_turns=1,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[test_case_with_context],
+        max_turns=1,
+    )
 
-        all_traces = simulator.simulate(capturing_predict_fn)
+    all_traces = simulator.simulate(capturing_predict_fn)
 
-        assert len(all_traces) == 1
-        assert len(all_traces[0]) == 1
-        # Verify context was passed to predict_fn
-        assert captured_kwargs.get("user_id") == "U001"
-        assert captured_kwargs.get("session_id") == "S001"
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
+    # Verify context was passed to predict_fn
+    assert captured_kwargs.get("user_id") == "U001"
+    assert captured_kwargs.get("session_id") == "S001"
 
 
 def test_conversation_simulator_multiple_test_cases(
-    simple_test_case, test_case_with_persona, mock_predict_fn
+    simple_test_case, test_case_with_persona, mock_predict_fn, simulation_mocks
 ):
-    mock_trace = Mock()
-    with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        # 2 test cases * 2 turns each * 2 calls per turn = 8 calls
-        mock_invoke.side_effect = [
-            "Test message",
-            '{"rationale": "Not yet", "result": "no"}',
-            "Test message",
-            '{"rationale": "Not yet", "result": "no"}',
-            "Test message",
-            '{"rationale": "Not yet", "result": "no"}',
-            "Test message",
-            '{"rationale": "Not yet", "result": "no"}',
-        ]
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
+    # 2 test cases * 2 turns each * 2 calls per turn = 8 calls
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+    ]
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case, test_case_with_persona],
-            max_turns=2,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case, test_case_with_persona],
+        max_turns=2,
+    )
 
-        all_traces = simulator.simulate(mock_predict_fn)
+    all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_traces) == 2  # 2 test cases
-        assert len(all_traces[0]) == 2  # 2 traces for first test case
-        assert len(all_traces[1]) == 2  # 2 traces for second test case
+    assert len(all_traces) == 2  # 2 test cases
+    assert len(all_traces[0]) == 2  # 2 traces for first test case
+    assert len(all_traces[1]) == 2  # 2 traces for second test case
 
 
 @pytest.mark.parametrize(
@@ -498,36 +425,23 @@ def test_simulator_context_is_frozen():
         context.goal = "New goal"
 
 
-def test_custom_user_agent_class(simple_test_case, mock_predict_fn):
+def test_custom_user_agent_class(simple_test_case, mock_predict_fn, simulation_mocks):
     class CustomUserAgent(BaseSimulatedUserAgent):
         def generate_message(self, context: SimulatorContext) -> str:
             return f"Custom message for: {context.goal}"
 
-    mock_trace = Mock()
-    with (
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
-        mock_invoke.return_value = '{"rationale": "Goal achieved!", "result": "yes"}'
+    simulation_mocks["invoke"].return_value = '{"rationale": "Goal achieved!", "result": "yes"}'
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=2,
-            user_agent_class=CustomUserAgent,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+        user_agent_class=CustomUserAgent,
+    )
 
-        all_traces = simulator.simulate(mock_predict_fn)
+    all_traces = simulator.simulate(mock_predict_fn)
 
-        assert len(all_traces) == 1
-        assert len(all_traces[0]) == 1
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
 
 
 def test_user_agent_class_default(simple_test_case):
@@ -538,7 +452,7 @@ def test_user_agent_class_default(simple_test_case):
     assert simulator.user_agent_class is SimulatedUserAgent
 
 
-def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
+def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn, simulation_mocks):
     captured_contexts = []
 
     class ContextCapturingAgent(BaseSimulatedUserAgent):
@@ -546,35 +460,22 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn):
             captured_contexts.append(context)
             return f"Message for turn {context.turn}"
 
-    mock_trace = Mock()
-    with (
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace"),
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(get_trace=lambda _: mock_trace),
-        ),
-    ):
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
-        mock_invoke.return_value = '{"rationale": "Not yet", "result": "no"}'
+    simulation_mocks["invoke"].return_value = '{"rationale": "Not yet", "result": "no"}'
 
-        simulator = ConversationSimulator(
-            test_cases=[simple_test_case],
-            max_turns=2,
-            user_agent_class=ContextCapturingAgent,
-        )
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+        user_agent_class=ContextCapturingAgent,
+    )
 
-        simulator.simulate(mock_predict_fn)
+    simulator.simulate(mock_predict_fn)
 
-        assert len(captured_contexts) == 2
-        assert captured_contexts[0].turn == 0
-        assert captured_contexts[0].is_first_turn is True
-        assert captured_contexts[0].goal == simple_test_case["goal"]
-        assert captured_contexts[1].turn == 1
-        assert captured_contexts[1].is_first_turn is False
+    assert len(captured_contexts) == 2
+    assert captured_contexts[0].turn == 0
+    assert captured_contexts[0].is_first_turn is True
+    assert captured_contexts[0].goal == simple_test_case["goal"]
+    assert captured_contexts[1].turn == 1
+    assert captured_contexts[1].is_first_turn is False
 
 
 def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_context):
@@ -670,3 +571,49 @@ def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn
             a for a in second_trace_assessments if a.expectation is not None
         ]
         assert len(second_expectation_assessments) == 0
+
+
+def test_invoke_llm_with_prompt_only():
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.return_value = "LLM response"
+
+        agent = SimulatedUserAgent()
+        result = agent.invoke_llm("Test prompt")
+
+        assert result == "LLM response"
+        mock_invoke.assert_called_once()
+        call_args = mock_invoke.call_args
+        messages = call_args.kwargs["messages"]
+        assert len(messages) == 1
+        assert messages[0].role == "user"
+        assert messages[0].content == "Test prompt"
+
+
+def test_invoke_llm_with_system_prompt():
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.return_value = "LLM response with system"
+
+        agent = SimulatedUserAgent()
+        result = agent.invoke_llm("Test prompt", system_prompt="System instructions")
+
+        assert result == "LLM response with system"
+        mock_invoke.assert_called_once()
+        call_args = mock_invoke.call_args
+        messages = call_args.kwargs["messages"]
+        assert len(messages) == 2
+        assert messages[0].role == "system"
+        assert messages[0].content == "System instructions"
+        assert messages[1].role == "user"
+        assert messages[1].content == "Test prompt"
+
+
+def test_invalid_user_agent_class_raises_type_error(simple_test_case):
+    class NotAUserAgent:
+        pass
+
+    with pytest.raises(TypeError, match="must be a subclass of BaseSimulatedUserAgent"):
+        ConversationSimulator(
+            test_cases=[simple_test_case],
+            max_turns=2,
+            user_agent_class=NotAUserAgent,
+        )
