@@ -40,6 +40,7 @@ import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluatio
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
 
@@ -103,8 +104,13 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection and enter comparison mode
   // Initialize with BOTH URL params to prevent compareToRunUuid from being stripped
+  // Only enabled when comparison feature flag is on
   const hasInitializedFromUrl = useRef(false);
+  const isComparisonEnabled = shouldEnableImprovedEvalRunsComparison();
   useEffect(() => {
+    if (!isComparisonEnabled) {
+      return;
+    }
     if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
       if (runUuids.includes(selectedRunUuid)) {
         hasInitializedFromUrl.current = true;
@@ -117,10 +123,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
         setIsComparisonMode(true);
       }
     }
-  }, [selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
+  }, [isComparisonEnabled, selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
 
   // Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
+  // Only enabled when comparison feature flag is on
   useEffect(() => {
+    if (!isComparisonEnabled) {
+      return;
+    }
     // Skip syncing if we haven't finished initializing yet
     if (!isComparisonMode) {
       return;
@@ -152,6 +162,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       }
     }
   }, [
+    isComparisonEnabled,
     isComparisonMode,
     selectedRunUuidsFromCheckbox,
     selectedRunUuid,
