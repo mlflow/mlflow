@@ -184,52 +184,53 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             width: '100%',
             overflow: 'hidden',
             alignItems: 'center',
-            justifyContent: 'space-between',
             gap: theme.spacing.sm,
           }}
         >
-          <StackedComponents
-            first={
-              inputTitle ? (
-                <div
-                  css={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    minWidth: 0,
-                  }}
-                  title={inputTitle}
-                >
-                  {inputTitle}
-                </div>
-              ) : (
-                <NullCell isComparing />
-              )
-            }
-            second={
-              otherInputTitle ? (
-                <div
-                  css={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    minWidth: 0,
-                  }}
-                  title={otherInputTitle}
-                >
-                  {otherInputTitle}
-                </div>
-              ) : (
-                <NullCell isComparing />
-              )
-            }
-          />
+          <div css={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <StackedComponents
+              first={
+                inputTitle ? (
+                  <div
+                    css={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                    }}
+                    title={inputTitle}
+                  >
+                    {inputTitle}
+                  </div>
+                ) : (
+                  <NullCell isComparing />
+                )
+              }
+              second={
+                otherInputTitle ? (
+                  <div
+                    css={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                    }}
+                    title={otherInputTitle}
+                  >
+                    {otherInputTitle}
+                  </div>
+                ) : (
+                  <NullCell isComparing />
+                )
+              }
+            />
+          </div>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flexShrink: 0 }}>
             <div css={{ display: 'flex' }}>
-              {currentRunUuid ? <RunColorCircle color={currentRunColor} /> : <div css={{ width: 12, height: 12 }} />}
+              {firstTrace ? <RunColorCircle color={currentRunColor} /> : <div css={{ width: 12, height: 12 }} />}
             </div>
             <div css={{ display: 'flex' }}>
-              {otherRunUuid ? <RunColorCircle color={otherRunColor} /> : <div css={{ width: 12, height: 12 }} />}
+              {firstOtherTrace ? <RunColorCircle color={otherRunColor} /> : <div css={{ width: 12, height: 12 }} />}
             </div>
           </div>
         </div>
