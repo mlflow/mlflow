@@ -798,6 +798,10 @@
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
   },
+  "4J7jtY": {
+    "defaultMessage": "Run judge",
+    "description": "Button text for running a judge"
+  },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
@@ -2426,6 +2430,10 @@
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
   },
+  "Gj3Zbz": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
+    "description": "Label indicating a pre-built LLM-as-a-judge template"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
@@ -2489,6 +2497,10 @@
   "HNQ9dM": {
     "defaultMessage": "Status",
     "description": "Label for the status section"
+  },
+  "HSMagB": {
+    "defaultMessage": "Error evaluating \"{label}\"",
+    "description": "Error evaluating label"
   },
   "HTQZeI": {
     "defaultMessage": "Evaluate trace",
@@ -3498,6 +3510,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PQRoqw": {
+    "defaultMessage": "Run judge on trace",
+    "description": "Title for run judge modal"
+  },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select traces modal showing number of selected traces"
@@ -3781,6 +3797,10 @@
     "defaultMessage": "Top P",
     "description": "Label for top P input"
   },
+  "RpxR8e": {
+    "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
+    "description": "Label for custom LLM judge type filter option"
+  },
   "Rqy/A/": {
     "defaultMessage": "Loading...",
     "description": "Loading message for gateway page"
@@ -3848,6 +3868,10 @@
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
+  },
+  "SJk8DQ": {
+    "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
+    "description": "Label for pre-built LLM judge type filter option"
   },
   "SLHSXV": {
     "defaultMessage": "Search parameters",
@@ -4084,6 +4108,10 @@
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
   },
+  "U2x2cM": {
+    "defaultMessage": "Endpoint:",
+    "description": "Label for endpoint selection"
+  },
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
@@ -4223,10 +4251,6 @@
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
-  },
-  "VD7haA": {
-    "defaultMessage": "Custom LLM-as-a-judge",
-    "description": "Label for custom LLM judge type filter option"
   },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
@@ -4802,10 +4826,6 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
-  },
-  "Zah+D4": {
-    "defaultMessage": "Run judge",
-    "description": "Label for the button to add a new feedback"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
@@ -7619,6 +7639,10 @@
     "defaultMessage": "Back to providers",
     "description": "Navigation back to main provider list"
   },
+  "tsYxhE": {
+    "defaultMessage": "Search judges",
+    "description": "Placeholder for scorer search input"
+  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
@@ -7762,6 +7786,10 @@
   "vEuvEt": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
+  },
+  "vGf4dg": {
+    "defaultMessage": "No custom LLM-as-a-judge scorers found",
+    "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
   },
   "vHNP+J": {
     "defaultMessage": "Add tags",
@@ -8119,6 +8147,10 @@
     "defaultMessage": "New",
     "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
+  "xqc4yl": {
+    "defaultMessage": "Cancel",
+    "description": "Button text for canceling a judge run"
+  },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
     "description": "Tooltip content for a button that changes the render mode to default"
@@ -8186,10 +8218,6 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
-  },
-  "yO/HAZ": {
-    "defaultMessage": "Pre-built LLM-as-a-judge",
-    "description": "Label for pre-built LLM judge type filter option"
   },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
