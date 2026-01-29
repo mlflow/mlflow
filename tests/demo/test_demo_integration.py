@@ -10,12 +10,14 @@ import pytest
 
 from mlflow import MlflowClient, set_tracking_uri
 from mlflow.demo import generate_all_demos
-from mlflow.demo.base import DEMO_EXPERIMENT_NAME
+from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
+from mlflow.demo.data import DEMO_PROMPTS
 from mlflow.demo.generators.evaluation import (
     DEMO_DATASET_V1_NAME,
     DEMO_DATASET_V2_NAME,
     EvaluationDemoGenerator,
 )
+from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.traces import (
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
@@ -23,6 +25,7 @@ from mlflow.demo.generators.traces import (
 )
 from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
+from mlflow.genai.prompts import load_prompt, search_prompts
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
@@ -59,6 +62,14 @@ def evaluation_generator():
     original_version = generator.version
     yield generator
     EvaluationDemoGenerator.version = original_version
+
+
+@pytest.fixture
+def prompts_generator():
+    generator = PromptsDemoGenerator()
+    original_version = generator.version
+    yield generator
+    PromptsDemoGenerator.version = original_version
 
 
 def test_generate_all_demos_generates_all_registered(tracking_server):
@@ -109,7 +120,6 @@ def test_traces_creates_on_server(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     assert len(traces) == len(result.entity_ids)
-    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version = 34 total
     assert len(traces) == 34
 
 
@@ -140,11 +150,9 @@ def test_traces_session_metadata(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     session_traces = [t for t in traces if t.info.trace_metadata.get("mlflow.trace.session")]
-    # 7 session traces per version = 14 total
     assert len(session_traces) == 14
 
     session_ids = {t.info.trace_metadata.get("mlflow.trace.session") for t in session_traces}
-    # 3 sessions x 2 versions = 6 unique session IDs
     assert len(session_ids) == 6
 
 
@@ -158,7 +166,6 @@ def test_traces_version_metadata(tracking_server, traces_generator):
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
-    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version
     assert len(v1_traces) == 17
     assert len(v2_traces) == 17
 
@@ -179,10 +186,6 @@ def test_traces_type_metadata(tracking_server, traces_generator):
         t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
     ]
 
-    # 2 RAG per version = 4 total
-    # 2 agent per version = 4 total
-    # 6 prompt per version = 12 total
-    # 7 session per version = 14 total
     assert len(rag_traces) == 4
     assert len(agent_traces) == 4
     assert len(prompt_traces) == 12
@@ -280,3 +283,58 @@ def test_evaluation_delete_removes_datasets(tracking_server, evaluation_generato
         max_results=10,
     )
     assert len(datasets_after) == 0
+
+
+def test_prompts_creates_on_server(tracking_server, prompts_generator):
+    result = prompts_generator.generate()
+    prompts_generator.store_version()
+
+    prompts = search_prompts(
+        filter_string=f"name LIKE '{DEMO_PROMPT_PREFIX}.%'",
+        max_results=100,
+    )
+
+    assert len(prompts) == len(DEMO_PROMPTS)
+    assert any("prompts:" in e for e in result.entity_ids)
+    assert any("versions:" in e for e in result.entity_ids)
+
+
+def test_prompts_have_multiple_versions(tracking_server, prompts_generator):
+    prompts_generator.generate()
+    prompts_generator.store_version()
+
+    for prompt_def in DEMO_PROMPTS:
+        expected_versions = len(prompt_def.versions)
+        prompt = load_prompt(prompt_def.name, version=expected_versions)
+        assert prompt is not None
+        assert prompt.version == expected_versions
+
+
+def test_prompts_have_production_alias(tracking_server, prompts_generator):
+    prompts_generator.generate()
+    prompts_generator.store_version()
+
+    for prompt_def in DEMO_PROMPTS:
+        for version_num, version_def in enumerate(prompt_def.versions, start=1):
+            if "production" in version_def.aliases:
+                prompt = load_prompt(f"prompts:/{prompt_def.name}@production")
+                assert prompt.version == version_num
+
+
+def test_prompts_delete_removes_all(tracking_server, prompts_generator):
+    prompts_generator.generate()
+    prompts_generator.store_version()
+
+    prompts_before = search_prompts(
+        filter_string=f"name LIKE '{DEMO_PROMPT_PREFIX}.%'",
+        max_results=100,
+    )
+    assert len(prompts_before) == len(DEMO_PROMPTS)
+
+    prompts_generator.delete_demo()
+
+    prompts_after = search_prompts(
+        filter_string=f"name LIKE '{DEMO_PROMPT_PREFIX}.%'",
+        max_results=100,
+    )
+    assert len(prompts_after) == 0

@@ -1,14 +1,236 @@
-"""Demo data definitions for traces.
-
-This module contains the trace data used by the demo generators.
-Each trace has v1 (baseline) and v2 (improved) responses to demonstrate
-agent improvement over time.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+
+from mlflow.demo.base import DEMO_PROMPT_PREFIX
+from mlflow.entities.model_registry import PromptVersion
+
+# =============================================================================
+# Prompt Data Definitions
+# =============================================================================
+
+_CUSTOMER_SUPPORT_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.customer-support"
+_DOCUMENT_SUMMARIZER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.document-summarizer"
+_CODE_REVIEWER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.code-reviewer"
+
+
+@dataclass
+class DemoPromptDef:
+    name: str
+    versions: list[PromptVersion]
+
+
+CUSTOMER_SUPPORT_PROMPT = DemoPromptDef(
+    name=_CUSTOMER_SUPPORT_NAME,
+    versions=[
+        PromptVersion(
+            name=_CUSTOMER_SUPPORT_NAME,
+            version=1,
+            template="You are a customer support agent. Help the user with: {{query}}",
+            commit_message="Initial customer support prompt",
+            aliases=["baseline"],
+        ),
+        PromptVersion(
+            name=_CUSTOMER_SUPPORT_NAME,
+            version=2,
+            template=(
+                "You are a friendly and professional customer support agent. "
+                "Respond in a helpful, empathetic tone.\n\n"
+                "User query: {{query}}"
+            ),
+            commit_message="Add tone and style guidance",
+            aliases=["tone-guidance"],
+        ),
+        PromptVersion(
+            name=_CUSTOMER_SUPPORT_NAME,
+            version=3,
+            template=(
+                "You are a friendly and professional customer support agent for {{company_name}}. "
+                "Respond in a helpful, empathetic tone.\n\n"
+                "Context: {{context}}\n\n"
+                "User query: {{query}}"
+            ),
+            commit_message="Add company context and conversation history",
+            aliases=["with-context"],
+        ),
+        PromptVersion(
+            name=_CUSTOMER_SUPPORT_NAME,
+            version=4,
+            template=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a friendly and professional customer support agent "
+                        "for {{company_name}}. Follow these guidelines:\n"
+                        "- Be empathetic and patient\n"
+                        "- Provide clear, actionable solutions\n"
+                        "- Escalate complex issues appropriately\n"
+                        "- Always verify customer satisfaction before closing"
+                    ),
+                },
+                {"role": "user", "content": "Context: {{context}}\n\nQuery: {{query}}"},
+            ],
+            commit_message="Convert to chat format with detailed guidelines",
+            aliases=["production"],
+        ),
+    ],
+)
+
+DOCUMENT_SUMMARIZER_PROMPT = DemoPromptDef(
+    name=_DOCUMENT_SUMMARIZER_NAME,
+    versions=[
+        PromptVersion(
+            name=_DOCUMENT_SUMMARIZER_NAME,
+            version=1,
+            template="Summarize the following document:\n\n{{document}}",
+            commit_message="Initial summarization prompt",
+            aliases=["baseline"],
+        ),
+        PromptVersion(
+            name=_DOCUMENT_SUMMARIZER_NAME,
+            version=2,
+            template=(
+                "Summarize the following document in {{max_words}} words or less:\n\n{{document}}"
+            ),
+            commit_message="Add length constraint parameter",
+            aliases=["length-constraint"],
+        ),
+        PromptVersion(
+            name=_DOCUMENT_SUMMARIZER_NAME,
+            version=3,
+            template=(
+                "Summarize the following document for a {{audience}} audience. "
+                "Keep the summary under {{max_words}} words.\n\n"
+                "Document:\n{{document}}"
+            ),
+            commit_message="Add audience targeting",
+            aliases=["audience-targeting"],
+        ),
+        PromptVersion(
+            name=_DOCUMENT_SUMMARIZER_NAME,
+            version=4,
+            template=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a document summarization expert. Create concise, accurate "
+                        "summaries that capture the essential information while maintaining "
+                        "the original meaning."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Summarize this document for a {{audience}} audience.\n"
+                        "Maximum length: {{max_words}} words.\n\n"
+                        "Include:\n"
+                        "1. Main topic/thesis\n"
+                        "2. Key points (3-5 bullets)\n"
+                        "3. Conclusion or main takeaway\n\n"
+                        "Document:\n{{document}}"
+                    ),
+                },
+            ],
+            commit_message="Add structured output format with key points",
+            aliases=["production"],
+        ),
+    ],
+)
+
+CODE_REVIEWER_PROMPT = DemoPromptDef(
+    name=_CODE_REVIEWER_NAME,
+    versions=[
+        PromptVersion(
+            name=_CODE_REVIEWER_NAME,
+            version=1,
+            template=(
+                "Review the following code and provide feedback:\n\n```{{language}}\n{{code}}\n```"
+            ),
+            commit_message="Initial code review prompt",
+            aliases=["baseline"],
+        ),
+        PromptVersion(
+            name=_CODE_REVIEWER_NAME,
+            version=2,
+            template=(
+                "Review the following {{language}} code for:\n"
+                "- Bugs and errors\n"
+                "- Performance issues\n"
+                "- Code style\n\n"
+                "```{{language}}\n{{code}}\n```"
+            ),
+            commit_message="Add specific review categories",
+            aliases=["review-categories"],
+        ),
+        PromptVersion(
+            name=_CODE_REVIEWER_NAME,
+            version=3,
+            template=(
+                "Review the following {{language}} code. For each issue found, specify:\n"
+                "- Severity: Critical, Major, Minor, or Suggestion\n"
+                "- Category: Bug, Performance, Security, Style, or Maintainability\n"
+                "- Line number (if applicable)\n"
+                "- Recommended fix\n\n"
+                "```{{language}}\n{{code}}\n```"
+            ),
+            commit_message="Add severity levels and structured feedback format",
+            aliases=["severity-levels"],
+        ),
+        PromptVersion(
+            name=_CODE_REVIEWER_NAME,
+            version=4,
+            template=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert code reviewer. Analyze code for bugs, security "
+                        "vulnerabilities, performance issues, and maintainability concerns. "
+                        "Provide actionable feedback with clear explanations and suggested fixes."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Review this {{language}} code:\n\n"
+                        "```{{language}}\n{{code}}\n```\n\n"
+                        "Provide feedback in this format:\n"
+                        "## Summary\n"
+                        "Brief overview of code quality.\n\n"
+                        "## Issues Found\n"
+                        "For each issue:\n"
+                        "- **[Severity]** Category: Description\n"
+                        "  - Line: X\n"
+                        "  - Fix: Recommendation\n\n"
+                        "## Positive Aspects\n"
+                        "What the code does well."
+                    ),
+                },
+            ],
+            commit_message="Production-ready with structured markdown output",
+            aliases=["production"],
+        ),
+    ],
+)
+
+DEMO_PROMPTS: list[DemoPromptDef] = [
+    CUSTOMER_SUPPORT_PROMPT,
+    DOCUMENT_SUMMARIZER_PROMPT,
+    CODE_REVIEWER_PROMPT,
+]
+
+
+# =============================================================================
+# Trace Data Definitions
+# =============================================================================
+
+
+@dataclass
+class LinkedPromptRef:
+    """Reference to a prompt version for linking to traces."""
+
+    prompt_name: str
+    version: int
 
 
 @dataclass
