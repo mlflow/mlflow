@@ -8,6 +8,7 @@ import { ReactComponent as ChartParallelIcon } from '../../../../common/static/c
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
+import { ReactComponent as ChartHistogramIcon } from '../../../../common/static/chart-histogram.svg';
 import { RunsChartType } from '../runs-charts.types';
 import { FormattedMessage } from 'react-intl';
 
@@ -136,6 +137,21 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <FormattedMessage
               defaultMessage="Image grid"
               description="Experiment tracking > runs charts > add chart menu > image grid"
+            />
+          </DropdownMenu.Item>
+        )}
+        {isChartTypeSupported(RunsChartType.HISTOGRAM) && (
+          <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_142"
+            onClick={() => onAddChart(RunsChartType.HISTOGRAM)}
+            data-testid="experiment-view-compare-runs-chart-type-histogram"
+          >
+            <DropdownMenu.IconWrapper css={styles.iconWrapper}>
+              <ChartHistogramIcon />
+            </DropdownMenu.IconWrapper>
+            <FormattedMessage
+              defaultMessage="3D Histogram"
+              description="Experiment tracking > runs charts > add chart menu > 3D histogram"
             />
           </DropdownMenu.Item>
         )}
