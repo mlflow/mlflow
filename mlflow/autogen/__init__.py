@@ -9,7 +9,7 @@ from mlflow.entities import SpanType
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import construct_full_inputs
+from mlflow.tracing.utils import construct_full_inputs, set_span_cost_attribute
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -66,6 +66,12 @@ def autolog(
                 )
                 span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
+                # Extract model name from client instance
+                # ChatCompletionClient has 'model' as an instance attribute
+                if model := getattr(self, "model", None):
+                    if isinstance(model, str):
+                        span.set_attribute(SpanAttributeKey.MODEL, model)
+
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
@@ -73,6 +79,7 @@ def autolog(
 
                 if usage := _parse_usage(outputs):
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+                    set_span_cost_attribute(span)
 
                 span.set_outputs(_convert_value_to_dict(outputs))
 
