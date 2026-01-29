@@ -1,7 +1,7 @@
 {
   "name": "mlflow-anthropic",
-  "version": "0.1.2",
-  "description": "Anthropic integration package for MLflow Tracing",
+  "version": "0.1.3",
+  "description": "Anthropic integration package for MLflow Tracing (supports both Anthropic SDK and Claude Agent SDK)",
   "repository": {
     "type": "git",
     "url": "https://github.com/mlflow/mlflow.git"
@@ -23,6 +23,8 @@
     "llm",
     "anthropic",
     "claude",
+    "claude-agent-sdk",
+    "agent",
     "javascript",
     "typescript"
   ],
@@ -38,7 +40,13 @@
   },
   "peerDependencies": {
     "mlflow-tracing": "^0.1.2",
-    "@anthropic-ai/sdk": "^0.32.0"
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "jest": "^29.6.2",
