@@ -107,10 +107,10 @@ def test_livekit_token_usage_returns_none_when_missing():
 @pytest.mark.parametrize(
     "attributes",
     [
-        {"lk.agent_name": "voice_assistant"},  
-        {"lk.room_name": "my_room"},  
-        {"lk.job_id": "job_123"},  
-        {"lk.participant_identity": "user_456"},  
+        {"lk.agent_name": "voice_assistant"},
+        {"lk.room_name": "my_room"},
+        {"lk.job_id": "job_123"},
+        {"lk.participant_identity": "user_456"},
         {"lk.retry_count": 0},
         {"lk.user_input": "hello"},
         {"lk.response.text": "hi there"},
@@ -130,7 +130,6 @@ def test_livekit_message_format_returns_none_for_non_livekit():
 
 
 def test_livekit_get_input_from_events_with_system_and_user_messages():
-    """Test EVENT_GEN_AI_SYSTEM_MESSAGE and EVENT_GEN_AI_USER_MESSAGE."""
     translator = LiveKitTranslator()
     events = [
         {
@@ -152,7 +151,6 @@ def test_livekit_get_input_from_events_with_system_and_user_messages():
 
 
 def test_livekit_get_input_from_events_with_assistant_context():
-    """Test EVENT_GEN_AI_ASSISTANT_MESSAGE for multi-turn conversations."""
     translator = LiveKitTranslator()
     events = [
         {
@@ -182,7 +180,6 @@ def test_livekit_get_input_from_events_with_assistant_context():
 
 
 def test_livekit_get_output_from_events_with_choice():
-    """Test EVENT_GEN_AI_CHOICE for LLM responses."""
     translator = LiveKitTranslator()
     events = [
         {
@@ -243,7 +240,6 @@ def test_livekit_events_with_json_encoded_content():
 
 
 def test_livekit_translate_span_with_genai_events():
-    """Integration test for full span translation with events."""
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
     span_dict = {
@@ -299,26 +295,24 @@ def test_livekit_span_type_from_otel(attributes, expected_type):
 
 
 def test_livekit_translator_detection_keys():
-    """Verify detection keys match actual LiveKit attributes."""
     translator = LiveKitTranslator()
 
-    assert "lk.agent_name" in translator.DETECTION_KEYS  # ATTR_AGENT_NAME
-    assert "lk.room_name" in translator.DETECTION_KEYS  # ATTR_ROOM_NAME
-    assert "lk.job_id" in translator.DETECTION_KEYS  # ATTR_JOB_ID
-    assert "lk.participant_identity" in translator.DETECTION_KEYS  # ATTR_PARTICIPANT_IDENTITY
+    assert "lk.agent_name" in translator.DETECTION_KEYS
+    assert "lk.room_name" in translator.DETECTION_KEYS
+    assert "lk.job_id" in translator.DETECTION_KEYS
+    assert "lk.participant_identity" in translator.DETECTION_KEYS
 
 
 def test_livekit_translator_input_output_keys():
-    """Verify input/output keys match actual LiveKit attributes."""
     translator = LiveKitTranslator()
 
-    assert "lk.user_input" in translator.INPUT_VALUE_KEYS  # ATTR_USER_INPUT
-    assert "lk.user_transcript" in translator.INPUT_VALUE_KEYS  # ATTR_USER_TRANSCRIPT
-    assert "lk.chat_ctx" in translator.INPUT_VALUE_KEYS  # ATTR_CHAT_CTX
-    assert "lk.input_text" in translator.INPUT_VALUE_KEYS  # ATTR_TTS_INPUT_TEXT
+    assert "lk.user_input" in translator.INPUT_VALUE_KEYS
+    assert "lk.user_transcript" in translator.INPUT_VALUE_KEYS
+    assert "lk.chat_ctx" in translator.INPUT_VALUE_KEYS
+    assert "lk.input_text" in translator.INPUT_VALUE_KEYS
 
-    assert "lk.response.text" in translator.OUTPUT_VALUE_KEYS  # ATTR_RESPONSE_TEXT
-    assert "lk.response.function_calls" in translator.OUTPUT_VALUE_KEYS  # ATTR_RESPONSE_FUNCTION_CALLS
+    assert "lk.response.text" in translator.OUTPUT_VALUE_KEYS
+    assert "lk.response.function_calls" in translator.OUTPUT_VALUE_KEYS
 
 
 def test_livekit_translator_message_format():

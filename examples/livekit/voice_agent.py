@@ -1,16 +1,15 @@
-import os
 import logging
+import os
 
 from livekit.agents import JobContext, JobProcess, WorkerOptions, cli
-from livekit.agents.voice import Agent, AgentSession
 from livekit.agents.telemetry import set_tracer_provider
+from livekit.agents.voice import Agent, AgentSession
 from livekit.plugins import openai, silero
-
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")

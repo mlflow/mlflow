@@ -34,14 +34,14 @@ class LiveKitTranslator(OtelSchemaTranslator):
     """
 
     INPUT_VALUE_KEYS = [
-        "lk.user_input",  
-        "lk.user_transcript",  
-        "lk.chat_ctx",  
-        "lk.input_text",  
+        "lk.user_input",
+        "lk.user_transcript",
+        "lk.chat_ctx",
+        "lk.input_text",
     ]
     OUTPUT_VALUE_KEYS = [
-        "lk.response.text", 
-        "lk.response.function_calls",  
+        "lk.response.text",
+        "lk.response.function_calls",
     ]
 
     INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
@@ -56,10 +56,10 @@ class LiveKitTranslator(OtelSchemaTranslator):
 
     # LiveKit-specific attribute keys for detection
     DETECTION_KEYS = [
-        "lk.agent_name",  
-        "lk.room_name",  
-        "lk.job_id",  
-        "lk.participant_identity",  
+        "lk.agent_name",
+        "lk.room_name",
+        "lk.job_id",
+        "lk.participant_identity",
     ]
 
     # Message format for chat UI rendering
@@ -185,19 +185,18 @@ class LiveKitTranslator(OtelSchemaTranslator):
             event_attrs = event.get("attributes", {})
 
             if event_name == "gen_ai.system.message":
-                content = event_attrs.get("content")
-                if content:
+                if content := event_attrs.get("content"):
                     messages.append({"role": "system", "content": self._decode_json_value(content)})
 
             elif event_name == "gen_ai.user.message":
-                content = event_attrs.get("content")
-                if content:
+                if content := event_attrs.get("content"):
                     messages.append({"role": "user", "content": self._decode_json_value(content)})
 
             elif event_name == "gen_ai.assistant.message":
-                content = event_attrs.get("content")
-                if content:
-                    messages.append({"role": "assistant", "content": self._decode_json_value(content)})
+                if content := event_attrs.get("content"):
+                    messages.append(
+                        {"role": "assistant", "content": self._decode_json_value(content)}
+                    )
 
         # Return JSON string for proper storage
         return json.dumps(messages) if messages else None
@@ -222,13 +221,14 @@ class LiveKitTranslator(OtelSchemaTranslator):
             event_attrs = event.get("attributes", {})
 
             if event_name == "gen_ai.choice":
-                role = event_attrs.get("role", "assistant")
-                content = event_attrs.get("content")
-                if content:
-                    messages.append({
-                        "role": self._decode_json_value(role),
-                        "content": self._decode_json_value(content),
-                    })
+                if content := event_attrs.get("content"):
+                    role = event_attrs.get("role", "assistant")
+                    messages.append(
+                        {
+                            "role": self._decode_json_value(role),
+                            "content": self._decode_json_value(content),
+                        }
+                    )
 
         # Return JSON string for proper storage
         return json.dumps(messages) if messages else None
