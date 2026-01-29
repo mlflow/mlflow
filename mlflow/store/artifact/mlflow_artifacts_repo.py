@@ -51,9 +51,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
     ) -> None:
         effective_tracking_uri = tracking_uri or get_tracking_uri()
-        super().__init__(
-            self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri, registry_uri
-        )
+        super().__init__(self.resolve_uri(artifact_uri, effective_tracking_uri))
 
     @classmethod
     def resolve_uri(cls, artifact_uri, tracking_uri):

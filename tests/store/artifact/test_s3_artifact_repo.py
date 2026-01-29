@@ -671,3 +671,125 @@ def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypa
     delete_call_kwargs = mock_s3.delete_objects.call_args[1]
     assert "ExpectedBucketOwner" in delete_call_kwargs
     assert delete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_get_download_presigned_url(s3_artifact_root, tmp_path):
+    """Test that get_download_presigned_url generates a valid presigned URL for downloading."""
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create and log a test file
+    file_name = "test_download.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_text = "Hello, presigned download!"
+    with open(file_path, "w") as f:
+        f.write(file_text)
+    repo.log_artifact(file_path)
+
+    # Get presigned URL
+    presigned_response = repo.get_download_presigned_url(file_name)
+
+    # Verify the response structure
+    assert presigned_response.url is not None
+    assert isinstance(presigned_response.url, str)
+    assert presigned_response.headers == {}
+    assert presigned_response.file_size == len(file_text)
+
+    # Verify the URL contains expected S3 presigned URL components
+    assert "X-Amz-Algorithm" in presigned_response.url
+    assert "X-Amz-Credential" in presigned_response.url
+    assert "X-Amz-Signature" in presigned_response.url
+    assert file_name in presigned_response.url
+
+    # Verify the presigned URL can be used to download the file
+    response = requests.get(presigned_response.url)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_nested_path(s3_artifact_root, tmp_path):
+    """Test that get_download_presigned_url works with nested artifact paths."""
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create a nested directory structure
+    nested_dir = os.path.join(tmp_path, "nested", "subdir")
+    os.makedirs(nested_dir)
+    file_name = "nested_file.txt"
+    file_path = os.path.join(nested_dir, file_name)
+    file_text = "Nested content"
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    # Log artifacts preserving directory structure
+    repo.log_artifacts(os.path.join(tmp_path, "nested"))
+
+    # Get presigned URL for nested file
+    presigned_response = repo.get_download_presigned_url("subdir/nested_file.txt")
+
+    # Verify the URL works
+    response = requests.get(presigned_response.url)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_custom_expiration(s3_artifact_root, tmp_path):
+    """Test that get_download_presigned_url respects custom expiration time."""
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create and log a test file
+    file_name = "expiration_test.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    with open(file_path, "w") as f:
+        f.write("test")
+    repo.log_artifact(file_path)
+
+    # Get presigned URL with custom expiration (60 seconds)
+    presigned_response = repo.get_download_presigned_url(file_name, expiration=60)
+
+    # Verify the URL is generated (we can't easily verify the exact expiration time
+    # in the URL, but we can verify it's a valid presigned URL)
+    assert presigned_response.url is not None
+    assert "X-Amz-Expires=60" in presigned_response.url
+
+
+def test_get_download_presigned_url_to_dict(s3_artifact_root, tmp_path):
+    """Test that PresignedDownloadUrlResponse.to_dict works correctly."""
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create and log a test file
+    file_name = "dict_test.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_content = "test"
+    with open(file_path, "w") as f:
+        f.write(file_content)
+    repo.log_artifact(file_path)
+
+    # Get presigned URL and convert to dict
+    presigned_response = repo.get_download_presigned_url(file_name)
+    response_dict = presigned_response.to_dict()
+
+    # Verify dict structure
+    assert "url" in response_dict
+    assert "headers" in response_dict
+    assert "file_size" in response_dict
+    assert response_dict["url"] == presigned_response.url
+    assert response_dict["headers"] == {}
+    assert response_dict["file_size"] == len(file_content)
+
+
+def test_get_download_presigned_url_returns_file_size(s3_artifact_root, tmp_path):
+    """Test that get_download_presigned_url returns the correct file size."""
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create and log a test file with known content
+    file_name = "size_test.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_content = "This is test content for file size verification"
+    with open(file_path, "w") as f:
+        f.write(file_content)
+    repo.log_artifact(file_path)
+
+    # Get presigned URL
+    presigned_response = repo.get_download_presigned_url(file_name)
+
+    # Verify file size matches
+    assert presigned_response.file_size == len(file_content)

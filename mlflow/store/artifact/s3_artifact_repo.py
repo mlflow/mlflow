@@ -11,6 +11,7 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
@@ -564,3 +565,29 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             UploadId=upload_id,
             **self._bucket_owner_params,
         )
+
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """
+        Generate a presigned URL for downloading an artifact directly from S3.
+
+        Args:
+            artifact_path: Relative path to the artifact within the artifact URI.
+            expiration: Time in seconds for the presigned URL to remain valid (default: 300).
+
+        Returns:
+            PresignedDownloadUrlResponse containing the presigned URL, headers, and file size.
+        """
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+        s3_client = self._get_s3_client()
+
+        # Get file size using head_object
+        head_response = s3_client.head_object(Bucket=bucket, Key=key)
+        file_size = head_response.get("ContentLength")
+
+        url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expiration,
+        )
+        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)

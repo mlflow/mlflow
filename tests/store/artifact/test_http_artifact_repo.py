@@ -10,6 +10,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
     MultipartUploadPart,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
@@ -472,4 +473,205 @@ def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
                 "path": "local_file",
                 "upload_id": "upload_id",
             },
+        )
+
+
+# Tests for multipart download functionality
+
+
+def test_download_file_multipart_for_large_files(http_artifact_repo, tmp_path, monkeypatch):
+    """Test that multipart download is used for large files when enabled."""
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    # Set a low threshold for testing
+    min_size = 1000
+    monkeypatch.setenv("MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE", str(min_size))
+
+    remote_file_path = "large_file.bin"
+    presigned_url = "https://s3.amazonaws.com/bucket/large_file.bin?signature=abc"
+    file_size = min_size + 1000  # Larger than threshold
+
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "_get_presigned_download_url",
+            return_value=PresignedDownloadUrlResponse(
+                url=presigned_url, headers={}, file_size=file_size
+            ),
+        ) as mock_get_presigned,
+        mock.patch.object(http_artifact_repo, "_multipart_download") as mock_multipart_download,
+    ):
+        file_path = tmp_path / "large_file.bin"
+        http_artifact_repo._download_file(remote_file_path, str(file_path))
+
+        mock_get_presigned.assert_called_once_with(remote_file_path)
+        mock_multipart_download.assert_called_once()
+        # Verify the presigned response was passed
+        call_args = mock_multipart_download.call_args
+        assert call_args.kwargs["presigned_response"].url == presigned_url
+        assert call_args.kwargs["file_size"] == file_size
+
+
+def test_download_file_small_file_uses_proxy(http_artifact_repo, tmp_path, monkeypatch):
+    """Test that small files use proxied download even when multipart is enabled."""
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "small_file.txt"
+    presigned_url = "https://s3.amazonaws.com/bucket/small_file.txt?signature=abc"
+    # File size smaller than minimum threshold (default 500MB)
+    file_size = 100
+
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "_get_presigned_download_url",
+            return_value=PresignedDownloadUrlResponse(
+                url=presigned_url, headers={}, file_size=file_size
+            ),
+        ),
+        mock.patch.object(http_artifact_repo, "_multipart_download") as mock_multipart_download,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        file_path = tmp_path / "small_file.txt"
+        http_artifact_repo._download_file(remote_file_path, str(file_path))
+
+        # Should NOT use multipart download for small files
+        mock_multipart_download.assert_not_called()
+        # Should fall back to proxied download
+        mock_http_request.assert_called_once()
+
+
+def test_download_file_fallback_when_presigned_not_supported(
+    http_artifact_repo, tmp_path, monkeypatch
+):
+    """Test fallback to proxied download when presigned URLs are not supported."""
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "test.txt"
+
+    # Mock the presigned URL request to fail with unsupported error
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {
+        "message": "Presigned URL download is not supported for the current artifact repository"
+    }
+
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "_get_presigned_download_url",
+            side_effect=HTTPError(response=mock_response),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        file_path = tmp_path / "test.txt"
+        http_artifact_repo._download_file(remote_file_path, str(file_path))
+
+        # Should fall back to proxied download
+        mock_http_request.assert_called_once_with(
+            http_artifact_repo._host_creds,
+            posixpath.join("/", remote_file_path),
+            "GET",
+            stream=True,
+        )
+
+
+def test_download_file_multipart_disabled_uses_proxy(http_artifact_repo, tmp_path, monkeypatch):
+    """Test that proxied download is used when multipart downloads are disabled."""
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
+
+    remote_file_path = "test.txt"
+
+    with (
+        mock.patch.object(http_artifact_repo, "_get_presigned_download_url") as mock_get_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        file_path = tmp_path / "test.txt"
+        http_artifact_repo._download_file(remote_file_path, str(file_path))
+
+        # Should not attempt to get presigned URL
+        mock_get_presigned.assert_not_called()
+        # Should use proxied download
+        mock_http_request.assert_called_once()
+
+
+def test_multipart_download_creates_chunks(http_artifact_repo, tmp_path, monkeypatch):
+    """Test that multipart download creates correct chunks."""
+    chunk_size = 100
+    monkeypatch.setenv("MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", str(chunk_size))
+
+    remote_file_path = "large_file.bin"
+    presigned_url = "https://s3.amazonaws.com/bucket/large_file.bin"
+    file_size = 250  # Will create 3 chunks: 0-99, 100-199, 200-249
+    headers = {"x-amz-header": "value"}
+
+    presigned_response = PresignedDownloadUrlResponse(
+        url=presigned_url, headers=headers, file_size=file_size
+    )
+
+    download_chunk_calls = []
+
+    def mock_download_chunk(*, range_start, range_end, headers, download_path, http_uri):
+        download_chunk_calls.append((range_start, range_end))
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.download_chunk",
+        side_effect=mock_download_chunk,
+    ):
+        file_path = tmp_path / "large_file.bin"
+        http_artifact_repo._multipart_download(
+            presigned_response=presigned_response,
+            remote_file_path=remote_file_path,
+            local_path=str(file_path),
+            file_size=file_size,
+            chunk_size=chunk_size,
+        )
+
+    # Should have downloaded 3 chunks
+    assert len(download_chunk_calls) == 3
+    # Sort by range_start to verify ranges
+    sorted_calls = sorted(download_chunk_calls, key=lambda x: x[0])
+    assert sorted_calls[0] == (0, 99)
+    assert sorted_calls[1] == (100, 199)
+    assert sorted_calls[2] == (200, 249)
+
+
+def test_get_presigned_download_url(http_artifact_repo):
+    """Test _get_presigned_download_url makes correct request."""
+    remote_file_path = "artifacts/model.pkl"
+    expected_url = "https://s3.amazonaws.com/bucket/model.pkl?signature=abc"
+    expected_headers = {"x-amz-header": "value"}
+    expected_file_size = 12345
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "url": expected_url,
+                "headers": expected_headers,
+                "file_size": expected_file_size,
+            },
+            200,
+        ),
+    ) as mock_request:
+        response = http_artifact_repo._get_presigned_download_url(remote_file_path)
+
+        assert response.url == expected_url
+        assert response.headers == expected_headers
+        assert response.file_size == expected_file_size
+
+        # Verify correct endpoint was called
+        endpoint = "/mlflow-artifacts"
+        url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
+        mock_request.assert_called_once_with(
+            get_default_host_creds(url),
+            f"/mlflow-artifacts/mpd/presigned/{remote_file_path}",
+            "GET",
         )
