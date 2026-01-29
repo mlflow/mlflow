@@ -29,13 +29,16 @@ const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
 
 /**
  * Get a matching key for sessions. Sessions are matched by goal and persona metadata
- * when available (and session grouping is enabled), falling back to session ID if no
- * goal/persona is present. This allows sessions with different IDs but the same
- * goal/persona to be grouped together.
+ * when in comparison mode (and session grouping is enabled), falling back to session ID
+ * otherwise. This allows sessions with different IDs but the same goal/persona to be
+ * grouped together during comparison.
+ *
+ * @param trace - The trace to get the match key for
+ * @param isComparing - Whether we're in comparison mode (goal/persona matching only applies here)
  */
-const getSessionMatchKey = (trace: ModelTraceInfoV3): string => {
-  // Only use goal/persona matching when session grouping feature is enabled
-  if (shouldEnableSessionGrouping()) {
+const getSessionMatchKey = (trace: ModelTraceInfoV3, isComparing?: boolean): string => {
+  // Only use goal/persona matching when in comparison mode AND session grouping is enabled
+  if (isComparing && shouldEnableSessionGrouping()) {
     const goal = trace.trace_metadata?.[SIMULATION_GOAL_KEY];
     const persona = trace.trace_metadata?.[SIMULATION_PERSONA_KEY];
 
@@ -45,7 +48,7 @@ const getSessionMatchKey = (trace: ModelTraceInfoV3): string => {
     }
   }
 
-  // Fallback to session ID if no goal/persona available or feature is disabled
+  // Fallback to session ID if no goal/persona available, not comparing, or feature is disabled
   const sessionId = getSessionIdFromTrace(trace);
   if (sessionId) {
     return `session:${sessionId}`;
@@ -123,7 +126,7 @@ export const groupTracesBySessionForTable = (
       return;
     }
 
-    const matchKey = getSessionMatchKey(traceInfo);
+    const matchKey = getSessionMatchKey(traceInfo, isComparing);
     const sessionId = getSessionIdFromTrace(traceInfo);
 
     // Handle traces without session ID or goal/persona as standalone
@@ -161,7 +164,7 @@ export const groupTracesBySessionForTable = (
       }
       processedOtherTraceIds.add(traceId);
 
-      const matchKey = getSessionMatchKey(otherTraceInfo);
+      const matchKey = getSessionMatchKey(otherTraceInfo, isComparing);
       const sessionId = getSessionIdFromTrace(otherTraceInfo);
 
       // Handle traces without session ID or goal/persona as standalone
