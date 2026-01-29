@@ -1048,6 +1048,11 @@ from mlflow.cli import scorers
 
 cli.add_command(scorers.commands)
 
+# Add demo CLI command
+from mlflow.cli.demo import demo
+
+cli.add_command(demo)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
