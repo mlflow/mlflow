@@ -11,7 +11,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder, set_span_cost_attribute
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ def patched_class_call(original, self, *args, **kwargs):
 
         if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+            set_span_cost_attribute(span)
         span.set_outputs(outputs)
 
         return result
@@ -245,6 +246,9 @@ def _set_span_attributes(span: LiveSpan, instance):
             for key, value in llm.items():
                 if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
+            # Set model name explicitly using the MODEL attribute key
+            if model := getattr(instance, "model", None):
+                span.set_attribute(SpanAttributeKey.MODEL, model)
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
