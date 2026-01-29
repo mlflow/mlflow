@@ -126,7 +126,6 @@ repos:
         exclude: |
           (?x)^(
             \.pre-commit-config\.yaml|
-            CHANGELOG\.md|
             changelogs/CHANGELOG\.md|
             docs/api_reference/source/R-api\.rst|
             examples/llms/RAG/.*\.(json|csv)|
