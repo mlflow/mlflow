@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import threading
 import urllib
@@ -159,6 +161,60 @@ class SqlAlchemyStore(AbstractStore):
             # the registry against a different DB than the tracking server:
             # mlflow.store.db.utils._initialize_tables(self.engine)
             raise MlflowException("Database migration in unexpected state. Run manual upgrade.")
+
+    @classmethod
+    def _get_latest_versions_for_registered_models(
+        cls, session: Session, model_names: list[str]
+    ) -> dict[str, list[SqlModelVersion]]:
+        """
+        Efficiently query the latest version per stage for multiple registered models
+        using a single SQL query with GROUP BY.
+
+        Args:
+            session: SQLAlchemy session
+            model_names: List of registered model names
+
+        Returns:
+            Dictionary mapping model name to list of latest SqlModelVersion objects per stage
+        """
+        if not model_names:
+            return {}
+
+        # Subquery to get max version per (name, stage)
+        subq = (
+            session.query(
+                SqlModelVersion.name,
+                SqlModelVersion.current_stage,
+                sqlalchemy.func.max(SqlModelVersion.version).label("max_version"),
+            )
+            .filter(
+                SqlModelVersion.name.in_(model_names),
+                SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
+            )
+            .group_by(SqlModelVersion.name, SqlModelVersion.current_stage)
+            .subquery()
+        )
+
+        # Join to get the actual model version records
+        latest_versions = (
+            session.query(SqlModelVersion)
+            .join(
+                subq,
+                sqlalchemy.and_(
+                    SqlModelVersion.name == subq.c.name,
+                    SqlModelVersion.current_stage == subq.c.current_stage,
+                    SqlModelVersion.version == subq.c.max_version,
+                ),
+            )
+            .all()
+        )
+
+        # Group by model name
+        result = {name: [] for name in model_names}
+        for mv in latest_versions:
+            result[mv.name].append(mv)
+
+        return result
 
     @staticmethod
     def _get_eager_registered_model_query_options():
@@ -385,7 +441,15 @@ class SqlAlchemyStore(AbstractStore):
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_registered_models), offset, max_results
             )
-            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
+            # Efficiently get latest versions for all models in a single query
+            model_names = [rm.name for rm in sql_registered_models[:max_results]]
+            latest_versions_map = self._get_latest_versions_for_registered_models(
+                session, model_names
+            )
+            rm_entities = [
+                rm.to_mlflow_entity(latest_versions=latest_versions_map.get(rm.name, []))
+                for rm in sql_registered_models[:max_results]
+            ]
             return PagedList(rm_entities, next_page_token)
 
     @classmethod
@@ -648,7 +712,13 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
-            return self._get_registered_model(session, name, eager=True).to_mlflow_entity()
+            sql_registered_model = self._get_registered_model(session, name, eager=True)
+            latest_versions_map = self._get_latest_versions_for_registered_models(
+                session, [name]
+            )
+            return sql_registered_model.to_mlflow_entity(
+                latest_versions=latest_versions_map.get(name, [])
+            )
 
     def get_latest_versions(self, name, stages=None):
         """
@@ -666,13 +736,21 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
-            # Convert to RegisteredModel entity first and then extract latest_versions
-            latest_versions = sql_registered_model.to_mlflow_entity().latest_versions
+            # Efficiently get latest versions using a single SQL query
+            latest_versions_map = self._get_latest_versions_for_registered_models(session, [name])
+            sql_latest_versions = latest_versions_map.get(name, [])
+
             if stages is None or len(stages) == 0:
                 expected_stages = {get_canonical_stage(stage) for stage in ALL_STAGES}
             else:
                 expected_stages = {get_canonical_stage(stage) for stage in stages}
-            mvs = [mv for mv in latest_versions if mv.current_stage in expected_stages]
+
+            # Filter by stage and convert to entities
+            mvs = [
+                mv.to_mlflow_entity()
+                for mv in sql_latest_versions
+                if mv.current_stage in expected_stages
+            ]
 
             # Populate aliases for each model version
             for mv in mvs:

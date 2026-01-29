@@ -53,21 +53,26 @@ class SqlRegisteredModel(Base):
             f"{self.creation_time}, {self.last_updated_time})>"
         )
 
-    def to_mlflow_entity(self):
-        # SqlRegisteredModel has backref to all "model_versions". Filter latest for each stage.
-        latest_versions = {}
-        for mv in self.model_versions:
-            stage = mv.current_stage
-            if stage != STAGE_DELETED_INTERNAL and (
-                stage not in latest_versions or latest_versions[stage].version < mv.version
-            ):
-                latest_versions[stage] = mv
+    def to_mlflow_entity(self, latest_versions=None):
+        # If latest_versions not provided, use the fallback approach for backward compatibility
+        if latest_versions is None:
+            # Fallback for detached instances or when not optimized by the store
+            latest_versions_dict = {}
+            for mv in self.model_versions:
+                stage = mv.current_stage
+                if stage != STAGE_DELETED_INTERNAL and (
+                    stage not in latest_versions_dict
+                    or latest_versions_dict[stage].version < mv.version
+                ):
+                    latest_versions_dict[stage] = mv
+            latest_versions = list(latest_versions_dict.values())
+
         return RegisteredModel(
             self.name,
             self.creation_time,
             self.last_updated_time,
             self.description,
-            [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
+            [mvd.to_mlflow_entity() for mvd in latest_versions],
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
             [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
         )
@@ -107,7 +112,10 @@ class SqlModelVersion(Base):
         "SqlRegisteredModel", backref=backref("model_versions", cascade="all")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("name", "version", name="model_version_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("name", "version", name="model_version_pk"),
+        Index("idx_model_versions_name_stage_version", "name", "current_stage", "version"),
+    )
 
     # entity mappers
     def to_mlflow_entity(self):
@@ -178,6 +186,7 @@ class SqlModelVersionTag(Base):
             ("model_versions.name", "model_versions.version"),
             onupdate="cascade",
         ),
+        Index("idx_model_version_tags_name_version", "name", "version"),
     )
 
     def __repr__(self):

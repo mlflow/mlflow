@@ -1,9 +1,11 @@
 import time
 import uuid
+from contextlib import contextmanager
 from unittest import mock
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -2325,3 +2327,129 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+
+
+@contextmanager
+def count_queries():
+    """Context manager to count the number of SQL queries executed."""
+    query_count = {"count": 0}
+
+    @event.listens_for(Engine, "before_cursor_execute")
+    def receive_before_cursor_execute(
+        conn, cursor, statement, parameters, context, executemany
+    ):
+        query_count["count"] += 1
+
+    try:
+        yield query_count
+    finally:
+        event.remove(Engine, "before_cursor_execute", receive_before_cursor_execute)
+
+
+def test_get_latest_versions_query_count(store):
+    """
+    Test that get_latest_versions uses efficient queries.
+    Before optimization: This would query each version individually (N+1 problem)
+    After optimization: Uses a single efficient query with GROUP BY
+    """
+    # Create a registered model with multiple versions across different stages
+    name = "test_model_performance"
+    store.create_registered_model(name)
+
+    # Create 10 versions in different stages
+    for i in range(1, 11):
+        mv = store.create_model_version(name, f"source_{i}")
+        # Distribute across stages
+        if i % 3 == 0:
+            store.transition_model_version_stage(name, mv.version, "Production", False)
+        elif i % 3 == 1:
+            store.transition_model_version_stage(name, mv.version, "Staging", False)
+        # else: remains in None stage
+
+    # Count queries when getting latest versions
+    with count_queries() as counter:
+        latest_versions = store.get_latest_versions(name)
+
+    # Should get latest version for each stage (Production, Staging, None)
+    assert len(latest_versions) == 3
+
+    # Query breakdown with optimization:
+    # 1-3: SQLite PRAGMAs (3)
+    # 4: SELECT registered_model (1)
+    # 5: SELECT latest versions with efficient GROUP BY join (1)
+    # 6-8: SELECT model_version_tags for each of 3 latest versions (3, using index)
+    # 9: SELECT registered_model_aliases (1, using index)
+    assert counter["count"] == 9, f"Expected 9 queries, got {counter['count']}"
+
+
+def test_search_registered_models_query_efficiency(store):
+    """
+    Test that search_registered_models efficiently handles multiple models.
+    Before optimization: Would query versions for each model individually (N*M problem)
+    After optimization: Batches latest version queries for all models
+
+    Key improvement: Query count is O(1) w.r.t. number of versions per model,
+    instead of O(N*M) where N=models and M=versions per model.
+    """
+    # Create multiple registered models with versions
+    model_names = []
+    for i in range(5):
+        name = f"search_model_{i}"
+        model_names.append(name)
+        store.create_registered_model(name)
+
+        # Create 5 versions for each model
+        for j in range(1, 6):
+            mv = store.create_model_version(name, f"source_{j}")
+            if j == 5:  # Latest goes to Production
+                store.transition_model_version_stage(name, mv.version, "Production", False)
+
+    # Count queries when searching for models
+    with count_queries() as counter:
+        result = store.search_registered_models()
+
+    models = result.to_list()
+    assert len(models) >= 5
+
+    # Verify each model has latest versions populated correctly
+    for model in models:
+        if model.name in model_names:
+            assert len(model.latest_versions) > 0
+
+    # Query breakdown:
+    # 1-3: SQLite PRAGMAs (3)
+    # 4: SELECT registered_models (1)
+    # 5: SELECT registered_model_tags subquery (1)
+    # 6: SELECT latest versions with efficient GROUP BY for all models (1)
+    # 7-21: For 5 models with 2 latest versions each (None + Production):
+    #   - 10 queries for model_version_tags (2 per model, using index)
+    #   - 5 queries for registered_model_aliases (1 per model, using index)
+    assert counter["count"] == 21, f"Expected 21 queries, got {counter['count']}"
+
+
+def test_get_registered_model_query_efficiency(store):
+    """
+    Test that get_registered_model efficiently loads latest versions.
+    """
+    name = "test_single_model"
+    store.create_registered_model(name)
+
+    # Create multiple versions
+    for i in range(1, 6):
+        store.create_model_version(name, f"source_{i}")
+
+    # Count queries when getting a single model
+    with count_queries() as counter:
+        model = store.get_registered_model(name)
+
+    assert model.name == name
+    assert len(model.latest_versions) > 0
+
+    # Query breakdown with optimization:
+    # 1-3: SQLite PRAGMAs (3)
+    # 4: SELECT registered_model (1)
+    # 5: SELECT registered_model_tags subquery (1)
+    # 6: SELECT latest versions with efficient GROUP BY (1)
+    # 7: SELECT model_version_tags for the 1 latest version (1, using index)
+    # 8: SELECT registered_model_aliases (1, using index)
+    assert counter["count"] == 8, f"Expected 8 queries, got {counter['count']}"
