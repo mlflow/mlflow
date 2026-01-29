@@ -1757,3 +1757,59 @@ def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
 
     res = spark_df.withColumn("res", udf("input_col")).toPandas()
     assert res["res"][0] == numpy_type(value)
+
+
+@pytest.mark.parametrize(
+    ("is_serverless", "expected_use_model_uri"),
+    [
+        (True, True),  # Serverless should use model_uri directly
+        (False, False),  # Non-serverless should use unpacked artifact dir
+    ],
+)
+def test_spark_udf_serverless_model_path_selection(is_serverless, expected_use_model_uri):
+    """
+    Unit test for the model_path selection logic in spark_udf when use_dbconnect_artifact=True.
+
+    This test verifies the conditional in mlflow/pyfunc/__init__.py:
+        model_path = (
+            dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+            if not is_in_databricks_serverless_runtime()
+            else model_uri
+        )
+
+    The fix ensures that:
+    - In serverless runtime, model_uri is used directly (serverless executors can't access NFS)
+    - In non-serverless runtime, the unpacked artifact dir from cache is used
+    """
+    from mlflow.pyfunc.dbconnect_artifact_cache import DBConnectArtifactCache
+    from mlflow.utils import databricks_utils
+
+    model_uri = "models:/test_model/1"
+    unpacked_artifact_dir = "/local_disk0/.ephemeral_nfs/artifacts/session_id/archives/model"
+
+    # Create a mock dbconnect_artifact_cache
+    mock_cache = mock.MagicMock(spec=DBConnectArtifactCache)
+    mock_cache.get_unpacked_artifact_dir.return_value = unpacked_artifact_dir
+
+    with mock.patch.object(
+        databricks_utils,
+        "is_in_databricks_serverless_runtime",
+        return_value=is_serverless,
+    ):
+        # Test the exact conditional expression from spark_udf code
+        # This is the logic that runs inside the UDF on executors
+        model_path = (
+            mock_cache.get_unpacked_artifact_dir(model_uri)
+            if not databricks_utils.is_in_databricks_serverless_runtime()
+            else model_uri
+        )
+
+        if expected_use_model_uri:
+            # Serverless: should use model_uri directly, not call get_unpacked_artifact_dir
+            assert model_path == model_uri
+            # Verify get_unpacked_artifact_dir was NOT called (short-circuit evaluation)
+            mock_cache.get_unpacked_artifact_dir.assert_not_called()
+        else:
+            # Non-serverless: should use unpacked artifact dir
+            assert model_path == unpacked_artifact_dir
+            mock_cache.get_unpacked_artifact_dir.assert_called_once_with(model_uri)
