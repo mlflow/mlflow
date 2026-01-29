@@ -205,7 +205,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
     assert mock_litellm.call_count == 2
     mock_prune.assert_called_once()
     assert output.response == '{"result": "yes", "rationale": "OK"}'
-    assert output.cost is None
+    assert output.llm_cost is None
 
 
 def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_provider():
@@ -246,7 +246,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
     assert mock_litellm.call_count == 2
     mock_truncate.assert_called_once()
     assert output.response == '{"result": "yes", "rationale": "OK"}'
-    assert output.cost is None
+    assert output.llm_cost is None
 
 
 def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to_truncate():
@@ -325,7 +325,7 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
     assert mock_litellm.call_count == 2
     mock_invoke.assert_called_once()
     assert output.response == '{"result": "yes", "rationale": "Good"}'
-    assert output.cost == pytest.approx(0.20)
+    assert output.llm_cost == pytest.approx(0.20)
 
     second_call_messages = mock_litellm.call_args_list[1].kwargs["messages"]
     assert len(second_call_messages) == 3

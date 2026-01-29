@@ -127,7 +127,7 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
 
     # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,

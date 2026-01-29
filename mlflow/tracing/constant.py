@@ -48,7 +48,7 @@ class TokenUsageKey:
 
 
 class CostKey:
-    """Key for the cost information in the `mlflow.chat.cost` span attribute."""
+    """Key for the cost information in the `mlflow.llm.cost` span attribute."""
 
     INPUT_COST = "input_cost"
     OUTPUT_COST = "output_cost"
@@ -79,9 +79,9 @@ class SpanAttributeKey:
     CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
-    CHAT_COST = "mlflow.chat.cost"
+    LLM_COST = "mlflow.llm.cost"
     # This attribute stores the model name extracted from span inputs/attributes.
-    MODEL = "mlflow.model"
+    MODEL = "mlflow.llm.model"
     # This attribute indicates which flavor/format generated the LLM span. This is
     # used by downstream (e.g., UI) to determine the message format for parsing.
     MESSAGE_FORMAT = "mlflow.message.format"

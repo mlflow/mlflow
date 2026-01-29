@@ -184,7 +184,7 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
         }
 
         # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
-        assert span.cost == {
+        assert span.llm_cost == {
             "input_cost": 6.0,
             "output_cost": 12.0,
             "total_cost": 18.0,
@@ -282,7 +282,7 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 6.0,
         "output_cost": 12.0,
         "total_cost": 18.0,
@@ -367,7 +367,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 6.0,
         "output_cost": 12.0,
         "total_cost": 18.0,
@@ -488,7 +488,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 6.0,
         "output_cost": 12.0,
         "total_cost": 18.0,

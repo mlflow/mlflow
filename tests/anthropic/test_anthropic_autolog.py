@@ -201,7 +201,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 10.0,
         "output_cost": 36.0,
         "total_cost": 46.0,
@@ -294,7 +294,7 @@ def test_messages_autolog_tool_calling(is_async, mock_litellm_cost):
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
     # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 10.0,
         "output_cost": 36.0,
         "total_cost": 46.0,
@@ -391,7 +391,7 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.cost == {
+    assert span.llm_cost == {
         "input_cost": 10.0,
         "output_cost": 36.0,
         "total_cost": 46.0,

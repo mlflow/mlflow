@@ -175,7 +175,7 @@ class Span:
         return self.get_attribute(SpanAttributeKey.MODEL)
 
     @property
-    def cost(self) -> dict[str, float] | None:
+    def llm_cost(self) -> dict[str, float] | None:
         """The cost information for the span in USD.
 
         Returns a dictionary with keys:
@@ -185,7 +185,7 @@ class Span:
 
         Returns None if cost information is not available.
         """
-        return self.get_attribute(SpanAttributeKey.CHAT_COST)
+        return self.get_attribute(SpanAttributeKey.LLM_COST)
 
     @property
     def _trace_id(self) -> str:

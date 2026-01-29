@@ -701,24 +701,6 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
 
 
-def parse_model_from_inputs(inputs: dict[str, Any]) -> str | None:
-    """
-    Parse model name from request inputs.
-
-    This utility function is used by autologging implementations to extract
-    model names from API call inputs.
-
-    Args:
-        inputs: The request inputs dictionary
-
-    Returns:
-        Model name string or None if not found
-    """
-    if model := inputs.get("model"):
-        return model if isinstance(model, str) and model else None
-    return None
-
-
 def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
     """
     Set the model attribute on a span using parsed model information.
@@ -732,7 +714,7 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
         inputs: The request inputs dictionary
     """
     try:
-        if model := parse_model_from_inputs(inputs):
+        if (model := inputs.get("model")) and isinstance(model, str):
             span.set_attribute(SpanAttributeKey.MODEL, model)
     except Exception as e:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
@@ -744,6 +726,6 @@ def set_span_cost_attribute(span: LiveSpan) -> None:
     """
     try:
         if cost := calculate_span_cost(span):
-            span.set_attribute(SpanAttributeKey.CHAT_COST, cost)
+            span.set_attribute(SpanAttributeKey.LLM_COST, cost)
     except Exception as e:
         _logger.debug(f"Failed to set cost for {span}. Error: {e}")
