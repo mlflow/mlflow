@@ -23,21 +23,16 @@ export const ExperimentViewTracesStatusLabels = {
 };
 
 const getIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
-  const iconStyle = { color: '', width: 14, height: 14 };
-  
   if (state === 'IN_PROGRESS') {
-    iconStyle.color = theme.colors.textValidationWarning;
-    return <ClockIcon css={iconStyle} />;
+    return <ClockIcon css={{ color: theme.colors.textValidationWarning, width: 14, height: 14 }} />;
   }
 
   if (state === 'OK') {
-    iconStyle.color = theme.colors.textValidationSuccess;
-    return <CheckCircleIcon css={iconStyle} />;
+    return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, width: 14, height: 14 }} />;
   }
 
   if (state === 'ERROR') {
-    iconStyle.color = theme.colors.textValidationDanger;
-    return <XCircleIcon css={iconStyle} />;
+    return <XCircleIcon css={{ color: theme.colors.textValidationDanger, width: 14, height: 14 }} />;
   }
 
   return null;
@@ -75,29 +70,16 @@ export const StatusCellRenderer = ({
   return labelDescriptor ? (
     <Tag
       color={getTagColor(state)}
-      css={{ width: 'fit-content', maxWidth: '100%' }}
       componentId="mlflow.genai-traces-table.status"
+      css={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 'fit-content',
+      }}
     >
-      <span
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme.spacing.xs,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {getIcon(state, theme)}
-        <span
-          css={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {intl.formatMessage(labelDescriptor)}
-        </span>
+      {getIcon(state, theme)}
+      <span css={{ marginLeft: theme.spacing.xs }}>
+        {intl.formatMessage(labelDescriptor)}
       </span>
     </Tag>
   ) : (
