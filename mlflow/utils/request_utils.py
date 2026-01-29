@@ -11,6 +11,7 @@ from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
+import socket
 
 # Response codes that generally indicate transient network failures and merit client retries,
 # based on guidance from cloud service providers
@@ -25,6 +26,45 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
+
+# TCP Keepalive settings to detect dead connections faster
+# These settings will send keepalive probes to detect stale connections
+# instead of waiting for the full timeout (e.g., 120 seconds)
+def _get_socket_options():
+    """
+    Returns socket options with TCP keepalive enabled.
+    This helps detect dead connections faster than waiting for timeout.
+    """
+    # Start with default urllib3 socket options
+    from urllib3.connection import HTTPConnection
+
+    socket_options = list(HTTPConnection.default_socket_options or [])
+
+    # Enable TCP keepalive
+    socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
+
+    # Platform-specific keepalive settings
+    if hasattr(socket, "TCP_KEEPIDLE"):
+        # Linux: time before sending keepalive probes (seconds)
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30))
+    if hasattr(socket, "TCP_KEEPINTVL"):
+        # Linux: interval between keepalive probes (seconds)
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10))
+    if hasattr(socket, "TCP_KEEPCNT"):
+        # Linux: number of failed probes before connection is considered dead
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3))
+
+    return socket_options
+
+
+class TCPKeepAliveHTTPAdapter(HTTPAdapter):
+    """
+    HTTPAdapter with TCP keepalive enabled to detect stale connections.
+    """
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["socket_options"] = _get_socket_options()
+        super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
 
 class JitteredRetry(Retry):
@@ -142,7 +182,9 @@ def _cached_get_request_session(
         MLFLOW_HTTP_POOL_MAXSIZE,
     )
 
-    adapter = HTTPAdapter(
+    # Use TCPKeepAliveHTTPAdapter to detect stale/dead connections faster
+    # This prevents the issue where a dropped connection causes 120s timeouts
+    adapter = TCPKeepAliveHTTPAdapter(
         pool_connections=MLFLOW_HTTP_POOL_CONNECTIONS.get(),
         pool_maxsize=MLFLOW_HTTP_POOL_MAXSIZE.get(),
         max_retries=retry,
