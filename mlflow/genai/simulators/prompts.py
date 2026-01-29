@@ -58,12 +58,4 @@ authentication issue").
 2. **Persona**: How does the user communicate? Describe their communication style, expertise \
 level, and personality in 1-2 sentences. Start with "You are..." (e.g., "You are a data \
 scientist who asks detailed technical questions" or "You are a beginner who needs step-by-step \
-guidance").
-
-You must output your response as a valid JSON object with the following format:
-{{
-  "goal": "...",
-  "persona": "..."
-}}
-
-Do not include any markdown formatting or output additional lines."""
+guidance")."""

@@ -1,17 +1,24 @@
 from __future__ import annotations
 
-import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING
 
+import pydantic
+
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.judges.utils import get_default_model
-from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.genai.simulators.prompts import DEFAULT_PERSONA, DISTILL_GOAL_AND_PERSONA_PROMPT
-from mlflow.genai.simulators.simulator import _MODEL_API_DOC
+from mlflow.genai.simulators.simulator import _MODEL_API_DOC, PGBAR_FORMAT
 from mlflow.genai.simulators.utils import format_history, invoke_model_without_tracing
 from mlflow.genai.utils.trace_utils import resolve_conversation_from_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
+
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 if TYPE_CHECKING:
     from mlflow.entities import Trace
@@ -19,6 +26,14 @@ if TYPE_CHECKING:
     Session = list[Trace]
 
 _logger = logging.getLogger(__name__)
+
+
+class _GoalAndPersona(pydantic.BaseModel):
+    goal: str = pydantic.Field(description="The user's underlying goal in the conversation")
+    persona: str = pydantic.Field(
+        default=DEFAULT_PERSONA,
+        description="A description of the user's communication style and personality",
+    )
 
 
 def _distill_goal_and_persona(
@@ -33,29 +48,25 @@ def _distill_goal_and_persona(
 
     from mlflow.types.llm import ChatMessage
 
-    response = invoke_model_without_tracing(
-        model_uri=model,
-        messages=[ChatMessage(role="user", content=prompt)],
-    )
-    cleaned_response = _strip_markdown_code_blocks(response)
     try:
-        result = json.loads(cleaned_response)
-        goal = result.get("goal")
-        if goal is None:
-            _logger.debug(f"Failed to extract goal from response: {cleaned_response}")
+        response = invoke_model_without_tracing(
+            model_uri=model,
+            messages=[ChatMessage(role="user", content=prompt)],
+            response_format=_GoalAndPersona,
+        )
+        result = _GoalAndPersona.model_validate_json(response)
+        if not result.goal:
+            _logger.debug(f"Empty goal extracted from response: {response}")
             return None
-        return {
-            "goal": goal,
-            "persona": result.get("persona", DEFAULT_PERSONA),
-        }
-    except json.JSONDecodeError as e:
-        _logger.debug(f"Failed to parse response as JSON: {cleaned_response}\nError: {e}")
+        return {"goal": result.goal, "persona": result.persona}
+    except pydantic.ValidationError as e:
+        _logger.debug(f"Failed to validate response: {e}")
         return None
 
 
 @experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
-def generate_seed_conversations(
+def generate_test_cases(
     sessions: list[Session],
     *,
     model: str | None = None,
@@ -72,24 +83,59 @@ def generate_seed_conversations(
         model: {{ model }}
 
     Returns:
-        A list of dicts with "goal" and "persona" keys, suitable for use with ConversationSimulator.
+        A list of dicts with "goal" and "persona" keys, suitable for use with
+        :py:class:`~mlflow.genai.simulators.ConversationSimulator`.
 
     Example:
         .. code-block:: python
 
             import mlflow
-            from mlflow.genai.simulators import generate_seed_conversations
+            from mlflow.genai.simulators import generate_test_cases
             from mlflow.genai.simulators import ConversationSimulator
 
             # Get existing sessions
             sessions = mlflow.search_sessions(...)  # clint: disable=unknown-mlflow-function
 
             # Generate seed test cases
-            test_cases = generate_seed_conversations(sessions)
+            test_cases = generate_test_cases(sessions)
 
             # Use the generated test cases with ConversationSimulator
             simulator = ConversationSimulator(test_cases=test_cases)
     """
     model = model or get_default_model()
-    results = [_distill_goal_and_persona(session, model=model) for session in sessions]
+    num_sessions = len(sessions)
+    results: list[dict[str, str] | None] = [None] * num_sessions
+    max_workers = min(num_sessions, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+
+    progress_bar = (
+        tqdm(
+            total=num_sessions,
+            desc="Generating test cases",
+            bar_format=PGBAR_FORMAT,
+        )
+        if tqdm
+        else None
+    )
+
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="MlflowTestCaseGeneration",
+    ) as executor:
+        futures = {
+            executor.submit(_distill_goal_and_persona, session, model): i
+            for i, session in enumerate(sessions)
+        }
+        try:
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    _logger.error(f"Failed to distill test case for session {idx}: {e}")
+                if progress_bar:
+                    progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
+
     return [r for r in results if r is not None]

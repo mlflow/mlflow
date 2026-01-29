@@ -43,10 +43,18 @@ def invoke_model_without_tracing(
     messages: list[ChatMessage],
     num_retries: int = 3,
     inference_params: dict[str, Any] | None = None,
+    response_format: type | None = None,
 ) -> str:
     """
     Invoke a model without tracing. This method will delete the last trace created by the
     invocation, if any.
+
+    Args:
+        model_uri: The model URI.
+        messages: List of ChatMessage objects.
+        num_retries: Number of retries on transient failures.
+        inference_params: Optional inference parameters.
+        response_format: Optional pydantic model class for structured output.
     """
     import litellm
 
@@ -85,6 +93,8 @@ def invoke_model_without_tracing(
         }
         if inference_params:
             kwargs.update(inference_params)
+        if response_format is not None:
+            kwargs["response_format"] = response_format
 
         litellm.drop_params = True
         response = litellm.completion(**kwargs)
