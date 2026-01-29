@@ -12,6 +12,7 @@ import time
 from contextlib import contextmanager
 from typing import Any
 
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -123,7 +124,8 @@ def _validate_non_databricks_get_params(
         raise ValueError("Either 'name' or 'dataset_id' must be provided.")
 
 
-def _resolve_dataset_by_name(name: str) -> str:
+def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
+    """Get a dataset by name."""
     # Build filter string with appropriate quoting:
     # - Use double quotes if name has no double quotes (handles single quotes)
     # - Use single quotes if name has double quotes but no single quotes
@@ -142,14 +144,14 @@ def _resolve_dataset_by_name(name: str) -> str:
         order_by=["created_time DESC"],
     )
 
-    match len(results):
-        case 0:
+    match results:
+        case []:
             raise MlflowException(
                 f"Dataset with name '{name}' not found.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        case 1:
-            return results[0].dataset_id
+        case [dataset]:
+            return dataset
         case _:
             raise MlflowException(
                 f"Multiple datasets found with name '{name}'. "
@@ -376,10 +378,9 @@ def get_dataset(
         _validate_non_databricks_get_params(name, dataset_id)
 
         if name is not None:
-            dataset_id = _resolve_dataset_by_name(name)
+            return EvaluationDataset(_get_dataset_by_name(name))
 
-        mlflow_dataset = MlflowClient().get_dataset(dataset_id)
-        return EvaluationDataset(mlflow_dataset)
+        return EvaluationDataset(MlflowClient().get_dataset(dataset_id))
 
 
 @experimental(version="3.4.0")
