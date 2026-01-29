@@ -164,6 +164,14 @@ avoid failed inference requests.
 In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
 loaded as a `pyfunc` and used to generate a response from a passed-in list of strings.
 
+:::note Deprecated behavior
+Older versions of MLflow required explicitly generating model outputs and calling
+`mlflow.models.infer_signature(...)` using `mlflow.transformers.generate_signature_output(...)`.
+
+This helper is deprecated. When an `input_example` is provided, MLflow automatically
+runs inference and infers and persists the model signature.
+:::
+
 ```python
 import mlflow
 import transformers
@@ -171,21 +179,12 @@ import transformers
 # Read a pre-trained conversation pipeline from HuggingFace hub
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 
-# Define the signature
-signature = mlflow.models.infer_signature(
-    "Hi there, chatbot!",
-    mlflow.transformers.generate_signature_output(
-        conversational_pipeline, "Hi there, chatbot!"
-    ),
-)
-
 # Log the pipeline
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=conversational_pipeline,
         name="chatbot",
         task="conversational",
-        signature=signature,
         input_example="A clever and witty question",
     )
 
@@ -226,8 +225,6 @@ per each of the samples.
 
 ```python
 import mlflow
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -237,12 +234,6 @@ model = transformers.pipeline(
     model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
 )
 data = "pencil draw paper"
-
-# Infer the signature
-signature = infer_signature(
-    data,
-    generate_signature_output(model, data),
-)
 
 # Define an model_config
 model_config = {
@@ -257,7 +248,7 @@ mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature,
+    input_example=data,
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -279,8 +270,6 @@ when calling `predict`.
 
 ```python
 import mlflow
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -303,19 +292,12 @@ inference_params = {
     "do_sample": True,
 }
 
-# Infer the signature including params
-signature_with_params = infer_signature(
-    data,
-    generate_signature_output(model, data),
-    params=inference_params,
-)
-
-# Saving model with signature and model config
+# Saving model with input_example and model config
 mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature_with_params,
+    input_example=(data, inference_params),
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -326,16 +308,17 @@ params = {
     "do_sample": False,
 }
 
-# In this case we only override max_length and do_sample,
-# other params will use the default one saved on ModelSignature
-# or in the model configuration.
-# The final params used for prediction is as follows:
+# In this case we only override max_length and do_sample.
+# Other parameters fall back to the defaults captured at model
+# logging time (from input_example params) or from model_config.
+# The final params used for prediction are as follows:
 # {
 #    "num_beams": 5,
 #    "max_length": 20,
 #    "do_sample": False,
 #    "remove_invalid_values": True,
 # }
+
 result = pyfunc_loaded.predict(data, params=params)
 ```
 
@@ -499,13 +482,20 @@ in order to determine what restrictions exist regarding the use of the model.
 
 ## Automatic Signature inference
 
-For pipelines that support `pyfunc`, there are 3 means of attaching a model signature to the `MLmodel` file.
+For pipelines that support `pyfunc`, there are three ways to attach a model
+signature to the `MLmodel` file:
 
-- Provide a model signature explicitly via setting a valid `ModelSignature` to the `signature` attribute. This can be generated via the helper utility <APILink fn="mlflow.transformers.generate_signature_output" />
+- **Provide a model signature explicitly** by setting a valid `ModelSignature`
+  on the `signature` argument. This is optional and typically only needed when
+  you want to fully control or override the inferred schema.
 
-- Provide an `input_example`. The signature will be inferred and validated that it matches the appropriate input type. The output type will be validated by performing inference automatically (if the model is a `pyfunc` supported type).
+- **Provide an `input_example` (recommended)**. MLflow will automatically run
+  inference using the example input, infer the input and output schema, and
+  persist the resulting signature in the `MLmodel` file.
 
-- Do nothing. The `transformers` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
+- **Do nothing**. The `transformers` flavor will fall back to a general
+  signature based on the pipeline type (only supported for single-entity
+  inputs; collections will not be inferred).
 
 ## Scale Inference with Overriding Pytorch dtype \{#scalability-for-inference}
 
@@ -634,25 +624,28 @@ to use `str` input uri-based inference. If this package is not properly installe
 will be thrown at inference time.
 
 :::warning
-If using a uri (_str_) as an input type for a _pyfunc_ model that you are intending to host for realtime inference through the _MLflow Model Server_,
-you _must_ specify a custom model signature when logging or saving the model.
-The default signature input value type of `bytes` will, in _MLflow Model serving_, force the conversion of the uri string to `bytes`, which will cause an Exception
-to be thrown from the serving process stating that the soundfile is corrupt.
+If using a uri (`str`) as an input type for a _pyfunc_ model that you intend to
+serve through the _MLflow Model Server_, the model must be logged with a
+signature that reflects a string input.
+
+This can be done either by explicitly providing a `ModelSignature`, or by
+supplying a representative `input_example` (recommended), which allows MLflow
+to infer and persist the correct signature automatically.
+
+If the model is logged without a string-based signature, MLflow Model Serving
+will attempt to coerce the input to `bytes`, resulting in a runtime error.
 :::
 
-An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
+An example of specifying an appropriate uri-based input model signature using `input_example` for an audio model is shown below:
 
 ```python
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
 
 url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
-signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=my_audio_pipeline,
         name="my_transcriber",
-        signature=signature,
+        input_example=url,
     )
 ```
 
