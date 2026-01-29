@@ -108,6 +108,16 @@ def generate_test_cases(
 
             # Use the generated test cases with ConversationSimulator
             simulator = ConversationSimulator(test_cases=test_cases)
+
+        To save test cases as an evaluation dataset for reuse:
+
+        .. code-block:: python
+
+            from mlflow.genai.datasets import create_dataset
+
+            # Create a dataset and save the test cases
+            dataset = create_dataset(name="my_test_cases")
+            dataset.merge_records([{"inputs": tc} for tc in test_cases])
     """
     model = model or get_default_simulation_model()
     num_sessions = len(sessions)
