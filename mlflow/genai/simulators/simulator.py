@@ -26,13 +26,13 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import (
     CHECK_GOAL_PROMPT,
     DEFAULT_PERSONA,
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
+from mlflow.genai.simulators.utils import get_default_simulation_model
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -354,7 +354,7 @@ class BaseSimulatedUserAgent(ABC):
         model: str | None = None,
         **inference_params,
     ):
-        self.model = model or get_default_model()
+        self.model = model or get_default_simulation_model()
         self.inference_params = inference_params
 
     @abstractmethod
@@ -512,7 +512,7 @@ class ConversationSimulator:
             )
         self.test_cases = test_cases
         self.max_turns = max_turns
-        self.user_model = user_model or get_default_model()
+        self.user_model = user_model or get_default_simulation_model()
         self.user_agent_class = user_agent_class or SimulatedUserAgent
         self.user_llm_params = user_llm_params
 
