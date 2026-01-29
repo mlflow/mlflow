@@ -161,7 +161,6 @@ The `search_logged_models` API uses a SQL-like Domain Specific Language (DSL) fo
 2. **Supported Prefixes**: `metrics.`, `params.`, `tags.`, or no prefix for attributes
 3. **Dataset-Aware Metrics**: You can filter metrics based on specific datasets
 
-
 ### Syntax Rules:
 
 **Left Side (Field) Syntax:**
@@ -254,6 +253,7 @@ recent_models = mlflow.search_logged_models(
     experiment_ids=["1"], filter_string=f"creation_time > {last_week}"
 )
 ```
+
 ### 5 - Searching By Tags
 
 Tags allow you to categorize and filter models by custom metadata. Use the `tags.` prefix to search by tag values:
