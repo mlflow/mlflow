@@ -798,6 +798,10 @@
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
   },
+  "4J7jtY": {
+    "defaultMessage": "Run judge",
+    "description": "Button text for running a judge"
+  },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
@@ -2490,6 +2494,10 @@
     "defaultMessage": "Status",
     "description": "Label for the status section"
   },
+  "HSMagB": {
+    "defaultMessage": "Error evaluating \"{label}\"",
+    "description": "Error evaluating label"
+  },
   "HTQZeI": {
     "defaultMessage": "Evaluate trace",
     "description": "A call to action button to add assessments to a model trace in the single chat turn view"
@@ -3497,6 +3505,10 @@
   "PPPbd+": {
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
+  },
+  "PQRoqw": {
+    "defaultMessage": "Run judge on trace",
+    "description": "Title for run judge modal"
   },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
@@ -4802,10 +4814,6 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
-  },
-  "Zah+D4": {
-    "defaultMessage": "Run judge",
-    "description": "Label for the button to add a new feedback"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
@@ -7619,6 +7627,10 @@
     "defaultMessage": "Back to providers",
     "description": "Navigation back to main provider list"
   },
+  "tsYxhE": {
+    "defaultMessage": "Search judges",
+    "description": "Placeholder for scorer search input"
+  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
@@ -8118,6 +8130,10 @@
   "xq0Rde": {
     "defaultMessage": "New",
     "description": "Sidebar create popover button to create new experiment, model or prompt"
+  },
+  "xqc4yl": {
+    "defaultMessage": "Cancel",
+    "description": "Button text for canceling a judge run"
   },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
