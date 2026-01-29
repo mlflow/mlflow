@@ -510,6 +510,9 @@ class ConversationSimulator:
                 f"user_agent_class must be a subclass of BaseSimulatedUserAgent, "
                 f"got {user_agent_class.__name__}"
             )
+        # Store original dataset reference if test_cases is an EvaluationDataset, so we can
+        # preserve the dataset name when creating the evaluation dataset.
+        self._source_dataset = test_cases if isinstance(test_cases, EvaluationDataset) else None
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
@@ -574,6 +577,16 @@ class ConversationSimulator:
 
         test_case_df = pd.DataFrame(self.test_cases)
         return compute_pandas_digest(test_case_df)
+
+    def _get_dataset_name(self) -> str:
+        """Get the dataset name to use for the evaluation dataset.
+
+        If test_cases was an EvaluationDataset, use its name. Otherwise, use the
+        default name for conversational datasets.
+        """
+        if self._source_dataset is not None:
+            return self._source_dataset.name
+        return "conversational_dataset"
 
     @experimental(version="3.10.0")
     @record_usage_event(SimulateConversationEvent)

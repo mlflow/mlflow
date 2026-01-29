@@ -653,3 +653,20 @@ def test_conversation_simulator_digest_differs_for_different_test_cases(test_cas
     simulator2 = ConversationSimulator(test_cases=test_cases_2, max_turns=2)
 
     assert simulator1._compute_test_case_digest() != simulator2._compute_test_case_digest()
+
+
+def test_conversation_simulator_get_dataset_name_default():
+    test_cases = [{"goal": "Learn about MLflow"}]
+    simulator = ConversationSimulator(test_cases=test_cases, max_turns=2)
+
+    assert simulator._get_dataset_name() == "conversational_dataset"
+
+
+def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
+    inputs = [{"goal": "Learn about MLflow"}]
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    mock_dataset.name = "my_custom_dataset"
+
+    simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+
+    assert simulator._get_dataset_name() == "my_custom_dataset"
