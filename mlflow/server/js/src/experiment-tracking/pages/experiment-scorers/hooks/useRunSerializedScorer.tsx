@@ -1,8 +1,12 @@
 import { useCallback } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
 import { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
-import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from '../constants';
+import { ScorerEvaluationScope } from '../constants';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
+import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import { isObject } from 'lodash';
+import { useTemplateOptions } from '../llmScorerUtils';
+import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 
 /**
  * Runs a known serialized scorer on a set of traces.
@@ -12,35 +16,81 @@ export const useRunSerializedScorer = ({
   onScorerFinished,
 }: {
   experimentId?: string;
-  onScorerFinished?: () => void;
+  onScorerFinished?: (event: ScorerFinishedEvent) => void;
 }) => {
-  const [evaluateTracesFn, { latestEvaluation, isLoading }] = useEvaluateTraces({ onScorerFinished });
+  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations }] = useEvaluateTraces({ onScorerFinished });
+  const { displayMap } = useTemplateOptions();
 
-  const evaluateTraces = useCallback(
-    (scorer: LLMScorer, traceIds: string[]) => {
+  const getEvaluationParams = useCallback(
+    (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string): EvaluateTracesParams => {
       if (!experimentId) {
         throw new Error('Experiment ID is required');
       }
-      const scorerConfig = transformScheduledScorer(scorer);
-      // Prepare evaluation parameters based on mode
-      const evaluationParams: EvaluateTracesParams = {
+
+      const baseParams: Omit<EvaluateTracesParams, 'judgeInstructions' | 'serializedScorer'> = {
         itemCount: undefined,
         itemIds: traceIds,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
-        judgeInstructions: scorer.instructions || '',
         experimentId,
         evaluationScope: ScorerEvaluationScope.TRACES,
-        serializedScorer: scorerConfig.serialized_scorer,
         saveAssessment: true,
       };
+      if (isObject(scorerOrTemplate)) {
+        const scorer = scorerOrTemplate;
+        const scorerConfig = transformScheduledScorer(scorer);
+        return {
+          ...baseParams,
+          judgeInstructions: scorer.instructions || '',
+          serializedScorer: scorerConfig.serialized_scorer,
+        };
+      }
+
+      const instructionsForCustomTemplate = TEMPLATE_INSTRUCTIONS_MAP[scorerOrTemplate];
+
+      // Built an ad-hoc custom LLM-as-a-judge scorer.
+      // If the template has instructions, use them as 'Custom' judge. Otherwise, assume it's a pre-built template.
+      const adHocScheduledScorer: ScheduledScorer = instructionsForCustomTemplate
+        ? {
+            name: displayMap[scorerOrTemplate],
+            type: 'llm',
+            llmTemplate: 'Custom',
+            instructions: instructionsForCustomTemplate,
+            model: endpointName,
+            is_instructions_judge: true,
+          }
+        : {
+            name: displayMap[scorerOrTemplate],
+            type: 'llm',
+            llmTemplate: scorerOrTemplate,
+            model: endpointName,
+            is_instructions_judge: false,
+          };
+
+      // Create backend-compatible scorer config
+      const scorerConfig = transformScheduledScorer(adHocScheduledScorer);
+
+      return {
+        ...baseParams,
+        judgeInstructions: TEMPLATE_INSTRUCTIONS_MAP[scorerOrTemplate as LLM_TEMPLATE],
+        serializedScorer: scorerConfig.serialized_scorer,
+      };
+    },
+    [displayMap, experimentId],
+  );
+
+  const evaluateTraces = useCallback(
+    (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => {
+      const scorer = scorerOrTemplate;
+      const evaluationParams = getEvaluationParams(scorer, traceIds, endpointName);
       return evaluateTracesFn(evaluationParams);
     },
-    [evaluateTracesFn, experimentId],
+    [getEvaluationParams, evaluateTracesFn],
   );
 
   return {
     evaluateTraces,
     latestEvaluation,
     isLoading,
+    allEvaluations,
   };
 };
