@@ -55,6 +55,8 @@ repos:
           )$
         exclude: |
           (?x)^(
+            dev/gen_rest_api\.py|
+            dev/proto_plugin\.py|
             dev/set_matrix\.py|
             dev/update_ml_package_versions\.py|
             dev/proto_to_graphql/.*\.py|
