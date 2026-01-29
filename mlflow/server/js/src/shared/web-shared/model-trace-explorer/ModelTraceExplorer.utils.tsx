@@ -73,6 +73,9 @@ import {
   normalizeVoltAgentChatInput,
   normalizeVoltAgentChatOutput,
   synthesizeVoltAgentChatMessages,
+  normalizeStrandsChatInput,
+  normalizeStrandsChatOutput,
+  synthesizeStrandsChatMessages,
 } from './chat-utils';
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import { ASSESSMENT_SESSION_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -386,6 +389,15 @@ const getChatMessagesFromSpan = (
   // rather than inline in the messages array
   if (messageFormat === 'voltagent' && children && children.length > 0) {
     const synthesizedMessages = synthesizeVoltAgentChatMessages(inputs, outputs, children);
+    if (synthesizedMessages && synthesizedMessages.length > 0) {
+      return synthesizedMessages;
+    }
+  }
+
+  // For Strands format, synthesize messages from child spans (tool executions)
+  // This is necessary because Strands stores tool calls as child TOOL spans
+  if (messageFormat === 'strands' && children && children.length > 0) {
+    const synthesizedMessages = synthesizeStrandsChatMessages(inputs, outputs, children);
     if (synthesizedMessages && synthesizedMessages.length > 0) {
       return synthesizedMessages;
     }
@@ -1084,6 +1096,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'voltagent':
         const voltAgentMessages = normalizeVoltAgentChatInput(input) ?? normalizeVoltAgentChatOutput(input);
         if (voltAgentMessages) return voltAgentMessages;
+        break;
+      case 'strands':
+        const strandsMessages = normalizeStrandsChatInput(input) ?? normalizeStrandsChatOutput(input);
+        if (strandsMessages) return strandsMessages;
         break;
       default:
         // Fallback to OpenAI chat format
