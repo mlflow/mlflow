@@ -185,8 +185,8 @@ const TracesV3LogsImpl = React.memo(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
             col.type === TracesTableColumnType.EXPECTATION ||
-            (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
-            (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+            col.type === TracesTableColumnType.INPUT ||
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
             (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
             (col.type === TracesTableColumnType.TRACE_INFO &&
               [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, STATE_COLUMN_ID].includes(
