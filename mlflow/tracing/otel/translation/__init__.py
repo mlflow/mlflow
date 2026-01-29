@@ -97,7 +97,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     # Calculate cost if both token usage and model are available
     if (
-        SpanAttributeKey.CHAT_COST not in attributes
+        SpanAttributeKey.LLM_COST not in attributes
         and SpanAttributeKey.CHAT_USAGE in attributes
         and SpanAttributeKey.MODEL in attributes
     ):
@@ -112,7 +112,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
             if cost := calculate_cost_by_model_and_token_usage(
                 model_name, token_usage, model_provider
             ):
-                attributes[SpanAttributeKey.CHAT_COST] = dump_span_attribute_value(cost)
+                attributes[SpanAttributeKey.LLM_COST] = dump_span_attribute_value(cost)
         except Exception:
             _logger.debug("Failed to calculate cost during OTEL translation", exc_info=True)
 

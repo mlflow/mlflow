@@ -494,8 +494,8 @@ def test_translate_cost_from_otel(translator: OtelSchemaTranslator, mock_litellm
 
     result = translate_span_when_storing(span)
 
-    assert SpanAttributeKey.CHAT_COST in result["attributes"]
-    cost = json.loads(result["attributes"][SpanAttributeKey.CHAT_COST])
+    assert SpanAttributeKey.LLM_COST in result["attributes"]
+    cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
     assert cost == {
         "input_cost": 10.0,
         "output_cost": 40.0,
@@ -532,8 +532,8 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
     assert provider == "openai"
 
     # Cost should still be calculated
-    assert SpanAttributeKey.CHAT_COST in result["attributes"]
-    cost = json.loads(result["attributes"][SpanAttributeKey.CHAT_COST])
+    assert SpanAttributeKey.LLM_COST in result["attributes"]
+    cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
     assert cost == {
         "input_cost": 10.0,
         "output_cost": 40.0,
@@ -579,8 +579,8 @@ def test_translate_cost_edge_cases(
     result = translate_span_when_storing(span)
 
     if should_have_cost:
-        assert SpanAttributeKey.CHAT_COST in result["attributes"]
-        cost = json.loads(result["attributes"][SpanAttributeKey.CHAT_COST])
+        assert SpanAttributeKey.LLM_COST in result["attributes"]
+        cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
         input_cost = attributes.get("gen_ai.usage.input_tokens", 0) * 1.0
         output_cost = attributes.get("gen_ai.usage.output_tokens", 0) * 2.0
         assert cost == {
@@ -589,4 +589,4 @@ def test_translate_cost_edge_cases(
             "total_cost": input_cost + output_cost,
         }
     else:
-        assert SpanAttributeKey.CHAT_COST not in result["attributes"]
+        assert SpanAttributeKey.LLM_COST not in result["attributes"]
