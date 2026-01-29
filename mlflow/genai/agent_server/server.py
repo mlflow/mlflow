@@ -183,13 +183,15 @@ class AgentServer:
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{self.chat_app_port}/{path}"
+                headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+                params = dict(request.query_params)
 
                 # Build and send request with streaming enabled
                 req = self.proxy_client.build_request(
                     method=request.method,
                     url=target_url,
-                    params=dict(request.query_params),
-                    headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+                    params=params,
+                    headers=headers,
                     content=body,
                 )
                 proxy_response = await self.proxy_client.send(req, stream=True)
@@ -202,6 +204,9 @@ class AgentServer:
                         try:
                             async for chunk in proxy_response.aiter_bytes():
                                 yield chunk
+                        except Exception as e:
+                            logger.error(f"Error while streaming response: {e}")
+                            raise
                         finally:
                             await proxy_response.aclose()
 
@@ -211,11 +216,17 @@ class AgentServer:
                         headers=dict(proxy_response.headers),
                     )
                 else:
-                    # Non-streaming response - read fully then close
-                    content = await proxy_response.aread()
+                    # Non-streaming response - close streaming response and use simpler request()
                     await proxy_response.aclose()
+                    proxy_response = await self.proxy_client.request(
+                        method=request.method,
+                        url=target_url,
+                        params=params,
+                        headers=headers,
+                        content=body,
+                    )
                     return Response(
-                        content,
+                        proxy_response.content,
                         proxy_response.status_code,
                         headers=dict(proxy_response.headers),
                     )
