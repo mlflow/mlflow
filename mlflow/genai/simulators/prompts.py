@@ -23,7 +23,7 @@ Your role's persona is:
 Your underlying goal in this conversation is:
 {goal}
 </goal>
-
+{guidelines_section}
 Begin the conversation with a concise, natural opening message."""
 
 # NB: We embed history into the prompt instead of passing a message list directly to reduce
@@ -51,7 +51,7 @@ Your role's persona is:
 Your underlying goal in this conversation is:
 {goal}
 </goal>
-
+{guidelines_section}
 Instructions:
 - Write a natural follow-up like a human user, not like an assistant or expert.
   Do not act as the helper or expert:

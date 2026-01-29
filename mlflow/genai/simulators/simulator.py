@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
-_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations", "simulation_guidelines"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 PGBAR_FORMAT = (
@@ -194,12 +194,15 @@ class SimulatorContext:
         persona: Description of the user's personality and background.
         conversation_history: The full conversation history as a list of message dicts.
         turn: The current turn number (0-indexed).
+        simulation_guidelines: Optional instructions for how the simulated user should
+            conduct the conversation.
     """
 
     goal: str
     persona: str
     conversation_history: list[dict[str, Any]]
     turn: int
+    simulation_guidelines: str | None = None
 
     @property
     def is_first_turn(self) -> bool:
@@ -299,19 +302,30 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
         goal: The objective the simulated user is trying to achieve in the conversation.
         persona: Description of the user's personality and background. If None, uses a
             default helpful user persona.
+        simulation_guidelines: Instructions for how the simulated user should conduct
+            the conversation.
         model: {{ model }}
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
     def generate_message(self, context: SimulatorContext) -> str:
+        guidelines_section = (
+            f"\n<simulation_guidelines>\n{context.simulation_guidelines}\n</simulation_guidelines>"
+            if context.simulation_guidelines
+            else ""
+        )
+
         if context.is_first_turn:
-            prompt = INITIAL_USER_PROMPT.format(persona=context.persona, goal=context.goal)
+            prompt = INITIAL_USER_PROMPT.format(
+                persona=context.persona, goal=context.goal, guidelines_section=guidelines_section
+            )
         else:
             history_without_last = context.conversation_history[:-1]
             history_str = format_history(history_without_last)
             prompt = FOLLOWUP_USER_PROMPT.format(
                 persona=context.persona,
                 goal=context.goal,
+                guidelines_section=guidelines_section,
                 conversation_history=history_str if history_str is not None else "",
                 last_response=context.last_assistant_response or "",
             )
@@ -358,6 +372,8 @@ class ConversationSimulator:
               session-level evaluation. These are logged to the first trace of the
               session with the session ID in metadata, allowing session-level scorers
               to retrieve them.
+            - "simulation_guidelines" (optional): Instructions for how the simulated user
+              should conduct the conversation.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
@@ -395,8 +411,8 @@ class ConversationSimulator:
                 return response
 
 
-            # Each test case requires a "goal". "persona", "context", and "expectations"
-            # are optional.
+            # Each test case requires a "goal". "persona", "context", "expectations",
+            # and "simulation_guidelines" are optional.
             simulator = ConversationSimulator(
                 test_cases=[
                     {"goal": "Learn about MLflow tracking"},
@@ -406,6 +422,7 @@ class ConversationSimulator:
                         "persona": "A beginner",
                         "context": {"user_id": "123"},
                         "expectations": {"expected_topic": "model registry"},
+                        "simulation_guidelines": "Ask clarifying questions before proceeding",
                     },
                 ],
                 max_turns=5,
@@ -604,6 +621,7 @@ class ConversationSimulator:
     ) -> list[str]:
         goal = test_case["goal"]
         persona = test_case.get("persona") or DEFAULT_PERSONA
+        simulation_guidelines = test_case.get("simulation_guidelines")
         context = test_case.get("context", {})
         expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
@@ -624,6 +642,7 @@ class ConversationSimulator:
                     persona=persona,
                     conversation_history=conversation_history,
                     turn=turn,
+                    simulation_guidelines=simulation_guidelines,
                 )
                 user_message_content = user_agent.generate_message(simulator_context)
                 timings.add(generate_message_seconds=time.perf_counter() - start_time)
@@ -638,6 +657,7 @@ class ConversationSimulator:
                     trace_session_id=trace_session_id,
                     goal=goal,
                     persona=persona,
+                    simulation_guidelines=simulation_guidelines,
                     context=context,
                     expectations=expectations if turn == 0 else None,
                     turn=turn,
@@ -676,6 +696,7 @@ class ConversationSimulator:
         trace_session_id: str,
         goal: str,
         persona: str | None,
+        simulation_guidelines: str | None,
         context: dict[str, Any],
         expectations: dict[str, Any] | None,
         turn: int,
@@ -686,16 +707,19 @@ class ConversationSimulator:
         #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
         def traced_predict(**kwargs):
-            mlflow.update_current_trace(
-                metadata={
-                    TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                    "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                    "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                        :_MAX_METADATA_LENGTH
-                    ],
-                    "mlflow.simulation.turn": str(turn),
-                },
-            )
+            metadata = {
+                TraceMetadataKey.TRACE_SESSION: trace_session_id,
+                "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+                "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
+                    :_MAX_METADATA_LENGTH
+                ],
+                "mlflow.simulation.turn": str(turn),
+            }
+            if simulation_guidelines:
+                metadata["mlflow.simulation.simulation_guidelines"] = simulation_guidelines[
+                    :_MAX_METADATA_LENGTH
+                ]
+            mlflow.update_current_trace(metadata=metadata)
             if span := mlflow.get_current_active_span():
                 span.set_attributes(
                     {
