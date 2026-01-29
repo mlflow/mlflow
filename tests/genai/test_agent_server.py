@@ -558,32 +558,21 @@ async def test_chat_proxy_forwards_allowed_paths():
     server = AgentServer("ResponsesAgent", enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = 200
-    mock_stream_response.headers = {"content-type": "application/json"}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = 200
-    mock_request_response.headers = {"content-type": "application/json"}
-    mock_request_response.content = b'{"chat": "response"}'
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.aread = AsyncMock(return_value=b'{"chat": "response"}')
+    mock_response.aclose = AsyncMock()
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get("/assets/index.js")
         assert response.status_code == 200
         assert response.content == b'{"chat": "response"}'
         mock_build_request.assert_called_once()
         mock_send.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
-        mock_request.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -650,25 +639,16 @@ async def test_chat_proxy_forwards_post_requests_with_body():
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = 200
-    mock_stream_response.headers = {"content-type": "application/json"}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = 200
-    mock_request_response.headers = {"content-type": "application/json"}
-    mock_request_response.content = b'{"result": "success"}'
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.aread = AsyncMock(return_value=b'{"result": "success"}')
+    mock_response.aclose = AsyncMock()
 
     # POST to root path (allowed) to test body forwarding
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.post("/", json={"message": "hello"})
         assert response.status_code == 200
@@ -676,9 +656,7 @@ async def test_chat_proxy_forwards_post_requests_with_body():
 
         mock_build_request.assert_called_once()
         mock_send.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
-        mock_request.assert_called_once()
-        call_args = mock_request.call_args
+        call_args = mock_build_request.call_args
         assert call_args.kwargs["method"] == "POST"
         assert call_args.kwargs["content"] is not None
 
@@ -689,31 +667,20 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = 200
-    mock_stream_response.headers = {}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = 200
-    mock_request_response.headers = {}
-    mock_request_response.content = b"test"
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"test")
+    mock_response.aclose = AsyncMock()
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         client.get("/assets/test.js")
         mock_build_request.assert_called_once()
         mock_send.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
-        mock_request.assert_called_once()
-        call_args = mock_request.call_args
+        call_args = mock_build_request.call_args
         assert call_args.kwargs["url"] == "http://localhost:8080/assets/test.js"
 
 
@@ -930,32 +897,21 @@ async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = 200
-    mock_stream_response.headers = {}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = 200
-    mock_request_response.headers = {}
-    mock_request_response.content = b"response"
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"response")
+    mock_response.aclose = AsyncMock()
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get(path)
         assert response.status_code == 200
         mock_build_request.assert_called_once()
         mock_send.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
-        mock_request.assert_called_once()
-        assert mock_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
+        assert mock_build_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
 
 
 @pytest.mark.asyncio
@@ -1017,31 +973,20 @@ async def test_chat_proxy_forwards_additional_paths_from_env_vars(
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = 200
-    mock_stream_response.headers = {}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = 200
-    mock_request_response.headers = {}
-    mock_request_response.content = b"response"
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"response")
+    mock_response.aclose = AsyncMock()
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get(test_path)
         assert response.status_code == 200
         mock_build_request.assert_called_once()
         mock_send.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
-        mock_request.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -1099,32 +1044,23 @@ async def test_chat_proxy_non_sse_responses(content_type, status_code, custom_he
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    # Mock for initial streaming check (will be closed when content-type is not SSE)
-    mock_stream_response = AsyncMock()
-    mock_stream_response.status_code = status_code
-    mock_stream_response.headers = {"content-type": content_type, **custom_headers}
-    mock_stream_response.aclose = AsyncMock()
-
-    # Mock for the actual non-streaming request
-    mock_request_response = Mock()
-    mock_request_response.status_code = status_code
-    mock_request_response.headers = {"content-type": content_type, **custom_headers}
-    mock_request_response.content = b"content"
+    mock_response = AsyncMock()
+    mock_response.status_code = status_code
+    mock_response.headers = {"content-type": content_type, **custom_headers}
+    mock_response.aread = AsyncMock(return_value=b"content")
+    mock_response.aclose = AsyncMock()
 
     with (
         patch.object(server.proxy_client, "build_request") as mock_build_request,
-        patch.object(server.proxy_client, "send", return_value=mock_stream_response) as mock_send,
-        patch.object(
-            server.proxy_client, "request", return_value=mock_request_response
-        ) as mock_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get("/")
         assert response.status_code == status_code
         assert response.content == b"content"
         mock_build_request.assert_called_once()
-        mock_stream_response.aclose.assert_called_once()
+        mock_response.aread.assert_called_once()
+        mock_response.aclose.assert_called_once()
         assert mock_send.call_args.kwargs.get("stream") is True
-        mock_request.assert_called_once()
         for key, value in custom_headers.items():
             assert response.headers[key] == value
 
