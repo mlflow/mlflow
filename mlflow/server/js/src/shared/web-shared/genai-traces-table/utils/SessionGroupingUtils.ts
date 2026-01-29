@@ -234,11 +234,20 @@ export const groupTracesBySessionForTable = (
     // Add individual trace rows only if session is expanded and not comparing
     // In comparison mode with session grouping, sessions are not expandable
     if (expandedSessions.has(sessionId) && !isComparing) {
-      // Find the original entries for these traces
-      const entriesForSession = currentEvaluationResults.filter((entry) => {
-        const traceId = entry.currentRunValue?.traceInfo?.trace_id;
-        return traceId && sortedCurrentTraces.some((t) => t.trace_id === traceId);
-      });
+      // Create a map of trace_id -> sorted index for ordering
+      const traceIdToSortIndex = new Map(sortedCurrentTraces.map((t, idx) => [t.trace_id, idx]));
+
+      // Find the original entries for these traces and sort them to match sortedCurrentTraces order
+      const entriesForSession = currentEvaluationResults
+        .filter((entry) => {
+          const traceId = entry.currentRunValue?.traceInfo?.trace_id;
+          return traceId && traceIdToSortIndex.has(traceId);
+        })
+        .toSorted((a, b) => {
+          const aIdx = traceIdToSortIndex.get(a.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
+          const bIdx = traceIdToSortIndex.get(b.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
+          return aIdx - bIdx;
+        });
 
       entriesForSession.forEach((entry, index) => {
         result.push({

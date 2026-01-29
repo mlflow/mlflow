@@ -17,6 +17,7 @@ jest.mock('../utils/TraceUtils', () => ({
 
 jest.mock('../utils/FeatureUtils', () => ({
   shouldEnableTagGrouping: jest.fn(() => false),
+  shouldEnableSessionGrouping: jest.fn(() => false),
 }));
 
 describe('useTableColumns', () => {
