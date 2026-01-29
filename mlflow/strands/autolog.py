@@ -29,7 +29,6 @@ from mlflow.tracing.utils import (
     _bypass_attribute_guard,
     get_mlflow_span_for_otel_span,
     get_otel_attribute,
-    set_span_cost_attribute,
 )
 
 _logger = logging.getLogger(__name__)
@@ -142,4 +141,3 @@ def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         usage[TokenUsageKey.TOTAL_TOKENS] = v
     if usage:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-        set_span_cost_attribute(mlflow_span)

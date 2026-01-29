@@ -9,7 +9,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     set_span_chat_tools,
-    set_span_cost_attribute,
     set_span_model_attribute,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -107,7 +106,6 @@ class TracingSession:
         try:
             if usage := _parse_usage(self.output):
                 self.span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-                set_span_cost_attribute(self.span)
         except Exception as e:
             _logger.debug(
                 f"Failed to extract token usage for span {self.span.name}: {e}",

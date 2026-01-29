@@ -14,7 +14,7 @@ from mlflow.bedrock.utils import parse_complete_token_usage_from_response, skip_
 from mlflow.entities import LiveSpan, SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.utils import set_span_chat_tools, set_span_cost_attribute
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
@@ -108,7 +108,6 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # Parse and set token usage information if available
         if usage_data := _parse_usage_from_response(parsed_response_body):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
-            set_span_cost_attribute(span)
 
         return result
 
@@ -184,7 +183,6 @@ def _patched_converse(original, self, *args, **kwargs):
         # Parse and set token usage information if available
         if usage_data := _parse_usage_from_response(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
-            set_span_cost_attribute(span)
 
         return result
 

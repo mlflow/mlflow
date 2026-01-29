@@ -25,7 +25,6 @@ from mlflow.tracing.utils import (
     _bypass_attribute_guard,
     generate_trace_id_v3,
     get_mlflow_span_for_otel_span,
-    set_span_cost_attribute,
     set_span_model_attribute,
 )
 
@@ -151,7 +150,6 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
 
         if usage := _parse_token_usage(mlflow_span.outputs):
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-            set_span_cost_attribute(mlflow_span)
 
         if parent_id := mlflow_span.parent_id:
             key = comp_alias or comp_type or mlflow_span.name

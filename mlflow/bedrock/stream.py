@@ -12,7 +12,6 @@ from mlflow.bedrock.utils import (
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.utils import set_span_cost_attribute
 
 _logger = logging.getLogger(__name__)
 
@@ -126,7 +125,6 @@ class InvokeModelStreamWrapper(BaseEventStreamWrapper):
         # Build a standardized usage dict from buffered data using the utility function
         if usage_data := parse_complete_token_usage_from_response(self._usage_buffer):
             self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
-            set_span_cost_attribute(self._span)
 
         self._end_span()
 
@@ -168,7 +166,6 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         if isinstance(raw_usage_data, dict):
             if usage_data := parse_complete_token_usage_from_response(raw_usage_data):
                 self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
-                set_span_cost_attribute(self._span)
 
         self._end_span()
 
