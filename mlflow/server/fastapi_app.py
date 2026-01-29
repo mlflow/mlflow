@@ -13,7 +13,6 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import JSONResponse
 from flask import Flask
 
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server import app as flask_app
 from mlflow.server.assistant.api import assistant_router
@@ -21,16 +20,15 @@ from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
 from mlflow.server.otel_api import otel_router
-from mlflow.server.workspace_helpers import WORKSPACE_HEADER_NAME, resolve_workspace_from_header
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.server.workspace_helpers import (
+    WORKSPACE_HEADER_NAME,
+    resolve_workspace_for_request_if_enabled,
+)
 from mlflow.utils.workspace_context import (
     clear_server_request_workspace,
     set_server_request_workspace,
 )
 from mlflow.version import VERSION
-
-# FastAPI routes that do not go through the Flask WSGI bridge (jobs, OTLP, gateway).
-FASTAPI_NATIVE_PREFIXES = (job_api_router.prefix, OTLP_TRACES_PATH, gateway_router.prefix)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -39,16 +37,11 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
 
     @fastapi_app.middleware("http")
     async def workspace_context_middleware(request: Request, call_next):
-        if not MLFLOW_ENABLE_WORKSPACES.get():
-            return await call_next(request)
-
-        path = request.url.path
-        if not any(path.startswith(prefix) for prefix in FASTAPI_NATIVE_PREFIXES):
-            # Skip if it's a Flask route and let the Flask before request handler handle it.
-            return await call_next(request)
-
         try:
-            workspace = resolve_workspace_from_header(request.headers.get(WORKSPACE_HEADER_NAME))
+            workspace = resolve_workspace_for_request_if_enabled(
+                request.url.path,
+                request.headers.get(WORKSPACE_HEADER_NAME),
+            )
         except MlflowException as e:
             return JSONResponse(
                 status_code=e.get_http_status_code(),
