@@ -3,6 +3,7 @@ import importlib.metadata
 import logging
 import os
 import shlex
+import signal
 import sys
 import tempfile
 import textwrap
@@ -451,8 +452,27 @@ def _run_server(
         )
 
     server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
+        start_new_session=not is_windows(),
     )
+
+    def _forward_signal(signum, _frame):
+        """Forward signals to the child process group to enable graceful shutdown."""
+        if server_proc.poll() is not None:
+            return
+        try:
+            if is_windows():
+                server_proc.send_signal(signum)
+            else:
+                os.killpg(server_proc.pid, signum)
+        except ProcessLookupError:
+            pass
+
+    signal.signal(signal.SIGTERM, _forward_signal)
+    signal.signal(signal.SIGINT, _forward_signal)
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
