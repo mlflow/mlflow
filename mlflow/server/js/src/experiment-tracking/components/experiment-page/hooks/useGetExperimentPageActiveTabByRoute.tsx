@@ -19,6 +19,9 @@ const ExperimentPageRoutePathToTabNameMap = map(
     // OSS experiment prompt page routes
     [RoutePaths.experimentPageTabPrompts]: ExperimentPageTabName.Prompts,
     [RoutePaths.experimentPageTabPromptDetails]: ExperimentPageTabName.Prompts,
+    // OSS experiment prompt optimization page routes
+    [RoutePaths.experimentPageTabPromptOptimization]: ExperimentPageTabName.PromptOptimization,
+    [RoutePaths.experimentPageTabPromptOptimizationDetails]: ExperimentPageTabName.PromptOptimization,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );

@@ -209,6 +209,24 @@ const getExperimentPageRouteDefs = () => {
             ],
           } satisfies RouteHandle,
         },
+        {
+          path: RoutePaths.experimentPageTabPromptOptimization,
+          pageId: PageId.experimentPageTabPromptOptimization,
+          element: createLazyRouteElement(() => import('./pages/prompt-optimization/ExperimentPromptOptimizationPage')),
+          handle: {
+            getPageTitle: (params) => `Prompt Optimization - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabPromptOptimizationDetails,
+          pageId: PageId.experimentPageTabPromptOptimizationDetails,
+          element: createLazyRouteElement(
+            () => import('./pages/prompt-optimization/ExperimentPromptOptimizationDetailsPage'),
+          ),
+          handle: {
+            getPageTitle: (params) => `Optimization Job ${params['jobId']}`,
+          } satisfies DocumentTitleHandle,
+        },
       ],
     },
   ];

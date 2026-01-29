@@ -26,6 +26,8 @@ export enum PageId {
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
+  experimentPageTabPromptOptimization = 'mlflow.experiment.prompt-optimization.list',
+  experimentPageTabPromptOptimizationDetails = 'mlflow.experiment.prompt-optimization.details',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -105,6 +107,13 @@ export class RoutePaths {
   }
   static get experimentPageTabPromptDetails() {
     return createMLflowRoutePath('/experiments/:experimentId/prompts/:promptName');
+  }
+  // OSS experiment prompt optimization page routes
+  static get experimentPageTabPromptOptimization() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompt-optimization');
+  }
+  static get experimentPageTabPromptOptimizationDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompt-optimization/:jobId');
   }
   static get runPageDirect() {
     return createMLflowRoutePath('/runs/:runUuid');
@@ -313,6 +322,18 @@ class Routes {
       return generatePath(RoutePaths.experimentPageTabPromptDetails, { experimentId, promptName });
     }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
+  }
+
+  /**
+   * Routes for prompt optimization.
+   * Featured exclusively in open source MLflow.
+   */
+  static getPromptOptimizationPageRoute(experimentId: string) {
+    return generatePath(RoutePaths.experimentPageTabPromptOptimization, { experimentId });
+  }
+
+  static getPromptOptimizationDetailsPageRoute(experimentId: string, jobId: string) {
+    return generatePath(RoutePaths.experimentPageTabPromptOptimizationDetails, { experimentId, jobId });
   }
 }
 

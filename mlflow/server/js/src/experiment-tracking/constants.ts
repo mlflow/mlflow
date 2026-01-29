@@ -150,6 +150,7 @@ export enum ExperimentPageTabName {
   LabelingSessions = 'labeling-sessions',
   LabelingSchemas = 'label-schemas',
   Prompts = 'prompts',
+  PromptOptimization = 'prompt-optimization',
   ChatSessions = 'chat-sessions',
   SingleChatSession = 'single-chat-session',
 }
