@@ -14,7 +14,7 @@ To systematically test and improve a GenAI application, you use an evaluation da
 - Improve quality by testing fixes against known problematic examples from production.
 - Prevent regressions. Create a "golden set" of examples that must always work correctly.
 - Compare app versions. Test different prompts, models, or app logic against the same data.
-- Target specific features or issues. Build specialized datasets for safety, domain knowledge, or edge cases.
+- Target specific features or isolate certain problems in your agent. Build specialized datasets for safety, domain knowledge, or edge cases.
 - Validate the app across different environments (e.g., development vs. production) as part of LLMOps.
 
 You can think of them as test suites for your LLM functionality.
@@ -38,9 +38,9 @@ You can use any of the following to create an evaluation dataset:
 
 This page describes how to create an MLflow evaluation dataset. You can create datasets from traces using either the MLflow Monitoring UI or the SDK. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries. See [Evaluation examples](/genai/eval-monitor/running-evaluation/eval-examples) for more examples.
 
-## Create a dataset using the UI
+## Create or update a dataset using the UI
 
-Follow these steps to use the UI to create a dataset from existing traces.
+Follow these steps to use the UI to create a dataset or add to a dataset from existing traces.
 
 1. Click **Experiments** in the sidebar to display the Experiments page.
 1. In the table, click on the name of your experiment to open it.
@@ -53,17 +53,17 @@ Follow these steps to use the UI to create a dataset from existing traces.
    <video src={useBaseUrl("/images/genai/select-traces.mp4")} controls loop autoPlay muted aria-label="Selecting traces for eval dataset" />
 
 1. Click **Actions**. From the drop-down menu, select **Add to evaluation dataset**.
-1. The **Add traces to evaluation dataset** dialog appears.
+1. The **Export traces to evaluation dataset** dialog appears.
+
+   <ImageBox src="/images/genai/add-to-dataset-dialog.png" alt="Add to dataset dialog" width="50%" />
 
    If evaluation datasets exist for this experiment, they appear in the dialog.
    1. Click **Export** next to the dataset you want to add these traces to.
-   1. After the traces have been exported, the button changes to **Exported**. Click **Done**.
 
    If no evaluation dataset exists for the experiment:
    1. Click **Create new dataset**.
    1. In the **Create Dataset** dialog, enter a name for the evaluation dataset and click **Create**.
    1. Click **Export** next to the dataset you just created.
-   1. After the traces have been exported, the button changes to **Exported**. Click **Done**.
 
 ## Create a dataset using the SDK and add records
 
@@ -277,7 +277,6 @@ dataset.merge_records(df)
 </Tabs>
 </TabsWrapper>
 
-
 ### Preview the dataset
 
 Optionally, you can examine the dataset by converting it to a dataframe.
@@ -297,37 +296,16 @@ Every record in an evaluation dataset has a **source type** that tracks its prov
 
 ## Update existing datasets
 
-You can use the UI or the SDK to update an evaluation dataset.
+You can use the UI or the SDK to update an evaluation dataset. For UI instructions, see [Create or update a dataset using the UI](#create-or-update-a-dataset-using-the-ui).
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="mlflow-ui" label="MLflow UI" default>
-
-Use the UI to add records to an existing evaluation dataset.
-
-1. Open the dataset page in the MLflow UI:
-   1. Navigate to your experiment.
-   1. In the sidebar at left, click **Datasets**.
-   1. Click on the name of the dataset in the list.
-
-      <ImageBox src="images/genai/datasets-tab.png" alt="Datasets tab in sidebar" />
-
-1. Click **Add record**. A new row appears with generic content.
-1. Edit the new row directly to enter the input and expectations for the new record. Optionally, set any tags for the new record.
-1. Click **Save changes**.
-
-</TabItem>
-
-<TabItem value="mlflow-sdk" label="MLflow SDK">
-
-Use the MLflow SDK to update and existing evaluation dataset:
+To use the MLflow SDK to update and existing evaluation dataset:
 
 ```python
 import mlflow.genai.datasets
 import pandas as pd
 
 # Load existing dataset
-dataset = mlflow.genai.datasets.get_dataset(name="catalog.schema.eval_dataset")
+dataset = mlflow.genai.datasets.get_dataset(name="eval_dataset")
 
 # Add new test cases
 new_cases = [
@@ -343,11 +321,6 @@ new_cases = [
 # Merge new cases
 dataset = dataset.merge_records(new_cases)
 ```
-
-</TabItem>
-
-</Tabs>
-</TabsWrapper>
 
 ## Next Steps
 
