@@ -251,6 +251,46 @@ mlflow.genai.evaluate(
 )
 ```
 
+## Evaluating Multi-Turn Agents
+
+The examples above evaluate single-turn interactions where each input produces one response. For conversational agents that handle multi-turn dialogues, you can use **conversation simulation** to generate and evaluate complete conversations:
+
+```python
+from mlflow.genai.simulators import ConversationSimulator
+from mlflow.genai.scorers import ConversationCompleteness, Safety
+
+
+# Define conversation scenarios to test
+simulator = ConversationSimulator(
+    test_cases=[
+        {"goal": "Get help calculating compound interest"},
+        {"goal": "Debug why a calculation is wrong", "persona": "Frustrated user"},
+    ],
+    max_turns=5,
+)
+
+
+# Wrap your agent to accept conversation history
+def predict_fn(input: list[dict], **kwargs) -> dict:
+    # input contains the full conversation history
+    messages = [{"role": m["role"], "content": m["content"]} for m in input]
+    result = Runner.run_sync(agent, messages[-1]["content"])
+    return {"output": result.final_output}
+
+
+# Evaluate with both conversation-level and turn-level scorers
+results = mlflow.genai.evaluate(
+    data=simulator,
+    predict_fn=predict_fn,
+    scorers=[
+        ConversationCompleteness(),  # Conversation-level
+        Safety(),  # Applied to each turn
+    ],
+)
+```
+
+For complete documentation on multi-turn evaluation, see [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn) and [Conversation Simulation](/genai/eval-monitor/running-evaluation/conversation-simulation).
+
 ## Next steps
 
 <TilesGrid>
@@ -275,10 +315,10 @@ mlflow.genai.evaluate(
   <TileCard
     icon={MessageSquare}
     iconSize={48}
-    title="Collect User Feedback"
-    description="Gather human feedback on agent performance to create training data and improve evaluation accuracy."
-    href="/genai/assessments/feedback"
-    linkText="Start collecting →"
+    title="Evaluate Conversations"
+    description="Assess multi-turn conversations with specialized scorers for dialogue quality and user satisfaction."
+    href="/genai/eval-monitor/running-evaluation/multi-turn"
+    linkText="Evaluate conversations →"
     containerHeight={64}
   />
 </TilesGrid>

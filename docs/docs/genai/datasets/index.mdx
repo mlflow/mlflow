@@ -274,6 +274,52 @@ dataset.merge_records(df)
 ```
 
 </TabItem>
+<TabItem value="for-simulation" label="For Conversation Simulation">
+
+Store test cases for [conversation simulation](/genai/eval-monitor/running-evaluation/conversation-simulation) to enable reproducible multi-turn testing:
+
+```python
+from mlflow.genai.datasets import create_dataset, get_dataset
+from mlflow.genai.simulators import ConversationSimulator
+
+# Create a dataset for simulation test cases
+dataset = create_dataset(
+    name="conversation_scenarios",
+    experiment_id=["0"],
+    tags={"type": "simulation", "agent": "support-bot"},
+)
+
+# Define test cases with goals and personas
+simulation_test_cases = [
+    {
+        "inputs": {
+            "goal": "Get help setting up experiment tracking",
+            "persona": "You are a data scientist new to MLflow",
+        },
+    },
+    {
+        "inputs": {
+            "goal": "Debug a model deployment error",
+            "persona": "You are a senior engineer who expects precise answers",
+        },
+    },
+    {
+        "inputs": {
+            "goal": "Understand model versioning best practices",
+            "persona": "You are building an ML platform for your team",
+            "context": {"team_size": "large", "compliance": "strict"},
+        },
+    },
+]
+
+dataset.merge_records(simulation_test_cases)
+
+# Later, use the dataset with ConversationSimulator
+dataset = get_dataset(name="conversation_scenarios")
+simulator = ConversationSimulator(test_cases=dataset)
+```
+
+</TabItem>
 </Tabs>
 </TabsWrapper>
 
