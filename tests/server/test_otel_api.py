@@ -42,12 +42,12 @@ def test_workspace_scoped_otlp_endpoint_sets_workspace(monkeypatch):
     tracking_store = DummyTrackingStore()
     captured = {}
 
-    def fake_resolve(header_workspace):
+    def fake_resolve(_path, header_workspace):
         captured["requested"] = header_workspace
         return Workspace(name=header_workspace)
 
     monkeypatch.setattr(
-        "mlflow.server.fastapi_app.resolve_workspace_from_header",
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
         fake_resolve,
     )
     monkeypatch.setattr(
@@ -86,12 +86,12 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
     tracking_store = DummyTrackingStore()
     captured = {}
 
-    def fake_resolve(header_workspace):
+    def fake_resolve(_path, header_workspace):
         captured["requested"] = header_workspace
         return Workspace(name="default")
 
     monkeypatch.setattr(
-        "mlflow.server.fastapi_app.resolve_workspace_from_header",
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
         fake_resolve,
     )
     monkeypatch.setattr(
@@ -127,11 +127,11 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
             # This will raise MlflowException if workspace context is not set
             self._get_active_workspace()
 
-    def fake_resolve(_header_workspace):
+    def fake_resolve(_path, _header_workspace):
         return None
 
     monkeypatch.setattr(
-        "mlflow.server.fastapi_app.resolve_workspace_from_header",
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
         fake_resolve,
     )
     monkeypatch.setattr(
