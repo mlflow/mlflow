@@ -264,6 +264,10 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
     changelogs_dir = Path("changelogs")
     changelogs_dir.mkdir(exist_ok=True)
     version_changelog = changelogs_dir / f"v{release_version}.md"
+
+    if version_changelog.exists():
+        print(f"Warning: {version_changelog} already exists and will be overwritten")
+
     version_changelog.write_text(new_changelog + "\n")
 
 
