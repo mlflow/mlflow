@@ -77,6 +77,9 @@ from mlflow.entities.webhook import (
     WebhookTestResult,
 )
 
+# Type alias for a session (a group of traces sharing a session ID)
+Session = list[Trace]
+
 __all__ = [
     "Experiment",
     "ExperimentTag",
@@ -107,6 +110,7 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "Session",
     "TraceLocation",
     "TraceLocationType",
     "MlflowExperimentLocation",
