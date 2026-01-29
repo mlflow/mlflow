@@ -12086,7 +12086,7 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
 
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_COST: json.dumps(
+        SpanAttributeKey.LLM_COST: json.dumps(
             {
                 "input_cost": 0.01,
                 "output_cost": 0.02,
@@ -12130,7 +12130,7 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_COST: json.dumps(
+        SpanAttributeKey.LLM_COST: json.dumps(
             {
                 "input_cost": 0.01,
                 "output_cost": 0.02,
@@ -12158,7 +12158,7 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_COST: json.dumps(
+        SpanAttributeKey.LLM_COST: json.dumps(
             {
                 "input_cost": 0.005,
                 "output_cost": 0.01,

@@ -4210,7 +4210,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         aggregated_token_usage = update_token_usage(
                             aggregated_token_usage, span_token_usage
                         )
-                    if span_cost := span_attributes.get(SpanAttributeKey.CHAT_COST):
+                    if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
                         aggregated_cost = update_cost(aggregated_cost, span_cost)
                     # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
