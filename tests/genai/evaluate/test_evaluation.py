@@ -1304,7 +1304,7 @@ def test_evaluate_with_conversation_simulator_empty_simulation_error():
     )
 
     with mock.patch(
-        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
+        "mlflow.genai.simulators.simulator._invoke_model_without_tracing"
     ) as mock_invoke:
         # Simulate a failure that produces no traces
         mock_invoke.side_effect = Exception("LLM call failed")
