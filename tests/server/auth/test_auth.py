@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
+from mlflow.server.auth.utils import is_unprotected_route
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import kill_process_tree, random_str
@@ -103,6 +104,23 @@ def test_validate_username_and_password(client, username, password):
     with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
         create_user(client.tracking_uri, username=username, password=password)
 
+def test_unprotected_routes_respect_static_prefix():
+    # Health endpoint
+    assert is_unprotected_route("/health")
+    assert is_unprotected_route("/mlflow/health", static_prefix="/mlflow")
+
+    # Version endpoint
+    assert is_unprotected_route("/version")
+    assert is_unprotected_route("/mlflow/version", static_prefix="/mlflow")
+
+    # Static assets
+    assert is_unprotected_route("/mlflow/static/app.js", static_prefix="/mlflow")
+
+    # API routes must remain protected
+    assert not is_unprotected_route(
+        "/mlflow/api/2.0/mlflow/experiments/search",
+        static_prefix="/mlflow",
+    )
 
 def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
