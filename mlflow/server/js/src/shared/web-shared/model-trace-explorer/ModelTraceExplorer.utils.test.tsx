@@ -810,12 +810,12 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.children?.[2].key).toBe('child1');
   });
 
-  it('should extract model name from mlflow.model attribute', () => {
+  it('should extract model name from mlflow.llm.model attribute', () => {
     const spanWithModel: ModelTraceSpanV3 = {
       ...MOCK_V3_SPANS[0],
       attributes: {
         ...MOCK_V3_SPANS[0].attributes,
-        'mlflow.model': 'gpt-4o-mini',
+        'mlflow.llm.model': 'gpt-4o-mini',
       },
     };
 
@@ -823,12 +823,12 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.modelName).toBe('gpt-4o-mini');
   });
 
-  it('should extract cost from mlflow.chat.cost attribute', () => {
+  it('should extract cost from mlflow.llm.cost attribute', () => {
     const spanWithCost: ModelTraceSpanV3 = {
       ...MOCK_V3_SPANS[0],
       attributes: {
         ...MOCK_V3_SPANS[0].attributes,
-        'mlflow.chat.cost': JSON.stringify({
+        'mlflow.llm.cost': JSON.stringify({
           input_cost: 0.001,
           output_cost: 0.002,
           total_cost: 0.003,
@@ -844,12 +844,12 @@ describe('normalizeNewSpanData', () => {
     });
   });
 
-  it('should return undefined cost when mlflow.chat.cost is malformed', () => {
+  it('should return undefined cost when mlflow.llm.cost is malformed', () => {
     const spanWithMalformedCost: ModelTraceSpanV3 = {
       ...MOCK_V3_SPANS[0],
       attributes: {
         ...MOCK_V3_SPANS[0].attributes,
-        'mlflow.chat.cost': JSON.stringify({ invalid: 'format' }),
+        'mlflow.llm.cost': JSON.stringify({ invalid: 'format' }),
       },
     };
 
