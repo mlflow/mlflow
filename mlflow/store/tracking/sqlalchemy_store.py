@@ -134,6 +134,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
+    SqlSpanAttributes,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -147,6 +149,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -157,6 +160,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_when_storing,
+    update_cost,
     update_token_usage,
 )
 from mlflow.tracing.utils import (
@@ -4200,19 +4204,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     update_dict[SqlTraceInfo.status] = root_span_status
 
             aggregated_token_usage = {}
+            aggregated_cost = {}
             session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
+                span_cost = None
+                model_name = None
                 if span_attributes := span_dict.get("attributes", {}):
                     if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
                         aggregated_token_usage = update_token_usage(
                             aggregated_token_usage, span_token_usage
                         )
+                    if span_cost := span_attributes.get(SpanAttributeKey.CHAT_COST):
+                        aggregated_cost = update_cost(aggregated_cost, span_cost)
                     # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # Get model name for span metrics
+                    model_name = span_attributes.get(SpanAttributeKey.MODEL)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -4230,6 +4241,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
                 session.merge(sql_span)
+
+                if span_cost:
+                    span_cost = json.loads(span_cost)
+                    for cost_key in CostKey.all_keys():
+                        if (cost_value := span_cost.get(cost_key)) is not None:
+                            session.merge(
+                                SqlSpanMetrics(
+                                    trace_id=span.trace_id,
+                                    span_id=span.span_id,
+                                    key=cost_key,
+                                    value=float(cost_value),
+                                )
+                            )
+
+                if model_name:
+                    model_name = json.loads(model_name)
+                    session.merge(
+                        SqlSpanAttributes(
+                            trace_id=span.trace_id,
+                            span_id=span.span_id,
+                            key=SpanAttributeKey.MODEL,
+                            value=model_name,
+                        )
+                    )
 
                 if span.parent_id is None:
                     update_dict.update(
@@ -4263,6 +4298,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         session.merge(
                             SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
                         )
+
+            # Handle cost aggregation
+            trace_cost = (
+                session.query(SqlTraceMetadata)
+                .filter(
+                    SqlTraceMetadata.request_id == trace_id,
+                    SqlTraceMetadata.key == TraceMetadataKey.COST,
+                )
+                .one_or_none()
+            )
+            if aggregated_cost:
+                trace_cost = update_cost(trace_cost.value if trace_cost else {}, aggregated_cost)
+
+                session.merge(
+                    SqlTraceMetadata(
+                        request_id=trace_id,
+                        key=TraceMetadataKey.COST,
+                        value=json.dumps(trace_cost),
+                    )
+                )
 
             if session_id:
                 existing_session_id = (
