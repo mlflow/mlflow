@@ -7,10 +7,13 @@ from typing import TYPE_CHECKING
 import pydantic
 
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import DEFAULT_PERSONA, DISTILL_GOAL_AND_PERSONA_PROMPT
 from mlflow.genai.simulators.simulator import _MODEL_API_DOC, PGBAR_FORMAT
-from mlflow.genai.simulators.utils import format_history, invoke_model_without_tracing
+from mlflow.genai.simulators.utils import (
+    format_history,
+    get_default_simulation_model,
+    invoke_model_without_tracing,
+)
 from mlflow.genai.utils.trace_utils import resolve_conversation_from_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -78,6 +81,10 @@ def generate_test_cases(
     persona from each session. This is useful for generating test cases from existing
     conversation data rather than manually writing goals and personas.
 
+    .. note::
+        This task benefits from a powerful model. We recommend using ``openai:/gpt-5``
+        or a model of similar capability for best results.
+
     Args:
         sessions: A list of sessions, where each session is a list of traces.
         model: {{ model }}
@@ -102,7 +109,7 @@ def generate_test_cases(
             # Use the generated test cases with ConversationSimulator
             simulator = ConversationSimulator(test_cases=test_cases)
     """
-    model = model or get_default_model()
+    model = model or get_default_simulation_model()
     num_sessions = len(sessions)
     results: list[dict[str, str] | None] = [None] * num_sessions
     max_workers = min(num_sessions, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())

@@ -42,8 +42,8 @@ You must output your response as a valid JSON object with the following format:
 }}"""
 # NB: We include "rationale" to invoke chain-of-thought reasoning for better results.
 
-DISTILL_GOAL_AND_PERSONA_PROMPT = """Analyze the following conversation and extract the user's \
-underlying goal and persona.
+DISTILL_GOAL_AND_PERSONA_PROMPT = """Analyze the following conversation between a user and an \
+AI assistant. Extract the user's underlying goal and persona.
 
 <conversation>
 {conversation}
@@ -51,9 +51,9 @@ underlying goal and persona.
 
 Based on this conversation, identify:
 
-1. **Goal**: What is the user trying to accomplish? Describe their objective in one clear \
-sentence, written as an instruction (e.g., "Learn how to deploy a model" or "Debug an \
-authentication issue").
+1. **Goal**: What is the user trying to accomplish by talking to the assistant? Describe their \
+objective in one clear sentence from the user's perspective (e.g., "Learn how to deploy a model", \
+"Get help debugging an authentication issue", or "Understand how experiment tracking works").
 
 2. **Persona**: How does the user communicate? Describe their communication style, expertise \
 level, and personality in 1-2 sentences. Start with "You are..." (e.g., "You are a data \
