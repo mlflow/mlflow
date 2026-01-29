@@ -1,3 +1,4 @@
+from mlflow.genai.simulators.distillation import generate_test_cases
 from mlflow.genai.simulators.simulator import (
     BaseSimulatedUserAgent,
     ConversationSimulator,
@@ -10,4 +11,5 @@ __all__ = [
     "ConversationSimulator",
     "SimulatedUserAgent",
     "SimulatorContext",
+    "generate_test_cases",
 ]
