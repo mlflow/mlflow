@@ -2119,6 +2119,131 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
         ).raise_for_status()
 
 
+def test_prompt_optimization_job_search_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # user1 creates an experiment
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("prompt_optimization_search_test")
+
+    # Grant NO_PERMISSIONS to user2 on the experiment
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "NO_PERMISSIONS",
+        },
+        auth=(user1, password1),
+    )
+
+    # user1 can search jobs in the experiment
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 cannot search jobs in the experiment (NO_PERMISSIONS)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Grant READ permission to user2
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/update",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "READ",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 can now search jobs (READ grants can_read)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user2, password2),
+    )
+    assert response.status_code != 403
+
+
+def test_prompt_optimization_job_create_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # user1 creates an experiment
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("prompt_optimization_create_test")
+
+    # Grant READ permission to user2 (not enough for create)
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "READ",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 cannot create jobs (READ doesn't grant update)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json={
+            "experiment_id": experiment_id,
+            "source_prompt_uri": "prompts:/test/1",
+            "config": {
+                "optimizer_type": 1,  # GEPA
+                "dataset_id": "test-dataset",
+                "scorers": ["Correctness"],
+            },
+        },
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Grant EDIT permission to user2
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/update",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "EDIT",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 can now create jobs (EDIT grants can_update)
+    # The request will fail for other reasons (missing prompt, dataset, etc.)
+    # but should pass the permission check
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json={
+            "experiment_id": experiment_id,
+            "source_prompt_uri": "prompts:/test/1",
+            "config": {
+                "optimizer_type": 1,  # GEPA
+                "dataset_id": "test-dataset",
+                "scorers": ["Correctness"],
+            },
+        },
+        auth=(user2, password2),
+    )
+    # Should not be 403 (permission denied)
+    assert response.status_code != 403
+
+
 def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):
     user1, password1 = create_user(fastapi_client.tracking_uri)
     user2, password2 = create_user(fastapi_client.tracking_uri)
