@@ -16,11 +16,21 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.tracking import get_tracking_uri
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
+
+_DEFAULT_SIMULATION_MODEL = "openai:/gpt-5"
+
+
+def get_default_simulation_model() -> str:
+    if is_databricks_uri(get_tracking_uri()):
+        return _DATABRICKS_AGENTIC_JUDGE_MODEL
+    return _DEFAULT_SIMULATION_MODEL
 
 
 @contextmanager

@@ -2,7 +2,11 @@ from unittest import mock
 
 import pytest
 
-from mlflow.genai.simulators.utils import format_history, invoke_model_without_tracing
+from mlflow.genai.simulators.utils import (
+    format_history,
+    get_default_simulation_model,
+    invoke_model_without_tracing,
+)
 
 
 @pytest.mark.parametrize(
@@ -88,3 +92,15 @@ def test_invoke_model_without_tracing_with_databricks():
 
         assert result == "Hi from Databricks"
         mock_call.assert_called_once()
+
+
+def test_get_default_simulation_model_non_databricks():
+    with mock.patch("mlflow.genai.simulators.utils.is_databricks_uri", return_value=False):
+        model = get_default_simulation_model()
+        assert model == "openai:/gpt-5"
+
+
+def test_get_default_simulation_model_databricks():
+    with mock.patch("mlflow.genai.simulators.utils.is_databricks_uri", return_value=True):
+        model = get_default_simulation_model()
+        assert model == "gpt-oss-120b"
