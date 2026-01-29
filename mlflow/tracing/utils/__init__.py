@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
     TRACE_ID_V4_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
+    CostKey,
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
@@ -222,6 +223,49 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
         TokenUsageKey.OUTPUT_TOKENS: output_tokens,
         TokenUsageKey.TOTAL_TOKENS: total_tokens,
     }
+
+
+def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
+    """Calculate cost for a single span using LiteLLM pricing data.
+
+    Args:
+        span: The span to calculate cost for.
+
+    Returns:
+        Dictionary with input_cost, output_cost, and total_cost in USD,
+        or None if cost cannot be calculated.
+    """
+    try:
+        from litellm import cost_per_token
+    except ImportError:
+        _logger.debug("LiteLLM not available for cost calculation")
+        return None
+
+    model_name = span.get_attribute(SpanAttributeKey.MODEL)
+    usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+
+    if not model_name or not usage:
+        return None
+
+    try:
+        prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+        completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+
+        if prompt_tokens == 0 and completion_tokens == 0:
+            return None
+
+        input_cost_usd, output_cost_usd = cost_per_token(
+            model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
+
+        return {
+            CostKey.INPUT_COST: input_cost_usd,
+            CostKey.OUTPUT_COST: output_cost_usd,
+            CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
+        }
+    except Exception as e:
+        _logger.debug(f"Failed to calculate cost for span {span.span_id}: {e}", exc_info=True)
+        return None
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
@@ -655,3 +699,33 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     Construct a trace ID for the given location and trace ID.
     """
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+
+def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
+    """
+    Set the model attribute on a span using parsed model information.
+
+    This utility function extracts the model name from inputs and
+    sets it as a span attribute. It's used by autologging implementations to
+    consistently set model information across different LLM providers.
+
+    Args:
+        span: The LiveSpan to set the model attribute on
+        inputs: The request inputs dictionary
+    """
+    try:
+        if (model := inputs.get("model")) and isinstance(model, str):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
+    except Exception as e:
+        _logger.debug(f"Failed to set model for {span}. Error: {e}")
+
+
+def set_span_cost_attribute(span: LiveSpan) -> None:
+    """
+    Set the cost attribute on a span using calculated cost information.
+    """
+    try:
+        if cost := calculate_span_cost(span):
+            span.set_attribute(SpanAttributeKey.LLM_COST, cost)
+    except Exception as e:
+        _logger.debug(f"Failed to set cost for {span}. Error: {e}")
