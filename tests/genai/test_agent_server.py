@@ -1011,13 +1011,14 @@ async def test_chat_proxy_sse_streaming(content_type, status_code, custom_header
     mock_response.aclose = AsyncMock()
 
     with (
-        patch.object(server.proxy_client, "build_request"),
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
         patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get("/api/stream")
         assert response.status_code == status_code
         assert "text/event-stream" in response.headers["content-type"]
         assert response.content == b"data: chunk1\n\ndata: chunk2\n\n"
+        mock_build_request.assert_called_once()
         mock_response.aclose.assert_called_once()
         assert mock_send.call_args.kwargs.get("stream") is True
         for key, value in custom_headers.items():
@@ -1045,12 +1046,13 @@ async def test_chat_proxy_non_sse_responses(content_type, status_code, custom_he
     mock_response.aclose = AsyncMock()
 
     with (
-        patch.object(server.proxy_client, "build_request"),
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
         patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
     ):
         response = client.get("/")
         assert response.status_code == status_code
         assert response.content == b"content"
+        mock_build_request.assert_called_once()
         mock_response.aread.assert_called_once()
         mock_response.aclose.assert_called_once()
         assert mock_send.call_args.kwargs.get("stream") is True
