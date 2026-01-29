@@ -256,7 +256,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 data-testid="start-time-select-dropdown"
               >
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  {currentStartTimeFilterLabel}:{' '}
                   {startTime !== 'ALL' ? startTimeColumnLabels[startTime] : 'All time'}
                   {startTime !== 'ALL' && (
                     <XCircleFillIcon

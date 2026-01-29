@@ -23,16 +23,21 @@ export const ExperimentViewTracesStatusLabels = {
 };
 
 const getIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
+  const iconStyle = { color: '', width: 14, height: 14 };
+  
   if (state === 'IN_PROGRESS') {
-    return <ClockIcon css={{ color: theme.colors.textValidationWarning }} />;
+    iconStyle.color = theme.colors.textValidationWarning;
+    return <ClockIcon css={iconStyle} />;
   }
 
   if (state === 'OK') {
-    return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />;
+    iconStyle.color = theme.colors.textValidationSuccess;
+    return <CheckCircleIcon css={iconStyle} />;
   }
 
   if (state === 'ERROR') {
-    return <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />;
+    iconStyle.color = theme.colors.textValidationDanger;
+    return <XCircleIcon css={iconStyle} />;
   }
 
   return null;

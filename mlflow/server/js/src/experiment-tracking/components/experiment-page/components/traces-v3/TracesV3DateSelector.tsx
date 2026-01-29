@@ -98,7 +98,6 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
             data-testid="time-range-select-dropdown"
           >
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              {currentStartTimeFilterLabel}:{' '}
               {namedDateFilters.find(
                 (namedDateFilter) =>
                   namedDateFilter.key === monitoringFilters.startTimeLabel ||
