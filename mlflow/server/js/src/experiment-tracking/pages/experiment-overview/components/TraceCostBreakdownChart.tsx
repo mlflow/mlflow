@@ -12,7 +12,7 @@ import {
   OverviewChartContainer,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useChartColors } from '../utils/chartUtils';
+import { useChartColors, useLegendHighlight } from '../utils/chartUtils';
 
 interface ActiveShapeProps {
   cx: number;
@@ -125,6 +125,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
   const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData();
   const { getChartColor } = useChartColors();
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   const renderActiveShape = useMemo(() => createActiveShapeRenderer(theme), [theme]);
 
@@ -135,6 +136,23 @@ export const TraceCostBreakdownChart: React.FC = () => {
   const onPieLeave = useCallback(() => {
     setActiveIndex(undefined);
   }, []);
+
+  // Custom legend handlers that also update activeIndex to show tooltip
+  const onLegendMouseEnter = useCallback(
+    (data: { value: string }) => {
+      handleLegendMouseEnter(data);
+      const index = chartData.findIndex((entry) => entry.name === data.value);
+      if (index !== -1) {
+        setActiveIndex(index);
+      }
+    },
+    [handleLegendMouseEnter, chartData],
+  );
+
+  const onLegendMouseLeave = useCallback(() => {
+    handleLegendMouseLeave();
+    setActiveIndex(undefined);
+  }, [handleLegendMouseLeave]);
 
   const legendFormatter = useCallback(
     (value: string, entry: unknown) => {
@@ -193,8 +211,8 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 onMouseEnter={onPieEnter}
                 onMouseLeave={onPieLeave}
               >
-                {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={getChartColor(index)} />
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={getChartColor(index)} fillOpacity={getOpacity(entry.name)} />
                 ))}
               </Pie>
               <Legend
@@ -202,6 +220,8 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 align="right"
                 verticalAlign="middle"
                 formatter={legendFormatter}
+                onMouseEnter={onLegendMouseEnter}
+                onMouseLeave={onLegendMouseLeave}
                 wrapperStyle={{
                   fontSize: theme.typography.fontSizeSm,
                   maxHeight: DEFAULT_CHART_CONTENT_HEIGHT,
