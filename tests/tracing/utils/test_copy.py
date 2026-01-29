@@ -121,3 +121,24 @@ def test_copy_trace_empty_metadata_dict():
     # Tags should still be copied
     tags = trace.info.tags
     assert tags["user.tag"] == "value"
+
+
+def test_copy_trace_with_nonrecording_span(monkeypatch):
+    """If the tracing provider returns a NonRecordingSpan (no-op), copying should
+    raise an MlflowException with a clear message instead of raising an
+    AttributeError/KeyError later.
+    """
+    trace_dict = {"data": {"spans": [_create_test_span_dict("nonrecording-test")]}}
+
+    # Patch the start_detached_span to return an OpenTelemetry NonRecordingSpan
+    import mlflow.tracing.provider as provider
+    from opentelemetry.trace import NonRecordingSpan
+    from mlflow.exceptions import MlflowException
+
+    monkeypatch.setattr(provider, "start_detached_span", lambda **kwargs: NonRecordingSpan(context=None))
+
+    with pytest.raises(MlflowException) as excinfo:
+        copy_trace_to_experiment(trace_dict)
+
+    # Message should indicate a NonRecordingSpan / no-op span situation
+    assert "NonRecordingSpan" in str(excinfo.value) or "no-op" in str(excinfo.value)

@@ -2082,7 +2082,9 @@ class FileStore(AbstractStore):
         try:
             assessment_to_delete = self._load_assessment(trace_id, assessment_id)
             overrides_assessment_id = assessment_to_delete.overrides
-        except Exception:
+        except MlflowException:
+            # If we can't load the assessment (e.g., corrupted file), continue with deletion
+            # The assessment file will still be removed even if it couldn't be parsed
             pass
 
         assessment_path = self._get_assessment_path(trace_id, assessment_id)
