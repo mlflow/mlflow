@@ -37,6 +37,7 @@ import { ExperimentEvaluationRunsTableGroupBySelector } from './ExperimentEvalua
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { ExperimentEvaluationRunsTableActions } from './ExperimentEvaluationRunsTableActions';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 // function to mimic the data structure of the legacy runs response
 // so we can reuse the RunsSearchAutoComplete component
@@ -267,30 +268,32 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
-        <Tooltip
-          componentId="mlflow.eval-runs.compare-button.tooltip"
-          content={
-            isCompareEnabled ? (
-              <FormattedMessage
-                defaultMessage="Compare selected runs"
-                description="Tooltip for the compare button when enabled"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Select up to 2 runs to compare"
-                description="Tooltip for the compare button when disabled"
-              />
-            )
-          }
-        >
-          <Button
-            componentId="mlflow.eval-runs.compare-button"
-            onClick={handleCompareClick}
-            disabled={!isCompareEnabled}
+        {shouldEnableImprovedEvalRunsComparison() && (
+          <Tooltip
+            componentId="mlflow.eval-runs.compare-button.tooltip"
+            content={
+              isCompareEnabled ? (
+                <FormattedMessage
+                  defaultMessage="Compare selected runs"
+                  description="Tooltip for the compare button when enabled"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Select up to 2 runs to compare"
+                  description="Tooltip for the compare button when disabled"
+                />
+              )
+            }
           >
-            <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
-          </Button>
-        </Tooltip>
+            <Button
+              componentId="mlflow.eval-runs.compare-button"
+              onClick={handleCompareClick}
+              disabled={!isCompareEnabled}
+            >
+              <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
+            </Button>
+          </Tooltip>
+        )}
 
         <ExperimentEvaluationRunsTableActions
           rowSelection={rowSelection}
