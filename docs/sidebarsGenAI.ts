@@ -221,6 +221,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/livekit',
+                  label: 'LiveKit Agents',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/deepagent',
                   label: 'LangChain DeepAgent',
                 },
