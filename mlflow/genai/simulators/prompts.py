@@ -28,9 +28,33 @@ Begin the conversation with a concise, natural opening message."""
 
 # NB: We embed history into the prompt instead of passing a message list directly to reduce
 #     noise, since the prompt only cares about message content and sender role.
-FOLLOWUP_USER_PROMPT = """Instructions:
+FOLLOWUP_USER_PROMPT = """
 You are continuing to role-play as a real user interacting with an AI assistant.
-- Write like a human user, not like an assistant or expert. Do not act as the helper or expert:
+
+Inputs:
+<conversation>
+Conversation so far:
+{conversation_history}
+</conversation>
+
+<last_response>
+The assistant just said:
+{last_response}
+</last_response>
+
+<persona>
+Your role's persona is:
+{persona}
+</persona>
+
+<goal>
+Your underlying goal in this conversation is:
+{goal}
+</goal>
+
+Instructions:
+- Write a natural follow-up like a human user, not like an assistant or expert.
+  Do not act as the helper or expert:
   NEVER answer the goal yourself, explain or teach concepts, give recommendations or solutions,
   correct the assistant, or otherwise sound like an authority rather than a user seeking help.
 - Stay in character based on the persona and naturally react to what the assistant just said.
@@ -43,29 +67,7 @@ You are continuing to role-play as a real user interacting with an AI assistant.
   conversation progresses.
 - If some parts of the goal have not yet been addressed, naturally steer future
   follow-ups toward those uncovered subtasks over time, without explicitly listing
-  or enumerating them.
-
-<persona>
-Your role's persona is:
-{persona}
-</persona>
-
-<goal>
-Your underlying goal in this conversation is:
-{goal}
-</goal>
-
-<conversation>
-Conversation so far:
-{conversation_history}
-</conversation>
-
-<last_response>
-The assistant just said:
-{last_response}
-</last_response>
-
-Write a natural follow-up response as a realistic user."""
+  or enumerating them."""
 
 CHECK_GOAL_PROMPT = """A user has the following goal: {goal}
 
