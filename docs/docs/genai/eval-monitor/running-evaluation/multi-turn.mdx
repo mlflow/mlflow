@@ -240,6 +240,9 @@ MLflow provides built-in judges for evaluating conversations:
 |--------|-------------|---------------|
 | <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink> | Evaluates whether the agent addressed all user questions | `"yes"` or `"no"` |
 | <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink> | Evaluates compliance with provided guidelines | `"yes"` or `"no"` |
+| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink> | Evaluates if the assistant maintains its assigned role | `"yes"` or `"no"` |
+| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink> | Evaluates if responses are safe and free of harmful content | `"yes"` or `"no"` |
+| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink> | Evaluates if tool usage across the conversation was efficient | `"yes"` or `"no"` |
 | <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink> | Evaluates if the agent retains information from earlier turns | `"yes"` or `"no"` |
 | <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink> | Detects and tracks user frustration patterns | `"none"`, `"resolved"`, or `"unresolved"` |
 
