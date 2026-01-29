@@ -592,3 +592,113 @@ def test_get_tool_call_signature_sorts_arguments():
     sig1 = get_tool_call_signature(call1, include_arguments=True)
     sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
+
+
+# ============================================================================
+# THIRD-PARTY MODEL URI PARSING TESTS
+# ============================================================================
+
+
+def test_parse_third_party_model_uri_databricks_default():
+    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
+
+    provider, model_name = parse_third_party_model_uri("databricks")
+    assert provider == "databricks"
+    assert model_name is None
+
+
+def test_parse_third_party_model_uri_databricks_endpoint():
+    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
+
+    provider, model_name = parse_third_party_model_uri("databricks:/my-endpoint")
+    assert provider == "databricks"
+    assert model_name == "my-endpoint"
+
+
+def test_parse_third_party_model_uri_openai():
+    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
+
+    provider, model_name = parse_third_party_model_uri("openai:/gpt-4")
+    assert provider == "openai"
+    assert model_name == "gpt-4"
+
+
+def test_parse_third_party_model_uri_litellm():
+    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
+
+    provider, model_name = parse_third_party_model_uri("litellm:/claude-3-opus")
+    assert provider == "litellm"
+    assert model_name == "claude-3-opus"
+
+
+def test_parse_third_party_model_uri_invalid_format():
+    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
+
+    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+        parse_third_party_model_uri("gpt-4")
+
+
+# ============================================================================
+# CHAT MESSAGE SERIALIZATION TESTS
+# ============================================================================
+
+
+def test_serialize_chat_messages_to_prompts_basic():
+    from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+
+    messages = [
+        {"role": "user", "content": "Hello"},
+    ]
+    user_prompt, system_prompt = serialize_chat_messages_to_prompts(messages)
+    assert user_prompt == "Hello"
+    assert system_prompt is None
+
+
+def test_serialize_chat_messages_to_prompts_with_system():
+    from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello"},
+    ]
+    user_prompt, system_prompt = serialize_chat_messages_to_prompts(messages)
+    assert user_prompt == "Hello"
+    assert system_prompt == "You are a helpful assistant."
+
+
+def test_serialize_chat_messages_to_prompts_with_assistant():
+    from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there!"},
+        {"role": "user", "content": "How are you?"},
+    ]
+    user_prompt, system_prompt = serialize_chat_messages_to_prompts(messages)
+    assert user_prompt == "Hello\n\nAssistant: Hi there!\n\nHow are you?"
+    assert system_prompt is None
+
+
+def test_serialize_chat_messages_to_prompts_multiple_users():
+    from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+
+    messages = [
+        {"role": "system", "content": "Be helpful"},
+        {"role": "user", "content": "First message"},
+        {"role": "user", "content": "Second message"},
+    ]
+    user_prompt, system_prompt = serialize_chat_messages_to_prompts(messages)
+    assert user_prompt == "First message\n\nSecond message"
+    assert system_prompt == "Be helpful"
+
+
+def test_serialize_chat_messages_to_prompts_custom_role():
+    from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "tool", "content": "Tool result"},
+    ]
+    user_prompt, system_prompt = serialize_chat_messages_to_prompts(messages)
+    assert user_prompt == "Hello\n\ntool: Tool result"
+    assert system_prompt is None
