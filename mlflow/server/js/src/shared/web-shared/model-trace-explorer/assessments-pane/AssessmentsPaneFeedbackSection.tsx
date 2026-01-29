@@ -78,11 +78,20 @@ const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId:
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content>
-            <DropdownMenu.Item componentId="TODO" onClick={onClick}>
-              Add human feedback
+            <DropdownMenu.Item componentId="mlflow.model-trace-explorer.add-human-feedback" onClick={onClick}>
+              <FormattedMessage
+                defaultMessage="Human feedback"
+                description="Label for the button to add a human feedback to the trace"
+              />
             </DropdownMenu.Item>
-            <DropdownMenu.Item componentId="TODO" onClick={() => setJudgeModalVisible(true)}>
-              Run judge
+            <DropdownMenu.Item
+              componentId="mlflow.model-trace-explorer.run-judge"
+              onClick={() => setJudgeModalVisible(true)}
+            >
+              <FormattedMessage
+                defaultMessage="LLM judge feedback"
+                description="Label for the button to add a LLM judge feedback to the trace"
+              />
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>

@@ -2030,6 +2030,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "Cwuzyr": {
+    "defaultMessage": "Human feedback",
+    "description": "Label for the button to add a human feedback to the trace"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -3764,6 +3768,10 @@
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
+  },
+  "RXUGmX": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Label for the button to add a LLM judge feedback to the trace"
   },
   "RaGnOQ": {
     "defaultMessage": "Compare",
