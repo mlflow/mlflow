@@ -188,8 +188,9 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     roots: list[LiveSpan] = []
 
     for span in spans:
+        should_be_root_span = span.name == "abatch"
         parent_id = span.parent_id
-        if parent_id and parent_id in span_id_to_spans:
+        if parent_id and parent_id in span_id_to_spans and not should_be_root_span:
             children_map[parent_id].append(span)
         else:
             roots.append(span)

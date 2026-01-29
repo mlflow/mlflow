@@ -157,7 +157,12 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         The complex case is when BOTH are present but different. In this case, we need to
         resolve the correct parent span by traversing the span tree.
         """
-        parent_mlflow_span = mlflow.get_current_active_span()
+        try:
+            # this always fails when auto-instrumenting other packages like FastAPI and Celery
+            parent_mlflow_span = mlflow.get_current_active_span()
+        except TypeError:
+            parent_mlflow_span = None
+
         parent_lc_span = self._get_span_by_run_id(parent_run_id) if parent_run_id else None
 
         if parent_mlflow_span and parent_lc_span:
@@ -221,7 +226,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """
         trace_manager = InMemoryTraceManager.get_instance()
         span = parent_mlflow_span
-        while span.parent_id:
+        while span and span.parent_id:
             if span.parent_id == parent_lc_span.span_id:
                 # MLflow parent span is under the LangChain
                 # langchain_span
@@ -469,10 +474,15 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
         # NB: We need to guard this with active trace existence because sometimes LangGraph
         # execute the callback within an isolated thread where the active trace is not set.
+        try:
+            # this always fails when auto-instrumenting other packages like FastAPI and Celery
+            mlflow_current_active_span = mlflow.get_current_active_span()
+        except TypeError:
+            mlflow_current_active_span = None
         if (
             metadata is not None
             and (thread_id := metadata.get("thread_id"))
-            and mlflow.get_current_active_span() is not None
+            and mlflow_current_active_span is not None
         ):
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
 
