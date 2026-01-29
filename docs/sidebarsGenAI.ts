@@ -637,7 +637,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'category',
-                  label: 'Third-party Scorers',
+                  label: 'Third-party Judges',
                   items: [
                     {
                       type: 'doc',
