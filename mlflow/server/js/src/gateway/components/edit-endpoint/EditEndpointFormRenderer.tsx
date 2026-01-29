@@ -27,6 +27,7 @@ export interface EditEndpointFormRendererProps {
   loadError: Error | null;
   mutationError: Error | null;
   errorMessage: string | null;
+  experimentId: string | undefined;
   endpoint: Endpoint | undefined;
   existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
@@ -43,6 +44,7 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
+  experimentId,
   endpoint,
   existingEndpoints,
   isFormComplete,
@@ -272,6 +274,19 @@ export const EditEndpointFormRenderer = ({
             })}
           >
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              {experimentId && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold color="secondary">
+                    <FormattedMessage defaultMessage="Usage log" description="Summary usage log label" />
+                  </Typography.Text>
+                  <Link to={`/experiments/${experimentId}/traces`}>
+                    <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} color="info">
+                      <FormattedMessage defaultMessage="View traces" description="Link to view traces for endpoint" />
+                    </Typography.Text>
+                  </Link>
+                </div>
+              )}
+
               {trafficSplitModels.length > 0 && (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                   <Typography.Text bold color="secondary">

@@ -35,6 +35,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
@@ -529,6 +530,8 @@ class SqlAlchemyGatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -540,6 +543,12 @@ class SqlAlchemyGatewayStoreMixin:
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
+            experiment_id: ID of the MLflow experiment where traces are logged.
+                          Only used when usage_tracking is True. If not provided
+                          and usage_tracking is True, an experiment will be auto-created
+                          with name 'gateway/{endpoint_name}'.
+            usage_tracking: Whether to enable usage tracking for this endpoint.
+                           When True, traces will be logged for endpoint invocations.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -573,6 +582,19 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Auto-create experiment if usage_tracking is enabled and experiment_id not provided
+            if usage_tracking and experiment_id is None:
+                experiment_name = f"gateway/{name}"
+                try:
+                    experiment_id = self.create_experiment(experiment_name)
+                except MlflowException:
+                    # Experiment may already exist, try to get it
+                    sql_exp = session.query(SqlExperiment).filter_by(name=experiment_name).first()
+                    if sql_exp:
+                        experiment_id = str(sql_exp.experiment_id)
+                    else:
+                        raise
+
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
                 config.model_definition_id
@@ -600,6 +622,8 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_by=created_by,
                 routing_strategy=routing_strategy.value if routing_strategy else None,
                 fallback_config_json=fallback_config_json,
+                experiment_id=experiment_id,
+                usage_tracking=usage_tracking,
             )
             session.add(sql_endpoint)
 
@@ -665,6 +689,8 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -676,6 +702,8 @@ class SqlAlchemyGatewayStoreMixin:
             routing_strategy: Optional new routing strategy.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
+            usage_tracking: Optional flag to enable/disable usage tracking.
 
         Returns:
             Updated Endpoint entity.
@@ -687,6 +715,31 @@ class SqlAlchemyGatewayStoreMixin:
 
             if name is not None:
                 sql_endpoint.name = name
+
+            # Handle usage_tracking update
+            if usage_tracking is not None:
+                sql_endpoint.usage_tracking = usage_tracking
+                if usage_tracking:
+                    # Enable usage tracking - auto-create experiment if needed
+                    if experiment_id is None and sql_endpoint.experiment_id is None:
+                        endpoint_name = name if name is not None else sql_endpoint.name
+                        experiment_name = f"gateway/{endpoint_name}"
+                        try:
+                            experiment_id = self.create_experiment(experiment_name)
+                        except MlflowException:
+                            # Experiment may already exist, try to get it
+                            sql_exp = (
+                                session.query(SqlExperiment).filter_by(name=experiment_name).first()
+                            )
+                            if sql_exp:
+                                experiment_id = str(sql_exp.experiment_id)
+                            else:
+                                raise
+                    if experiment_id is not None:
+                        sql_endpoint.experiment_id = experiment_id
+
+            if experiment_id is not None:
+                sql_endpoint.experiment_id = experiment_id
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
