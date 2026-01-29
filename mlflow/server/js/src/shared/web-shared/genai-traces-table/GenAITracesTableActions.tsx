@@ -106,7 +106,12 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   }, []);
 
   const handleOpenCompare = useCallback(() => {
-    setShowCompareModal(true);
+    // Delay to allow dropdown click event to complete before drawer opens.
+    // This prevents the click from being detected as an "outside click"
+    // by the drawer's DismissableLayer, which would immediately close it.
+    requestAnimationFrame(() => {
+      setShowCompareModal(true);
+    });
   }, []);
 
   const handleCloseCompare = useCallback(() => {
