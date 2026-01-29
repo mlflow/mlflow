@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,119 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+
+class _ChunkedTarWriter:
+    """
+    File-like object that writes tar data to chunks if size exceeds chunk_size.
+    If data fits in a single chunk, writes to the original path without suffix.
+    """
+
+    def __init__(self, tar_path: Path):
+        self.base_path = tar_path
+        self.chunk_size = int(os.environ.get("TAR_CHUNK_SIZE_BYTES", 256 * 1024 * 1024))
+        self.current_file = None
+        self.current_chunk_index = 0
+        self.current_chunk_bytes = 0
+        self.total_bytes = 0
+        self.is_chunked = False
+        self._open_next_chunk()
+
+    def _open_next_chunk(self):
+        """Open the next chunk file for writing."""
+        if self.current_file is not None:
+            self.current_file.close()
+
+        # First chunk always writes to base path (no suffix)
+        # We'll rename later if we need multiple chunks
+        if self.current_chunk_index == 0:
+            chunk_path = self.base_path
+        else:
+            # We're creating a second chunk, so we need to rename the first
+            if self.current_chunk_index == 1:
+                self._promote_to_chunked()
+            chunk_path = self._get_chunk_path_unpadded(self.current_chunk_index)
+
+        self.current_file = open(chunk_path, "wb")
+        self.current_chunk_bytes = 0
+
+    def _promote_to_chunked(self):
+        """
+        Rename the first chunk to .part0 when we realize we need multiple chunks.
+        This is called when opening the second chunk.
+        """
+        if not self.is_chunked:
+            self.is_chunked = True
+            # Rename the first chunk without padding (will be padded in close())
+            self.base_path.rename(self._get_chunk_path_unpadded(0))
+
+    def _get_chunk_path_unpadded(self, index: int) -> Path:
+        """Get the path for a specific chunk index without padding."""
+        return Path(f"{self.base_path}.part{index}")
+
+    def _get_chunk_path_padded(self, index: int, width: int) -> Path:
+        """Get the path for a specific chunk index with padding."""
+        return Path(f"{self.base_path}.part{index:0{width}d}")
+
+    def write(self, data: bytes) -> int:
+        """Write data, creating new chunks as needed."""
+        bytes_written = 0
+        remaining = data
+
+        while remaining:
+            # Check if current chunk would exceed limit
+            if self.current_chunk_bytes >= self.chunk_size and self.current_chunk_index > 0:
+                # Open next chunk (but not on first chunk)
+                self.current_chunk_index += 1
+                self._open_next_chunk()
+
+            # Write as much as we can to current chunk
+            space_left = self.chunk_size - self.current_chunk_bytes
+            to_write = remaining[:space_left] if space_left < len(remaining) else remaining
+
+            written = self.current_file.write(to_write)
+            self.current_chunk_bytes += written
+            self.total_bytes += written
+            bytes_written += written
+            remaining = remaining[written:]
+
+            # If we've exceeded chunk size on first chunk, prepare for chunking
+            if self.current_chunk_index == 0 and self.current_chunk_bytes >= self.chunk_size:
+                self.current_chunk_index += 1
+                self._open_next_chunk()
+
+        return bytes_written
+
+    def tell(self) -> int:
+        """Return the current position (total bytes written)."""
+        return self.total_bytes
+
+    def flush(self):
+        """Flush the current file."""
+        if self.current_file is not None:
+            self.current_file.flush()
+
+    def close(self):
+        """Close the current file and finalize chunk naming."""
+        if self.current_file is not None:
+            self.current_file.close()
+            self.current_file = None
+
+        # If we ended up chunking, add minimal padding to all chunks
+        if self.is_chunked:
+            # Calculate minimal padding needed based on actual number of chunks
+            suffix_width = len(str(self.current_chunk_index))
+            # Rename all chunks from unpadded to padded
+            for i in range(self.current_chunk_index + 1):
+                old_path = self._get_chunk_path_unpadded(i)
+                new_path = self._get_chunk_path_padded(i, suffix_width)
+                old_path.rename(new_path)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 
 def _validate_env_pack(env_pack):
@@ -70,10 +184,12 @@ def _validate_env_pack(env_pack):
     )
 
 
-def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
+def _tar(root_path: Path, tar_path: Path) -> None:
     """
     Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
     wheels_info.json.
+
+    Large tars will be split into multiple, lexicographically ordered chunks during creation.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -83,10 +199,10 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
             return None
         return tarinfo
 
-    # Pull in symlinks
-    with tarfile.open(tar_path, "w", dereference=True) as tar:
-        tar.add(root_path, arcname=".", filter=exclude)
-    return tar
+    # Write tar to chunked writer which handles splitting automatically
+    with _ChunkedTarWriter(tar_path) as writer:
+        with tarfile.open(fileobj=writer, mode="w", dereference=True) as tar:
+            tar.add(root_path, arcname=".", filter=exclude)
 
 
 @contextmanager
