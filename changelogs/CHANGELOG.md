@@ -1,5 +1,7 @@
 # CHANGELOG
 
+For versions >= 3.10, see version-specific changelog files in this directory (e.g., v3.10.0.md).
+
 ## 3.9.0 (2026-01-28)
 
 We're excited to announce MLflow 3.9.0, which includes several notable updates:
