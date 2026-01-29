@@ -60,3 +60,14 @@ def test_get_cmd(params: dict[str, Any], expected: dict[str, Any]):
         **expected,
         **os.environ.copy(),
     }
+
+
+def test_get_cmd_respects_env_var_model_implementation(monkeypatch):
+    """Test that MLSERVER_MODEL_IMPLEMENTATION env var takes precedence over the default."""
+    custom_implementation = "custom.runtime.CustomRuntime"
+    monkeypatch.setenv("MLSERVER_MODEL_IMPLEMENTATION", custom_implementation)
+
+    model_uri = "/foo/bar"
+    _, cmd_env = get_cmd(model_uri=model_uri)
+
+    assert cmd_env["MLSERVER_MODEL_IMPLEMENTATION"] == custom_implementation

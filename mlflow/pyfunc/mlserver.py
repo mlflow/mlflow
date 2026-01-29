@@ -40,7 +40,10 @@ def get_cmd(
     if model_version and not cmd_env.get("MLSERVER_MODEL_VERSION"):
         cmd_env["MLSERVER_MODEL_VERSION"] = model_version
 
-    cmd_env["MLSERVER_MODEL_IMPLEMENTATION"] = MLServerMLflowRuntime
+    # give precedence to user env var input
+    cmd_env["MLSERVER_MODEL_IMPLEMENTATION"] = (
+        cmd_env.get("MLSERVER_MODEL_IMPLEMENTATION") or MLServerMLflowRuntime
+    )
     cmd_env["MLSERVER_MODEL_URI"] = model_uri
 
     return cmd, cmd_env
