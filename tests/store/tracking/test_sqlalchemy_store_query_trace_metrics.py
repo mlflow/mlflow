@@ -3720,7 +3720,7 @@ def test_query_span_metrics_cost_sum(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1000000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.001,
                     "output_cost": 0.002,
                     "total_cost": 0.003,
@@ -3735,7 +3735,7 @@ def test_query_span_metrics_cost_sum(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.002,
                     "output_cost": 0.003,
                     "total_cost": 0.005,
@@ -3750,7 +3750,7 @@ def test_query_span_metrics_cost_sum(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1200000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.003,
                     "output_cost": 0.004,
                     "total_cost": 0.007,
@@ -3797,7 +3797,7 @@ def test_query_span_metrics_cost_by_model_name(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1000000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.01,
                     "output_cost": 0.02,
                     "total_cost": 0.03,
@@ -3812,7 +3812,7 @@ def test_query_span_metrics_cost_by_model_name(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.01,
                     "output_cost": 0.02,
                     "total_cost": 0.03,
@@ -3827,7 +3827,7 @@ def test_query_span_metrics_cost_by_model_name(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1200000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.005,
                     "output_cost": 0.015,
                     "total_cost": 0.02,
@@ -3880,7 +3880,7 @@ def test_query_span_metrics_cost_avg_by_model_name(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1000000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.01,
                     "output_cost": 0.02,
                     "total_cost": 0.03,
@@ -3895,7 +3895,7 @@ def test_query_span_metrics_cost_avg_by_model_name(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.02,
                     "output_cost": 0.03,
                     "total_cost": 0.05,
@@ -3943,7 +3943,7 @@ def test_query_span_metrics_cost_multiple_aggregations(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1000000000 + i * 100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.01 * i,
                     "output_cost": 0.01 * i,
                     "total_cost": 0.02 * i,
@@ -3994,7 +3994,7 @@ def test_query_span_metrics_input_output_cost(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1000000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.01,
                     "output_cost": 0.03,
                     "total_cost": 0.04,
@@ -4009,7 +4009,7 @@ def test_query_span_metrics_input_output_cost(store: SqlAlchemyStore):
             span_type="LLM",
             start_ns=1100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.02,
                     "output_cost": 0.04,
                     "total_cost": 0.06,
@@ -4069,7 +4069,7 @@ def test_query_span_metrics_cost_across_multiple_traces(store: SqlAlchemyStore):
                 span_type="LLM",
                 start_ns=1000000000,
                 attributes={
-                    SpanAttributeKey.CHAT_COST: {
+                    SpanAttributeKey.LLM_COST: {
                         "input_cost": 0.01,
                         "output_cost": 0.02,
                         "total_cost": 0.03,
@@ -4118,7 +4118,7 @@ def test_query_span_metrics_cost_percentiles(store: SqlAlchemyStore, percentile_
             span_type="LLM",
             start_ns=1000000000 + i * 100000000,
             attributes={
-                SpanAttributeKey.CHAT_COST: {
+                SpanAttributeKey.LLM_COST: {
                     "input_cost": 0.005 * i,
                     "output_cost": 0.005 * i,
                     "total_cost": 0.01 * i,
