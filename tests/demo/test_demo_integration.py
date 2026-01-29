@@ -11,7 +11,11 @@ import pytest
 from mlflow import MlflowClient, set_tracking_uri
 from mlflow.demo import generate_all_demos
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME
-from mlflow.demo.generators.traces import TracesDemoGenerator
+from mlflow.demo.generators.traces import (
+    DEMO_TRACE_TYPE_TAG,
+    DEMO_VERSION_TAG,
+    TracesDemoGenerator,
+)
 from mlflow.demo.registry import demo_registry
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
@@ -91,7 +95,8 @@ def test_traces_creates_on_server(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=100)
 
     assert len(traces) == len(result.entity_ids)
-    assert len(traces) == 35
+    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version = 34 total
+    assert len(traces) == 34
 
 
 def test_traces_have_expected_span_types(tracking_server, traces_generator):
@@ -105,10 +110,12 @@ def test_traces_have_expected_span_types(tracking_server, traces_generator):
 
     assert "rag_pipeline" in all_span_names
     assert "embed_query" in all_span_names
-    assert "retrieve_documents" in all_span_names
+    assert "retrieve_docs" in all_span_names
     assert "generate_response" in all_span_names
     assert "agent" in all_span_names
-    assert "chat" in all_span_names
+    assert "chat_agent" in all_span_names
+    assert "prompt_chain" in all_span_names
+    assert "render_prompt" in all_span_names
 
 
 def test_traces_session_metadata(tracking_server, traces_generator):
@@ -119,10 +126,53 @@ def test_traces_session_metadata(tracking_server, traces_generator):
     traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=100)
 
     session_traces = [t for t in traces if t.info.trace_metadata.get("mlflow.trace.session")]
-    assert len(session_traces) == 20
+    # 7 session traces per version = 14 total
+    assert len(session_traces) == 14
 
     session_ids = {t.info.trace_metadata.get("mlflow.trace.session") for t in session_traces}
-    assert len(session_ids) == 5
+    # 3 sessions x 2 versions = 6 unique session IDs
+    assert len(session_ids) == 6
+
+
+def test_traces_version_metadata(tracking_server, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+
+    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
+    v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
+
+    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version
+    assert len(v1_traces) == 17
+    assert len(v2_traces) == 17
+
+
+def test_traces_type_metadata(tracking_server, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+
+    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    rag_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "rag"]
+    agent_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"]
+    prompt_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "prompt"
+    ]
+    session_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
+    ]
+
+    # 2 RAG per version = 4 total
+    # 2 agent per version = 4 total
+    # 6 prompt per version = 12 total
+    # 7 session per version = 14 total
+    assert len(rag_traces) == 4
+    assert len(agent_traces) == 4
+    assert len(prompt_traces) == 12
+    assert len(session_traces) == 14
 
 
 def test_traces_delete_removes_all(tracking_server, traces_generator):
@@ -133,7 +183,7 @@ def test_traces_delete_removes_all(tracking_server, traces_generator):
     traces_before = tracking_server.search_traces(
         locations=[experiment.experiment_id], max_results=100
     )
-    assert len(traces_before) == 35
+    assert len(traces_before) == 34
 
     traces_generator.delete_demo()
 

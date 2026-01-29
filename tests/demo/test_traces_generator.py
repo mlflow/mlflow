@@ -90,6 +90,8 @@ def test_traces_have_expected_structure(tracking_uri):
     assert "rag_pipeline" in all_span_names
     assert "agent" in all_span_names
     assert "chat_agent" in all_span_names
+    assert "prompt_chain" in all_span_names
+    assert "render_prompt" in all_span_names
     assert "embed_query" in all_span_names
     assert "retrieve_docs" in all_span_names
     assert "generate_response" in all_span_names
@@ -106,10 +108,10 @@ def test_traces_have_version_metadata(tracking_uri):
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
-    # 2 RAG + 2 agent + 6 session = 10 per version
-    assert len(v1_traces) == 10
-    assert len(v2_traces) == 10
-    assert len(traces) == 20
+    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version
+    assert len(v1_traces) == 17
+    assert len(v2_traces) == 17
+    assert len(traces) == 34
 
 
 def test_traces_have_type_metadata(tracking_uri):
@@ -120,12 +122,23 @@ def test_traces_have_type_metadata(tracking_uri):
     client = MlflowClient()
     traces = client.search_traces(locations=[experiment.experiment_id], max_results=50)
 
-    baseline = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "baseline"]
-    improved = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "improved"]
+    rag_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "rag"]
+    agent_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"]
+    prompt_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "prompt"
+    ]
+    session_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
+    ]
 
-    # All v1 traces are baseline, all v2 traces are improved
-    assert len(baseline) == 10
-    assert len(improved) == 10
+    # 2 RAG per version = 4 total
+    # 2 agent per version = 4 total
+    # 6 prompt per version = 12 total
+    # 7 session per version = 14 total
+    assert len(rag_traces) == 4
+    assert len(agent_traces) == 4
+    assert len(prompt_traces) == 12
+    assert len(session_traces) == 14
 
 
 def test_is_generated_checks_version(tracking_uri):
@@ -135,7 +148,7 @@ def test_is_generated_checks_version(tracking_uri):
 
     assert generator.is_generated() is True
 
-    TracesDemoGenerator.version = 2
+    TracesDemoGenerator.version = 99
     assert generator.is_generated() is False
 
-    TracesDemoGenerator.version = 1
+    TracesDemoGenerator.version = 2
