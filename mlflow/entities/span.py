@@ -29,6 +29,7 @@ from mlflow.tracing.utils import (
     generate_mlflow_trace_id_from_otel_trace_id,
     generate_trace_id_v4_from_otel_trace_id,
     parse_trace_id_v4,
+    set_span_cost_attribute,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -667,6 +668,8 @@ class LiveSpan(Span):
             # to OK if it is not ERROR.
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
+
+            set_span_cost_attribute(self)
 
             # Apply span processors
             apply_span_processors(self)

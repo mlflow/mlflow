@@ -12,7 +12,6 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 from mlflow.tracing.utils import (
     construct_full_inputs,
     set_span_chat_tools,
-    set_span_cost_attribute,
     set_span_model_attribute,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -131,9 +130,6 @@ class TracingSession:
                 f"Failed to extract token usage for span {self.span.name}: {e}", exc_info=True
             )
 
-        # Set cost attribute based on model and token usage
-        set_span_cost_attribute(self.span)
-
         # need to convert the response of generate_content for better visualization
         outputs = self.output.to_dict() if hasattr(self.output, "to_dict") else self.output
         self.span.end(outputs=outputs)
@@ -176,7 +172,6 @@ def patched_module_call(original, *args, **kwargs):
             _logger.warning(
                 f"Failed to extract token usage for span {span.name}: {e}", exc_info=True
             )
-        set_span_cost_attribute(span)
         # need to convert the response of generate_content for better visualization
         outputs = result.to_dict() if hasattr(result, "to_dict") else result
         span.set_outputs(outputs)

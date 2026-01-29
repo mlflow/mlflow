@@ -6,7 +6,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import set_span_cost_attribute, set_span_model_attribute
+from mlflow.tracing.utils import set_span_model_attribute
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 _logger = logging.getLogger(__name__)
@@ -38,9 +38,6 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     # Extract and set usage information if available
     if usage := _parse_usage(output):
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-
-    # Set cost attribute based on model and token usage
-    set_span_cost_attribute(span)
 
 
 def _extract_tool_call_ids(output: Any) -> list[str]:
