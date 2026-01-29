@@ -4484,6 +4484,10 @@
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
   },
+  "WcHytj": {
+    "defaultMessage": "Total Cost",
+    "description": "Subtitle for the cost over time chart total"
+  },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
@@ -6610,6 +6614,10 @@
   "lhFnAG": {
     "defaultMessage": "Insufficient",
     "description": "Evaluation results > retrieval sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "ljOsC9": {
+    "defaultMessage": "Cost Over Time",
+    "description": "Title for the cost over time by model chart"
   },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
