@@ -11,7 +11,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
-    parse_model_from_inputs,
     set_span_chat_tools,
     set_span_cost_attribute,
     set_span_model_attribute,
@@ -119,9 +118,7 @@ class TracingSession:
 
         try:
             # Chat instances store model in _model attribute
-            if model := (
-                parse_model_from_inputs(self.inputs) or getattr(self.instance, "_model", None)
-            ):
+            if model := (self.inputs.get("model") or getattr(self.instance, "_model", None)):
                 self.span.set_attribute(SpanAttributeKey.MODEL, model)
         except Exception as e:
             _logger.debug(f"Failed to extract model for span {self.span.name}: {e}", exc_info=True)
