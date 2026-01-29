@@ -984,6 +984,80 @@ async def test_chat_proxy_forwards_additional_paths_from_env_vars(
         mock_build_request.assert_called_once()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "status_code", "custom_headers"),
+    [
+        ("text/event-stream", 200, {}),
+        ("text/event-stream; charset=utf-8", 200, {}),
+        ("text/event-stream", 500, {}),
+        ("text/event-stream", 200, {"x-custom-header": "value", "cache-control": "no-cache"}),
+    ],
+)
+async def test_chat_proxy_sse_streaming(content_type, status_code, custom_headers):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    chunks = [b"data: chunk1\n\n", b"data: chunk2\n\n"]
+
+    async def mock_aiter_bytes():
+        for chunk in chunks:
+            yield chunk
+
+    mock_response = AsyncMock()
+    mock_response.status_code = status_code
+    mock_response.headers = {"content-type": content_type, **custom_headers}
+    mock_response.aiter_bytes = mock_aiter_bytes
+    mock_response.aclose = AsyncMock()
+
+    with (
+        patch.object(server.proxy_client, "build_request"),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
+        response = client.get("/api/stream")
+        assert response.status_code == status_code
+        assert "text/event-stream" in response.headers["content-type"]
+        assert response.content == b"data: chunk1\n\ndata: chunk2\n\n"
+        mock_response.aclose.assert_called_once()
+        assert mock_send.call_args.kwargs.get("stream") is True
+        for key, value in custom_headers.items():
+            assert response.headers[key] == value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "status_code", "custom_headers"),
+    [
+        ("application/json", 200, {}),
+        ("text/html", 201, {"x-request-id": "req-123"}),
+        ("text/plain", 200, {}),
+        ("application/octet-stream", 200, {}),
+    ],
+)
+async def test_chat_proxy_non_sse_responses(content_type, status_code, custom_headers):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = AsyncMock()
+    mock_response.status_code = status_code
+    mock_response.headers = {"content-type": content_type, **custom_headers}
+    mock_response.aread = AsyncMock(return_value=b"content")
+    mock_response.aclose = AsyncMock()
+
+    with (
+        patch.object(server.proxy_client, "build_request"),
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
+        response = client.get("/")
+        assert response.status_code == status_code
+        assert response.content == b"content"
+        mock_response.aread.assert_called_once()
+        mock_response.aclose.assert_called_once()
+        assert mock_send.call_args.kwargs.get("stream") is True
+        for key, value in custom_headers.items():
+            assert response.headers[key] == value
+
+
 def test_return_trace_header_invoke_responses_agent():
     mock_span_instance = Mock()
     mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
