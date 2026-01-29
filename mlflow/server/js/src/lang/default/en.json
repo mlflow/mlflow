@@ -1466,6 +1466,10 @@
     "defaultMessage": "The guidelines LLM judge determines whether the response adheres to the guidelines provided. All responses must adhere to guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines judge."
   },
+  "9AfxK7": {
+    "defaultMessage": "Goal",
+    "description": "Column label for simulation goal"
+  },
   "9Bj7oS": {
     "defaultMessage": "A network error occurred.",
     "description": "Error message for generic network error"
@@ -2341,6 +2345,10 @@
   "G0gYkS": {
     "defaultMessage": "End Time:",
     "description": "Row title for the end time of runs on the experiment compare runs page"
+  },
+  "G4CVdi": {
+    "defaultMessage": "Persona",
+    "description": "Column label for simulation persona"
   },
   "G4x6G7": {
     "defaultMessage": "Finetuning",

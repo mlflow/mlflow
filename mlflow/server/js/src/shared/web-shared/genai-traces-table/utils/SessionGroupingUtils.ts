@@ -5,17 +5,17 @@ import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-
 import type { EvalTraceComparisonEntry } from '../types';
 import { shouldEnableSessionGrouping } from './FeatureUtils';
 
-export type GroupedTraceTableRowData =
-  | { type: 'trace'; data: EvalTraceComparisonEntry }
-  | {
-      type: 'sessionHeader';
-      sessionId: string;
-      otherSessionId?: string;
-      traces: ModelTraceInfoV3[];
-      otherTraces?: ModelTraceInfoV3[];
-      goal?: string;
-      persona?: string;
-    };
+export interface SessionHeaderRowData {
+  type: 'sessionHeader';
+  sessionId: string;
+  otherSessionId?: string;
+  traces: ModelTraceInfoV3[];
+  otherTraces?: ModelTraceInfoV3[];
+  goal?: string;
+  persona?: string;
+}
+
+export type GroupedTraceTableRowData = { type: 'trace'; data: EvalTraceComparisonEntry } | SessionHeaderRowData;
 
 const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
 const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
@@ -208,13 +208,13 @@ export const groupTracesBySessionForTable = (
     }
 
     // Sort traces by request time ascending within the session (first turn to last turn)
-    const sortedCurrentTraces = [...currentTraces].sort((a, b) => {
+    const sortedCurrentTraces = currentTraces.toSorted((a, b) => {
       const aTime = a.request_time ?? '';
       const bTime = b.request_time ?? '';
       return aTime.localeCompare(bTime);
     });
 
-    const sortedOtherTraces = [...otherTraces].sort((a, b) => {
+    const sortedOtherTraces = otherTraces.toSorted((a, b) => {
       const aTime = a.request_time ?? '';
       const bTime = b.request_time ?? '';
       return aTime.localeCompare(bTime);
