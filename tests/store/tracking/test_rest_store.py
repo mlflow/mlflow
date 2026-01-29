@@ -3174,6 +3174,7 @@ def test_create_gateway_endpoint():
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
+                usage_tracking=False,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
