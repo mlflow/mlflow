@@ -58,7 +58,9 @@ def test_convert_lc_message_to_chat_message(message, expected):
                     {"type": "text", "text": "Response text"},
                     {"type": "tool_use", "id": "123", "name": "tool"},
                 ],
-                tool_calls=[{"id": "123", "name": "tool", "args": {}, "type": "tool_call"}],
+                tool_calls=[
+                    {"id": "123", "name": "tool", "args": {}, "type": "tool_call"}
+                ],
             ),
             ChatMessage(
                 role="assistant",
@@ -75,7 +77,9 @@ def test_convert_lc_message_to_chat_message(message, expected):
         (
             AIMessage(
                 content="",
-                tool_calls=[{"id": "123", "name": "tool_name", "args": {"arg1": "val1"}}],
+                tool_calls=[
+                    {"id": "123", "name": "tool_name", "args": {"arg1": "val1"}}
+                ],
             ),
             ChatMessage(
                 role="assistant",
@@ -84,7 +88,9 @@ def test_convert_lc_message_to_chat_message(message, expected):
                     _ToolCall(
                         id="123",
                         type="function",
-                        function=Function(name="tool_name", arguments='{"arg1": "val1"}'),
+                        function=Function(
+                            name="tool_name", arguments='{"arg1": "val1"}'
+                        ),
                     )
                 ],
             ),
@@ -133,13 +139,17 @@ def test_transform_response_iter_to_chat_format_ai_message():
 
     response = [
         AIMessage(
-            content="ai_message_response", id="123", response_metadata={"finish_reason": "done"}
+            content="ai_message_response",
+            id="123",
+            response_metadata={"finish_reason": "done"},
         )
     ]
     converted_response = list(try_transform_response_iter_to_chat_format(response))
     assert len(converted_response) == 1
     assert converted_response[0]["id"] == getattr(response[0], "id", None)
-    assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
+    assert (
+        converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
+    )
     assert converted_response[0]["choices"][0]["finish_reason"] == "stop"
 
     response = [
@@ -158,7 +168,10 @@ def test_transform_response_iter_to_chat_format_ai_message():
     assert len(converted_response) == 2
     for i in range(2):
         assert converted_response[i]["id"] == getattr(response[i], "id", None)
-        assert converted_response[i]["choices"][0]["delta"]["content"] == response[i].content
+        assert (
+            converted_response[i]["choices"][0]["delta"]["content"]
+            == response[i].content
+        )
         assert (
             converted_response[i]["choices"][0]["finish_reason"]
             == response[i].response_metadata["finish_reason"]
@@ -169,15 +182,22 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
 
-    with patch("mlflow.langchain.utils.chat._get_lc_model_input_fields", return_value={"messages"}):
-        transformed_request = transform_request_json_for_chat_if_necessary(request_json, model)
+    with patch(
+        "mlflow.langchain.utils.chat._get_lc_model_input_fields",
+        return_value={"messages"},
+    ):
+        transformed_request = transform_request_json_for_chat_if_necessary(
+            request_json, model
+        )
         assert transformed_request == (request_json, False)
 
     with patch(
         "mlflow.langchain.utils.chat._get_lc_model_input_fields",
         return_value={},
     ):
-        transformed_request = transform_request_json_for_chat_if_necessary(request_json, model)
+        transformed_request = transform_request_json_for_chat_if_necessary(
+            request_json, model
+        )
         assert transformed_request[0][0] == HumanMessage(content="some_input")
         assert transformed_request[1] is True
 
@@ -190,9 +210,15 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         "mlflow.langchain.utils.chat._get_lc_model_input_fields",
         return_value={},
     ):
-        transformed_request = transform_request_json_for_chat_if_necessary(request_json, model)
-        assert transformed_request[0][0][0] == SystemMessage(content="You are a helpful assistant.")
-        assert transformed_request[0][1][0] == AIMessage(content="What would you like to ask?")
+        transformed_request = transform_request_json_for_chat_if_necessary(
+            request_json, model
+        )
+        assert transformed_request[0][0][0] == SystemMessage(
+            content="You are a helpful assistant."
+        )
+        assert transformed_request[0][1][0] == AIMessage(
+            content="What would you like to ask?"
+        )
         assert transformed_request[0][2][0] == HumanMessage(content="Who owns MLflow?")
         assert transformed_request[1] is True
 
@@ -206,7 +232,11 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
                 message=AIMessage(
                     content="foo",
                     id="123",
-                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                    usage_metadata={
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "total_tokens": 15,
+                    },
                 )
             ),
             {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
@@ -216,7 +246,11 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
                 message=AIMessageChunk(
                     content="foo",
                     id="123",
-                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                    usage_metadata={
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "total_tokens": 15,
+                    },
                 )
             ),
             {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
@@ -227,7 +261,11 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
                     content="foo",
                     id="123",
                     response_metadata={
-                        "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15}
+                        "usage": {
+                            "prompt_tokens": 5,
+                            "completion_tokens": 10,
+                            "total_tokens": 15,
+                        }
                     },
                 )
             ),
@@ -235,6 +273,51 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         ),
         # Legacy completion generation object
         (Generation(text="foo"), None),
+        # Anthropic with cache tokens
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                        "cache_creation_input_tokens": 80,
+                        "cache_read_input_tokens": 20,
+                    },
+                )
+            ),
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cache_creation_input_tokens": 80,
+                "cache_read_input_tokens": 20,
+            },
+        ),
+        # Anthropic with only cache_read_input_tokens
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "usage": {
+                            "input_tokens": 100,
+                            "output_tokens": 50,
+                            "cache_read_input_tokens": 80,
+                        }
+                    },
+                )
+            ),
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cache_read_input_tokens": 80,
+            },
+        ),
     ],
 )
 def test_parse_token_usage(generation, expected):
