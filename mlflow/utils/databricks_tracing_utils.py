@@ -45,11 +45,18 @@ def uc_schema_location_from_proto(proto: pb.UCSchemaLocation) -> UCSchemaLocatio
 def uc_table_prefix_location_to_proto(
     uc_table_prefix_location: UcTablePrefixLocation,
 ) -> pb.UcTablePrefixLocation:
-    return pb.UcTablePrefixLocation(
+    proto = pb.UcTablePrefixLocation(
         catalog_name=uc_table_prefix_location.catalog_name,
         schema_name=uc_table_prefix_location.schema_name,
         table_prefix=uc_table_prefix_location.table_prefix,
     )
+    if uc_table_prefix_location.spans_table_name is not None:
+        proto.spans_table_name = uc_table_prefix_location.spans_table_name
+    if uc_table_prefix_location.logs_table_name is not None:
+        proto.logs_table_name = uc_table_prefix_location.logs_table_name
+    if uc_table_prefix_location.metrics_table_name is not None:
+        proto.metrics_table_name = uc_table_prefix_location.metrics_table_name
+    return proto
 
 
 def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> UcTablePrefixLocation:
@@ -57,6 +64,15 @@ def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> UcTa
         catalog_name=proto.catalog_name,
         schema_name=proto.schema_name,
         table_prefix=proto.table_prefix,
+        spans_table_name=(
+            proto.spans_table_name if proto.HasField("spans_table_name") else None
+        ),
+        logs_table_name=(
+            proto.logs_table_name if proto.HasField("logs_table_name") else None
+        ),
+        metrics_table_name=(
+            proto.metrics_table_name if proto.HasField("metrics_table_name") else None
+        ),
     )
 
 

@@ -98,7 +98,7 @@ uc_proto_files = to_paths(
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_tracing.proto", "databricks_telemetry_profile.proto")
+tracing_proto_files = to_paths("databricks_tracing.proto")
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")

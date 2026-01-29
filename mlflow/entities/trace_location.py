@@ -144,22 +144,35 @@ class UcTablePrefixLocation(TraceLocationBase):
         catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
         table_prefix: The prefix for tables in this location.
+        spans_table_name: The fully qualified name of the spans table.
+        logs_table_name: The fully qualified name of the logs table.
+        metrics_table_name: The fully qualified name of the metrics table.
     """
 
     catalog_name: str
     schema_name: str
     table_prefix: str
+    spans_table_name: str | None = None
+    logs_table_name: str | None = None
+    metrics_table_name: str | None = None
 
     @property
     def full_table_prefix(self) -> str:
         return f"{self.catalog_name}.{self.schema_name}.{self.table_prefix}"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "catalog_name": self.catalog_name,
             "schema_name": self.schema_name,
             "table_prefix": self.table_prefix,
         }
+        if self.spans_table_name is not None:
+            d["spans_table_name"] = self.spans_table_name
+        if self.logs_table_name is not None:
+            d["logs_table_name"] = self.logs_table_name
+        if self.metrics_table_name is not None:
+            d["metrics_table_name"] = self.metrics_table_name
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UcTablePrefixLocation":
@@ -167,6 +180,9 @@ class UcTablePrefixLocation(TraceLocationBase):
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
             table_prefix=d["table_prefix"],
+            spans_table_name=d.get("spans_table_name"),
+            logs_table_name=d.get("logs_table_name"),
+            metrics_table_name=d.get("metrics_table_name"),
         )
 
 
@@ -314,11 +330,22 @@ class TraceLocation(_MlflowObject):
 
     @classmethod
     def from_databricks_uc_table_prefix(
-        cls, catalog_name: str, schema_name: str, table_prefix: str
+        cls,
+        catalog_name: str,
+        schema_name: str,
+        table_prefix: str,
+        spans_table_name: str | None = None,
+        logs_table_name: str | None = None,
+        metrics_table_name: str | None = None,
     ) -> "TraceLocation":
         return cls(
             type=TraceLocationType.UC_TABLE_PREFIX,
             uc_table_prefix=UcTablePrefixLocation(
-                catalog_name=catalog_name, schema_name=schema_name, table_prefix=table_prefix
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                table_prefix=table_prefix,
+                spans_table_name=spans_table_name,
+                logs_table_name=logs_table_name,
+                metrics_table_name=metrics_table_name,
             ),
         )

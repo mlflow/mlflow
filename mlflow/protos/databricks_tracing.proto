@@ -143,6 +143,24 @@ service DatabricksTrackingService {
     };
   }
 
+  // Get a trace UC storage location by ID.
+  rpc getTraceUcStorageLocation(GetTraceUcStorageLocationRequest) returns (GetTraceUcStorageLocationResponse) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/location/{id}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Trace UC Storage Location"
+    };
+  }
+
   rpc linkExperimentToUCTraceLocation(LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
     option (rpc) = {
       endpoints: [
@@ -312,6 +330,12 @@ message UcTablePrefixLocation {
   optional string schema_name = 2;
   // The prefix for tables in this location.
   optional string table_prefix = 3;
+  // The fully qualified name of the spans table.
+  optional string spans_table_name = 4;
+  // The fully qualified name of the logs table.
+  optional string logs_table_name = 5;
+  // The fully qualified name of the metrics table.
+  optional string metrics_table_name = 6;
 }
 
 message MlflowExperimentLocation {
@@ -539,6 +563,7 @@ message CreateTraceUCStorageLocation {
 
   oneof location {
     UCSchemaLocation uc_schema = 1;
+    UcTablePrefixLocation uc_table_prefix = 3;
   }
 
   // SQL warehouse ID for creating views and querying
@@ -546,7 +571,22 @@ message CreateTraceUCStorageLocation {
 
   message Response {
     optional UCSchemaLocation uc_schema = 1;
+
+    oneof location {
+      UCSchemaLocation uc_schema_location = 2;
+      UcTablePrefixLocation uc_table_prefix_location = 3;
+    }
   }
+}
+
+message GetTraceUcStorageLocationRequest {
+  // The ID of the trace storage location to retrieve.
+  optional string id = 1 [(validate_required) = true];
+}
+
+message GetTraceUcStorageLocationResponse {
+  // The UC table prefix location.
+  optional UcTablePrefixLocation uc_table_prefix_location = 1;
 }
 
 message LinkExperimentToUCTraceLocation {

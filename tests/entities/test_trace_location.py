@@ -112,6 +112,27 @@ def test_uc_table_prefix_location():
     assert uc_table_prefix.schema_name == "test_schema"
     assert uc_table_prefix.table_prefix == "trace_"
     assert uc_table_prefix.full_table_prefix == "test_catalog.test_schema.trace_"
+    # New optional fields should default to None
+    assert uc_table_prefix.spans_table_name is None
+    assert uc_table_prefix.logs_table_name is None
+    assert uc_table_prefix.metrics_table_name is None
+
+
+def test_uc_table_prefix_location_with_table_names():
+    uc_table_prefix = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="trace_",
+        spans_table_name="test_catalog.test_schema.trace_spans",
+        logs_table_name="test_catalog.test_schema.trace_logs",
+        metrics_table_name="test_catalog.test_schema.trace_metrics",
+    )
+    assert uc_table_prefix.catalog_name == "test_catalog"
+    assert uc_table_prefix.schema_name == "test_schema"
+    assert uc_table_prefix.table_prefix == "trace_"
+    assert uc_table_prefix.spans_table_name == "test_catalog.test_schema.trace_spans"
+    assert uc_table_prefix.logs_table_name == "test_catalog.test_schema.trace_logs"
+    assert uc_table_prefix.metrics_table_name == "test_catalog.test_schema.trace_metrics"
 
 
 def test_uc_table_prefix_location_to_dict():
@@ -128,6 +149,26 @@ def test_uc_table_prefix_location_to_dict():
     }
 
 
+def test_uc_table_prefix_location_to_dict_with_table_names():
+    uc_table_prefix = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="my_prefix_",
+        spans_table_name="test_catalog.test_schema.my_prefix_spans",
+        logs_table_name="test_catalog.test_schema.my_prefix_logs",
+        metrics_table_name="test_catalog.test_schema.my_prefix_metrics",
+    )
+    d = uc_table_prefix.to_dict()
+    assert d == {
+        "catalog_name": "test_catalog",
+        "schema_name": "test_schema",
+        "table_prefix": "my_prefix_",
+        "spans_table_name": "test_catalog.test_schema.my_prefix_spans",
+        "logs_table_name": "test_catalog.test_schema.my_prefix_logs",
+        "metrics_table_name": "test_catalog.test_schema.my_prefix_metrics",
+    }
+
+
 def test_uc_table_prefix_location_from_dict():
     d = {
         "catalog_name": "test_catalog",
@@ -139,6 +180,27 @@ def test_uc_table_prefix_location_from_dict():
     assert uc_table_prefix.schema_name == "test_schema"
     assert uc_table_prefix.table_prefix == "my_prefix_"
     assert uc_table_prefix.full_table_prefix == "test_catalog.test_schema.my_prefix_"
+    assert uc_table_prefix.spans_table_name is None
+    assert uc_table_prefix.logs_table_name is None
+    assert uc_table_prefix.metrics_table_name is None
+
+
+def test_uc_table_prefix_location_from_dict_with_table_names():
+    d = {
+        "catalog_name": "test_catalog",
+        "schema_name": "test_schema",
+        "table_prefix": "my_prefix_",
+        "spans_table_name": "test_catalog.test_schema.my_prefix_spans",
+        "logs_table_name": "test_catalog.test_schema.my_prefix_logs",
+        "metrics_table_name": "test_catalog.test_schema.my_prefix_metrics",
+    }
+    uc_table_prefix = UcTablePrefixLocation.from_dict(d)
+    assert uc_table_prefix.catalog_name == "test_catalog"
+    assert uc_table_prefix.schema_name == "test_schema"
+    assert uc_table_prefix.table_prefix == "my_prefix_"
+    assert uc_table_prefix.spans_table_name == "test_catalog.test_schema.my_prefix_spans"
+    assert uc_table_prefix.logs_table_name == "test_catalog.test_schema.my_prefix_logs"
+    assert uc_table_prefix.metrics_table_name == "test_catalog.test_schema.my_prefix_metrics"
 
 
 def test_trace_location_uc_table_prefix():
@@ -163,6 +225,27 @@ def test_trace_location_from_databricks_uc_table_prefix():
     assert trace_location.uc_table_prefix.schema_name == "schema"
     assert trace_location.uc_table_prefix.table_prefix == "prefix_"
     assert trace_location.uc_table_prefix.full_table_prefix == "catalog.schema.prefix_"
+    assert trace_location.uc_table_prefix.spans_table_name is None
+    assert trace_location.uc_table_prefix.logs_table_name is None
+    assert trace_location.uc_table_prefix.metrics_table_name is None
+
+
+def test_trace_location_from_databricks_uc_table_prefix_with_table_names():
+    trace_location = TraceLocation.from_databricks_uc_table_prefix(
+        catalog_name="catalog",
+        schema_name="schema",
+        table_prefix="prefix_",
+        spans_table_name="catalog.schema.prefix_spans",
+        logs_table_name="catalog.schema.prefix_logs",
+        metrics_table_name="catalog.schema.prefix_metrics",
+    )
+    assert trace_location.type == TraceLocationType.UC_TABLE_PREFIX
+    assert trace_location.uc_table_prefix.catalog_name == "catalog"
+    assert trace_location.uc_table_prefix.schema_name == "schema"
+    assert trace_location.uc_table_prefix.table_prefix == "prefix_"
+    assert trace_location.uc_table_prefix.spans_table_name == "catalog.schema.prefix_spans"
+    assert trace_location.uc_table_prefix.logs_table_name == "catalog.schema.prefix_logs"
+    assert trace_location.uc_table_prefix.metrics_table_name == "catalog.schema.prefix_metrics"
 
 
 def test_trace_location_uc_table_prefix_to_from_dict():

@@ -3,9 +3,8 @@ import logging
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.entities.telemetry_profile import TelemetryProfile
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UcTablePrefixLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -15,44 +14,37 @@ from mlflow.tracing.utils import generate_trace_id_v4
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksUCTableFromProfileSpanProcessor(BaseMlflowSpanProcessor):
+class DatabricksUCTableFromStorageLocationSpanProcessor(BaseMlflowSpanProcessor):
     """
-    Span processor that uses REST API for span export based on TelemetryProfile configuration.
+    Span processor that uses REST API for span export based on UcTablePrefixLocation.
 
     Unlike DatabricksUCTableWithOtelSpanProcessor which uses OTLP for span export,
     this processor uses REST API for both spans and TraceInfo persistence.
 
-    The UC location (catalog, schema, table_prefix) is determined from the TelemetryProfile.
+    The UC location (catalog, schema, table_prefix) is provided via UcTablePrefixLocation.
     """
 
     def __init__(
         self,
         span_exporter: SpanExporter,
-        telemetry_profile: TelemetryProfile,
+        uc_location: UcTablePrefixLocation,
     ) -> None:
         # metrics export is not supported for UC table yet
         super().__init__(span_exporter, export_metrics=False)
-        self._telemetry_profile = telemetry_profile
+        self._uc_location = uc_location
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """
-        Create a TraceInfo with UcTablePrefixLocation from TelemetryProfile.
+        Create a TraceInfo with UcTablePrefixLocation.
         """
-        uc_tables_config = self._telemetry_profile.get_uc_tables_config()
-        if not uc_tables_config:
-            raise MlflowException(
-                "TelemetryProfile does not contain a UnityCatalogTablesConfig. "
-                "Cannot export traces without UC table configuration."
-            )
-
-        catalog_name = uc_tables_config.uc_catalog
-        schema_name = uc_tables_config.uc_schema
-        table_prefix = uc_tables_config.uc_table_prefix or ""
+        catalog_name = self._uc_location.catalog_name
+        schema_name = self._uc_location.schema_name
+        table_prefix = self._uc_location.table_prefix or ""
 
         if not catalog_name or not schema_name:
             raise MlflowException(
-                "TelemetryProfile UnityCatalogTablesConfig is missing uc_catalog or "
-                "uc_schema. Cannot export traces without complete UC configuration."
+                "UcTablePrefixLocation is missing catalog_name or schema_name. "
+                "Cannot export traces without complete UC configuration."
             )
 
         # Create TraceLocation with UcTablePrefixLocation
@@ -60,6 +52,9 @@ class DatabricksUCTableFromProfileSpanProcessor(BaseMlflowSpanProcessor):
             catalog_name=catalog_name,
             schema_name=schema_name,
             table_prefix=table_prefix,
+            spans_table_name=self._uc_location.spans_table_name,
+            logs_table_name=self._uc_location.logs_table_name,
+            metrics_table_name=self._uc_location.metrics_table_name,
         )
 
         # Generate trace ID using the schema location (catalog.schema)

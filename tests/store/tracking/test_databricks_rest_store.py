@@ -1808,25 +1808,19 @@ def test_search_datasets_exact_match_no_offset():
         mock_http.assert_called_once()
 
 
-def test_get_telemetry_profile():
+def test_get_trace_uc_storage_location():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
     response_data = {
-        "profile_id": "test-profile-123",
-        "profile_name": "Test Profile",
-        "created_at": 1234567890,
-        "created_by": "user@example.com",
-        "exporters": [
-            {
-                "type": "UNITY_CATALOG_TABLES",
-                "uc_tables": {
-                    "uc_catalog": "catalog",
-                    "uc_schema": "schema",
-                    "uc_table_prefix": "prefix_",
-                },
-            }
-        ],
+        "uc_table_prefix_location": {
+            "catalog_name": "test_catalog",
+            "schema_name": "test_schema",
+            "table_prefix": "trace_",
+            "spans_table_name": "test_catalog.test_schema.trace_spans",
+            "logs_table_name": "test_catalog.test_schema.trace_logs",
+            "metrics_table_name": "test_catalog.test_schema.trace_metrics",
+        }
     }
 
     response = mock.MagicMock()
@@ -1840,18 +1834,60 @@ def test_get_telemetry_profile():
         ) as mock_http,
         mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
-        result = store.get_telemetry_profile("test-profile-123")
+        result = store.get_trace_uc_storage_location("test-location-id")
 
         mock_http.assert_called_once()
         call_kwargs = mock_http.call_args
         assert call_kwargs[1]["method"] == "GET"
-        assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/profiles/test-profile-123"
+        assert call_kwargs[1]["endpoint"] == "/api/4.0/mlflow/traces/location/test-location-id"
 
-        assert result.profile_id == "test-profile-123"
-        assert result.profile_name == "Test Profile"
-        assert result.created_at == 1234567890
-        assert len(result.exporters) == 1
-        uc_config = result.get_uc_tables_config()
-        assert uc_config.uc_catalog == "catalog"
-        assert uc_config.uc_schema == "schema"
-        assert uc_config.uc_table_prefix == "prefix_"
+        assert result.catalog_name == "test_catalog"
+        assert result.schema_name == "test_schema"
+        assert result.table_prefix == "trace_"
+        assert result.spans_table_name == "test_catalog.test_schema.trace_spans"
+        assert result.logs_table_name == "test_catalog.test_schema.trace_logs"
+        assert result.metrics_table_name == "test_catalog.test_schema.trace_metrics"
+
+
+def test_create_uc_table_prefix_location():
+    from mlflow.entities.trace_location import UcTablePrefixLocation
+
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    input_location = UcTablePrefixLocation(
+        catalog_name="my_catalog",
+        schema_name="my_schema",
+        table_prefix="prefix_",
+    )
+
+    # Mock the proto response with filled table names
+    mock_response = mock.MagicMock()
+    mock_response.HasField.return_value = True
+    mock_response.uc_table_prefix_location.catalog_name = "my_catalog"
+    mock_response.uc_table_prefix_location.schema_name = "my_schema"
+    mock_response.uc_table_prefix_location.table_prefix = "prefix_"
+    mock_response.uc_table_prefix_location.spans_table_name = (
+        "my_catalog.my_schema.prefix_otel_spans"
+    )
+    mock_response.uc_table_prefix_location.logs_table_name = (
+        "my_catalog.my_schema.prefix_otel_logs"
+    )
+    mock_response.uc_table_prefix_location.metrics_table_name = (
+        "my_catalog.my_schema.prefix_otel_metrics"
+    )
+
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.create_uc_table_prefix_location(input_location)
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+        assert call_args[0][0] == CreateTraceUCStorageLocation
+        assert call_args[1]["endpoint"] == "/api/4.0/mlflow/traces/location"
+
+        assert result.catalog_name == "my_catalog"
+        assert result.schema_name == "my_schema"
+        assert result.table_prefix == "prefix_"
+        assert result.spans_table_name == "my_catalog.my_schema.prefix_otel_spans"
+        assert result.logs_table_name == "my_catalog.my_schema.prefix_otel_logs"
+        assert result.metrics_table_name == "my_catalog.my_schema.prefix_otel_metrics"

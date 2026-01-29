@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
+from mlflow.entities.trace_location import UcTablePrefixLocation as UcTablePrefixLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
@@ -56,6 +57,8 @@ from mlflow.utils.databricks_tracing_utils import (
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
+    uc_table_prefix_location_from_proto,
+    uc_table_prefix_location_to_proto,
 )
 from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.proto_json_utils import message_to_json
@@ -1001,23 +1004,76 @@ class DatabricksTracingRestStore(RestStore):
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
         return endpoint
 
-    def get_telemetry_profile(self, profile_id: str):
+    def get_trace_uc_storage_location(
+        self, location_id: str
+    ) -> UcTablePrefixLocationEntity:
         """
-        Fetch a TelemetryProfile from the backend.
+        Fetch a trace UC storage location by ID.
 
         Args:
-            profile_id: The telemetry profile ID (destination ID).
+            location_id: The ID of the trace storage location to retrieve.
 
         Returns:
-            The TelemetryProfile object.
+            The UcTablePrefixLocation object.
         """
-        from mlflow.entities.telemetry_profile import TelemetryProfile
-
-        endpoint = f"/api/2.0/otel/profiles/{profile_id}"
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{location_id}"
         response = http_request(
             host_creds=self.get_host_creds(),
             endpoint=endpoint,
             method="GET",
         )
         verify_rest_response(response, endpoint)
-        return TelemetryProfile.from_dict(response.json())
+        json_response = response.json()
+        # Parse the uc_table_prefix_location from the response
+        if "uc_table_prefix_location" in json_response:
+            return UcTablePrefixLocationEntity.from_dict(
+                json_response["uc_table_prefix_location"]
+            )
+        raise MlflowException(
+            f"Invalid response from get_trace_uc_storage_location: {json_response}"
+        )
+
+    def create_uc_table_prefix_location(
+        self,
+        location: UcTablePrefixLocationEntity,
+        sql_warehouse_id: str | None = None,
+    ) -> UcTablePrefixLocationEntity:
+        """
+        Create a UC table prefix storage location.
+
+        This registers the location with the backend and returns a filled-in
+        UcTablePrefixLocation with the table names populated.
+
+        Args:
+            location: The UcTablePrefixLocation with catalog, schema, and table_prefix.
+            sql_warehouse_id: Optional SQL warehouse ID for creating views and querying.
+
+        Returns:
+            The filled-in UcTablePrefixLocation with spans_table_name, logs_table_name,
+            and metrics_table_name populated.
+        """
+        req_body = message_to_json(
+            CreateTraceUCStorageLocation(
+                uc_table_prefix=uc_table_prefix_location_to_proto(location),
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+        )
+        try:
+            response = self._call_endpoint(
+                CreateTraceUCStorageLocation,
+                req_body,
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
+            )
+            # Parse the uc_table_prefix_location from the response's oneof location field
+            if response.HasField("uc_table_prefix_location"):
+                return uc_table_prefix_location_from_proto(response.uc_table_prefix_location)
+            raise MlflowException(
+                f"Invalid response from create_uc_table_prefix_location: {response}"
+            )
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(ALREADY_EXISTS):
+                _logger.debug(f"UC table prefix location already exists: {location}")
+                # If already exists, fetch the existing location to get filled table names
+                location_id = f"{location.catalog_name}.{location.schema_name}"
+                return self.get_trace_uc_storage_location(location_id)
+            raise

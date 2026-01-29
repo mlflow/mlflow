@@ -4,13 +4,7 @@ import pytest
 
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.telemetry_profile import (
-    Exporter,
-    ExporterType,
-    TelemetryProfile,
-    UnityCatalogTablesConfig,
-)
-from mlflow.entities.trace_location import TraceLocationType
+from mlflow.entities.trace_location import TraceLocationType, UcTablePrefixLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -23,21 +17,21 @@ from tests.tracing.helper import (
 )
 
 
-def _create_test_telemetry_profile(
+def _create_test_uc_location(
     catalog: str = "test_catalog",
     schema: str = "test_schema",
     table_prefix: str = "prefix_",
-) -> TelemetryProfile:
-    config = UnityCatalogTablesConfig(
-        uc_catalog=catalog,
-        uc_schema=schema,
-        uc_table_prefix=table_prefix,
-    )
-    exporter = Exporter(type=ExporterType.UNITY_CATALOG_TABLES, uc_tables=config)
-    return TelemetryProfile(
-        profile_id="test-profile-123",
-        profile_name="Test Profile",
-        exporters=[exporter],
+    spans_table_name: str = "test_catalog.test_schema.prefix_otel_spans",
+    logs_table_name: str = "test_catalog.test_schema.prefix_otel_logs",
+    metrics_table_name: str = "test_catalog.test_schema.prefix_otel_metrics",
+) -> UcTablePrefixLocation:
+    return UcTablePrefixLocation(
+        catalog_name=catalog,
+        schema_name=schema,
+        table_prefix=table_prefix,
+        spans_table_name=spans_table_name,
+        logs_table_name=logs_table_name,
+        metrics_table_name=metrics_table_name,
     )
 
 
@@ -48,12 +42,12 @@ def test_on_start_creates_trace_with_uc_table_prefix_location(monkeypatch):
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    telemetry_profile = _create_test_telemetry_profile()
+    uc_location = _create_test_uc_location()
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
     )
     processor.on_start(span)
 
@@ -79,26 +73,6 @@ def test_on_start_creates_trace_with_uc_table_prefix_location(monkeypatch):
     assert trace_info.execution_duration is None
 
 
-def test_on_start_missing_uc_tables_config(monkeypatch):
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "alice")
-
-    trace_id = 12345
-    span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
-
-    # Create profile without UC tables config
-    profile = TelemetryProfile(exporters=[])
-    mock_exporter = mock.MagicMock()
-
-    processor = DatabricksUCTableWithOtelSpanProcessor(
-        span_exporter=mock_exporter,
-        telemetry_profile=profile,
-    )
-
-    with pytest.raises(MlflowException, match="does not contain a UnityCatalogTablesConfig"):
-        processor.on_start(span)
-
-
 def test_on_start_missing_catalog_or_schema(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "alice")
@@ -106,18 +80,20 @@ def test_on_start_missing_catalog_or_schema(monkeypatch):
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    # Create profile with missing catalog
-    config = UnityCatalogTablesConfig(uc_catalog=None, uc_schema="test_schema")
-    exporter = Exporter(type=ExporterType.UNITY_CATALOG_TABLES, uc_tables=config)
-    profile = TelemetryProfile(exporters=[exporter])
+    # Create location with missing catalog
+    uc_location = UcTablePrefixLocation(
+        catalog_name=None,
+        schema_name="test_schema",
+        table_prefix="prefix_",
+    )
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=profile,
+        uc_location=uc_location,
     )
 
-    with pytest.raises(MlflowException, match="missing uc_catalog or uc_schema"):
+    with pytest.raises(MlflowException, match="missing catalog_name or schema_name"):
         processor.on_start(span)
 
 
@@ -126,12 +102,12 @@ def test_on_start_child_span_uses_existing_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "alice")
 
     trace_id = 12345
-    telemetry_profile = _create_test_telemetry_profile()
+    uc_location = _create_test_uc_location()
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
     )
 
     # First, create root span
@@ -159,7 +135,7 @@ def test_trace_id_generation_uses_catalog_schema():
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    telemetry_profile = _create_test_telemetry_profile(
+    uc_location = _create_test_uc_location(
         catalog="my_catalog", schema="my_schema", table_prefix="pre_"
     )
 
@@ -169,7 +145,7 @@ def test_trace_id_generation_uses_catalog_schema():
     ) as mock_generate_trace_id:
         processor = DatabricksUCTableWithOtelSpanProcessor(
             span_exporter=mock.MagicMock(),
-            telemetry_profile=telemetry_profile,
+            uc_location=uc_location,
         )
         processor.on_start(span)
 
@@ -181,10 +157,10 @@ def test_trace_metadata_has_schema_version_4():
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    telemetry_profile = _create_test_telemetry_profile()
+    uc_location = _create_test_uc_location()
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock.MagicMock(),
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
     )
     processor.on_start(span)
 
@@ -213,12 +189,12 @@ def test_on_end_calls_batch_span_processor():
     span = LiveSpan(otel_span, "request_id")
     span.set_status("OK")
 
-    telemetry_profile = _create_test_telemetry_profile()
+    uc_location = _create_test_uc_location()
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
     )
 
     # Mock the parent class on_end to verify it's called
@@ -229,26 +205,26 @@ def test_on_end_calls_batch_span_processor():
         mock_batch_on_end.assert_called_once()
 
 
-def test_constructor_stores_telemetry_profile():
-    telemetry_profile = _create_test_telemetry_profile()
+def test_constructor_stores_uc_location():
+    uc_location = _create_test_uc_location()
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
     )
 
-    assert processor._telemetry_profile == telemetry_profile
+    assert processor._uc_location == uc_location
     assert processor._export_metrics is False
 
 
 def test_constructor_with_export_metrics():
-    telemetry_profile = _create_test_telemetry_profile()
+    uc_location = _create_test_uc_location()
     mock_exporter = mock.MagicMock()
 
     processor = DatabricksUCTableWithOtelSpanProcessor(
         span_exporter=mock_exporter,
-        telemetry_profile=telemetry_profile,
+        uc_location=uc_location,
         export_metrics=True,
     )
 

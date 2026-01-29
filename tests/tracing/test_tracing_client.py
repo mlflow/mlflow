@@ -263,28 +263,36 @@ def test_tracing_client_get_trace_error_handling():
         client.get_trace(trace_id)
 
 
-def test_get_telemetry_profile_databricks_uri():
-    from mlflow.entities.telemetry_profile import TelemetryProfile
+def test_get_trace_uc_storage_location_databricks_uri():
+    from mlflow.entities.trace_location import UcTablePrefixLocation
 
     mock_store = Mock()
-    mock_profile = TelemetryProfile(
-        profile_id="test-profile-123",
-        profile_name="Test Profile",
+    mock_location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="prefix_",
+        spans_table_name="test_catalog.test_schema.prefix_otel_spans",
+        logs_table_name="test_catalog.test_schema.prefix_otel_logs",
+        metrics_table_name="test_catalog.test_schema.prefix_otel_metrics",
     )
-    mock_store.get_telemetry_profile.return_value = mock_profile
+    mock_store.get_trace_uc_storage_location.return_value = mock_location
 
     with (
         patch("mlflow.tracing.client._get_store", return_value=mock_store),
         patch("mlflow.tracing.client.is_databricks_uri", return_value=True),
     ):
         client = TracingClient()
-        result = client.get_telemetry_profile("test-profile-123")
+        result = client.get_trace_uc_storage_location("test-location-123")
 
-    assert result == mock_profile
-    mock_store.get_telemetry_profile.assert_called_once_with("test-profile-123")
+    assert result == mock_location
+    assert result.catalog_name == "test_catalog"
+    assert result.schema_name == "test_schema"
+    assert result.table_prefix == "prefix_"
+    assert result.spans_table_name == "test_catalog.test_schema.prefix_otel_spans"
+    mock_store.get_trace_uc_storage_location.assert_called_once_with("test-location-123")
 
 
-def test_get_telemetry_profile_non_databricks_uri():
+def test_get_trace_uc_storage_location_non_databricks_uri():
     mock_store = Mock()
 
     with (
@@ -295,4 +303,56 @@ def test_get_telemetry_profile_non_databricks_uri():
         with pytest.raises(
             MlflowException, match="only supported on Databricks backends"
         ):
-            client.get_telemetry_profile("test-profile-123")
+            client.get_trace_uc_storage_location("test-location-123")
+
+
+def test_create_uc_table_prefix_location_databricks_uri():
+    from mlflow.entities.trace_location import UcTablePrefixLocation
+
+    mock_store = Mock()
+    input_location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="prefix_",
+    )
+    filled_location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="prefix_",
+        spans_table_name="test_catalog.test_schema.prefix_otel_spans",
+        logs_table_name="test_catalog.test_schema.prefix_otel_logs",
+        metrics_table_name="test_catalog.test_schema.prefix_otel_metrics",
+    )
+    mock_store.create_uc_table_prefix_location.return_value = filled_location
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.is_databricks_uri", return_value=True),
+    ):
+        client = TracingClient()
+        result = client.create_uc_table_prefix_location(input_location)
+
+    assert result == filled_location
+    assert result.spans_table_name == "test_catalog.test_schema.prefix_otel_spans"
+    mock_store.create_uc_table_prefix_location.assert_called_once_with(input_location)
+
+
+def test_create_uc_table_prefix_location_non_databricks_uri():
+    from mlflow.entities.trace_location import UcTablePrefixLocation
+
+    mock_store = Mock()
+    input_location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="prefix_",
+    )
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.is_databricks_uri", return_value=False),
+    ):
+        client = TracingClient()
+        with pytest.raises(
+            MlflowException, match="only supported on Databricks backends"
+        ):
+            client.create_uc_table_prefix_location(input_location)
