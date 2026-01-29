@@ -1370,3 +1370,35 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
 
         # Verify _simulate was called with predict_fn
         mock_simulate.assert_called_once_with(mock_predict_fn)
+
+
+@scorer
+def always_pass(outputs):
+    return True
+
+
+@pytest.mark.parametrize(
+    ("expectations_values", "expected_count"),
+    [
+        ([None, {}], 2),
+        ([float("nan")], 1),
+        ([{"expected": "value"}, None, {}], 3),
+    ],
+)
+def test_evaluate_handles_empty_expectations(expectations_values, expected_count):
+    data = [
+        {
+            "inputs": {"question": f"Q{i}"},
+            "outputs": f"A{i}",
+            "expectations": exp,
+        }
+        for i, exp in enumerate(expectations_values)
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[always_pass])
+
+    assert result is not None
+    assert result.metrics is not None
+    assert result.result_df is not None
+    assert len(result.result_df) == expected_count
+    assert result.metrics["always_pass/mean"] == 1.0
