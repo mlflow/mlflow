@@ -591,6 +591,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
+from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -2858,6 +2859,7 @@ def save_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_lock: str | Path | None = None,
     **kwargs,
 ):
     """
@@ -3039,6 +3041,13 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_lock: Explicit path to a uv.lock file. When provided, the UV project directory
+            is derived from this path (parent directory). This is useful for monorepos or
+            non-standard project layouts where uv.lock is not in the current working directory.
+            If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         kwargs: Extra keyword arguments.
     """
     if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
@@ -3354,6 +3363,7 @@ def save_model(
             model_config=model_config,
             streamable=streamable,
             infer_code_paths=infer_code_paths,
+            uv_lock=uv_lock,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3370,6 +3380,7 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
+            uv_lock=uv_lock,
         )
 
 
@@ -3407,6 +3418,7 @@ def log_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_lock: str | Path | None = None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3607,6 +3619,13 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_lock: Explicit path to a uv.lock file. When provided, the UV project directory
+            is derived from this path (parent directory). This is useful for monorepos or
+            non-standard project layouts where uv.lock is not in the current working directory.
+            If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -3643,6 +3662,7 @@ def log_model(
         resources=resources,
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
+        uv_lock=uv_lock,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -3681,6 +3701,7 @@ def _save_model_with_loader_module_and_data_path(
     model_config=None,
     streamable=None,
     infer_code_paths=False,
+    uv_lock=None,
 ):
     """
     Export model as a generic Python function model.
@@ -3703,6 +3724,9 @@ def _save_model_with_loader_module_and_data_path(
     Returns:
         Model configuration containing model info.
     """
+    # Capture original working directory for UV project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
 
     data = None
 
@@ -3752,7 +3776,9 @@ def _save_model_with_loader_module_and_data_path(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
             )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            # Merge inferred and default requirements, preferring inferred versions
+            # when the same package appears in both (e.g., from UV export vs defaults)
+            default_reqs = mlflow.pyfunc.model._merge_requirements(inferred_reqs, default_reqs)
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -3773,7 +3799,19 @@ def _save_model_with_loader_module_and_data_path(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    # Copy UV project files (uv.lock and pyproject.toml) if detected
+    copy_uv_project_files(path, source_dir=original_cwd, uv_lock=uv_lock)
+
+    # Use UV project's Python version if available, otherwise use current
+    if uv_python_version := get_python_version_from_uv_project(original_cwd, uv_lock=uv_lock):
+        python_env = _PythonEnv(
+            python=uv_python_version,
+            build_dependencies=_PythonEnv.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    else:
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 

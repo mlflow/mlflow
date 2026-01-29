@@ -95,6 +95,34 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
+
+
+def _merge_requirements(inferred_reqs: list[str], default_reqs: list[str]) -> list[str]:
+    """
+    Merge inferred and default requirements, preferring inferred versions for duplicates.
+
+    When the same package appears in both lists (e.g., cloudpickle==3.1.2 from UV export
+    and cloudpickle==3.1.1 from defaults), the inferred version takes precedence.
+    """
+
+    # Extract package name from requirement string
+    def get_package_name(req: str) -> str:
+        name = req.split("==")[0].split(">=")[0].split("<=")[0]
+        name = name.split("<")[0].split(">")[0].split("[")[0]
+        return name.strip().lower()
+
+    # Build map of package name -> requirement from inferred
+    inferred_packages = {get_package_name(req): req for req in inferred_reqs}
+
+    # Add default requirements only if package not in inferred
+    for req in default_reqs:
+        pkg_name = get_package_name(req)
+        if pkg_name not in inferred_packages:
+            inferred_packages[pkg_name] = req
+
+    return sorted(inferred_packages.values())
+
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1033,6 +1061,7 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
+    uv_lock=None,
 ):
     """
     Args:
@@ -1072,6 +1101,10 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
+    # Capture original working directory for UV project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
+
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1219,7 +1252,9 @@ def _save_model_with_class_artifacts_params(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
             )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            # Merge inferred and default requirements, preferring inferred versions
+            # when the same package appears in both (e.g., from UV export vs defaults)
+            default_reqs = _merge_requirements(inferred_reqs, default_reqs)
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -1240,7 +1275,19 @@ def _save_model_with_class_artifacts_params(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    # Copy UV project files (uv.lock and pyproject.toml) if detected
+    copy_uv_project_files(path, source_dir=original_cwd, uv_lock=uv_lock)
+
+    # Use UV project's Python version if available, otherwise use current
+    if uv_python_version := get_python_version_from_uv_project(original_cwd, uv_lock=uv_lock):
+        python_env = _PythonEnv(
+            python=uv_python_version,
+            build_dependencies=_PythonEnv.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    else:
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):
