@@ -114,7 +114,7 @@ const RunJudgeModalImpl = ({
     return data?.scheduledScorers.filter(
       (scorer) =>
         scorer.type === 'llm' &&
-        scorer.isSessionLevelScorer === isDisplayingSessionLevelScorers &&
+        (scorer.isSessionLevelScorer ?? false) === isDisplayingSessionLevelScorers &&
         scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
     ) as LLMScorer[];
   }, [data?.scheduledScorers, searchValue, scope]);
