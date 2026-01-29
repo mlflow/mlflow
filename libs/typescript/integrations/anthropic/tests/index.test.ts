@@ -108,7 +108,9 @@ describe('tracedAnthropic', () => {
       ),
     );
 
-    // Disable retries to prevent the SDK from retrying on 429 errors
+    // Disable retries to prevent the SDK from retrying on 429 errors.
+    // SDK 0.71+ calls CancelReadableStream on error responses before retrying,
+    // which hangs indefinitely with MSW mock responses.
     const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
     const wrappedAnthropic = tracedAnthropic(anthropic);
 
