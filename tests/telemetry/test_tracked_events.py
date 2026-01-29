@@ -671,7 +671,7 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
     mock_trace = mock.Mock()
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(
@@ -720,7 +720,7 @@ def test_simulate_conversation_from_genai_evaluate(
 
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(
