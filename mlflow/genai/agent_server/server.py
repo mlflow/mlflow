@@ -202,6 +202,9 @@ class AgentServer:
                         try:
                             async for chunk in proxy_response.aiter_bytes():
                                 yield chunk
+                        except Exception as e:
+                            logger.error(f"Streaming error: {e}")
+                            raise
                         finally:
                             await proxy_response.aclose()
 
