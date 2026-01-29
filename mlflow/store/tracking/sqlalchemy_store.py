@@ -569,6 +569,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session=session,
                 view_type=ViewType.DELETED_ONLY,
             )
+            # Delete trace_info records first (this will cascade delete spans, trace_tags,
+            # trace_metadata, and assessments due to ondelete="CASCADE" on their foreign keys)
+            session.query(SqlTraceInfo).filter(
+                SqlTraceInfo.experiment_id == int(experiment_id)
+            ).delete(synchronize_session=False)
+
+            # Delete online_scoring_configs for this experiment
+            session.query(SqlOnlineScoringConfig).filter(
+                SqlOnlineScoringConfig.experiment_id == int(experiment_id)
+            ).delete(synchronize_session=False)
+
             session.delete(experiment)
 
     def _mark_run_deleted(self, session, run):
