@@ -106,7 +106,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     }
 
     # Verify cost is calculated
-    assert spans[0].cost == {
+    assert spans[0].llm_cost == {
         "input_cost": 5.0,
         "output_cost": 14.0,
         "total_cost": 19.0,
@@ -242,7 +242,7 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
-    assert spans[0].cost == {
+    assert spans[0].llm_cost == {
         "input_cost": 9.0,
         "output_cost": 24.0,
         "total_cost": 33.0,

@@ -118,7 +118,7 @@ async def test_langgraph_tracing_prebuilt(is_async, mock_litellm_cost):
     for chat_span in chat_spans:
         assert chat_span.model_name == "gpt-3.5-turbo"
         usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
-        assert chat_span.cost == {
+        assert chat_span.llm_cost == {
             "input_cost": usage["input_tokens"] * 1.0,
             "output_cost": usage["output_tokens"] * 2.0,
             "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,

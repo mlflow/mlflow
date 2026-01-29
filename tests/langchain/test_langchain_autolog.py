@@ -750,7 +750,7 @@ async def test_langchain_autolog_token_usage(mock_litellm_cost):
     def _validate_cost(trace):
         # Find the ChatOpenAI span
         chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
-        assert chat_model_span.cost == {
+        assert chat_model_span.llm_cost == {
             "input_cost": 9.0,
             "output_cost": 24.0,
             "total_cost": 33.0,
