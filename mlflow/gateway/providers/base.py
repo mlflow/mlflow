@@ -281,7 +281,9 @@ class FallbackProvider(BaseProvider):
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
             try:
                 method = getattr(provider, method_name)
-                return await method(*args, **kwargs)
+                return await self._execute_with_span(
+                    provider, method_name, attempt, method, *args, **kwargs
+                )
             except Exception as e:
                 last_error = e
                 if attempt < self._max_attempts:
@@ -297,6 +299,42 @@ class FallbackProvider(BaseProvider):
             status_code=status_code,
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
+
+    async def _execute_with_span(
+        self, provider, method_name: str, attempt: int, method, *args, **kwargs
+    ):
+        """Execute a provider method wrapped in a tracing span if tracing is active."""
+        import mlflow
+
+        # Only create spans if there's an active trace
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            return await method(*args, **kwargs)
+
+        provider_name = getattr(provider, "NAME", type(provider).__name__)
+        model_name = ""
+        if hasattr(provider, "config") and hasattr(provider.config, "model"):
+            model_name = getattr(provider.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+
+        with mlflow.start_span(name=span_name) as span:
+            span.set_attribute("provider", provider_name)
+            span.set_attribute("attempt", attempt)
+            if model_name:
+                span.set_attribute("model", model_name)
+            span.set_attribute("method", method_name)
+
+            try:
+                result = await method(*args, **kwargs)
+                span.set_status("OK")
+                return result
+            except Exception as e:
+                span.set_status("ERROR")
+                span.set_attribute("error", str(e))
+                raise
 
     async def _execute_stream_with_fallback(self, method_name: str, *args, **kwargs):
         """
@@ -320,12 +358,18 @@ class FallbackProvider(BaseProvider):
         last_error = None
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
+            span_ctx = self._create_stream_span(provider, method_name, attempt)
             try:
                 method = getattr(provider, method_name)
+                last_chunk = None
                 async for chunk in method(*args, **kwargs):
+                    last_chunk = chunk
                     yield chunk
+                # Stream completed successfully
+                self._close_stream_span(span_ctx, success=True, last_chunk=last_chunk)
                 return
             except Exception as e:
+                self._close_stream_span(span_ctx, success=False, error=e)
                 last_error = e
                 if attempt < self._max_attempts:
                     continue
@@ -340,6 +384,63 @@ class FallbackProvider(BaseProvider):
             status_code=status_code,
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
+
+    def _create_stream_span(self, provider, method_name: str, attempt: int):
+        """Create a span for streaming provider call. Returns a LiveSpan."""
+        import mlflow
+        from mlflow.tracing.fluent import start_span_no_context
+
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            return None
+
+        provider_name = getattr(provider, "NAME", type(provider).__name__)
+        model_name = ""
+        if hasattr(provider, "config") and hasattr(provider.config, "model"):
+            model_name = getattr(provider.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+
+        # Use start_span_no_context to get a LiveSpan that can be manually ended
+        return start_span_no_context(
+            name=span_name,
+            parent_span=active_span,
+            attributes={
+                "provider": provider_name,
+                "attempt": attempt,
+                "method": method_name,
+                "streaming": True,
+                **({"model": model_name} if model_name else {}),
+            },
+        )
+
+    def _close_stream_span(
+        self, span_ctx, success: bool, error: Exception | None = None, last_chunk=None
+    ):
+        """Close a streaming span with appropriate status."""
+        if span_ctx is None:
+            return
+        try:
+            if success:
+                span_ctx.set_status("OK")
+                # Extract usage from the final chunk if available
+                if last_chunk is not None and hasattr(last_chunk, "usage") and last_chunk.usage:
+                    usage = last_chunk.usage
+                    if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
+                        span_ctx.set_attribute("prompt_tokens", usage.prompt_tokens)
+                    if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
+                        span_ctx.set_attribute("completion_tokens", usage.completion_tokens)
+                    if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
+                        span_ctx.set_attribute("total_tokens", usage.total_tokens)
+            else:
+                span_ctx.set_status("ERROR")
+                if error:
+                    span_ctx.set_attribute("error", str(error))
+            span_ctx.end()
+        except Exception:
+            pass
 
     async def chat_stream(
         self, payload: chat.RequestPayload
@@ -369,6 +470,166 @@ class FallbackProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
+
+
+class TracingProviderWrapper(BaseProvider):
+    """
+    A wrapper provider that adds MLflow tracing spans to all provider method calls.
+
+    This wrapper automatically instruments any provider (including FallbackProvider
+    and TrafficRouteProvider) with tracing spans for each method invocation.
+
+    Usage:
+        provider = TracingProviderWrapper(original_provider)
+        result = await provider.chat(payload)  # Automatically traced
+
+    The wrapper creates spans with:
+        - Provider name and model information
+        - Method name being called
+        - Success/error status
+        - Error details on failure
+    """
+
+    NAME: str = "TracingWrapper"
+
+    def __init__(self, provider: BaseProvider):
+        self._provider = provider
+        # Expose underlying provider attributes for compatibility
+        if hasattr(provider, "config"):
+            self.config = provider.config
+
+    @property
+    def wrapped_provider(self) -> BaseProvider:
+        """Access the underlying wrapped provider."""
+        return self._provider
+
+    def _get_span_name(self) -> str:
+        """Generate span name based on wrapped provider."""
+        provider_name = getattr(self._provider, "NAME", type(self._provider).__name__)
+        model_name = ""
+        if hasattr(self._provider, "config") and hasattr(self._provider.config, "model"):
+            model_name = getattr(self._provider.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+        return span_name
+
+    def _get_provider_attributes(self) -> dict[str, str]:
+        """Get provider attributes for span."""
+        attrs = {
+            "provider": getattr(self._provider, "NAME", type(self._provider).__name__),
+        }
+        if hasattr(self._provider, "config") and hasattr(self._provider.config, "model"):
+            if model_name := getattr(self._provider.config.model, "name", ""):
+                attrs["model"] = model_name
+        return attrs
+
+    async def _trace_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a method with tracing span."""
+        import mlflow
+
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            return await method(*args, **kwargs)
+
+        span_name = self._get_span_name()
+        with mlflow.start_span(name=span_name) as span:
+            for key, value in self._get_provider_attributes().items():
+                span.set_attribute(key, value)
+            span.set_attribute("method", method_name)
+
+            try:
+                result = await method(*args, **kwargs)
+                span.set_status("OK")
+                return result
+            except Exception as e:
+                span.set_status("ERROR")
+                span.set_attribute("error", str(e))
+                raise
+
+    async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a streaming method with tracing span."""
+        import mlflow
+        from mlflow.tracing.fluent import start_span_no_context
+
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            async for chunk in method(*args, **kwargs):
+                yield chunk
+            return
+
+        span_name = self._get_span_name()
+        # Use start_span_no_context to get a LiveSpan that can be manually ended
+        span = start_span_no_context(
+            name=span_name,
+            parent_span=active_span,
+            attributes={
+                **self._get_provider_attributes(),
+                "method": method_name,
+                "streaming": True,
+            },
+        )
+
+        try:
+            last_chunk = None
+            async for chunk in method(*args, **kwargs):
+                last_chunk = chunk
+                yield chunk
+
+            # Extract usage from the final chunk if available (OpenAI includes this
+            # when stream_options.include_usage=true)
+            if last_chunk is not None and hasattr(last_chunk, "usage") and last_chunk.usage:
+                usage = last_chunk.usage
+                if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
+                    span.set_attribute("prompt_tokens", usage.prompt_tokens)
+                if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
+                    span.set_attribute("completion_tokens", usage.completion_tokens)
+                if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
+                    span.set_attribute("total_tokens", usage.total_tokens)
+
+            span.set_status("OK")
+            span.end()
+        except Exception as e:
+            span.set_status("ERROR")
+            span.set_attribute("error", str(e))
+            span.end()
+            raise
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        async for chunk in self._trace_stream_method(
+            "chat_stream", self._provider.chat_stream, payload
+        ):
+            yield chunk
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        return await self._trace_method("chat", self._provider.chat, payload)
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        async for chunk in self._trace_stream_method(
+            "completions_stream", self._provider.completions_stream, payload
+        ):
+            yield chunk
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        return await self._trace_method("completions", self._provider.completions, payload)
+
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        return await self._trace_method("embeddings", self._provider.embeddings, payload)
+
+    async def passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        return await self._trace_method(
+            "passthrough", self._provider.passthrough, action, payload, headers
+        )
 
 
 class ProviderAdapter(ABC):

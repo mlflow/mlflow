@@ -31,6 +31,10 @@
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
   },
+  "+CHJSV": {
+    "defaultMessage": "Enable usage tracking",
+    "description": "Label for usage tracking toggle"
+  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -954,6 +958,10 @@
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
   },
+  "5pkRII": {
+    "defaultMessage": "View traces",
+    "description": "Link to view traces for endpoint"
+  },
   "5qRFq/": {
     "defaultMessage": "Delete",
     "description": "Delete button text"
@@ -1157,6 +1165,10 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
+  },
+  "76S52o": {
+    "defaultMessage": "Experiment",
+    "description": "Label for experiment selector"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1765,6 +1777,10 @@
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BA/qml": {
+    "defaultMessage": "Loading experiments...",
+    "description": "Loading message for experiments"
   },
   "BB6In/": {
     "defaultMessage": "Tags",
@@ -2637,6 +2653,10 @@
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
+  },
+  "IX9SJT": {
+    "defaultMessage": "When enabled, traces from endpoint invocations will be logged for monitoring and analytics.",
+    "description": "Help text for usage tracking toggle"
   },
   "IXPpwQ": {
     "defaultMessage": "404: Resource not found",
@@ -5391,6 +5411,10 @@
     "defaultMessage": "Created",
     "description": "Created column header"
   },
+  "dOhi2U": {
+    "defaultMessage": "Usage log",
+    "description": "Summary usage log label"
+  },
   "dPn3az": {
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
@@ -7095,6 +7119,10 @@
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
   },
+  "ppa0iX": {
+    "defaultMessage": "Select an experiment or leave blank to auto-create one.",
+    "description": "Help text for experiment selector"
+  },
   "puATD8": {
     "defaultMessage": "Are you sure you want to delete this assessment?",
     "description": "Delete assessments modal confirmation text"
@@ -7759,6 +7787,10 @@
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
   },
+  "vDAb7C": {
+    "defaultMessage": "Auto-create experiment",
+    "description": "Placeholder for experiment selector when no experiment is selected"
+  },
   "vEuvEt": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
@@ -8226,6 +8258,10 @@
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
     "description": "Message text when no model versions are registered"
+  },
+  "yoD1c7": {
+    "defaultMessage": "Usage Tracking",
+    "description": "Section title for usage tracking configuration"
   },
   "yrsFOP": {
     "defaultMessage": "Datasets",

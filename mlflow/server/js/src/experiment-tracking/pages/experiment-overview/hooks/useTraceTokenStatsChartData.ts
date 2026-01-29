@@ -40,14 +40,15 @@ export interface UseTraceTokenStatsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
   const {
     data: tokenStatsData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -58,6 +59,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
       { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
     ],
     timeIntervalSeconds,
+    filters,
   });
 
   // Fetch overall average tokens (without time bucketing) for the header
@@ -66,12 +68,13 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TOTAL_TOKENS,
     aggregations: [{ aggregation_type: AggregationType.AVG }],
+    filters,
   });
 
   const tokenStatsDataPoints = useMemo(() => tokenStatsData?.data_points || [], [tokenStatsData?.data_points]);

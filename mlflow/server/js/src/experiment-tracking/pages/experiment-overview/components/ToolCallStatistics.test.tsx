@@ -39,7 +39,7 @@ describe('ToolCallStatistics', () => {
   const timeBuckets = [startTimeMs, startTimeMs + 3600000, endTimeMs];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,

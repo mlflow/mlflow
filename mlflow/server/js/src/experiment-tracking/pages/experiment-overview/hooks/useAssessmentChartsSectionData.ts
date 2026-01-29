@@ -35,9 +35,12 @@ export interface UseAssessmentChartsSectionDataResult {
  * @returns Assessment names, average values (for numeric only), loading state, and error state
  */
 export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
-  // Filter for feedback assessments only
-  const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
+  const { experimentIds, startTimeMs, endTimeMs, filters: contextFilters } = useOverviewChartContext();
+  // Filter for feedback assessments only, combined with context filters
+  const filters = useMemo(
+    () => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK), ...(contextFilters || [])],
+    [contextFilters],
+  );
 
   // Query assessment counts grouped by name to get ALL assessments
   const {
@@ -45,7 +48,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
     isLoading: isLoadingCount,
     error: countError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.ASSESSMENTS,
@@ -61,7 +64,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.ASSESSMENTS,
