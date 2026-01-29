@@ -51,7 +51,12 @@ const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () 
           />
         }
         button={
-          <Button componentId="mlflow.home.experiments.create" onClick={onCreateExperiment} type="primary" icon={<PlusIcon />}>
+          <Button
+            componentId="mlflow.home.experiments.create"
+            onClick={onCreateExperiment}
+            type="primary"
+            icon={<PlusIcon />}
+          >
             <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
           </Button>
         }

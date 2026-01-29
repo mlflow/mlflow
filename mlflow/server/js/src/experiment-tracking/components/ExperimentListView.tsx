@@ -181,7 +181,10 @@ export const ExperimentListView = () => {
                 endIcon={<ChevronDownIcon />}
                 type={tagsFilter.length > 0 ? 'primary' : undefined}
               >
-                <FormattedMessage defaultMessage="Tag" description="Button to open the tags filter popover in the experiments page" />
+                <FormattedMessage
+                  defaultMessage="Tag"
+                  description="Button to open the tags filter popover in the experiments page"
+                />
               </Button>
             </Popover.Trigger>
             <Popover.Content>

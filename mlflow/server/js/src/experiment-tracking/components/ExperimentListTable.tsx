@@ -194,7 +194,10 @@ export const ExperimentListTable = ({
                   type="primary"
                   icon={<PlusIcon />}
                 >
-                  <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
+                  <FormattedMessage
+                    defaultMessage="Create experiment"
+                    description="Home page experiments empty state CTA"
+                  />
                 </Button>
               ) : undefined
             }

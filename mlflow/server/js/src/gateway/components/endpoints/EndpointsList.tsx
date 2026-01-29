@@ -134,9 +134,15 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         </TableRow>
         {showEmptyState ? (
           <TableRow>
-            <td colSpan={100}>
+            <td
+              colSpan={100}
+              css={{
+                height: 400,
+                verticalAlign: 'middle',
+              }}
+            >
               {isFiltered && endpoints.length > 0 ? (
-                <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+                <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Empty
                     title={
                       <FormattedMessage
@@ -148,7 +154,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   />
                 </div>
               ) : endpoints.length === 0 ? (
-                <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+                <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Empty
                     image={<CloudModelIcon />}
                     title={
