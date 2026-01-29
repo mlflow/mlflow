@@ -17,9 +17,7 @@ export const TraceTableGenericQuickstart = ({
   const code = getCodeSource();
   return (
     <div css={{ maxWidth: 600 }}>
-      <Typography.Text color="secondary">
-        {content}
-      </Typography.Text>
+      <Typography.Text color="secondary">{content}</Typography.Text>
       <div css={{ position: 'relative', maxWidth: '100%' }}>
         <CopyButton
           componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracetablegenericquickstart_25"
