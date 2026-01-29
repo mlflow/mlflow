@@ -1463,6 +1463,7 @@ mlflow.search_logged_models
 mlflow.search_model_versions
 mlflow.search_registered_models
 mlflow.search_runs
+mlflow.search_sessions
 mlflow.search_traces
 mlflow.sentence_transformers.get_default_conda_env
 mlflow.sentence_transformers.get_default_pip_requirements

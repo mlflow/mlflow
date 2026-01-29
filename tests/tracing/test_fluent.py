@@ -2427,3 +2427,151 @@ def test_search_traces_with_full_text():
     )
     assert len(traces) == 1
     assert traces[0].info.trace_id == trace_id_1
+
+
+def _create_trace_with_session(session_id: str, name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+def _create_trace_without_session(name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_empty():
+    # Create a trace without a session ID - should result in no sessions
+    _create_trace_without_session()
+    sessions = mlflow.search_sessions()
+    assert sessions == []
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_returns_grouped_traces():
+    session_id_1 = f"session-1-{uuid.uuid4().hex[:8]}"
+    session_id_2 = f"session-2-{uuid.uuid4().hex[:8]}"
+
+    # Create traces for session 1
+    trace_id_1 = _create_trace_with_session(session_id_1, "session1_trace1")
+    trace_id_2 = _create_trace_with_session(session_id_1, "session1_trace2")
+
+    # Create trace for session 2
+    trace_id_3 = _create_trace_with_session(session_id_2, "session2_trace1")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 2
+
+    # Convert to dict keyed by session ID for easier assertions
+    sessions_by_id = {
+        s[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION): s for s in sessions
+    }
+
+    assert len(sessions_by_id[session_id_1]) == 2
+    assert len(sessions_by_id[session_id_2]) == 1
+
+    # Verify trace IDs
+    session_1_trace_ids = {t.info.trace_id for t in sessions_by_id[session_id_1]}
+    assert trace_id_1 in session_1_trace_ids
+    assert trace_id_2 in session_1_trace_ids
+    assert sessions_by_id[session_id_2][0].info.trace_id == trace_id_3
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_respects_max_results():
+    session_ids = [f"session-{i}-{uuid.uuid4().hex[:8]}" for i in range(3)]
+
+    # Create one trace per session
+    for session_id in session_ids:
+        _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(max_results=2)
+
+    assert len(sessions) == 2
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_skips_traces_without_session_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+
+    # Create trace without session
+    _create_trace_without_session("no_session_trace")
+
+    # Create trace with session
+    trace_id = _create_trace_with_session(session_id, "with_session_trace")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    assert sessions[0][0].info.trace_id == trace_id
+
+
+def test_search_sessions_validates_locations_type():
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations=4)
+
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations="4")
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_with_default_experiment_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    # search_sessions should use the default experiment
+    sessions = mlflow.search_sessions()
+    assert len(sessions) == 1
+
+
+def test_search_sessions_raises_without_experiment():
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None):
+        with pytest.raises(MlflowException, match=r"No active experiment found"):
+            mlflow.search_sessions()
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_true():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=True)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=True, spans should be populated
+    assert len(sessions[0][0].data.spans) > 0
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_false():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=False)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=False, spans should be empty
+    assert len(sessions[0][0].data.spans) == 0
