@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 
 import {
   ChevronDownIcon,
@@ -111,7 +111,7 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
     return out;
   }, [sortedGroupedColumns, search]);
 
-  // Build tree data structure
+  // Build tree data structure - memoized to prevent re-creation
   const treeData = useMemo(() => {
     return Object.entries(filteredGroupedColumns).map(([groupName, cols]) => {
       const groupLabel = getGroupLabel(groupName);
@@ -126,112 +126,130 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
     });
   }, [filteredGroupedColumns, search]);
 
-  // Get all selected column IDs
+  // Get all selected column IDs - memoized
   const selectedColumnIds = useMemo(() => selectedColumns.map((col) => col.id), [selectedColumns]);
 
-  const handleCheck = (_: any, { node: { key, checked } }: { node: { key: string; checked: boolean } }) => {
-    // Check if this is a group node
-    if (key.startsWith('GROUP-')) {
-      const groupName = key.replace('GROUP-', '');
-      const groupColumns = filteredGroupedColumns[groupName] || [];
-      
-      if (!checked) {
-        // Select all columns in this group
-        const columnsToAdd = groupColumns.filter((col) => !selectedColumns.some((c) => c.id === col.id));
-        setSelectedColumns([...selectedColumns, ...columnsToAdd]);
-      } else {
-        // Deselect all columns in this group
-        const columnIdsToRemove = groupColumns.map((col) => col.id);
-        setSelectedColumns(selectedColumns.filter((col) => !columnIdsToRemove.includes(col.id)));
-      }
-    } else {
-      // Single column toggle
-      const column = columns.find((col) => col.id === key);
-      if (column) {
-        toggleColumns([column]);
-      }
-    }
-  };
+  // Memoize the check handler to prevent re-creation
+  const handleCheck = useCallback(
+    (_: any, { node: { key, checked } }: { node: { key: string; checked: boolean } }) => {
+      // Check if this is a group node
+      if (key.startsWith('GROUP-')) {
+        const groupName = key.replace('GROUP-', '');
+        const groupColumns = filteredGroupedColumns[groupName] || [];
 
-  // Get all group keys for default expansion
+        if (!checked) {
+          // Select all columns in this group
+          const columnsToAdd = groupColumns.filter((col) => !selectedColumns.some((c) => c.id === col.id));
+          setSelectedColumns([...selectedColumns, ...columnsToAdd]);
+        } else {
+          // Deselect all columns in this group
+          const columnIdsToRemove = groupColumns.map((col) => col.id);
+          setSelectedColumns(selectedColumns.filter((col) => !columnIdsToRemove.includes(col.id)));
+        }
+      } else {
+        // Single column toggle
+        const column = columns.find((col) => col.id === key);
+        if (column) {
+          toggleColumns([column]);
+        }
+      }
+    },
+    [filteredGroupedColumns, selectedColumns, setSelectedColumns, columns, toggleColumns],
+  );
+
+  // Get all group keys for default expansion - memoized
   const defaultExpandedKeys = useMemo(() => {
     return Object.keys(sortedGroupedColumns).map((group) => getGroupKey(group));
   }, [sortedGroupedColumns]);
 
-  const dropdownContent = (
-    <div
-      css={{
-        backgroundColor: theme.colors.backgroundPrimary,
-        width: 400,
-        border: `1px solid`,
-        borderColor: theme.colors.border,
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          setDropdownVisible(false);
-        }
-      }}
-    >
-      {metadataError ? (
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: theme.spacing.xs,
-            padding: `${theme.spacing.md}px`,
-            color: theme.colors.textValidationDanger,
-          }}
-          data-testid="filter-dropdown-error"
-        >
-          <DangerIcon />
-          <FormattedMessage
-            defaultMessage="Fetching traces failed"
-            description="Error message for fetching traces failed"
-          />
-        </div>
-      ) : (
-        <>
-          <div css={{ padding: theme.spacing.md }}>
-            <Input
-              componentId="mlflow.traces.column_selector.search"
-              value={search}
-              prefix={<SearchIcon />}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Search columns',
-                description: 'Placeholder for column selector search input',
-              })}
-              allowClear
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+  const dropdownContent = useMemo(
+    () => (
+      <div
+        css={{
+          backgroundColor: theme.colors.backgroundPrimary,
+          width: 400,
+          border: `1px solid`,
+          borderColor: theme.colors.border,
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setDropdownVisible(false);
+          }
+        }}
+      >
+        {metadataError ? (
           <div
             css={{
-              maxHeight: 15 * 32,
-              overflowY: 'scroll',
-              overflowX: 'hidden',
-              paddingBottom: theme.spacing.md,
-              'span[title]': {
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-                overflow: 'hidden',
-              },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: theme.spacing.xs,
+              padding: `${theme.spacing.md}px`,
+              color: theme.colors.textValidationDanger,
             }}
+            data-testid="filter-dropdown-error"
           >
-            <Tree
-              data-testid="column-selector-tree"
-              mode="checkable"
-              dangerouslySetAntdProps={{
-                checkedKeys: selectedColumnIds,
-                onCheck: handleCheck,
-              }}
-              defaultExpandedKeys={defaultExpandedKeys}
-              treeData={treeData}
+            <DangerIcon />
+            <FormattedMessage
+              defaultMessage="Fetching traces failed"
+              description="Error message for fetching traces failed"
             />
           </div>
-        </>
-      )}
-    </div>
+        ) : (
+          <>
+            <div css={{ padding: theme.spacing.md }}>
+              <Input
+                componentId="mlflow.traces.column_selector.search"
+                value={search}
+                prefix={<SearchIcon />}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Search columns',
+                  description: 'Placeholder for column selector search input',
+                })}
+                allowClear
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div
+              css={{
+                maxHeight: 15 * 32,
+                overflowY: 'scroll',
+                overflowX: 'hidden',
+                paddingBottom: theme.spacing.md,
+                'span[title]': {
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                },
+              }}
+            >
+              <Tree
+                data-testid="column-selector-tree"
+                mode="checkable"
+                dangerouslySetAntdProps={{
+                  checkedKeys: selectedColumnIds,
+                  onCheck: handleCheck,
+                  // Disable animation for smoother performance
+                  motion: null,
+                }}
+                defaultExpandedKeys={defaultExpandedKeys}
+                treeData={treeData}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    ),
+    [
+      theme,
+      metadataError,
+      search,
+      intl,
+      selectedColumnIds,
+      handleCheck,
+      defaultExpandedKeys,
+      treeData,
+    ],
   );
 
   return (
