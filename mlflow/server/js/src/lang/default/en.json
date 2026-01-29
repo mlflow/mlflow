@@ -575,6 +575,10 @@
     "defaultMessage": "10",
     "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
   },
+  "2KINrA": {
+    "defaultMessage": "New experiment",
+    "description": "Sidebar button to create a new experiment"
+  },
   "2NJ8E5": {
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
@@ -1145,6 +1149,10 @@
   "71hvMu": {
     "defaultMessage": "Add new variable",
     "description": "Experiment page > new run modal > \"add new variable\" button label"
+  },
+  "72MQ8i": {
+    "defaultMessage": "Model training",
+    "description": "Label for Machine Learning workflow type option"
   },
   "72uGpl": {
     "defaultMessage": "Evaluate",
@@ -3142,6 +3150,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "MbGAqO": {
+    "defaultMessage": "Select your workflow type to customize which features are displayed in the sidebar",
+    "description": "Tooltip explaining the workflow type selector in the sidebar"
+  },
   "Mc6Dhy": {
     "defaultMessage": "5",
     "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
@@ -4336,6 +4348,10 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
+  "W0PKNU": {
+    "defaultMessage": "Model registry",
+    "description": "Sidebar link for model registry tab"
+  },
   "W1ZIP4": {
     "defaultMessage": "Safety",
     "description": "LLM template option"
@@ -4574,10 +4590,6 @@
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
-  },
-  "Xuz/xh": {
-    "defaultMessage": "Models",
-    "description": "Sidebar link for models tab"
   },
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
@@ -5023,10 +5035,6 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "amFk5F": {
-    "defaultMessage": "Workflow type",
-    "description": "Label for the workflow type selector in the sidebar"
-  },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
     "description": "Home page quick action description for registering prompts"
@@ -5282,10 +5290,6 @@
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
-  },
-  "cSEpGa": {
-    "defaultMessage": "Machine Learning",
-    "description": "Label for Machine Learning workflow type option"
   },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
@@ -8115,10 +8119,6 @@
     "defaultMessage": "Presence Penalty",
     "description": "Label for presence penalty input"
   },
-  "xq0Rde": {
-    "defaultMessage": "New",
-    "description": "Sidebar create popover button to create new experiment, model or prompt"
-  },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
     "description": "Tooltip content for a button that changes the render mode to default"
@@ -8210,6 +8210,10 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
+  },
+  "ya+m/4": {
+    "defaultMessage": "Back to home",
+    "description": "Sidebar back button to return to home page"
   },
   "ydoHrJ": {
     "defaultMessage": "Output",

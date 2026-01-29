@@ -14,7 +14,7 @@ import {
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
-import { WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
+import { WorkflowTypeProvider, useWorkflowType, WorkflowType } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
 
 // Route definition imports:
@@ -28,6 +28,66 @@ import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
 
 /**
+ * Inner layout component that has access to WorkflowType context.
+ */
+const MlflowRootLayout = ({
+  showSidebar,
+  setShowSidebar,
+}: {
+  showSidebar: boolean;
+  setShowSidebar: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const { setIsDarkTheme } = useDarkThemeContext();
+  const isDarkTheme = theme.isDarkMode;
+  const { workflowType } = useWorkflowType();
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ErrorModal />
+      <AppErrorBoundary>
+        <MlflowHeader
+          isDarkTheme={isDarkTheme}
+          setIsDarkTheme={setIsDarkTheme}
+          sidebarOpen={showSidebar}
+          toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
+        />
+        <RootAssistantLayout>
+          <div
+            css={{
+              backgroundColor: theme.colors.backgroundSecondary,
+              display: 'flex',
+              flexDirection: 'row',
+              width: '100%',
+              background:
+                workflowType === WorkflowType.GENAI
+                  ? `radial-gradient(ellipse 200% 100% at bottom right, ${theme.colors.actionDangerDefaultBackgroundPress}, transparent 70%)`
+                  : `radial-gradient(ellipse 200% 100% at bottom right, ${theme.colors.actionDefaultBackgroundPress}, transparent 70%)`,
+            }}
+          >
+            {showSidebar && <MlflowSidebar />}
+            <main
+              css={{
+                width: '100%',
+                backgroundColor: theme.colors.backgroundPrimary,
+                margin: theme.spacing.sm,
+                borderRadius: theme.borders.borderRadiusMd,
+                boxShadow: theme.shadows.md,
+                overflowX: 'auto',
+              }}
+            >
+              <React.Suspense fallback={<LegacySkeleton />}>
+                <Outlet />
+              </React.Suspense>
+            </main>
+          </div>
+        </RootAssistantLayout>
+      </AppErrorBoundary>
+    </div>
+  );
+};
+
+/**
  * This is root element for MLflow routes, containing app header.
  */
 const MlflowRootRoute = () => {
@@ -37,10 +97,7 @@ const MlflowRootRoute = () => {
   useDocumentTitle({ title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);
-  const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
-  const { setIsDarkTheme } = useDarkThemeContext();
-  const isDarkTheme = theme.isDarkMode;
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   // Hide sidebar if we are in a single experiment page (only when feature flag is disabled)
@@ -54,43 +111,7 @@ const MlflowRootRoute = () => {
     <AssistantProvider>
       <AssistantRouteContextProvider />
       <WorkflowTypeProvider>
-        <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <ErrorModal />
-          <AppErrorBoundary>
-            <MlflowHeader
-              isDarkTheme={isDarkTheme}
-              setIsDarkTheme={setIsDarkTheme}
-              sidebarOpen={showSidebar}
-              toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
-            />
-            <RootAssistantLayout>
-              <div
-                css={{
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  display: 'flex',
-                  flexDirection: 'row',
-                  width: '100%',
-                }}
-              >
-                {showSidebar && <MlflowSidebar />}
-                <main
-                  css={{
-                    width: '100%',
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    margin: theme.spacing.sm,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    boxShadow: theme.shadows.md,
-                    overflowX: 'auto',
-                  }}
-                >
-                  <React.Suspense fallback={<LegacySkeleton />}>
-                    <Outlet />
-                  </React.Suspense>
-                </main>
-              </div>
-            </RootAssistantLayout>
-          </AppErrorBoundary>
-        </div>
+        <MlflowRootLayout showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
       </WorkflowTypeProvider>
     </AssistantProvider>
   );
