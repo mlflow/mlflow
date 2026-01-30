@@ -1,5 +1,7 @@
 # FileStore to SQLite Migration Tool - Proposal
 
+Author: @harupy
+
 > 🤖 This document was created with AI assistance (Claude Code).
 
 ## Context
