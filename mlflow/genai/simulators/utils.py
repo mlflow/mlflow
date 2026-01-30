@@ -35,7 +35,7 @@ def get_default_simulation_model() -> str:
 
 @contextmanager
 def _delete_trace_if_created():
-    """Delete any trace created within this context to avoid polluting user traces."""
+    """Delete at most one trace created within this context to avoid polluting user traces."""
     trace_id_before = mlflow.get_last_active_trace_id(thread_local=True)
     try:
         yield
