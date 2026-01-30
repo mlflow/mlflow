@@ -1,5 +1,7 @@
 # MLflow Export Import - Architecture Summary
 
+> 🤖 This document was created with AI assistance (Claude Code).
+
 https://github.com/mlflow/mlflow-export-import
 
 ## Overview

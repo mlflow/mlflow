@@ -1,5 +1,7 @@
 # FileStore to SQLite Migration Tool - Proposal
 
+> 🤖 This document was created with AI assistance (Claude Code).
+
 ## Context
 
 GitHub Issue: https://github.com/mlflow/mlflow/issues/18534
