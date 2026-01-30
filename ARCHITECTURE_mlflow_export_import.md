@@ -46,7 +46,7 @@ A Python package for copying MLflow objects (experiments, runs, models, traces, 
                │
                │ REST API
                │ (create_experiment, create_run, ...)
-               │ ⚠️  NEW IDs generated
+               │ ⚠️  NEW IDs/timestamps generated
                ▼
 ┌──────────────────────────────┐
 │     Target MLflow Server     │
