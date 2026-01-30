@@ -169,6 +169,7 @@ FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
 
 - New code to write and maintain
 - Duplicates some logic from mlflow-export-import
+- Requires new MLflow release to ship bug fixes (can be mitigated by patch releases)
 
 #### Implementation
 
