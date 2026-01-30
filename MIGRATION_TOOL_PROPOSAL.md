@@ -92,7 +92,6 @@ FileStore (./mlruns) → [mlflow-export-import] → SQLite (mlflow.db)
 
 - Leverages existing, well-tested export logic
 - Already handles all MLflow object types
-- Community familiar with the tool
 - Maintains single tool for all migration needs
 
 **Cons:**
