@@ -142,6 +142,7 @@ FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
 - Can leverage internal MLflow store implementations
 - Ships with MLflow - always available
 - Can be optimized for batch operations
+- No changes needed to mlflow-export-import
 
 **Cons:**
 
