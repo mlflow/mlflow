@@ -9,34 +9,49 @@ A Python package for copying MLflow objects (experiments, runs, models, traces, 
 ## Architecture
 
 ```
-┌─────────────────────────┐
-│  Source MLflow Server   │
-│  ─────────────────────  │
-│  • Experiments          │
-│  • Runs                 │
-│  • Models               │
-│  • Traces               │
-└───────────┬─────────────┘
-            │
-            │ REST API (Export)
-            ▼
-┌─────────────────────────┐
-│   Export Directory      │
-│  ─────────────────────  │
-│  • JSON Metadata        │
-│  • Artifacts            │
-└───────────┬─────────────┘
-            │
-            │ REST API (Import)
-            ▼
-┌─────────────────────────┐
-│  Target MLflow Server   │
-│  ─────────────────────  │
-│  • Experiments          │
-│  • Runs                 │
-│  • Models               │
-│  • Traces               │
-└─────────────────────────┘
+┌──────────────────────────────┐
+│     Source MLflow Server     │
+│  (FileStore, SQLite, etc.)   │
+└──────────────┬───────────────┘
+               │
+               │ REST API
+               │ (search_experiments, search_runs, ...)
+               ▼
+┌──────────────────────────────┐
+│       export-experiment      │
+│       export-model           │
+│       export-all             │
+└──────────────┬───────────────┘
+               │
+               │ Write to disk
+               ▼
+┌──────────────────────────────┐
+│      Export Directory        │
+│  ┌────────────────────────┐  │
+│  │ experiment.json        │  │
+│  │ runs/                  │  │
+│  │   └─ <run_id>/         │  │
+│  │       ├─ run.json      │  │
+│  │       └─ artifacts/    │  │
+│  └────────────────────────┘  │
+└──────────────┬───────────────┘
+               │
+               │ Read from disk
+               ▼
+┌──────────────────────────────┐
+│       import-experiment      │
+│       import-model           │
+│       import-all             │
+└──────────────┬───────────────┘
+               │
+               │ REST API
+               │ (create_experiment, create_run, ...)
+               │ ⚠️  NEW IDs generated
+               ▼
+┌──────────────────────────────┐
+│     Target MLflow Server     │
+│  (SQLite, PostgreSQL, etc.)  │
+└──────────────────────────────┘
 ```
 
 ## Supported Objects
