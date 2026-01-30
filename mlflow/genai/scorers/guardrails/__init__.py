@@ -29,6 +29,7 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.guardrails.registry import get_validator_class
@@ -114,7 +115,7 @@ class GuardrailsScorer(Scorer):
 
             result = self._guard.validate(text)
             passed = result.validation_passed
-            value = "pass" if passed else "fail"
+            value = CategoricalRating.YES if passed else CategoricalRating.NO
 
             rationale = None
             if hasattr(result, "validated_output") and not passed and result.validation_summaries:

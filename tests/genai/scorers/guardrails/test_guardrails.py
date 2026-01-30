@@ -7,6 +7,7 @@ from guardrails.classes.validation.validation_result import FailResult, PassResu
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.guardrails import (
     DetectJailbreak,
     DetectPII,
@@ -58,7 +59,7 @@ def test_guardrails_scorer_pass(mock_validator_class, scorer_class, validator_na
 
     assert isinstance(result, Feedback)
     assert result.name == validator_name
-    assert result.value == "pass"
+    assert result.value == CategoricalRating.YES
     assert result.rationale is None
     assert result.source == AssessmentSource(
         source_type=AssessmentSourceType.CODE,
@@ -84,7 +85,7 @@ def test_guardrails_scorer_fail(mock_validator_class, scorer_class, validator_na
 
     assert isinstance(result, Feedback)
     assert result.name == validator_name
-    assert result.value == "fail"
+    assert result.value == CategoricalRating.NO
     assert result.source == AssessmentSource(
         source_type=AssessmentSourceType.CODE,
         source_id=f"guardrails/{validator_name}",
@@ -103,7 +104,7 @@ def test_guardrails_get_scorer(mock_validator_class):
 
     assert isinstance(result, Feedback)
     assert result.name == "ToxicLanguage"
-    assert result.value == "pass"
+    assert result.value == CategoricalRating.YES
     assert result.rationale is None
     assert result.source == AssessmentSource(
         source_type=AssessmentSourceType.CODE,
@@ -122,7 +123,7 @@ def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
 
     assert isinstance(result, Feedback)
     assert result.name == "ToxicLanguage"
-    assert result.value == "pass"
+    assert result.value == CategoricalRating.YES
     assert result.rationale is None
     assert result.source == AssessmentSource(
         source_type=AssessmentSourceType.CODE,
@@ -134,10 +135,10 @@ def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
 @pytest.mark.parametrize(
     ("inputs", "outputs", "expected_value"),
     [
-        ("Input text", "Output text", "pass"),
-        ("Input only", None, "pass"),
-        ("toxic input", "clean output", "pass"),  # outputs takes priority
-        ("clean input", "toxic output", "fail"),  # outputs takes priority
+        ("Input text", "Output text", CategoricalRating.YES),
+        ("Input only", None, CategoricalRating.YES),
+        ("toxic input", "clean output", CategoricalRating.YES),  # outputs takes priority
+        ("clean input", "toxic output", CategoricalRating.NO),  # outputs takes priority
     ],
 )
 def test_guardrails_scorer_input_priority(mock_validator_class, inputs, outputs, expected_value):
