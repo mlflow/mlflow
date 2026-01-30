@@ -140,7 +140,7 @@ def test_load_scorer_not_found_raises_error():
     mlflow.delete_experiment(experiment_id)
 
 
-def test_build_predict_fn_success():
+def test_build_predict_fn_with_text_prompt():
     mock_prompt = mock.MagicMock()
     mock_prompt.model_config = {"provider": "openai", "model_name": "gpt-4o"}
     mock_prompt.format.return_value = "formatted prompt"
@@ -162,6 +162,42 @@ def test_build_predict_fn_success():
         mock_litellm.completion.assert_called_once()
         call_args = mock_litellm.completion.call_args
         assert call_args.kwargs["model"] == "openai/gpt-4o"
+        # Text prompts should be wrapped in a user message
+        assert call_args.kwargs["messages"] == [{"role": "user", "content": "formatted prompt"}]
+        mock_prompt.format.assert_called_with(question="What is AI?")
+
+
+def test_build_predict_fn_with_chat_prompt():
+    mock_prompt = mock.MagicMock()
+    mock_prompt.model_config = {"provider": "openai", "model_name": "gpt-4o"}
+    # Chat prompt returns a list of message dicts
+    mock_prompt.format.return_value = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is AI?"},
+    ]
+
+    mock_litellm = mock.MagicMock()
+    mock_response = mock.MagicMock()
+    mock_response.choices = [mock.MagicMock()]
+    mock_response.choices[0].message.content = "AI is artificial intelligence."
+    mock_litellm.completion.return_value = mock_response
+
+    with (
+        mock.patch("mlflow.genai.optimize.job.load_prompt", return_value=mock_prompt),
+        mock.patch.dict("sys.modules", {"litellm": mock_litellm}),
+    ):
+        predict_fn = _build_predict_fn("prompts:/test/1")
+        result = predict_fn(question="What is AI?")
+
+        assert result == "AI is artificial intelligence."
+        mock_litellm.completion.assert_called_once()
+        call_args = mock_litellm.completion.call_args
+        assert call_args.kwargs["model"] == "openai/gpt-4o"
+        # Chat prompts should be passed directly as messages, not wrapped
+        assert call_args.kwargs["messages"] == [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "What is AI?"},
+        ]
         mock_prompt.format.assert_called_with(question="What is AI?")
 
 

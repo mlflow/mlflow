@@ -235,10 +235,12 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     litellm_model = f"{provider}/{model_name}"
 
     def predict_fn(**kwargs: Any) -> Any:
-        response = litellm.completion(
-            model=litellm_model,
-            messages=[{"role": "user", "content": prompt.format(**kwargs)}],
-        )
+        formatted = prompt.format(**kwargs)
+        if isinstance(formatted, str):
+            messages = [{"role": "user", "content": formatted}]
+        else:
+            messages = formatted
+        response = litellm.completion(model=litellm_model, messages=messages)
         return response.choices[0].message.content
 
     return predict_fn
