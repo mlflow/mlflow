@@ -2859,7 +2859,7 @@ def save_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
-    uv_lock: str | Path | None = None,
+    uv_project_path: str | Path | None = None,
     **kwargs,
 ):
     """
@@ -3041,10 +3041,11 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
-        uv_lock: Explicit path to a uv.lock file. When provided, the UV project directory
-            is derived from this path (parent directory). This is useful for monorepos or
-            non-standard project layouts where uv.lock is not in the current working directory.
-            If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+        uv_project_path: Explicit path to the UV project directory containing uv.lock,
+            pyproject.toml, and optionally .python-version. This is useful for monorepos
+            or non-standard project layouts where the UV project is not in the current
+            working directory. If ``None``, MLflow will auto-detect uv.lock in the current
+            working directory.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -3365,7 +3366,7 @@ def save_model(
             model_config=model_config,
             streamable=streamable,
             infer_code_paths=infer_code_paths,
-            uv_lock=uv_lock,
+            uv_project_path=uv_project_path,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3382,7 +3383,7 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
-            uv_lock=uv_lock,
+            uv_project_path=uv_project_path,
         )
 
 
@@ -3420,7 +3421,7 @@ def log_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
-    uv_lock: str | Path | None = None,
+    uv_project_path: str | Path | None = None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3621,10 +3622,11 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
-        uv_lock: Explicit path to a uv.lock file. When provided, the UV project directory
-            is derived from this path (parent directory). This is useful for monorepos or
-            non-standard project layouts where uv.lock is not in the current working directory.
-            If ``None``, MLflow will auto-detect uv.lock in the current working directory.
+        uv_project_path: Explicit path to the UV project directory containing uv.lock,
+            pyproject.toml, and optionally .python-version. This is useful for monorepos
+            or non-standard project layouts where the UV project is not in the current
+            working directory. If ``None``, MLflow will auto-detect uv.lock in the current
+            working directory.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -3664,7 +3666,7 @@ def log_model(
         resources=resources,
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
-        uv_lock=uv_lock,
+        uv_project_path=uv_project_path,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -3703,7 +3705,7 @@ def _save_model_with_loader_module_and_data_path(
     model_config=None,
     streamable=None,
     infer_code_paths=False,
-    uv_lock=None,
+    uv_project_path=None,
 ):
     """
     Export model as a generic Python function model.
@@ -3802,10 +3804,12 @@ def _save_model_with_loader_module_and_data_path(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     # Copy UV project files (uv.lock and pyproject.toml) if detected
-    copy_uv_project_files(path, source_dir=original_cwd, uv_lock=uv_lock)
+    copy_uv_project_files(path, source_dir=original_cwd, uv_project_path=uv_project_path)
 
     # Use UV project's Python version if available, otherwise use current
-    if uv_python_version := get_python_version_from_uv_project(original_cwd, uv_lock=uv_lock):
+    if uv_python_version := get_python_version_from_uv_project(
+        original_cwd, uv_project_path=uv_project_path
+    ):
         python_env = _PythonEnv(
             python=uv_python_version,
             build_dependencies=_PythonEnv.get_current_build_dependencies(),
