@@ -592,27 +592,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   ],
                   collapsed: false,
                 },
-                {
-                  type: 'category',
-                  label: 'Tool Call',
-                  link: {
-                    type: 'doc',
-                    id: 'eval-monitor/scorers/llm-judge/tool-call/index',
-                  },
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/tool-call/correctness',
-                      label: 'ToolCallCorrectness',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/tool-call/efficiency',
-                      label: 'ToolCallEfficiency',
-                    },
-                  ],
-                  collapsed: false,
-                },
               ],
             },
             {
