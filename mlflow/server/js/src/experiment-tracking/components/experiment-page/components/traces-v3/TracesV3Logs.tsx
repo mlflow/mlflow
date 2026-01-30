@@ -207,9 +207,14 @@ const TracesV3LogsImpl = React.memo(
       columnStorageKeyPrefix,
     );
 
-    // Auto-select session column when session grouping is enabled
+    // Auto-select session column when session grouping is first enabled
+    const prevIsGroupedBySession = React.useRef(isGroupedBySession);
     useEffect(() => {
-      if (isGroupedBySession || forceGroupBySession) {
+      // Only auto-select when transitioning from ungrouped to grouped
+      const justEnabledGrouping = (isGroupedBySession || forceGroupBySession) && !prevIsGroupedBySession.current;
+      prevIsGroupedBySession.current = isGroupedBySession || forceGroupBySession;
+
+      if (justEnabledGrouping) {
         const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
         const isSessionColumnSelected = selectedColumns.some((col) => col.id === SESSION_COLUMN_ID);
         if (sessionColumn && !isSessionColumnSelected) {
