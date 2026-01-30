@@ -672,8 +672,6 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
 def _get_search_locations(locations: list[str] | None) -> list[str]:
     from mlflow.tracking.fluent import _get_experiment_id
 
-    _validate_list_param("locations", locations, allow_none=True)
-
     if locations:
         return locations
 
@@ -870,6 +868,8 @@ def search_traces(
                 ),
             )
 
+    _validate_list_param("locations", locations, allow_none=True)
+
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
         locations = _get_search_locations(locations)
@@ -964,6 +964,8 @@ def search_sessions(
         all_traces = [trace for session in sessions for trace in session]
         mlflow.genai.evaluate(data=all_traces)
     """
+    _validate_list_param("locations", locations, allow_none=True)
+
     if not locations:
         _logger.debug("Searching sessions in the current active experiment")
     locations = _get_search_locations(locations)
