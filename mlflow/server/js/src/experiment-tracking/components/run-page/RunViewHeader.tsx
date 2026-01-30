@@ -16,7 +16,6 @@ import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useCallback, useMemo } from 'react';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -131,7 +130,7 @@ export const RunViewHeader = ({
   }, [navigate, experiment.experimentId, runUuid]);
 
   const renderCompareButton = () => {
-    if (!shouldRouteToEvaluations || !shouldEnableImprovedEvalRunsComparison()) {
+    if (!shouldRouteToEvaluations) {
       return null;
     }
     return (

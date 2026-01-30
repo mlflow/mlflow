@@ -110,22 +110,17 @@ export const EVAL_RUNS_COLUMN_TYPE_LABELS: Record<EvalRunsTableKeyedColumnPrefix
 
 export const getExperimentEvalRunsDefaultColumns = (
   viewMode: ExperimentEvaluationRunsPageMode,
-  options?: { showCheckbox?: boolean },
 ): EvalRunsTableColumnDef[] => {
-  const { showCheckbox = true } = options ?? {};
-
-  const unselectableColumns: EvalRunsTableColumnDef[] = [];
-
-  if (showCheckbox) {
-    unselectableColumns.push({
+  const unselectableColumns: EvalRunsTableColumnDef[] = [
+    {
       id: EvalRunsTableColumnId.checkbox,
       cell: CheckboxCell,
       enableResizing: false,
       enableSorting: false,
       size: 32,
       meta: { styles: { minWidth: 32, maxWidth: 32 } },
-    });
-  }
+    },
+  ];
 
   if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
     unselectableColumns.push({

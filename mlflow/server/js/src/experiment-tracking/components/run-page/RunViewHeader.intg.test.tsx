@@ -14,7 +14,6 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldUseRenamedUnifiedTracesTab: () => false,
   shouldDisableReproduceRunButton: () => false,
   shouldEnableWorkflowBasedNavigation: () => false,
-  shouldEnableImprovedEvalRunsComparison: () => false,
 }));
 
 describe('RunViewHeader - integration test', () => {
