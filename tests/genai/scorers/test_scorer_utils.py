@@ -595,50 +595,6 @@ def test_get_tool_call_signature_sorts_arguments():
 
 
 # ============================================================================
-# THIRD-PARTY MODEL URI PARSING TESTS
-# ============================================================================
-
-
-def test_parse_third_party_model_uri_databricks_default():
-    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
-
-    provider, model_name = parse_third_party_model_uri("databricks")
-    assert provider == "databricks"
-    assert model_name is None
-
-
-def test_parse_third_party_model_uri_databricks_endpoint():
-    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
-
-    provider, model_name = parse_third_party_model_uri("databricks:/my-endpoint")
-    assert provider == "databricks"
-    assert model_name == "my-endpoint"
-
-
-def test_parse_third_party_model_uri_openai():
-    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
-
-    provider, model_name = parse_third_party_model_uri("openai:/gpt-4")
-    assert provider == "openai"
-    assert model_name == "gpt-4"
-
-
-def test_parse_third_party_model_uri_litellm():
-    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
-
-    provider, model_name = parse_third_party_model_uri("litellm:/claude-3-opus")
-    assert provider == "litellm"
-    assert model_name == "claude-3-opus"
-
-
-def test_parse_third_party_model_uri_invalid_format():
-    from mlflow.genai.scorers.scorer_utils import parse_third_party_model_uri
-
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
-        parse_third_party_model_uri("gpt-4")
-
-
-# ============================================================================
 # CHAT MESSAGE SERIALIZATION TESTS
 # ============================================================================
 
