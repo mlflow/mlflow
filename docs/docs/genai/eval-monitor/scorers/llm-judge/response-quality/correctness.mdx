@@ -4,6 +4,8 @@ import { CheckCircle, Bot, Database } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import JudgePrerequisites from '@site/src/content/judge_prerequisites.mdx';
+import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # Correctness Judge
 
@@ -11,15 +13,7 @@ The `Correctness` judge assesses whether your GenAI application's response is fa
 
 This built-in LLM judge is designed for evaluating application responses against known correct answers.
 
-## Prerequisites for running the examples
-
-1. Install MLflow and required packages
-
-   ```bash
-   pip install --upgrade "mlflow>=3.4.0"
-   ```
-
-2. Create an MLflow experiment by following the [setup your environment quickstart](/genai/getting-started/connect-environment/).
+<JudgePrerequisites/>
 
 ## Usage examples
 
@@ -45,8 +39,6 @@ feedback = correctness_judge(
         ]
     },
 )
-print(feedback.value)  # "yes"
-print(feedback.rationale)  # Explanation of which facts are supported
 
 # Example 2: Response missing or contradicting facts
 feedback = correctness_judge(
@@ -66,45 +58,36 @@ feedback = correctness_judge(
   </TabItem>
   <TabItem value="evaluate" label="Invoke with evaluate()">
 
-The `Correctness` judge can be used directly with MLflow's evaluation framework.
-
-**Requirements:**
-
-- **Trace requirements**: `inputs` and `outputs` must be on the Trace's root span
-- **Ground-truth labels**: Required - must provide either `expected_facts` or `expected_response` in the expectations dictionary
-
 ```python
 import mlflow
 from mlflow.genai.scorers import Correctness
 
 # Create evaluation dataset with ground truth
 eval_dataset = [
+    # Example 1: Response contains expected facts
     {
-        "inputs": {"query": "What is the capital of France?"},
+        "inputs": {"request": "What is MLflow?"},
         "outputs": {
-            "response": "Paris is the magnificent capital city of France, known for the Eiffel Tower and rich culture."
-        },
-        "expectations": {"expected_facts": ["Paris is the capital of France."]},
-    },
-    {
-        "inputs": {"query": "What are the main components of MLflow?"},
-        "outputs": {
-            "response": "MLflow has four main components: Tracking, Projects, Models, and Registry."
+            "response": "MLflow is an open-source platform for managing the ML lifecycle."
         },
         "expectations": {
             "expected_facts": [
-                "MLflow has four main components",
-                "Components include Tracking",
-                "Components include Projects",
-                "Components include Models",
-                "Components include Registry",
+                "MLflow is open-source",
+                "MLflow is a platform for ML lifecycle",
             ]
         },
     },
+    # Example 2: Response missing or contradicting facts
     {
-        "inputs": {"query": "When was MLflow released?"},
+        "inputs": {"request": "When was MLflow released?"},
         "outputs": {"response": "MLflow was released in 2017."},
         "expectations": {"expected_facts": ["MLflow was released in June 2018"]},
+    },
+    # Example 3: Using expected_response instead of expected_facts
+    {
+        "inputs": {"request": "What is the capital of France?"},
+        "outputs": {"response": "The capital of France is Paris."},
+        "expectations": {"expected_response": "Paris is the capital of France."},
     },
 ]
 
@@ -123,55 +106,11 @@ eval_results = mlflow.genai.evaluate(
 </Tabs>
 </TabsWrapper>
 
-## Alternative: Using expected_response
-
-You can also use `expected_response` instead of `expected_facts`:
-
-```python
-import mlflow
-from mlflow.genai.scorers import Correctness
-
-eval_dataset_with_response = [
-    {
-        "inputs": {"query": "What is MLflow?"},
-        "outputs": {
-            "response": "MLflow is an open-source platform for managing the ML lifecycle."
-        },
-        "expectations": {
-            "expected_response": "MLflow is an open-source platform for managing the machine learning lifecycle, including experimentation, reproducibility, and deployment."
-        },
-    }
-]
-
-# Run evaluation with expected_response
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset_with_response, scorers=[Correctness()]
-)
-```
-
 :::tip
 Use `expected_facts` rather than `expected_response` for more flexible evaluation - the response doesn't need to match word-for-word, just contain the key facts.
 :::
 
-## Select the LLM that powers the judge
-
-You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
-
-You can customize the judge by providing a different judge model:
-
-```python
-from mlflow.genai.scorers import Correctness
-
-# Use a different judge model
-correctness_judge = Correctness(
-    model="openai:/gpt-5-mini"  # Or any LiteLLM-compatible model
-)
-
-# Use in evaluation
-eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[correctness_judge])
-```
-
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+<SelectJudgeModel/>
 
 ## Interpret results
 
