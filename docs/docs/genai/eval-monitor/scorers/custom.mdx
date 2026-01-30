@@ -41,7 +41,7 @@ def is_short(outputs: dict) -> Feedback:
     return Feedback(value=score, rationale=rationale)
 ```
 
-Then you can pass the functions directly to the <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink> function, just like other predefined or LLM-based scorers.
+Then you can pass the functions directly to the <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink> function, just like other built-in or LLM-based scorers.
 
 ```python
 import mlflow

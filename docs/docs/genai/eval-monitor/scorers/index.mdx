@@ -1,4 +1,5 @@
 import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, Target, Scale } from "lucide-react";
@@ -6,7 +7,11 @@ import WorkflowSteps from '@site/src/components/WorkflowSteps';
 
 # LLM Judges and Scorers
 
-Judges, also sometimes called scorers in the API, are a key component of the MLflow GenAI evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications. Like their name suggests, judges judge how well your application did based on the evaluation criteria. This could be a pass/fail, true/false, numerical value, or a categorical value.
+Judges are a key component of the MLflow GenAI evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications. Like their name suggests, judges judge how well your application did based on the evaluation criteria. This could be a pass/fail, true/false, numerical value, or a categorical value.
+
+:::note
+We'll refer to LLM judges and code-based scorers separately, but in the API, both LLM judges and code-based scorers are classified as types of scorers, such as in the functions <ins><APILink fn="mlflow.genai.scorers.list_scorers">`list_scorers`</APILink></ins> and <ins><APILink fn="mlflow.genai.scorers.get_scorer">`get_scorer`</APILink></ins>
+:::
 
 Choose the right type of judge depending on how much customization and control you need. Each approach builds on the previous one, adding more complexity and control.
 
@@ -41,7 +46,7 @@ Judges use LLMs for evaluation. Use them directly with `mlflow.genai.evaluate()`
 
 ### Built-in LLM judges
 
-MLflow provides research-validated judges for common use cases, including judges for RAG applications, tool calling, and multi-turn conversations.
+MLflow provides research-validated judges for common use cases.
 
 See the [complete list of built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) for details on each judge and their usage. You can further improve the judges' accuracy by [aligning them with human feedback](/genai/eval-monitor/scorers/llm-judge/alignment).
 
@@ -71,7 +76,7 @@ MLflow provides different types of judges to address different evaluation needs:
 
 > _I want to try evaluation quickly and get some results fast._
 
-&emsp;→ Use [Predefined Judges](/genai/eval-monitor/scorers/llm-judge/predefined) to get started.
+&emsp;→ Use [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined) to get started.
 
 > _I want to evaluate my application with a simple natural language criteria, such as "The response must be polite"._
 
@@ -89,7 +94,7 @@ MLflow provides different types of judges to address different evaluation needs:
 
 &emsp;→ Use [Code-based Scorers](/genai/eval-monitor/scorers/custom) to implement your own evaluation logic with Python.
 
-If you are still not sure about which scorer to use, you can ask to the Ask AI widget in the right below.
+If you are still unsure about which judge to use, you can use the "Ask AI" widget in the bottom right
 
 ## Code-based scorers
 
