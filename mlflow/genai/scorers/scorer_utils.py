@@ -286,39 +286,3 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
     return call.name
-
-
-def serialize_chat_messages_to_prompts(
-    messages: list[dict[str, Any]],
-) -> tuple[str, str | None]:
-    """
-    Serialize chat messages (as dicts) to user_prompt and system_prompt strings.
-
-    This is used by third-party integrations that receive messages as dicts
-    and need to convert them for Databricks endpoints.
-
-    Args:
-        messages: List of message dicts with 'role' and 'content' keys.
-
-    Returns:
-        Tuple of (user_prompt, system_prompt). system_prompt may be None.
-    """
-    system_prompt = None
-    user_parts = []
-
-    for msg in messages:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-
-        if role == "system":
-            system_prompt = content
-        elif role == "user":
-            user_parts.append(content)
-        elif role == "assistant":
-            if content:
-                user_parts.append(f"Assistant: {content}")
-        else:
-            user_parts.append(f"{role}: {content}")
-
-    user_prompt = "\n\n".join(user_parts)
-    return user_prompt, system_prompt

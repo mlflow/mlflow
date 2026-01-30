@@ -7,7 +7,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.scorers.scorer_utils import serialize_chat_messages_to_prompts
+from mlflow.genai.utils.message_utils import serialize_chat_messages_to_prompts
 
 if TYPE_CHECKING:
     from typing import Sequence

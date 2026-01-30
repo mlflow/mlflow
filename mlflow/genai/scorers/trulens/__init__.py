@@ -10,7 +10,7 @@ Example usage:
 
     from mlflow.genai.scorers.trulens import get_scorer
 
-    scorer = get_scorer("Groundedness", model="openai:/gpt-4")
+    scorer = get_scorer("Groundedness", model="openai:/gpt-5")
     feedback = scorer(trace=trace)
 """
 
@@ -150,10 +150,10 @@ def get_scorer(
     Examples:
         .. code-block:: python
 
-            scorer = get_scorer("Groundedness", model="openai:/gpt-4")
+            scorer = get_scorer("Groundedness", model="openai:/gpt-5")
             feedback = scorer(trace=trace)
 
-            scorer = get_scorer("AnswerRelevance", model="databricks")
+            scorer = get_scorer("AnswerRelevance", model="openai:/gpt-5")
             feedback = scorer(trace=trace)
     """
     return TruLensScorer(
@@ -182,7 +182,7 @@ class Groundedness(TruLensScorer):
 
             from mlflow.genai.scorers.trulens import Groundedness
 
-            scorer = Groundedness(model="openai:/gpt-4")
+            scorer = Groundedness(model="openai:/gpt-5")
             feedback = scorer(trace=trace)
     """
 
@@ -207,7 +207,7 @@ class ContextRelevance(TruLensScorer):
 
             from mlflow.genai.scorers.trulens import ContextRelevance
 
-            scorer = ContextRelevance(model="databricks")
+            scorer = ContextRelevance(model="openai:/gpt-5")
             feedback = scorer(trace=trace)
     """
 
@@ -231,7 +231,7 @@ class AnswerRelevance(TruLensScorer):
 
             from mlflow.genai.scorers.trulens import AnswerRelevance
 
-            scorer = AnswerRelevance(model="openai:/gpt-4o")
+            scorer = AnswerRelevance(model="openai:/gpt-5")
             feedback = scorer(trace=trace)
     """
 

@@ -1,59 +1,23 @@
-import json
-import time
-
 import pytest
-from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
-from mlflow.entities.span import Span
-from mlflow.entities.trace import Trace, TraceData, TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
+import mlflow
 from mlflow.genai.scorers.trulens.utils import (
     format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-from mlflow.tracing.utils import build_otel_context
 
 
 def _create_test_trace(
     inputs: dict[str, str] | None = None,
     outputs: dict[str, str] | None = None,
-) -> Trace:
-    current_time_ns = int(time.time() * 1e9)
-    trace_id = "test_trace_001"
+):
+    with mlflow.start_span() as span:
+        if inputs is not None:
+            span.set_inputs(inputs)
+        if outputs is not None:
+            span.set_outputs(outputs)
 
-    attributes = {"mlflow.traceRequestId": json.dumps(trace_id)}
-    if inputs is not None:
-        attributes["mlflow.spanInputs"] = json.dumps(inputs)
-    if outputs is not None:
-        attributes["mlflow.spanOutputs"] = json.dumps(outputs)
-    attributes["mlflow.spanType"] = json.dumps("CHAIN")
-
-    otel_span = OTelReadableSpan(
-        name="root_span",
-        context=build_otel_context(12345, 111),
-        parent=None,
-        start_time=current_time_ns,
-        end_time=current_time_ns + 1000000,
-        attributes=attributes,
-    )
-
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=int(time.time() * 1000),
-        state=TraceState.OK,
-        execution_duration=1000,
-        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
-        tags={},
-        assessments=[],
-        request_preview=json.dumps(inputs) if inputs else None,
-        response_preview=json.dumps(outputs) if outputs else None,
-    )
-
-    trace_data = TraceData(spans=[Span(otel_span)])
-    return Trace(info=trace_info, data=trace_data)
+    return mlflow.get_trace(span.trace_id)
 
 
 @pytest.mark.parametrize(
