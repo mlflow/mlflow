@@ -148,7 +148,7 @@ def test_conversation_simulator_max_turns_stopping(
 def test_conversation_simulator_empty_response_stopping(simple_test_case, simulation_mocks):
     simulation_mocks["invoke"].return_value = "Test message"
 
-    def empty_predict_fn(input=None, messages=None):
+    def empty_predict_fn(input=None, messages=None, **kwargs):
         return {
             "output": [
                 {
@@ -232,6 +232,48 @@ def test_conversation_simulator_context_passing(test_case_with_context, simulati
     # Verify context was passed to predict_fn
     assert captured_kwargs.get("user_id") == "U001"
     assert captured_kwargs.get("session_id") == "S001"
+
+
+def test_conversation_simulator_mlflow_session_id_passed_to_predict_fn(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+        "Test message 2",
+        '{"rationale": "Not yet", "result": "no"}',
+    ]
+
+    captured_session_ids = []
+
+    def capturing_predict_fn(input=None, **kwargs):
+        captured_session_ids.append(kwargs.get("mlflow_session_id"))
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Response"}],
+                }
+            ]
+        }
+
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+    )
+
+    all_traces = simulator.simulate(capturing_predict_fn)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 2
+    # Verify mlflow_session_id was passed to predict_fn
+    assert len(captured_session_ids) == 2
+    assert all(sid is not None for sid in captured_session_ids)
+    assert all(sid.startswith("sim-") for sid in captured_session_ids)
+    # Verify session ID is consistent across all turns in the same conversation
+    assert captured_session_ids[0] == captured_session_ids[1]
 
 
 def test_conversation_simulator_multiple_test_cases(

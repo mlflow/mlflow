@@ -237,17 +237,24 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
       );
     } else {
       cellContent = inputTitle ? (
-        <div
-          css={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            minWidth: 0,
-          }}
-          title={inputTitle}
-        >
-          {inputTitle}
-        </div>
+        <SessionIdLinkWrapper sessionId={sessionId} experimentId={experimentId}>
+          <span
+            css={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0,
+              color: theme.colors.actionPrimaryBackgroundDefault,
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+            title={inputTitle}
+          >
+            {inputTitle}
+          </span>
+        </SessionIdLinkWrapper>
       ) : (
         <NullCell />
       );
