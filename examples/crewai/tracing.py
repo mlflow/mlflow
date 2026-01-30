@@ -124,7 +124,11 @@ class TripCrew:
             tasks=[identify_task, gather_task],
             verbose=True,
             memory=True,
-            knowledge={"sources": [string_source], "metadata": {"preference": "personal"}},
+            knowledge={
+                "collection_name": "crewai_example",
+                "sources": [string_source],
+                "metadata": {"preference": "personal"},
+            },
         )
 
         result = crew.kickoff()
