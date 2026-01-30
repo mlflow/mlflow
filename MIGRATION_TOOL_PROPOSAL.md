@@ -125,7 +125,7 @@ MLFLOW_TRACKING_URI=http://localhost:5001 import-all --input-dir /tmp/export
 
 ---
 
-### Option 2: New Standalone Tool in MLflow
+### Option 2: New Standalone Tool in MLflow ✅ Recommended
 
 Create a new migration tool built into MLflow core.
 
