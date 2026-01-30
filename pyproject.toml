@@ -523,10 +523,10 @@ extend-ignore-re = [
 ]
 
 [tool.pytest]
+strict = true
 addopts = [
   "-p",
   "no:legacypath",
-  "--strict-markers",
   "--color=yes",
   "--durations=10",
   "--showlocals",
