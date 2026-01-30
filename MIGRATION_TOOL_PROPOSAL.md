@@ -60,6 +60,7 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 ## Open Questions
 
 1. Target database support - SQLite only, or support PostgreSQL/MySQL too? (Recommendation: Start with SQLite, extend later if needed)
+2. What if users want to stay on an older MLflow version (e.g. 2.x) and can't upgrade to use the new tool?
 
 ---
 
