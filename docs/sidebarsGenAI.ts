@@ -569,6 +569,10 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'category',
                   label: 'RAG',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/rag/index',
+                  },
                   items: [
                     {
                       type: 'doc',

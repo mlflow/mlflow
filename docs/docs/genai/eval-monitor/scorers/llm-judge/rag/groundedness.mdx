@@ -1,9 +1,12 @@
 import TileCard from '@site/src/components/TileCard';
+import { APILink } from "@site/src/components/APILink";
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Database, BookOpen, Target } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import RagPrerequisites from '@site/src/content/rag_prerequisites.mdx';
+import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # RetrievalGroundedness judge
 
@@ -11,15 +14,7 @@ The `RetrievalGroundedness` judge assesses whether your application's response i
 
 This built-in LLM judge is designed for evaluating RAG applications that need to ensure responses are grounded in retrieved information.
 
-## Prerequisites for running the examples
-
-1. Install MLflow and required packages
-
-   ```bash
-   pip install --upgrade "mlflow>=3.4.0"
-   ```
-
-2. Create an MLflow experiment by following the [setup your environment quickstart](/genai/getting-started/connect-environment/).
+<RagPrerequisites />
 
 ## Usage examples
 
@@ -66,133 +61,21 @@ results = mlflow.genai.evaluate(
 </Tabs>
 </TabsWrapper>
 
-## RAG example
-
-Here's a complete example showing how to create a RAG application and evaluate if responses are grounded in retrieved context:
-
-1. Initialize an OpenAI client to connect to OpenAI-hosted LLMs. Use the native OpenAI SDK to connect to OpenAI-hosted models. Select a model from the <ins>[available OpenAI models](https://platform.openai.com/docs/models)</ins>.
-
-   ```python
-   import mlflow
-   import os
-   import openai
-
-   # Ensure your OPENAI_API_KEY is set in your environment
-   # os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>" # Uncomment and set if not globally configured
-
-   # Enable auto-tracing for OpenAI
-   mlflow.openai.autolog()
-
-   # Create an OpenAI client connected to OpenAI SDKs
-   client = openai.OpenAI()
-
-   # Select an LLM
-   model_name = "gpt-4o-mini"
-   ```
-
-2. Define and evaluate your RAG application:
-
-   ```python
-   from mlflow.genai.scorers import RetrievalGroundedness
-   from mlflow.entities import Document
-   from typing import List
-
-
-   # Define a retriever function with proper span type
-   @mlflow.trace(span_type="RETRIEVER")
-   def retrieve_docs(query: str) -> List[Document]:
-       # Simulated retrieval based on query
-
-       if "mlflow" in query.lower():
-           return [
-               Document(
-                   id="doc_1",
-                   page_content="MLflow is an open-source platform for managing the ML lifecycle.",
-                   metadata={"source": "mlflow_docs.txt"},
-               ),
-               Document(
-                   id="doc_2",
-                   page_content="MLflow provides tools for experiment tracking, model packaging, and deployment.",
-                   metadata={"source": "mlflow_features.txt"},
-               ),
-           ]
-       else:
-           return [
-               Document(
-                   id="doc_3",
-                   page_content="Machine learning involves training models on data.",
-                   metadata={"source": "ml_basics.txt"},
-               )
-           ]
-
-
-   # Define your RAG app
-   @mlflow.trace
-   def rag_app(query: str):
-       # Retrieve relevant documents
-       docs = retrieve_docs(query)
-       context = "\n".join([doc.page_content for doc in docs])
-
-       # Generate response using LLM
-       messages = [
-           {"role": "system", "content": f"Answer based on this context: {context}"},
-           {"role": "user", "content": query},
-       ]
-
-       response = client.chat.completions.create(model=model_name, messages=messages)
-
-       return {"response": response.choices[0].message.content}
-
-
-   # Create evaluation dataset
-   eval_dataset = [
-       {"inputs": {"query": "What is MLflow used for?"}},
-       {"inputs": {"query": "What are the main features of MLflow?"}},
-   ]
-
-   # Run evaluation with RetrievalGroundedness judge
-   eval_results = mlflow.genai.evaluate(
-       data=eval_dataset,
-       predict_fn=rag_app,
-       scorers=[
-           RetrievalGroundedness(
-               model="openai:/gpt-4o-mini",  # Optional
-           )
-       ],
-   )
-   ```
-
-## Select the LLM that powers the judge
-
-You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
-
-You can customize the judge by providing a different judge model:
-
-```python
-from mlflow.genai.scorers import RetrievalGroundedness
-
-# Use a different judge model
-groundedness_judge = RetrievalGroundedness(
-    model="openai:/gpt-4o-mini"  # Or any LiteLLM-compatible model
-)
-
-# Use in evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset, predict_fn=rag_app, scorers=[groundedness_judge]
-)
-```
-
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+:::tip
+For a complete RAG application example with these judges, see the <ins>[RAG Evaluation guide](/genai/eval-monitor/scorers/llm-judge/rag/)</ins>.
+:::
 
 ## Interpret results
 
-The judge returns a Feedback object with:
+The RetrievalGroundedness judge evaluates each retriever span separately and returns a separate Feedback object for each retriever span in your trace. Each <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object contains:
 
-- **value**: "yes" if response is grounded, "no" if it contains hallucinations
+- **value**: "yes" if response is grounded in the retrieved context, "no" if it contains hallucinations
 - **rationale**: Detailed explanation identifying:
-  - Which statements are supported by context
+  - Which statements are supported by the context
   - Which statements lack support (hallucinations)
   - Specific quotes from context that support or contradict claims
+
+<SelectJudgeModel />
 
 ## Next steps
 
