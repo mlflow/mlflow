@@ -570,8 +570,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
 
         elif isinstance(trace_destination, UcTablePrefixLocation):
             # Register location and create processor with filled table names
-            processor = _get_processor_for_uc_table_prefix_destination(trace_destination)
-            if processor:
+            if processor := _get_processor_for_uc_table_prefix_destination(trace_destination):
                 processors.append(processor)
 
         elif isinstance(trace_destination, MlflowExperimentLocation):
@@ -686,8 +685,7 @@ def _create_uc_table_with_otel_processor(uc_location: UcTablePrefixLocation):
 
     if not uc_location.catalog_name or not uc_location.schema_name:
         _logger.warning(
-            "UcTablePrefixLocation is missing catalog_name or schema_name. "
-            "Cannot create processor."
+            "UcTablePrefixLocation is missing catalog_name or schema_name. Cannot create processor."
         )
         return None
 
@@ -722,15 +720,13 @@ def _create_uc_table_rest_processor(uc_location: UcTablePrefixLocation):
 
     if not uc_location.catalog_name or not uc_location.schema_name:
         _logger.warning(
-            "UcTablePrefixLocation is missing catalog_name or schema_name. "
-            "Cannot create processor."
+            "UcTablePrefixLocation is missing catalog_name or schema_name. Cannot create processor."
         )
         return None
 
     if not uc_location.spans_table_name:
         _logger.warning(
-            "UcTablePrefixLocation is missing spans_table_name. "
-            "Cannot create processor."
+            "UcTablePrefixLocation is missing spans_table_name. Cannot create processor."
         )
         return None
 

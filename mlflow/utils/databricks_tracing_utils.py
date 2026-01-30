@@ -64,12 +64,8 @@ def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> UcTa
         catalog_name=proto.catalog_name,
         schema_name=proto.schema_name,
         table_prefix=proto.table_prefix,
-        spans_table_name=(
-            proto.spans_table_name if proto.HasField("spans_table_name") else None
-        ),
-        logs_table_name=(
-            proto.logs_table_name if proto.HasField("logs_table_name") else None
-        ),
+        spans_table_name=(proto.spans_table_name if proto.HasField("spans_table_name") else None),
+        logs_table_name=(proto.logs_table_name if proto.HasField("logs_table_name") else None),
         metrics_table_name=(
             proto.metrics_table_name if proto.HasField("metrics_table_name") else None
         ),

@@ -564,6 +564,7 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert processors[0]._export_metrics is True
 
+
 def test_telemetry_destination_id_uses_uc_table_with_otel_processor(monkeypatch):
     from mlflow.tracing.export.uc_table_with_otel import DatabricksUCTableWithOtelSpanExporter
 
@@ -656,9 +657,7 @@ def test_telemetry_destination_id_ignored_when_user_sets_destination(monkeypatch
     with (
         mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
         mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_otlp,
-        mock.patch(
-            "mlflow.tracing.provider._fetch_uc_storage_location"
-        ) as mock_fetch,
+        mock.patch("mlflow.tracing.provider._fetch_uc_storage_location") as mock_fetch,
     ):
         mock_get_otlp.return_value = mock.MagicMock()
 
@@ -677,7 +676,6 @@ def test_telemetry_destination_id_ignored_when_user_sets_destination(monkeypatch
 
 
 def test_set_destination_uc_table_prefix_location(monkeypatch):
-    """Test set_destination with UcTablePrefixLocation uses REST-based processor."""
     from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
     from mlflow.tracing.processor.uc_table_from_storage_location import (
         DatabricksUCTableFromStorageLocationSpanProcessor,
@@ -715,6 +713,8 @@ def test_set_destination_uc_table_prefix_location(monkeypatch):
 
         # _register_uc_table_prefix_location should be called with the input location
         mock_register.assert_called_with(input_location)
+
+
 def test_otel_resource_attributes(monkeypatch):
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource

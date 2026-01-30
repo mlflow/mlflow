@@ -62,9 +62,7 @@ def set_experiment_trace_location(
 
             # Using UcTablePrefixLocation
             location = UcTablePrefixLocation(
-                catalog_name="my_catalog",
-                schema_name="my_schema",
-                table_prefix="myapp_"
+                catalog_name="my_catalog", schema_name="my_schema", table_prefix="myapp_"
             )
             result = mlflow.tracing.set_experiment_trace_location(
                 location=location,
@@ -155,9 +153,7 @@ def unset_experiment_trace_location(
             # Unset UcTablePrefixLocation
             mlflow.tracing.unset_experiment_trace_location(
                 location=UcTablePrefixLocation(
-                    catalog_name="my_catalog",
-                    schema_name="my_schema",
-                    table_prefix="myapp_"
+                    catalog_name="my_catalog", schema_name="my_schema", table_prefix="myapp_"
                 ),
                 experiment_id="12345",
             )

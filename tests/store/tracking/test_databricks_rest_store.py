@@ -1983,9 +1983,7 @@ def test_create_uc_table_prefix_location():
     mock_response.uc_table_prefix_location.spans_table_name = (
         "my_catalog.my_schema.prefix_otel_spans"
     )
-    mock_response.uc_table_prefix_location.logs_table_name = (
-        "my_catalog.my_schema.prefix_otel_logs"
-    )
+    mock_response.uc_table_prefix_location.logs_table_name = "my_catalog.my_schema.prefix_otel_logs"
     mock_response.uc_table_prefix_location.metrics_table_name = (
         "my_catalog.my_schema.prefix_otel_metrics"
     )

@@ -741,8 +741,7 @@ class TracingClient:
             return self.store.get_trace_uc_storage_location(location_id)
         else:
             raise MlflowException(
-                "Fetching trace UC storage location is only supported on "
-                "Databricks backends."
+                "Fetching trace UC storage location is only supported on Databricks backends."
             )
 
     def create_uc_table_prefix_location(self, location):
@@ -766,6 +765,5 @@ class TracingClient:
             return self.store.create_uc_table_prefix_location(location)
         else:
             raise MlflowException(
-                "Creating UC table prefix location is only supported on "
-                "Databricks backends."
+                "Creating UC table prefix location is only supported on Databricks backends."
             )

@@ -300,9 +300,7 @@ def test_get_trace_uc_storage_location_non_databricks_uri():
         patch("mlflow.tracing.client.is_databricks_uri", return_value=False),
     ):
         client = TracingClient()
-        with pytest.raises(
-            MlflowException, match="only supported on Databricks backends"
-        ):
+        with pytest.raises(MlflowException, match="only supported on Databricks backends"):
             client.get_trace_uc_storage_location("test-location-123")
 
 
@@ -352,7 +350,5 @@ def test_create_uc_table_prefix_location_non_databricks_uri():
         patch("mlflow.tracing.client.is_databricks_uri", return_value=False),
     ):
         client = TracingClient()
-        with pytest.raises(
-            MlflowException, match="only supported on Databricks backends"
-        ):
+        with pytest.raises(MlflowException, match="only supported on Databricks backends"):
             client.create_uc_table_prefix_location(input_location)

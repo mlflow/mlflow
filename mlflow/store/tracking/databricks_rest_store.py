@@ -1033,9 +1033,7 @@ class DatabricksTracingRestStore(RestStore):
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
         return endpoint
 
-    def get_trace_uc_storage_location(
-        self, location_id: str
-    ) -> UcTablePrefixLocationEntity:
+    def get_trace_uc_storage_location(self, location_id: str) -> UcTablePrefixLocationEntity:
         """
         Fetch a trace UC storage location by ID.
 
@@ -1055,9 +1053,7 @@ class DatabricksTracingRestStore(RestStore):
         json_response = response.json()
         # Parse the uc_table_prefix_location from the response
         if "uc_table_prefix_location" in json_response:
-            return UcTablePrefixLocationEntity.from_dict(
-                json_response["uc_table_prefix_location"]
-            )
+            return UcTablePrefixLocationEntity.from_dict(json_response["uc_table_prefix_location"])
         raise MlflowException(
             f"Invalid response from get_trace_uc_storage_location: {json_response}"
         )
