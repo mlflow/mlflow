@@ -611,6 +611,10 @@
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
+  "2XVGD5": {
+    "defaultMessage": "All models",
+    "description": "Label for model selector when all models are selected"
+  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -4552,6 +4556,10 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
+  "Wwyoav": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for model selector showing count of selected models"
+  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
@@ -4814,6 +4822,10 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
+  },
+  "Z3mQzp": {
+    "defaultMessage": "No models selected",
+    "description": "Label for model selector when no models are selected"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
@@ -5298,6 +5310,10 @@
   "cEwSR8": {
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
+  },
+  "cF28Mx": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all models in the model selector"
   },
   "cGGc0A": {
     "defaultMessage": "Delete API key",
