@@ -19,39 +19,20 @@ def mock_provider():
 
 
 @pytest.mark.parametrize(
-    ("scorer_class", "metric_name", "method_name", "score", "expected_value"),
+    ("scorer_name", "method_name", "score", "expected_value"),
     [
-        (
-            "Groundedness",
-            "Groundedness",
-            "groundedness_measure_with_cot_reasons",
-            0.8,
-            CategoricalRating.YES,
-        ),
-        (
-            "ContextRelevance",
-            "ContextRelevance",
-            "context_relevance_with_cot_reasons",
-            0.7,
-            CategoricalRating.YES,
-        ),
-        (
-            "AnswerRelevance",
-            "AnswerRelevance",
-            "relevance_with_cot_reasons",
-            0.9,
-            CategoricalRating.YES,
-        ),
-        ("Coherence", "Coherence", "coherence_with_cot_reasons", 0.85, CategoricalRating.YES),
+        ("Groundedness", "groundedness_measure_with_cot_reasons", 0.8, CategoricalRating.YES),
+        ("ContextRelevance", "context_relevance_with_cot_reasons", 0.7, CategoricalRating.YES),
+        ("AnswerRelevance", "relevance_with_cot_reasons", 0.9, CategoricalRating.YES),
+        ("Coherence", "coherence_with_cot_reasons", 0.85, CategoricalRating.YES),
+        ("Groundedness", "groundedness_measure_with_cot_reasons", 0.3, CategoricalRating.NO),
     ],
 )
-def test_trulens_scorer(
-    mock_provider, scorer_class, metric_name, method_name, score, expected_value
-):
+def test_trulens_scorer(mock_provider, scorer_name, method_name, score, expected_value):
     with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
         from mlflow.genai.scorers import trulens
 
-        scorer_cls = getattr(trulens, scorer_class)
+        scorer_cls = getattr(trulens, scorer_name)
         scorer = scorer_cls(model="openai:/gpt-4")
 
     method = getattr(mock_provider, method_name)
@@ -64,7 +45,7 @@ def test_trulens_scorer(
     )
 
     assert isinstance(result, Feedback)
-    assert result.name == metric_name
+    assert result.name == scorer_name
     assert result.value == expected_value
     assert result.rationale == "reason: Test reason"
     assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
@@ -74,26 +55,6 @@ def test_trulens_scorer(
         "score": score,
         "threshold": 0.5,
     }
-
-
-def test_trulens_scorer_fail(mock_provider):
-    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
-        from mlflow.genai.scorers.trulens import Groundedness
-
-        scorer = Groundedness(model="openai:/gpt-4")
-
-    mock_provider.groundedness_measure_with_cot_reasons.return_value = (
-        0.3,
-        {"reason": "Low score"},
-    )
-
-    result = scorer(
-        outputs="test output",
-        expectations={"context": "test context"},
-    )
-
-    assert result.value == CategoricalRating.NO
-    assert result.metadata["score"] == 0.3
 
 
 def test_trulens_scorer_custom_threshold(mock_provider):
