@@ -645,8 +645,13 @@ def setup_uv_sync_environment(
     shutil.copy2(uv_lock_artifact, env_dir / _UV_LOCK_ARTIFACT_NAME)
     _logger.debug(f"Copied uv.lock to {env_dir}")
 
-    # Create minimal pyproject.toml
-    create_uv_sync_pyproject(env_dir, python_version)
+    # Copy pyproject.toml from model if available, otherwise create minimal one
+    pyproject_artifact = model_path / _PYPROJECT_ARTIFACT_NAME
+    if pyproject_artifact.exists():
+        shutil.copy2(pyproject_artifact, env_dir / _PYPROJECT_ARTIFACT_NAME)
+        _logger.debug(f"Copied pyproject.toml from model artifacts to {env_dir}")
+    else:
+        create_uv_sync_pyproject(env_dir, python_version)
 
     # Copy .python-version if it exists in model artifacts
     python_version_artifact = model_path / _PYTHON_VERSION_FILE
