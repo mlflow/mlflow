@@ -1166,10 +1166,6 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
   },
-  "756RTp": {
-    "defaultMessage": "Select 2 runs to compare",
-    "description": "Tooltip for the compare button when disabled"
-  },
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
@@ -2553,6 +2549,10 @@
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
+  },
+  "Hay/ss": {
+    "defaultMessage": "Select up to 2 runs to compare",
+    "description": "Tooltip for the compare button when disabled"
   },
   "HbC1a1": {
     "defaultMessage": "Tags",
