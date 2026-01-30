@@ -78,36 +78,29 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 
 ## Options
 
-### Option 1: Extend mlflow-export-import
+### Option 1: Use mlflow-export-import
 
-Add a direct file-to-SQLite migration mode to the existing mlflow-export-import tool.
+Use the existing mlflow-export-import tool with its current export → import workflow.
 
 **How it works:**
 
 ```
-FileStore (./mlruns) → [mlflow-export-import] → SQLite (mlflow.db)
+FileStore (./mlruns) → [Export to files] → [Import via REST API] → SQLite (mlflow.db)
 ```
 
 **Pros:**
 
-- Leverages existing, well-tested export logic
-- Already handles all MLflow object types
-- Maintains single tool for all migration needs
+- Already exists and is well-tested
+- Handles all MLflow object types
 
 **Cons:**
 
-- Requires running MLflow server for import (REST API)
-- Export → Import is indirect (creates intermediate files)
+- Doesn't preserve original IDs and timestamps (recreates entities)
+- Requires running MLflow servers
+- Multi-step workflow
 - External dependency (not part of core MLflow)
-- May be slower due to API overhead
 
-**Implementation:**
-
-- Add new command: `migrate-filestore-to-sqlite`
-- Reuse existing file parsing logic from export modules
-- Write directly to SQLite instead of going through REST API
-
-**Example - Current workflow (4 commands):**
+**Example (4 commands):**
 
 ```bash
 # 1. Start source server
