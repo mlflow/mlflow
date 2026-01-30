@@ -2,6 +2,9 @@ import React from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import Routes from '../../../routes';
+import { ExperimentPageTabName } from '../../../constants';
 
 export const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
@@ -163,23 +166,93 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
   );
 };
 
+/**
+ * Generates a URL to the traces tab filtered by a specific time range.
+ * Use this to create navigation links from charts to the traces view.
+ *
+ * @param experimentId - The experiment ID
+ * @param timestampMs - Start timestamp in milliseconds
+ * @param timeIntervalSeconds - Duration of the time bucket in seconds
+ * @returns Full URL path with query parameters for the traces tab
+ */
+export function getTracesFilteredByTimeRangeUrl(
+  experimentId: string,
+  timestampMs: number,
+  timeIntervalSeconds: number,
+): string {
+  const startTime = new Date(timestampMs).toISOString();
+  const endTime = new Date(timestampMs + timeIntervalSeconds * 1000).toISOString();
+  const tracesPath = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces);
+  const queryParams = new URLSearchParams({
+    startTimeLabel: 'CUSTOM',
+    startTime,
+    endTime,
+  });
+  return `${tracesPath}?${queryParams.toString()}`;
+}
+
+/** Optional link configuration for ScrollableTooltip */
+interface TooltipLinkConfig {
+  /** Experiment ID for navigation */
+  experimentId: string;
+  /** Time interval in seconds for calculating end time of the bucket */
+  timeIntervalSeconds: number;
+  /** Component ID for telemetry tracking */
+  componentId: string;
+}
+
 interface ScrollableTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ payload?: { timestampMs?: number }; name: string; value: number; color: string }>;
   label?: string;
-  formatter?: (value: number, name: string) => [string | number, string];
+  /** Formatter function to display the value - returns [formattedValue, label] */
+  formatter: (value: number, name: string) => [string | number, string];
+  /** Optional link configuration. When provided, shows a "View traces for this period" link */
+  linkConfig?: TooltipLinkConfig;
 }
 
 /**
  * Custom scrollable tooltip component for Recharts.
- * Use with: <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ * Optionally shows a "View traces for this period" link when linkConfig is provided.
+ *
+ * @example
+ * // Basic usage without link
+ * <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ *
+ * @example
+ * // With "View traces" link
+ * const tooltipContent = useMemo(() => (
+ *   <ScrollableTooltip
+ *     formatter={(value) => [`${value}`, 'Requests']}
+ *     linkConfig={{
+ *       experimentId,
+ *       timeIntervalSeconds,
+ *       componentId: "mlflow.charts.my_chart.view_traces_link"
+ *     }}
+ *   />
+ * ), [experimentId, timeIntervalSeconds]);
+ * <Tooltip content={tooltipContent} />
  */
-export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, payload, label, formatter }) => {
+export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
 
   if (!active || !payload?.length) {
     return null;
   }
+
+  const dataPoint = payload[0]?.payload;
+  const showLink = linkConfig && dataPoint?.timestampMs !== undefined;
+
+  const handleViewTraces = () => {
+    if (!linkConfig || !dataPoint?.timestampMs) return;
+    const url = getTracesFilteredByTimeRangeUrl(
+      linkConfig.experimentId,
+      dataPoint.timestampMs,
+      linkConfig.timeIntervalSeconds,
+    );
+    navigate(url);
+  };
 
   return (
     <div
@@ -208,9 +281,7 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
         }}
       >
         {payload.map((entry, index) => {
-          const [formattedValue, formattedName] = formatter
-            ? formatter(entry.value, entry.name)
-            : [entry.value, entry.name];
+          const [formattedValue, formattedName] = formatter(entry.value, entry.name);
           return (
             <div
               key={index}
@@ -237,9 +308,35 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
           );
         })}
       </div>
+      {/* Link to view traces for this time bucket */}
+      {showLink && (
+        <div
+          css={{
+            borderTop: `1px solid ${theme.colors.border}`,
+            marginTop: theme.spacing.xs,
+            paddingTop: theme.spacing.xs,
+          }}
+        >
+          <Typography.Link
+            componentId={linkConfig.componentId}
+            onClick={handleViewTraces}
+            css={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+            }}
+          >
+            <FormattedMessage
+              defaultMessage="View traces for this period"
+              description="Link text to navigate to traces tab filtered by the selected time period"
+            />
+          </Typography.Link>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 /**
  * Returns common XAxis props for time-series charts
