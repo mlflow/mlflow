@@ -740,6 +740,7 @@ mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
 mlflow.genai.Agent
 mlflow.genai.ConversationSimulator
+mlflow.genai.ConversationSimulator.simulate
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces

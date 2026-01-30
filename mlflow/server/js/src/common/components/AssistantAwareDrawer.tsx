@@ -20,7 +20,7 @@ const ASSISTANT_OPEN_DRAWER_WIDTH = '70vw';
 function Root({
   open,
   onOpenChange,
-  modal,
+  modal = false,
   children,
 }: {
   // Matches with Drawer.Root props
@@ -30,8 +30,9 @@ function Root({
   children: ReactNode;
 }) {
   return (
-    // NB: Modal is set to false to allow clicks on the assistant chat panel to pass through
-    <Drawer.Root modal={false} open={open} onOpenChange={onOpenChange}>
+    // NB: Modal defaults to false to allow clicks on the assistant chat panel to pass through,
+    // but can be overridden when needed (e.g., for comparison drawers that need proper modal behavior)
+    <Drawer.Root modal={modal} open={open} onOpenChange={onOpenChange}>
       {children}
     </Drawer.Root>
   );

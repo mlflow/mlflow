@@ -1,6 +1,6 @@
 import contextvars
 from typing import AsyncGenerator
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -558,16 +558,21 @@ async def test_chat_proxy_forwards_allowed_paths():
     server = AgentServer("ResponsesAgent", enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    mock_response = Mock()
-    mock_response.content = b'{"chat": "response"}'
+    mock_response = AsyncMock()
     mock_response.status_code = 200
     mock_response.headers = {"content-type": "application/json"}
+    mock_response.aread = AsyncMock(return_value=b'{"chat": "response"}')
+    mock_response.aclose = AsyncMock()
 
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
         response = client.get("/assets/index.js")
         assert response.status_code == 200
         assert response.content == b'{"chat": "response"}'
-        mock_request.assert_called_once()
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -589,11 +594,14 @@ async def test_chat_proxy_does_not_forward_matched_routes():
     server = AgentServer("ResponsesAgent", enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    with patch.object(server.proxy_client, "request") as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send"),
+    ):
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy"}
-        mock_request.assert_not_called()
+        mock_build_request.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -601,8 +609,11 @@ async def test_chat_proxy_handles_connect_error():
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    with patch.object(
-        server.proxy_client, "request", side_effect=httpx.ConnectError("Connection failed")
+    with (
+        patch.object(server.proxy_client, "build_request"),
+        patch.object(
+            server.proxy_client, "send", side_effect=httpx.ConnectError("Connection failed")
+        ),
     ):
         response = client.get("/")
         assert response.status_code == 503
@@ -614,7 +625,10 @@ async def test_chat_proxy_handles_general_error():
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    with patch.object(server.proxy_client, "request", side_effect=Exception("Unexpected error")):
+    with (
+        patch.object(server.proxy_client, "build_request"),
+        patch.object(server.proxy_client, "send", side_effect=Exception("Unexpected error")),
+    ):
         response = client.get("/")
         assert response.status_code == 502
         assert "Proxy error: Unexpected error" in response.text
@@ -625,18 +639,24 @@ async def test_chat_proxy_forwards_post_requests_with_body():
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    mock_response = Mock()
-    mock_response.content = b'{"result": "success"}'
+    mock_response = AsyncMock()
     mock_response.status_code = 200
     mock_response.headers = {"content-type": "application/json"}
+    mock_response.aread = AsyncMock(return_value=b'{"result": "success"}')
+    mock_response.aclose = AsyncMock()
 
     # POST to root path (allowed) to test body forwarding
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
         response = client.post("/", json={"message": "hello"})
         assert response.status_code == 200
         assert response.content == b'{"result": "success"}'
 
-        call_args = mock_request.call_args
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
+        call_args = mock_build_request.call_args
         assert call_args.kwargs["method"] == "POST"
         assert call_args.kwargs["content"] is not None
 
@@ -647,15 +667,20 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    mock_response = Mock()
-    mock_response.content = b"test"
+    mock_response = AsyncMock()
     mock_response.status_code = 200
     mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"test")
+    mock_response.aclose = AsyncMock()
 
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
         client.get("/assets/test.js")
-        mock_request.assert_called_once()
-        call_args = mock_request.call_args
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
+        call_args = mock_build_request.call_args
         assert call_args.kwargs["url"] == "http://localhost:8080/assets/test.js"
 
 
@@ -872,16 +897,21 @@ async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    mock_response = Mock()
-    mock_response.content = b"response"
+    mock_response = AsyncMock()
     mock_response.status_code = 200
     mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"response")
+    mock_response.aclose = AsyncMock()
 
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
         response = client.get(path)
         assert response.status_code == 200
-        mock_request.assert_called_once()
-        assert mock_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
+        assert mock_build_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
 
 
 @pytest.mark.asyncio
@@ -893,11 +923,14 @@ async def test_chat_proxy_blocks_arbitrary_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    with patch.object(server.proxy_client, "request") as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send"),
+    ):
         response = client.get(path)
         assert response.status_code == 404
         assert response.text == "Not found"
-        mock_request.assert_not_called()
+        mock_build_request.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -909,11 +942,14 @@ async def test_chat_proxy_blocks_path_traversal_attempts(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    with patch.object(server.proxy_client, "request") as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send"),
+    ):
         response = client.get(path)
         assert response.status_code == 404
         assert response.text == "Not found"
-        mock_request.assert_not_called()
+        mock_build_request.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -937,15 +973,96 @@ async def test_chat_proxy_forwards_additional_paths_from_env_vars(
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
-    mock_response = Mock()
-    mock_response.content = b"response"
+    mock_response = AsyncMock()
     mock_response.status_code = 200
     mock_response.headers = {}
+    mock_response.aread = AsyncMock(return_value=b"response")
+    mock_response.aclose = AsyncMock()
 
-    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
         response = client.get(test_path)
         assert response.status_code == 200
-        mock_request.assert_called_once()
+        mock_build_request.assert_called_once()
+        mock_send.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "status_code", "custom_headers"),
+    [
+        ("text/event-stream", 200, {}),
+        ("text/event-stream; charset=utf-8", 200, {}),
+        ("text/event-stream", 500, {}),
+        ("text/event-stream", 200, {"x-custom-header": "value", "cache-control": "no-cache"}),
+    ],
+)
+async def test_chat_proxy_sse_streaming(content_type, status_code, custom_headers):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    chunks = [b"data: chunk1\n\n", b"data: chunk2\n\n"]
+
+    async def mock_aiter_bytes():
+        for chunk in chunks:
+            yield chunk
+
+    mock_response = AsyncMock()
+    mock_response.status_code = status_code
+    mock_response.headers = {"content-type": content_type, **custom_headers}
+    mock_response.aiter_bytes = mock_aiter_bytes
+    mock_response.aclose = AsyncMock()
+
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
+        response = client.get("/api/stream")
+        assert response.status_code == status_code
+        assert "text/event-stream" in response.headers["content-type"]
+        assert response.content == b"data: chunk1\n\ndata: chunk2\n\n"
+        mock_build_request.assert_called_once()
+        mock_response.aclose.assert_called_once()
+        assert mock_send.call_args.kwargs.get("stream") is True
+        for key, value in custom_headers.items():
+            assert response.headers[key] == value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "status_code", "custom_headers"),
+    [
+        ("application/json", 200, {}),
+        ("text/html", 201, {"x-request-id": "req-123"}),
+        ("text/plain", 200, {}),
+        ("application/octet-stream", 200, {}),
+    ],
+)
+async def test_chat_proxy_non_sse_responses(content_type, status_code, custom_headers):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = AsyncMock()
+    mock_response.status_code = status_code
+    mock_response.headers = {"content-type": content_type, **custom_headers}
+    mock_response.aread = AsyncMock(return_value=b"content")
+    mock_response.aclose = AsyncMock()
+
+    with (
+        patch.object(server.proxy_client, "build_request") as mock_build_request,
+        patch.object(server.proxy_client, "send", return_value=mock_response) as mock_send,
+    ):
+        response = client.get("/")
+        assert response.status_code == status_code
+        assert response.content == b"content"
+        mock_build_request.assert_called_once()
+        mock_response.aread.assert_called_once()
+        mock_response.aclose.assert_called_once()
+        assert mock_send.call_args.kwargs.get("stream") is True
+        for key, value in custom_headers.items():
+            assert response.headers[key] == value
 
 
 def test_return_trace_header_invoke_responses_agent():

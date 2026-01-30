@@ -60,7 +60,7 @@ export const ExperimentPageSideNavAssistantButton = () => {
           padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
           borderRadius: theme.borders.borderRadiusMd - 2,
           cursor: 'pointer',
-          background: theme.colors.white,
+          background: theme.colors.backgroundPrimary,
           color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
           height: theme.typography.lineHeightBase,
           boxSizing: 'content-box',

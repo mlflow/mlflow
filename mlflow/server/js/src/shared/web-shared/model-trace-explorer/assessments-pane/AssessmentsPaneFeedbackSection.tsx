@@ -1,19 +1,26 @@
 import {
+  Alert,
   Button,
   DropdownMenu,
   GavelIcon,
   PlusIcon,
   Spacer,
+  TableSkeleton,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { first, isEmpty, isNil, partition, some } from 'lodash';
+import { isEmpty, isNil, uniqBy } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
+import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
+import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
+import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -49,32 +56,65 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   return Object.entries(aggregated);
 };
 
-const AddFeedbackButton = ({ onClick }: { onClick: () => void }) => (
-  <Button
-    type="primary"
-    componentId="shared.model-trace-explorer.add-feedback"
-    size="small"
-    icon={<PlusIcon />}
-    onClick={onClick}
-  >
-    <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
-  </Button>
-);
-
-const RunJudgeButton = ({ traceId }: { traceId: string }) => {
+const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId: string }) => {
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
+  const [judgeModalVisible, setJudgeModalVisible] = useState(false);
 
-  if (!runJudgeConfiguration.renderRunJudgeButton) {
-    return null;
+  if (runJudgeConfiguration.renderRunJudgeModal && isEvaluatingTracesInDetailsViewEnabled()) {
+    return (
+      <>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Button
+              type="primary"
+              componentId="shared.model-trace-explorer.add-feedback"
+              size="small"
+              icon={<PlusIcon />}
+            >
+              <FormattedMessage
+                defaultMessage="Add feedback"
+                description="Label for the button to add a new feedback"
+              />
+            </Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content>
+            <DropdownMenu.Item componentId="mlflow.model-trace-explorer.add-human-feedback" onClick={onClick}>
+              <FormattedMessage
+                defaultMessage="Human feedback"
+                description="Label for the button to add a human feedback to the trace"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              componentId="mlflow.model-trace-explorer.run-judge"
+              onClick={() => setJudgeModalVisible(true)}
+            >
+              <FormattedMessage
+                defaultMessage="LLM judge feedback"
+                description="Label for the button to add a LLM judge feedback to the trace"
+              />
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+        {runJudgeConfiguration.renderRunJudgeModal?.({
+          traceId,
+          visible: judgeModalVisible,
+          onClose: () => setJudgeModalVisible(false),
+        })}
+      </>
+    );
   }
 
-  const trigger = (
-    <Button type="primary" componentId="shared.model-trace-explorer.add-feedback" size="small" icon={<GavelIcon />}>
-      <FormattedMessage defaultMessage="Run judge" description="Label for the button to add a new feedback" />
+  return (
+    <Button
+      type="primary"
+      componentId="shared.model-trace-explorer.add-feedback"
+      size="small"
+      icon={<PlusIcon />}
+      onClick={onClick}
+    >
+      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
     </Button>
   );
-
-  return <>{runJudgeConfiguration.renderRunJudgeButton({ traceId, trigger })}</>;
 };
 
 export const AssessmentsPaneFeedbackSection = ({
@@ -91,6 +131,54 @@ export const AssessmentsPaneFeedbackSection = ({
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
+
+  const { evaluations, subscribeToScorerFinished } = useModelTraceExplorerRunJudgesContext();
+
+  // Derive evaluations for this trace from context state
+  const currentTraceEvaluations = useMemo(() => {
+    if (!evaluations) return [];
+    return Object.values(evaluations).filter((event) => traceId in (event.tracesData ?? {}));
+  }, [evaluations, traceId]);
+
+  const { newTracePendingEvaluations, loadingEvaluations } = useMemo(() => {
+    const loadingEvaluations = currentTraceEvaluations.filter((event) => event.isLoading);
+    const newTracePendingEvaluations = uniqBy(
+      loadingEvaluations.filter(
+        (evaluation) => !groupedFeedbacks.some(([groupName]) => groupName === evaluation.label),
+      ),
+      'label',
+    );
+    return { newTracePendingEvaluations, loadingEvaluations };
+  }, [currentTraceEvaluations, groupedFeedbacks]);
+
+  const currentTraceEvaluationErrors = useMemo(
+    () => currentTraceEvaluations.filter((event) => event.error),
+    [currentTraceEvaluations],
+  );
+
+  const { invalidateTraceQuery } = useModelTraceExplorerUpdateTraceContext();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    return subscribeToScorerFinished?.((event) => {
+      const isCurrentTraceEvaluation = event.results?.some(
+        (result) =>
+          'trace' in result &&
+          result.trace?.info &&
+          'trace_id' in result.trace?.info &&
+          result.trace?.info.trace_id === traceId,
+      );
+      if (!isCurrentTraceEvaluation) {
+        return;
+      }
+      invalidateTraceQuery?.(traceId);
+      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
+      invalidateMlflowSearchTracesCache({ queryClient });
+    });
+  }, [subscribeToScorerFinished, traceId, invalidateTraceQuery, queryClient]);
+
+  const isSectionEmpty =
+    isEmpty(groupedFeedbacks) && isEmpty(currentTraceEvaluationErrors) && isEmpty(newTracePendingEvaluations);
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -113,19 +201,63 @@ export const AssessmentsPaneFeedbackSection = ({
           {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
         </Typography.Text>
       </div>
-      {!isEmpty(groupedFeedbacks) && (
+
+      {!isSectionEmpty && (
         <div
           css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
         >
-          <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
-          {enableRunScorer && <RunJudgeButton traceId={traceId} />}
+          <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
 
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+      {currentTraceEvaluationErrors.map((evaluation) => (
+        <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
+          <Alert
+            closable={false}
+            type="error"
+            message={
+              <FormattedMessage
+                defaultMessage='Error evaluating "{label}"'
+                description="Error evaluating label"
+                values={{ label: evaluation.label }}
+              />
+            }
+            description={evaluation.error?.message}
+            componentId="shared.model-trace-explorer.feedback-error-item"
+          />
+        </div>
       ))}
-      {isEmpty(groupedFeedbacks) && !createFormVisible && (
+      {newTracePendingEvaluations.map((evaluation) => (
+        <div
+          key={evaluation.requestKey}
+          css={{
+            borderRadius: theme.spacing.sm,
+            border: `1px solid ${theme.colors.border}`,
+            padding: theme.spacing.sm + theme.spacing.xs,
+            paddingTop: theme.spacing.sm,
+            marginBottom: theme.spacing.sm,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+          }}
+        >
+          {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
+          <Typography.Text bold>{evaluation.label}</Typography.Text>
+          <TableSkeleton lines={3} />
+        </div>
+      ))}
+
+      {groupedFeedbacks.map(([name, valuesMap]) => (
+        <FeedbackGroup
+          key={name}
+          name={name}
+          valuesMap={valuesMap}
+          traceId={traceId}
+          activeSpanId={activeSpanId}
+          loading={loadingEvaluations.some((evaluation) => evaluation.label === name)}
+        />
+      ))}
+      {isSectionEmpty && !createFormVisible && (
         <div
           css={{
             textAlign: 'center',
@@ -149,8 +281,7 @@ export const AssessmentsPaneFeedbackSection = ({
           </Typography.Hint>
           <Spacer size="sm" />
           <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-            <AddFeedbackButton onClick={() => setCreateFormVisible(true)} />
-            {enableRunScorer && <RunJudgeButton traceId={traceId} />}
+            <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
           </div>
         </div>
       )}

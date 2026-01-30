@@ -235,6 +235,7 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response, e
         "ResponseMetadata": response["ResponseMetadata"],
         "contentType": "application/json",
     }
+    assert span.model_name == model_id
 
     # Check token usage validation using parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
@@ -272,6 +273,7 @@ def test_bedrock_autolog_invoke_model_embeddings():
         "ResponseMetadata": response["ResponseMetadata"],
         "contentType": "application/json",
     }
+    assert span.model_name == model_id
 
 
 def test_bedrock_autolog_invoke_model_capture_exception():
@@ -309,6 +311,7 @@ def test_bedrock_autolog_invoke_model_capture_exception():
         "modelId": "anthropic.claude-3-5-sonnet-20241022-v2:0",
     }
     assert span.outputs is None
+    assert span.model_name == "anthropic.claude-3-5-sonnet-20241022-v2:0"
     assert len(span.events) == 1
     assert span.events[0].name == "exception"
     assert span.events[0].attributes["exception.message"].startswith("Unable to locate credentials")
@@ -392,6 +395,7 @@ def test_bedrock_autolog_invoke_model_stream():
     assert span.span_type == "LLM"
     assert span.inputs == {"body": request_body, "modelId": _ANTHROPIC_MODEL_ID}
     assert span.outputs == {"body": "EventStream"}
+    assert span.model_name == _ANTHROPIC_MODEL_ID
     # Raw chunks must be recorded as span events
     assert len(span.events) == len(dummy_chunks)
     for i in range(len(dummy_chunks)):
@@ -776,6 +780,7 @@ def test_bedrock_autolog_converse(
     assert span.outputs == response
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "bedrock"
+    assert span.model_name == _request["modelId"]
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
@@ -799,6 +804,7 @@ def test_bedrock_autolog_converse_error():
     assert span.status.status_code == "ERROR"
     assert span.inputs == _CONVERSE_REQUEST
     assert span.outputs is None
+    assert span.model_name == _CONVERSE_REQUEST["modelId"]
     assert len(span.events) == 1
 
 
@@ -853,7 +859,12 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
     ],
 )
 def test_bedrock_autolog_converse_stream(
-    _request, expected_response, expected_chat_attr, expected_tool_attr, expected_usage
+    _request,
+    expected_response,
+    expected_chat_attr,
+    expected_tool_attr,
+    expected_usage,
+    mock_litellm_cost,
 ):
     mlflow.bedrock.autolog()
 
@@ -880,12 +891,21 @@ def test_bedrock_autolog_converse_stream(
     assert span.inputs == _request
     assert span.outputs == expected_response
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+    assert span.model_name == _request["modelId"]
     assert len(span.events) > 0
     assert span.events[0].name == "messageStart"
     assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
+    # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
+    expected_cost = {
+        "input_cost": float(expected_usage["input_tokens"]),
+        "output_cost": float(expected_usage["output_tokens"]) * 2.0,
+        "total_cost": float(expected_usage["input_tokens"])
+        + float(expected_usage["output_tokens"]) * 2.0,
+    }
+    assert span.llm_cost == expected_cost
 
 
 def _event_stream(raw_response, chunk_size=10):

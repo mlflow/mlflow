@@ -668,6 +668,7 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
     def mock_predict_fn(input, **kwargs):
         return {"role": "assistant", "content": "Mock response"}
 
+    mock_trace = mock.Mock()
     with (
         mock.patch(
             "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
@@ -677,8 +678,12 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
             "mlflow.genai.simulators.simulator.ConversationSimulator._check_goal_achieved",
             return_value=False,
         ),
+        mock.patch(
+            "mlflow.genai.simulators.simulator.mlflow.get_trace",
+            return_value=mock_trace,
+        ),
     ):
-        result = simulator._simulate(predict_fn=mock_predict_fn)
+        result = simulator.simulate(predict_fn=mock_predict_fn)
 
     assert len(result) == 2
 
