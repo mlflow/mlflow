@@ -20,6 +20,7 @@ import threading
 import urllib
 import uuid
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
 
 import yaml
@@ -3489,9 +3490,11 @@ class MlflowClient:
             return existing_predictions
 
         if not runs.empty:
-            return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
-            )
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(get_artifact_data, run) for _, run in runs.iterrows()]
+                results = [f.result() for f in as_completed(futures)]
+
+            return pd.concat(results, ignore_index=True)
         else:
             raise MlflowException(
                 "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
