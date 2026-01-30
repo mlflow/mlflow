@@ -40,7 +40,7 @@ def mock_llm_response():
 
 @pytest.fixture
 def mock_predict_fn():
-    def predict_fn(input=None, messages=None, context=None):
+    def predict_fn(input=None, messages=None, context=None, **kwargs):
         return {
             "output": [
                 {

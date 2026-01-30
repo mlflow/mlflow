@@ -435,6 +435,9 @@ class ConversationSimulator:
     - It must accept an ``input`` parameter containing the conversation history
       as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
     - It may accept additional keyword arguments from the test case's ``context`` field
+    - It receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
+      session. This ID is consistent across all turns in the same conversation, allowing you
+      to associate related traces or maintain stateful context (e.g., for thread-based agents).
     - It should return a response (the assistant's message content will be extracted)
 
     Args:
@@ -463,8 +466,21 @@ class ConversationSimulator:
             from mlflow.genai.simulators import ConversationSimulator
             from mlflow.genai.scorers import ConversationalSafety, Safety
 
+            # Dummy cache to store conversation threads by session ID
+            conversation_threads = {}
+
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
+                # The mlflow_session_id uniquely identifies this conversation session.
+                # All turns in the same conversation share the same session ID.
+                session_id = kwargs.get("mlflow_session_id")
+
+                # Use the session ID to maintain state across turns - for example,
+                # storing conversation context, user preferences, or agent memory
+                if session_id not in conversation_threads:
+                    conversation_threads[session_id] = {"turn_count": 0}
+                conversation_threads[session_id]["turn_count"] += 1
+
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=input,
@@ -763,7 +779,9 @@ class ConversationSimulator:
                 )
             return predict_fn(input=input, **ctx)
 
-        response = traced_predict(input=input_messages, **context)
+        response = traced_predict(
+            input=input_messages, mlflow_session_id=trace_session_id, **context
+        )
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session
