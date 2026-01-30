@@ -4,6 +4,8 @@
 
 import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from 'mlflow-tracing';
 
+export { createTracedQuery } from './tracedClaudeAgent';
+
 const SUPPORTED_MODULES = ['Messages'];
 const SUPPORTED_METHODS = ['create'];
 
