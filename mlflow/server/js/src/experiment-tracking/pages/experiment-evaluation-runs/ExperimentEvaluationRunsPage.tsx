@@ -327,6 +327,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       viewMode={viewMode}
       onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
       ref={tableContainerRef}
+      isGrouped={Boolean(groupBy?.groupByKeys?.length)}
     />
   );
 
