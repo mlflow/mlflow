@@ -466,7 +466,7 @@ class ConversationSimulator:
             from mlflow.genai.simulators import ConversationSimulator
             from mlflow.genai.scorers import ConversationalSafety, Safety
 
-            # Cache to store conversation threads by session ID
+            # Dummy cache to store conversation threads by session ID
             conversation_threads = {}
 
 
