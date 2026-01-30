@@ -134,7 +134,9 @@ The active workspace is determined in the following order:
 2. `MLFLOW_WORKSPACE` environment variable
 3. Provider's `get_default_workspace()` implementation
 
-If no workspace can be resolved and the provider does not support a default workspace, API calls will return an error.
+If neither `mlflow.set_workspace()` nor `MLFLOW_WORKSPACE` is set, MLflow falls back to the provider
+default workspace (typically `default`). If no workspace can be resolved and the provider does not
+support a default workspace, API calls will return an error.
 
 ## Authentication and Permissions
 
