@@ -65,19 +65,19 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 
 ## Data to Migrate
 
-| Data Type       | FileStore                              | SQLite Tables                                        | Since  |
-| --------------- | -------------------------------------- | ---------------------------------------------------- | ------ |
-| Experiments     | `<exp_id>/meta.yaml`                   | `experiments`                                        | All    |
-| Experiment Tags | `<exp_id>/tags/<key>`                  | `experiment_tags`                                    | All    |
-| Runs            | `<exp_id>/<run_id>/meta.yaml`          | `runs`                                               | All    |
-| Params          | `<run_id>/params/<key>`                | `params`                                             | All    |
-| Metrics         | `<run_id>/metrics/<key>`               | `metrics`, `latest_metrics`                          | All    |
-| Tags            | `<run_id>/tags/<key>`                  | `tags`                                               | All    |
-| Datasets        | `<exp_id>/datasets/<id>/meta.yaml`     | `datasets`                                           | 2.10.0 |
-| Inputs          | `<run_id>/inputs/<id>/meta.yaml`       | `inputs`, `input_tags`                               | 2.10.0 |
-| Traces          | `<exp_id>/traces/<id>/trace_info.yaml` | `trace_info`, `trace_tags`, `trace_request_metadata` | 2.14.0 |
-| Assessments     | `traces/<id>/assessments/<id>.yaml`    | `assessments`                                        | 3.2.0  |
-| Logged Models   | `<exp_id>/models/<id>/meta.yaml`       | `logged_models`, `logged_model_*`                    | 3.0.0  |
+| Data Type       | FileStore                              | SQLite Tables                                           | Since  |
+| --------------- | -------------------------------------- | ------------------------------------------------------- | ------ |
+| Experiments     | `<exp_id>/meta.yaml`                   | `experiments`                                           | All    |
+| Experiment Tags | `<exp_id>/tags/<key>`                  | `experiment_tags`                                       | All    |
+| Runs            | `<exp_id>/<run_id>/meta.yaml`          | `runs`                                                  | All    |
+| Params          | `<run_id>/params/<key>`                | `params`                                                | All    |
+| Metrics         | `<run_id>/metrics/<key>`               | `metrics`, `latest_metrics`                             | All    |
+| Tags            | `<run_id>/tags/<key>`                  | `tags`                                                  | All    |
+| Datasets        | `<exp_id>/datasets/<id>/meta.yaml`     | `datasets`                                              | 2.10.0 |
+| Inputs          | `<run_id>/inputs/<id>/meta.yaml`       | `inputs`, `input_tags`                                  | 2.10.0 |
+| Traces          | `<exp_id>/traces/<id>/trace_info.yaml` | `trace_info`, `trace_tags`, `trace_request_metadata`    | 2.14.0 |
+| Assessments     | `traces/<id>/assessments/<id>.yaml`    | `assessments`                                           | 3.2.0  |
+| Logged Models   | `<exp_id>/models/<id>/meta.yaml`       | `logged_models`, `logged_model_{params\|metrics\|tags}` | 3.0.0  |
 
 ## Options
 
