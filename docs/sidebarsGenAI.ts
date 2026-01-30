@@ -673,6 +673,11 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
+                },
+                {
+                  type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
                   label: 'Create a Custom Judge',
                 },

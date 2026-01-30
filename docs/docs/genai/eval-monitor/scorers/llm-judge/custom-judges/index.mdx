@@ -80,62 +80,7 @@ Correctness(model="anthropic:/claude-4-opus")
 Correctness(model="google:/gemini-2.0-flash")
 ```
 
-### Supported Models
-
-#### AI Gateway Endpoints
-
-[AI Gateway](/genai/governance/ai-gateway/) endpoints are the recommended way to configure judge models, especially when creating judges from the UI. Benefits include:
-
-- **Run judges directly from the UI** - Test and execute judges without leaving the browser
-- **Centralized API key management** - No need to configure API keys locally
-- **Traffic routing and fallbacks** - Configure load balancing and provider fallbacks
-
-To use AI Gateway endpoints, select the endpoint from the UI dropdown or specify the endpoint name from the SDK with the `gateway:/` prefix, e.g., `gateway:/my-chat-endpoint`.
-
-#### Direct Model Providers
-
-MLflow also supports calling model providers directly:
-
-- OpenAI / Azure OpenAI
-- Anthropic
-- Amazon Bedrock
-- Cohere
-- Together AI
-- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
-
-:::warning
-Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
-:::
-
-To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
-
-:::info
-
-In Databricks, the default model is set to <ins>[Databricks's research-backed LLM judges](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges/)</ins>.
-
-:::
-
-### Choosing the Right LLM for Your Judge
-
-The choice of LLM model significantly impacts judge performance and cost. Here's guidance based on your development stage and use case:
-
-**Early Development Stage (Inner Loop)**
-
-- **Recommended**: Start with powerful models like GPT-4o or Claude Opus
-- **Why**: When you're beginning your agent development journey, you typically lack:
-  - Use-case-specific grading criteria
-  - Labeled data for optimization
-- **Benefits**: More intelligent models can deeply explore traces, identify patterns, and help you understand common issues in your system
-- **Trade-off**: Higher cost, but lower evaluation volume during development makes this acceptable
-
-**Production & Scaling Stage**
-
-- **Recommended**: Transition to smaller models (GPT-4o-mini, Claude Haiku) with smarter optimizers
-- **Why**: As you move toward production:
-  - You've collected labeled data and established grading criteria
-  - Cost becomes a critical factor at scale
-  - You can align smaller judges using more powerful optimizers
-- **Approach**: Use a smaller judge model paired with a powerful optimizer model (e.g., GPT-4o-mini judge aligned using Claude Opus optimizer)
+For detailed information on supported models, AI Gateway configuration, and guidance on choosing the right model for your use case, see [Supported Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models).
 
 ## Best practices for writing judge instructions
 
