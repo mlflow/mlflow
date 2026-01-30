@@ -342,6 +342,7 @@ const RunViewEvaluationsTabInner = ({
                     experimentId={experimentId}
                     currentRunDisplayName={runDisplayName}
                     compareToRunDisplayName={compareToRunDisplayName}
+                    runUuid={runUuid}
                     compareToRunUuid={compareToRunUuid}
                     getTrace={getTrace}
                     getRunColor={getRunColor}
