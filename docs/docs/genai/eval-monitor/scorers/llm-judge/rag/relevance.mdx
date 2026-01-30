@@ -5,6 +5,8 @@ import { Target, Database, Hammer } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import RagPrerequisites from '@site/src/content/rag_prerequisites.mdx';
+import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # Answer and Context Relevance Judges
 
@@ -13,17 +15,11 @@ MLflow provides two built-in LLM judges to assess relevance in your GenAI applic
 - `RelevanceToQuery`: Evaluates if your app's response directly addresses the user's input
 - `RetrievalRelevance`: Evaluates if each document returned by your app's retriever(s) is relevant
 
-## Prerequisites for running the examples
+<RagPrerequisites />
 
-1. Install MLflow and required packages
+## Usage Examples
 
-   ```bash
-   pip install --upgrade "mlflow>=3.4.0" openai
-   ```
-
-2. Create an MLflow experiment by following the [setup your environment quickstart](/genai/getting-started/connect-environment/).
-
-## RelevanceToQuery Judge
+### RelevanceToQuery Judge
 
 This judge evaluates if your app's response directly addresses the user's input without deviating into unrelated topics.
 
@@ -68,9 +64,9 @@ result = mlflow.genai.evaluate(data=data, scorers=[RelevanceToQuery()])
 </Tabs>
 </TabsWrapper>
 
-## RetrievalRelevance Judge
+### RetrievalRelevance Judge
 
-This judge evaluates if each document returned by your app's retriever(s) is relevant to the input request.
+This judge evaluates if each document returned by your app's retriever(s) is relevant to the input request. It evaluates each retriever span separately and returns a separate <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object for each retriever span in your trace.
 
 **Requirements:**
 
@@ -110,97 +106,15 @@ results = mlflow.genai.evaluate(
 </Tabs>
 </TabsWrapper>
 
-## RAG example
+:::tip
+For a complete RAG application example with these judges, see the <ins>[RAG Evaluation guide](/genai/eval-monitor/scorers/llm-judge/rag/)</ins>.
+:::
 
-Here's a complete example showing how to create a RAG application with a retriever and evaluate it:
-
-```python
-import mlflow
-from mlflow.genai.scorers import RetrievalRelevance
-from mlflow.entities import Document
-from typing import List
-
-
-# Define a retriever function with proper span type
-@mlflow.trace(span_type="RETRIEVER")
-def retrieve_docs(query: str) -> List[Document]:
-    # Simulated retrieval - in practice, this would query a vector database
-    if "capital" in query.lower() and "france" in query.lower():
-        return [
-            Document(
-                id="doc_1",
-                page_content="Paris is the capital of France.",
-                metadata={"source": "geography.txt"},
-            ),
-            Document(
-                id="doc_2",
-                page_content="The Eiffel Tower is located in Paris.",
-                metadata={"source": "landmarks.txt"},
-            ),
-        ]
-    else:
-        return [
-            Document(
-                id="doc_3",
-                page_content="Python is a programming language.",
-                metadata={"source": "tech.txt"},
-            )
-        ]
-
-
-# Define your app that uses the retriever
-@mlflow.trace
-def rag_app(query: str):
-    docs = retrieve_docs(query)
-    # In practice, you would pass these docs to an LLM
-    return {"response": f"Found {len(docs)} relevant documents."}
-
-
-# Create evaluation dataset
-eval_dataset = [
-    {"inputs": {"query": "What is the capital of France?"}},
-    {"inputs": {"query": "How do I use Python?"}},
-]
-
-# Run evaluation with RetrievalRelevance judge
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=rag_app,
-    scorers=[
-        RetrievalRelevance(
-            model="openai:/gpt-4o-mini",  # Optional
-        )
-    ],
-)
-```
-
-## Select the LLM that powers the judge
-
-You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
-
-You can customize these judges by providing different judge models:
-
-```python
-from mlflow.genai.scorers import RelevanceToQuery, RetrievalRelevance
-
-# Use different judge models
-relevance_judge = RelevanceToQuery(
-    model="openai:/gpt-4o-mini"  # Or any LiteLLM-compatible model
-)
-
-retrieval_judge = RetrievalRelevance(model="anthropic:/claude-4-opus")
-
-# Use in evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset, predict_fn=rag_app, scorers=[relevance_judge, retrieval_judge]
-)
-```
-
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+<SelectJudgeModel />
 
 ## Interpret results
 
-The judge returns a Feedback object with:
+The judge returns a <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object containing:
 
 - **value**: "yes" if context is relevant, "no" if not
 - **rationale**: Explanation of why the judge found the context relevant or irrelevant
