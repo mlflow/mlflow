@@ -59,6 +59,27 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 | Deleted items in `.trash` | Skip (only migrate active data)                                                                                                  |
 | Performance target        | Small to medium (< 100K runs). FileStore doesn't scale well, so users with large datasets likely already use a database backend. |
 
+## Artifact Location
+
+FileStore stores artifacts at `mlruns/<exp_id>/<run_id>/artifacts/` with absolute path URIs. During migration:
+
+- Copy original URIs - the absolute paths work with any backend
+- Artifacts stay in place - no file copying needed
+- No storage changes - users continue accessing artifacts from the same location
+
+If users move the `mlruns` directory after migration, artifact URIs will break (same behavior as before migration).
+
+## Constraint Analysis
+
+| Constraint    | Issue                           | Why it's safe                                 |
+| ------------- | ------------------------------- | --------------------------------------------- |
+| String length | Values exceeding column limits  | FileStore validates and truncates on write    |
+| Uniqueness    | Duplicate entries               | FileStore also enforces uniqueness            |
+| NOT NULL      | Missing required values         | FileStore requires these fields too           |
+| Foreign keys  | Orphaned runs or params/metrics | Runs are stored inside experiment directories |
+
+Note: This is not an exhaustive analysis; other constraint violations may exist.
+
 ## Open Questions
 
 1. Target database support - SQLite only, or support PostgreSQL/MySQL too? (Recommendation: Start with SQLite, extend later if needed)
