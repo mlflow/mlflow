@@ -164,7 +164,8 @@ jobs:
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install libs/tracing
-            pip install pytest pytest-asyncio pytest-cov
+            # litellm is required for cost tracking tests
+            pip install pytest pytest-asyncio pytest-cov litellm
           # Other two categories of tests (model/autologging)
           else
             pip install .[extras]

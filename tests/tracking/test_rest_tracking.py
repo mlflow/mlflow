@@ -1884,7 +1884,7 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
-def test_create_model_version_with_validation_regex(tmp_path: Path):
+def test_create_model_version_with_validation_regex(db_uri: str):
     port = get_safe_port()
     with subprocess.Popen(
         [
@@ -1895,7 +1895,7 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "--port",
             str(port),
             "--backend-store-uri",
-            f"sqlite:///{tmp_path / 'mlflow.db'}",
+            db_uri,
         ],
         env=(
             os.environ.copy()

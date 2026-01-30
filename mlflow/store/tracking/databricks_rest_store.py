@@ -50,7 +50,7 @@ from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
@@ -582,6 +582,8 @@ class DatabricksTracingRestStore(RestStore):
 
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
+        resource = getattr(spans[0]._span, "resource", None)
+        resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 

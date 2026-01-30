@@ -4,6 +4,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  isInterrupted?: boolean;
 }
 
 /**
@@ -86,6 +87,8 @@ export interface AssistantAgentActions {
   regenerateLastMessage: () => void;
   /** Reset the conversation */
   reset: () => void;
+  /** Cancel the current streaming session */
+  cancelSession: () => void;
   /** Fetch/refresh config from backend */
   refreshConfig: () => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */
@@ -142,12 +145,29 @@ export interface ProjectConfig {
 export interface AssistantConfig {
   providers: Record<string, ProviderConfig>;
   projects: Record<string, ProjectConfig>;
+  skills_location?: string;
+}
+
+/**
+ * Config update request - allows null to remove entries.
+ */
+export interface AssistantConfigUpdate {
+  providers?: Record<string, Partial<ProviderConfig>>;
+  projects?: Record<string, ProjectConfig | null>;
 }
 
 /**
  * Setup wizard step type.
  */
 export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
+
+/**
+ * Response from installing skills.
+ */
+export interface InstallSkillsResponse {
+  installed_skills: string[];
+  skills_directory: string;
+}
 
 /**
  * Authentication state for provider connection check.

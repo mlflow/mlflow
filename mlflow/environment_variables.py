@@ -684,11 +684,25 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum number of workers to use for running conversation simulations in parallel.
+#: Controls concurrency when simulating multiple test cases and fetching traces.
+#: (default: ``10``)
+MLFLOW_GENAI_SIMULATOR_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_SIMULATOR_MAX_WORKERS", int, 10
+)
+
 #: Maximum number of worker threads to use for online scoring (both trace-level
 #: and session-level scoring). This controls the parallelism when processing multiple traces
 #: or sessions concurrently during background online scoring jobs. (default: ``10``)
 MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS", int, 10
+)
+
+#: Maximum number of parallel threads to use for LLM calls during optimization (e.g., MemAlign).
+#: Increasing this value can speed up alignment when processing
+#: many feedback examples, but may increase API rate limit errors. (default: ``8``)
+MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS", int, 8
 )
 
 

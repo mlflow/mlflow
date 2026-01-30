@@ -8,7 +8,7 @@ enabling AI-powered helper through a chat interface.
 import ipaddress
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -22,8 +22,9 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
-from mlflow.server.assistant.session import SessionManager
+from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 # TODO: Hardcoded provider until supporting multiple providers
 _provider = ClaudeCodeProvider()
@@ -88,6 +89,26 @@ class ConfigUpdateRequest(BaseModel):
     projects: dict[str, Any] | None = None
 
 
+class SessionPatchRequest(BaseModel):
+    status: Literal["cancelled"]
+
+
+class SessionPatchResponse(BaseModel):
+    message: str
+
+
+# Skills-related models
+class SkillsInstallRequest(BaseModel):
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None  # Required if type="custom"
+    experiment_id: str | None = None  # Used to get project_path for type="project"
+
+
+class SkillsInstallResponse(BaseModel):
+    installed_skills: list[str]
+    skills_directory: str
+
+
 @assistant_router.post("/message")
 async def send_message(request: MessageRequest) -> MessageResponse:
     """
@@ -125,11 +146,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
-async def stream_response(session_id: str) -> StreamingResponse:
+async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
 
     Args:
+        request: The FastAPI request object
         session_id: The session ID returned from /message
 
     Returns:
@@ -145,11 +167,19 @@ async def stream_response(session_id: str) -> StreamingResponse:
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
 
+    # Extract the MLflow server URL from the request for the assistant to use.
+    # This assumes the assistant is accessing the same MLflow server that serves this API,
+    # which works because the assistant endpoint is localhost-only.
+    # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
+    tracking_uri = str(request.base_url).rstrip("/")
+
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
         async for event in _provider.astream(
             prompt=pending_message.content,
+            tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
+            mlflow_session_id=session_id,
             cwd=session.working_dir,
             context=session.context,
         ):
@@ -169,6 +199,34 @@ async def stream_response(session_id: str) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@assistant_router.patch("/sessions/{session_id}")
+async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
+    """
+    Update session status.
+
+    Currently supports cancelling an active session, which terminates
+    the running assistant process.
+
+    Args:
+        session_id: The session ID
+        request: SessionPatchRequest with status to set
+
+    Returns:
+        SessionPatchResponse indicating success
+    """
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if request.status == "cancelled":
+        terminated = terminate_session_process(session_id)
+        msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
+        return SessionPatchResponse(message=msg)
+
+    # This branch is unreachable due to Literal type, but satisfies type checker
+    raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
 
 
 @assistant_router.get("/providers/{provider}/health")
@@ -249,9 +307,16 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 # Remove project mapping
                 config.projects.pop(exp_id, None)
             else:
+                location = project_data.get("location", "")
+                project_path = Path(location).expanduser()
+                if not project_path or not project_path.exists():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Project path does not exist: {location}",
+                    )
                 config.projects[exp_id] = ProjectConfig(
                     type=project_data.get("type", "local"),
-                    location=project_data.get("location", ""),
+                    location=str(project_path),
                 )
 
     config.save()
@@ -264,3 +329,54 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
     )
+
+
+@assistant_router.post("/skills/install")
+async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+    """
+    Install skills bundled with MLflow.
+    This endpoint only handles installation. Config updates should be done via PUT /config.
+
+    Args:
+        request: SkillsInstallRequest with type, custom_path, and experiment_id.
+
+    Returns:
+        SkillsInstallResponse with installed skill names and directory.
+
+    Raises:
+        HTTPException 400: If custom type without custom_path or project type without experiment_id.
+    """
+    config = AssistantConfig.load()
+
+    # Resolve project_path for "project" type
+    project_path: Path | None = None
+    if request.type == "project":
+        if not request.experiment_id:
+            raise HTTPException(status_code=400, detail="experiment_id required for 'project' type")
+        project_location = config.get_project_path(request.experiment_id)
+        if not project_location:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No project path configured for experiment {request.experiment_id}",
+            )
+        project_path = Path(project_location)
+
+    # Get the destination path to install skills to
+    match request.type:
+        case "global":
+            destination = _provider.resolve_skills_path(Path.home())
+        case "project":
+            destination = _provider.resolve_skills_path(project_path)
+        case "custom":
+            destination = Path(request.custom_path).expanduser()
+
+    # Check if skills already exist - skip re-installation
+    if destination.exists():
+        if current_skills := list_installed_skills(destination):
+            return SkillsInstallResponse(
+                installed_skills=current_skills, skills_directory=str(destination)
+            )
+
+    installed = install_skills(destination)
+
+    return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))

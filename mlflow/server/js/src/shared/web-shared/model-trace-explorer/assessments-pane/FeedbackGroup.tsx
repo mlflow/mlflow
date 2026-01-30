@@ -1,7 +1,15 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { useDesignSystemTheme, Typography, Button, PlusIcon, Tooltip, DangerIcon } from '@databricks/design-system';
+import {
+  useDesignSystemTheme,
+  Typography,
+  Button,
+  PlusIcon,
+  Tooltip,
+  DangerIcon,
+  TableSkeleton,
+} from '@databricks/design-system';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { getAssessmentDisplayName } from './AssessmentsPane.utils';
@@ -13,11 +21,15 @@ export const FeedbackGroup = ({
   valuesMap,
   traceId,
   activeSpanId,
+  feedbackTypeTag,
+  loading,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
   traceId: string;
   activeSpanId?: string;
+  feedbackTypeTag?: React.ReactNode;
+  loading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -39,6 +51,7 @@ export const FeedbackGroup = ({
         gap: theme.spacing.sm,
       }}
     >
+      {feedbackTypeTag}
       <div
         css={{
           display: 'flex',
@@ -67,6 +80,7 @@ export const FeedbackGroup = ({
       {Object.entries(valuesMap).map(([jsonValue, feedbacks]) => (
         <FeedbackValueGroup jsonValue={jsonValue} feedbacks={feedbacks} key={jsonValue} />
       ))}
+      {loading && <TableSkeleton lines={2} />}
       {showCreateForm && (
         <AssessmentCreateForm
           assessmentName={name}

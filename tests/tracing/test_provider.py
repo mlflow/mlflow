@@ -564,7 +564,6 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert processors[0]._export_metrics is True
 
-
 def test_telemetry_destination_id_uses_uc_table_with_otel_processor(monkeypatch):
     from mlflow.tracing.export.uc_table_with_otel import DatabricksUCTableWithOtelSpanExporter
 
@@ -716,3 +715,48 @@ def test_set_destination_uc_table_prefix_location(monkeypatch):
 
         # _register_uc_table_prefix_location should be called with the input location
         mock_register.assert_called_with(input_location)
+def test_otel_resource_attributes(monkeypatch):
+    tracer = _get_tracer("test")
+    # By default, only MLflow's SDK attributes are set on an empty resource
+    assert tracer.resource.attributes == {
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "mlflow",
+        "telemetry.sdk.version": mlflow.__version__,
+    }
+
+    mlflow.tracing.reset()
+    # When otel attributes are set explicitly, MLflow's SDK attributes are not set on the resource
+    monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "favorite.fruit=apple,color=red")
+    tracer = _get_tracer("test")
+    assert dict(tracer.resource.attributes) == {
+        "favorite.fruit": "apple",
+        "color": "red",
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "mlflow",
+        "telemetry.sdk.version": mlflow.__version__,
+        "service.name": "unknown_service",
+    }
+
+    # Service name should be propagated from the env var
+    mlflow.tracing.reset()
+    monkeypatch.setenv("OTEL_SERVICE_NAME", "test-service")
+    monkeypatch.delenv("OTEL_RESOURCE_ATTRIBUTES", raising=False)
+    tracer = _get_tracer("test")
+    assert dict(tracer.resource.attributes) == {
+        "service.name": "test-service",
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "mlflow",
+        "telemetry.sdk.version": mlflow.__version__,
+    }
+
+    # Invalid env var should be ignored and does not block the tracer provider initialization
+    mlflow.tracing.reset()
+    monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "invalid")
+    monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
+    tracer = _get_tracer("test")
+    assert dict(tracer.resource.attributes) == {
+        "service.name": "unknown_service",
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "mlflow",
+        "telemetry.sdk.version": mlflow.__version__,
+    }

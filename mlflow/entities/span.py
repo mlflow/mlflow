@@ -29,6 +29,7 @@ from mlflow.tracing.utils import (
     generate_mlflow_trace_id_from_otel_trace_id,
     generate_trace_id_v4_from_otel_trace_id,
     parse_trace_id_v4,
+    set_span_cost_attribute,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -168,6 +169,24 @@ class Span:
     def span_type(self) -> str:
         """The type of the span."""
         return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    @property
+    def model_name(self) -> str | None:
+        """The model name used in the span."""
+        return self.get_attribute(SpanAttributeKey.MODEL)
+
+    @property
+    def llm_cost(self) -> dict[str, float] | None:
+        """The cost information for the span in USD.
+
+        Returns a dictionary with keys:
+        - input_cost: Cost of input tokens
+        - output_cost: Cost of output tokens
+        - total_cost: Total cost (input + output)
+
+        Returns None if cost information is not available.
+        """
+        return self.get_attribute(SpanAttributeKey.LLM_COST)
 
     @property
     def _trace_id(self) -> str:
@@ -649,6 +668,8 @@ class LiveSpan(Span):
             # to OK if it is not ERROR.
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
+
+            set_span_cost_attribute(self)
 
             # Apply span processors
             apply_span_processors(self)

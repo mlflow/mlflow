@@ -142,9 +142,80 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+def _to_gb(b: int) -> str:
+    return f"{b / 1024**3:.1f}"
+
+
+@dataclass
+class ResourceUsage:
+    mem_used_bytes: int = 0
+    mem_total_bytes: int = 0
+    disk_used_bytes: int = 0
+    disk_total_bytes: int = 0
+
+    @staticmethod
+    def _get_usage() -> tuple[int, int, int, int] | None:
+        try:
+            import psutil
+        except ImportError:
+            return None
+
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        return mem.used, mem.total, disk.used, disk.total
+
+    def snapshot(self) -> None:
+        usage = self._get_usage()
+        if usage is None:
+            return
+
+        (
+            self.mem_used_bytes,
+            self.mem_total_bytes,
+            self.disk_used_bytes,
+            self.disk_total_bytes,
+        ) = usage
+
+    def check(self) -> str | None:
+        usage = self._get_usage()
+        if usage is None:
+            return None
+
+        THRESHOLD = 500 * 1024 * 1024  # 0.5 GB
+        mu, _, du, _ = usage
+        parts: list[str] = []
+        mem_delta = mu - self.mem_used_bytes
+        if mem_delta >= THRESHOLD:
+            delta = _to_gb(mem_delta)
+            prev = _to_gb(self.mem_used_bytes)
+            curr = _to_gb(mu)
+            parts.append(f"MEM: +{delta} ({prev} -> {curr}) GB")
+        disk_delta = du - self.disk_used_bytes
+        if disk_delta >= THRESHOLD:
+            delta = _to_gb(disk_delta)
+            prev = _to_gb(self.disk_used_bytes)
+            curr = _to_gb(du)
+            parts.append(f"DISK: +{delta} ({prev} -> {curr}) GB")
+        if parts:
+            return ", ".join(parts)
+
+    def format(self) -> str:
+        mem_total = _to_gb(self.mem_total_bytes)
+        mem_used = _to_gb(self.mem_used_bytes)
+        disk_total = _to_gb(self.disk_total_bytes)
+        disk_used = _to_gb(self.disk_used_bytes)
+        return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
+
+
+_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delta
+_RESOURCE_USAGE = ResourceUsage()
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _RESOURCE_HEAVY_TESTS.clear()
+    _RESOURCE_USAGE.snapshot()
 
     if IS_TRACING_SDK_ONLY:
         return
@@ -324,7 +395,7 @@ def fetch_pr_labels():
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
     outcome = yield
 
     # Handle rerun outcome
@@ -333,29 +404,12 @@ def pytest_report_teststatus(report, config):
         return
 
     if report.when == "call":
-        try:
-            import psutil
-        except ImportError:
-            return
+        if delta := _RESOURCE_USAGE.check():
+            _RESOURCE_HEAVY_TESTS[report.nodeid] = delta
 
-        (*rest, result) = outcome.get_result()
-        mem = psutil.virtual_memory()
-        mem_used = mem.used / 1024**3
-        mem_total = mem.total / 1024**3
-
-        disk = psutil.disk_usage("/")
-        disk_used = disk.used / 1024**3
-        disk_total = disk.total / 1024**3
-        outcome.force_result(
-            (
-                *rest,
-                (
-                    f"{result} | "
-                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
-                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
-                ),
-            )
-        )
+        (*rest, status) = outcome.get_result()
+        _RESOURCE_USAGE.snapshot()
+        outcome.force_result((*rest, f"{status} | {_RESOURCE_USAGE.format()}"))
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -510,6 +564,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    # Display resource-heavy tests
+    if _RESOURCE_HEAVY_TESTS:
+        terminalreporter.section("Resource-heavy tests", yellow=True)
+        for test_name, stats in _RESOURCE_HEAVY_TESTS.items():
+            terminalreporter.write(f"{test_name}: {stats}\n")
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
@@ -991,3 +1051,21 @@ def clear_engine_map():
         SqlAlchemyJobStore._engine_map.clear()
     except ImportError:
         pass
+
+
+@pytest.fixture
+def mock_litellm_cost():
+    """
+    Mock litellm.cost_per_token to calculate cost based on token counts.
+
+    Uses cost of 1.0 per input token and 2.0 per output token.
+    Returns (input_cost, output_cost) based on the token counts passed.
+    """
+
+    def calculate_cost(model, prompt_tokens, completion_tokens):
+        input_cost = prompt_tokens * 1.0
+        output_cost = completion_tokens * 2.0
+        return (input_cost, output_cost)
+
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+        yield mock_cost
