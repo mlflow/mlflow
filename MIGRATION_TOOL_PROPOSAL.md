@@ -41,7 +41,7 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 | Dependency         | External package             | None                          |
 
 - \*For most users, this migration is a new process they haven't done before.
-- \*\*Goal state is clearly defined (`original_data == migrated_data`), so coding agents can significantly reduce implementation/testing effort.
+- \*\*Clear success criteria (`original data == migrated data`) enables AI-assisted development.
 
 ## Recommendation
 
