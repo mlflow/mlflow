@@ -17,8 +17,8 @@ def check_guardrails_installed():
         import guardrails  # noqa: F401
     except ImportError:
         raise MlflowException.invalid_parameter_value(
-            "Guardrails AI scorers require the 'guardrails-ai' package. "
-            "Install it with: pip install guardrails-ai"
+            "Guardrails AI scorers require the `guardrails-ai` package. "
+            "Install it with: pip install `guardrails-ai`"
         )
 
 

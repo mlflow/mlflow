@@ -40,6 +40,8 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
+_FRAMEWORK_NAME = "guardrails-ai"
+
 
 @experimental(version="3.10.0")
 class GuardrailsScorer(Scorer):
@@ -130,7 +132,7 @@ class GuardrailsScorer(Scorer):
                 value=value,
                 rationale=rationale,
                 source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: "guardrails"},
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
         except Exception as e:
             _logger.error(f"Error validating with Guardrails {self.name}: {e}")
@@ -138,7 +140,7 @@ class GuardrailsScorer(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: "guardrails"},
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
 
 

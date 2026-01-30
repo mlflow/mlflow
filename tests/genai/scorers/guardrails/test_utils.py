@@ -11,6 +11,10 @@ from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.guardrails.utils import (
+    check_guardrails_installed,
+    map_scorer_inputs_to_text,
+)
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
 
@@ -57,14 +61,10 @@ def _create_test_trace(
 
 def test_check_guardrails_installed_success():
     with patch.dict("sys.modules", {"guardrails": object()}):
-        from mlflow.genai.scorers.guardrails.utils import check_guardrails_installed
-
         check_guardrails_installed()
 
 
 def test_check_guardrails_installed_failure():
-    from mlflow.genai.scorers.guardrails.utils import check_guardrails_installed
-
     original_guardrails = sys.modules.get("guardrails")
 
     try:
@@ -88,16 +88,12 @@ def test_check_guardrails_installed_failure():
     ],
 )
 def test_map_scorer_inputs_to_text(inputs, outputs, expected):
-    from mlflow.genai.scorers.guardrails.utils import map_scorer_inputs_to_text
-
     result = map_scorer_inputs_to_text(inputs=inputs, outputs=outputs)
 
     assert expected in result
 
 
 def test_map_scorer_inputs_to_text_with_trace():
-    from mlflow.genai.scorers.guardrails.utils import map_scorer_inputs_to_text
-
     trace = _create_test_trace(
         inputs={"question": "What is MLflow?"},
         outputs={"answer": "MLflow is an ML platform."},
@@ -109,7 +105,5 @@ def test_map_scorer_inputs_to_text_with_trace():
 
 
 def test_map_scorer_inputs_to_text_requires_input_or_output():
-    from mlflow.genai.scorers.guardrails.utils import map_scorer_inputs_to_text
-
     with pytest.raises(MlflowException, match="require either 'outputs' or 'inputs'"):
         map_scorer_inputs_to_text(inputs=None, outputs=None)

@@ -7,6 +7,15 @@ from guardrails.classes.validation.validation_result import FailResult, PassResu
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.genai.scorers.guardrails import (
+    DetectJailbreak,
+    DetectPII,
+    GibberishText,
+    NSFWText,
+    SecretsPresent,
+    ToxicLanguage,
+    get_scorer,
+)
 
 
 @register_validator(name="test/mock_validator", data_type="string")
@@ -28,12 +37,12 @@ def mock_validator_class():
 @pytest.mark.parametrize(
     ("scorer_class", "validator_name"),
     [
-        ("ToxicLanguage", "ToxicLanguage"),
-        ("NSFWText", "NSFWText"),
-        ("DetectJailbreak", "DetectJailbreak"),
-        ("DetectPII", "DetectPII"),
-        ("SecretsPresent", "SecretsPresent"),
-        ("GibberishText", "GibberishText"),
+        (ToxicLanguage, "ToxicLanguage"),
+        (NSFWText, "NSFWText"),
+        (DetectJailbreak, "DetectJailbreak"),
+        (DetectPII, "DetectPII"),
+        (SecretsPresent, "SecretsPresent"),
+        (GibberishText, "GibberishText"),
     ],
 )
 def test_guardrails_scorer_pass(mock_validator_class, scorer_class, validator_name):
@@ -41,10 +50,7 @@ def test_guardrails_scorer_pass(mock_validator_class, scorer_class, validator_na
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers import guardrails as guardrails_scorers
-
-        scorer_cls = getattr(guardrails_scorers, scorer_class)
-        scorer = scorer_cls()
+        scorer = scorer_class()
 
         assert isinstance(scorer._guard, guardrails.Guard)
 
@@ -58,14 +64,14 @@ def test_guardrails_scorer_pass(mock_validator_class, scorer_class, validator_na
         source_type=AssessmentSourceType.CODE,
         source_id=f"guardrails/{validator_name}",
     )
-    assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
 
 
 @pytest.mark.parametrize(
     ("scorer_class", "validator_name"),
     [
-        ("ToxicLanguage", "ToxicLanguage"),
-        ("DetectPII", "DetectPII"),
+        (ToxicLanguage, "ToxicLanguage"),
+        (DetectPII, "DetectPII"),
     ],
 )
 def test_guardrails_scorer_fail(mock_validator_class, scorer_class, validator_name):
@@ -73,10 +79,7 @@ def test_guardrails_scorer_fail(mock_validator_class, scorer_class, validator_na
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers import guardrails as guardrails_scorers
-
-        scorer_cls = getattr(guardrails_scorers, scorer_class)
-        scorer = scorer_cls()
+        scorer = scorer_class()
         result = scorer(outputs="This is toxic bad content.")
 
     assert isinstance(result, Feedback)
@@ -86,7 +89,7 @@ def test_guardrails_scorer_fail(mock_validator_class, scorer_class, validator_na
         source_type=AssessmentSourceType.CODE,
         source_id=f"guardrails/{validator_name}",
     )
-    assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
     assert "Content flagged as inappropriate" in result.rationale
 
 
@@ -95,8 +98,6 @@ def test_guardrails_get_scorer(mock_validator_class):
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers.guardrails import get_scorer
-
         scorer = get_scorer("ToxicLanguage", threshold=0.8)
         result = scorer(outputs="Clean text")
 
@@ -108,7 +109,7 @@ def test_guardrails_get_scorer(mock_validator_class):
         source_type=AssessmentSourceType.CODE,
         source_id="guardrails/ToxicLanguage",
     )
-    assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
 
 
 def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
@@ -116,8 +117,6 @@ def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers.guardrails import ToxicLanguage
-
         scorer = ToxicLanguage(threshold=0.9, validation_method="full")
         result = scorer(outputs="Test text")
 
@@ -129,7 +128,7 @@ def test_guardrails_scorer_with_custom_kwargs(mock_validator_class):
         source_type=AssessmentSourceType.CODE,
         source_id="guardrails/ToxicLanguage",
     )
-    assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
 
 
 @pytest.mark.parametrize(
@@ -146,8 +145,6 @@ def test_guardrails_scorer_input_priority(mock_validator_class, inputs, outputs,
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers.guardrails import ToxicLanguage
-
         scorer = ToxicLanguage()
         result = scorer(inputs=inputs, outputs=outputs)
 
@@ -164,8 +161,6 @@ def test_guardrails_scorer_error_handling():
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=ErrorValidator,
     ):
-        from mlflow.genai.scorers.guardrails import ToxicLanguage
-
         scorer = ToxicLanguage()
         result = scorer(outputs="Some text")
 
@@ -177,7 +172,7 @@ def test_guardrails_scorer_error_handling():
         source_type=AssessmentSourceType.CODE,
         source_id="guardrails/ToxicLanguage",
     )
-    assert result.metadata == {"mlflow.scorer.framework": "guardrails"}
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
 
 
 def test_guardrails_scorer_source_id(mock_validator_class):
@@ -185,8 +180,6 @@ def test_guardrails_scorer_source_id(mock_validator_class):
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers.guardrails import ToxicLanguage
-
         scorer = ToxicLanguage()
         result = scorer(outputs="Test")
 
@@ -202,8 +195,6 @@ def test_guardrails_scorer_guard_is_real_instance(mock_validator_class):
         "mlflow.genai.scorers.guardrails.get_validator_class",
         return_value=mock_validator_class,
     ):
-        from mlflow.genai.scorers.guardrails import ToxicLanguage
-
         scorer = ToxicLanguage()
 
     assert isinstance(scorer._guard, guardrails.Guard)
