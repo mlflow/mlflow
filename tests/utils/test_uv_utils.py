@@ -524,68 +524,6 @@ def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
     assert result is False
 
 
-# --- _merge_requirements tests (from mlflow.pyfunc.model) ---
-
-
-def test_merge_requirements_prefers_inferred_versions():
-    from mlflow.pyfunc.model import _merge_requirements
-
-    inferred = ["numpy==1.24.0", "pandas==2.0.0"]
-    defaults = ["numpy==1.23.0", "scikit-learn==1.2.0"]
-
-    result = _merge_requirements(inferred, defaults)
-
-    assert "numpy==1.24.0" in result  # Inferred version preferred
-    assert "numpy==1.23.0" not in result
-    assert "pandas==2.0.0" in result
-    assert "scikit-learn==1.2.0" in result  # Default added
-
-
-def test_merge_requirements_handles_version_specifiers():
-    from mlflow.pyfunc.model import _merge_requirements
-
-    inferred = ["requests>=2.28.0", "numpy[extra]==1.24.0"]
-    defaults = ["requests==2.25.0", "flask>=2.0"]
-
-    result = _merge_requirements(inferred, defaults)
-
-    assert "requests>=2.28.0" in result
-    assert "requests==2.25.0" not in result
-    assert "numpy[extra]==1.24.0" in result
-    assert "flask>=2.0" in result
-
-
-def test_merge_requirements_returns_sorted():
-    from mlflow.pyfunc.model import _merge_requirements
-
-    inferred = ["zebra==1.0", "apple==2.0"]
-    defaults = ["banana==3.0"]
-
-    result = _merge_requirements(inferred, defaults)
-
-    assert result == ["apple==2.0", "banana==3.0", "zebra==1.0"]
-
-
-def test_merge_requirements_empty_lists():
-    from mlflow.pyfunc.model import _merge_requirements
-
-    assert _merge_requirements([], []) == []
-    assert _merge_requirements(["numpy==1.0"], []) == ["numpy==1.0"]
-    assert _merge_requirements([], ["numpy==1.0"]) == ["numpy==1.0"]
-
-
-def test_merge_requirements_case_insensitive():
-    from mlflow.pyfunc.model import _merge_requirements
-
-    inferred = ["NumPy==1.24.0"]
-    defaults = ["numpy==1.23.0"]
-
-    result = _merge_requirements(inferred, defaults)
-
-    assert len(result) == 1
-    assert "NumPy==1.24.0" in result
-
-
 # --- Integration tests for infer_pip_requirements UV path ---
 
 

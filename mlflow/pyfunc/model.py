@@ -97,33 +97,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
 
-
-def _merge_requirements(inferred_reqs: list[str], default_reqs: list[str]) -> list[str]:
-    """
-    Merge inferred and default requirements, preferring inferred versions for duplicates.
-
-    When the same package appears in both lists (e.g., cloudpickle==3.1.2 from UV export
-    and cloudpickle==3.1.1 from defaults), the inferred version takes precedence.
-    """
-
-    # Extract package name from requirement string
-    def get_package_name(req: str) -> str:
-        name = req.split("==")[0].split(">=")[0].split("<=")[0]
-        name = name.split("<")[0].split(">")[0].split("[")[0]
-        return name.strip().lower()
-
-    # Build map of package name -> requirement from inferred
-    inferred_packages = {get_package_name(req): req for req in inferred_reqs}
-
-    # Add default requirements only if package not in inferred
-    for req in default_reqs:
-        pkg_name = get_package_name(req)
-        if pkg_name not in inferred_packages:
-            inferred_packages[pkg_name] = req
-
-    return sorted(inferred_packages.values())
-
-
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
@@ -1246,15 +1219,15 @@ def _save_model_with_class_artifacts_params(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            inferred_reqs = mlflow.models.infer_pip_requirements(
+            # Infer requirements from model or UV project (either/or, not merged)
+            # - If UV project detected: uses uv export (complete lockfile)
+            # - Otherwise: uses model-based inference with fallback to defaults
+            default_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
             )
-            # Merge inferred and default requirements, preferring inferred versions
-            # when the same package appears in both (e.g., from UV export vs defaults)
-            default_reqs = _merge_requirements(inferred_reqs, default_reqs)
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
