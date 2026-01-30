@@ -635,6 +635,32 @@ const sidebarsGenAI: SidebarsConfig = {
                   ],
                   collapsed: false,
                 },
+                {
+                  type: 'category',
+                  label: 'Third-party Judges',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
+                },
               ],
             },
             {
@@ -658,32 +684,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/scorers/llm-judge/agentic-overview',
               label: 'Agent-as-a-Judge',
-            },
-            {
-              type: 'category',
-              label: 'Third-party Scorers',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/third-party/deepeval',
-                  label: 'DeepEval',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/third-party/ragas',
-                  label: 'RAGAS',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/third-party/phoenix',
-                  label: 'Arize Phoenix',
-                },
-              ],
-              collapsed: false,
-              link: {
-                type: 'doc',
-                id: 'eval-monitor/scorers/third-party/index',
-              },
             },
             {
               type: 'doc',
