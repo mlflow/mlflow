@@ -25,7 +25,7 @@
   - [ ] API references
   - [ ] Instructions
 
-### Does this PR require updating the [Skills](https://github.com/mlflow/skills) repository?
+### Does this PR require updating the [MLflow Skills](https://github.com/mlflow/skills) repository?
 
 <!-- When updating APIs or feature usage, please ensure the MLflow Skills repository reflects those changes. -->
 
