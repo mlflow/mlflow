@@ -13,6 +13,7 @@ import { getEvalRunCellValueBasedOnColumn } from './ExperimentEvaluationRunsTabl
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 export interface ExperimentEvaluationRunsTableProps {
   data: RunEntityOrGroupData[];
@@ -55,7 +56,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     const { isRowHidden } = useExperimentEvaluationRunsRowVisibility();
 
     const columns = useMemo(() => {
-      const allColumns = getExperimentEvalRunsDefaultColumns(viewMode);
+      const allColumns = getExperimentEvalRunsDefaultColumns(viewMode, {
+        showCheckbox: shouldEnableImprovedEvalRunsComparison(),
+      });
 
       // add a column for each available metric
       uniqueColumns.forEach((column) => {
@@ -81,6 +84,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       });
       return allColumns.filter((column) => selectedColumns[column.id ?? '']);
     }, [selectedColumns, uniqueColumns, viewMode]);
+
+    const selectedCount = useMemo(() => Object.values(rowSelection).filter(Boolean).length, [rowSelection]);
 
     const table = useReactTable<RunEntityOrGroupData>(
       'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
@@ -108,6 +113,14 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         },
         getRowCanExpand: (row) => Boolean(row.subRows?.length),
         onExpandedChange: setExpandedRows,
+        enableRowSelection: (row) => {
+          // Groups are not selectable
+          if ('subRuns' in row.original) {
+            return false;
+          }
+          // Allow selection if less than 2 runs selected or this row is already selected
+          return selectedCount < 2 || rowSelection[row.id] === true;
+        },
         meta: {
           setSelectedRunUuid,
           setSelectedDatasetWithRun,

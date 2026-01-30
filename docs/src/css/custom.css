@@ -458,8 +458,19 @@ html[data-genai-theme='true'] {
   padding-left: 1.5rem;
 }
 
-.menu__list-item:not(.sidebar-top-level-category) > .menu__link,
-.menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
+/* Style Overview doc link to match bold HTML section headers (e.g., "Getting Started")
+   Used in docs/sidebarsGenAI.ts */
+.sidebar-overview.menu__list-item {
+  padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal) !important;
+}
+
+.sidebar-overview.menu__list-item > .menu__link {
+  font-weight: bolder !important;
+  padding-left: 0 !important;
+}
+
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__link,
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
   padding-left: 1.5rem;
   padding-top: 0.5rem;

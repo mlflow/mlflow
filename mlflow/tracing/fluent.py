@@ -523,6 +523,7 @@ def start_span_no_context(
     inputs: Any | None = None,
     attributes: dict[str, str] | None = None,
     tags: dict[str, str] | None = None,
+    metadata: dict[str, str] | None = None,
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
 ) -> LiveSpan:
@@ -543,6 +544,7 @@ def start_span_no_context(
         inputs: The input data for the span.
         attributes: A dictionary of attributes to set on the span.
         tags: A dictionary of tags to set on the trace.
+        metadata: A dictionary of metadata to set on the trace.
         experiment_id: The experiment ID to associate with the trace. If not provided,
             the current active experiment will be used.
         start_time_ns: The start time of the span in nanoseconds. If not provided,
@@ -610,6 +612,10 @@ def start_span_no_context(
             # Update trace tags for trace in in-memory trace manager
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
+
+        if metadata:
+            with trace_manager.get_trace(trace_id) as trace:
+                trace.info.trace_metadata.update(metadata)
 
         return mlflow_span
     except Exception as e:

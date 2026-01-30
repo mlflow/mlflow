@@ -318,6 +318,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     scorers = validate_scorers(scorers)
 
     # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    precomputed_digest = None
+    precomputed_dataset_name = None
     if isinstance(data, ConversationSimulator):
         if predict_fn is None:
             raise MlflowException.invalid_parameter_value(
@@ -325,25 +327,28 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
                 "The simulator needs a predict function to generate conversations."
             )
 
+        # Compute digest from test cases BEFORE simulation. This ensures the same test cases
+        # produce the same digest regardless of LLM non-determinism in generated conversations.
+        precomputed_digest = data._compute_test_case_digest()
+        precomputed_dataset_name = data._get_dataset_name()
+
         # Wrap async predict_fn for synchronous execution during simulation
         sim_predict_fn = predict_fn
         if inspect.iscoroutinefunction(predict_fn):
             sim_predict_fn = _wrap_async_predict_fn(predict_fn)
 
-        all_trace_ids = data._simulate(sim_predict_fn)
+        all_traces = data.simulate(sim_predict_fn)
         logger.debug(
-            f"Simulation produced {len(all_trace_ids)} conversation(s) with "
-            f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
+            f"Simulation produced {len(all_traces)} conversation(s) with "
+            f"{[len(traces) for traces in all_traces]} trace(s) each"
         )
-        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
+        data = [trace for traces in all_traces for trace in traces]
 
-        if not flat_trace_ids:
+        if not data:
             raise MlflowException.invalid_parameter_value(
                 "Simulation produced no traces. This may indicate that all conversations "
                 "failed during simulation. Check the logs above for error details."
             )
-
-        data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
         # Set predict_fn to None since the simulation already invoked it for each conversation
         # turn. The resulting traces contain all the prediction outputs, so the evaluation
         # harness will use those traces directly rather than calling predict_fn again.
@@ -389,8 +394,12 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Use default name for evaluation dataset when converting from DataFrame
-        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
+        # Use precomputed name from ConversationSimulator, or default "dataset" for other sources.
+        # Pass precomputed_digest if available (e.g., from ConversationSimulator test cases).
+        dataset_name = precomputed_dataset_name or "dataset"
+        mlflow_dataset = mlflow.data.from_pandas(
+            df=data, name=dataset_name, digest=precomputed_digest
+        )
         df = data
 
     try:

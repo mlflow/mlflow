@@ -35,7 +35,10 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 @pytest.fixture
 def mock_client():
-    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+    with (
+        mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class,
+        mock.patch("mlflow.genai.datasets.MlflowClient", mock_client_class),
+    ):
         mock_client_instance = mock_client_class.return_value
         yield mock_client_instance
 
@@ -194,7 +197,7 @@ def test_get_dataset(mock_client):
 
 
 def test_get_dataset_missing_id():
-    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required"):
+    with pytest.raises(ValueError, match="Either 'name' or 'dataset_id' must be provided"):
         get_dataset()
 
 
@@ -215,6 +218,70 @@ def test_get_dataset_databricks(mock_databricks_environment):
 def test_get_dataset_databricks_missing_name(mock_databricks_environment):
     with pytest.raises(ValueError, match="Parameter 'name' is required"):
         get_dataset(dataset_id="test_id")
+
+
+def test_get_dataset_by_name_oss(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="unique_dataset_name",
+        experiment_id=experiments[0],
+        tags={"test": "get_by_name"},
+    )
+
+    retrieved = get_dataset(name="unique_dataset_name")
+
+    assert retrieved.dataset_id == dataset.dataset_id
+    assert retrieved.name == "unique_dataset_name"
+    assert retrieved.tags["test"] == "get_by_name"
+
+
+def test_get_dataset_by_name_not_found(tracking_uri):
+    with pytest.raises(MlflowException, match="Dataset with name 'nonexistent_dataset' not found"):
+        get_dataset(name="nonexistent_dataset")
+
+
+def test_get_dataset_by_name_multiple_matches(tracking_uri, experiments):
+    create_dataset(
+        name="duplicate_name",
+        experiment_id=experiments[0],
+    )
+    create_dataset(
+        name="duplicate_name",
+        experiment_id=experiments[1],
+    )
+
+    with pytest.raises(MlflowException, match="Multiple datasets found with name 'duplicate_name'"):
+        get_dataset(name="duplicate_name")
+
+
+def test_get_dataset_both_name_and_id_error(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_dataset_both",
+        experiment_id=experiments[0],
+    )
+
+    with pytest.raises(ValueError, match="Cannot specify both 'name' and 'dataset_id'"):
+        get_dataset(name="test_dataset_both", dataset_id=dataset.dataset_id)
+
+
+def test_get_dataset_neither_name_nor_id_error(tracking_uri):
+    with pytest.raises(ValueError, match="Either 'name' or 'dataset_id' must be provided"):
+        get_dataset()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "dataset's_with_single_quote",
+        'dataset"with_double_quote',
+    ],
+)
+def test_get_dataset_name_with_quotes(tracking_uri, experiments, name):
+    dataset = create_dataset(name=name, experiment_id=experiments[0])
+
+    retrieved = get_dataset(name=name)
+
+    assert retrieved.dataset_id == dataset.dataset_id
+    assert retrieved.name == name
 
 
 def test_delete_dataset(mock_client):
@@ -1725,16 +1792,6 @@ def test_deprecated_parameter_substitution(experiment):
             name="new_name",
             experiment_id=experiment,
         )
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-
-        with pytest.raises(ValueError, match="name.*only supported in Databricks"):
-            get_dataset(uc_table_name="test_dataset_deprecated")
-
-        assert len(w) == 1
-        assert issubclass(w[0].category, FutureWarning)
-        assert "uc_table_name" in str(w[0].message)
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")

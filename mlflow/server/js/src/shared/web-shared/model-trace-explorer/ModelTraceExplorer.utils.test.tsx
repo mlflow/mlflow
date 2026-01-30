@@ -6,7 +6,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType } from './ModelTrace.types';
+import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -40,6 +40,7 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  getTraceCost,
   convertOtelAttributesToMap,
   isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';
@@ -809,6 +810,59 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.children?.[1].key).toBe('child3');
     expect(normalized.children?.[2].key).toBe('child1');
   });
+
+  it('should extract model name from mlflow.llm.model attribute', () => {
+    const spanWithModel: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.model': 'gpt-4o-mini',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithModel, 0, 0, [], {}, '');
+    expect(normalized.modelName).toBe('gpt-4o-mini');
+  });
+
+  it('should extract cost from mlflow.llm.cost attribute', () => {
+    const spanWithCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({
+          input_cost: 0.001,
+          output_cost: 0.002,
+          total_cost: 0.003,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return undefined cost when mlflow.llm.cost is malformed', () => {
+    const spanWithMalformedCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({ invalid: 'format' }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithMalformedCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toBeUndefined();
+  });
+
+  it('should return undefined model and cost when attributes are not present', () => {
+    const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
+    expect(normalized.modelName).toBeUndefined();
+    expect(normalized.cost).toBeUndefined();
+  });
 });
 
 describe('isRawModelTraceChatMessage', () => {
@@ -1066,6 +1120,57 @@ describe('getTotalTokens', () => {
     expect(
       getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
     ).toBeNull();
+  });
+});
+
+describe('getTraceCost', () => {
+  it('should return the cost breakdown from the trace metadata', () => {
+    const traceInfoWithCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.001, "output_cost": 0.002, "total_cost": 0.003}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithCost)).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return empty object if cost metadata is not present', () => {
+    expect(getTraceCost(MOCK_TRACE_INFO_V3)).toEqual({});
+  });
+
+  it('should return empty object if trace metadata is not present', () => {
+    expect(getTraceCost({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined })).toEqual({});
+  });
+
+  it('should return undefined if cost metadata is invalid JSON', () => {
+    const traceInfoWithInvalidCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': 'invalid',
+      },
+    };
+    expect(getTraceCost(traceInfoWithInvalidCost)).toBeUndefined();
+  });
+
+  it('should handle cost metadata with very small values', () => {
+    const traceInfoWithSmallCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.000022, "output_cost": 0.000028, "total_cost": 0.00005}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithSmallCost)).toEqual({
+      input_cost: 0.000022,
+      output_cost: 0.000028,
+      total_cost: 0.00005,
+    });
   });
 });
 

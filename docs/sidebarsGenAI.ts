@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
@@ -28,6 +28,12 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'link',
       href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
       className: 'sidebar-top-level-category',
     },
     {
@@ -212,6 +218,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
                 },
                 {
                   type: 'doc',

@@ -43,3 +43,8 @@ class GenAiTranslator(OtelSchemaTranslator):
     # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#gen-ai-input-messages
     INPUT_VALUE_KEYS = ["gen_ai.input.messages", "gen_ai.tool.call.arguments"]
     OUTPUT_VALUE_KEYS = ["gen_ai.output.messages", "gen_ai.tool.call.result"]
+
+    # Model name attribute keys from OTEL GenAI semantic conventions
+    # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+    MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
+    LLM_PROVIDER_KEY = "gen_ai.provider.name"

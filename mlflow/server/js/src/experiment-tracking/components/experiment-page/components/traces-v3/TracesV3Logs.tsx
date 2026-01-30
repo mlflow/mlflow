@@ -13,6 +13,7 @@ import {
   useUnifiedTraceTagsModal,
   ModelTraceExplorerContextProvider,
   ModelTraceExplorerRunJudgesContextProvider,
+  isEvaluatingTracesInDetailsViewEnabled,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -57,6 +58,15 @@ import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
+const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
+  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+  return (
+    <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
+      {children}
+    </ModelTraceExplorerRunJudgesContextProvider>
+  );
+};
+
 const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
@@ -66,12 +76,9 @@ const ContextProviders = ({
   experimentId?: string;
   children: React.ReactNode;
 }) => {
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
-        {children}
-      </ModelTraceExplorerRunJudgesContextProvider>
+      {isEvaluatingTracesInDetailsViewEnabled() ? <JudgeContextProvider>{children}</JudgeContextProvider> : children}
     </GenAiTracesMarkdownConverterProvider>
   );
 };

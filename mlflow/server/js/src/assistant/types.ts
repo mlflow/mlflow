@@ -4,6 +4,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  isInterrupted?: boolean;
 }
 
 /**
@@ -86,6 +87,8 @@ export interface AssistantAgentActions {
   regenerateLastMessage: () => void;
   /** Reset the conversation */
   reset: () => void;
+  /** Cancel the current streaming session */
+  cancelSession: () => void;
   /** Fetch/refresh config from backend */
   refreshConfig: () => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */

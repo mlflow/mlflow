@@ -87,7 +87,7 @@ describe('SampleScorerOutputPanelContainer', () => {
     mockedUseEvaluateTraces.mockReturnValue([
       mockEvaluateTraces,
       {
-        data: null,
+        latestEvaluation: null,
         isLoading: false,
         error: null,
         reset: jest.fn(),
@@ -125,7 +125,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: mockResults,
+          latestEvaluation: mockResults,
           isLoading: false,
           error: null,
           reset: jest.fn(),
@@ -148,7 +148,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: true,
           error: null,
           reset: jest.fn(),
@@ -171,7 +171,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: false,
           error: mockError,
           reset: jest.fn(),
@@ -266,7 +266,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: false,
           error: null,
           reset: jest.fn(),

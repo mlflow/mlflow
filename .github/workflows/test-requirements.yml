@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -75,6 +76,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
         with:
