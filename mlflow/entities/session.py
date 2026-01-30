@@ -9,7 +9,8 @@ if TYPE_CHECKING:
 
 
 class Session:
-    """A session object representing a group of traces that share the same session ID.
+    """
+    A session object representing a group of traces that share the same session ID.
 
     Sessions typically represent multi-turn conversations or related interactions.
     This class provides convenient access to the session ID and allows iteration
