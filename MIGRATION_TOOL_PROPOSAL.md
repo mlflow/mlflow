@@ -30,7 +30,7 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 
 ## Comparison Matrix
 
-| Criteria           | Option 1 (Extend export-import) | Option 2 (New MLflow tool)           |
+| Criteria           | Option 1 (Extend export-import) | Option 2 (New MLflow tool) ✅        |
 | ------------------ | ------------------------------- | ------------------------------------ |
 | Commands needed    | 4                               | 1                                    |
 | Learning cost      | High (new tool + multi-step)    | Low (single command)                 |
