@@ -345,6 +345,7 @@ def _exec_job(
             if retry_count is not None:
                 _exponential_backoff_retry(retry_count)
         else:
+            _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
             job_store.fail_job(job_id, job_result.error)
     finally:
         if lock is not None:

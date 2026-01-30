@@ -62,7 +62,9 @@ async def test_astream_yields_error_when_claude_not_found():
 
 
 @pytest.mark.asyncio
-async def test_astream_builds_correct_command(tmp_path):
+async def test_astream_builds_correct_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_ENV_VAR", "test_value")
+
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
     mock_process.stderr = MagicMock()
@@ -99,9 +101,17 @@ async def test_astream_builds_correct_command(tmp_path):
     system_prompt = call_args[system_prompt_idx]
     assert "http://localhost:5000" in system_prompt
 
-    # Verify cwd is passed correctly
+    # Verify Skill permission is granted by default
+    allowed_tools = [
+        call_args[i + 1] for i, arg in enumerate(call_args) if arg == "--allowed-tools"
+    ]
+    assert "Skill" in allowed_tools
+
+    # Verify cwd and tracking URI env var are passed correctly
     call_kwargs = mock_exec.call_args[1]
     assert call_kwargs["cwd"] == tmp_path
+    assert call_kwargs["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+    assert call_kwargs["env"]["TEST_ENV_VAR"] == "test_value"
 
 
 @pytest.mark.asyncio

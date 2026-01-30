@@ -13,11 +13,13 @@ export const FeedbackGroup = ({
   valuesMap,
   traceId,
   activeSpanId,
+  feedbackTypeTag,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
   traceId: string;
   activeSpanId?: string;
+  feedbackTypeTag?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -39,6 +41,7 @@ export const FeedbackGroup = ({
         gap: theme.spacing.sm,
       }}
     >
+      {feedbackTypeTag}
       <div
         css={{
           display: 'flex',

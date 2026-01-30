@@ -309,9 +309,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         # Always evaluate baseline on train_data to capture feedback for metaprompting
         _logger.info("Evaluating baseline prompts on training data...")
         baseline_results = eval_fn(target_prompts, train_data)
-        initial_score = self._compute_aggregate_score(baseline_results)
-        if initial_score is not None:
-            _logger.info(f"Baseline score: {initial_score:.4f}")
+        initial_eval_score = self._compute_aggregate_score(baseline_results)
+        initial_eval_score_per_scorer = self._compute_per_scorer_scores(baseline_results)
+        if initial_eval_score is not None:
+            _logger.info(f"Baseline score: {initial_eval_score:.4f}")
 
         # Build meta-prompt with evaluation feedback
         _logger.info("Generating optimized prompts...")
@@ -333,12 +334,15 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             _logger.warning(f"Few-shot optimization failed: {e}. Returning original prompts.")
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
-                initial_eval_score=initial_score,
+                initial_eval_score=initial_eval_score,
                 final_eval_score=None,
+                initial_eval_score_per_scorer=initial_eval_score_per_scorer,
+                final_eval_score_per_scorer={},
             )
 
-        final_score = None
-        if initial_score is not None:
+        final_eval_score = None
+        final_eval_score_per_scorer: dict[str, float] = {}
+        if initial_eval_score is not None:
             _logger.info(
                 "Evaluating optimized prompts on training data, please note that this is more of "
                 "a sanity check than a final evaluation because the data has already been used "
@@ -346,13 +350,16 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 "separate validation dataset and run mlflow.genai.evaluate() on it."
             )
             final_results = eval_fn(improved_prompts, train_data)
-            final_score = self._compute_aggregate_score(final_results)
-            _logger.info(f"Final score: {final_score:.4f}")
+            final_eval_score = self._compute_aggregate_score(final_results)
+            final_eval_score_per_scorer = self._compute_per_scorer_scores(final_results)
+            _logger.info(f"Final score: {final_eval_score:.4f}")
 
         return PromptOptimizerOutput(
             optimized_prompts=improved_prompts,
-            initial_eval_score=initial_score,
-            final_eval_score=final_score,
+            initial_eval_score=initial_eval_score,
+            final_eval_score=final_eval_score,
+            initial_eval_score_per_scorer=initial_eval_score_per_scorer,
+            final_eval_score_per_scorer=final_eval_score_per_scorer,
         )
 
     def _extract_template_variables(self, prompts: dict[str, str]) -> dict[str, set[str]]:
@@ -674,3 +681,28 @@ improve the prompt's effectiveness."""
             return None
 
         return sum(scores) / len(scores)
+
+    def _compute_per_scorer_scores(self, results: list[EvaluationResultRecord]) -> dict[str, float]:
+        """
+        Compute per-scorer average scores from evaluation results.
+
+        Args:
+            results: List of evaluation results
+
+        Returns:
+            Dict mapping scorer name to average score across all examples
+        """
+        if not results:
+            return {}
+
+        scorer_names = results[0].individual_scores.keys()
+        if not scorer_names:
+            return {}
+
+        # Compute average for each scorer
+        per_scorer_avg: dict[str, float] = {}
+        for scorer_name in scorer_names:
+            scores = [r.individual_scores[scorer_name] for r in results]
+            per_scorer_avg[scorer_name] = sum(scores) / len(scores)
+
+        return per_scorer_avg

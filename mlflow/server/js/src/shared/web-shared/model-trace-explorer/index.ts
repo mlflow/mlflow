@@ -53,6 +53,10 @@ export {
   ModelTraceExplorerUpdateTraceContextProvider,
   useModelTraceExplorerUpdateTraceContext,
 } from './contexts/UpdateTraceContext';
+export {
+  ModelTraceExplorerRunJudgesContextProvider,
+  type ModelTraceExplorerRunJudgeConfig,
+} from './contexts/RunJudgesContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';

@@ -2264,6 +2264,28 @@ class CreatePromptOptimizationJob(_message.Message):
     tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJobTag]
     def __init__(self, experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
 
+class GetPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class SearchPromptOptimizationJobs(_message.Message):
+    __slots__ = ("experiment_id",)
+    class Response(_message.Message):
+        __slots__ = ("jobs",)
+        JOBS_FIELD_NUMBER: _ClassVar[int]
+        jobs: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJob]
+        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+
 class CancelPromptOptimizationJob(_message.Message):
     __slots__ = ("job_id",)
     class Response(_message.Message):
@@ -2271,6 +2293,15 @@ class CancelPromptOptimizationJob(_message.Message):
         JOB_FIELD_NUMBER: _ClassVar[int]
         job: _prompt_optimization_pb2.PromptOptimizationJob
         def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class DeletePromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...

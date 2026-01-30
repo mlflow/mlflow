@@ -192,4 +192,6 @@ export interface EvaluateChatAssessmentsParams extends EvaluateChatParamsBase {
 /**
  * Union type for all trace evaluation parameters
  */
-export type EvaluateTracesParams = EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams;
+export type EvaluateTracesParams = (EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams) & {
+  saveAssessment?: boolean;
+};

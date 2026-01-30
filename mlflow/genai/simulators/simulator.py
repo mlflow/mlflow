@@ -202,14 +202,25 @@ def _invoke_model_without_tracing(
             "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
+            # Drop unsupported params (e.g., temperature=0 for certain models)
+            "drop_params": True,
         }
         if inference_params:
             kwargs.update(inference_params)
 
-        # Drop unsupported params (e.g., temperature=0 for gpt-5)
-        litellm.drop_params = True
-        response = litellm.completion(**kwargs)
-        return response.choices[0].message.content
+        try:
+            response = litellm.completion(**kwargs)
+            return response.choices[0].message.content
+        except Exception as e:
+            # Check if error is about unsupported temperature parameter:
+            # "Unsupported value: 'temperature' does not support 0.0 with this model"
+            error_str = str(e)
+            if inference_params and "Unsupported value: 'temperature'" in error_str:
+                kwargs.pop("temperature", None)
+                response = litellm.completion(**kwargs)
+                return response.choices[0].message.content
+            else:
+                raise
 
 
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
@@ -617,7 +628,7 @@ class ConversationSimulator:
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0},
+                inference_params={"temperature": 0.0, "response_format": GoalCheckResult},
             )
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"
