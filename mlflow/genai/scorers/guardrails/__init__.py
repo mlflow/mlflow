@@ -159,10 +159,13 @@ def get_scorer(
         GuardrailsScorer instance that can be called with MLflow's scorer interface
 
     Examples:
-        >>> scorer = get_scorer("ToxicLanguage", threshold=0.7)
-        >>> feedback = scorer(outputs="This is a friendly response.")
-        >>> scorer = get_scorer("DetectPII")
-        >>> feedback = scorer(outputs="Contact john@email.com")
+        .. code-block:: python
+
+            scorer = get_scorer("ToxicLanguage", threshold=0.7)
+            feedback = scorer(outputs="This is a friendly response.")
+
+            scorer = get_scorer("DetectPII")
+            feedback = scorer(outputs="Contact john@email.com")
     """
     return GuardrailsScorer(
         validator_name=validator_name,
