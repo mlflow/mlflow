@@ -1,5 +1,9 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
+
+// Disable pointer events check for DialogCombobox which masks the elements we want to click
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceCostOverTimeChart } from './TraceCostOverTimeChart';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -200,6 +204,119 @@ describe('TraceCostOverTimeChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('$0.000123')).toBeInTheDocument();
+      });
+    });
+
+    it('should render model selector dropdown', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+      });
+    });
+
+    it('should show "All models" label by default', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('All models')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('model selector interactions', () => {
+    const mockDataPoints = [
+      createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+      createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-3.5-turbo', 0.03),
+      createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
+    ];
+
+    it('should show Select All option in dropdown', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+      });
+
+      // Open dropdown
+      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Select All')).toBeInTheDocument();
+      });
+    });
+
+    it('should show model names in dropdown', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+      });
+
+      // Open dropdown
+      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+
+      await waitFor(() => {
+        expect(screen.getByText('gpt-4')).toBeInTheDocument();
+        expect(screen.getByText('gpt-3.5-turbo')).toBeInTheDocument();
+      });
+    });
+
+    it('should update label when models are deselected', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+      });
+
+      // Open dropdown and click Select All to deselect all
+      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Select All')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Select All'));
+
+      await waitFor(() => {
+        expect(screen.getByText('No models selected')).toBeInTheDocument();
+      });
+    });
+
+    it('should show count when one model is deselected', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByText('All models')).toBeInTheDocument();
+      });
+
+      // Open dropdown
+      await userEvent.click(screen.getByTestId('model-selector-dropdown'));
+
+      await waitFor(() => {
+        expect(screen.getByText('gpt-4')).toBeInTheDocument();
+      });
+
+      // Find and click the checkbox input for gpt-4
+      const checkboxes = screen.getAllByRole('checkbox');
+      // Second checkbox is gpt-4 (first is Select All)
+      await userEvent.click(checkboxes[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('1 selected')).toBeInTheDocument();
       });
     });
   });
