@@ -29,6 +29,7 @@ type TracesViewTableRowProps = {
   isExpanded: boolean;
   columns: EvalRunsTableColumnDef[];
   isHidden: boolean;
+  isGrouped?: boolean;
 };
 
 const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: string }): React.ReactElement => {
@@ -68,7 +69,7 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive }: TracesViewTableRowProps) => {
+  ({ row, isActive, isGrouped }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
 
@@ -107,7 +108,12 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     }
 
     return (
-      <TableRow key={row.id} className="eval-runs-table-row" onClick={handleRowClick} css={{ cursor: 'pointer' }}>
+      <TableRow
+        key={row.id}
+        className="eval-runs-table-row"
+        onClick={handleRowClick}
+        css={{ cursor: 'pointer', marginLeft: isGrouped && row.depth > 0 ? theme.spacing.lg : undefined }}
+      >
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -131,7 +137,8 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       prev.isSelected === next.isSelected &&
       prev.columns === next.columns &&
       prev.isExpanded === next.isExpanded &&
-      prev.isHidden === next.isHidden
+      prev.isHidden === next.isHidden &&
+      prev.isGrouped === next.isGrouped
     );
   },
 );
