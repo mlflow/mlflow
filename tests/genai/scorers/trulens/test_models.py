@@ -79,5 +79,5 @@ def test_create_trulens_provider_litellm_format():
 
 
 def test_create_trulens_provider_invalid_format():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         create_trulens_provider("gpt-4")

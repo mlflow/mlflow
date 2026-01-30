@@ -37,7 +37,7 @@ def test_create_deepeval_model_with_provider_no_slash():
 
 
 def test_create_deepeval_model_rejects_model_name_only():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         create_deepeval_model("gpt-4")
 
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.scorers.phoenix.utils import _NoOpRateLimiter, check_phoenix_installed
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
 # Phoenix has BaseModel in phoenix.evals.models.base, but it requires implementing
@@ -53,18 +53,12 @@ def create_phoenix_model(model_uri: str):
 
     if model_uri == "databricks":
         return DatabricksPhoenixModel()
-    elif ":" in model_uri:
-        from phoenix.evals import LiteLLMModel
 
-        provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.removeprefix("/")
-        return LiteLLMModel(
-            model=f"{provider}/{model_name}",
-            model_kwargs={"drop_params": True},
-        )
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks', 'databricks:/<endpoint>', or include a provider prefix "
-            f"(e.g., 'openai:/gpt-4', 'anthropic:/claude-3-opus')."
-        )
+    # Parse provider:/model format using shared helper
+    from phoenix.evals import LiteLLMModel
+
+    provider, model_name = _parse_model_uri(model_uri)
+    return LiteLLMModel(
+        model=f"{provider}/{model_name}",
+        model_kwargs={"drop_params": True},
+    )

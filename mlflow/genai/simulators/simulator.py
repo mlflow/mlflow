@@ -19,7 +19,6 @@ from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
     create_litellm_message_from_databricks_response,
-    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
@@ -32,6 +31,7 @@ from mlflow.genai.simulators.prompts import (
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event

@@ -59,5 +59,5 @@ def test_create_ragas_model_with_provider_no_slash():
 
 
 def test_create_ragas_model_rejects_model_name_only():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         create_ragas_model("gpt-4")

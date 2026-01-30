@@ -8,6 +8,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.message_utils import serialize_chat_messages_to_prompts
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 if TYPE_CHECKING:
     from typing import Sequence
@@ -74,15 +75,8 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     if model_uri == "databricks":
         return _create_databricks_managed_judge_provider(**kwargs)
 
-    # Parse provider:/model format
-    if ":" not in model_uri:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks', 'databricks:/<endpoint>', or 'provider:/<model>'."
-        )
-
-    provider, model_name = model_uri.split(":", 1)
-    model_name = model_name.removeprefix("/")
+    # Parse provider:/model format using shared helper
+    provider, model_name = _parse_model_uri(model_uri)
 
     # Use LiteLLM for all providers (including databricks:/endpoint)
     try:
