@@ -524,6 +524,7 @@ extend-ignore-re = [
 
 [tool.pytest]
 strict = true
+strict_parametrization_ids = false
 addopts = [
   "-p",
   "no:legacypath",
