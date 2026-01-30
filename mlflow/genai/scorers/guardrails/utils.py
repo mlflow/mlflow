@@ -18,7 +18,7 @@ def check_guardrails_installed():
     except ImportError:
         raise MlflowException.invalid_parameter_value(
             "Guardrails AI scorers require the `guardrails-ai` package. "
-            "Install it with: pip install `guardrails-ai`"
+            "Install it with: `pip install guardrails-ai`"
         )
 
 
