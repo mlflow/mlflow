@@ -379,7 +379,7 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
     span.parent_id = "parent_123"
     # Test with the first MODEL_NAME_KEY from the translator
     model_attr_key = translator.MODEL_NAME_KEYS[0]
-    span_dict = {"attributes": {model_attr_key: model_value}}
+    span_dict = {"attributes": {model_attr_key: json.dumps(model_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
@@ -400,7 +400,7 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
 def test_translate_model_provider_from_otel(translator: OtelSchemaTranslator, provider_value: str):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
-    span_dict = {"attributes": {translator.LLM_PROVIDER_KEY: provider_value}}
+    span_dict = {"attributes": {translator.LLM_PROVIDER_KEY: json.dumps(provider_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
@@ -440,7 +440,7 @@ def test_translate_model_name_from_inputs_outputs(
     [
         (
             {
-                "gen_ai.response.model": "gpt-4o-mini",
+                "gen_ai.response.model": '"gpt-4o-mini"',
                 SpanAttributeKey.INPUTS: json.dumps({"model": "different-model"}),
             },
             "gpt-4o-mini",
@@ -448,7 +448,7 @@ def test_translate_model_name_from_inputs_outputs(
         (
             {
                 SpanAttributeKey.MODEL: json.dumps("existing-model"),
-                "gen_ai.response.model": "new-model",
+                "gen_ai.response.model": '"new-model"',
             },
             "existing-model",
         ),
@@ -487,7 +487,7 @@ def test_translate_cost_from_otel(translator: OtelSchemaTranslator, mock_litellm
         "attributes": {
             translator.INPUT_TOKEN_KEY: 10,
             translator.OUTPUT_TOKEN_KEY: 20,
-            model_attr_key: "gpt-4o-mini",
+            model_attr_key: '"gpt-4o-mini"',
         }
     }
     span.to_dict.return_value = span_dict
@@ -515,8 +515,8 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
         "attributes": {
             translator.INPUT_TOKEN_KEY: 10,
             translator.OUTPUT_TOKEN_KEY: 20,
-            model_attr_key: "gpt-4o-mini",
-            translator.LLM_PROVIDER_KEY: "openai",
+            model_attr_key: '"gpt-4o-mini"',
+            translator.LLM_PROVIDER_KEY: '"openai"',
         }
     }
     span.to_dict.return_value = span_dict
@@ -548,7 +548,7 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
             {
                 "gen_ai.usage.input_tokens": 5,
                 "gen_ai.usage.output_tokens": 10,
-                "gen_ai.response.model": "claude-3-5-sonnet-20241022",
+                "gen_ai.response.model": '"claude-3-5-sonnet-20241022"',
             },
             True,
         ),
@@ -561,7 +561,7 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
         ),
         (
             {
-                "gen_ai.response.model": "gpt-4o-mini",
+                "gen_ai.response.model": '"gpt-4o-mini"',
             },
             False,
         ),

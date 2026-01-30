@@ -88,12 +88,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
-        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
+        attributes[SpanAttributeKey.MODEL] = model_name
 
     if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
         model_provider := _get_model_provider(attributes)
     ):
-        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = model_provider
 
     # Calculate cost if both token usage and model are available
     if (
@@ -250,7 +250,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        Model name string or None if not found
+        JSON-encoded string of model name or None if not found
     """
     for translator in _TRANSLATORS:
         if model_name := translator.get_model_name(attributes):
@@ -262,7 +262,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(inputs, str):
                 inputs = json.loads(inputs)
             if isinstance(inputs, dict) and (model := inputs.get("model")):
-                return model if isinstance(model, str) else None
+                return dump_span_attribute_value(model) if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse inputs for model name", exc_info=True)
 
@@ -272,7 +272,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(outputs, str):
                 outputs = json.loads(outputs)
             if isinstance(outputs, dict) and (model := outputs.get("model")):
-                return model if isinstance(model, str) else None
+                return dump_span_attribute_value(model) if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse outputs for model name", exc_info=True)
 
@@ -282,6 +282,12 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
 def _get_model_provider(attributes: dict[str, Any]) -> str | None:
     """
     Get model provider from span attributes.
+
+    Args:
+        attributes: Dictionary of span attributes
+
+    Returns:
+        JSON-encoded string of model provider or None if not found
     """
     for translator in _TRANSLATORS:
         if model_provider := translator.get_model_provider(attributes):

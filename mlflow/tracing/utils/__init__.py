@@ -267,12 +267,15 @@ def calculate_cost_by_model_and_token_usage(
         )
     except Exception as e:
         if model_provider:
+            # pass model_provider only in exception case to avoid invalid model_provider
+            # being used when model_name itself is enough to calculate cost, since model_provider
+            # field can be with any value and litellm may not support it.
             try:
-                model_name = f"{json.loads(model_provider)}/{json.loads(model_name)}"
                 input_cost_usd, output_cost_usd = cost_per_token(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
+                    custom_llm_provider=model_provider,
                 )
             except Exception as e:
                 _logger.debug(
