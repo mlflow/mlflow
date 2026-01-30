@@ -2530,6 +2530,10 @@
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
   },
+  "Gj3Zbz": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
+    "description": "Label indicating a pre-built LLM-as-a-judge template"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"

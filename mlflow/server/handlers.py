@@ -4933,7 +4933,7 @@ def _generate_demo():
                 "status": "exists",
                 "experiment_id": experiment.experiment_id,
                 "features_generated": [],
-                "navigation_url": f"#/experiments/{experiment.experiment_id}/traces",
+                "navigation_url": f"/experiments/{experiment.experiment_id}/traces",
             }
         )
 
