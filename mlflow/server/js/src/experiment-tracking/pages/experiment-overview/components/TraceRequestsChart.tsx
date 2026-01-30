@@ -42,7 +42,7 @@ export const TraceRequestsChart: React.FC = () => {
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <OverviewChartHeader
           icon={<ChartLineIcon />}
-          title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
+          title={<FormattedMessage defaultMessage="Traces" description="Title for the traces chart" />}
           value={totalRequests.toLocaleString()}
         />
         {isZoomed && (

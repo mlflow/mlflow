@@ -100,6 +100,8 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 | `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.     |
 | `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format. |
 
+Note: The number of parallel threads for LLM calls during guideline distillation can be configured via the `MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS` environment variable (default: 8).
+
 ## Inspecting Learned Knowledge
 
 After alignment, you can inspect what the judge has learned by viewing the updated instructions:

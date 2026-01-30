@@ -42,7 +42,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-  const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
+  const [evaluateTraces, { latestEvaluation: data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,
   });
 

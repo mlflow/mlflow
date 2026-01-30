@@ -66,6 +66,12 @@ def autolog(
                 )
                 span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
+                # Extract model name from client instance
+                # ChatCompletionClient has 'model' as an instance attribute
+                if model := getattr(self, "model", None):
+                    if isinstance(model, str):
+                        span.set_attribute(SpanAttributeKey.MODEL, model)
+
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 

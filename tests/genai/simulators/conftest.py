@@ -1,4 +1,36 @@
+from unittest.mock import Mock, patch
+
 import pytest
+
+
+@pytest.fixture
+def mock_trace():
+    return Mock()
+
+
+@pytest.fixture
+def simulation_mocks(mock_trace):
+    """Fixture providing common mocks for conversation simulation tests."""
+    with (
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.trace") as mock_trace_decorator,
+        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
+        patch("mlflow.update_current_trace") as mock_update_trace,
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(get_trace=lambda _: mock_trace),
+        ),
+    ):
+        mock_get_trace_id.return_value = "trace_123"
+        mock_trace_decorator.return_value = lambda fn: fn
+
+        yield {
+            "invoke": mock_invoke,
+            "trace_decorator": mock_trace_decorator,
+            "get_trace_id": mock_get_trace_id,
+            "update_trace": mock_update_trace,
+            "trace": mock_trace,
+        }
 
 
 @pytest.fixture

@@ -6,7 +6,7 @@ import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-
 import { setupServer } from '../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { ScorerEvaluationScope } from './constants';
-import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
 
 jest.useFakeTimers();
 
@@ -174,7 +174,7 @@ describe('useEvaluateTracesAsync', () => {
       );
 
       // Initial state should be idle
-      expect(result.current[1].data).toBeNull();
+      expect(result.current[1].latestEvaluation).toBeNull();
       expect(result.current[1].isLoading).toBe(false);
       expect(result.current[1].error).toBeNull();
 
@@ -193,14 +193,14 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for job to complete and results to be available
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, finalState] = result.current;
 
       // Verify final state
-      expect(finalState.data).toHaveLength(1);
-      expect(finalState.data?.[0]).toEqual({
+      expect(finalState.latestEvaluation).toHaveLength(1);
+      expect(finalState.latestEvaluation?.[0]).toEqual({
         trace: mockTrace,
         results: [
           {
@@ -213,8 +213,8 @@ describe('useEvaluateTracesAsync', () => {
       });
       expect(finalState.error).toBeNull();
 
-      // Verify onScorerFinished was called once
-      expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      // Verify onScorerFinished was called with SUCCEEDED status
+      expect(onScorerFinished).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUCCEEDED' }));
     });
   });
 
@@ -250,15 +250,7 @@ describe('useEvaluateTracesAsync', () => {
       // Setup trace fetching handlers using MSW
       setupTraceFetchHandlers(server, traces);
 
-      const onScorerFinished = jest.fn();
-
-      const { result } = renderHook(
-        () =>
-          useEvaluateTracesAsync({
-            onScorerFinished,
-          }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
 
       await act(async () => {
         const [evaluateFunction] = result.current;
@@ -282,9 +274,6 @@ describe('useEvaluateTracesAsync', () => {
       // Should have error state
       expect(state.error).toBeTruthy();
       expect(state.isLoading).toBe(false);
-
-      // onScorerFinished should NOT be called when job creation fails (job never started)
-      expect(onScorerFinished).not.toHaveBeenCalled();
       jest.restoreAllMocks();
     });
   });
@@ -345,15 +334,7 @@ describe('useEvaluateTracesAsync', () => {
       // Setup trace fetching handlers using MSW
       setupTraceFetchHandlers(server, traces);
 
-      const onScorerFinished = jest.fn();
-
-      const { result } = renderHook(
-        () =>
-          useEvaluateTracesAsync({
-            onScorerFinished,
-          }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
 
       // Start evaluation
       act(() => {
@@ -375,9 +356,6 @@ describe('useEvaluateTracesAsync', () => {
 
       // Verify job was polled at least 3 times
       expect(jobStatusCallCount).toBeGreaterThanOrEqual(3);
-
-      // onScorerFinished IS called when job finishes, even on failure
-      expect(onScorerFinished).toHaveBeenCalledTimes(1);
     }, 30000);
 
     it('should handle job failure with detailed error message', async () => {
@@ -485,7 +463,7 @@ describe('useEvaluateTracesAsync', () => {
 
       // Wait for results
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       // Reset
@@ -495,7 +473,7 @@ describe('useEvaluateTracesAsync', () => {
 
       // Verify state is reset
       await waitFor(() => {
-        expect(result.current[1].data).toBeNull();
+        expect(result.current[1].latestEvaluation).toBeNull();
         expect(result.current[1].isLoading).toBe(false);
       });
     });
@@ -551,7 +529,7 @@ describe('useEvaluateTracesAsync', () => {
       });
 
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
         expect(result.current[1].isLoading).toBe(false);
       });
 
@@ -560,9 +538,9 @@ describe('useEvaluateTracesAsync', () => {
       // Job succeeded overall
       expect(state.error).toBeNull();
       // But individual trace has failure error
-      expect(state.data).toHaveLength(1);
-      expect(state.data?.[0].error).toBe('Scorer failed to process trace');
-      expect(state.data?.[0].results).toEqual([]);
+      expect(state.latestEvaluation).toHaveLength(1);
+      expect(state.latestEvaluation?.[0].error).toBe('Scorer failed to process trace');
+      expect(state.latestEvaluation?.[0].results).toEqual([]);
     });
   });
 
@@ -620,7 +598,7 @@ describe('useEvaluateTracesAsync', () => {
       });
 
       await waitFor(() => {
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const pollCountAfterSuccess = pollCount;
@@ -633,6 +611,308 @@ describe('useEvaluateTracesAsync', () => {
       // Poll count should not increase significantly after job succeeded
       // Allow for one additional poll that might have been in-flight
       expect(pollCount).toBeLessThanOrEqual(pollCountAfterSuccess + 1);
+    });
+  });
+
+  describe('Multiple evaluations', () => {
+    it('should track multiple evaluations in evaluations and return latest evaluation', async () => {
+      const experimentId = 'exp-123';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      const trace1 = createMockTrace('trace-1');
+      const traces = new Map([['trace-1', trace1]]);
+
+      // Setup handlers
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(ctx.json({ traces: [{ trace_id: 'trace-1' }], next_page_token: undefined }));
+        }),
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          return res(ctx.json({ jobs: [{ job_id: 'job-multi' }] }));
+        }),
+        rest.get('ajax-api/3.0/jobs/job-multi', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'SUCCEEDED',
+              result: { 'trace-1': { assessments: [{ assessment_name: 'test', numeric_value: 1 }] } },
+            }),
+          );
+        }),
+      );
+
+      setupTraceFetchHandlers(server, traces);
+
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
+
+      // Start first evaluation
+      await act(async () => {
+        const [evaluateFunction] = result.current;
+        await evaluateFunction({
+          itemIds: ['trace-1'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test 1',
+          serializedScorer,
+        });
+      });
+
+      // Wait for first evaluation to complete
+      await waitFor(() => result.current[1].latestEvaluation !== null);
+
+      // Verify first evaluation is tracked
+      expect(Object.keys(result.current[1].allEvaluations).length).toBe(1);
+
+      // Start second evaluation
+      await act(async () => {
+        const [evaluateFunction] = result.current;
+        await evaluateFunction({
+          itemIds: ['trace-1'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test 2',
+          serializedScorer,
+        });
+      });
+
+      // Wait for second evaluation to also complete
+      await waitFor(() => {
+        const keys = Object.keys(result.current[1].allEvaluations);
+        return keys.length === 2;
+      });
+
+      const [, state] = result.current;
+
+      // Verify evaluations contains both evaluation requests
+      expect(Object.keys(state.allEvaluations).length).toBe(2);
+
+      // Verify each evaluation is tracked with its own state
+      const evaluations = Object.values(state.allEvaluations);
+      expect(evaluations).toHaveLength(2);
+
+      // Both evaluations should have unique request keys
+      const requestKeys = evaluations.map((ev) => ev.requestKey);
+      expect(new Set(requestKeys).size).toBe(2);
+
+      // The latest evaluation's data should be in `data`
+      expect(state.latestEvaluation).toBeDefined();
+    });
+  });
+
+  describe('Partial errors', () => {
+    it('should handle partial success when some jobs succeed and others fail', async () => {
+      const experimentId = 'exp-123';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      const trace1 = createMockTrace('trace-1');
+      const trace2 = createMockTrace('trace-2');
+      const traces = new Map([
+        ['trace-1', trace1],
+        ['trace-2', trace2],
+      ]);
+
+      // Setup trace search handler
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              traces: [{ trace_id: 'trace-1' }, { trace_id: 'trace-2' }],
+              next_page_token: undefined,
+            }),
+          );
+        }),
+      );
+
+      // Setup scorer invoke handler - returns two jobs
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          return res(ctx.json({ jobs: [{ job_id: 'job-success' }, { job_id: 'job-fail' }] }));
+        }),
+      );
+
+      // Setup job status handlers - one succeeds, one fails
+      server.use(
+        rest.get('ajax-api/3.0/jobs/job-success', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'SUCCEEDED',
+              result: {
+                'trace-1': { assessments: [{ assessment_name: 'scorer', numeric_value: 0.9 }] },
+              },
+            }),
+          );
+        }),
+        rest.get('ajax-api/3.0/jobs/job-fail', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'FAILED',
+              result: 'Failed to evaluate trace-2: Model endpoint unavailable',
+            }),
+          );
+        }),
+      );
+
+      setupTraceFetchHandlers(server, traces);
+
+      const onScorerFinished = jest.fn();
+      const { result } = renderHook(() => useEvaluateTracesAsync({ onScorerFinished }), { wrapper });
+
+      // Start evaluation
+      act(() => {
+        const [evaluateFunction] = result.current;
+        evaluateFunction({
+          itemIds: ['trace-1', 'trace-2'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test',
+          serializedScorer,
+        });
+      });
+
+      // Wait for evaluation to complete with results
+      await waitFor(() => {
+        expect(result.current[1].isLoading).toBe(false);
+        expect(result.current[1].latestEvaluation).not.toBeNull();
+      });
+
+      const [, state] = result.current;
+
+      // Overall status should be SUCCEEDED (at least one job succeeded)
+      expect(state.error).toBeNull();
+      expect(state.latestEvaluation).toHaveLength(2);
+
+      // trace-1 should have successful assessment
+      const trace1Result = state.latestEvaluation?.find(
+        (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-1',
+      );
+      expect(trace1Result).toBeDefined();
+      expect(trace1Result?.results).toHaveLength(1);
+      expect((trace1Result?.results[0] as { numeric_value?: number }).numeric_value).toBe(0.9);
+      expect(trace1Result?.error).toBeNull();
+
+      // trace-2 should have error message from failed job
+      const trace2Result = state.latestEvaluation?.find(
+        (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-2',
+      );
+      expect(trace2Result).toBeDefined();
+      expect(trace2Result?.results).toEqual([]);
+      expect(trace2Result?.error).toBe('Failed to evaluate trace-2: Model endpoint unavailable');
+
+      // Callback should report SUCCEEDED (partial success is still success)
+      expect(onScorerFinished).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUCCEEDED' }));
+    });
+
+    it('should include failed job per-trace data alongside successful job results', async () => {
+      const experimentId = 'exp-123';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      const trace1 = createMockTrace('trace-1');
+      const trace2 = createMockTrace('trace-2');
+      const trace3 = createMockTrace('trace-3');
+      const traces = new Map([
+        ['trace-1', trace1],
+        ['trace-2', trace2],
+        ['trace-3', trace3],
+      ]);
+
+      // Setup trace search handler
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              traces: [{ trace_id: 'trace-1' }, { trace_id: 'trace-2' }, { trace_id: 'trace-3' }],
+              next_page_token: undefined,
+            }),
+          );
+        }),
+      );
+
+      // Setup scorer invoke handler - returns two jobs
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          return res(ctx.json({ jobs: [{ job_id: 'job-ok' }, { job_id: 'job-partial-fail' }] }));
+        }),
+      );
+
+      // Setup job status handlers
+      server.use(
+        // First job succeeds with trace-1 only
+        rest.get('ajax-api/3.0/jobs/job-ok', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'SUCCEEDED',
+              result: {
+                'trace-1': { assessments: [{ assessment_name: 'scorer', numeric_value: 0.95 }] },
+              },
+            }),
+          );
+        }),
+        // Second job fails but has per-trace results for trace-2 and trace-3
+        rest.get('ajax-api/3.0/jobs/job-partial-fail', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'FAILED',
+              result: {
+                'trace-2': {
+                  assessments: [{ assessment_name: 'scorer', numeric_value: 0.8 }],
+                },
+                'trace-3': {
+                  assessments: [],
+                  failures: [{ error_code: 'SCORER_ERROR', error_message: 'Model timeout on trace-3' }],
+                },
+              },
+            }),
+          );
+        }),
+      );
+
+      setupTraceFetchHandlers(server, traces);
+
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
+
+      // Start evaluation
+      act(() => {
+        const [evaluateFunction] = result.current;
+        evaluateFunction({
+          itemIds: ['trace-1', 'trace-2', 'trace-3'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test',
+          serializedScorer,
+        });
+      });
+
+      // Wait for evaluation to complete - status is SUCCEEDED because at least one job succeeded
+      await waitFor(() => {
+        expect(result.current[1].isLoading).toBe(false);
+        expect(result.current[1].latestEvaluation).not.toBeNull();
+      });
+
+      const [, state] = result.current;
+
+      // Should have results from both jobs
+      expect(state.latestEvaluation).toHaveLength(3);
+      expect(state.error).toBeNull();
+
+      // trace-1 should have assessment from successful job
+      const trace1Result = state.latestEvaluation?.find(
+        (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-1',
+      );
+      expect(trace1Result?.results).toHaveLength(1);
+      expect((trace1Result?.results[0] as { numeric_value?: number }).numeric_value).toBe(0.95);
+
+      // trace-2 should have assessment from failed job's per-trace data
+      const trace2Result = state.latestEvaluation?.find(
+        (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-2',
+      );
+      expect(trace2Result?.results).toHaveLength(1);
+      expect((trace2Result?.results[0] as { numeric_value?: number }).numeric_value).toBe(0.8);
+
+      // trace-3 should have error from failed job's failures array
+      const trace3Result = state.latestEvaluation?.find(
+        (r) => !isSessionJudgeEvaluationResult(r) && (r.trace?.info as ModelTraceInfoV3)?.trace_id === 'trace-3',
+      );
+      expect(trace3Result?.results).toEqual([]);
+      expect(trace3Result?.error).toBe('Model timeout on trace-3');
     });
   });
 
@@ -735,15 +1015,15 @@ describe('useEvaluateTracesAsync', () => {
       // Wait for job to complete and results to be available
       await waitFor(() => {
         expect(result.current[1].isLoading).toBe(false);
-        expect(result.current[1].data).not.toBeNull();
+        expect(result.current[1].latestEvaluation).not.toBeNull();
       });
 
       const [, finalState] = result.current;
 
       // Verify final state - should have one session result
-      expect(finalState.data).toHaveLength(1);
+      expect(finalState.latestEvaluation).toHaveLength(1);
 
-      const sessionResult = finalState.data![0];
+      const sessionResult = finalState.latestEvaluation?.[0] as JudgeEvaluationResult;
 
       // Verify it's a SessionJudgeEvaluationResult
       expect(isSessionJudgeEvaluationResult(sessionResult)).toBe(true);
@@ -778,7 +1058,7 @@ describe('useEvaluateTracesAsync', () => {
       }
 
       expect(finalState.error).toBeNull();
-      expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      expect(onScorerFinished).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUCCEEDED' }));
     });
   });
 });

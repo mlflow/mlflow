@@ -7,7 +7,7 @@ import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import type { AssessmentInfo, RunEvaluationTracesDataEntry, TracesTableColumn } from '../types';
 import { TracesTableColumnGroup, TracesTableColumnType } from '../types';
-import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
+import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   createCustomMetadataColumnId,
   createTagColumnId,
@@ -34,6 +34,8 @@ export const SPAN_NAME_COLUMN_ID = 'span.name';
 export const SPAN_TYPE_COLUMN_ID = 'span.type';
 export const SPAN_CONTENT_COLUMN_ID = 'span.content';
 export const LINKED_PROMPTS_COLUMN_ID = 'prompt';
+export const SIMULATION_GOAL_COLUMN_ID = 'simulation_goal';
+export const SIMULATION_PERSONA_COLUMN_ID = 'simulation_persona';
 
 export const SORTABLE_INFO_COLUMNS = [EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID];
 // Columns that are sortable by the server. Server-side sorting should be prioritized over client-side sorting.
@@ -264,9 +266,23 @@ export const useTableColumns = (
       const allResults = [...currentEvaluationResults, ...(otherEvaluationResults || [])];
       // Populate custom metadata columns
       const customMetadataColumns: Record<string, TracesTableColumn> = {};
+      let hasGoal = false;
+      let hasPersona = false;
+      const sessionGroupingEnabled = shouldEnableSessionGrouping();
+
       allResults.forEach((result: RunEvaluationTracesDataEntry) => {
         const traceMetadata = result.traceInfo?.trace_metadata;
         if (traceMetadata) {
+          // Check for simulation goal and persona (only when session grouping is enabled)
+          if (sessionGroupingEnabled) {
+            if (traceMetadata['mlflow.simulation.goal']) {
+              hasGoal = true;
+            }
+            if (traceMetadata['mlflow.simulation.persona']) {
+              hasPersona = true;
+            }
+          }
+
           Object.keys(traceMetadata).forEach((key) => {
             if (!key.startsWith(MLFLOW_INTERNAL_PREFIX) && !customMetadataColumns[key]) {
               customMetadataColumns[key] = {
@@ -295,6 +311,30 @@ export const useTableColumns = (
         }
       });
       infoCols = [...infoCols, ...Object.values(customMetadataColumns)];
+
+      // Add simulation goal and persona columns if present
+      if (hasGoal) {
+        infoCols.push({
+          id: SIMULATION_GOAL_COLUMN_ID,
+          label: intl.formatMessage({
+            defaultMessage: 'Goal',
+            description: 'Column label for simulation goal',
+          }),
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+        });
+      }
+      if (hasPersona) {
+        infoCols.push({
+          id: SIMULATION_PERSONA_COLUMN_ID,
+          label: intl.formatMessage({
+            defaultMessage: 'Persona',
+            description: 'Column label for simulation persona',
+          }),
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+        });
+      }
 
       if (shouldEnableTagGrouping()) {
         const tagColumnRecords: Record<string, TracesTableColumn> = {};

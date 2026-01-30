@@ -38,7 +38,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
 
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
-    setValue('model', '');
+    setValue('model', '', { shouldValidate: true });
     // Toggle automatic evaluation based on model provider:
     // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
     // - Re-enable when switching back to gateway model
@@ -122,7 +122,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
               currentEndpointName={currentEndpointName}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);
-                field.onChange(modelValue);
+                setValue('model', modelValue, { shouldValidate: true });
                 onUserSelect?.('model', modelValue);
               }}
               disabled={isReadOnly}
@@ -136,7 +136,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage
               defaultMessage="Or {enterManually}"
-              description="Text with link to switch to manual model entry"
+              description="Text with link to switch to direct model identifier input"
               values={{
                 enterManually: (
                   <Typography.Link
@@ -145,8 +145,8 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
                     css={{ cursor: 'pointer' }}
                   >
                     <FormattedMessage
-                      defaultMessage="enter model manually"
-                      description="Link text to switch to manual model input"
+                      defaultMessage="enter a model identifier"
+                      description="Link text to switch to direct model identifier input"
                     />
                   </Typography.Link>
                 ),

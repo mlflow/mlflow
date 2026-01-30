@@ -25,7 +25,7 @@ import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import EvaluateTracesSection from './EvaluateTracesSection';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
 import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
@@ -581,7 +581,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     </>
   );
 
-  const automaticEvaluationSection = <EvaluateTracesSectionRenderer control={control} mode={mode} />;
+  const automaticEvaluationSection = <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />;
 
   // In DISPLAY mode, render original flat layout without accordion
   if (mode === SCORER_FORM_MODE.DISPLAY) {
@@ -602,7 +602,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
         )}
         {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
         <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
-        <EvaluateTracesSectionRenderer control={control} mode={mode} />
+        <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
       </div>
     );
   }

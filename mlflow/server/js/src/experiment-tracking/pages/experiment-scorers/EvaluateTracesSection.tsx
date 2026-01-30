@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -11,15 +11,19 @@ import {
   Button,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { Controller, type Control, useWatch } from 'react-hook-form';
+import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-hook-form';
 import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+import { ModelProvider, getModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { hasTemplateVariable } from './utils/templateUtils';
+import { isExpectationsTemplate } from './types';
 
-interface EvaluateTracesSectionRendererProps {
+interface EvaluateTracesSectionProps {
   control: Control<any>;
   mode: ScorerFormMode;
+  setValue?: UseFormSetValue<any>;
 }
 
-const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps> = ({ control, mode }) => {
+const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, mode, setValue }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -37,6 +41,34 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'evaluationScope',
   });
+  const instructions = useWatch({
+    control,
+    name: 'instructions',
+  });
+  const model = useWatch({
+    control,
+    name: 'model',
+  });
+  const llmTemplate = useWatch({
+    control,
+    name: 'llmTemplate',
+  });
+
+  const hasExpectations = useMemo(
+    () => isExpectationsTemplate(llmTemplate) || hasTemplateVariable(instructions, 'expectations'),
+    [llmTemplate, instructions],
+  );
+  const isNonGatewayModel = useMemo(() => getModelProvider(model) === ModelProvider.OTHER, [model]);
+
+  // Set sampleRate based on whether automatic evaluation is allowed
+  useEffect(() => {
+    if (!setValue) return;
+    if (hasExpectations || isNonGatewayModel) {
+      setValue('sampleRate', 0);
+    } else {
+      setValue('sampleRate', 100);
+    }
+  }, [hasExpectations, isNonGatewayModel, setValue]);
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
@@ -88,11 +120,27 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                 // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
                 field.onChange(checked ? 100 : 0);
               }}
-              disabled={mode === SCORER_FORM_MODE.DISPLAY}
+              disabled={mode === SCORER_FORM_MODE.DISPLAY || hasExpectations || isNonGatewayModel}
             />
           )}
         />
       </div>
+      {hasExpectations && (
+        <FormUI.Hint css={{ marginTop: theme.spacing.xs }}>
+          <FormattedMessage
+            defaultMessage="Automatic evaluation is not available for judges that use expectations."
+            description="Hint text explaining why automatic evaluation is disabled for judges with expectations"
+          />
+        </FormUI.Hint>
+      )}
+      {isNonGatewayModel && !hasExpectations && (
+        <FormUI.Hint css={{ marginTop: theme.spacing.xs }}>
+          <FormattedMessage
+            defaultMessage="Automatic evaluation is only available for judges that use gateway endpoints."
+            description="Hint text explaining why automatic evaluation is disabled for non-gateway models"
+          />
+        </FormUI.Hint>
+      )}
 
       {isAutomaticEvaluationEnabled && (
         <div>
@@ -260,4 +308,4 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
   );
 };
 
-export default EvaluateTracesSectionRenderer;
+export default EvaluateTracesSection;

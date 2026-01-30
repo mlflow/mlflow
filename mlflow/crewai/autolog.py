@@ -245,6 +245,9 @@ def _set_span_attributes(span: LiveSpan, instance):
             for key, value in llm.items():
                 if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
+            # Set model name explicitly using the MODEL attribute key
+            if model := getattr(instance, "model", None):
+                span.set_attribute(SpanAttributeKey.MODEL, model)
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
