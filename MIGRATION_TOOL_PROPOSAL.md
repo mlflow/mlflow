@@ -8,7 +8,7 @@ GitHub Issue: https://github.com/mlflow/mlflow/issues/18534
 
 MLflow is deprecating the filesystem backend (`./mlruns`) in favor of SQLite (`sqlite:///mlflow.db`). Users need a migration path to convert existing file store data to SQLite.
 
-## Background: mlflow-export-import
+## Existing Solution
 
 https://github.com/mlflow/mlflow-export-import
 
@@ -20,12 +20,12 @@ An existing tool for copying MLflow objects between tracking servers. It exports
 Source Server → [Export to files] → [Recreate entities] → Target Server
 ```
 
-**What it does:**
+#### What it does
 
 - Supports experiments, runs, models, traces, prompts
 - Works via REST API (creates new entities, not direct migration)
 
-**Issues for FileStore migration:**
+#### Issues for FileStore migration
 
 - Doesn't preserve original IDs and timestamps ([ref](https://github.com/mlflow/mlflow/issues/18534#issuecomment-3772629460))
 - Complex workflow (requires running servers, 4 commands)
@@ -71,12 +71,11 @@ If users move the `mlruns` directory after migration, artifact URIs will break (
 
 ## Constraint Analysis
 
-| Constraint    | Issue                           | Why it's safe                                 |
-| ------------- | ------------------------------- | --------------------------------------------- |
-| String length | Values exceeding column limits  | FileStore validates and truncates on write    |
-| Uniqueness    | Duplicate entries               | FileStore also enforces uniqueness            |
-| NOT NULL      | Missing required values         | FileStore requires these fields too           |
-| Foreign keys  | Orphaned runs or params/metrics | Runs are stored inside experiment directories |
+| Constraint    | Issue                          | Why it's safe                              |
+| ------------- | ------------------------------ | ------------------------------------------ |
+| String length | Values exceeding column limits | FileStore validates and truncates on write |
+| Uniqueness    | Duplicate entries              | FileStore also enforces uniqueness         |
+| NOT NULL      | Missing required values        | FileStore requires these fields too        |
 
 Note: This is not an exhaustive analysis; other constraint violations may exist.
 
@@ -109,25 +108,25 @@ Note: This is not an exhaustive analysis; other constraint violations may exist.
 
 Use the existing mlflow-export-import tool with its current export → import workflow.
 
-**How it works:**
+#### How it works
 
 ```
 FileStore (./mlruns) → [Export to files] → [Import via REST API] → SQLite (mlflow.db)
 ```
 
-**Pros:**
+#### Pros
 
 - Already exists and is well-tested
 - Handles all MLflow object types
 
-**Cons:**
+#### Cons
 
 - Doesn't preserve original IDs and timestamps (recreates entities)
 - Requires running MLflow servers
 - Multi-step workflow
 - External dependency (not part of core MLflow)
 
-**Example (4 commands):**
+#### Example (4 commands)
 
 ```bash
 # 1. Start source server
@@ -149,13 +148,13 @@ MLFLOW_TRACKING_URI=http://localhost:5001 import-all --input-dir /tmp/export
 
 Create a new migration tool built into MLflow core.
 
-**How it works:**
+#### How it works
 
 ```
 FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
 ```
 
-**Pros:**
+#### Pros
 
 - Direct file-to-database conversion (no intermediate steps)
 - No external dependencies
@@ -164,18 +163,18 @@ FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
 - Can be optimized for batch operations
 - No changes needed to mlflow-export-import
 
-**Cons:**
+#### Cons
 
 - New code to write and maintain
 - Duplicates some logic from mlflow-export-import
 
-**Implementation:**
+#### Implementation
 
 - Read FileStore structure directly
 - Use SQLAlchemy models to write to database
 - Batch inserts for performance
 
-**Example - CLI command:**
+#### Example
 
 ```bash
 # 1. Upgrade MLflow (tool is only available in 3.<TBD>)
