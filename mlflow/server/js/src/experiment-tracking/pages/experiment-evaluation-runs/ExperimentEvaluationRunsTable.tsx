@@ -85,8 +85,6 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       return allColumns.filter((column) => selectedColumns[column.id ?? '']);
     }, [selectedColumns, uniqueColumns, viewMode]);
 
-    const selectedCount = useMemo(() => Object.values(rowSelection).filter(Boolean).length, [rowSelection]);
-
     const table = useReactTable<RunEntityOrGroupData>(
       'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
       {
@@ -118,8 +116,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           if ('subRuns' in row.original) {
             return false;
           }
-          // Allow selection if less than 2 runs selected or this row is already selected
-          return selectedCount < 2 || rowSelection[row.id] === true;
+          return true;
         },
         meta: {
           setSelectedRunUuid,
