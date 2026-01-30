@@ -209,7 +209,7 @@ def test_pyfunc_log_model_respects_mlflow_log_uv_files_env_var(
 
 
 @requires_uv
-def test_pyfunc_log_model_with_explicit_uv_lock_parameter(
+def test_pyfunc_log_model_with_explicit_uv_project_path_parameter(
     tmp_path, uv_project_real, python_model, monkeypatch
 ):
     # Work from a different directory than the UV project
@@ -218,11 +218,11 @@ def test_pyfunc_log_model_with_explicit_uv_lock_parameter(
     monkeypatch.chdir(work_dir)
 
     with mlflow.start_run() as run:
-        # Use explicit uv_lock parameter to point to UV project
+        # Use explicit uv_project_path parameter to point to UV project
         mlflow.pyfunc.log_model(
             name="model",
             python_model=python_model,
-            uv_lock=uv_project_real / _UV_LOCK_FILE,
+            uv_project_path=uv_project_real,
         )
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -384,7 +384,7 @@ def test_pyfunc_save_model_with_uv_project(uv_project_real, python_model, tmp_pa
 
 
 @requires_uv
-def test_pyfunc_save_model_with_explicit_uv_lock(
+def test_pyfunc_save_model_with_explicit_uv_project_path(
     uv_project_real, python_model, tmp_path, monkeypatch
 ):
     work_dir = tmp_path / "work"
@@ -395,7 +395,7 @@ def test_pyfunc_save_model_with_explicit_uv_lock(
     mlflow.pyfunc.save_model(
         model_path,
         python_model=python_model,
-        uv_lock=uv_project_real / _UV_LOCK_FILE,
+        uv_project_path=uv_project_real,
     )
 
     # Verify UV artifacts from explicit path

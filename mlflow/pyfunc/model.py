@@ -1061,7 +1061,7 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
-    uv_lock=None,
+    uv_project_path=None,
 ):
     """
     Args:
@@ -1276,10 +1276,12 @@ def _save_model_with_class_artifacts_params(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     # Copy UV project files (uv.lock and pyproject.toml) if detected
-    copy_uv_project_files(path, source_dir=original_cwd, uv_lock=uv_lock)
+    copy_uv_project_files(path, source_dir=original_cwd, uv_project_path=uv_project_path)
 
     # Use UV project's Python version if available, otherwise use current
-    if uv_python_version := get_python_version_from_uv_project(original_cwd, uv_lock=uv_lock):
+    if uv_python_version := get_python_version_from_uv_project(
+        original_cwd, uv_project_path=uv_project_path
+    ):
         python_env = _PythonEnv(
             python=uv_python_version,
             build_dependencies=_PythonEnv.get_current_build_dependencies(),
