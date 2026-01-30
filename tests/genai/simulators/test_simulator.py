@@ -617,3 +617,56 @@ def test_invalid_user_agent_class_raises_type_error(simple_test_case):
             max_turns=2,
             user_agent_class=NotAUserAgent,
         )
+
+
+def test_conversation_simulator_digest_is_deterministic():
+    test_cases = [
+        {"goal": "Learn about MLflow"},
+        {"goal": "Debug deployment", "persona": "Data scientist"},
+        {"goal": "Setup", "context": {"env": "prod"}},
+    ]
+    simulator1 = ConversationSimulator(test_cases=test_cases, max_turns=2)
+    simulator2 = ConversationSimulator(test_cases=test_cases, max_turns=2)
+
+    digest1 = simulator1._compute_test_case_digest()
+    digest2 = simulator2._compute_test_case_digest()
+
+    assert digest1 == digest2
+    assert isinstance(digest1, str)
+    assert len(digest1) == 8
+
+
+@pytest.mark.parametrize(
+    ("test_cases_1", "test_cases_2"),
+    [
+        # Different goals
+        ([{"goal": "Goal A"}], [{"goal": "Goal B"}]),
+        # Adding persona changes digest
+        ([{"goal": "Goal"}], [{"goal": "Goal", "persona": "Engineer"}]),
+        # Different order
+        ([{"goal": "A"}, {"goal": "B"}], [{"goal": "B"}, {"goal": "A"}]),
+    ],
+    ids=["different_goals", "added_persona", "different_order"],
+)
+def test_conversation_simulator_digest_differs_for_different_test_cases(test_cases_1, test_cases_2):
+    simulator1 = ConversationSimulator(test_cases=test_cases_1, max_turns=2)
+    simulator2 = ConversationSimulator(test_cases=test_cases_2, max_turns=2)
+
+    assert simulator1._compute_test_case_digest() != simulator2._compute_test_case_digest()
+
+
+def test_conversation_simulator_get_dataset_name_default():
+    test_cases = [{"goal": "Learn about MLflow"}]
+    simulator = ConversationSimulator(test_cases=test_cases, max_turns=2)
+
+    assert simulator._get_dataset_name() == "conversational_dataset"
+
+
+def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
+    inputs = [{"goal": "Learn about MLflow"}]
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    mock_dataset.name = "my_custom_dataset"
+
+    simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+
+    assert simulator._get_dataset_name() == "my_custom_dataset"
