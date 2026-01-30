@@ -17,7 +17,7 @@ def mock_call_chat_completions():
         yield mock
 
 
-def test_create_trulens_provider_databricks():
+def test_create_trulens_provider_databricks(mock_call_chat_completions):
     mock_endpoint = Mock()
     mock_llm_provider = Mock()
 
@@ -33,10 +33,15 @@ def test_create_trulens_provider_databricks():
         )
         mock_endpoint.Endpoint = Mock()
 
-        with patch("mlflow.genai.scorers.trulens.models.call_chat_completions") as mock_cc:
-            mock_cc.return_value = Mock(output="test")
-            provider = create_trulens_provider("databricks")
-            assert provider is not None
+        provider = create_trulens_provider("databricks")
+        assert provider is not None
+
+        # Call the provider to verify call_chat_completions is used
+        provider._create_chat_completion(prompt="test prompt")
+        mock_call_chat_completions.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt="",
+        )
 
 
 def test_create_trulens_provider_databricks_endpoint_uses_litellm():
