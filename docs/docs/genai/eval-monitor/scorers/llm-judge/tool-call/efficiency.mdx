@@ -4,12 +4,16 @@ import { CheckCircle, Bot, Target } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import JudgePrerequisites from '@site/src/content/judge_prerequisites.mdx';
+import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # ToolCallEfficiency Judge
 
 The `ToolCallEfficiency` judge evaluates the agent's trajectory for redundancy in tool usage, such as tool calls with the same or similar arguments.
 
 This built-in LLM judge is designed for evaluating AI agents and tool-calling applications where you need to ensure the agent operates efficiently without making unnecessary or duplicate tool calls.
+
+<JudgePrerequisites />
 
 ## Usage examples
 
@@ -53,25 +57,11 @@ results = mlflow.genai.evaluate(
 </Tabs>
 </TabsWrapper>
 
-## Select the LLM that powers the judge
+:::tip
+For a complete agent example with this judge, see the <ins>[Tool Call Evaluation guide](/genai/eval-monitor/scorers/llm-judge/tool-call/)</ins>.
+:::
 
-You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
-
-```python
-from mlflow.genai.scorers import ToolCallEfficiency
-
-# Use a different judge model
-efficiency_judge = ToolCallEfficiency(
-    model="openai:/gpt-4o-mini"  # Or any LiteLLM-compatible model
-)
-
-# Use in evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset, predict_fn=agent, scorers=[efficiency_judge]
-)
-```
-
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+<SelectJudgeModel />
 
 ## Interpret results
 

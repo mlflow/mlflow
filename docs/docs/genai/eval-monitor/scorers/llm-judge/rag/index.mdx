@@ -2,7 +2,7 @@ import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Database, BookOpen, Target } from "lucide-react";
-import RagPrerequisites from '@site/src/content/rag_prerequisites.mdx';
+import JudgePrerequisites from '@site/src/content/judge_prerequisites.mdx';
 import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # RAG Evaluation with Built-in Judges
@@ -27,7 +27,7 @@ MLflow provides built-in judges designed specifically for evaluating RAG applica
 All RAG judges require MLflow Traces with at least one span marked as `span_type="RETRIEVER"`. Use the <APILink fn="mlflow.trace">@mlflow.trace</APILink> decorator with `span_type="RETRIEVER"` on your retrieval functions.
 :::
 
-<RagPrerequisites />
+<JudgePrerequisites />
 
 ## Complete RAG Example
 
