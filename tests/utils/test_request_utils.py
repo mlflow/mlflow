@@ -75,7 +75,7 @@ def test_redirects_disabled_if_env_var_set(monkeypatch, env_value):
             "GET",
             "http://localhost:5000",
             allow_redirects=False,
-            timeout=None,
+            timeout=120,
         )
 
 
@@ -97,7 +97,7 @@ def test_redirects_enabled_if_env_var_set(monkeypatch, env_value):
             "GET",
             "http://localhost:5000",
             allow_redirects=True,
-            timeout=None,
+            timeout=120,
         )
 
 
@@ -118,7 +118,7 @@ def test_redirect_kwarg_overrides_env_value_false(monkeypatch, env_value):
             "GET",
             "http://localhost:5000",
             allow_redirects=True,
-            timeout=None,
+            timeout=120,
         )
 
 
@@ -139,7 +139,7 @@ def test_redirect_kwarg_overrides_env_value_true(monkeypatch, env_value):
             "GET",
             "http://localhost:5000",
             allow_redirects=False,
-            timeout=None,
+            timeout=120,
         )
 
 
@@ -158,5 +158,66 @@ def test_redirects_enabled_by_default():
             "GET",
             "http://localhost:5000",
             allow_redirects=True,
-            timeout=None,
+            timeout=120,
         )
+
+
+def test_cloud_storage_timeout_default():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.text = "mock response"
+
+        request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
+
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["timeout"] == 120
+
+
+def test_cloud_storage_timeout_explicit_value():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.text = "mock response"
+
+        request_utils.cloud_storage_http_request("GET", "http://localhost:5000", timeout=60)
+
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["timeout"] == 60
+
+
+def test_cloud_storage_timeout_from_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "300")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.text = "mock response"
+
+        request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
+
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["timeout"] == 300
+
+
+def test_cloud_storage_timeout_explicit_overrides_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "300")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.text = "mock response"
+
+        request_utils.cloud_storage_http_request("GET", "http://localhost:5000", timeout=30)
+
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["timeout"] == 30
+
+
+def test_cloud_storage_timeout_invalid_env_var_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "not_a_number")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.text = "mock response"
+
+        request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
+
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["timeout"] == 120
