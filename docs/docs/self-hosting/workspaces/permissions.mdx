@@ -62,6 +62,18 @@ Workspace permissions require:
 
 Users with `MANAGE` permission on a workspace can grant permissions to other users within that workspace. This enables self-service team management without requiring admin intervention.
 
+### Using AuthServiceClient
+
+The Python client mirrors the REST APIs via `mlflow.server.auth.client.AuthServiceClient`. Use
+`mlflow.server.get_app_client` to instantiate it after configuring Basic Auth credentials.
+
+```python
+from mlflow.server import get_app_client
+
+tracking_uri = "http://localhost:5000"
+auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+```
+
 ### Grant Workspace Permission
 
 ```bash
@@ -84,12 +96,24 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/workspaces/team-a/permissions 
   }'
 ```
 
+```python
+auth_client.set_workspace_permission(
+    workspace_name="team-a",
+    username="alice",
+    permission="READ",
+)
+```
+
 ### List Workspace Permissions
 
 Get all permissions for a workspace:
 
 ```bash
 curl http://localhost:5000/api/3.0/mlflow/workspaces/team-a/permissions
+```
+
+```python
+permissions = auth_client.list_workspace_permissions("team-a")
 ```
 
 Get workspace permissions for a specific user (admin only):
@@ -102,10 +126,18 @@ curl "http://localhost:5000/api/3.0/mlflow/workspace-permissions?username=alice"
 The API returns `user_id` (the internal user identifier) in responses, not `username`. Use the users API to look up usernames if needed.
 :::
 
+```python
+permissions = auth_client.list_user_workspace_permissions("alice")
+```
+
 ### Revoke Workspace Permission
 
 ```bash
 curl -X DELETE "http://localhost:5000/api/3.0/mlflow/workspaces/team-a/permissions?username=alice"
+```
+
+```python
+auth_client.delete_workspace_permission(workspace_name="team-a", username="alice")
 ```
 
 ## Workspace Visibility in list_workspaces()
@@ -167,6 +199,7 @@ If a workspace doesn't appear in `mlflow.list_workspaces()`:
 
 1. User needs workspace-level permission (resource-level permission is not enough)
 2. Grant workspace permission:
+
    ```bash
    curl -X POST http://localhost:5000/api/3.0/mlflow/workspaces/team-a/permissions \
      -H "Content-Type: application/json" \
