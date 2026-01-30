@@ -58,7 +58,6 @@ class GuardrailsScorer(Scorer):
     """
 
     _guard: Any = PrivateAttr()
-    _validator_name: str = PrivateAttr()
 
     def __init__(
         self,
@@ -74,7 +73,6 @@ class GuardrailsScorer(Scorer):
                 raise ValueError("validator_name must be provided")
 
         super().__init__(name=validator_name)
-        self._validator_name = validator_name
 
         from guardrails import Guard, OnFailAction
 
@@ -104,7 +102,7 @@ class GuardrailsScorer(Scorer):
         """
         assessment_source = AssessmentSource(
             source_type=AssessmentSourceType.CODE,
-            source_id=f"guardrails/{self._validator_name}",
+            source_id=f"guardrails/{self.name}",
         )
 
         try:
