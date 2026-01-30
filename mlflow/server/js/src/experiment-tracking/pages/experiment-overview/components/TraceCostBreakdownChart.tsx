@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useDesignSystemTheme, PieChartIcon, DesignSystemThemeInterface } from '@databricks/design-system';
+import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
@@ -12,23 +12,12 @@ import {
   OverviewChartContainer,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useChartColors, useLegendHighlight } from '../utils/chartUtils';
-
-interface ActiveShapeProps {
-  cx: number;
-  cy: number;
-  innerRadius: number;
-  outerRadius: number;
-  startAngle: number;
-  endAngle: number;
-  fill: string;
-  name: string;
-  value: number;
-  percentage: number;
-  midAngle: number;
-}
-
-const RADIAN = Math.PI / 180;
+import {
+  useChartColors,
+  useLegendHighlight,
+  calculatePieActiveShapeGeometry,
+  type ActiveShapeProps,
+} from '../utils/chartUtils';
 
 // Pie chart sizing constants
 const PIE_INNER_RADIUS = 50;
@@ -39,25 +28,9 @@ const PIE_PADDING_ANGLE = 2;
  * Renders the active (hovered) pie slice with an outer arc and external label.
  */
 const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) => (props: unknown) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage, midAngle } =
-    props as ActiveShapeProps;
-
-  // Calculate direction from center based on slice's midpoint angle
-  const sin = Math.sin(-RADIAN * midAngle);
-  const cos = Math.cos(-RADIAN * midAngle);
-
-  // Line start point (just outside the pie slice)
-  const sx = cx + (outerRadius + theme.spacing.sm) * cos;
-  const sy = cy + (outerRadius + theme.spacing.sm) * sin;
-
-  // Line bend point (further out, creates an elbow in the line)
-  const mx = cx + (outerRadius + theme.spacing.md) * cos;
-  const my = cy + (outerRadius + theme.spacing.md) * sin;
-
-  // Line end point (horizontal offset from bend, direction based on left/right side)
-  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.md;
-  const ey = my;
-  const textAnchor = cos >= 0 ? 'start' : 'end';
+  const shapeProps = props as ActiveShapeProps;
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = shapeProps;
+  const { sx, sy, mx, my, ex, ey, textAnchor, cos } = calculatePieActiveShapeGeometry(shapeProps, theme);
 
   return (
     <g>

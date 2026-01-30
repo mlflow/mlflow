@@ -1,6 +1,80 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme, type DesignSystemThemeInterface } from '@databricks/design-system';
+
+/**
+ * Props for the active shape renderer in pie charts.
+ */
+export interface ActiveShapeProps {
+  cx: number;
+  cy: number;
+  innerRadius: number;
+  outerRadius: number;
+  startAngle: number;
+  endAngle: number;
+  fill: string;
+  name: string;
+  value: number;
+  percentage: number;
+  midAngle: number;
+}
+
+/**
+ * Geometry values for rendering a pie chart active shape with external labels.
+ */
+export interface PieActiveShapeGeometry {
+  /** Line start point X (just outside pie) */
+  sx: number;
+  /** Line start point Y */
+  sy: number;
+  /** Line bend point X */
+  mx: number;
+  /** Line bend point Y */
+  my: number;
+  /** Line end point X (horizontal offset) */
+  ex: number;
+  /** Line end point Y */
+  ey: number;
+  /** Text anchor for labels ('start' or 'end') */
+  textAnchor: 'start' | 'end';
+  /** Cosine of midAngle (for label offset direction) */
+  cos: number;
+}
+
+/**
+ * Calculates geometry for rendering a pie chart active shape with external label lines.
+ * Used to position connecting lines and labels outside the pie slice.
+ *
+ * @param props - Active shape props from Recharts
+ * @param theme - Design system theme for spacing values
+ * @returns Geometry values for rendering the active shape
+ */
+export function calculatePieActiveShapeGeometry(
+  props: ActiveShapeProps,
+  theme: DesignSystemThemeInterface['theme'],
+): PieActiveShapeGeometry {
+  const { cx, cy, outerRadius, midAngle } = props;
+  const RADIAN = Math.PI / 180;
+
+  // Calculate direction from center based on slice's midpoint angle
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+
+  // Line start point (just outside the pie slice)
+  const sx = cx + (outerRadius + theme.spacing.sm) * cos;
+  const sy = cy + (outerRadius + theme.spacing.sm) * sin;
+
+  // Line bend point (further out, creates an elbow in the line)
+  const mx = cx + (outerRadius + theme.spacing.md) * cos;
+  const my = cy + (outerRadius + theme.spacing.md) * sin;
+
+  // Line end point (horizontal offset from bend, direction based on left/right side)
+  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.md;
+  const ey = my;
+  const textAnchor = cos >= 0 ? 'start' : 'end';
+
+  return { sx, sy, mx, my, ex, ey, textAnchor, cos };
+}
 
 /**
  * Custom hook for managing legend highlight state in charts.
