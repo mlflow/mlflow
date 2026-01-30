@@ -329,64 +329,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
 
 ## Error handling
 
-When a scorer encounters an error for a trace, MLflow can capture error details for that trace and then continue executing gracefully. For capturing error details, MLflow provides two approaches:
-
-1. Let exceptions propagate (recommended) so that MLflow can capture error messages for you.
-2. Handle exceptions explicitly.
-
-### Let exceptions propagate (recommended)
-
-The simplest approach is to let exceptions throw naturally. MLflow automatically captures the exception and creates a <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object with the error details. In the example below, the scorer expects JSON with specific fields.
-
-```python
-import json
-import mlflow
-from mlflow.entities import Feedback
-from mlflow.genai.scorers import scorer
-
-
-@scorer
-def is_valid_response(outputs: str) -> Feedback:
-    # Let json.JSONDecodeError propagate if response isn't valid JSON
-    data = json.loads(outputs)
-
-    # Let KeyError propagate if required fields are missing
-    summary = data["summary"]
-    confidence = data["confidence"]
-
-    return Feedback(value=True, rationale=f"Valid JSON with confidence: {confidence}")
-
-
-# Run the scorer on invalid data that triggers exceptions
-invalid_data = [
-    {
-        # Valid JSON
-        "outputs": '{"summary": "this is a summary", "confidence": 0.95}'
-    },
-    {
-        # Invalid JSON
-        "outputs": "invalid json",
-    },
-    {
-        # Missing required fields
-        "outputs": '{"summary": "this is a summary"}'
-    },
-]
-
-mlflow.genai.evaluate(
-    data=invalid_data,
-    scorers=[is_valid_response],
-)
-```
-
-When an exception occurs, MLflow creates a `Feedback` with:
-
-- `value`: `None`
-- `error`: The exception details, such as exception object, error message, and stack trace
-
-The error information will be displayed in the evaluation results. Open the corresponding row to see the error details.
-
-<ImageBox src="/images/genai/eval-monitor/scorer-error-handling.png" alt="Error details in evaluation results" width="800px" />
+When a scorer encounters an error for a trace, MLflow can capture error details for that trace and then continue executing gracefully. For capturing error details, you can handle exceptions explicitly with MLflow.
 
 ### Handle exceptions explicitly
 
