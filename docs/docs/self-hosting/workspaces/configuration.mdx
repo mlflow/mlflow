@@ -24,6 +24,25 @@ mlflow server \
 
 Disable by restarting without `--enable-workspaces` after moving all resources into the `default` workspace.
 
+### Admin Utility: migrate to default workspace
+
+To move all workspace-scoped resources into `default` to disable workspaces, use:
+
+```bash
+mlflow db migrate-to-default-workspace <database_uri>
+```
+
+By default, the command prints the rows to be moved and asks for confirmation. Use `-y` to skip
+the prompt.
+
+Run a dry run first to surface conflicts and see how many rows will be updated:
+
+```bash
+mlflow db migrate-to-default-workspace <database_uri> --dry-run
+```
+
+Use `--verbose` to list all conflicts instead of a truncated sample.
+
 ## Client Workspace Selection (summary)
 
 - Explicit: `mlflow.set_workspace("team-a")`
@@ -37,8 +56,14 @@ Clients send `X-MLFLOW-WORKSPACE` on REST calls; UI AJAX routes remain the same 
 - Tracking and registry stores must report `supports_workspaces() == True`
 - Workspace provider resolved (defaults to SQL-backed provider if none given)
 - Reserved `default` workspace exists (created by migration)
-- Artifact path checks: ensure no conflicts under `<default_artifact_root>/workspaces/...` and that the root is not already workspace-prefixed
 - With `--serve-artifacts`, proxied artifact paths for non-default workspaces must include `workspaces/<workspace>/...`; legacy unprefixed paths remain valid for `default`.
+
+## Admin preflight for artifact roots
+
+Before enabling workspaces, confirm that existing experiment artifact locations do not already
+live under the reserved `<default_artifact_root>/workspaces/<workspace>/...` path unless
+they match the workspace layout you intend to use. If they do, move or rename those artifact
+roots first to avoid collisions.
 
 ## Artifact Behavior
 
