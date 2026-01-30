@@ -1,5 +1,3 @@
-"""Demo generator for evaluation runs and datasets."""
-
 from __future__ import annotations
 
 import hashlib
@@ -108,12 +106,20 @@ IMPROVED_PROFILE = {
 
 
 class EvaluationDemoGenerator(BaseDemoGenerator):
-    """Generates demo evaluation data comparing v1 and v2 agent outputs.
+    """Generates demo evaluation data comparing baseline (v1) and improved (v2) traces.
 
     Creates:
     - Ground truth expectations on all demo traces
-    - Two datasets: one for v1 (baseline) traces, one for v2 (improved) traces
-    - Two evaluation runs: baseline evaluation on v1, improved evaluation on v2
+    - Two datasets: baseline (v1) and improved (v2) - both include all trace types
+    - Two evaluation runs comparing the same inputs with different outputs
+
+    The baseline and improved evaluations include matching trace types:
+    - 2 RAG traces
+    - 2 agent traces
+    - 6 prompt traces (2 per prompt type)
+    - Session traces
+
+    This allows direct comparison between v1 and v2 performance.
     """
 
     name = DemoFeature.EVALUATION

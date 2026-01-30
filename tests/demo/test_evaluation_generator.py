@@ -13,7 +13,10 @@ from mlflow.demo.generators.traces import TracesDemoGenerator
 
 @pytest.fixture
 def evaluation_generator():
-    return EvaluationDemoGenerator()
+    generator = EvaluationDemoGenerator()
+    original_version = generator.version
+    yield generator
+    EvaluationDemoGenerator.version = original_version
 
 
 @pytest.fixture
@@ -116,5 +119,3 @@ def test_is_generated_checks_version(evaluation_generator):
     EvaluationDemoGenerator.version = 99
     fresh_generator = EvaluationDemoGenerator()
     assert fresh_generator.is_generated() is False
-
-    EvaluationDemoGenerator.version = 1

@@ -1,16 +1,16 @@
-"""Demo generator for LLM traces."""
-
 from __future__ import annotations
 
 import hashlib
 import logging
 import random
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import mlflow
 from mlflow.demo.base import (
     DEMO_EXPERIMENT_NAME,
+    DEMO_PROMPT_PREFIX,
     BaseDemoGenerator,
     DemoFeature,
     DemoResult,
@@ -30,8 +30,6 @@ _logger = logging.getLogger(__name__)
 DEMO_VERSION_TAG = "mlflow.demo.version"
 DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
 
-# Total number of traces for timestamp distribution
-# 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version = 34 total
 _TOTAL_TRACES_PER_VERSION = 17
 
 
@@ -52,22 +50,18 @@ def _get_trace_timestamp(trace_index: int, version: str) -> tuple[int, int]:
     now = datetime.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
-    # v1 traces are distributed in the first half of the week (days 0-3)
-    # v2 traces are distributed in the second half (days 3-7)
     if version == "v1":
         day_offset = (trace_index * 3.5) / _TOTAL_TRACES_PER_VERSION
     else:
         day_offset = 3.5 + (trace_index * 3.5) / _TOTAL_TRACES_PER_VERSION
 
-    # Add some deterministic "randomness" based on trace index for realistic spread
     hash_input = f"{trace_index}:{version}"
     hash_val = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest()[:8], 16)
-    hour_offset = (hash_val % 24) / 24  # Spread across hours of the day
-    minute_offset = ((hash_val >> 8) % 60) / (60 * 24)  # Spread across minutes
+    hour_offset = (hash_val % 24) / 24
+    minute_offset = ((hash_val >> 8) % 60) / (60 * 24)
 
     trace_time = seven_days_ago + timedelta(days=day_offset + hour_offset + minute_offset)
 
-    # Duration based on trace type (50ms to 2s)
     duration_ms = 50 + (hash_val % 1950)
 
     start_ns = int(trace_time.timestamp() * 1_000_000_000)
@@ -120,28 +114,27 @@ class TracesDemoGenerator(BaseDemoGenerator):
         trace_ids = []
         trace_index = 0
 
-        # RAG traces (2)
         for trace_def in RAG_TRACES:
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
             if trace_id := self._create_rag_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        # Agent traces (2)
         for trace_def in AGENT_TRACES:
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
             if trace_id := self._create_agent_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        # Prompt traces (6)
-        for trace_def in PROMPT_TRACES:
+        for idx, trace_def in enumerate(PROMPT_TRACES):
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
-            if trace_id := self._create_prompt_trace(trace_def, version, start_ns, end_ns):
+            prompt_version_num = str(idx % 2 + 1) if version == "v1" else str(idx % 2 + 3)
+            if trace_id := self._create_prompt_trace(
+                trace_def, version, start_ns, end_ns, prompt_version_num
+            ):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        # Session traces (7 across 3 sessions)
         trace_ids.extend(self._create_session_traces(version, trace_index))
 
         return trace_ids
@@ -218,7 +211,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=start_ns,
         )
 
-        # Embedding span
         embed = mlflow.start_span_no_context(
             name="embed_query",
             span_type=SpanType.EMBEDDING,
@@ -230,7 +222,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         embed.set_outputs({"embedding": embedding[:5], "dimensions": 384})
         embed.end(end_time_ns=embed_end)
 
-        # Retrieval span
         retrieve = mlflow.start_span_no_context(
             name="retrieve_docs",
             span_type=SpanType.RETRIEVER,
@@ -244,7 +235,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
 
-        # LLM generation span
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -297,7 +287,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=start_ns,
         )
 
-        # Tool spans
         tool_start = start_ns + 5000
         for i, tool in enumerate(trace_def.tools):
             tool_span = mlflow.start_span_no_context(
@@ -311,7 +300,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
             tool_start += tool_duration // len(trace_def.tools) + 1000
 
-        # LLM span
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -346,14 +334,40 @@ class TracesDemoGenerator(BaseDemoGenerator):
         version: Literal["v1", "v2"],
         start_ns: int,
         end_ns: int,
+        prompt_version: str = "1",
     ) -> str | None:
-        """Create a prompt-based trace showing template rendering and generation."""
+        """Create a prompt-based trace showing template rendering and generation.
+
+        Fetches the actual registered prompt template and renders it with appropriate
+        variables to ensure trace contents match the linked prompt version.
+        """
         response = self._get_response(trace_def, version)
 
         if trace_def.prompt_template is None:
             return None
 
-        rendered_prompt = trace_def.prompt_template.render()
+        # Fetch the actual prompt version template from the registry
+        full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{trace_def.prompt_template.prompt_name}"
+        try:
+            client = mlflow.MlflowClient()
+            prompt_version_obj = client.get_prompt_version(
+                name=full_prompt_name,
+                version=prompt_version,
+            )
+            actual_template = prompt_version_obj.template
+        except Exception:
+            # Fall back to the trace definition template if fetch fails
+            actual_template = trace_def.prompt_template.template
+
+        # Build variables dict with all possible values for this prompt type
+        variables = self._get_prompt_variables(
+            trace_def.prompt_template.prompt_name,
+            trace_def.query,
+            trace_def.prompt_template.variables,
+        )
+
+        # Render the actual template
+        rendered_prompt = self._render_template(actual_template, variables)
         prompt_tokens = _estimate_tokens(rendered_prompt) + 20
         completion_tokens = _estimate_tokens(response)
 
@@ -366,27 +380,25 @@ class TracesDemoGenerator(BaseDemoGenerator):
             span_type=SpanType.CHAIN,
             inputs={
                 "query": trace_def.query,
-                "template_variables": trace_def.prompt_template.variables,
+                "template_variables": variables,
             },
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "prompt"},
             start_time_ns=start_ns,
         )
 
-        # Prompt rendering span
         render = mlflow.start_span_no_context(
             name="render_prompt",
             span_type=SpanType.CHAIN,
             parent_span=root,
             inputs={
-                "template": trace_def.prompt_template.template,
-                "variables": trace_def.prompt_template.variables,
+                "template": actual_template,
+                "variables": variables,
             },
             start_time_ns=start_ns + 1000,
         )
         render.set_outputs({"rendered_prompt": rendered_prompt})
         render.end(end_time_ns=render_end)
 
-        # LLM generation span
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -412,7 +424,91 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root.set_outputs({"response": response})
         root.end(end_time_ns=end_ns)
 
-        return root.trace_id
+        trace_id = root.trace_id
+
+        self._link_prompt_to_trace(trace_def.prompt_template.prompt_name, trace_id, prompt_version)
+
+        return trace_id
+
+    def _link_prompt_to_trace(
+        self, short_prompt_name: str, trace_id: str, prompt_version: str = "1"
+    ) -> None:
+        """Link a registered prompt to a trace for UI display."""
+        full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{short_prompt_name}"
+        try:
+            client = mlflow.MlflowClient()
+            prompt_version_obj = client.get_prompt_version(
+                name=full_prompt_name,
+                version=prompt_version,
+            )
+            client.link_prompt_versions_to_trace(
+                prompt_versions=[prompt_version_obj],
+                trace_id=trace_id,
+            )
+        except Exception:
+            _logger.debug(
+                "Failed to link prompt %s v%s to trace %s",
+                full_prompt_name,
+                prompt_version,
+                trace_id,
+                exc_info=True,
+            )
+
+    def _get_prompt_variables(
+        self, prompt_name: str, query: str, base_variables: dict[str, str]
+    ) -> dict[str, str]:
+        """Get complete variable set for a prompt type.
+
+        Combines base variables from the trace definition with additional
+        variables that may be needed for more advanced prompt versions.
+        """
+        variables = dict(base_variables)
+
+        if "query" not in variables:
+            variables["query"] = query
+
+        if prompt_name == "customer-support":
+            variables.setdefault("company_name", "TechCorp")
+            variables.setdefault("context", "Customer has been with us for 2 years, premium tier.")
+        elif prompt_name == "document-summarizer":
+            variables.setdefault("max_words", "150")
+            variables.setdefault("audience", "technical professionals")
+            variables.setdefault(
+                "document",
+                variables.get("query", "Sample document content for summarization."),
+            )
+        elif prompt_name == "code-reviewer":
+            variables.setdefault("language", "python")
+            variables.setdefault("focus_areas", "security, performance, readability")
+            variables.setdefault("severity_levels", "critical, warning, suggestion")
+            variables.setdefault("code", variables.get("query", "def example(): pass"))
+
+        return variables
+
+    def _render_template(
+        self, template: str | list[dict[str, str]], variables: dict[str, str]
+    ) -> str:
+        """Render a prompt template with variables.
+
+        Handles both string templates and chat-format templates (list of messages).
+        """
+
+        def substitute(text: str, vars_dict: dict[str, str]) -> str:
+            for key, value in vars_dict.items():
+                text = re.sub(r"\{\{\s*" + key + r"\s*\}\}", str(value), text)
+            return text
+
+        if isinstance(template, str):
+            return substitute(template, variables)
+        elif isinstance(template, list):
+            rendered_parts = []
+            for msg in template:
+                role = msg.get("role", "user")
+                content = substitute(msg.get("content", ""), variables)
+                rendered_parts.append(f"[{role}]: {content}")
+            return "\n\n".join(rendered_parts)
+        else:
+            return str(template)
 
     def _create_session_traces(self, version: Literal["v1", "v2"], start_index: int) -> list[str]:
         """Create multi-turn conversation session traces."""
@@ -469,7 +565,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=start_ns,
         )
 
-        # Tool spans if any
         tool_start = start_ns + 5000
         for tool in trace_def.tools:
             tool_span = mlflow.start_span_no_context(
@@ -483,7 +578,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_end)
             tool_start = tool_end + 1000
 
-        # LLM span
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
