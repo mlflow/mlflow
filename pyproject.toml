@@ -522,7 +522,7 @@ extend-ignore-re = [
   "livin'",
 ]
 
-[tool.pytest.ini_options]
+[tool.pytest]
 strict = true
 addopts = [
   "-p",
