@@ -41,7 +41,11 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
-from mlflow.utils.uv_utils import detect_uv_project, export_uv_requirements
+from mlflow.utils.uv_utils import (
+    _is_uv_auto_detect_enabled,
+    detect_uv_project,
+    export_uv_requirements,
+)
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -420,22 +424,24 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
 
     """
     # Check for UV project first - if detected, use uv export instead of model-based inference
-    if uv_project := detect_uv_project():
-        _logger.info(
-            f"Detected UV project at {uv_project['uv_lock'].parent}. "
-            "Attempting to export requirements via 'uv export'."
-        )
-        if uv_requirements := export_uv_requirements(uv_project["uv_lock"].parent):
+    # Can be disabled via MLFLOW_UV_AUTO_DETECT=false
+    if _is_uv_auto_detect_enabled():
+        if uv_project := detect_uv_project():
             _logger.info(
-                f"Successfully exported {len(uv_requirements)} requirements from UV project. "
-                "Skipping model-based inference."
+                f"Detected UV project at {uv_project['uv_lock'].parent}. "
+                "Attempting to export requirements via 'uv export'."
             )
-            return uv_requirements
-        else:
-            _logger.warning(
-                "UV export failed or returned no requirements. "
-                "Falling back to model-based inference."
-            )
+            if uv_requirements := export_uv_requirements(uv_project["uv_lock"].parent):
+                _logger.info(
+                    f"Successfully exported {len(uv_requirements)} requirements from UV project. "
+                    "Skipping model-based inference."
+                )
+                return uv_requirements
+            else:
+                _logger.warning(
+                    "UV export failed or returned no requirements. "
+                    "Falling back to model-based inference."
+                )
 
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 

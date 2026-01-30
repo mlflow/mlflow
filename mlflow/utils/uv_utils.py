@@ -401,9 +401,23 @@ _PYTHON_VERSION_FILE = ".python-version"
 # Environment variable to disable UV file logging (for large projects)
 _MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
 
+# Environment variable to disable UV auto-detection entirely
+_MLFLOW_UV_AUTO_DETECT_ENV = "MLFLOW_UV_AUTO_DETECT"
+
 
 def _should_log_uv_files() -> bool:
+    """Check if UV files (uv.lock, pyproject.toml) should be logged as artifacts."""
     env_value = os.environ.get(_MLFLOW_LOG_UV_FILES_ENV, "true").lower()
+    return env_value not in ("false", "0", "no")
+
+
+def _is_uv_auto_detect_enabled() -> bool:
+    """Check if UV auto-detection is enabled.
+
+    When disabled via MLFLOW_UV_AUTO_DETECT=false, MLflow will skip UV project
+    detection entirely and use standard pip-based dependency inference.
+    """
+    env_value = os.environ.get(_MLFLOW_UV_AUTO_DETECT_ENV, "true").lower()
     return env_value not in ("false", "0", "no")
 
 

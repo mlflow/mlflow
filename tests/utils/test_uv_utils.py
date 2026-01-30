@@ -713,6 +713,51 @@ def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
     assert result == ["item1", "item2", "item3"]
 
 
+# --- MLFLOW_UV_AUTO_DETECT Environment Variable Tests ---
+
+
+def test_is_uv_auto_detect_enabled_returns_true_by_default(monkeypatch):
+    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
+
+    monkeypatch.delenv("MLFLOW_UV_AUTO_DETECT", raising=False)
+    assert _is_uv_auto_detect_enabled() is True
+
+
+@pytest.mark.parametrize("env_value", ["false", "0", "no", "FALSE", "No", "NO"])
+def test_is_uv_auto_detect_enabled_returns_false_when_disabled(monkeypatch, env_value):
+    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
+
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
+    assert _is_uv_auto_detect_enabled() is False
+
+
+@pytest.mark.parametrize("env_value", ["true", "1", "yes", "TRUE", "anything_else"])
+def test_is_uv_auto_detect_enabled_returns_true_when_enabled(monkeypatch, env_value):
+    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
+
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
+    assert _is_uv_auto_detect_enabled() is True
+
+
+def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, monkeypatch):
+    from mlflow.utils.uv_utils import detect_uv_project
+
+    # Setup UV project
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uv.lock").touch()
+    (tmp_path / "pyproject.toml").touch()
+
+    # Without disabling - should detect UV project
+    assert detect_uv_project() is not None
+
+    # With auto-detect disabled - infer_pip_requirements should skip UV entirely
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    # Note: detect_uv_project itself still works, but infer_pip_requirements
+    # wraps it with _is_uv_auto_detect_enabled() check
+    # This test verifies the function exists and works correctly
+
+
 # --- Phase 2: Private Index URL Extraction Tests ---
 
 

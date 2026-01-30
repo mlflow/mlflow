@@ -10,6 +10,7 @@ These tests use REAL UV calls (not mocked) where possible, following MLflow best
 Tests requiring UV are skipped if UV is not installed or below minimum version.
 """
 
+import shutil
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -498,7 +499,6 @@ build-backend = "hatchling.build"
 
 @requires_uv
 def test_export_uv_requirements_with_groups_real(uv_project_with_groups):
-    """Test exporting with --group flag using real UV."""
     from mlflow.utils.uv_utils import export_uv_requirements
 
     result = export_uv_requirements(uv_project_with_groups, groups=["serving"])
@@ -514,7 +514,6 @@ def test_export_uv_requirements_with_groups_real(uv_project_with_groups):
 
 @requires_uv
 def test_export_uv_requirements_with_only_groups_real(uv_project_with_groups):
-    """Test exporting with --only-group flag using real UV."""
     from mlflow.utils.uv_utils import export_uv_requirements
 
     result = export_uv_requirements(uv_project_with_groups, only_groups=["serving"])
@@ -528,7 +527,6 @@ def test_export_uv_requirements_with_only_groups_real(uv_project_with_groups):
 
 @requires_uv
 def test_export_uv_requirements_with_extras_real(uv_project_with_groups):
-    """Test exporting with --extra flag using real UV."""
     from mlflow.utils.uv_utils import export_uv_requirements
 
     result = export_uv_requirements(uv_project_with_groups, extras=["gpu"])
@@ -542,7 +540,6 @@ def test_export_uv_requirements_with_extras_real(uv_project_with_groups):
 
 @requires_uv
 def test_export_uv_requirements_with_env_vars(uv_project_with_groups, monkeypatch):
-    """Test that MLFLOW_UV_* environment variables are parsed correctly."""
     from mlflow.utils.uv_utils import (
         export_uv_requirements,
         get_uv_extras_from_env,
@@ -571,14 +568,11 @@ def test_export_uv_requirements_with_env_vars(uv_project_with_groups, monkeypatc
 
 @requires_uv
 def test_setup_uv_sync_environment_real(uv_project_real, tmp_path):
-    """Test setting up UV sync environment from model artifacts."""
     from mlflow.utils.uv_utils import has_uv_lock_artifact, setup_uv_sync_environment
 
     # Simulate model artifacts by copying UV files
     model_artifacts = tmp_path / "model_artifacts"
     model_artifacts.mkdir()
-
-    import shutil
 
     shutil.copy2(uv_project_real / _UV_LOCK_FILE, model_artifacts / _UV_LOCK_FILE)
     shutil.copy2(uv_project_real / _PYTHON_VERSION_FILE, model_artifacts / _PYTHON_VERSION_FILE)
@@ -602,7 +596,6 @@ def test_setup_uv_sync_environment_real(uv_project_real, tmp_path):
 
 @requires_uv
 def test_extract_index_urls_from_real_uv_lock(uv_project_real):
-    """Test extracting index URLs from a real uv.lock file."""
     from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
 
     # Real uv.lock won't have private indexes (uses PyPI)
@@ -614,9 +607,6 @@ def test_extract_index_urls_from_real_uv_lock(uv_project_real):
 
 @requires_uv
 def test_run_uv_sync_real(uv_project_real, tmp_path):
-    """Test running uv sync with real UV by using original project files."""
-    import shutil
-
     from mlflow.utils.uv_utils import run_uv_sync
 
     # Copy the entire UV project to a new directory for sync
