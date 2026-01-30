@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_SEARCH_SESSIONS_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
@@ -669,6 +669,23 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
         return None
 
 
+def _get_search_locations(locations: list[str] | None) -> list[str]:
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    _validate_list_param("locations", locations, allow_none=True)
+
+    if locations:
+        return locations
+
+    if experiment_id := _get_experiment_id():
+        return [experiment_id]
+
+    raise MlflowException(
+        "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
+        "or specify the list of experiment IDs in the `locations` parameter."
+    )
+
+
 @deprecated_parameter("experiment_ids", "locations")
 def search_traces(
     experiment_ids: list[str] | None = None,
@@ -810,7 +827,6 @@ def search_traces(
         mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
-    from mlflow.tracking.fluent import _get_experiment_id
 
     if sql_warehouse_id is not None:
         warnings.warn(
@@ -854,18 +870,9 @@ def search_traces(
                 ),
             )
 
-    _validate_list_param("locations", locations, allow_none=True)
-
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
-
-        if experiment_id := _get_experiment_id():
-            locations = [experiment_id]
-        else:
-            raise MlflowException(
-                "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `locations` parameter."
-            )
+        locations = _get_search_locations(locations)
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return TracingClient().search_traces(
@@ -894,9 +901,7 @@ def search_traces(
 
 @experimental(version="3.10.0")
 def search_sessions(
-    filter_string: str | None = None,
     max_results: int = 100,
-    order_by: list[str] | None = None,
     run_id: str | None = None,
     model_id: str | None = None,
     include_spans: bool = True,
@@ -911,9 +916,7 @@ def search_sessions(
     belonging to each session in parallel.
 
     Args:
-        filter_string: A search filter string applied when searching for session IDs.
         max_results: Maximum number of sessions to return. Default is 100.
-        order_by: List of order_by clauses for ordering traces when discovering sessions.
         run_id: A run id to scope the search. When a trace is created under an active run,
             it will be associated with the run and you can filter on the run id to retrieve
             traces.
@@ -927,8 +930,10 @@ def search_sessions(
 
     Returns:
         A list of :py:class:`Session <mlflow.entities.Session>` objects, where each session
-        is a list of :py:class:`Trace <mlflow.entities.Trace>` objects that share the same
+        contains :py:class:`Trace <mlflow.entities.Trace>` objects that share the same
         session ID. Sessions are ordered by the timestamp of their first trace (most recent first).
+        Each Session object provides convenient access via ``session.id`` and supports
+        iteration with ``for trace in session``.
 
     .. code-block:: python
         :caption: Basic usage - search sessions in an experiment
@@ -938,9 +943,9 @@ def search_sessions(
         # Get all sessions from the current experiment
         sessions = mlflow.search_sessions()
 
-        # Each session is a list of traces representing a conversation
+        # Each session provides convenient access to ID and traces
         for session in sessions:
-            print(f"Session has {len(session)} traces")
+            print(f"Session {session.id} has {len(session)} traces")
             for trace in session:
                 print(f"  Trace: {trace.info.trace_id}")
 
@@ -959,20 +964,9 @@ def search_sessions(
         all_traces = [trace for session in sessions for trace in session]
         mlflow.genai.evaluate(data=all_traces)
     """
-    from mlflow.tracking.fluent import _get_experiment_id
-
-    _validate_list_param("locations", locations, allow_none=True)
-
     if not locations:
         _logger.debug("Searching sessions in the current active experiment")
-
-        if experiment_id := _get_experiment_id():
-            locations = [experiment_id]
-        else:
-            raise MlflowException(
-                "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `locations` parameter."
-            )
+    locations = _get_search_locations(locations)
 
     session_id_key = TraceMetadataKey.TRACE_SESSION
 
@@ -983,9 +977,8 @@ def search_sessions(
 
     while len(session_ids) < max_results:
         traces: list[Trace] = TracingClient().search_traces(
-            filter_string=filter_string,
             max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-            order_by=order_by or ["timestamp DESC"],
+            order_by=["timestamp DESC"],
             page_token=page_token,
             include_spans=False,
             run_id=run_id,
@@ -1011,13 +1004,9 @@ def search_sessions(
     # Step 2: Fetch complete traces for each session in parallel
     def fetch_session_traces(session_id: str) -> list[Trace]:
         session_filter = f"metadata.`{session_id_key}` = '{session_id}'"
-        if filter_string:
-            combined_filter = f"({filter_string}) AND {session_filter}"
-        else:
-            combined_filter = session_filter
 
         return search_traces(
-            filter_string=combined_filter,
+            filter_string=session_filter,
             max_results=None,  # Get all traces in the session
             order_by=["timestamp ASC"],  # Order by time within session
             include_spans=include_spans,
@@ -1027,15 +1016,15 @@ def search_sessions(
             locations=locations,
         )
 
-    max_workers = min(len(session_ids), MLFLOW_SEARCH_SESSIONS_MAX_WORKERS.get())
+    max_workers = min(len(session_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
     with ThreadPoolExecutor(
         max_workers=max_workers,
         thread_name_prefix="search_sessions",
     ) as executor:
         session_results = list(executor.map(fetch_session_traces, session_ids))
 
-    # Filter out empty sessions and preserve order
-    sessions: list[Session] = [s for s in session_results if s]
+    # Filter out empty sessions, wrap in Session objects, and preserve order
+    sessions: list[Session] = [Session(s) for s in session_results if s]
 
     return sessions
 

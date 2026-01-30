@@ -2472,10 +2472,8 @@ def test_search_sessions_returns_grouped_traces():
 
     assert len(sessions) == 2
 
-    # Convert to dict keyed by session ID for easier assertions
-    sessions_by_id = {
-        s[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION): s for s in sessions
-    }
+    # Convert to dict keyed by session.id for easier assertions
+    sessions_by_id = {s.id: s for s in sessions}
 
     assert len(sessions_by_id[session_id_1]) == 2
     assert len(sessions_by_id[session_id_2]) == 1
