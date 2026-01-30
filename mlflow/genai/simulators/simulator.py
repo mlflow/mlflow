@@ -466,14 +466,20 @@ class ConversationSimulator:
             from mlflow.genai.simulators import ConversationSimulator
             from mlflow.genai.scorers import ConversationalSafety, Safety
 
+            # Cache to store conversation threads by session ID
+            conversation_threads = {}
+
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
                 # The mlflow_session_id uniquely identifies this conversation session.
                 # All turns in the same conversation share the same session ID.
                 session_id = kwargs.get("mlflow_session_id")
 
-                # You can use this to maintain state across turns, e.g.:
-                # thread = get_or_create_thread(session_id)
+                # Use the session ID to maintain state across turns - for example,
+                # storing conversation context, user preferences, or agent memory
+                if session_id not in conversation_threads:
+                    conversation_threads[session_id] = {"turn_count": 0}
+                conversation_threads[session_id]["turn_count"] += 1
 
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
