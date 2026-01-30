@@ -5,6 +5,7 @@ import pytest
 from guardrails import Validator, register_validator
 from guardrails.classes.validation.validation_result import FailResult, PassResult
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
@@ -199,3 +200,55 @@ def test_guardrails_scorer_guard_is_real_instance(mock_validator_class):
         scorer = ToxicLanguage()
 
     assert isinstance(scorer._guard, guardrails.Guard)
+
+
+def _create_test_trace(inputs=None, outputs=None):
+    """Create a test trace using mlflow.start_span()."""
+    with mlflow.start_span() as span:
+        if inputs is not None:
+            span.set_inputs(inputs)
+        if outputs is not None:
+            span.set_outputs(outputs)
+    return mlflow.get_trace(span.trace_id)
+
+
+def test_guardrails_scorer_with_trace(mock_validator_class):
+    trace = _create_test_trace(
+        inputs={"question": "What is MLflow?"},
+        outputs={"answer": "MLflow is a clean ML platform."},
+    )
+
+    with patch(
+        "mlflow.genai.scorers.guardrails.get_validator_class",
+        return_value=mock_validator_class,
+    ):
+        scorer = ToxicLanguage()
+        result = scorer(trace=trace)
+
+    assert isinstance(result, Feedback)
+    assert result.name == "ToxicLanguage"
+    assert result.value == CategoricalRating.YES
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="guardrails/ToxicLanguage",
+    )
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
+
+
+def test_guardrails_scorer_with_trace_failure(mock_validator_class):
+    trace = _create_test_trace(
+        inputs={"question": "What is toxic?"},
+        outputs={"answer": "This is toxic content."},
+    )
+
+    with patch(
+        "mlflow.genai.scorers.guardrails.get_validator_class",
+        return_value=mock_validator_class,
+    ):
+        scorer = ToxicLanguage()
+        result = scorer(trace=trace)
+
+    assert isinstance(result, Feedback)
+    assert result.name == "ToxicLanguage"
+    assert result.value == CategoricalRating.NO
+    assert "Content flagged as inappropriate" in result.rationale
