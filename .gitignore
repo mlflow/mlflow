@@ -4,6 +4,7 @@ mlartifacts/
 outputs/
 mlruns*.db
 mlflow.db
+mlflow-test.db
 # SQLite WAL mode temporary files
 *-shm
 *-wal
@@ -123,6 +124,7 @@ examples/pytorch/*/data/
 a.py
 a.ipynb
 a.md
+b.py
 
 # Log file created by pre-commit hook for black
 .black.log
