@@ -274,26 +274,30 @@ class GetTraceUcStorageLocationResponse(_message.Message):
     def __init__(self, uc_table_prefix_location: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class LinkExperimentToUCTraceLocation(_message.Message):
-    __slots__ = ("experiment_id", "uc_schema")
+    __slots__ = ("experiment_id", "uc_schema", "uc_table_prefix")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     uc_schema: UCSchemaLocation
-    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    uc_table_prefix: UcTablePrefixLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class UnLinkExperimentToUCTraceLocation(_message.Message):
-    __slots__ = ("experiment_id", "uc_schema")
+    __slots__ = ("experiment_id", "uc_schema", "uc_table_prefix")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     uc_schema: UCSchemaLocation
-    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    uc_table_prefix: UcTablePrefixLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class Assessment(_message.Message):
     __slots__ = ("assessment_id", "assessment_name", "trace_id", "trace_location", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "rationale", "metadata", "overrides", "valid")

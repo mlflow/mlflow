@@ -598,6 +598,7 @@ message LinkExperimentToUCTraceLocation {
   // Location to link.
   oneof location {
     UCSchemaLocation uc_schema = 2;
+    UcTablePrefixLocation uc_table_prefix = 3;
   }
 
   message Response {}
@@ -612,6 +613,7 @@ message UnLinkExperimentToUCTraceLocation {
   // Location to unlink.
   oneof location {
     UCSchemaLocation uc_schema = 2;
+    UcTablePrefixLocation uc_table_prefix = 3;
   }
 
   message Response {}

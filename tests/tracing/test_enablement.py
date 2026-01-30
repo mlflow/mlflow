@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation, UcTablePrefixLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.enablement import (
     set_experiment_trace_location,
@@ -154,3 +154,63 @@ def test_non_databricks_tracking_uri_errors():
         match="The `unset_experiment_trace_location` API is only supported on Databricks.",
     ):
         unset_experiment_trace_location(location=UCSchemaLocation("test_catalog", "test_schema"))
+
+
+@skip_when_testing_trace_sdk
+def test_set_experiment_trace_location_with_uc_table_prefix(mock_databricks_tracking_uri):
+    experiment_id = mlflow.create_experiment("test_experiment_prefix")
+    location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="myapp_",
+    )
+    sql_warehouse_id = "test-warehouse-id"
+
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+
+        expected_location = UcTablePrefixLocation(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            table_prefix="myapp_",
+            spans_table_name="test_catalog.test_schema.myapp_otel_spans",
+            logs_table_name="test_catalog.test_schema.myapp_otel_logs",
+            metrics_table_name="test_catalog.test_schema.myapp_otel_metrics",
+        )
+        mock_client._set_experiment_trace_location.return_value = expected_location
+
+        result = set_experiment_trace_location(
+            location=location,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+
+        mock_client._set_experiment_trace_location.assert_called_once_with(
+            location=location,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+        assert result == expected_location
+        assert result.spans_table_name == "test_catalog.test_schema.myapp_otel_spans"
+
+
+def test_unset_experiment_trace_location_with_uc_table_prefix(mock_databricks_tracking_uri):
+    experiment_id = "123"
+    location = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="myapp_",
+    )
+
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        unset_experiment_trace_location(
+            location=location,
+            experiment_id=experiment_id,
+        )
+        mock_client._unset_experiment_trace_location.assert_called_once_with(
+            experiment_id,
+            location,
+        )

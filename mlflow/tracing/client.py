@@ -13,7 +13,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation, UcTablePrefixLocation
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
@@ -700,10 +700,10 @@ class TracingClient:
 
     def _set_experiment_trace_location(
         self,
-        location: UCSchemaLocation,
+        location: UCSchemaLocation | UcTablePrefixLocation,
         experiment_id: str,
         sql_warehouse_id: str | None = None,
-    ) -> UCSchemaLocation:
+    ) -> UCSchemaLocation | UcTablePrefixLocation:
         if is_databricks_uri(self.tracking_uri):
             return self.store.set_experiment_trace_location(
                 experiment_id=str(experiment_id),
@@ -715,7 +715,7 @@ class TracingClient:
         )
 
     def _unset_experiment_trace_location(
-        self, experiment_id: str, location: UCSchemaLocation
+        self, experiment_id: str, location: UCSchemaLocation | UcTablePrefixLocation
     ) -> None:
         if is_databricks_uri(self.tracking_uri):
             self.store.unset_experiment_trace_location(str(experiment_id), location)

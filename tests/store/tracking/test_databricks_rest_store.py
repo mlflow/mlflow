@@ -18,7 +18,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation, UcTablePrefixLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -38,6 +38,9 @@ from mlflow.protos.databricks_tracing_pb2 import (
     UnLinkExperimentToUCTraceLocation,
 )
 from mlflow.protos.databricks_tracing_pb2 import UCSchemaLocation as ProtoUCSchemaLocation
+from mlflow.protos.databricks_tracing_pb2 import (
+    UcTablePrefixLocation as ProtoUcTablePrefixLocation,
+)
 from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
@@ -953,6 +956,112 @@ def test_unset_experiment_trace_location_with_uc_schema():
         assert request_body["experiment_id"] == experiment_id
         assert request_body["uc_schema"]["catalog_name"] == "test_catalog"
         assert request_body["uc_schema"]["schema_name"] == "test_schema"
+        expected_endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
+        assert call_args[1]["endpoint"] == expected_endpoint
+
+
+def test_set_experiment_trace_location_with_uc_table_prefix():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    experiment_id = "123"
+    uc_table_prefix = UcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="myapp_",
+    )
+    sql_warehouse_id = "test-warehouse-id"
+
+    # Mock response for CreateTraceUCStorageLocation
+    create_location_response = mock.MagicMock()
+    create_location_response.uc_table_prefix_location = ProtoUcTablePrefixLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        table_prefix="myapp_",
+        spans_table_name="test_catalog.test_schema.myapp_otel_spans",
+        logs_table_name="test_catalog.test_schema.myapp_otel_logs",
+        metrics_table_name="test_catalog.test_schema.myapp_otel_metrics",
+    )
+
+    # Mock response for LinkExperimentToUCTraceLocation
+    link_response = mock.MagicMock()
+    link_response.status_code = 200
+    link_response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.side_effect = [create_location_response, link_response]
+
+        result = store.set_experiment_trace_location(
+            location=uc_table_prefix,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+
+        assert mock_call.call_count == 2
+
+        # Verify CreateTraceUCStorageLocation call
+        first_call = mock_call.call_args_list[0]
+        assert first_call[0][0] == CreateTraceUCStorageLocation
+        create_request_body = json.loads(first_call[0][1])
+        assert create_request_body["uc_table_prefix"]["catalog_name"] == "test_catalog"
+        assert create_request_body["uc_table_prefix"]["schema_name"] == "test_schema"
+        assert create_request_body["uc_table_prefix"]["table_prefix"] == "myapp_"
+        assert create_request_body["sql_warehouse_id"] == sql_warehouse_id
+        assert first_call[1]["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location"
+
+        # Verify LinkExperimentToUCTraceLocation call
+        second_call = mock_call.call_args_list[1]
+        assert second_call[0][0] == LinkExperimentToUCTraceLocation
+        link_request_body = json.loads(second_call[0][1])
+        assert link_request_body["experiment_id"] == experiment_id
+        assert link_request_body["uc_table_prefix"]["catalog_name"] == "test_catalog"
+        assert link_request_body["uc_table_prefix"]["schema_name"] == "test_schema"
+        assert link_request_body["uc_table_prefix"]["table_prefix"] == "myapp_"
+        assert (
+            link_request_body["uc_table_prefix"]["spans_table_name"]
+            == "test_catalog.test_schema.myapp_otel_spans"
+        )
+        assert (
+            second_call[1]["endpoint"]
+            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/link-location"
+        )
+
+        assert isinstance(result, UcTablePrefixLocation)
+        assert result.catalog_name == "test_catalog"
+        assert result.schema_name == "test_schema"
+        assert result.table_prefix == "myapp_"
+        assert result.spans_table_name == "test_catalog.test_schema.myapp_otel_spans"
+
+
+def test_unset_experiment_trace_location_with_uc_table_prefix():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    experiment_id = "123"
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        store.unset_experiment_trace_location(
+            experiment_id=experiment_id,
+            location=UcTablePrefixLocation(
+                catalog_name="test_catalog",
+                schema_name="test_schema",
+                table_prefix="myapp_",
+            ),
+        )
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == UnLinkExperimentToUCTraceLocation
+        request_body = json.loads(call_args[0][1])
+        assert request_body["experiment_id"] == experiment_id
+        assert request_body["uc_table_prefix"]["catalog_name"] == "test_catalog"
+        assert request_body["uc_table_prefix"]["schema_name"] == "test_schema"
+        assert request_body["uc_table_prefix"]["table_prefix"] == "myapp_"
         expected_endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
         assert call_args[1]["endpoint"] == expected_endpoint
 

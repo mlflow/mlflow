@@ -477,23 +477,36 @@ class DatabricksTracingRestStore(RestStore):
 
     def set_experiment_trace_location(
         self,
-        location: UCSchemaLocationEntity,
+        location: UCSchemaLocationEntity | UcTablePrefixLocationEntity,
         experiment_id: str,
         sql_warehouse_id: str | None = None,
-    ) -> UCSchemaLocationEntity:
-        req_body = message_to_json(
-            CreateTraceUCStorageLocation(
-                uc_schema=uc_schema_location_to_proto(location),
-                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+    ) -> UCSchemaLocationEntity | UcTablePrefixLocationEntity:
+        # Build request based on location type
+        if isinstance(location, UcTablePrefixLocationEntity):
+            req_body = message_to_json(
+                CreateTraceUCStorageLocation(
+                    uc_table_prefix=uc_table_prefix_location_to_proto(location),
+                    sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
             )
-        )
+        else:
+            req_body = message_to_json(
+                CreateTraceUCStorageLocation(
+                    uc_schema=uc_schema_location_to_proto(location),
+                    sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+
         try:
             response = self._call_endpoint(
                 CreateTraceUCStorageLocation,
                 req_body,
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
             )
-            location = uc_schema_location_from_proto(response.uc_schema)
+            if isinstance(location, UcTablePrefixLocationEntity):
+                location = uc_table_prefix_location_from_proto(response.uc_table_prefix_location)
+            else:
+                location = uc_schema_location_from_proto(response.uc_schema)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(ALREADY_EXISTS):
                 _logger.debug(f"Trace UC storage location already exists: {location}")
@@ -501,13 +514,21 @@ class DatabricksTracingRestStore(RestStore):
                 raise
         _logger.debug(f"Created trace UC storage location: {location}")
 
-        # link experiment to uc trace location
-        req_body = message_to_json(
-            LinkExperimentToUCTraceLocation(
-                experiment_id=experiment_id,
-                uc_schema=uc_schema_location_to_proto(location),
+        # Link experiment to UC trace location
+        if isinstance(location, UcTablePrefixLocationEntity):
+            req_body = message_to_json(
+                LinkExperimentToUCTraceLocation(
+                    experiment_id=experiment_id,
+                    uc_table_prefix=uc_table_prefix_location_to_proto(location),
+                )
             )
-        )
+        else:
+            req_body = message_to_json(
+                LinkExperimentToUCTraceLocation(
+                    experiment_id=experiment_id,
+                    uc_schema=uc_schema_location_to_proto(location),
+                )
+            )
 
         self._call_endpoint(
             LinkExperimentToUCTraceLocation,
@@ -518,12 +539,18 @@ class DatabricksTracingRestStore(RestStore):
         return location
 
     def unset_experiment_trace_location(
-        self, experiment_id: str, location: UCSchemaLocationEntity
+        self, experiment_id: str, location: UCSchemaLocationEntity | UcTablePrefixLocationEntity
     ) -> None:
-        request = UnLinkExperimentToUCTraceLocation(
-            experiment_id=experiment_id,
-            uc_schema=uc_schema_location_to_proto(location),
-        )
+        if isinstance(location, UcTablePrefixLocationEntity):
+            request = UnLinkExperimentToUCTraceLocation(
+                experiment_id=experiment_id,
+                uc_table_prefix=uc_table_prefix_location_to_proto(location),
+            )
+        else:
+            request = UnLinkExperimentToUCTraceLocation(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema_location_to_proto(location),
+            )
         endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
         req_body = message_to_json(request)
         self._call_endpoint(

@@ -5,7 +5,7 @@ Trace enablement functionality for MLflow to enable tracing to Databricks Storag
 import logging
 
 import mlflow
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation, UcTablePrefixLocation
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
@@ -16,16 +16,16 @@ _logger = logging.getLogger(__name__)
 
 @experimental(version="3.5.0")
 def set_experiment_trace_location(
-    location: UCSchemaLocation,
+    location: UCSchemaLocation | UcTablePrefixLocation,
     experiment_id: str | None = None,
     sql_warehouse_id: str | None = None,
-) -> UCSchemaLocation:
+) -> UCSchemaLocation | UcTablePrefixLocation:
     """
     Configure the storage location for traces of an experiment.
 
     Unity Catalog tables for storing trace data will be created in the specified schema.
     When tracing is enabled, all traces for the specified experiment will be
-    stored in the provided Unity Catalog schema.
+    stored in the provided Unity Catalog location.
 
     .. note::
 
@@ -35,6 +35,7 @@ def set_experiment_trace_location(
 
     Args:
         location: The storage location for experiment traces in Unity Catalog.
+            Can be either UCSchemaLocation or UcTablePrefixLocation.
         experiment_id: The MLflow experiment ID to set the storage location for.
             If not specified, the current active experiment will be used.
         sql_warehouse_id: SQL warehouse ID for creating views and querying.
@@ -42,23 +43,33 @@ def set_experiment_trace_location(
             fallback to the default SQL warehouse if the environment variable is not set.
 
     Returns:
-        The UCSchemaLocation object representing the configured storage location, including
-        the table names of the spans and logs tables.
+        The location object representing the configured storage location, including
+        the table names of the spans, logs, and metrics tables.
 
     Example:
 
         .. code-block:: python
 
             import mlflow
-            from mlflow.entities import UCSchemaLocation
+            from mlflow.entities import UCSchemaLocation, UcTablePrefixLocation
 
+            # Using UCSchemaLocation
             location = UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
-
             result = mlflow.tracing.set_experiment_trace_location(
                 location=location,
                 experiment_id="12345",
             )
-            print(result.full_otel_spans_table_name)  # my_catalog.my_schema.otel_spans_table
+
+            # Using UcTablePrefixLocation
+            location = UcTablePrefixLocation(
+                catalog_name="my_catalog",
+                schema_name="my_schema",
+                table_prefix="myapp_"
+            )
+            result = mlflow.tracing.set_experiment_trace_location(
+                location=location,
+                experiment_id="12345",
+            )
 
 
             @mlflow.trace
@@ -113,7 +124,7 @@ def set_experiment_trace_location(
 
 @experimental(version="3.5.0")
 def unset_experiment_trace_location(
-    location: UCSchemaLocation,
+    location: UCSchemaLocation | UcTablePrefixLocation,
     experiment_id: str | None = None,
 ) -> None:
     """
@@ -123,7 +134,8 @@ def unset_experiment_trace_location(
     including the view and the experiment tag.
 
     Args:
-        location: The storage location to unset.
+        location: The storage location to unset. Can be either UCSchemaLocation
+            or UcTablePrefixLocation.
         experiment_id: The MLflow experiment ID to unset the storage location for. If not provided,
             the current active experiment will be used.
 
@@ -132,10 +144,21 @@ def unset_experiment_trace_location(
         .. code-block:: python
 
             import mlflow
-            from mlflow.entities import UCSchemaLocation
+            from mlflow.entities import UCSchemaLocation, UcTablePrefixLocation
 
+            # Unset UCSchemaLocation
             mlflow.tracing.unset_experiment_trace_location(
                 location=UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema"),
+                experiment_id="12345",
+            )
+
+            # Unset UcTablePrefixLocation
+            mlflow.tracing.unset_experiment_trace_location(
+                location=UcTablePrefixLocation(
+                    catalog_name="my_catalog",
+                    schema_name="my_schema",
+                    table_prefix="myapp_"
+                ),
                 experiment_id="12345",
             )
 
@@ -149,9 +172,10 @@ def unset_experiment_trace_location(
             "The `unset_experiment_trace_location` API is only supported on Databricks."
         )
 
-    if not isinstance(location, UCSchemaLocation):
+    if not isinstance(location, (UCSchemaLocation, UcTablePrefixLocation)):
         raise MlflowException.invalid_parameter_value(
-            "`location` must be an instance of `mlflow.entities.UCSchemaLocation`."
+            "`location` must be an instance of `mlflow.entities.UCSchemaLocation` "
+            "or `mlflow.entities.UcTablePrefixLocation`."
         )
     experiment_id = experiment_id or _get_experiment_id()
     if experiment_id is None:
