@@ -36,6 +36,8 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -100,12 +102,9 @@ const RunViewEvaluationsTabInner = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-  const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [compareToRunUuid, setCompareToRunUuidBase] = useCompareToRunUuid();
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
-
-  const onToggleSessionGrouping = useCallback(() => {
-    setIsGroupedBySession(!isGroupedBySession);
-  }, [isGroupedBySession]);
+  const hasAutoSelectedGoalPersona = useRef(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -196,6 +195,79 @@ const RunViewEvaluationsTabInner = ({
     compareToRunUuid,
     isQueryDisabled,
   });
+
+  // Helper to add goal/persona columns if traces have the metadata
+  const maybeAddGoalPersonaColumns = useCallback(
+    (traces: ModelTraceInfoV3[]) => {
+      if (hasAutoSelectedGoalPersona.current || traces.length === 0) {
+        return;
+      }
+
+      const hasGoalMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.goal']));
+      const hasPersonaMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.persona']));
+
+      if (!hasGoalMetadata && !hasPersonaMetadata) {
+        return;
+      }
+
+      const columnsToAdd: TracesTableColumn[] = [];
+      const goalColumn = allColumns.find((col) => col.id === SIMULATION_GOAL_COLUMN_ID);
+      const personaColumn = allColumns.find((col) => col.id === SIMULATION_PERSONA_COLUMN_ID);
+
+      if (hasGoalMetadata && goalColumn && !selectedColumns.some((col) => col.id === SIMULATION_GOAL_COLUMN_ID)) {
+        columnsToAdd.push(goalColumn);
+      }
+      if (
+        hasPersonaMetadata &&
+        personaColumn &&
+        !selectedColumns.some((col) => col.id === SIMULATION_PERSONA_COLUMN_ID)
+      ) {
+        columnsToAdd.push(personaColumn);
+      }
+
+      if (columnsToAdd.length > 0) {
+        toggleColumns(columnsToAdd);
+        hasAutoSelectedGoalPersona.current = true;
+      }
+    },
+    [allColumns, selectedColumns, toggleColumns],
+  );
+
+  // Handler for toggling session grouping
+  const onToggleSessionGrouping = useCallback(() => {
+    const newIsGrouped = !isGroupedBySession;
+    setIsGroupedBySession(newIsGrouped);
+
+    // When enabling grouping while comparing, auto-select goal/persona columns
+    if (newIsGrouped && compareToRunUuid) {
+      const allTraces = (traceInfos || []).concat(compareToRunData || []);
+      maybeAddGoalPersonaColumns(allTraces);
+    }
+
+    // Reset the ref when ungrouping so columns can be auto-selected again later
+    if (!newIsGrouped) {
+      hasAutoSelectedGoalPersona.current = false;
+    }
+  }, [isGroupedBySession, compareToRunUuid, traceInfos, compareToRunData, maybeAddGoalPersonaColumns]);
+
+  // Wrapper for setCompareToRunUuid that handles auto-selecting columns
+  const setCompareToRunUuid = useCallback(
+    (newCompareToRunUuid: string | undefined) => {
+      setCompareToRunUuidBase(newCompareToRunUuid);
+
+      // When starting comparison while grouped, auto-select columns
+      // Note: compareToRunData won't be available yet, so we use current traces
+      if (newCompareToRunUuid && isGroupedBySession && traceInfos) {
+        maybeAddGoalPersonaColumns(traceInfos);
+      }
+
+      // Reset the ref when stopping comparison so columns can be auto-selected again later
+      if (!newCompareToRunUuid) {
+        hasAutoSelectedGoalPersona.current = false;
+      }
+    },
+    [setCompareToRunUuidBase, isGroupedBySession, traceInfos, maybeAddGoalPersonaColumns],
+  );
 
   const hasSetInitialGrouping = useRef(false);
   useEffect(() => {
