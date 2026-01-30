@@ -23,6 +23,7 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
@@ -205,6 +206,17 @@ const TracesV3LogsImpl = React.memo(
       undefined, // runUuid
       columnStorageKeyPrefix,
     );
+
+    // Auto-select session column when session grouping is enabled
+    useEffect(() => {
+      if (isGroupedBySession || forceGroupBySession) {
+        const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
+        const isSessionColumnSelected = selectedColumns.some((col) => col.id === SESSION_COLUMN_ID);
+        if (sessionColumn && !isSessionColumnSelected) {
+          setSelectedColumns([...selectedColumns, sessionColumn]);
+        }
+      }
+    }, [isGroupedBySession, forceGroupBySession, allColumns, selectedColumns, setSelectedColumns]);
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
       key: REQUEST_TIME_COLUMN_ID,
