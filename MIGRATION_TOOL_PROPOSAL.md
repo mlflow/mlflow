@@ -30,15 +30,18 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 
 ## Comparison Matrix
 
-| Criteria           | Option 1 (Extend export-import) | Option 2 (New MLflow tool) ✅        |
-| ------------------ | ------------------------------- | ------------------------------------ |
-| Commands needed    | 4                               | 1                                    |
-| Learning cost      | High (new tool + multi-step)    | Low (single command)                 |
-| Development effort | Medium                          | Medium                               |
-| Performance        | Medium (API overhead)           | High (direct)                        |
-| Maintenance        | External repo                   | MLflow core (can use internal utils) |
-| Dependency         | External package                | None                                 |
-| Testing effort     | High (requires running servers) | Low (all local, file-based)          |
+| Criteria           | Option 1 (Use export-import) | Option 2 (New MLflow tool) ✅ |
+| ------------------ | ---------------------------- | ----------------------------- |
+| Preserve data      | No (new IDs/timestamps)      | Yes                           |
+| Commands needed    | 4                            | 1                             |
+| Learning cost\*    | High (new tool + multi-step) | Low (single command)          |
+| Development effort | None                         | Medium\*\*                    |
+| Performance        | Medium (API overhead)        | High (direct)                 |
+| Maintenance        | External repo                | MLflow core (internal utils)  |
+| Dependency         | External package             | None                          |
+
+- \*For most users, this migration is a new process they haven't done before.
+- \*\*Goal state is clearly defined (`original_data == migrated_data`), so coding agents can significantly reduce implementation/testing effort.
 
 ## Recommendation
 
