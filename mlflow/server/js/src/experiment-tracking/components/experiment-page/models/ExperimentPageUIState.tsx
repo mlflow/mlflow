@@ -26,17 +26,45 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'chartsSearchFilter',
 ];
 
+// Canonical keys for Date and Duration columns (used for migration)
+const DATE_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE);
+const DURATION_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION);
+
 const getDefaultSelectedColumns = () => {
   const result = [
     // "Date" and "Duration" columns are visible by default
-    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE),
-    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION),
+    DATE_COLUMN_KEY,
+    DURATION_COLUMN_KEY,
     // "Source" and "Model" columns are visible by default
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET),
   ];
 
+  return result;
+};
+
+/**
+ * Migrates persisted UI state to add Date and Duration columns if missing.
+ * This ensures existing users don't lose these columns after upgrading.
+ */
+export const migrateSelectedColumns = (selectedColumns: string[]): string[] => {
+  const hasDate = selectedColumns.includes(DATE_COLUMN_KEY);
+  const hasDuration = selectedColumns.includes(DURATION_COLUMN_KEY);
+
+  // If both columns exist, no migration needed
+  if (hasDate && hasDuration) {
+    return selectedColumns;
+  }
+
+  // Add missing columns at the beginning
+  const result = [...selectedColumns];
+  if (!hasDuration) {
+    result.unshift(DURATION_COLUMN_KEY);
+  }
+  if (!hasDate) {
+    result.unshift(DATE_COLUMN_KEY);
+  }
   return result;
 };
 
