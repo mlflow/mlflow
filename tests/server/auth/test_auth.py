@@ -2156,16 +2156,16 @@ def test_prompt_optimization_job_search_permissions(client, monkeypatch):
     assert response.status_code == 403
 
     # Grant READ permission to user2
-    _send_rest_tracking_post_request(
-        client.tracking_uri,
-        "/api/2.0/mlflow/experiments/permissions/update",
-        json_payload={
+    response = requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={
             "experiment_id": experiment_id,
             "username": user2,
             "permission": "READ",
         },
         auth=(user1, password1),
     )
+    assert response.status_code == 200
 
     # user2 can now search jobs (READ grants can_read)
     response = requests.post(
@@ -2213,16 +2213,16 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
     assert response.status_code == 403
 
     # Grant EDIT permission to user2
-    _send_rest_tracking_post_request(
-        client.tracking_uri,
-        "/api/2.0/mlflow/experiments/permissions/update",
-        json_payload={
+    response = requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={
             "experiment_id": experiment_id,
             "username": user2,
             "permission": "EDIT",
         },
         auth=(user1, password1),
     )
+    assert response.status_code == 200
 
     # user2 can now create jobs (EDIT grants can_update)
     # The request will fail for other reasons (missing prompt, dataset, etc.)
