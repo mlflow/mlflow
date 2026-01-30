@@ -4,18 +4,22 @@ import { Zap, Bot, Target } from "lucide-react";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import JudgePrerequisites from '@site/src/content/judge_prerequisites.mdx';
+import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # ToolCallCorrectness Judge
 
-The `ToolCallCorrectness` judge evaluates whether the tools called by an agent and the arguments they are called with are correct and reasonable given the user request.
+The `ToolCallCorrectness` judge evaluates whether the tools called by an agent and the arguments they are called with are correct given the user request.
 
 This built-in LLM judge is designed for evaluating AI agents and tool-calling applications where you need to ensure the agent selects appropriate tools and provides correct arguments to fulfill the user's request.
+
+<JudgePrerequisites />
 
 ## Evaluation modes
 
 The `ToolCallCorrectness` judge supports three modes of evaluation:
 
-1. **Ground-truth free** (default): When no expectations are provided, uses an LLM to judge whether tool calls are reasonable given the user request and available tools.
+1. **Ground-truth free (default)**: When no expectations are provided, uses an LLM to judge whether tool calls are reasonable given the user request and available tools.
 
 2. **With expectations (fuzzy match)**: When expectations are provided and `should_exact_match=False`, uses an LLM to semantically compare actual tool calls against expected tool calls.
 
@@ -64,86 +68,20 @@ results = mlflow.genai.evaluate(
 </Tabs>
 </TabsWrapper>
 
-## Agent example
-
-Here's a complete example showing how to create a tool-calling agent and evaluate if its tool calls are correct:
-
-```python
-import json
-import mlflow
-import openai
-from mlflow.genai.scorers import ToolCallCorrectness
-
-mlflow.openai.autolog()
-client = openai.OpenAI()
-
-# Define the tool schema for the LLM
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "Get the current weather for a location",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {"type": "string", "description": "City and country"},
-                },
-                "required": ["location"],
-            },
-        },
-    },
-]
-
-
-# Define the tool function with proper span type
-@mlflow.trace(span_type="TOOL")
-def get_weather(location: str) -> dict:
-    # Simulated weather data - in practice, this would call a weather API
-    return {"temperature": 72, "condition": "sunny", "location": location}
-
-
-# Define your agent
-@mlflow.trace
-def agent(query: str):
-    # Call the LLM with tools
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": query}],
-        tools=tools,
-    )
-    message = response.choices[0].message
-    responses = []
-    if message.tool_calls:
-        for tool_call in message.tool_calls:
-            args = json.loads(tool_call.function.arguments)
-            result = get_weather(**args)
-            responses.append(
-                {
-                    "response": f"Weather in {result['location']}: {result['condition']}, {result['temperature']}°F"
-                }
-            )
-
-    return {"response": responses if responses else message.content}
-
-
-# Create evaluation dataset
-eval_dataset = [
-    {"inputs": {"query": "What's the weather like in Paris?"}},
-    {"inputs": {"query": "How's the weather in Tokyo?"}},
-]
-
-# Run evaluation with ToolCallCorrectness judge
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=agent,
-    scorers=[ToolCallCorrectness(model="openai:/gpt-4o-mini")],
-)
-```
+:::tip
+For a complete agent example with this judge, see the <ins>[Tool Call Evaluation guide](/genai/eval-monitor/scorers/llm-judge/tool-call/)</ins>.
+:::
 
 ## Using expectations for comparison
 
 You can provide expected tool calls to compare against the actual tool calls made by the agent.
+
+### Parameters
+
+| Parameter                  | Type   | Default | Description                                                                                                                                                                                    |
+| -------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `should_exact_match`       | `bool` | `False` | Controls comparison mode when expectations are provided. If `False`, uses LLM for semantic comparison of tool calls. If `True`, performs direct string comparison of tool names and arguments. |
+| `should_consider_ordering` | `bool` | `False` | Whether to enforce the order of tool calls when comparing against expectations. If `True`, tool calls must match the expected order. If `False`, order is ignored.                             |
 
 ### Fuzzy matching (default)
 
@@ -175,7 +113,7 @@ eval_dataset = [
 # Evaluate with fuzzy matching (default)
 eval_results = mlflow.genai.evaluate(
     data=eval_dataset,
-    predict_fn=agent,
+    predict_fn=weather_agent,
     scorers=[ToolCallCorrectness()],  # should_exact_match=False by default
 )
 ```
@@ -187,12 +125,24 @@ With exact matching, tool names and arguments are compared directly:
 ```python
 from mlflow.genai.scorers import ToolCallCorrectness
 
+# Define expected tool calls
+eval_dataset = [
+    {
+        "inputs": {"query": "What's the weather in San Francisco?"},
+        "expectations": {
+            "expected_tool_calls": [
+                {"name": "get_weather", "arguments": {"location": "San Francisco, CA"}},
+            ]
+        },
+    },
+]
+
 # Use exact matching for stricter comparison
 scorer = ToolCallCorrectness(should_exact_match=True)
 
 eval_results = mlflow.genai.evaluate(
     data=eval_dataset,
-    predict_fn=agent,
+    predict_fn=weather_agent,
     scorers=[scorer],
 )
 ```
@@ -218,7 +168,7 @@ eval_dataset = [
 scorer = ToolCallCorrectness(should_exact_match=True)
 eval_results = mlflow.genai.evaluate(
     data=eval_dataset,
-    predict_fn=agent,
+    predict_fn=weather_agent,
     scorers=[scorer],
 )
 ```
@@ -251,30 +201,12 @@ eval_dataset = [
 
 eval_results = mlflow.genai.evaluate(
     data=eval_dataset,
-    predict_fn=agent,
+    predict_fn=weather_agent,
     scorers=[scorer],
 )
 ```
 
-## Select the LLM that powers the judge
-
-You can change the judge model by using the `model` argument in the judge definition. The model must be specified in the format `<provider>:/<model-name>`, where `<provider>` is a LiteLLM-compatible model provider.
-
-```python
-from mlflow.genai.scorers import ToolCallCorrectness
-
-# Use a different judge model
-correctness_judge = ToolCallCorrectness(
-    model="openai:/gpt-4o-mini"  # Or any LiteLLM-compatible model
-)
-
-# Use in evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset, predict_fn=agent, scorers=[correctness_judge]
-)
-```
-
-For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/#selecting-judge-models).
+<SelectJudgeModel />
 
 ## Interpret results
 
