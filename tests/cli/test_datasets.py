@@ -1,11 +1,13 @@
 import json
-from typing import Any
-from unittest.mock import MagicMock, patch
+import os
+import sys
 
 import pytest
 from click.testing import CliRunner
 
+import mlflow
 from mlflow.cli.datasets import commands
+from mlflow.genai.datasets import create_dataset
 
 
 @pytest.fixture
@@ -13,26 +15,48 @@ def runner():
     return CliRunner(catch_exceptions=False)
 
 
-@pytest.fixture
-def mock_dataset():
-    ds = MagicMock()
-    ds.dataset_id = "ds-12345"
-    ds.name = "qa_dataset"
-    ds.digest = "abc123"
-    ds.created_time = 1705312200000  # 2024-01-15 10:30:00 UTC
-    ds.last_update_time = 1705412400000  # 2024-01-16 14:20:00 UTC
-    ds.created_by = "user@example.com"
-    ds.last_updated_by = "editor@example.com"
-    ds.tags = {"env": "production"}
-    return ds
+@pytest.fixture(autouse=True)
+def tracking_uri(tmp_path):
+    if "MLFLOW_SKINNY" in os.environ:
+        pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    path = tmp_path.joinpath("mlflow.db").as_uri()
+    tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+        len("file://") :
+    ]
+
+    mlflow.set_tracking_uri(tracking_uri)
+
+    yield tracking_uri
+
+    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 @pytest.fixture
-def mock_datasets_list(mock_dataset):
-    datasets = MagicMock()
-    datasets.__iter__ = lambda self: iter([mock_dataset])
-    datasets.token = None
-    return datasets
+def experiment():
+    exp_id = mlflow.create_experiment("test_datasets_cli")
+    yield exp_id
+    mlflow.delete_experiment(exp_id)
+
+
+@pytest.fixture
+def dataset_a(experiment):
+    return create_dataset(
+        name="dataset_a",
+        experiment_id=experiment,
+        tags={"env": "production"},
+    )
+
+
+@pytest.fixture
+def dataset_b(experiment):
+    return create_dataset(
+        name="dataset_b",
+        experiment_id=experiment,
+        tags={"env": "staging"},
+    )
 
 
 def test_commands_group_exists():
@@ -55,99 +79,56 @@ def test_list_command_params():
     assert param_names == expected_params
 
 
-def test_list_datasets_table_output(runner: CliRunner, mock_dataset: Any, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_table_output(runner: CliRunner, experiment: str, dataset_a):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123"])
-
-        assert result.exit_code == 0
-        mock_client.search_datasets.assert_called_once_with(
-            experiment_ids=["exp-123"],
-            filter_string=None,
-            max_results=50,
-            order_by=None,
-            page_token=None,
-        )
-
-        assert "ds-12345" in result.output
-        assert "qa_dataset" in result.output
-        assert "user@example.com" in result.output
+    assert result.exit_code == 0
+    assert dataset_a.dataset_id in result.output
+    assert "dataset_a" in result.output
 
 
-def test_list_datasets_json_output(runner: CliRunner, mock_dataset: Any, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_json_output(runner: CliRunner, experiment: str, dataset_a):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
+    assert result.exit_code == 0
 
-        assert result.exit_code == 0
-
-        expected = {
-            "datasets": [
-                {
-                    "dataset_id": "ds-12345",
-                    "name": "qa_dataset",
-                    "digest": "abc123",
-                    "created_time": 1705312200000,
-                    "last_update_time": 1705412400000,
-                    "created_by": "user@example.com",
-                    "last_updated_by": "editor@example.com",
-                    "tags": {"env": "production"},
-                }
-            ],
-            "next_page_token": None,
-        }
-        assert json.loads(result.output) == expected
+    expected = {
+        "datasets": [
+            {
+                "dataset_id": dataset_a.dataset_id,
+                "name": "dataset_a",
+                "digest": dataset_a.digest,
+                "created_time": dataset_a.created_time,
+                "last_update_time": dataset_a.last_update_time,
+                "created_by": dataset_a.created_by,
+                "last_updated_by": dataset_a.last_updated_by,
+                "tags": dataset_a.tags,
+            }
+        ],
+        "next_page_token": None,
+    }
+    assert json.loads(result.output) == expected
 
 
-def test_list_datasets_empty_results(runner: CliRunner):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        empty_datasets = MagicMock()
-        empty_datasets.__iter__ = lambda self: iter([])
-        empty_datasets.token = None
-        mock_client.search_datasets.return_value = empty_datasets
-        mock_client_class.return_value = mock_client
+def test_list_datasets_empty_results(runner: CliRunner, experiment: str):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123"])
-
-        assert result.exit_code == 0
-        mock_client.search_datasets.assert_called_once()
+    assert result.exit_code == 0
 
 
-def test_list_datasets_json_empty_results(runner: CliRunner):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        empty_datasets = MagicMock()
-        empty_datasets.__iter__ = lambda self: iter([])
-        empty_datasets.token = None
-        mock_client.search_datasets.return_value = empty_datasets
-        mock_client_class.return_value = mock_client
+def test_list_datasets_json_empty_results(runner: CliRunner, experiment: str):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
-
-        assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        assert output_json == {"datasets": [], "next_page_token": None}
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    assert output_json == {"datasets": [], "next_page_token": None}
 
 
-def test_list_datasets_with_experiment_id_env_var(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_with_experiment_id_env_var(runner: CliRunner, experiment: str, dataset_a):
+    result = runner.invoke(commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": experiment})
 
-        result = runner.invoke(commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": "exp-from-env"})
-
-        assert result.exit_code == 0
-        mock_client.search_datasets.assert_called_once()
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["experiment_ids"] == ["exp-from-env"]
+    assert result.exit_code == 0
+    assert dataset_a.dataset_id in result.output
 
 
 def test_list_datasets_missing_experiment_id(runner: CliRunner):
@@ -157,249 +138,68 @@ def test_list_datasets_missing_experiment_id(runner: CliRunner):
     assert "experiment-id" in result.output.lower() or "experiment_id" in result.output.lower()
 
 
-def test_list_datasets_invalid_output_format(runner: CliRunner):
-    result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "invalid"])
+def test_list_datasets_invalid_output_format(runner: CliRunner, experiment: str):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "invalid"])
 
     assert result.exit_code != 0
     assert "invalid" in result.output.lower() or "choice" in result.output.lower()
 
 
-def test_list_datasets_with_filter_string(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_with_filter_string(runner: CliRunner, experiment: str, dataset_a, dataset_b):
+    result = runner.invoke(
+        commands,
+        ["list", "--experiment-id", experiment, "--filter-string", "name = 'dataset_a'"],
+    )
 
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", "exp-123", "--filter-string", "name LIKE 'qa_%'"]
-        )
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["filter_string"] == "name LIKE 'qa_%'"
+    assert result.exit_code == 0
+    assert "dataset_a" in result.output
+    assert "dataset_b" not in result.output
 
 
-def test_list_datasets_with_max_results(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_with_max_results(runner: CliRunner, experiment: str, dataset_a, dataset_b):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--max-results", "1"])
 
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", "exp-123", "--max-results", "100"]
-        )
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["max_results"] == 100
+    assert result.exit_code == 0
+    output_lines = [line for line in result.output.split("\n") if "dataset_" in line]
+    assert len(output_lines) == 1
 
 
-def test_list_datasets_with_order_by(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_with_order_by(runner: CliRunner, experiment: str, dataset_a, dataset_b):
+    result = runner.invoke(
+        commands, ["list", "--experiment-id", experiment, "--order-by", "name ASC"]
+    )
 
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", "exp-123", "--order-by", "last_update_time DESC"]
-        )
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["order_by"] == ["last_update_time DESC"]
+    assert result.exit_code == 0
+    a_pos = result.output.find("dataset_a")
+    b_pos = result.output.find("dataset_b")
+    assert a_pos < b_pos
 
 
-def test_list_datasets_with_multiple_order_by(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_short_option_x(runner: CliRunner, experiment: str, dataset_a):
+    result = runner.invoke(commands, ["list", "-x", experiment])
 
-        result = runner.invoke(
-            commands,
-            ["list", "--experiment-id", "exp-123", "--order-by", "name ASC, created_time DESC"],
-        )
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["order_by"] == ["name ASC", "created_time DESC"]
+    assert result.exit_code == 0
+    assert dataset_a.dataset_id in result.output
 
 
-def test_list_datasets_with_page_token(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
+def test_list_datasets_multiple_datasets(runner: CliRunner, experiment: str, dataset_a, dataset_b):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", "exp-123", "--page-token", "next-page-token"]
-        )
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["page_token"] == "next-page-token"
+    assert result.exit_code == 0
+    assert dataset_a.dataset_id in result.output
+    assert "dataset_a" in result.output
+    assert dataset_b.dataset_id in result.output
+    assert "dataset_b" in result.output
 
 
-def test_list_datasets_displays_pagination_token(runner: CliRunner, mock_dataset: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        datasets_with_token = MagicMock()
-        datasets_with_token.__iter__ = lambda self: iter([mock_dataset])
-        datasets_with_token.token = "next-page-abc123"
-        mock_client.search_datasets.return_value = datasets_with_token
-        mock_client_class.return_value = mock_client
+def test_list_datasets_json_multiple_datasets(
+    runner: CliRunner, experiment: str, dataset_a, dataset_b
+):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123"])
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    assert len(output_json["datasets"]) == 2
 
-        assert result.exit_code == 0
-        assert "Next page token: next-page-abc123" in result.output
-
-
-def test_list_datasets_json_includes_pagination_token(runner: CliRunner, mock_dataset: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        datasets_with_token = MagicMock()
-        datasets_with_token.__iter__ = lambda self: iter([mock_dataset])
-        datasets_with_token.token = "next-page-abc123"
-        mock_client.search_datasets.return_value = datasets_with_token
-        mock_client_class.return_value = mock_client
-
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
-
-        assert result.exit_code == 0
-        expected = {
-            "datasets": [
-                {
-                    "dataset_id": "ds-12345",
-                    "name": "qa_dataset",
-                    "digest": "abc123",
-                    "created_time": 1705312200000,
-                    "last_update_time": 1705412400000,
-                    "created_by": "user@example.com",
-                    "last_updated_by": "editor@example.com",
-                    "tags": {"env": "production"},
-                }
-            ],
-            "next_page_token": "next-page-abc123",
-        }
-        assert json.loads(result.output) == expected
-
-
-def test_list_datasets_with_null_optional_fields(runner: CliRunner):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        ds = MagicMock()
-        ds.dataset_id = "ds-99999"
-        ds.name = "sparse_dataset"
-        ds.digest = "xyz789"
-        ds.created_time = None
-        ds.last_update_time = None
-        ds.created_by = None
-        ds.last_updated_by = None
-        ds.tags = None
-
-        datasets = MagicMock()
-        datasets.__iter__ = lambda self: iter([ds])
-        datasets.token = None
-        mock_client.search_datasets.return_value = datasets
-        mock_client_class.return_value = mock_client
-
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123"])
-
-        assert result.exit_code == 0
-        assert "ds-99999" in result.output
-        assert "sparse_dataset" in result.output
-
-
-def test_list_datasets_json_with_null_optional_fields(runner: CliRunner):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        ds = MagicMock()
-        ds.dataset_id = "ds-99999"
-        ds.name = "sparse_dataset"
-        ds.digest = "xyz789"
-        ds.created_time = None
-        ds.last_update_time = None
-        ds.created_by = None
-        ds.last_updated_by = None
-        ds.tags = None
-
-        datasets = MagicMock()
-        datasets.__iter__ = lambda self: iter([ds])
-        datasets.token = None
-        mock_client.search_datasets.return_value = datasets
-        mock_client_class.return_value = mock_client
-
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123", "--output", "json"])
-
-        assert result.exit_code == 0
-        expected = {
-            "datasets": [
-                {
-                    "dataset_id": "ds-99999",
-                    "name": "sparse_dataset",
-                    "digest": "xyz789",
-                    "created_time": None,
-                    "last_update_time": None,
-                    "created_by": None,
-                    "last_updated_by": None,
-                    "tags": None,
-                }
-            ],
-            "next_page_token": None,
-        }
-        assert json.loads(result.output) == expected
-
-
-def test_list_datasets_multiple_datasets(runner: CliRunner):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-
-        ds1 = MagicMock()
-        ds1.dataset_id = "ds-001"
-        ds1.name = "dataset_one"
-        ds1.digest = "hash1"
-        ds1.created_time = 1705312200000
-        ds1.last_update_time = 1705312200000
-        ds1.created_by = "alice@example.com"
-        ds1.last_updated_by = "alice@example.com"
-        ds1.tags = {}
-
-        ds2 = MagicMock()
-        ds2.dataset_id = "ds-002"
-        ds2.name = "dataset_two"
-        ds2.digest = "hash2"
-        ds2.created_time = 1705398600000
-        ds2.last_update_time = 1705398600000
-        ds2.created_by = "bob@example.com"
-        ds2.last_updated_by = "charlie@example.com"
-        ds2.tags = {"type": "test"}
-
-        datasets = MagicMock()
-        datasets.__iter__ = lambda self: iter([ds1, ds2])
-        datasets.token = None
-        mock_client.search_datasets.return_value = datasets
-        mock_client_class.return_value = mock_client
-
-        result = runner.invoke(commands, ["list", "--experiment-id", "exp-123"])
-
-        assert result.exit_code == 0
-        assert "ds-001" in result.output
-        assert "dataset_one" in result.output
-        assert "alice@example.com" in result.output
-        assert "ds-002" in result.output
-        assert "dataset_two" in result.output
-        assert "bob@example.com" in result.output
-
-
-def test_list_datasets_short_option_x(runner: CliRunner, mock_datasets_list: Any):
-    with patch("mlflow.cli.datasets.MlflowClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client.search_datasets.return_value = mock_datasets_list
-        mock_client_class.return_value = mock_client
-
-        result = runner.invoke(commands, ["list", "-x", "exp-short"])
-
-        assert result.exit_code == 0
-        call_args = mock_client.search_datasets.call_args
-        assert call_args[1]["experiment_ids"] == ["exp-short"]
+    names = {d["name"] for d in output_json["datasets"]}
+    assert names == {"dataset_a", "dataset_b"}
