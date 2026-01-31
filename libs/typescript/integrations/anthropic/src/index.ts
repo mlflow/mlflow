@@ -157,8 +157,8 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
         return async function () {
           if (tracingClaimed) {
             // Already traced via async iteration, just return the message
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-            return target.finalMessage();
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            return await target.finalMessage();
           }
           tracingClaimed = true;
 
@@ -167,7 +167,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
             async (span: LiveSpan) => {
               span.setInputs(inputs);
 
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
               const message = await target.finalMessage();
 
               span.setOutputs(message);
@@ -198,17 +198,17 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
             // In practice, MessageStreams are typically consumed once and iterating again would
             // yield no events, so this may not be a real issue but for completeness we return the
             // unwrapped iterator in this case.
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
             return target[Symbol.asyncIterator]();
           }
           tracingClaimed = true;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument
           return wrapAsyncIterator(target[Symbol.asyncIterator](), target, inputs, name, spanType);
         };
       }
 
       if (typeof original === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         return original.bind(target);
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -234,7 +234,9 @@ async function* wrapAsyncIterator(
   try {
     while (true) {
       const { value, done } = await iterator.next();
-      if (done) break;
+      if (done) {
+        break;
+      }
       yield value;
     }
   } catch (error) {
@@ -250,15 +252,16 @@ async function* wrapAsyncIterator(
       // get the final message for outputs and token usage
       try {
         // Prefer a proxy-aware finalMessage if available on the iterator, and fall back to the stream.
-        let finalMessage: any | undefined;
+        let finalMessage: unknown;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
         const iteratorAny = iterator as any;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (iteratorAny && typeof iteratorAny.finalMessage === 'function') {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           finalMessage = await iteratorAny.finalMessage();
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         } else if (stream && typeof stream.finalMessage === 'function') {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           finalMessage = await stream.finalMessage();
         }
 
