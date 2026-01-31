@@ -17,7 +17,7 @@ To systematically test and improve a GenAI application, you use an evaluation da
 - Target specific features or isolate certain problems in your agent. Build specialized datasets for safety, domain knowledge, or edge cases.
 - Validate the app across different environments (e.g., development vs. production) as part of LLMOps.
 
-You can think of them as test suites for your LLM functionality.
+You can think of them as test suites or benchmarks for your LLM functionality.
 
 ## Requirements
 
@@ -34,7 +34,7 @@ a simple local configuration for MLflow, use the sqlite option when starting MLf
 You can use any of the following to create an evaluation dataset:
 
 - Existing traces. If you have already captured traces from a GenAI application, you can use them to create an evaluation dataset based on real-world scenarios.
-- An existing dataset, or directly entered examples. This option is useful for quick prototyping or for targeted testing of specific features.
+- Manually created examples. Define test cases by hand using dictionaries or DataFrames. This is useful for targeting specific edge cases or creating "golden" test cases that must always pass.
 
 This page describes how to create an MLflow evaluation dataset. You can create datasets from traces using either the MLflow Monitoring UI or the SDK. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries. See [Evaluation examples](/genai/eval-monitor/running-evaluation/eval-examples) for more examples.
 
