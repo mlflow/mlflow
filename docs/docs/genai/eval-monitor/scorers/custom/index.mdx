@@ -329,7 +329,19 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
 
 ## Error handling
 
-When a scorer encounters an error for a trace, MLflow can capture error details for that trace and then continue executing gracefully. For capturing error details, you can handle exceptions explicitly with MLflow.
+When a scorer encounters an error for a trace, MLflow can capture error details for that trace and then continue executing gracefully. For capturing error details, MLflow provides two approaches:
+
+- Let exceptions propagate (recommended) so that MLflow can capture error messages for you.
+- Handle exceptions explicitly.
+
+### Let exceptions propagate (recommended)
+
+The simplest approach is to let exceptions throw naturally. MLflow automatically captures the exception and creates a [`Feedback`](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.entities.html#mlflow.entities.Feedback) object with the following error details:
+
+- `value`: `None`
+- `error`: The exception details, such as exception object, error message, and stack trace
+
+The error information is displayed in the evaluation results. Open the corresponding row to see the error details.
 
 ### Handle exceptions explicitly
 
