@@ -29,15 +29,19 @@ export {
   SOURCE_NAME_METADATA_KEY,
   SOURCE_TYPE_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
+  COST_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SELECTED_TRACE_ID_QUERY_PARAM,
   ASSESSMENT_SESSION_METADATA_KEY,
+  SPAN_ATTRIBUTE_MODEL_KEY,
+  SPAN_ATTRIBUTE_COST_KEY,
 } from './constants';
 export {
   shouldEnableTracesTabLabelingSchemas,
   shouldEnableAssessmentsInSessions,
   shouldUseModelTraceExplorerDrawerUI,
   shouldUseUnifiedModelTraceComparisonUI,
+  isEvaluatingTracesInDetailsViewEnabled,
 } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
@@ -55,12 +59,19 @@ export {
 } from './contexts/UpdateTraceContext';
 export {
   ModelTraceExplorerRunJudgesContextProvider,
+  useModelTraceExplorerRunJudgesContext,
   type ModelTraceExplorerRunJudgeConfig,
 } from './contexts/RunJudgesContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
+export { SpanModelCostBadge } from './right-pane/SpanModelCostBadge';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';
-export { getTraceTokenUsage, createTraceV4LongIdentifier, isSessionLevelAssessment } from './ModelTraceExplorer.utils';
+export {
+  getTraceTokenUsage,
+  getTraceCost,
+  createTraceV4LongIdentifier,
+  isSessionLevelAssessment,
+} from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from './hooks/useGetTracesById';
 export {

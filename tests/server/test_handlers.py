@@ -335,6 +335,14 @@ def test_version():
         assert response.get_data().decode() == mlflow.__version__
 
 
+def test_server_info():
+    with app.test_client() as c:
+        response = c.get("/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["store_type"] == "SqlStore"
+
+
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
@@ -3543,6 +3551,99 @@ def test_get_prompt_optimization_job_without_run_id(mock_tracking_store):
             assert job["job_id"] == "job-123"
             assert job["experiment_id"] == "exp-123"
             assert "run_id" not in job  # run_id is not set
+
+
+def test_get_prompt_optimization_job_with_progress(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"max_metric_calls": 200, "reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+        },
+        metrics={
+            "total_metric_calls": 86,
+            "eval_score": 0.75,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_IN_PROGRESS"
+            # Progress should be 86 / 200 = 0.43
+            assert job["state"]["metadata"]["progress"] == "0.43"
+
+
+def test_get_prompt_optimization_job_progress_capped_at_one(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"max_metric_calls": 100, "reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        metrics={
+            "total_metric_calls": 150,  # Exceeds max_metric_calls
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            # Progress should be capped at 1.0, not 1.5
+            assert job["state"]["metadata"]["progress"] == "1.0"
+
+
+def test_get_prompt_optimization_job_no_progress_without_max_metric_calls(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        metrics={
+            "total_metric_calls": 50,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            # Progress should NOT be set when max_metric_calls is not configured
+            assert "progress" not in job["state"].get("metadata", {})
 
 
 def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):

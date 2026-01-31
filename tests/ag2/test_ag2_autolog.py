@@ -67,7 +67,7 @@ def test_enable_disable_autolog(llm_config):
     assert len(traces) == 1
 
 
-def test_tracing_agent(llm_config):
+def test_tracing_agent(llm_config, mock_litellm_cost):
     mlflow.ag2.autolog()
 
     with mock_user_input(
@@ -113,6 +113,7 @@ def test_tracing_agent(llm_config):
     assert llm_span.inputs["messages"][-1]["content"] == "What is the capital of Tokyo?"
     assert llm_span.outputs is not None
     assert llm_span.attributes["cost"] >= 0
+    assert llm_span.model_name == "gpt-4o-mini"
     user_span_2 = traces[0].data.spans[4]
     assert user_span_2.name == "user"
     assert user_span_2.parent_id == session_span.span_id
@@ -122,6 +123,7 @@ def test_tracing_agent(llm_config):
     llm_span_2 = traces[0].data.spans[6]
     assert llm_span_2.name == "chat_completion"
     assert llm_span_2.parent_id == agent_span_2.span_id
+    assert llm_span_2.model_name == "gpt-4o-mini"
 
     assert llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
@@ -129,6 +131,12 @@ def test_tracing_agent(llm_config):
         "total_tokens": 21,
     }
     assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
@@ -136,6 +144,12 @@ def test_tracing_agent(llm_config):
         "total_tokens": 21,
     }
     assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span_2.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,
@@ -311,6 +325,7 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     # We mock OpenAI LLM call so it should not take too long e.g. > 10 seconds. If it does,
     # it most likely a bug such as incorrect timezone handling.
     assert 0 < llm_span.end_time_ns - llm_span.start_time_ns <= 10e9
+    assert llm_span.model_name == "gpt-4o-mini"
 
     # Check if the start time is in reasonable range
     root_span = span_name_to_dict["initiate_chat"]

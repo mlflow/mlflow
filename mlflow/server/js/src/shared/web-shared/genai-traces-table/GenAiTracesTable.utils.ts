@@ -18,6 +18,8 @@ import {
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -168,8 +170,13 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.tags?.['mlflow.trace.session'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
+    case SIMULATION_GOAL_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.goal'];
+    case SIMULATION_PERSONA_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     default:
-      throw new Error(`Unknown column id: ${colId}`);
+      // Return null for unknown column IDs to avoid breaking the UI
+      return null;
   }
 };
 
