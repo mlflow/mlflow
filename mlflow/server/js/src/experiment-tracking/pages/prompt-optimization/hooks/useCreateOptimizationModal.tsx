@@ -4,15 +4,19 @@ import {
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxOptionList,
+  DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
+  DialogComboboxSectionHeader,
   DialogComboboxTrigger,
   FormUI,
+  InfoSmallIcon,
   Modal,
   RHFControlledComponents,
   SegmentedControlButton,
   SegmentedControlGroup,
   Spacer,
+  Tag,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -24,6 +28,7 @@ import { OptimizerType, type OptimizerTypeValue } from '../types';
 import { RegisteredPromptsApi } from '../../prompts/api';
 import type { RegisteredPrompt } from '../../prompts/types';
 import { listScheduledScorers, type MLflowScorer } from '../../experiment-scorers/api';
+import { TRACE_LEVEL_LLM_TEMPLATES, LLM_TEMPLATE } from '../../experiment-scorers/types';
 import { useSearchEvaluationDatasets } from '../../experiment-evaluation-datasets/hooks/useSearchEvaluationDatasets';
 import { useProviderModelData } from '../../prompts/hooks/useProviderModelData';
 
@@ -36,18 +41,34 @@ interface CreateOptimizationFormData {
   promptName: string;
   promptVersion: string;
   datasetId: string;
-  scorerName: string;
+  scorerNames: string[]; // Changed to array for multi-select
   optimizerType: OptimizerTypeValue;
   reflectionProvider: string;
   reflectionModel: string;
   maxMetricCalls: string;
 }
 
+// Built-in scorers that return numeric or yes/no values (suitable for optimization)
+// These are based on trace-level LLM templates that produce scores
+const NUMERIC_BUILTIN_SCORERS = [
+  LLM_TEMPLATE.COMPLETENESS,
+  LLM_TEMPLATE.CORRECTNESS,
+  LLM_TEMPLATE.FLUENCY,
+  LLM_TEMPLATE.RELEVANCE_TO_QUERY,
+  LLM_TEMPLATE.RETRIEVAL_GROUNDEDNESS,
+  LLM_TEMPLATE.RETRIEVAL_RELEVANCE,
+  LLM_TEMPLATE.RETRIEVAL_SUFFICIENCY,
+  LLM_TEMPLATE.SAFETY,
+  LLM_TEMPLATE.TOOL_CALL_CORRECTNESS,
+  LLM_TEMPLATE.TOOL_CALL_EFFICIENCY,
+];
+
 /**
  * Hook for managing the Create Optimization modal.
  */
 export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreateOptimizationModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScorerDropdownOpen, setIsScorerDropdownOpen] = useState(false);
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -56,7 +77,7 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
       promptName: '',
       promptVersion: '',
       datasetId: '',
-      scorerName: '',
+      scorerNames: [], // Changed to array for multi-select
       optimizerType: OptimizerType.GEPA,
       reflectionProvider: '',
       reflectionModel: '',
@@ -93,7 +114,7 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
   // Watch form fields for validation and dependent queries
   const promptName = form.watch('promptName');
   const promptVersion = form.watch('promptVersion');
-  const scorerName = form.watch('scorerName');
+  const scorerNames = form.watch('scorerNames');
   const datasetId = form.watch('datasetId');
 
   // Get prompt versions when a prompt is selected
@@ -131,7 +152,7 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
       promptName: '',
       promptVersion: '',
       datasetId: '',
-      scorerName: '',
+      scorerNames: [], // Reset to empty array
       optimizerType: OptimizerType.GEPA,
       reflectionProvider: '',
       reflectionModel: '',
@@ -145,18 +166,36 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
 
   const prompts = useMemo(() => promptsData?.registered_models ?? [], [promptsData]);
   const versions = useMemo(() => versionsData?.model_versions ?? [], [versionsData]);
-  const scorers = useMemo(() => scorersData?.scorers ?? [], [scorersData]);
+
+  // Combine experiment scorers with built-in scorers
+  const allScorerOptions = useMemo(() => {
+    const experimentScorers = (scorersData?.scorers ?? []).map((scorer) => ({
+      name: scorer.scorer_name,
+      type: 'experiment' as const,
+    }));
+
+    const builtInScorers = NUMERIC_BUILTIN_SCORERS.map((template) => ({
+      name: template,
+      type: 'builtin' as const,
+    }));
+
+    // Combine, with built-in scorers first
+    return [...builtInScorers, ...experimentScorers];
+  }, [scorersData]);
+
   const optimizerType = form.watch('optimizerType');
   const isGEPA = optimizerType === OptimizerType.GEPA;
 
   const handleSubmit = form.handleSubmit(async (values) => {
     // Build the source prompt URI
-    const sourcePromptUri = `models:/${values.promptName}/${values.promptVersion}`;
+    // Format: prompts:/name/version (e.g., prompts:/my_prompt/1)
+    const sourcePromptUri = `prompts:/${values.promptName}/${values.promptVersion}`;
 
     // Build optimizer config
     const optimizerConfig: Record<string, any> = {};
     if (values.reflectionProvider && values.reflectionModel) {
-      optimizerConfig['reflection_model'] = `${values.reflectionProvider}/${values.reflectionModel}`;
+      // Format: provider:/model-name (e.g., openai:/gpt-4.1-mini)
+      optimizerConfig['reflection_model'] = `${values.reflectionProvider}:/${values.reflectionModel}`;
     }
     if (isGEPA && values.maxMetricCalls) {
       optimizerConfig['max_metric_calls'] = parseInt(values.maxMetricCalls, 10);
@@ -168,7 +207,7 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
       config: {
         optimizer_type: values.optimizerType,
         dataset_id: values.datasetId || undefined,
-        scorers: [values.scorerName],
+        scorers: values.scorerNames, // Now uses the array directly
         optimizer_config_json: Object.keys(optimizerConfig).length > 0 ? JSON.stringify(optimizerConfig) : undefined,
       },
     });
@@ -177,11 +216,20 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
   // Check if form is valid for submission
   const isFormValid = useMemo(() => {
     if (!promptName || !promptVersion) return false;
-    if (!scorerName) return false;
-    // GEPA requires a dataset
-    if (optimizerType === OptimizerType.GEPA && !datasetId) return false;
+
+    // GEPA always requires both dataset and scorers
+    if (optimizerType === OptimizerType.GEPA) {
+      if (!datasetId) return false;
+      if (!scorerNames || scorerNames.length === 0) return false;
+    }
+
+    // MetaPrompt validation:
+    // - Zero-shot: no dataset, no scorers - valid
+    // - Few-shot without eval: dataset only - valid
+    // - Few-shot with eval: dataset + scorers - valid
+    // Note: scorers without dataset doesn't make sense, but we'll allow backend to validate that
     return true;
-  }, [promptName, promptVersion, scorerName, optimizerType, datasetId]);
+  }, [promptName, promptVersion, scorerNames, optimizerType, datasetId]);
 
   const CreateOptimizationModal = (
     <FormProvider {...form}>
@@ -387,19 +435,72 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
             </SegmentedControlGroup>
           )}
         />
-        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, display: 'block' }}>
-          {isGEPA ? (
-            <FormattedMessage
-              defaultMessage="GEPA uses evolutionary algorithms to iteratively improve prompts based on evaluation data."
-              description="Description for GEPA optimizer"
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="MetaPrompt uses an LLM to generate improved prompts without requiring evaluation data."
-              description="Description for MetaPrompt optimizer"
-            />
-          )}
-        </Typography.Text>
+        {/* Info box explaining the selected optimizer */}
+        <div
+          css={{
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderRadius: theme.general.borderRadiusBase,
+            padding: theme.spacing.md,
+            marginTop: theme.spacing.sm,
+            display: 'flex',
+            gap: theme.spacing.sm,
+          }}
+        >
+          <InfoSmallIcon css={{ color: theme.colors.textSecondary, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            {isGEPA ? (
+              <>
+                <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage defaultMessage="GEPA (Genetic Prompt Algorithm)" description="GEPA title" />
+                </Typography.Text>
+                <Typography.Text color="secondary">
+                  <FormattedMessage
+                    defaultMessage="Uses evolutionary algorithms to iteratively improve prompts. Requires both a dataset and scorer(s) for evaluation-driven optimization."
+                    description="Description for GEPA optimizer"
+                  />
+                </Typography.Text>
+              </>
+            ) : (
+              <>
+                <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage defaultMessage="MetaPrompt" description="MetaPrompt title" />
+                </Typography.Text>
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Uses an LLM to generate improved prompts. Supports multiple modes:"
+                    description="Description for MetaPrompt optimizer"
+                  />
+                </Typography.Text>
+                <ul css={{ margin: 0, paddingLeft: theme.spacing.lg, color: theme.colors.textSecondary }}>
+                  <li>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="Zero-shot: No dataset or scorers needed"
+                        description="Zero-shot mode description"
+                      />
+                    </Typography.Text>
+                  </li>
+                  <li>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="Few-shot: Add a dataset for example-driven improvement"
+                        description="Few-shot mode description"
+                      />
+                    </Typography.Text>
+                  </li>
+                  <li>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="Few-shot + evaluation: Add dataset and scorer(s) for validated improvements"
+                        description="Few-shot with eval mode description"
+                      />
+                    </Typography.Text>
+                  </li>
+                </ul>
+              </>
+            )}
+          </div>
+        </div>
         <Spacer />
 
         {/* Dataset Selection */}
@@ -415,94 +516,183 @@ export const useCreateOptimizationModal = ({ experimentId, onSuccess }: UseCreat
           name="datasetId"
           control={form.control}
           rules={{ required: isGEPA }}
-          render={({ field }) => (
-            <DialogCombobox
-              componentId="mlflow.prompt-optimization.create.dataset"
-              label={intl.formatMessage({ defaultMessage: 'Dataset', description: 'Label for dataset selection' })}
-              modal={false}
-              value={field.value ? [field.value] : undefined}
-            >
-              <DialogComboboxTrigger
-                id="mlflow.prompt-optimization.create.dataset"
-                css={{ width: '100%' }}
-                allowClear
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Select a dataset',
-                  description: 'Placeholder for dataset selection',
-                })}
-                withInlineLabel={false}
-                onClear={() => field.onChange('')}
-              />
-              <DialogComboboxContent loading={datasetsLoading} maxHeight={400} matchTriggerWidth>
-                {!datasetsLoading && datasetsData.length > 0 && (
-                  <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch autoFocus>
-                      {datasetsData.map((dataset) => (
-                        <DialogComboboxOptionListSelectItem
-                          value={dataset.dataset_id}
-                          key={dataset.dataset_id}
-                          onChange={(value) => field.onChange(value)}
-                          checked={field.value === dataset.dataset_id}
-                        >
-                          {dataset.name || dataset.dataset_id}
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
-                  </DialogComboboxOptionList>
-                )}
-              </DialogComboboxContent>
-            </DialogCombobox>
-          )}
+          render={({ field }) => {
+            // Find the selected dataset to display its name
+            const selectedDataset = datasetsData.find((d) => d.dataset_id === field.value);
+            const displayValue = selectedDataset ? selectedDataset.name || selectedDataset.dataset_id : undefined;
+
+            return (
+              <DialogCombobox
+                componentId="mlflow.prompt-optimization.create.dataset"
+                label={intl.formatMessage({ defaultMessage: 'Dataset', description: 'Label for dataset selection' })}
+                modal={false}
+                value={displayValue ? [displayValue] : undefined}
+              >
+                <DialogComboboxTrigger
+                  id="mlflow.prompt-optimization.create.dataset"
+                  css={{ width: '100%' }}
+                  allowClear
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Select a dataset',
+                    description: 'Placeholder for dataset selection',
+                  })}
+                  withInlineLabel={false}
+                  onClear={() => field.onChange('')}
+                />
+                <DialogComboboxContent loading={datasetsLoading} maxHeight={400} matchTriggerWidth>
+                  {!datasetsLoading && datasetsData.length > 0 && (
+                    <DialogComboboxOptionList>
+                      <DialogComboboxOptionListSearch autoFocus>
+                        {datasetsData.map((dataset) => (
+                          <DialogComboboxOptionListSelectItem
+                            value={dataset.dataset_id}
+                            key={dataset.dataset_id}
+                            onChange={(value) => field.onChange(value)}
+                            checked={field.value === dataset.dataset_id}
+                          >
+                            {dataset.name || dataset.dataset_id}
+                          </DialogComboboxOptionListSelectItem>
+                        ))}
+                      </DialogComboboxOptionListSearch>
+                    </DialogComboboxOptionList>
+                  )}
+                </DialogComboboxContent>
+              </DialogCombobox>
+            );
+          }}
         />
         <Spacer />
 
-        {/* Scorer Selection */}
+        {/* Scorer Selection - Multi-select with checkbox items */}
         <FormUI.Label htmlFor="mlflow.prompt-optimization.create.scorer">
-          <FormattedMessage defaultMessage="Scorer" description="Label for scorer selection" />
+          <FormattedMessage defaultMessage="Scorer(s)" description="Label for scorer selection" />
+          {!isGEPA && (
+            <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+              <FormattedMessage defaultMessage="(optional)" description="Optional label" />
+            </Typography.Text>
+          )}
         </FormUI.Label>
         <Controller
-          name="scorerName"
+          name="scorerNames"
           control={form.control}
-          rules={{ required: true }}
+          rules={{ required: isGEPA }}
           render={({ field }) => (
-            <DialogCombobox
-              componentId="mlflow.prompt-optimization.create.scorer"
-              label={intl.formatMessage({ defaultMessage: 'Scorer', description: 'Label for scorer selection' })}
-              modal={false}
-              value={field.value ? [field.value] : undefined}
-            >
-              <DialogComboboxTrigger
-                id="mlflow.prompt-optimization.create.scorer"
-                css={{ width: '100%' }}
-                allowClear
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Select a scorer',
-                  description: 'Placeholder for scorer selection',
-                })}
-                withInlineLabel={false}
-                onClear={() => field.onChange('')}
-              />
-              <DialogComboboxContent loading={scorersLoading} maxHeight={400} matchTriggerWidth>
-                {!scorersLoading && scorers.length > 0 && (
-                  <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch autoFocus>
-                      {scorers.map((scorer) => (
-                        <DialogComboboxOptionListSelectItem
-                          value={scorer.scorer_name}
-                          key={scorer.scorer_id}
-                          onChange={(value) => field.onChange(value)}
-                          checked={field.value === scorer.scorer_name}
-                        >
-                          {scorer.scorer_name}
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
-                  </DialogComboboxOptionList>
-                )}
-              </DialogComboboxContent>
-            </DialogCombobox>
+            <>
+              <DialogCombobox
+                componentId="mlflow.prompt-optimization.create.scorer"
+                label={intl.formatMessage({ defaultMessage: 'Scorers', description: 'Label for scorer selection' })}
+                open={isScorerDropdownOpen}
+                onOpenChange={setIsScorerDropdownOpen}
+                multiSelect
+              >
+                <DialogComboboxTrigger
+                  id="mlflow.prompt-optimization.create.scorer"
+                  css={{ width: '100%' }}
+                  allowClear={false}
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Click to select scorers',
+                    description: 'Placeholder for scorer selection',
+                  })}
+                  withInlineLabel={false}
+                />
+                <DialogComboboxContent loading={scorersLoading} maxHeight={400} matchTriggerWidth>
+                  {!scorersLoading && allScorerOptions.length > 0 && (
+                    <DialogComboboxOptionList>
+                      <DialogComboboxSectionHeader>
+                        <FormattedMessage defaultMessage="Built-in Scorers" description="Built-in scorers section" />
+                      </DialogComboboxSectionHeader>
+                      {allScorerOptions
+                        .filter((s) => s.type === 'builtin')
+                        .map((scorer) => (
+                          <DialogComboboxOptionListCheckboxItem
+                            value={scorer.name}
+                            key={`builtin-${scorer.name}`}
+                            onChange={() => {
+                              const isSelected = field.value.includes(scorer.name);
+                              if (isSelected) {
+                                field.onChange(field.value.filter((v: string) => v !== scorer.name));
+                              } else {
+                                field.onChange([...field.value, scorer.name]);
+                              }
+                            }}
+                            checked={field.value.includes(scorer.name)}
+                          >
+                            {scorer.name}
+                          </DialogComboboxOptionListCheckboxItem>
+                        ))}
+                      {allScorerOptions.some((s) => s.type === 'experiment') && (
+                        <>
+                          <Spacer size="xs" />
+                          <DialogComboboxSectionHeader>
+                            <FormattedMessage
+                              defaultMessage="Experiment Scorers"
+                              description="Experiment scorers section"
+                            />
+                          </DialogComboboxSectionHeader>
+                          {allScorerOptions
+                            .filter((s) => s.type === 'experiment')
+                            .map((scorer) => (
+                              <DialogComboboxOptionListCheckboxItem
+                                value={scorer.name}
+                                key={`experiment-${scorer.name}`}
+                                onChange={() => {
+                                  const isSelected = field.value.includes(scorer.name);
+                                  if (isSelected) {
+                                    field.onChange(field.value.filter((v: string) => v !== scorer.name));
+                                  } else {
+                                    field.onChange([...field.value, scorer.name]);
+                                  }
+                                }}
+                                checked={field.value.includes(scorer.name)}
+                              >
+                                {scorer.name}
+                              </DialogComboboxOptionListCheckboxItem>
+                            ))}
+                        </>
+                      )}
+                    </DialogComboboxOptionList>
+                  )}
+                </DialogComboboxContent>
+              </DialogCombobox>
+
+              {/* Display selected scorers as removable tags */}
+              {field.value.length > 0 && (
+                <div
+                  css={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: theme.spacing.xs,
+                    marginTop: theme.spacing.sm,
+                  }}
+                >
+                  {field.value.map((scorerName: string) => {
+                    const scorerOption = allScorerOptions.find((s) => s.name === scorerName);
+                    const isBuiltin = scorerOption?.type === 'builtin';
+                    return (
+                      <Tag
+                        key={scorerName}
+                        componentId={`mlflow.prompt-optimization.create.scorer.selected-${scorerName}`}
+                        color={isBuiltin ? 'turquoise' : 'purple'}
+                        closable
+                        onClose={() => {
+                          field.onChange(field.value.filter((v: string) => v !== scorerName));
+                        }}
+                      >
+                        {scorerName}
+                      </Tag>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         />
+        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, display: 'block' }}>
+          <FormattedMessage
+            defaultMessage="Select built-in scorers (turquoise) or experiment-specific scorers (purple). Click the X to remove."
+            description="Help text for scorer selection"
+          />
+        </Typography.Text>
         <Spacer />
 
         {/* Optimizer Configuration Section */}

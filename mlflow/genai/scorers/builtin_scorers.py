@@ -60,6 +60,10 @@ from mlflow.genai.judges.prompts.knowledge_retention import (
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
 )
+from mlflow.genai.judges.prompts.semantic_match import (
+    SEMANTIC_MATCH_FEEDBACK_NAME,
+    SEMANTIC_MATCH_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.summarization import (
     SUMMARIZATION_ASSESSMENT_NAME,
     SUMMARIZATION_PROMPT,
@@ -2126,6 +2130,173 @@ class Equivalence(BuiltInScorer):
         prompt = get_prompt(
             output=outputs_str,
             expected_output=expectations_str,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+        return _sanitize_feedback(feedback)
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class SemanticMatch(BuiltInScorer):
+    """
+    SemanticMatch evaluates semantic equivalence between model output and expected response.
+
+    This scorer is designed for knowledge distillation scenarios where a student model's
+    response needs to be compared against a teacher model's response. Unlike Equivalence,
+    this scorer focuses on semantic meaning and reasoning quality, allowing for variations
+    in wording, style, and formatting as long as the core meaning is preserved.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` or `mlflow.genai.optimize_prompts` for evaluation.
+
+    Args:
+        name: The name of the scorer. Defaults to "semantic_match".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import SemanticMatch
+
+        assessment = SemanticMatch()(
+            inputs={"question": "What is 2 + 2?"},
+            outputs="The answer is 4.",
+            expectations={"expected_response": "2 + 2 equals 4"},
+        )
+        print(assessment)  # Feedback with value "yes" (semantically equivalent)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import SemanticMatch
+
+        data = [
+            {
+                "inputs": {"question": "Explain photosynthesis"},
+                "outputs": "Plants convert sunlight to energy using chlorophyll.",
+                "expectations": {
+                    "expected_response": "Photosynthesis is the process where plants "
+                    "use chlorophyll to convert light energy into chemical energy."
+                },
+            }
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[SemanticMatch()])
+    """
+
+    name: str = SEMANTIC_MATCH_FEEDBACK_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate semantic equivalence between model output and expected response, "
+        "focusing on meaning and reasoning quality rather than exact wording."
+    )
+
+    @property
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
+        return SEMANTIC_MATCH_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        if "expectations/expected_response" not in columns:
+            raise MissingColumnsException(self.name, {"expectations/expected_response"})
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the SemanticMatch scorer.
+
+        Returns:
+            List of JudgeField objects defining the input fields.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data providing context for the comparison, "
+                    "e.g. {'question': 'What is the capital of France?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description="The actual output from the student model to compare.",
+            ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary containing the expected output from the teacher model. "
+                    "Must contain an 'expected_response' key with the expected value."
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        """
+        Evaluate semantic equivalence between outputs and expected response.
+
+        This scorer can be used in two ways:
+        1. Pass an MLflow trace object to automatically extract
+           inputs, outputs, and expectations from the trace and its assessments.
+        2. Directly provide inputs, outputs, and expectations to evaluate.
+
+        Args:
+            inputs: A dictionary of input data providing context for the comparison.
+                Optional when trace is provided.
+            outputs: The actual output from the student model. Optional when trace is provided.
+            expectations: A dictionary containing the expected output. Must contain an
+                'expected_response' key. Optional when trace is provided.
+            trace: MLflow trace object containing the execution to evaluate. When provided,
+                inputs, outputs, and expectations will be automatically extracted from the trace.
+
+        Returns:
+            Feedback object with 'yes'/'no' value and rationale
+        """
+        from mlflow.genai.judges.builtin import _sanitize_feedback
+        from mlflow.genai.judges.prompts.semantic_match import get_prompt
+
+        fields = resolve_scorer_fields(
+            trace,
+            self,
+            inputs,
+            outputs,
+            expectations,
+            model=self.model,
+            extract_expectations=True,
+        )
+        _validate_required_fields(fields, self, "SemanticMatch scorer")
+
+        if not fields.expectations or fields.expectations.get("expected_response") is None:
+            raise MlflowException(
+                "SemanticMatch scorer requires `expected_response` in the `expectations` "
+                "dictionary."
+            )
+
+        expected_response = str(fields.expectations.get("expected_response"))
+        actual_response = parse_outputs_to_str(fields.outputs)
+        input_context = parse_inputs_to_str(fields.inputs) if fields.inputs else ""
+
+        model = self.model or get_default_model()
+        assessment_name = self.name or SEMANTIC_MATCH_FEEDBACK_NAME
+
+        prompt = get_prompt(
+            input_context=input_context,
+            expected_response=expected_response,
+            actual_response=actual_response,
         )
         feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 

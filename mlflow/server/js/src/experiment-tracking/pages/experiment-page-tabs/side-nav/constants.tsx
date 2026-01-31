@@ -97,7 +97,7 @@ export const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
-          defaultMessage="Prompt Optimization"
+          defaultMessage="Optimization"
           description="Label for the prompt optimization tab in the MLflow experiment navbar"
         />
       ),

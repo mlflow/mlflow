@@ -2132,6 +2132,33 @@ service MlflowService {
       rpc_doc_title: "Delete Prompt Optimization Job"
     };
   }
+
+  // Create a prompt distillation job.
+  // This endpoint initiates a knowledge distillation workflow:
+  // 1. Generates traces using the teacher model on the input dataset
+  // 2. Creates a distillation dataset from teacher traces
+  // 3. Optimizes the student prompt to match teacher responses
+  rpc createDistillationJob(CreateDistillationJob) returns (CreateDistillationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/distill"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Distillation Job"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4806,5 +4833,39 @@ message DeletePromptOptimizationJob {
 
   message Response {
     // Empty response on successful deletion.
+  }
+}
+
+// Request to create a distillation job for knowledge transfer between teacher and student models.
+message CreateDistillationJob {
+  // ID of the MLflow experiment to track the distillation job in.
+  optional string experiment_id = 1;
+
+  // URI of the teacher prompt (e.g., "prompts:/aime_solver/9").
+  // This prompt has model_config pointing to the teacher (larger/better) model.
+  optional string teacher_prompt_uri = 2;
+
+  // URI of the student prompt (e.g., "prompts:/aime_solver/10").
+  // This prompt has model_config pointing to the student (smaller) model.
+  // The student prompt will be optimized to match teacher responses.
+  optional string student_prompt_uri = 3;
+
+  // ID of the EvaluationDataset containing input data for distillation.
+  optional string dataset_id = 4;
+
+  // The optimizer type to use for student prompt optimization.
+  optional OptimizerType optimizer_type = 5;
+
+  // JSON-serialized optimizer-specific configuration.
+  // Same format as CreatePromptOptimizationJob.config.optimizer_config_json
+  optional string optimizer_config_json = 6;
+
+  message Response {
+    // The created distillation job (stored as PromptOptimizationJob with distillation tags).
+    optional PromptOptimizationJob job = 1;
+
+    // ID of the distillation dataset created from teacher traces.
+    // This dataset contains inputs + teacher responses as expected_response.
+    optional string distillation_dataset_id = 2;
   }
 }

@@ -19,8 +19,8 @@ interface IntermediateCandidatesSectionProps {
 
 interface CandidateScores {
   iteration: number;
-  scores: Record<string, number>;
   aggregateScore?: number;
+  perScorerScores: Record<string, number>;
 }
 
 interface ArtifactFile {
@@ -85,10 +85,15 @@ export const IntermediateCandidatesSection = ({ runId }: IntermediateCandidatesS
           const artifactUrl = getArtifactLocationUrl(scoresPath, runUuid);
           const scoresJson = await getArtifactContent<string>(artifactUrl);
           const scores = JSON.parse(scoresJson);
+
+          // scores.json structure: { "aggregate": number, "per_scorer": { "scorer_name": number } }
+          const aggregateScore = scores['aggregate'] ?? scores['Aggregate'];
+          const perScorerScores = scores['per_scorer'] ?? scores['per_scorer_scores'] ?? {};
+
           scoresMap[iteration] = {
             iteration,
-            scores,
-            aggregateScore: scores['aggregate'] ?? scores['Aggregate'],
+            aggregateScore,
+            perScorerScores,
           };
         } catch (error) {
           // Score file might not exist for all iterations
@@ -226,7 +231,7 @@ export const IntermediateCandidatesSection = ({ runId }: IntermediateCandidatesS
                   <FormattedMessage
                     defaultMessage="Score: {score}"
                     description="Aggregate score display"
-                    values={{ score: candidateScores.aggregateScore.toFixed(3) }}
+                    values={{ score: `${(candidateScores.aggregateScore * 100).toFixed(1)}%` }}
                   />
                 </Typography.Text>
               )}
@@ -236,40 +241,66 @@ export const IntermediateCandidatesSection = ({ runId }: IntermediateCandidatesS
             {isExpanded && (
               <div css={{ padding: theme.spacing.md }}>
                 {/* Scores Grid */}
-                {candidateScores && Object.keys(candidateScores.scores).length > 0 && (
-                  <>
-                    <Typography.Text bold size="sm">
-                      <FormattedMessage defaultMessage="Scores" description="Scores label" />
-                    </Typography.Text>
-                    <div
-                      css={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                        gap: theme.spacing.sm,
-                        marginTop: theme.spacing.xs,
-                        marginBottom: theme.spacing.md,
-                      }}
-                    >
-                      {Object.entries(candidateScores.scores).map(([key, value]) => (
-                        <div
-                          key={key}
-                          css={{
-                            padding: theme.spacing.xs,
-                            background: theme.colors.backgroundSecondary,
-                            borderRadius: theme.general.borderRadiusBase,
-                          }}
-                        >
-                          <Typography.Text color="secondary" size="sm">
-                            {key}
-                          </Typography.Text>
-                          <Typography.Text>
-                            {typeof value === 'number' ? value.toFixed(3) : String(value)}
-                          </Typography.Text>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {candidateScores &&
+                  (candidateScores.aggregateScore !== undefined ||
+                    Object.keys(candidateScores.perScorerScores).length > 0) && (
+                    <>
+                      <Typography.Text bold size="sm">
+                        <FormattedMessage defaultMessage="Scores" description="Scores label" />
+                      </Typography.Text>
+                      <div
+                        css={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                          gap: theme.spacing.sm,
+                          marginTop: theme.spacing.xs,
+                          marginBottom: theme.spacing.md,
+                        }}
+                      >
+                        {/* Aggregate Score */}
+                        {candidateScores.aggregateScore !== undefined && (
+                          <div
+                            css={{
+                              padding: theme.spacing.sm,
+                              background: theme.colors.backgroundSecondary,
+                              borderRadius: theme.general.borderRadiusBase,
+                            }}
+                          >
+                            <Typography.Text
+                              color="secondary"
+                              size="sm"
+                              css={{ display: 'block', marginBottom: theme.spacing.xs }}
+                            >
+                              Aggregate
+                            </Typography.Text>
+                            <Typography.Text bold>{(candidateScores.aggregateScore * 100).toFixed(1)}%</Typography.Text>
+                          </div>
+                        )}
+                        {/* Per-Scorer Scores */}
+                        {Object.entries(candidateScores.perScorerScores).map(([scorerName, score]) => (
+                          <div
+                            key={scorerName}
+                            css={{
+                              padding: theme.spacing.sm,
+                              background: theme.colors.backgroundSecondary,
+                              borderRadius: theme.general.borderRadiusBase,
+                            }}
+                          >
+                            <Typography.Text
+                              color="secondary"
+                              size="sm"
+                              css={{ display: 'block', marginBottom: theme.spacing.xs }}
+                            >
+                              {scorerName}
+                            </Typography.Text>
+                            <Typography.Text bold>
+                              {typeof score === 'number' ? `${(score * 100).toFixed(1)}%` : String(score)}
+                            </Typography.Text>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
 
                 {/* Prompt Content */}
                 <Typography.Text bold size="sm">

@@ -201,11 +201,13 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
 
 def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     """
-    Build a predict function for single-prompt optimization.
+    Build a predict function for prompt optimization.
 
     This creates a simple LLM call using the prompt's model configuration.
     The predict function loads the prompt, formats it with inputs, and
     calls the LLM via litellm.
+
+    Supports both text prompts (single string) and chat prompts (list of messages).
 
     Args:
         prompt_uri: The URI of the prompt to use for prediction.
@@ -235,9 +237,18 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
     litellm_model = f"{provider}/{model_name}"
 
     def predict_fn(**kwargs: Any) -> Any:
+        formatted = prompt.format(**kwargs)
+
+        # Handle both text prompts (str) and chat prompts (list of messages)
+        if isinstance(formatted, str):
+            messages = [{"role": "user", "content": formatted}]
+        else:
+            # Chat prompt - formatted is already a list of message dicts
+            messages = formatted
+
         response = litellm.completion(
             model=litellm_model,
-            messages=[{"role": "user", "content": prompt.format(**kwargs)}],
+            messages=messages,
         )
         return response.choices[0].message.content
 

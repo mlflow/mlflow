@@ -215,7 +215,7 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(() => import('./pages/prompt-optimization/ExperimentPromptOptimizationPage')),
           handle: {
             getPageTitle: (params) => `Prompt Optimization - Experiment ${params['experimentId']}`,
-          } satisfies DocumentTitleHandle,
+          } satisfies RouteHandle,
         },
         {
           path: RoutePaths.experimentPageTabPromptOptimizationDetails,
@@ -225,7 +225,7 @@ const getExperimentPageRouteDefs = () => {
           ),
           handle: {
             getPageTitle: (params) => `Optimization Job ${params['jobId']}`,
-          } satisfies DocumentTitleHandle,
+          } satisfies RouteHandle,
         },
       ],
     },

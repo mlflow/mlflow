@@ -4825,7 +4825,19 @@ def get_endpoints(get_handler=get_handler):
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
         + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
         + get_gateway_endpoints()
+        + get_distillation_endpoints()
     )
+
+
+def get_distillation_endpoints():
+    """Returns endpoint tuples for the distillation API."""
+    return [
+        (
+            _get_ajax_path("/mlflow/prompt-optimization/distill", version=3),
+            _create_distillation_job,
+            ["POST"],
+        ),
+    ]
 
 
 def get_gateway_endpoints():
@@ -5517,6 +5529,158 @@ def _delete_prompt_optimization_job(job_id):
 
     response_message = DeletePromptOptimizationJob.Response()
     return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_distillation_job():
+    """
+    Handler for POST /ajax-api/3.0/mlflow/prompt-optimization/distill
+
+    Creates a knowledge distillation job that:
+    1. Searches for traces linked to the source prompt
+    2. Extracts responses from traces using two-stage matching
+    3. Creates a distillation dataset with responses as expected outputs
+    4. Optimizes the student prompt to match responses using SemanticMatch scorer
+
+    Prerequisites:
+    - Run your agent/prompt over your data with MLflow tracing enabled
+    - Use mlflow.genai.load_prompt() in your code to link traces to the prompt
+
+    This endpoint does not use proto-based routing since the proto generation
+    only works on Linux. Instead, it's added as a direct endpoint.
+    """
+    from mlflow.genai.optimize.distillation import distill_prompts_job
+    from mlflow.server.jobs import submit_job
+
+    request_json = _get_request_json()
+
+    # Extract and validate required fields
+    experiment_id = (request_json.get("experiment_id") or "").strip()
+    if not experiment_id:
+        raise MlflowException(
+            "experiment_id is required for distillation job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    student_prompt_uri = (request_json.get("student_prompt_uri") or "").strip()
+    if not student_prompt_uri:
+        raise MlflowException(
+            "student_prompt_uri is required for distillation job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    source_prompt_uri = (request_json.get("source_prompt_uri") or "").strip()
+    if not source_prompt_uri:
+        raise MlflowException(
+            "source_prompt_uri is required for distillation job. "
+            "This is the prompt whose traces will be used as training data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Optional max_traces parameter
+    max_traces = request_json.get("max_traces")
+    if max_traces is not None:
+        try:
+            max_traces = int(max_traces)
+            if max_traces <= 0:
+                raise ValueError("must be positive")
+        except (ValueError, TypeError) as e:
+            raise MlflowException(
+                f"max_traces must be a positive integer: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Parse optimizer type
+    optimizer_type_str = request_json.get("optimizer_type", "")
+    if optimizer_type_str.startswith("OPTIMIZER_TYPE_"):
+        optimizer_type_str = optimizer_type_str.replace("OPTIMIZER_TYPE_", "").lower()
+
+    if not optimizer_type_str:
+        raise MlflowException(
+            "optimizer_type is required for distillation job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Parse optimizer config
+    optimizer_config = None
+    optimizer_config_json = request_json.get("optimizer_config_json")
+    if optimizer_config_json:
+        try:
+            optimizer_config = json.loads(optimizer_config_json)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Invalid JSON in optimizer_config_json: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Create MLflow run upfront
+    tracking_store = _get_tracking_store()
+    start_time = int(time.time() * 1000)
+
+    # Parse prompts for run name
+    student_name, student_version = _parse_prompt_uri(student_prompt_uri)
+    source_name, source_version = _parse_prompt_uri(source_prompt_uri)
+    run_name = f"distill_{optimizer_type_str}_{student_name}_{student_version}_{start_time}"
+
+    run = tracking_store.create_run(
+        experiment_id=experiment_id,
+        user_id=_get_user(),
+        start_time=start_time,
+        tags=[],
+        run_name=run_name,
+    )
+    run_id = run.info.run_id
+
+    # Log distillation config as run parameters
+    params_to_log = [
+        Param("student_prompt_uri", student_prompt_uri),
+        Param("source_prompt_uri", source_prompt_uri),
+        Param("optimizer_type", optimizer_type_str),
+        Param("job_type", "distillation"),
+    ]
+    if max_traces is not None:
+        params_to_log.append(Param("max_traces", str(max_traces)))
+    if optimizer_config_json:
+        params_to_log.append(Param("optimizer_config_json", optimizer_config_json))
+    tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
+
+    # Submit distillation job
+    params = {
+        "run_id": run_id,
+        "experiment_id": experiment_id,
+        "student_prompt_uri": student_prompt_uri,
+        "source_prompt_uri": source_prompt_uri,
+        "optimizer_type": optimizer_type_str,
+        "optimizer_config": optimizer_config,
+        "max_traces": max_traces,
+    }
+
+    job_entity = submit_job(distill_prompts_job, params)
+
+    # Return response as JSON (not proto-based)
+    response = {
+        "job": {
+            "job_id": job_entity.job_id,
+            "run_id": run_id,
+            "experiment_id": experiment_id,
+            "student_prompt_uri": student_prompt_uri,
+            "source_prompt_uri": source_prompt_uri,
+            "state": {"status": "PENDING"},
+            "config": {
+                "optimizer_type": f"OPTIMIZER_TYPE_{optimizer_type_str.upper()}",
+                "source_prompt_uri": source_prompt_uri,
+                "scorers": ["SemanticMatch"],
+                "optimizer_config_json": optimizer_config_json or "",
+                "max_traces": max_traces,
+            },
+            "tags": [
+                {"key": "job_type", "value": "distillation"},
+            ],
+            "creation_timestamp_ms": job_entity.creation_time,
+        }
+    }
+    return Response(json.dumps(response), mimetype="application/json")
 
 
 HANDLERS = {
