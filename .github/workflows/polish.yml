@@ -8,7 +8,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/polish.yml"
-      - ".github/workflows/polish.sh"
+      - ".github/workflows/polish.py"
 
 defaults:
   run:
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          sparse-checkout: .github/workflows/polish.sh
+          sparse-checkout: .github/workflows/polish.py
           sparse-checkout-cone-mode: false
 
       - name: Add reaction to comment
@@ -57,7 +57,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          new_title=$(bash .github/workflows/polish.sh)
+          new_title=$(python .github/workflows/polish.py)
           echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
 
       - name: Update PR title
