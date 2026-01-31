@@ -36,8 +36,7 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
-  SIMULATION_GOAL_COLUMN_ID,
-  SIMULATION_PERSONA_COLUMN_ID,
+  getSimulationColumnsToAdd,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -199,32 +198,11 @@ const RunViewEvaluationsTabInner = ({
   // Helper to add goal/persona columns if traces have the metadata
   const maybeAddGoalPersonaColumns = useCallback(
     (traces: ModelTraceInfoV3[]) => {
-      if (hasAutoSelectedGoalPersona.current || traces.length === 0) {
+      if (hasAutoSelectedGoalPersona.current) {
         return;
       }
 
-      const hasGoalMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.goal']));
-      const hasPersonaMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.persona']));
-
-      if (!hasGoalMetadata && !hasPersonaMetadata) {
-        return;
-      }
-
-      const columnsToAdd: TracesTableColumn[] = [];
-      const goalColumn = allColumns.find((col) => col.id === SIMULATION_GOAL_COLUMN_ID);
-      const personaColumn = allColumns.find((col) => col.id === SIMULATION_PERSONA_COLUMN_ID);
-
-      if (hasGoalMetadata && goalColumn && !selectedColumns.some((col) => col.id === SIMULATION_GOAL_COLUMN_ID)) {
-        columnsToAdd.push(goalColumn);
-      }
-      if (
-        hasPersonaMetadata &&
-        personaColumn &&
-        !selectedColumns.some((col) => col.id === SIMULATION_PERSONA_COLUMN_ID)
-      ) {
-        columnsToAdd.push(personaColumn);
-      }
-
+      const columnsToAdd = getSimulationColumnsToAdd(traces, allColumns, selectedColumns);
       if (columnsToAdd.length > 0) {
         toggleColumns(columnsToAdd);
         hasAutoSelectedGoalPersona.current = true;

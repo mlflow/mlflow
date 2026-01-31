@@ -93,6 +93,8 @@ export {
   SIMULATION_PERSONA_COLUMN_ID,
 } from './hooks/useTableColumns';
 
+export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
+
 // Test utilities
 export {
   createTestTraceInfoV3,

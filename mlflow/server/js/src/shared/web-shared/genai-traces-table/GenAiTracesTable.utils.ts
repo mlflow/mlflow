@@ -235,3 +235,37 @@ export function computeEvaluationsComparison(
     };
   });
 }
+
+/**
+ * Returns simulation columns (goal/persona) that should be auto-selected based on trace metadata.
+ * Only returns columns that exist in allColumns and are not already in selectedColumns.
+ */
+export function getSimulationColumnsToAdd(
+  traces: ModelTraceInfoV3[],
+  allColumns: TracesTableColumn[],
+  selectedColumns: TracesTableColumn[],
+): TracesTableColumn[] {
+  if (traces.length === 0) {
+    return [];
+  }
+
+  const hasGoalMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.goal']));
+  const hasPersonaMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.persona']));
+
+  if (!hasGoalMetadata && !hasPersonaMetadata) {
+    return [];
+  }
+
+  const columnsToAdd: TracesTableColumn[] = [];
+  const goalColumn = allColumns.find((col) => col.id === SIMULATION_GOAL_COLUMN_ID);
+  const personaColumn = allColumns.find((col) => col.id === SIMULATION_PERSONA_COLUMN_ID);
+
+  if (hasGoalMetadata && goalColumn && !selectedColumns.some((col) => col.id === SIMULATION_GOAL_COLUMN_ID)) {
+    columnsToAdd.push(goalColumn);
+  }
+  if (hasPersonaMetadata && personaColumn && !selectedColumns.some((col) => col.id === SIMULATION_PERSONA_COLUMN_ID)) {
+    columnsToAdd.push(personaColumn);
+  }
+
+  return columnsToAdd;
+}
