@@ -23,14 +23,17 @@ _SESSION_KEY = "genai-eval-session"
 
 
 def emit_metric_usage_event(
-    scorers: list[Scorer], eval_count: int | None, aggregated_metrics: dict[str, float]
+    scorers: list[Scorer],
+    trace_count: int | None,
+    session_count: int | None,
+    aggregated_metrics: dict[str, float],
 ):
     """Emit usage events for custom and built-in scorers when running on Databricks"""
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
 
-    custom_metrics = list(filter(_is_custom_scorer, scorers))
-    builtin_metrics = [s for s in scorers if not _is_custom_scorer(s)]
+    custom_metrics = [s for s in scorers if not isinstance(s, BuiltInScorer)]
+    builtin_metrics = [s for s in scorers if isinstance(s, BuiltInScorer)]
 
     events = []
 
@@ -38,8 +41,11 @@ def emit_metric_usage_event(
         metric_name_to_hash = {m.name: _hash_metric_name(m.name) for m in custom_metrics}
 
         metric_stats = {
-            hashed_name: {"average": None, "count": eval_count}
-            for hashed_name in metric_name_to_hash.values()
+            hashed_name: {
+                "average": None,
+                "count": session_count if scorer.is_session_level_scorer else trace_count,
+            }
+            for scorer, hashed_name in zip(custom_metrics, metric_name_to_hash.values())
         }
         for metric_key, metric_value in aggregated_metrics.items():
             name, aggregation = metric_key.split("/", 1)
@@ -59,7 +65,7 @@ def emit_metric_usage_event(
         events.append(
             {
                 "custom_metric_usage_event": {
-                    "eval_count": eval_count,
+                    "eval_count": trace_count,
                     "metrics": metric_stats,
                 }
             }
@@ -69,7 +75,7 @@ def emit_metric_usage_event(
         builtin_stats = [
             {
                 "name": type(scorer).__name__,
-                "count": eval_count,
+                "count": session_count if scorer.is_session_level_scorer else trace_count,
             }
             for scorer in builtin_metrics
         ]
@@ -90,7 +96,7 @@ def emit_metric_usage_event(
     extra_headers = {
         _CLIENT_VERSION_HEADER: VERSION,
         _SESSION_ID_HEADER: _get_or_create_session_id(),
-        _BATCH_SIZE_HEADER: str(eval_count),
+        _BATCH_SIZE_HEADER: str(trace_count),
         _CLIENT_NAME_HEADER: "mlflow",
     }
 
@@ -108,22 +114,6 @@ def emit_metric_usage_event(
         extra_headers=extra_headers,
         json=payload,
     )
-
-
-def _is_custom_scorer(scorer: Scorer) -> bool:
-    if isinstance(scorer, Scorer):
-        return not isinstance(scorer, BuiltInScorer)
-
-    # Check for the legacy custom metrics if databricks-agents is installed
-    try:
-        from databricks.rag_eval.evaluation.custom_metrics import CustomMetric
-
-        return isinstance(scorer, CustomMetric)
-    except ImportError:
-        return False
-
-    # Treat unknown case as not a custom scorer
-    return False
 
 
 def _get_or_create_session_id() -> str:

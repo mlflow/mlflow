@@ -210,7 +210,7 @@ def run(
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_metric_usage_event(scorers, len(eval_items), aggregated_metrics)
+        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
