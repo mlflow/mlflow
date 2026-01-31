@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Fetch PR information
+echo "Fetching PR information..." >&2
+pr_json=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title,body)
+original_title=$(echo "$pr_json" | jq -r '.title')
+pr_body=$(echo "$pr_json" | jq -r '.body // ""')
+
+echo "Original title: $original_title" >&2
+
+# Fetch PR diff
+echo "Fetching PR diff..." >&2
+diff=$(gh pr diff "$PR_NUMBER" --repo "$REPO" 2>/dev/null || echo "")
+
+# Truncate diff if too long (keep first 50000 chars)
+max_diff_length=50000
+if [ ${#diff} -gt $max_diff_length ]; then
+  diff="${diff:0:$max_diff_length}
+
+... [diff truncated due to length] ..."
+fi
+
+# Extract issue references from PR body
+echo "Extracting issue references..." >&2
+issue_refs=$(echo "$pr_body" | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
+
+issues_context=""
+if [ -n "$issue_refs" ]; then
+  for issue_num in $issue_refs; do
+    echo "Fetching issue #$issue_num..." >&2
+    issue_json=$(gh issue view "$issue_num" --repo "$REPO" --json title,body 2>/dev/null || echo "")
+    if [ -n "$issue_json" ]; then
+      issue_title=$(echo "$issue_json" | jq -r '.title')
+      issue_body=$(echo "$issue_json" | jq -r '.body // "(No description)"')
+      issues_context+="
+### Issue #$issue_num
+**Title:** $issue_title
+**Description:** $issue_body
+"
+    fi
+  done
+fi
+
+# Build the prompt
+prompt="You are an expert at writing clear, concise pull request titles for the MLflow open-source project.
+
+Given the following information about a pull request, rewrite the title to be more descriptive and follow best practices.
+
+## Current PR Title
+$original_title
+
+## PR Description
+${pr_body:-"(No description provided)"}
+
+## Code Changes (Diff)
+\`\`\`diff
+$diff
+\`\`\`"
+
+if [ -n "$issues_context" ]; then
+  prompt+="
+
+## Referenced Issues
+$issues_context"
+fi
+
+prompt+='
+
+## Guidelines for a good PR title:
+1. Start with a verb in imperative mood (e.g., "Add", "Fix", "Update", "Remove", "Refactor")
+2. Be specific about what changed and where
+3. Keep it concise
+4. Do not include issue numbers in the title (they belong in the PR body)
+5. Focus on the "what" and "why", not the "how"
+6. Use proper capitalization (capitalize first letter, no period at end)
+7. Use backticks for code/file references (e.g., `ClassName`, `function_name`, `module.path`)
+
+Rewrite the PR title following these guidelines.'
+
+# Build the API request payload with structured output
+echo "Calling Claude API..." >&2
+request_payload=$(jq -n \
+  --arg prompt "$prompt" \
+  '{
+    model: "claude-haiku-4-5-20250514",
+    max_tokens: 256,
+    messages: [{ role: "user", content: $prompt }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: "The rewritten PR title. Should be concise, descriptive, and follow the guidelines."
+            }
+          },
+          required: ["title"],
+          additionalProperties: false
+        }
+      }
+    }
+  }')
+
+# Call the Anthropic API
+response=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -d "$request_payload")
+
+# Log the full response for debugging (token usage, cost, etc.)
+echo "API Response:" >&2
+echo "$response" | jq . >&2
+
+# Check for errors
+if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
+  error_message=$(echo "$response" | jq -r '.error.message')
+  echo "Error from Claude API: $error_message" >&2
+  exit 1
+fi
+
+# Extract and output the new title (response is JSON in content[0].text)
+echo "$response" | jq -r '.content[0].text' | jq -r '.title'
