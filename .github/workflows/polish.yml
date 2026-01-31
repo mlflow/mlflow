@@ -57,7 +57,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          new_title=$(python .github/workflows/polish.py)
+          new_title=$(python .github/workflows/polish.py --repo "$REPO" --pr-number "$PR_NUMBER")
           echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
 
       - name: Update PR title

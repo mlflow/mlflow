@@ -1,6 +1,7 @@
 """Generate improved PR title using AI."""
 # ruff: noqa: T201
 
+import argparse
 import json
 import os
 import re
@@ -8,26 +9,23 @@ import subprocess
 import sys
 import urllib.request
 
-REPO = os.environ["REPO"]
-PR_NUMBER = os.environ["PR_NUMBER"]
-
 
 def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 
-def get_pr_info() -> tuple[str, str]:
+def get_pr_info(repo: str, pr_number: str) -> tuple[str, str]:
     print("Fetching PR information...", file=sys.stderr)
-    output = run_gh("pr", "view", PR_NUMBER, "--repo", REPO, "--json", "title,body")
+    output = run_gh("pr", "view", pr_number, "--repo", repo, "--json", "title,body")
     data = json.loads(output)
     return data["title"], data.get("body") or ""
 
 
-def get_pr_diff() -> str:
+def get_pr_diff(repo: str, pr_number: str) -> str:
     """Fetch PR diff, truncated if too long."""
     print("Fetching PR diff...", file=sys.stderr)
     try:
-        diff = run_gh("pr", "diff", PR_NUMBER, "--repo", REPO)
+        diff = run_gh("pr", "diff", pr_number, "--repo", repo)
     except subprocess.CalledProcessError:
         return ""
 
@@ -115,18 +113,20 @@ def call_anthropic_api(prompt: str) -> str:
     print("API Response:", file=sys.stderr)
     print(json.dumps(response, indent=2), file=sys.stderr)
 
-    if "error" in response:
-        raise RuntimeError(f"Error from Claude API: {response['error']['message']}")
-
     content = json.loads(response["content"][0]["text"])
     return str(content["title"])
 
 
 def main() -> None:
-    title, body = get_pr_info()
+    parser = argparse.ArgumentParser(description="Generate improved PR title using AI")
+    parser.add_argument("--repo", required=True, help="Repository (owner/name)")
+    parser.add_argument("--pr-number", required=True, help="Pull request number")
+    args = parser.parse_args()
+
+    title, body = get_pr_info(args.repo, args.pr_number)
     print(f"Original title: {title}", file=sys.stderr)
 
-    diff = get_pr_diff()
+    diff = get_pr_diff(args.repo, args.pr_number)
     prompt = build_prompt(title, body, diff)
     new_title = call_anthropic_api(prompt)
 
