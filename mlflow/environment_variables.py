@@ -738,6 +738,15 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
 
+#: Override the base URL used for the notebook trace iframe renderer.
+#: This is useful when the tracking URI is only reachable inside a container
+#: network (e.g. http://mlflow:5000) but the browser must load assets from a
+#: host-reachable URL (e.g. http://localhost:5000).
+#: (default: ``None``)
+MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL = _EnvironmentVariable(
+    "MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", str, None
+)
+
 #: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
 #: A value of 1.0 means all traces are sampled (default behavior).
 #: A value of 0.5 means 50% of traces are sampled.

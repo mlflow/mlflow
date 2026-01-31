@@ -244,7 +244,7 @@ docs = [
 ]
 
 [tool.uv]
-required-version = "==0.9.8"
+required-version = ">=0.9.8"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
