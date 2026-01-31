@@ -734,13 +734,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {
