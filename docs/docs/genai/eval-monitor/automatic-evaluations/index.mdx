@@ -39,7 +39,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 :::note
 
-- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/make-judge).
+- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/make-judge).
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
   :::
 
