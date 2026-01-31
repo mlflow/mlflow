@@ -10961,6 +10961,53 @@ def test_upsert_online_scoring_config_rejects_non_gateway_model(store: SqlAlchem
         )
 
 
+def test_upsert_online_scoring_config_rejects_scorer_requiring_expectations(
+    store: SqlAlchemyStore,
+):
+    experiment_id = store.create_experiment("test_online_config_expectations")
+
+    # Complete serialized scorer with {{ expectations }} template variable
+    expectations_scorer = json.dumps(
+        {
+            "name": "expectations_scorer",
+            "description": None,
+            "aggregations": [],
+            "is_session_level_scorer": False,
+            "mlflow_version": "3.0.0",
+            "serialization_version": 1,
+            "instructions_judge_pydantic_data": {
+                "model": "gateway:/my-endpoint",
+                "instructions": "Compare {{ outputs }} against {{ expectations }}",
+            },
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+        }
+    )
+
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "expectations_scorer", expectations_scorer)
+
+    # Mock LiteLLM availability to allow scorer deserialization during validation
+    with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=True):
+        with pytest.raises(MlflowException, match="requires expectations.*not currently supported"):
+            store.upsert_online_scoring_config(
+                experiment_id=experiment_id,
+                scorer_name="expectations_scorer",
+                sample_rate=0.1,
+            )
+
+        # Setting sample_rate to 0 should work (disables automatic evaluation)
+        config = store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="expectations_scorer",
+            sample_rate=0.0,
+        )
+        assert config.sample_rate == 0.0
+
+
 def test_upsert_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_error")
 

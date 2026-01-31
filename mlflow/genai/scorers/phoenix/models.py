@@ -4,9 +4,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.scorers.phoenix.utils import _NoOpRateLimiter, check_phoenix_installed
 
@@ -36,32 +33,6 @@ class DatabricksPhoenixModel:
         return self._model_name
 
 
-class DatabricksServingEndpointPhoenixModel:
-    """
-    Phoenix model adapter for Databricks serving endpoints.
-
-    Uses the model serving API via _invoke_databricks_serving_endpoint.
-    """
-
-    def __init__(self, endpoint_name: str):
-        self._endpoint_name = endpoint_name
-        self._verbose = False
-        self._rate_limiter = _NoOpRateLimiter()
-
-    def __call__(self, prompt, **kwargs) -> str:
-        prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
-        output = _invoke_databricks_serving_endpoint(
-            model_name=self._endpoint_name,
-            prompt=prompt_str,
-            num_retries=3,
-            response_format=None,
-        )
-        return output.response
-
-    def get_model_name(self) -> str:
-        return f"databricks:/{self._endpoint_name}"
-
-
 def create_phoenix_model(model_uri: str):
     """
     Create a Phoenix model adapter from a model URI.
@@ -82,15 +53,15 @@ def create_phoenix_model(model_uri: str):
 
     if model_uri == "databricks":
         return DatabricksPhoenixModel()
-    elif model_uri.startswith("databricks:/"):
-        endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
-        return DatabricksServingEndpointPhoenixModel(endpoint_name)
     elif ":" in model_uri:
         from phoenix.evals import LiteLLMModel
 
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-        return LiteLLMModel(model=f"{provider}/{model_name}")
+        return LiteLLMModel(
+            model=f"{provider}/{model_name}",
+            model_kwargs={"drop_params": True},
+        )
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "

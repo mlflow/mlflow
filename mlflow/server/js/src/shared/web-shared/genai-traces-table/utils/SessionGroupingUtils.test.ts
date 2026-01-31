@@ -38,21 +38,21 @@ describe('groupTracesBySessionForTable', () => {
     ];
 
     const expandedSessions = new Set(['session-A', 'session-B']);
-    const result = groupTracesBySessionForTable(entries, expandedSessions);
+    const { groupedRows } = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 2 session headers + 3 trace rows = 5 items
-    expect(result).toHaveLength(5);
+    expect(groupedRows).toHaveLength(5);
 
     // First session header
-    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
     // Then trace rows for session A
-    expect(result[1]).toMatchObject({ type: 'trace' });
-    expect(result[2]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[1]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[2]).toMatchObject({ type: 'trace' });
 
     // Second session header
-    expect(result[3]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
+    expect(groupedRows[3]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
     // Then trace row for session B
-    expect(result[4]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[4]).toMatchObject({ type: 'trace' });
   });
 
   it('hides trace rows for collapsed sessions', () => {
@@ -64,15 +64,15 @@ describe('groupTracesBySessionForTable', () => {
 
     // Only session-A is expanded
     const expandedSessions = new Set(['session-A']);
-    const result = groupTracesBySessionForTable(entries, expandedSessions);
+    const { groupedRows } = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 2 session headers + 2 trace rows (only session-A) = 4 items
-    expect(result).toHaveLength(4);
+    expect(groupedRows).toHaveLength(4);
 
-    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
-    expect(result[1]).toMatchObject({ type: 'trace' });
-    expect(result[2]).toMatchObject({ type: 'trace' });
-    expect(result[3]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows[1]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[2]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[3]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
     // No trace rows for session-B since it's collapsed
   });
 
@@ -83,12 +83,12 @@ describe('groupTracesBySessionForTable', () => {
     ];
 
     const expandedSessions = new Set<string>(); // No expanded sessions
-    const result = groupTracesBySessionForTable(entries, expandedSessions);
+    const { groupedRows } = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 2 session headers only
-    expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
-    expect(result[1]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
+    expect(groupedRows).toHaveLength(2);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows[1]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
   });
 
   it('sorts traces within a session by request time ascending', () => {
@@ -99,14 +99,14 @@ describe('groupTracesBySessionForTable', () => {
     ];
 
     const expandedSessions = new Set(['session-A']);
-    const result = groupTracesBySessionForTable(entries, expandedSessions);
+    const { groupedRows } = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 1 session header + 3 trace rows = 4 items
-    expect(result).toHaveLength(4);
-    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows).toHaveLength(4);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
 
     // Verify traces are sorted by request time ascending
-    const traceRows = result.filter(
+    const traceRows = groupedRows.filter(
       (row): row is { type: 'trace'; data: EvalTraceComparisonEntry } => row.type === 'trace',
     );
     expect(traceRows[0].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-early');
@@ -122,31 +122,48 @@ describe('groupTracesBySessionForTable', () => {
     ];
 
     const expandedSessions = new Set(['session-A']);
-    const result = groupTracesBySessionForTable(entries, expandedSessions);
+    const { groupedRows } = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 1 session header + 1 session trace + 2 standalone traces = 4 items
-    expect(result).toHaveLength(4);
+    expect(groupedRows).toHaveLength(4);
 
     // Session content first
-    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
-    expect(result[1]).toMatchObject({ type: 'trace' });
-    if (result[1].type === 'trace') {
-      expect(result[1].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-session');
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows[1]).toMatchObject({ type: 'trace' });
+    if (groupedRows[1].type === 'trace') {
+      expect(groupedRows[1].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-session');
     }
 
     // Standalone traces at the end
-    expect(result[2]).toMatchObject({ type: 'trace' });
-    if (result[2].type === 'trace') {
-      expect(result[2].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-standalone-1');
+    expect(groupedRows[2]).toMatchObject({ type: 'trace' });
+    if (groupedRows[2].type === 'trace') {
+      expect(groupedRows[2].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-standalone-1');
     }
-    expect(result[3]).toMatchObject({ type: 'trace' });
-    if (result[3].type === 'trace') {
-      expect(result[3].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-standalone-2');
+    expect(groupedRows[3]).toMatchObject({ type: 'trace' });
+    if (groupedRows[3].type === 'trace') {
+      expect(groupedRows[3].data.currentRunValue?.traceInfo?.trace_id).toBe('trace-standalone-2');
     }
   });
 
-  it('returns empty array for empty input', () => {
-    const result = groupTracesBySessionForTable([], new Set());
-    expect(result).toEqual([]);
+  it('returns empty result for empty input', () => {
+    const { groupedRows, traceIdToTurnMap } = groupTracesBySessionForTable([], new Set());
+    expect(groupedRows).toEqual([]);
+    expect(traceIdToTurnMap).toEqual({});
+  });
+
+  it('returns traceIdToTurnMap with correct turn numbers for expanded sessions', () => {
+    const entries: EvalTraceComparisonEntry[] = [
+      createMockEntry('trace-late', 'session-A', '2025-01-01T15:00:00.000Z'),
+      createMockEntry('trace-early', 'session-A', '2025-01-01T09:00:00.000Z'),
+      createMockEntry('trace-middle', 'session-A', '2025-01-01T12:00:00.000Z'),
+    ];
+
+    const expandedSessions = new Set(['session-A']);
+    const { traceIdToTurnMap } = groupTracesBySessionForTable(entries, expandedSessions);
+
+    // Turn numbers should be 1-indexed and based on sorted order (by request time)
+    expect(traceIdToTurnMap['trace-early']).toBe(1);
+    expect(traceIdToTurnMap['trace-middle']).toBe(2);
+    expect(traceIdToTurnMap['trace-late']).toBe(3);
   });
 });

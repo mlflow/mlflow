@@ -232,7 +232,7 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
-export type ResourceType = 'scorer_job';
+export type ResourceType = 'scorer';
 
 export interface EndpointBinding {
   endpoint_id: string;
@@ -242,6 +242,7 @@ export interface EndpointBinding {
   last_updated_at?: number;
   created_by?: string;
   last_updated_by?: string;
+  display_name?: string;
 }
 
 export interface CreateEndpointBindingRequest {

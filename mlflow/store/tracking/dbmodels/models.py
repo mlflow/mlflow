@@ -2561,6 +2561,11 @@ class SqlGatewayEndpointBinding(Base):
     """
     Last updater user ID: `String` (limit 255 characters).
     """
+    display_name = Column(String(255), nullable=True)
+    """
+    Human-readable display name: `String` (limit 255 characters).
+    E.g., scorer name for display in the UI.
+    """
 
     endpoint = relationship("SqlGatewayEndpoint", backref=backref("bindings", cascade="all"))
     """
@@ -2589,6 +2594,7 @@ class SqlGatewayEndpointBinding(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            display_name=self.display_name,
         )
 
 

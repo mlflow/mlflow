@@ -158,7 +158,10 @@ export const useAssistantPageContextActions = () => {
  * Hook to register selected IDs from row selection state.
  * Handles conversion from RowSelectionState to string array.
  */
-export const useRegisterSelectedIds = (key: 'selectedTraceIds' | 'selectedRunIds', rowSelection: RowSelectionState) => {
+export const useRegisterSelectedIds = (
+  key: 'selectedTraceIds' | 'selectedRunIds' | 'selectedSessionIds' | 'selectedModelVersions',
+  rowSelection: RowSelectionState,
+) => {
   const selectedIds = useMemo(() => {
     const ids = Object.keys(rowSelection).filter((id) => rowSelection[id]);
     return ids.length > 0 ? ids : undefined;

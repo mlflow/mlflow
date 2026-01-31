@@ -1,0 +1,71 @@
+# GEPA Alignment Optimizer
+
+MLflow provides the **GEPA alignment optimizer** using [DSPy's implementation of GEPA](https://dspy.ai/api/optimizers/GEPA/overview/) (Genetic-Pareto). GEPA uses LLM-driven reflection to analyze execution traces and iteratively propose improved judge instructions based on human feedback.
+
+## Requirements
+
+For alignment to work:
+
+- Traces must contain human assessments (labels) with the same name as the judge
+- Natural language feedback (rationale) is highly recommended for better alignment
+- Minimum of 10 traces with human assessments required
+- A mix of positive and negative labels is recommended
+
+## Basic Usage
+
+See [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for details on creating judges.
+
+```python
+import mlflow
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import GEPAAlignmentOptimizer
+
+judge = make_judge(
+    name="politeness",
+    instructions=(
+        "Given a user question, evaluate if the chatbot's response is polite and respectful. "
+        "Consider the tone, language, and context of the response.\n\n"
+        "Question: {{ inputs }}\n"
+        "Response: {{ outputs }}"
+    ),
+    feedback_value_type=bool,
+    model="openai:/gpt-5-mini",
+)
+
+traces_with_feedback = mlflow.search_traces(return_type="list")
+
+optimizer = GEPAAlignmentOptimizer(
+    model="openai:/gpt-5-mini",
+    max_metric_calls=100,
+)
+aligned_judge = judge.align(traces_with_feedback, optimizer)
+```
+
+## Parameters
+
+| Parameter          | Type   | Default | Description                                                                                                     |
+| ------------------ | ------ | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `model`            | `str`  | `None`  | Model used for reflection. If None, uses the default model.                                                     |
+| `max_metric_calls` | `int`  | `None`  | Maximum evaluation calls during optimization. If None, automatically set to 4x the number of training examples. |
+| `gepa_kwargs`      | `dict` | `None`  | Additional keyword arguments passed directly to `dspy.GEPA()` for advanced configuration.                       |
+
+## When to Use GEPA
+
+GEPA is particularly effective when:
+
+- **Complex evaluation criteria**: Your judge needs to understand nuanced, context-dependent quality standards
+- **Rich textual feedback**: Human reviewers provide detailed explanations for their assessments
+- **Iterative refinement**: You want the optimizer to learn from failures and propose targeted improvements
+
+For simpler alignment tasks, consider using the default [SIMBA optimizer](/genai/eval-monitor/scorers/llm-judge/simba).
+
+## Debugging
+
+To debug the optimization process, enable DEBUG logging:
+
+```python
+import logging
+
+logging.getLogger("mlflow.genai.judges.optimizers.gepa").setLevel(logging.DEBUG)
+aligned_judge = judge.align(traces_with_feedback, optimizer)
+```

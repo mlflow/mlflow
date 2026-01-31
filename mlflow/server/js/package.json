@@ -8,7 +8,7 @@
     "test": "craco --max_old_space_size=8192 test --env=jsdom --colors --watchAll=false",
     "test:watch": "yarn test --watch",
     "test:ci": "CI=true craco test --env=jsdom --colors --forceExit --ci --coverage",
-    "lint": "eslint --ext js,jsx,ts,tsx src",
+    "lint": "eslint --ext js,jsx,ts,tsx src --max-warnings 0",
     "lint:fix": "eslint --ext js,jsx,ts,tsx src --fix",
     "type-check": "tsc --noEmit && tsc --noEmit -p src/shared/web-shared/tsconfig.json",
     "prettier:fix": "prettier . --write --ignore-unknown",

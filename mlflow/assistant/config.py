@@ -7,9 +7,26 @@ MLFLOW_ASSISTANT_HOME = Path.home() / ".mlflow" / "assistant"
 CONFIG_PATH = MLFLOW_ASSISTANT_HOME / "config.json"
 
 
+class PermissionsConfig(BaseModel):
+    """Permission settings for the assistant provider."""
+
+    allow_edit_files: bool = True
+    allow_read_docs: bool = True
+    full_access: bool = False
+
+
+class SkillsConfig(BaseModel):
+    """Skills configuration for a provider."""
+
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None  # Only used when type="custom"
+
+
 class ProviderConfig(BaseModel):
     model: str = "default"
     selected: bool = False
+    permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
+    skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
 
 class ProjectConfig(BaseModel):
@@ -75,22 +92,40 @@ class AssistantConfig(BaseModel):
                 return provider
         return None
 
-    def set_provider(self, provider_name: str, model: str) -> None:
+    def set_provider(
+        self,
+        provider_name: str,
+        model: str,
+        permissions: PermissionsConfig | None = None,
+    ) -> None:
         """Set or update a provider configuration and mark it as selected.
 
         Args:
             provider_name: The provider name (e.g., "claude_code").
             model: The model to use.
+            permissions: Permission settings (None = keep existing/use defaults).
         """
         # Update or create the provider
         if provider_name in self.providers:
             self.providers[provider_name].model = model
+            if permissions is not None:
+                self.providers[provider_name].permissions = permissions
         else:
-            self.providers[provider_name] = ProviderConfig(model=model, selected=False)
+            self.providers[provider_name] = ProviderConfig(
+                model=model,
+                selected=False,
+                permissions=permissions or PermissionsConfig(),
+            )
 
         # Mark this provider as selected and deselect others
         for name, provider in self.providers.items():
             provider.selected = name == provider_name
 
 
-__all__ = ["AssistantConfig", "ProviderConfig", "ProjectConfig"]
+__all__ = [
+    "AssistantConfig",
+    "PermissionsConfig",
+    "ProjectConfig",
+    "ProviderConfig",
+    "SkillsConfig",
+]

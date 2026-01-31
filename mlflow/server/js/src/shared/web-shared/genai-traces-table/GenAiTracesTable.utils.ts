@@ -18,6 +18,8 @@ import {
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -56,8 +58,18 @@ const assessmentColumnRank: Record<string, number> = Object.fromEntries(
   ASSESSMENT_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
 );
 
-export function sortGroupedColumns(columns: TracesTableColumn[], isComparing?: boolean): TracesTableColumn[] {
+export function sortGroupedColumns(
+  columns: TracesTableColumn[],
+  isComparing?: boolean,
+  isGroupedBySession?: boolean,
+): TracesTableColumn[] {
   return [...columns].sort((colA, colB) => {
+    // If grouped by session, always put session column first
+    if (isGroupedBySession) {
+      if (colA.id === SESSION_COLUMN_ID) return -1;
+      if (colB.id === SESSION_COLUMN_ID) return 1;
+    }
+
     // If comparing, always put request time column first
     if (isComparing) {
       if (colA.id === INPUTS_COLUMN_ID) return -1;
@@ -158,8 +170,13 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.tags?.['mlflow.trace.session'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
+    case SIMULATION_GOAL_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.goal'];
+    case SIMULATION_PERSONA_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     default:
-      throw new Error(`Unknown column id: ${colId}`);
+      // Return null for unknown column IDs to avoid breaking the UI
+      return null;
   }
 };
 

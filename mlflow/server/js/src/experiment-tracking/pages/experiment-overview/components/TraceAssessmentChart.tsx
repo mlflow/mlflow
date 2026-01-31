@@ -24,9 +24,9 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
-  useIsolatedDotRenderer,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
+import { getLineDotStyle } from '../utils/chartUtils';
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -69,9 +69,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     (value: number) => [value.toFixed(2), assessmentName] as [string, string],
     [assessmentName],
   );
-
-  // Dot renderer for isolated points only
-  const isolatedDotRenderer = useIsolatedDotRenderer(chartLineColor);
 
   // Fetch and process all chart data using the custom hook
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
@@ -154,7 +151,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                 name={assessmentName}
                 stroke={chartLineColor}
                 strokeWidth={2}
-                dot={isolatedDotRenderer}
+                dot={getLineDotStyle(chartLineColor)}
                 legendType="plainline"
               />
               <ReferenceLine
