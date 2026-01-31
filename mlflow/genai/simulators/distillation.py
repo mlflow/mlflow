@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pydantic
 
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.genai.simulators.prompts import DEFAULT_PERSONA, DISTILL_GOAL_AND_PERSONA_PROMPT
+from mlflow.genai.simulators.prompts import DISTILL_GOAL_AND_PERSONA_PROMPT
 from mlflow.genai.simulators.simulator import _MODEL_API_DOC, PGBAR_FORMAT
 from mlflow.genai.simulators.utils import (
     format_history,
@@ -33,8 +33,8 @@ _logger = logging.getLogger(__name__)
 
 class _GoalAndPersona(pydantic.BaseModel):
     goal: str = pydantic.Field(description="The user's underlying goal in the conversation")
-    persona: str = pydantic.Field(
-        default=DEFAULT_PERSONA,
+    persona: str | None = pydantic.Field(
+        default=None,
         description="A description of the user's communication style and personality",
     )
 
@@ -61,7 +61,10 @@ def _distill_goal_and_persona(
         if not result.goal:
             _logger.debug(f"Empty goal extracted from response: {response}")
             return None
-        return {"goal": result.goal, "persona": result.persona}
+        test_case = {"goal": result.goal}
+        if result.persona:
+            test_case["persona"] = result.persona
+        return test_case
     except pydantic.ValidationError as e:
         _logger.debug(f"Failed to validate response: {e}")
         return None

@@ -34,7 +34,7 @@ def get_default_simulation_model() -> str:
 
 
 @contextmanager
-def _delete_trace_if_created():
+def delete_trace_if_created():
     """Delete at most one trace created within this context to avoid polluting user traces."""
     trace_id_before = mlflow.get_last_active_trace_id(thread_local=True)
     try:
@@ -58,19 +58,12 @@ def invoke_model_without_tracing(
     """
     Invoke a model without tracing. This method will delete the last trace created by the
     invocation, if any.
-
-    Args:
-        model_uri: The model URI.
-        messages: List of ChatMessage objects.
-        num_retries: Number of retries on transient failures.
-        inference_params: Optional inference parameters.
-        response_format: Optional pydantic model class for structured output.
     """
     import litellm
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    with _delete_trace_if_created():
+    with delete_trace_if_created():
         if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
@@ -100,15 +93,24 @@ def invoke_model_without_tracing(
             "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
+            "drop_params": True,
         }
         if inference_params:
             kwargs.update(inference_params)
         if response_format is not None:
             kwargs["response_format"] = response_format
 
-        litellm.drop_params = True
-        response = litellm.completion(**kwargs)
-        return response.choices[0].message.content
+        try:
+            response = litellm.completion(**kwargs)
+            return response.choices[0].message.content
+        except Exception as e:
+            error_str = str(e)
+            if inference_params and "Unsupported value: 'temperature'" in error_str:
+                kwargs.pop("temperature", None)
+                response = litellm.completion(**kwargs)
+                return response.choices[0].message.content
+            else:
+                raise
 
 
 def format_history(history: list[dict[str, Any]]) -> str | None:
