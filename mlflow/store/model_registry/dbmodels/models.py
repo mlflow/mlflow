@@ -53,21 +53,32 @@ class SqlRegisteredModel(Base):
             f"{self.creation_time}, {self.last_updated_time})>"
         )
 
-    def to_mlflow_entity(self):
-        # SqlRegisteredModel has backref to all "model_versions". Filter latest for each stage.
-        latest_versions = {}
-        for mv in self.model_versions:
-            stage = mv.current_stage
-            if stage != STAGE_DELETED_INTERNAL and (
-                stage not in latest_versions or latest_versions[stage].version < mv.version
-            ):
-                latest_versions[stage] = mv
+    def to_mlflow_entity(self, preloaded_latest_versions: list | None = None):
+        """
+        Convert to MLflow RegisteredModel entity.
+
+        Args:
+            preloaded_latest_versions: Optional pre-computed latest versions per stage.
+                If provided, avoids lazy loading all model_versions.
+        """
+        if preloaded_latest_versions is not None:
+            latest_version_entities = [mv.to_mlflow_entity() for mv in preloaded_latest_versions]
+        else:
+            latest_versions = {}
+            for mv in self.model_versions:
+                stage = mv.current_stage
+                if stage != STAGE_DELETED_INTERNAL and (
+                    stage not in latest_versions or latest_versions[stage].version < mv.version
+                ):
+                    latest_versions[stage] = mv
+            latest_version_entities = [mv.to_mlflow_entity() for mv in latest_versions.values()]
+
         return RegisteredModel(
             self.name,
             self.creation_time,
             self.last_updated_time,
             self.description,
-            [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
+            latest_version_entities,
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
             [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
         )
