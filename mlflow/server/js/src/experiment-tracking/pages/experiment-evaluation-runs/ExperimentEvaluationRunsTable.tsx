@@ -28,6 +28,7 @@ export interface ExperimentEvaluationRunsTableProps {
   setIsDrawerOpen: (isOpen: boolean) => void;
   viewMode: ExperimentEvaluationRunsPageMode;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
+  isGrouped?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
@@ -47,6 +48,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       setIsDrawerOpen,
       viewMode,
       onScroll,
+      isGrouped,
     },
     ref,
   ) => {
@@ -108,6 +110,13 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         },
         getRowCanExpand: (row) => Boolean(row.subRows?.length),
         onExpandedChange: setExpandedRows,
+        enableRowSelection: (row) => {
+          // Groups are not selectable
+          if ('subRuns' in row.original) {
+            return false;
+          }
+          return true;
+        },
         meta: {
           setSelectedRunUuid,
           setSelectedDatasetWithRun,
@@ -156,6 +165,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isExpanded={row.getIsExpanded()}
                 isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
+                isGrouped={isGrouped}
               />
             );
           })}

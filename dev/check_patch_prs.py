@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
+from packaging.version import Version
 
 
 def get_token() -> str | None:
@@ -30,6 +31,19 @@ def get_headers() -> dict[str, str]:
     if token := get_token():
         return {"Authorization": f"token {token}"}
     return {}
+
+
+def validate_version(version: str) -> None:
+    """
+    Validate that the version has a micro version component.
+    Raises ValueError if the version is invalid.
+    """
+    parsed_version = Version(version)
+    if len(parsed_version.release) != 3:
+        raise ValueError(
+            f"Invalid version: '{version}'. "
+            "Version must be in the format <major>.<minor>.<micro> (e.g., '2.10.0')"
+        )
 
 
 def get_release_branch(version: str) -> str:
@@ -161,6 +175,7 @@ def fetch_patch_prs(version: str) -> dict[int, bool]:
 
 
 def main(version: str, dry_run: bool) -> None:
+    validate_version(version)
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)

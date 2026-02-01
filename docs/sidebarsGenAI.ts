@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
@@ -28,6 +28,12 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'link',
       href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
       className: 'sidebar-top-level-category',
     },
     {
@@ -727,13 +733,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {

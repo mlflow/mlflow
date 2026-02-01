@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -41,6 +41,8 @@ export interface EndpointSelectorProps {
   componentIdPrefix?: string;
   /** Called when a new endpoint is created */
   onEndpointCreated?: (endpoint: Endpoint) => void;
+  /** Whether to auto-select the first endpoint */
+  autoSelectFirstEndpoint?: boolean;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -50,6 +52,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   placeholder,
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
+  autoSelectFirstEndpoint = false,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -57,6 +60,12 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (autoSelectFirstEndpoint && endpoints && endpoints.length > 0 && !currentEndpointName) {
+      onEndpointSelect(endpoints[0].name);
+    }
+  }, [autoSelectFirstEndpoint, endpoints, onEndpointSelect, currentEndpointName]);
 
   const handleOpenCreateModal = useCallback(() => {
     setIsCreateModalOpen(true);

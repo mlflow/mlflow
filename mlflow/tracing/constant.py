@@ -11,6 +11,8 @@ class TraceMetadataKey:
     SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
+    COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
     # tag, which stores "who created the trace" i.e. developer or system name.
     TRACE_USER = "mlflow.trace.user"
@@ -47,6 +49,14 @@ class TokenUsageKey:
         return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
+class CostKey:
+    """Key for the cost information in the `mlflow.llm.cost` span attribute."""
+
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
+
+
 class TraceSizeStatsKey:
     TOTAL_SIZE_BYTES = "total_size_bytes"
     NUM_SPANS = "num_spans"
@@ -69,6 +79,12 @@ class SpanAttributeKey:
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
+    # This attribute stores cost information calculated from token usage and model pricing.
+    # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
+    LLM_COST = "mlflow.llm.cost"
+    # This attribute stores the model name extracted from span inputs/attributes.
+    MODEL = "mlflow.llm.model"
+    MODEL_PROVIDER = "mlflow.llm.provider"
     # This attribute indicates which flavor/format generated the LLM span. This is
     # used by downstream (e.g., UI) to determine the message format for parsing.
     MESSAGE_FORMAT = "mlflow.message.format"

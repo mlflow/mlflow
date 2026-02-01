@@ -7,7 +7,10 @@ from mlflow.entities import SpanType
 from mlflow.mistral.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import (
+    set_span_chat_tools,
+    set_span_model_attribute,
+)
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -97,6 +100,8 @@ class TracingSession:
 
         if exc_val:
             self.span.record_exception(exc_val)
+
+        set_span_model_attribute(self.span, self.inputs)
 
         try:
             if usage := _parse_usage(self.output):
