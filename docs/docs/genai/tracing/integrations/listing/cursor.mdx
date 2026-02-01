@@ -1,0 +1,142 @@
+---
+sidebar_position: 10
+sidebar_label: Cursor
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Cursor
+
+![Cursor Tracing via CLI autolog](/images/llms/cursor/cursor-tracing.png)
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Cursor](https://cursor.com), an AI-powered code editor built on top of VS Code. Cursor features AI agents that can help you write, edit, debug, and understand code through natural language interactions.
+
+After setting up auto tracing, MLflow will automatically capture traces of your Cursor AI agent conversations and log them to the active MLflow experiment. The trace automatically captures information such as:
+
+- User prompts and agent responses
+- Agent thinking/reasoning
+- Shell command execution and results
+- File read and edit operations with statistics
+- MCP (Model Context Protocol) tool calls and results
+- Conversation timing and duration
+- Session metadata including workspace and user
+
+## Setup
+
+Cursor tracing is configured using CLI commands that set up Cursor hooks in your project directory.
+
+### Requirements
+
+- MLflow >= 3.10 (`pip install 'mlflow>=3.10'`)
+- [Cursor](https://cursor.com) editor installed
+
+### Basic Setup
+
+```bash
+# Set up tracing in current directory
+mlflow autolog cursor
+
+# Set up tracing in specific directory
+mlflow autolog cursor ~/my-project
+
+# Check tracing status
+mlflow autolog cursor --status
+
+# Disable tracing
+mlflow autolog cursor --disable
+```
+
+### Configuration Examples
+
+```bash
+# Set up with custom tracking URI
+mlflow autolog cursor -u sqlite:///mlflow.db
+
+# Set up with Databricks backend and a specific experiment ID
+mlflow autolog cursor -u databricks -e 123456789
+
+# Set up with specific experiment name
+mlflow autolog cursor -n "My AI Coding Project"
+```
+
+### How It Works
+
+1. **Setup Phase**: The `mlflow autolog cursor` command configures Cursor hooks in a `.cursor/hooks.json` file in your project directory
+2. **Automatic Tracing**: When you interact with Cursor's AI agent in the configured directory, your conversations are automatically traced
+3. **Real-time Capture**: Unlike transcript-based approaches, Cursor hooks fire in real-time during agent execution
+4. **View Results**: Use the MLflow UI to explore your traces
+
+### Basic Example
+
+```bash
+# Set up tracing in your project
+mlflow autolog cursor ~/my-project
+
+# Navigate to project directory
+cd ~/my-project
+
+# Open the directory in Cursor
+cursor .
+
+# Start chatting with Cursor Agent - traces happen automatically
+# Example prompts:
+# - "Help me refactor this function to be more efficient"
+# - "Add error handling to this API endpoint"
+# - "Write tests for the authentication module"
+
+# View traces in MLflow UI
+mlflow server
+```
+
+## Session Tracking
+
+Traces are automatically grouped by:
+
+- **Conversation ID**: Each Cursor conversation gets a unique trace
+- **Session/Workspace**: Traces are grouped by workspace folder name
+- **User**: Associated with the Cursor user email when available
+
+## Troubleshooting
+
+### Check CLI Status
+
+```bash
+mlflow autolog cursor --status
+```
+
+This shows:
+
+- Whether tracing is enabled
+- Current tracking URI
+- Configured experiment
+- Any configuration issues
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure you're in the configured directory
+- Check that `.cursor/hooks.json` exists and contains MLflow hooks
+- Verify `.cursor/.env` exists with `MLFLOW_CURSOR_TRACING_ENABLED=true`
+- Review logs in `.cursor/mlflow/cursor_tracing.log`
+
+**Missing traces:**
+
+- Check if hooks are properly configured in `.cursor/hooks.json`
+- Verify the tracking URI is accessible
+- Review logs for any errors
+
+**Hooks not firing:**
+
+- Restart Cursor after configuration changes
+- Ensure the hooks.json file is valid JSON
+- Check Cursor version supports hooks
+
+### Disable Tracing
+
+To stop automatic tracing:
+
+```bash
+mlflow autolog cursor --disable
+```
