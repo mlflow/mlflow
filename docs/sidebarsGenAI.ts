@@ -700,7 +700,7 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/custom/examples',
+                  id: 'eval-monitor/scorers/custom/code-examples',
                   label: 'Code-based Scorer Examples',
                 },
                 {
