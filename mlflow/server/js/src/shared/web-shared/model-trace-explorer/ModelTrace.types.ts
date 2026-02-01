@@ -276,6 +276,15 @@ export type ModelTraceStatus =
   | ModelTraceStatusInProgress;
 
 /**
+ * Cost information for a span in USD.
+ */
+export interface SpanCostInfo {
+  input_cost: number;
+  output_cost: number;
+  total_cost: number;
+}
+
+/**
  * Represents a single node in the model trace tree.
  */
 export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpan, 'attributes' | 'type' | 'events'> {
@@ -288,6 +297,8 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   chatTools?: ModelTraceChatTool[];
   parentId?: string | null;
   traceId: string;
+  modelName?: string;
+  cost?: SpanCostInfo;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';

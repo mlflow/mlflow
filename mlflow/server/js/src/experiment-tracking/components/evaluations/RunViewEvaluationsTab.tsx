@@ -7,7 +7,6 @@ import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { RunColorPill } from '../experiment-page/components/RunColorPill';
-import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
 import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
@@ -43,7 +42,7 @@ import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -55,6 +54,7 @@ import type {
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
@@ -197,6 +197,17 @@ const RunViewEvaluationsTabInner = ({
     isQueryDisabled,
   });
 
+  const hasSetInitialGrouping = useRef(false);
+  useEffect(() => {
+    if (!hasSetInitialGrouping.current && traceInfos && traceInfos.length > 0) {
+      const hasSessionIds = traceInfos.some((trace) => Boolean(trace.trace_metadata?.[SESSION_ID_METADATA_KEY]));
+      if (hasSessionIds) {
+        setIsGroupedBySession(true);
+      }
+      hasSetInitialGrouping.current = true;
+    }
+  }, [traceInfos]);
+
   const countInfo = useMemo(() => {
     return {
       currentCount: traceInfos?.length,
@@ -255,22 +266,6 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
-      {!showCompareSelector && (
-        <div
-          css={{
-            width: '100%',
-            padding: `${theme.spacing.xs}px 0`,
-          }}
-        >
-          <EvaluationRunCompareSelector
-            experimentId={experimentId}
-            currentRunUuid={runUuid}
-            compareToRunUuid={compareToRunUuid}
-            setCompareToRunUuid={setCompareToRunUuid}
-            setCurrentRunUuid={setCurrentRunUuid}
-          />
-        </div>
-      )}
       {showCompareSelector && compareToRunUuid && (
         <div
           css={{

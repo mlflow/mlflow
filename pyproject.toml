@@ -109,6 +109,7 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
+  "gepa<1,>=0.0.26",
   "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
@@ -152,6 +153,7 @@ mlflow = [
   "server/auth/db/migrations/alembic.ini",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
+  "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
 ]
@@ -242,7 +244,7 @@ docs = [
 ]
 
 [tool.uv]
-required-version = "==0.9.8"
+required-version = ">=0.9.8"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -457,6 +459,10 @@ example-rules = [
 ]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
+# New experimental TruLens agent scorers - not yet in clint's static allowlist.
+"mlflow/genai/scorers/trulens/scorers/agent_trace.py" = [
+  "unknown-mlflow-function",
+]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -477,6 +483,7 @@ selectin = "selectin"              # SQLAlchemy lazy loading strategy
 tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 indx = "indx"                      # intentional shorthand for index
+Tru = "Tru"                        # TruLens library name prefix
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

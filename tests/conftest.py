@@ -1051,3 +1051,21 @@ def clear_engine_map():
         SqlAlchemyJobStore._engine_map.clear()
     except ImportError:
         pass
+
+
+@pytest.fixture
+def mock_litellm_cost():
+    """
+    Mock litellm.cost_per_token to calculate cost based on token counts.
+
+    Uses cost of 1.0 per input token and 2.0 per output token.
+    Returns (input_cost, output_cost) based on the token counts passed.
+    """
+
+    def calculate_cost(model, prompt_tokens, completion_tokens):
+        input_cost = prompt_tokens * 1.0
+        output_cost = completion_tokens * 2.0
+        return (input_cost, output_cost)
+
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+        yield mock_cost

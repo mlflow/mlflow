@@ -3,6 +3,7 @@ import ImageBox from "@site/src/components/ImageBox";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Brain, Code, Database } from "lucide-react";
+import JudgePrerequisites from '@site/src/content/judge_prerequisites.mdx';
 
 # Develop code-based scorers
 
@@ -15,59 +16,29 @@ As you develop scorers, you will often need to iterate quickly. Use this develop
 3. Query and store the resulting traces
 4. As you iterate on your scorer, evaluate using the stored traces
 
-## Prerequisites: Set up MLflow, and define your application
+<JudgePrerequisites/>
 
-Update `mlflow` to the latest version for the best GenAI experience, and install `openai` since the example app below uses the OpenAI client.
+4. Create a simple question-answering assistant app for this tutorial:
 
-```bash
-pip install -q --upgrade "mlflow>=3.1" openai
-```
+   ```python
+   @mlflow.trace
+   def sample_app(messages: list[dict[str, str]]):
+       # 1. Prepare messages for the LLM
+       messages_for_llm = [
+           {"role": "system", "content": "You are a helpful assistant."},
+           *messages,
+       ]
 
-The `mlflow.openai.autolog()` call below automatically instruments the application with MLflow Tracing. The recorded traces will be the inputs to scorers during evaluation.
-
-```python
-import mlflow
-
-mlflow.openai.autolog()
-```
-
-Use the native OpenAI SDK to connect to OpenAI-hosted models. Select a model from the [available OpenAI models](https://platform.openai.com/docs/models):
-
-```python
-import os
-import openai
-
-# Ensure your OPENAI_API_KEY is set in your environment
-# os.environ["OPENAI_API_KEY"] = "<YOUR_API_KEY>" # Uncomment and set if not globally configured
-
-# Create an OpenAI client connected to OpenAI SDKs
-client = openai.OpenAI()
-
-# Select an LLM
-model_name = "gpt-4o-mini"
-```
-
-Create a simple question-answering assistant app for this tutorial:
-
-```python
-@mlflow.trace
-def sample_app(messages: list[dict[str, str]]):
-    # 1. Prepare messages for the LLM
-    messages_for_llm = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        *messages,
-    ]
-
-    # 2. Call LLM to generate a response
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=messages_for_llm,
-    )
-    return response.choices[0].message.content
+       # 2. Call LLM to generate a response
+       response = client.chat.completions.create(
+           model=model_name,
+           messages=messages_for_llm,
+       )
+       return response.choices[0].message.content
 
 
-sample_app([{"role": "user", "content": "What is the capital of France?"}])
-```
+   sample_app([{"role": "user", "content": "What is the capital of France?"}])
+   ```
 
 ## Step 1: Define evaluation data
 
