@@ -41,7 +41,7 @@ MLflow 3 displays the evaluation results with intuitive visualizations. Each pre
 
 ##### 2. More powerful and flexible LLM-as-a-Judge
 
-A rich set of built-in [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge) scorers and a flexible toolset to build your own LLM-as-a-Judge supports you to evaluate various aspects of your LLM applications. Furthermore, the new [Agents-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview) capability evaluates complex trace with minimum context window consumption and boilerplate code.
+A rich set of built-in [LLM Judges](/genai/eval-monitor/scorers/llm-judge/custom-judges) and a flexible toolset to build your own LLM-as-a-Judge supports you to evaluate various aspects of your LLM applications. Furthermore, the new [Agents-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/custom-judges) capability evaluates complex trace with minimum context window consumption and boilerplate code.
 
 ##### 3. Integration with other MLflow GenAI capabilities
 
@@ -280,7 +280,7 @@ answer_similarity = make_judge(
 mlflow.genai.evaluate(scorers=[answer_similarity, ...])
 ```
 
-See the [LLM-as-a-Judge Scorers](/genai/eval-monitor/scorers/llm-judge) guide for more details.
+See the [LLM Judges](/genai/eval-monitor/scorers/#llms-as-judges) guide for more details.
 
 #### Example of custom heuristic metrics
 

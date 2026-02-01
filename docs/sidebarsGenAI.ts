@@ -671,30 +671,40 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'LLM-as-a-Judge',
+              label: 'Custom Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/custom-judges/index',
+              },
               items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/index',
-                  label: 'Overview',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
                 },
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/make-judge',
-                  label: 'Template-based',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
+                  label: 'Create a Custom Judge',
                 },
               ],
               collapsed: false,
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/agentic-overview',
-              label: 'Agent-as-a-Judge',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/scorers/custom',
+              type: 'category',
               label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
             },
             {
               type: 'category',
