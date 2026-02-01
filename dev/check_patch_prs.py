@@ -18,7 +18,6 @@ MAX_COMMITS_PER_SCRIPT = 90
 
 
 def chunk_list(lst: list[str], size: int) -> list[list[str]]:
-    """Split a list into chunks of specified size."""
     return [lst[i : i + size] for i in range(0, len(lst), size)]
 
 
@@ -222,15 +221,13 @@ def main(version: str, dry_run: bool) -> None:
         print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
 
         # Generate script(s)
-        script_paths = []
+        tmp_dir = Path(tempfile.gettempdir())
+        script_paths: list[tuple[Path, int]] = []
         for i, chunk in enumerate(chunks, 1):
             if len(chunks) == 1:
-                script_path = Path(tempfile.gettempdir()) / "cherry-pick.sh"
+                script_path = tmp_dir / "cherry-pick.sh"
             else:
-                script_path = Path(tempfile.gettempdir()) / f"cherry-pick-{i}.sh"
-
-            # Format commits with backslash continuation for readability
-            commits_formatted = " \\\n  ".join(chunk)
+                script_path = tmp_dir / f"cherry-pick-{i}.sh"
 
             script_content = f"""\
 #!/usr/bin/env bash
@@ -241,8 +238,7 @@ def main(version: str, dry_run: bool) -> None:
 # If conflicts occur, resolve them and run:
 #   git cherry-pick --continue
 
-git cherry-pick \\
-  {commits_formatted}
+git cherry-pick {" ".join(chunk)}
 """
             script_path.write_text(script_content)
             script_path.chmod(0o755)
