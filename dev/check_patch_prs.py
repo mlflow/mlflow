@@ -5,8 +5,10 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -197,8 +199,21 @@ def main(version: str, dry_run: bool) -> None:
             "upstream."
         )
         print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
-        print("3. Run the following command on the new branch:\n")
-        print("git cherry-pick " + " ".join(cherry_picks))
+        print("3. Run the cherry-pick script on the new branch:\n")
+        script_path = Path(tempfile.gettempdir()) / "cherry-pick.sh"
+        script_content = f"""\
+#!/usr/bin/env bash
+# Cherry-picks for v{version} -> {release_branch}
+# Generated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
+#
+# If conflicts occur, resolve them and run:
+#   git cherry-pick --continue
+
+git cherry-pick {" ".join(cherry_picks)}
+"""
+        script_path.write_text(script_content)
+        script_path.chmod(0o755)
+        print(f"Cherry-pick script written to: {script_path}")
         print(f"\n4. File a PR against {release_branch}.")
         sys.exit(0 if dry_run else 1)
 
