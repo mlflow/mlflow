@@ -18,7 +18,7 @@ Use custom scorers for the following scenarios:
 3. Using your own LLM for evaluation.
 4. Any other use cases where you need more flexibility and control than provided by [custom LLM judges](/genai/eval-monitor/scorers/llm-judge/custom-judges).
 
-For a tutorial with many examples, see [Code-based scorer examples](#).
+For a tutorial with many examples, see [Code-based scorer examples](/genai/eval-monitor/scorers/custom/code-examples).
 
 ## How custom scorers work
 
@@ -205,7 +205,7 @@ Expanding these rules to all possibilities gives the following table for metric 
 
 For evaluation, it is important that all metrics have distinct names. If a scorer returns `List[Feedback]`, then each `Feedback` in the `List` must have a distinct name.
 
-See [examples of naming behavior](#) in the tutorial.
+See [examples of naming behavior](/genai/eval-monitor/scorers/custom/code-examples) in the tutorial.
 
 ## Parsing Traces for Scoring
 
@@ -447,7 +447,7 @@ class GoodScorer(Scorer):
     icon={Code}
     title="Code-based scorer examples"
     description="See many examples of code-based scorers"
-    href="#"
+    href="/genai/eval-monitor/scorers/custom/code-examples"
   />
   <TileCard
     icon={Hammer}
