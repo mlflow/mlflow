@@ -8,7 +8,7 @@ import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import type { RunsChartType } from '../runs-charts/runs-charts.types';
 import { type SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
-import { isEmptyChartCard, type RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
+import { createEmptyChartCardPredicate, type RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
   AUTOML_EVALUATION_METRIC_TAG,
   LOG_IMAGE_TAG_INDICATOR,
@@ -362,7 +362,8 @@ const RunsCompareImpl = ({
   // If using draggable grid layout, already filter out charts that are empty or deleted
   const visibleChartCards = useMemo(() => {
     if (hideEmptyCharts) {
-      return compareRunCharts?.filter((chartCard) => !chartCard.deleted && !isEmptyChartCard(chartData, chartCard));
+      const isEmptyChartCard = createEmptyChartCardPredicate(chartData);
+      return compareRunCharts?.filter((chartCard) => !chartCard.deleted && !isEmptyChartCard(chartCard));
     }
     return compareRunCharts?.filter((chartCard) => !chartCard.deleted);
   }, [chartData, compareRunCharts, hideEmptyCharts]);
