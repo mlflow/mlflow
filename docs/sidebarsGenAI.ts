@@ -691,9 +691,20 @@ const sidebarsGenAI: SidebarsConfig = {
               collapsed: false,
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/custom',
+              type: 'category',
               label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
             },
             {
               type: 'category',
