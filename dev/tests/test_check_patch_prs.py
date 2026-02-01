@@ -46,26 +46,28 @@ def test_cherry_pick_script_generation(mock_api_calls, capsys):
     ][0]
     script_path = Path(script_path_line.split("Cherry-pick script written to:")[1].strip())
 
-    # Verify the script exists
-    assert script_path.exists()
+    try:
+        # Verify the script exists
+        assert script_path.exists()
 
-    # Verify the script content
-    script_content = script_path.read_text()
-    assert "#!/usr/bin/env bash" in script_content
-    assert "Cherry-picks for v2.10.1 -> branch-2.10" in script_content
-    assert "Generated:" in script_content
-    assert "If conflicts occur, resolve them and run:" in script_content
-    assert "git cherry-pick --continue" in script_content
-    assert "git cherry-pick abc123" in script_content
+        # Verify the script content
+        script_content = script_path.read_text()
+        assert "#!/usr/bin/env bash" in script_content
+        assert "Cherry-picks for v2.10.1 -> branch-2.10" in script_content
+        assert "Generated:" in script_content
+        assert "If conflicts occur, resolve them and run:" in script_content
+        assert "git cherry-pick --continue" in script_content
+        assert "git cherry-pick abc123" in script_content
 
-    # Verify the script is executable
-    assert script_path.stat().st_mode & 0o111
+        # Verify the script is executable
+        assert script_path.stat().st_mode & 0o111
 
-    # Verify the updated instructions are printed
-    assert "3. Run the cherry-pick script on the new branch:" in captured.out
-
-    # Clean up
-    script_path.unlink()
+        # Verify the updated instructions are printed
+        assert "3. Run the cherry-pick script on the new branch:" in captured.out
+    finally:
+        # Clean up - ensure file is removed even if assertions fail
+        if script_path.exists():
+            script_path.unlink()
 
 
 def test_cherry_pick_script_location():
