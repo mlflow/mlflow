@@ -24,6 +24,8 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   toggleSessionExpanded: (sessionId: string) => void;
   experimentId: string;
   getRunColor?: (runUuid: string) => string;
+  runUuid?: string;
+  compareToRunUuid?: string;
   rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
 }
 
@@ -41,6 +43,8 @@ interface SessionHeaderRowProps {
   isComparing: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
   getRunColor?: (runUuid: string) => string;
+  runUuid?: string;
+  compareToRunUuid?: string;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({
@@ -56,6 +60,8 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   expandedSessions,
   toggleSessionExpanded,
   getRunColor,
+  runUuid,
+  compareToRunUuid,
   rowSelectionChangeHandler,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
@@ -113,6 +119,8 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 isComparing={isComparing}
                 toggleSessionExpanded={toggleSessionExpanded}
                 getRunColor={getRunColor}
+                runUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
               />
             </div>
           );
@@ -169,6 +177,8 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   isComparing,
   toggleSessionExpanded,
   getRunColor,
+  runUuid,
+  compareToRunUuid,
 }: SessionHeaderRowProps) {
   // Handle toggle all rows in this session
   const handleToggleExpanded = useCallback(() => {
@@ -202,6 +212,8 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           experimentId={experimentId}
           isComparing={isComparing}
           getRunColor={getRunColor}
+          runUuid={runUuid}
+          compareToRunUuid={compareToRunUuid}
         />
       ))}
     </TableRow>
