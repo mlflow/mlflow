@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-import mlflow
 import mlflow.anthropic
 from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
@@ -11,6 +10,7 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
     set_span_chat_tools,
+    set_span_model_attribute,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -105,6 +105,7 @@ class TracingSession:
             if exc_val:
                 self.span.record_exception(exc_val)
 
+            set_span_model_attribute(self.span, self.inputs)
             _set_token_usage_attribute(self.span, self.output)
             self.span.end(outputs=self.output)
 
@@ -137,8 +138,7 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,

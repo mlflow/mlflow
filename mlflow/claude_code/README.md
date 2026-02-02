@@ -45,7 +45,7 @@ mlflow autolog claude --disable
 
 1. **Setup**: The `mlflow autolog claude` command configures Claude Code hooks in a `.claude/settings.json` file
 2. **Automatic Tracing**: When you use the `claude` command in the configured directory, your conversations are automatically traced to MLflow
-3. **View Traces**: Use `mlflow ui` to view your conversation traces
+3. **View Traces**: Use `mlflow server` to view your conversation traces
 
 ## Configuration
 
@@ -70,7 +70,7 @@ The setup creates two types of configuration:
 mlflow autolog claude
 cd .
 claude "help me write a function"
-mlflow ui --backend-store-uri sqlite:///mlflow.db
+mlflow server --backend-store-uri sqlite:///mlflow.db
 ```
 
 ### Databricks Integration
@@ -87,7 +87,7 @@ claude "analyze this data"
 mlflow autolog claude ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
 cd ~/my-ai-project
 claude "refactor this code"
-mlflow ui --backend-store-uri sqlite:///mlflow.db
+mlflow server --backend-store-uri sqlite:///mlflow.db
 ```
 
 ## Troubleshooting

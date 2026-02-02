@@ -1,8 +1,9 @@
+import inspect
 import logging
 import os
 import time
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -13,22 +14,25 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
+    _get_eval_data_size_and_fields,
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.genai.utils.trace_utils import _wrap_async_predict_fn, convert_predict_fn
 from mlflow.models.evaluation.base import (
-    EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.telemetry.events import GenAIEvaluateEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.telemetry.utils import _log_error
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -37,23 +41,23 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
-from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import invoke_databricks_app
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvaluationResult
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
 logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-) -> EvaluationResult:
+) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
     data and scorers.
@@ -168,6 +172,55 @@ def evaluate(
             scorers=[Correctness(), Safety()],
         )
 
+    **4. Pass a ConversationSimulator for multi-turn evaluation.**
+
+    For multi-turn evaluation, you can pass a ConversationSimulator to the `data`
+    parameter along with a `predict_fn`. The simulator will generate conversations
+    by simulating user interactions with your agent, and the resulting traces will
+    be evaluated.
+
+    The `predict_fn` must follow the OpenAI Responses API format
+    (https://platform.openai.com/docs/api-reference/responses):
+
+    - It must accept an ``input`` parameter containing the conversation history
+      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
+    - It may accept additional keyword arguments from the test case's ``context`` field
+    - It should return a response (the assistant's message content will be extracted)
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.simulators import ConversationSimulator
+        from mlflow.genai.scorers import Safety
+
+        simulator = ConversationSimulator(
+            test_cases=[
+                {
+                    "goal": "Learn about MLflow tracking",
+                    "persona": "A beginner",
+                    "context": {"user_id": "123"},  # passed as kwargs to predict_fn
+                },
+            ],
+            max_turns=3,
+        )
+
+
+        def predict_fn(input: list[dict], **kwargs) -> dict:
+            # input is the conversation history: [{"role": "user", "content": "..."}, ...]
+            # kwargs contains context from test case (e.g., user_id="123")
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=input,
+            )
+            return response
+
+
+        mlflow.genai.evaluate(
+            data=simulator,
+            predict_fn=predict_fn,
+            scorers=[Safety()],
+        )
+
     Args:
         data: Dataset for the evaluation. Must be one of the following formats:
 
@@ -176,6 +229,7 @@ def evaluate(
             * Spark DataFrame
             * List of dictionaries
             * List of `Trace` objects
+            * A ConversationSimulator (requires `predict_fn`)
 
             The dataset must include either of the following columns:
 
@@ -223,25 +277,87 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
+            Both synchronous and asynchronous (async def) functions are supported. Async
+            functions are automatically detected and wrapped to run synchronously with a
+            configurable timeout (default: 300 seconds). Set the timeout using the
+            MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT environment variable.
+
         model_id: Optional model identifier (e.g. "m-074689226d3b40bfbbdf4c3ff35832cd")
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
     Returns:
-        An :py:class:`mlflow.models.EvaluationResult~` object.
+        An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
     Note:
-        This function is only supported on Databricks. The tracking URI must be
-        set to Databricks.
+        Certain advanced features of this function are only supported on Databricks.
+        The tracking URI must be set to Databricks to use these features.
 
     .. warning::
 
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
+    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    return result
+
+
+@record_usage_event(GenAIEvaluateEvent)
+def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
+    """
+    Internal harness for running evaluation.
+
+    Returns:
+        A tuple containing:
+            - EvaluationResult: The evaluation result object with metrics and assessments
+            - dict: Telemetry data dictionary containing evaluation metadata (data size, fields,
+              etc.). This is used by the @record_usage_event decorator.
+    """
+    from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+
+    # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    precomputed_digest = None
+    precomputed_dataset_name = None
+    if isinstance(data, ConversationSimulator):
+        if predict_fn is None:
+            raise MlflowException.invalid_parameter_value(
+                "predict_fn is required when using ConversationSimulator as data. "
+                "The simulator needs a predict function to generate conversations."
+            )
+
+        # Compute digest from test cases BEFORE simulation. This ensures the same test cases
+        # produce the same digest regardless of LLM non-determinism in generated conversations.
+        precomputed_digest = data._compute_test_case_digest()
+        precomputed_dataset_name = data._get_dataset_name()
+
+        # Wrap async predict_fn for synchronous execution during simulation
+        sim_predict_fn = predict_fn
+        if inspect.iscoroutinefunction(predict_fn):
+            sim_predict_fn = _wrap_async_predict_fn(predict_fn)
+
+        all_traces = data.simulate(sim_predict_fn)
+        logger.debug(
+            f"Simulation produced {len(all_traces)} conversation(s) with "
+            f"{[len(traces) for traces in all_traces]} trace(s) each"
+        )
+        data = [trace for traces in all_traces for trace in traces]
+
+        if not data:
+            raise MlflowException.invalid_parameter_value(
+                "Simulation produced no traces. This may indicate that all conversations "
+                "failed during simulation. Check the logs above for error details."
+            )
+        # Set predict_fn to None since the simulation already invoked it for each conversation
+        # turn. The resulting traces contain all the prediction outputs, so the evaluation
+        # harness will use those traces directly rather than calling predict_fn again.
+        predict_fn = None
+
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
+
+    # Validate session-level input if session-level scorers are present
+    validate_session_level_evaluation_inputs(scorers, predict_fn)
 
     df = _convert_to_eval_set(data)
 
@@ -264,13 +380,6 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    return _run_harness(data, scorers, predict_fn, model_id)
-
-
-@record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id):
-    from mlflow.genai.evaluation import harness
-
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
     # one is not publicly documented, but we keep it for backward compatibility.
@@ -285,9 +394,19 @@ def _run_harness(data, scorers, predict_fn, model_id):
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Use default name for evaluation dataset when converting from DataFrame
-        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
+        # Use precomputed name from ConversationSimulator, or default "dataset" for other sources.
+        # Pass precomputed_digest if available (e.g., from ConversationSimulator test cases).
+        dataset_name = precomputed_dataset_name or "dataset"
+        mlflow_dataset = mlflow.data.from_pandas(
+            df=data, name=dataset_name, digest=precomputed_digest
+        )
         df = data
+
+    try:
+        telemetry_data = _get_eval_data_size_and_fields(df)
+    except Exception:
+        _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
+        telemetry_data = {}
 
     with (
         _start_run_or_reuse_active_run() as run_id,
@@ -312,7 +431,7 @@ def _run_harness(data, scorers, predict_fn, model_id):
     except Exception:
         logger.debug("Failed to display summary and usage instructions", exc_info=True)
 
-    return result
+    return result, telemetry_data
 
 
 def _log_dataset_input(
@@ -329,18 +448,92 @@ def _log_dataset_input(
     )
 
 
-@experimental(version="3.0.0")
+class DatabricksAppConfig(NamedTuple):
+    """Configuration for a Databricks App."""
+
+    app_invocation_url: str
+    config: Any
+
+
+def _setup_databricks_app_client(app_name: str) -> DatabricksAppConfig:
+    """
+    Set up the Databricks App client and return the app URL and config.
+
+    Args:
+        app_name: Name of the Databricks App
+
+    Returns:
+        DatabricksAppConfig with app_invocation_url and config fields
+    """
+    from databricks.sdk import WorkspaceClient
+
+    from mlflow.utils.databricks_utils import check_databricks_sdk_supports_scopes
+
+    check_databricks_sdk_supports_scopes()
+
+    try:
+        # Create WorkspaceClient with all-apis scopes passed in
+        # so notebook oauth token generation works
+        w = WorkspaceClient(scopes=["all-apis"])
+        app = w.apps.get(name=app_name)
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Failed to get Databricks App '{app_name}'. "
+            f"Make sure the app exists and you have permission to access it. "
+            f"Error: {e}",
+        ) from e
+
+    if not app.url:
+        raise MlflowException.invalid_parameter_value(
+            f"App '{app_name}' does not have a URL. Please ensure the app is deployed.",
+        )
+
+    # Append /invocations to endpoint
+    return DatabricksAppConfig(
+        app_invocation_url=f"{app.url}/invocations",
+        config=w.config,
+    )
+
+
+def _create_app_predict_fn(app_invocation_url: str, config) -> Callable[..., Any]:
+    """
+    Create a predict function for invoking a Databricks App.
+
+    Args:
+        app_invocation_url: Full invocation URL for the app
+        config: Databricks SDK config object for authentication
+
+    Returns:
+        A predict function that invokes the Databricks App
+    """
+
+    def predict_fn(**kwargs):
+        """
+        A wrapper function for invoking the Databricks App.
+
+        Args:
+            **kwargs: Parameters to pass to the app
+        """
+        return mlflow.trace(invoke_databricks_app, name="predict")(
+            app_invocation_url, kwargs, config
+        )
+
+    return predict_fn
+
+
 def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     """
     Convert an endpoint URI to a predict function.
 
     Args:
-        endpoint_uri: The endpoint URI to convert.
+        endpoint_uri: The endpoint URI to convert. Supports:
+            - "endpoints:/<endpoint-name>" for Databricks model serving endpoints
+            - "apps:/<app-name>" for Databricks Apps
 
     Returns:
         A predict function that can be used to make predictions.
 
-    Example:
+    Example for model serving endpoints:
 
         The following example assumes that the model serving endpoint accepts a JSON
         object with a `messages` key. Please adjust the input based on the actual
@@ -381,18 +574,61 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         .. code-block:: python
 
             predict_fn(**data[0]["inputs"])
+
+    Example for Databricks Apps:
+
+        .. code-block:: python
+
+            from mlflow.genai.scorers import RelevanceToQuery, Safety
+
+            data = [
+                {
+                    "inputs": {"input": [{"role": "user", "content": "Calculate 15th Fibonacci"}]},
+                }
+            ]
+            predict_fn = mlflow.genai.to_predict_fn("apps:/agent-app")
+            mlflow.genai.evaluate(
+                data=data,
+                predict_fn=predict_fn,
+                scorers=[RelevanceToQuery(), Safety()],
+            )
     """
     if not _is_model_deployment_endpoint_uri(endpoint_uri):
         raise ValueError(
             f"Invalid endpoint URI: {endpoint_uri}. The endpoint URI must be a valid model "
-            f"deployment endpoint URI."
+            f"deployment endpoint URI or Databricks App URI (endpoints:/<name> or apps:/<name>)."
         )
 
-    from mlflow.deployments import get_deploy_client
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
+    schema, path = _parse_model_uri(endpoint_uri)
+
+    match schema:
+        case "apps":
+            app_config = _setup_databricks_app_client(path)
+            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
+        case "endpoints":
+            return _create_endpoint_predict_fn(endpoint_uri, path)
+        case _:
+            raise ValueError(
+                f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
+            )
+
+
+def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:
+    """
+    Create a predict function for invoking a Databricks model serving endpoint.
+
+    Args:
+        endpoint_uri: The original endpoint URI (for docstring)
+        endpoint: The endpoint name
+
+    Returns:
+        A predict function that invokes the endpoint
+    """
+    from mlflow.deployments import get_deploy_client
+
     client = get_deploy_client("databricks")
-    _, endpoint = _parse_model_uri(endpoint_uri)
     endpoint_info = client.get_endpoint(endpoint)
 
     # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
@@ -409,7 +645,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
-        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        payload = kwargs if is_fmapi else kwargs | databricks_options
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 

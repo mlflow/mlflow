@@ -153,7 +153,7 @@ def deprecated(alternative: str | None = None, since: str | None = None, impact:
 
     def deprecated_decorator(obj):
         since_str = f" since {since}" if since else ""
-        impact_str = impact if impact else "This method will be removed in a future release."
+        impact_str = impact or "This method will be removed in a future release."
 
         qual_name = f"{obj.__module__}.{obj.__qualname__}"
         notice = f"``{qual_name}`` is deprecated{since_str}. {impact_str}"

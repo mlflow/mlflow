@@ -6,6 +6,10 @@ on:
     types:
       - closed
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   cancel:
     runs-on: ubuntu-slim

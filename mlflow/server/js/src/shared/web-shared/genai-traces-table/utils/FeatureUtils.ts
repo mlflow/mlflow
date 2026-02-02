@@ -32,6 +32,6 @@ export const shouldUseTracesV4API = () => {
   return false;
 };
 
-export const shouldEnableChatSessionsTab = () => {
+export const shouldEnableSessionGrouping = () => {
   return false;
 };

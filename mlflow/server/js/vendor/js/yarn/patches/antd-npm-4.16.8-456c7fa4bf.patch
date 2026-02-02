@@ -1,0 +1,72 @@
+diff --git a/es/_util/motion.js b/es/_util/motion.js
+index 710ed2e34ca205c96045aa3c21a141cf0aab9957..372547af29f4299d351f0c940918d68dea9f9694 100644
+--- a/es/_util/motion.js
++++ b/es/_util/motion.js
+@@ -15,7 +15,7 @@ var getRealHeight = function getRealHeight(node) {
+ 
+ var getCurrentHeight = function getCurrentHeight(node) {
+   return {
+-    height: node.offsetHeight
++    height: node ? node.offsetHeight : 0
+   };
+ };
+ 
+diff --git a/es/tabs/index.js b/es/tabs/index.js
+index dfaa06f8019da34b89d7c4e57532160467ea3bac..8d36da08922408ad4445753b70203466af0e8179 100644
+--- a/es/tabs/index.js
++++ b/es/tabs/index.js
+@@ -40,7 +40,8 @@ function Tabs(_a) {
+ 
+   var _React$useContext = React.useContext(ConfigContext),
+       getPrefixCls = _React$useContext.getPrefixCls,
+-      direction = _React$useContext.direction;
++      direction = _React$useContext.direction,
++      getPopupContainer = _React$useContext.getPopupContainer;
+ 
+   var prefixCls = getPrefixCls('tabs', customizePrefixCls);
+   var editable;
+@@ -66,6 +67,7 @@ function Tabs(_a) {
+     var size = propSize !== undefined ? propSize : contextSize;
+     return /*#__PURE__*/React.createElement(RcTabs, _extends({
+       direction: direction,
++      getPopupContainer: getPopupContainer,
+       moreTransitionName: "".concat(rootPrefixCls, "-slide-up")
+     }, props, {
+       className: classNames((_classNames = {}, _defineProperty(_classNames, "".concat(prefixCls, "-").concat(size), size), _defineProperty(_classNames, "".concat(prefixCls, "-card"), ['card', 'editable-card'].includes(type)), _defineProperty(_classNames, "".concat(prefixCls, "-editable-card"), type === 'editable-card'), _defineProperty(_classNames, "".concat(prefixCls, "-centered"), centered), _classNames), className),
+diff --git a/lib/_util/motion.js b/lib/_util/motion.js
+index b4f205a2b083c34f426b066a851eff812a83e41f..fb1e2f3b2be39809f88e6594e02a0aff2f59a38c 100644
+--- a/lib/_util/motion.js
++++ b/lib/_util/motion.js
+@@ -22,7 +22,7 @@ var getRealHeight = function getRealHeight(node) {
+ 
+ var getCurrentHeight = function getCurrentHeight(node) {
+   return {
+-    height: node.offsetHeight
++    height: node ? node.offsetHeight : 0
+   };
+ };
+ 
+diff --git a/lib/tabs/index.js b/lib/tabs/index.js
+index 38086c6ce71b36cc15dc436007ba3a0d412bd9fc..20bba02d608ed5655d5e03d8449300b7bd84f61e 100644
+--- a/lib/tabs/index.js
++++ b/lib/tabs/index.js
+@@ -64,7 +64,8 @@ function Tabs(_a) {
+ 
+   var _React$useContext = React.useContext(_configProvider.ConfigContext),
+       getPrefixCls = _React$useContext.getPrefixCls,
+-      direction = _React$useContext.direction;
++      direction = _React$useContext.direction,
++      getPopupContainer = _React$useContext.getPopupContainer;
+ 
+   var prefixCls = getPrefixCls('tabs', customizePrefixCls);
+   var editable;
+@@ -90,7 +91,8 @@ function Tabs(_a) {
+     var size = propSize !== undefined ? propSize : contextSize;
+     return /*#__PURE__*/React.createElement(_rcTabs["default"], (0, _extends2["default"])({
+       direction: direction,
+-      moreTransitionName: "".concat(rootPrefixCls, "-slide-up")
++      moreTransitionName: "".concat(rootPrefixCls, "-slide-up"),
++      getPopupContainer: getPopupContainer,
+     }, props, {
+       className: (0, _classnames["default"])((_classNames = {}, (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-").concat(size), size), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-card"), ['card', 'editable-card'].includes(type)), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-editable-card"), type === 'editable-card'), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-centered"), centered), _classNames), className),
+       editable: editable,

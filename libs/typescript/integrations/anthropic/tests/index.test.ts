@@ -8,6 +8,7 @@ import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { anthropicMockHandlers } from './mockAnthropicServer';
+import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -20,14 +21,15 @@ describe('tracedAnthropic', () => {
     server = setupServer(...anthropicMockHandlers);
     server.listen();
 
-    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     const experimentName = `anthropic-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     experimentId = await client.createExperiment(experimentName);
 
     mlflow.init({
       trackingUri: TEST_TRACKING_URI,
-      experimentId
+      experimentId,
     });
   });
 
@@ -58,7 +60,7 @@ describe('tracedAnthropic', () => {
     const result = await wrappedAnthropic.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 256,
-      messages: [{ role: 'user', content: 'Hello Claude!' }]
+      messages: [{ role: 'user', content: 'Hello Claude!' }],
     });
 
     const trace = await getLastActiveTrace();
@@ -77,7 +79,7 @@ describe('tracedAnthropic', () => {
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 256,
-      messages: [{ role: 'user', content: 'Hello Claude!' }]
+      messages: [{ role: 'user', content: 'Hello Claude!' }],
     });
     expect(span.outputs).toEqual(result);
 
@@ -98,23 +100,26 @@ describe('tracedAnthropic', () => {
           {
             error: {
               type: 'rate_limit',
-              message: 'Rate limit exceeded'
-            }
+              message: 'Rate limit exceeded',
+            },
           },
-          { status: 429 }
-        )
-      )
+          { status: 429 },
+        ),
+      ),
     );
 
-    const anthropic = new Anthropic({ apiKey: 'test-key' });
+    // Disable retries to prevent the SDK from retrying on errors.
+    // SDK 0.50+ calls CancelReadableStream on error responses before retrying,
+    // which hangs indefinitely with MSW mock responses.
+    const anthropic = new Anthropic({ apiKey: 'test-key', maxRetries: 0 });
     const wrappedAnthropic = tracedAnthropic(anthropic);
 
     await expect(
       wrappedAnthropic.messages.create({
         model: 'claude-3-7-sonnet-20250219',
         max_tokens: 128,
-        messages: [{ role: 'user', content: 'This request should fail.' }]
-      })
+        messages: [{ role: 'user', content: 'This request should fail.' }],
+      }),
     ).rejects.toThrow();
 
     const trace = await getLastActiveTrace();
@@ -125,7 +130,7 @@ describe('tracedAnthropic', () => {
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 128,
-      messages: [{ role: 'user', content: 'This request should fail.' }]
+      messages: [{ role: 'user', content: 'This request should fail.' }],
     });
     expect(span.outputs).toBeUndefined();
   });
@@ -139,15 +144,15 @@ describe('tracedAnthropic', () => {
         const response = await wrappedAnthropic.messages.create({
           model: 'claude-3-7-sonnet-20250219',
           max_tokens: 128,
-          messages: [{ role: 'user', content: 'Hello from parent span.' }]
+          messages: [{ role: 'user', content: 'Hello from parent span.' }],
         });
         return response.content[0];
       },
       {
         name: 'predict',
         spanType: mlflow.SpanType.CHAIN,
-        inputs: 'Hello from parent span.'
-      }
+        inputs: 'Hello from parent span.',
+      },
     );
 
     const trace = await getLastActiveTrace();
@@ -165,7 +170,7 @@ describe('tracedAnthropic', () => {
     expect(childSpan.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 128,
-      messages: [{ role: 'user', content: 'Hello from parent span.' }]
+      messages: [{ role: 'user', content: 'Hello from parent span.' }],
     });
     expect(childSpan.outputs).toBeDefined();
 

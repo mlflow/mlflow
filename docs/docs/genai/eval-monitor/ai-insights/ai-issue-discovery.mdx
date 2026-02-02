@@ -5,7 +5,7 @@ import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import DAGLoop from "@site/src/components/DAGLoop";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import ImageBox from "@site/src/components/ImageBox";
-import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale, AlertTriangle, Zap, ThumbsUp, LineChart, GitBranch, Search, Lightbulb, FileText } from "lucide-react";
+import { Target, BarChart3, Bot, AlertTriangle, ThumbsUp, LineChart, GitBranch, Search, Lightbulb, FileText } from "lucide-react";
 
 # AI Issue Discovery
 
@@ -78,7 +78,7 @@ mlflow ai-commands run genai/analyze_experiment
 ### Prerequisites
 
 - A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.)
-- MLflow 3.4 or later: `pip install mlflow>=3.4`
+- MLflow 3.4 or later: `pip install 'mlflow[genai]>=3.4'`
 - Access to MLflow tracking server with logged traces
 
 </TabItem>

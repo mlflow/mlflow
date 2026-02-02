@@ -18,6 +18,7 @@ export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // TODO: refactor to use `react-query`
   const loadChildRuns = useCallback(
     async (pageToken?: string) => {
       setIsLoading(true);

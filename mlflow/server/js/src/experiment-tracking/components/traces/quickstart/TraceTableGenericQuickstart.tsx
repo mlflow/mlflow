@@ -1,6 +1,5 @@
-import { CopyIcon, Typography, useDesignSystemTheme, Alert } from '@databricks/design-system';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
-import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
 
 import { QUICKSTART_CONTENT } from './TraceTableQuickstart.utils';
 
@@ -17,26 +16,16 @@ export const TraceTableGenericQuickstart = ({
   const code = getCodeSource();
   return (
     <div>
-      <Typography.Text css={{ maxWidth: 800 }} color="secondary">
+      <Typography.Paragraph color="secondary" css={{ maxWidth: 600 }}>
         {content}
-      </Typography.Text>
-      <div css={{ position: 'relative', width: 'min-content' }}>
-        <CopyButton
-          componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_snippet_copy`}
-          css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-          showLabel={false}
+      </Typography.Paragraph>
+      <div css={{ position: 'relative' }}>
+        <SnippetCopyAction
+          componentId="mlflow.traces.empty_state.example_code_copy"
+          css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
           copyText={code}
-          icon={<CopyIcon />}
         />
-        <CodeSnippet
-          showLineNumbers
-          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-          style={{
-            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-            marginTop: theme.spacing.md,
-          }}
-          language="python"
-        >
+        <CodeSnippet language="python" showLineNumbers>
           {code}
         </CodeSnippet>
       </div>

@@ -6,10 +6,6 @@ sidebar_label: CrewAI
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing CrewAI
 
@@ -182,6 +178,7 @@ class TripCrew:
             verbose=True,
             memory=True,
             knowledge={
+                "collection_name": "crewai_example",
                 "sources": [string_source],
                 "metadata": {"preference": "personal"},
             },

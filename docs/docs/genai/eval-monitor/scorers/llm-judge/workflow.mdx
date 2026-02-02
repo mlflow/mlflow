@@ -6,15 +6,13 @@ description: Complete workflow for developing, testing, and deploying custom LLM
 
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import DAGLoop from "@site/src/components/DAGLoop";
-import { Code, Brain, Zap, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
+import { Code, Brain, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
 
 # End-to-End Judge Workflow
 
@@ -227,7 +225,7 @@ Use the SIMBA optimizer to improve judge accuracy:
 
 ```python
 # Retrieve traces with both judge and human assessments
-traces = mlflow.search_traces(experiment_ids=[experiment_id], return_type="list")
+traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
 
 # Filter for traces with both assessments
 aligned_traces = []
@@ -294,7 +292,7 @@ print("Judge registered and ready for deployment!")
 Retrieve and use your registered judge with `mlflow.genai.evaluate()`:
 
 ```python
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai import get_scorer
 import pandas as pd
 
 # Retrieve the registered judge
@@ -377,7 +375,7 @@ print(results.tables["eval_results_table"])
     iconSize={48}
     title="Main Documentation"
     description="Return to the custom judges overview"
-    link="/genai/eval-monitor/scorers/llm-judge/"
+    link="/genai/eval-monitor/scorers/#llms-as-judges"
     linkText="Back to overview →"
     containerHeight={64}
   />

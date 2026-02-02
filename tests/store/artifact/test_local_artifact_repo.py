@@ -243,3 +243,88 @@ def test_trace_data(local_artifact_repo):
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
     local_artifact_repo.upload_trace_data(json.dumps(mock_trace_data))
     assert local_artifact_repo.download_trace_data() == mock_trace_data
+
+
+@pytest.fixture
+def external_secret_dir(tmp_path):
+    secret_dir = tmp_path.parent / "secrets_outside"
+    secret_dir.mkdir(exist_ok=True)
+    secret_file = secret_dir / "secret.txt"
+    secret_file.touch()
+    return secret_dir
+
+
+def _execute_operation(local_artifact_repo, operation, access_path, tmp_path):
+    if operation == "download_artifacts":
+        local_artifact_repo.download_artifacts(access_path)
+    elif operation == "list_artifacts":
+        local_artifact_repo.list_artifacts(access_path)
+    elif operation == "_download_file":
+        dst_path = tmp_path / "downloaded.txt"
+        local_artifact_repo._download_file(access_path, str(dst_path))
+
+
+@pytest.mark.parametrize(
+    ("symlink_name", "access_path", "operation"),
+    [
+        ("leak", "leak/secret.txt", "download_artifacts"),
+        ("leak", "leak", "list_artifacts"),
+        ("leak", "leak/secret.txt", "_download_file"),
+        ("parent_link", "parent_link/secret.txt", "download_artifacts"),
+    ],
+)
+def test_symlink_path_traversal_blocked(
+    local_artifact_repo, external_secret_dir, tmp_path, symlink_name, access_path, operation
+):
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir)
+    symlink_path = artifact_dir / symlink_name
+    symlink_path.symlink_to(external_secret_dir)
+
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        _execute_operation(local_artifact_repo, operation, access_path, tmp_path)
+
+
+def test_nested_symlink_traversal_blocked(local_artifact_repo, external_secret_dir):
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir)
+    nested_dir = artifact_dir / "nested"
+    nested_dir.mkdir()
+    symlink_path = nested_dir / "leak"
+    symlink_path.symlink_to(external_secret_dir)
+
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        local_artifact_repo.download_artifacts("nested/leak/secret.txt")
+
+
+@pytest.mark.parametrize(
+    ("setup_type", "access_path", "expected_content"),
+    [
+        ("file", "artifact_link.txt", "LEGITIMATE_CONTENT"),
+        ("subdir", "link_to_subdir/file.txt", "CONTENT"),
+    ],
+)
+def test_symlink_within_artifact_dir_allowed(
+    local_artifact_repo, setup_type, access_path, expected_content
+):
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir)
+
+    if setup_type == "file":
+        real_file = artifact_dir / "real_artifact.txt"
+        real_file.write_text(expected_content)
+        symlink_path = artifact_dir / "artifact_link.txt"
+        symlink_path.symlink_to(real_file)
+    elif setup_type == "subdir":
+        subdir = artifact_dir / "subdir"
+        subdir.mkdir()
+        real_file = subdir / "file.txt"
+        real_file.write_text(expected_content)
+        symlink_path = artifact_dir / "link_to_subdir"
+        symlink_path.symlink_to(subdir)
+
+    result = local_artifact_repo.download_artifacts(access_path)
+    with open(result) as f:
+        assert f.read() == expected_content
+
+    if setup_type == "subdir":
+        artifacts = local_artifact_repo.list_artifacts("link_to_subdir")
+        assert len(artifacts) == 1
+        assert artifacts[0].path == "link_to_subdir/file.txt"

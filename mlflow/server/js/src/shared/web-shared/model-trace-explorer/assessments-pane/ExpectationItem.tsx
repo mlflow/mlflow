@@ -1,16 +1,22 @@
 import { useState } from 'react';
+
 import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
 import { AssessmentDeleteModal } from './AssessmentDeleteModal';
 import { AssessmentEditForm } from './AssessmentEditForm';
+import { AssessmentSourceName } from './AssessmentSourceName';
 import { getParsedExpectationValue } from './AssessmentsPane.utils';
 import { ExpectationValuePreview } from './ExpectationValuePreview';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
+import { getSourceIcon } from './utils';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { getSourceIcon } from './utils';
-import { AssessmentSourceName } from './AssessmentSourceName';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '../constants';
+import { isEmpty } from 'lodash';
+import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
+import { useParams } from '../RoutingUtils';
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -18,11 +24,15 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const { nodeMap, activeView } = useModelTraceExplorerViewState();
+  const { experimentId } = useParams();
 
   const associatedSpan = expectation.span_id ? nodeMap[expectation.span_id] : null;
+  // indicate if the assessment is session-level
+  const sessionId = expectation.metadata?.[ASSESSMENT_SESSION_METADATA_KEY];
+  const showSessionTag = activeView === 'summary' && !isEmpty(sessionId);
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
-  const showAssociatedSpan = activeView === 'summary' && associatedSpan;
+  const showAssociatedSpan = activeView === 'summary' && associatedSpan && !showSessionTag;
 
   const parsedValue = getParsedExpectationValue(expectation.expectation);
   const SourceIcon = getSourceIcon(expectation.source);
@@ -108,6 +118,23 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
             <FormattedMessage defaultMessage="Span" description="Label for the associated span of an assessment" />
           </Typography.Text>
           <SpanNameDetailViewLink node={associatedSpan} />
+        </div>
+      )}
+      {showSessionTag && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Session"
+              description="Label for the session to which an assessment belongs"
+            />
+          </Typography.Text>
+          <ModelTraceHeaderSessionIdTag
+            experimentId={experimentId ?? ''}
+            sessionId={sessionId ?? ''}
+            traceId={expectation.trace_id}
+            handleCopy={() => {}}
+            hideLabel
+          />
         </div>
       )}
     </div>

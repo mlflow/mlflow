@@ -108,7 +108,7 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str | dict[str, Any]
 
 if HAS_PYSPARK:
     PyFuncInput = PyFuncInput | SparkDataFrame
@@ -761,7 +761,9 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == object:
+    if t == DataType.string and (
+        values.dtype == object or isinstance(values.dtype, pd.StringDtype)
+    ):
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
@@ -1411,8 +1413,7 @@ def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
         )
     properties = {prop.name: prop for prop in obj.properties}
     required_props = {k for k, prop in properties.items() if prop.required}
-    missing_props = required_props - set(data.keys())
-    if missing_props:
+    if missing_props := required_props - set(data.keys()):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
@@ -1630,8 +1631,7 @@ def _enforce_params_schema(params: dict[str, Any] | None, schema: ParamSchema | 
         params = {str(k): v for k, v in params.items()}
 
     allowed_keys = {param.name for param in schema.params}
-    ignored_keys = set(params) - allowed_keys
-    if ignored_keys:
+    if ignored_keys := set(params) - allowed_keys:
         _logger.warning(
             f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
             f"Supported params are: {allowed_keys}. "
@@ -1682,8 +1682,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return [
             convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
-    converter = type_mapping.get(type(dataType))
-    if converter:
+    if converter := type_mapping.get(type(dataType)):
         return converter(value)
     return value
 

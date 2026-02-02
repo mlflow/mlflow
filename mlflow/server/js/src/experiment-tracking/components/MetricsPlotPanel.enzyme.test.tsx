@@ -445,8 +445,8 @@ describe('unit tests', () => {
     const props = { ...minimalPropsForLineChart };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
-    instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
-    instance.loadMetricHistory = jest.fn<ReturnType<any>>().mockResolvedValue(undefined);
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({ selectedMetricKeys: ['metric_1'] });
+    jest.spyOn(instance, 'loadMetricHistory').mockResolvedValue(undefined);
     instance.setState({ loading: false });
 
     await instance.handleDownloadCsv();
@@ -461,8 +461,8 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
     instance.setState({ loading: true });
-    instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
-    instance.loadMetricHistory = jest.fn<ReturnType<any>>().mockResolvedValue(undefined);
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({ selectedMetricKeys: ['metric_1'] });
+    jest.spyOn(instance, 'loadMetricHistory').mockResolvedValue(undefined);
     jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     instance.setState({ loading: false });
     await instance.handleDownloadCsv();
@@ -477,7 +477,7 @@ describe('unit tests', () => {
     instance = wrapper.instance();
 
     instance.predictChartType = jest.fn().mockReturnValue(CHART_TYPE_LINE);
-    instance.getUrlState = jest.fn().mockReturnValue({
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({
       selectedMetricKeys: ['metric_1', 'metric_2'],
       selectedXAxis: 'step',
       yAxisLogScale: true,
@@ -507,7 +507,7 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
 
-    instance.getUrlState = jest.fn().mockReturnValue({
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({
       selectedMetricKeys: [],
       selectedXAxis: 'time',
       yAxisLogScale: false,
@@ -533,7 +533,7 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
 
-    instance.getUrlState = jest.fn().mockReturnValue({
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({
       selectedMetricKeys: ['metric_1', 'metric_2'],
     });
 
@@ -559,7 +559,7 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
 
-    instance.getUrlState = jest.fn().mockReturnValue({
+    jest.spyOn(instance, 'getUrlState').mockReturnValue({
       lineSmoothness: 0.5,
       selectedXAxis: 'time',
     });
@@ -575,7 +575,7 @@ describe('unit tests', () => {
     instance = wrapper.instance();
 
     const mockRunData = [{ uuid: 'run1' }];
-    instance.getChartRunData = jest.fn().mockReturnValue(mockRunData);
+    jest.spyOn(instance, 'getChartRunData').mockReturnValue(mockRunData);
 
     const contextValue = instance.getTooltipContextValue();
 
@@ -592,9 +592,9 @@ describe('unit tests', () => {
     const mockGlobalConfig = { lineSmoothness: 0.5 };
 
     instance.predictChartType = jest.fn().mockReturnValue(CHART_TYPE_LINE);
-    instance.getCardConfig = jest.fn().mockReturnValue(mockConfig);
-    instance.getChartRunData = jest.fn().mockReturnValue(mockRunData);
-    instance.getGlobalLineChartConfig = jest.fn().mockReturnValue(mockGlobalConfig);
+    jest.spyOn(instance, 'getCardConfig').mockReturnValue(mockConfig);
+    jest.spyOn(instance, 'getChartRunData').mockReturnValue(mockRunData);
+    jest.spyOn(instance, 'getGlobalLineChartConfig').mockReturnValue(mockGlobalConfig);
 
     wrapper.setProps({});
 
@@ -618,7 +618,7 @@ describe('unit tests', () => {
     instance = wrapper.instance();
 
     const mockContextValue = { runs: [] };
-    instance.getTooltipContextValue = jest.fn().mockReturnValue(mockContextValue);
+    jest.spyOn(instance, 'getTooltipContextValue').mockReturnValue(mockContextValue);
 
     wrapper.setProps({});
 

@@ -30,7 +30,7 @@ import * as mlflow from 'mlflow-tracing';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
-  experimentId: '<experiment-id>'
+  experimentId: '<experiment-id>',
 });
 ```
 
@@ -44,9 +44,9 @@ const getWeather = mlflow.trace(
   (city: string) => {
     return `The weather in ${city} is sunny`;
   },
-  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/quickstart
   // for the full list of options.
-  { name: 'get-weather' }
+  { name: 'get-weather' },
 );
 getWeather('San Francisco');
 
@@ -57,7 +57,7 @@ span.end();
 
 ## Documentation 📘
 
-Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).
+Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
 
 ## License
 

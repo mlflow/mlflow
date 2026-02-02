@@ -127,7 +127,7 @@ export const ModelTraceExplorerChatMessageHeader = ({
                 </Typography.Text>
               ),
               toolCallId: (
-                <Tooltip componentId="test" content={message.tool_call_id}>
+                <Tooltip componentId="shared.model-trace-explorer.tool-call-id-tooltip" content={message.tool_call_id}>
                   <div
                     css={{ display: 'inline-flex', flexShrink: 1, overflow: 'hidden', marginLeft: theme.spacing.xs }}
                   >

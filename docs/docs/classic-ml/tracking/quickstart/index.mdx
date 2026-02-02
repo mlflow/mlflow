@@ -3,10 +3,13 @@ sidebar_position: 2
 sidebar_label: "Quickstart"
 ---
 
-import { CardGroup, PageCard } from "@site/src/components/Card";
 import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
+
+:::tip MLflow Assistant
+Need help setting up tracking? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow tracking for your project.
+:::
 
 The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
 
@@ -55,7 +58,6 @@ X_train, X_test, y_train, y_test = train_test_split(
 params = {
     "solver": "lbfgs",
     "max_iter": 1000,
-    "multi_class": "auto",
     "random_state": 8888,
 }
 ```
@@ -89,7 +91,7 @@ To learn more about autologging and supported libraries, see the [Autologging](/
 To see the results of training, you can access the MLflow UI by navigating to the URL of the Tracking Server. If you have not started one, open a new terminal and run the following command at the root of the MLflow project and access the UI at http://localhost:5000 (or the port number you specified).
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 When opening the site, you will see a screen similar to the following:

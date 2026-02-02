@@ -1,5 +1,5 @@
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation } from '@databricks/web-shared/query-client';
 
 type UpsertDatasetRecordsPayload = {
   datasetId: string;

@@ -24,6 +24,37 @@ export const shouldEnableTracesTabLabelingSchemas = () => {
   return false;
 };
 
-export const shouldEnableChatSessionsTab = () => {
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shouldEnableAssessmentsInSessions = () => {
+  return true;
+};
+
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shoudlEnableURLPersistenceForSortAndColumns = () => {
+  return false;
+};
+
+/**
+ * A centralized setting enabling the new drawer UI for model trace explorer across the platform.
+ */
+export const shouldUseModelTraceExplorerDrawerUI = () => {
+  return true;
+};
+
+export const shouldUseUnifiedModelTraceComparisonUI = () => {
+  if (!shouldUseModelTraceExplorerDrawerUI()) {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Determines if running scorers from trace details drawer is enabled
+ */
+export const isEvaluatingTracesInDetailsViewEnabled = () => {
   return false;
 };

@@ -256,16 +256,16 @@ def test_langchain_agent_model_predict(monkeypatch):
     assert response[0]["messages"][-1]["content"] == expected_output
 
 
-def assert_equal_retrievers(retriever, expected_retreiver):
+def assert_equal_retrievers(retriever, expected_retriever):
     from langchain.schema.retriever import BaseRetriever
 
     assert isinstance(retriever, BaseRetriever)
-    assert isinstance(retriever, type(expected_retreiver))
-    assert isinstance(retriever.vectorstore, type(expected_retreiver.vectorstore))
-    assert retriever.tags == expected_retreiver.tags
-    assert retriever.metadata == expected_retreiver.metadata
-    assert retriever.search_type == expected_retreiver.search_type
-    assert retriever.search_kwargs == expected_retreiver.search_kwargs
+    assert isinstance(retriever, type(expected_retriever))
+    assert isinstance(retriever.vectorstore, type(expected_retriever.vectorstore))
+    assert retriever.tags == expected_retriever.tags
+    assert retriever.metadata == expected_retriever.metadata
+    assert retriever.search_type == expected_retriever.search_type
+    assert retriever.search_kwargs == expected_retriever.search_kwargs
 
 
 @skip_if_v1
@@ -1978,6 +1978,7 @@ def test_load_chain_with_model_config_overrides_saved_config(chain_path, model_c
         }
 
 
+@skip_if_v1
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
     # TODO: Migrate to models-from-code
@@ -2247,10 +2248,10 @@ def test_log_langchain_model_with_prompt():
         )
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.tracing.constant import TraceTagKey
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -2300,3 +2301,16 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         trace_info = mock_start_trace.call_args[0][0]
         assert trace_info.client_request_id == request_id
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+
+
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="The test is only for langchain>=1 versions")
+def test_langchain_v1_save_model_as_pickle_error():
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="LangChain v1 onward only supports models-from-code",
+        ):
+            mlflow.langchain.log_model(
+                model, name="langchain_model", input_example={"product": "MLflow"}
+            )

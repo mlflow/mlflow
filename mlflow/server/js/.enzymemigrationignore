@@ -23,7 +23,6 @@ src/experiment-tracking/components/MetricPage.enzyme.test.tsx
 src/experiment-tracking/components/MetricView.enzyme.test.tsx
 src/experiment-tracking/components/MetricsPlotControls.enzyme.test.tsx
 src/experiment-tracking/components/MetricsPlotPanel.enzyme.test.tsx
-src/experiment-tracking/components/MetricsPlotView.enzyme.test.tsx
 src/experiment-tracking/components/MetricsSummaryTable.enzyme.test.tsx
 src/experiment-tracking/components/ParallelCoordinatesPlotControls.enzyme.test.tsx
 src/experiment-tracking/components/ParallelCoordinatesPlotPanel.enzyme.test.tsx

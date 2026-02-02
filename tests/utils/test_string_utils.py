@@ -50,20 +50,17 @@ def test_format_table_cell_value_basic():
 
 
 def test_format_table_cell_value_empty():
-    """Test formatting of empty values."""
     result = format_table_cell_value("field", None, [])
     assert result == "N/A"
 
 
 def test_format_table_cell_value_multiple():
-    """Test formatting of multiple values."""
     values = ["a", "b", "c", "d", "e"]
     result = format_table_cell_value("field", None, values)
     assert result == "a, b, c, ... (+2 more)"
 
 
 def test_format_table_cell_value_timestamp():
-    """Test timestamp formatting."""
     timestamp = "2025-01-15T10:31:24.123Z"
     result = format_table_cell_value("info.request_time", timestamp)
     assert "2025-01-15" in result
@@ -71,19 +68,16 @@ def test_format_table_cell_value_timestamp():
 
 
 def test_format_table_cell_value_duration_ms():
-    """Test duration formatting in milliseconds."""
     result = format_table_cell_value("info.execution_duration_ms", 500)
     assert result == "500ms"
 
 
 def test_format_table_cell_value_duration_seconds():
-    """Test duration formatting in seconds."""
     result = format_table_cell_value("info.execution_duration_ms", 2500)
     assert result == "2.5s"
 
 
 def test_format_table_cell_value_preview_truncation():
-    """Test preview field truncation."""
     long_text = "This is a very long preview text that should be truncated"
     result = format_table_cell_value("info.request_preview", long_text)
     assert result == "This is a very lo..."
@@ -96,6 +90,5 @@ def test_format_table_cell_value_invalid_timestamp():
 
 
 def test_format_table_cell_value_invalid_duration():
-    """Test handling of invalid duration values."""
     result = format_table_cell_value("info.execution_duration_ms", "not-a-number")
     assert result == "not-a-number"  # Should return original

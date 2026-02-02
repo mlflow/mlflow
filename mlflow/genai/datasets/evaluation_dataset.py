@@ -55,8 +55,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __setattr__(self, name, value):
         """Allow setting internal attributes on the wrapped dataset."""
         object.__setattr__(self, name, value)
-        if name == "_records" and hasattr(self, "_mlflow_dataset") and self._mlflow_dataset:
-            self._mlflow_dataset._records = value
 
     def __getattr__(self, name):
         """
@@ -65,7 +63,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         This handles attributes that don't require special logic and can be
         directly delegated to the underlying dataset implementation.
         """
-        if name.startswith("_"):
+        if name.startswith("_") or name == "records":
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         if self._mlflow_dataset and hasattr(self._mlflow_dataset, name):
@@ -145,13 +143,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "Experiment associations are not available for Databricks managed datasets. "
             "Dataset associations are managed through Unity Catalog."
         )
-
-    @property
-    def records(self):
-        """The records in the dataset (MLflow only)."""
-        if self._mlflow_dataset:
-            return self._mlflow_dataset.records
-        raise NotImplementedError("Records access is not supported for Databricks managed datasets")
 
     @property
     def schema(self) -> str | None:

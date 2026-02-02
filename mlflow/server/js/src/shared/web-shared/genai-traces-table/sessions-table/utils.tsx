@@ -52,12 +52,13 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
         sessionDuration: calculateSessionDuration(traces),
         tokens: totalTokens,
         turns: sortedTraces.length,
+        traces: sortedTraces,
       };
     }),
   );
 };
 
-const calculateSessionDuration = (traces: ModelTraceInfoV3[]) => {
+export const calculateSessionDuration = (traces: ModelTraceInfoV3[]) => {
   const durations = traces.map((trace) => trace.execution_duration);
 
   if (durations.some((duration) => isNil(duration))) {

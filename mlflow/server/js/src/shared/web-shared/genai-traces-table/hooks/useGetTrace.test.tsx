@@ -85,7 +85,11 @@ describe('useGetTrace', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(mockGetTrace).toHaveBeenCalledWith('trace-id-123', demoTraceInfo);
+    // prettier-ignore
+    expect(mockGetTrace).toHaveBeenCalledWith(
+      'trace-id-123',
+      demoTraceInfo,
+    );
     expect(result.current.data).toEqual(mockTrace);
   });
 });

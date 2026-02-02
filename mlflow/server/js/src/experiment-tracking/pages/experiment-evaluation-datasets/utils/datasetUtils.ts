@@ -1,11 +1,13 @@
+import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
   getModelTraceId,
   getModelTraceSpanParentId,
-  ModelTrace,
   isV3ModelTraceInfo,
   isV3ModelTraceSpan,
+  isV4ModelTraceSpan,
   tryDeserializeAttribute,
-} from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
+} from '@databricks/web-shared/model-trace-explorer';
+import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
 import { compact, isNil } from 'lodash';
 
 // keep this in sync with EvaluationData._process_trace_records
@@ -39,9 +41,10 @@ export const extractDatasetInfoFromTraces = (traces: ModelTrace[]) => {
     }
 
     return {
-      inputs: isV3ModelTraceSpan(rootSpan)
-        ? tryDeserializeAttribute(rootSpan.attributes?.['mlflow.spanInputs'])
-        : rootSpan.inputs,
+      inputs:
+        isV3ModelTraceSpan(rootSpan) || isV4ModelTraceSpan(rootSpan)
+          ? tryDeserializeAttribute(getSpanAttribute(rootSpan.attributes, 'mlflow.spanInputs') as string)
+          : rootSpan.inputs,
       expectations,
       source: {
         source_type: 'TRACE',

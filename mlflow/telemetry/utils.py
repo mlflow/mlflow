@@ -1,6 +1,8 @@
 import logging
 import os
+from typing import Any
 
+import requests
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -8,7 +10,13 @@ from mlflow.environment_variables import (
     _MLFLOW_TESTING_TELEMETRY,
     MLFLOW_DISABLE_TELEMETRY,
 )
-from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
+from mlflow.telemetry.constant import (
+    CONFIG_STAGING_URL,
+    CONFIG_URL,
+    FALLBACK_UI_CONFIG,
+    UI_CONFIG_STAGING_URL,
+    UI_CONFIG_URL,
+)
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -82,19 +90,21 @@ def is_telemetry_disabled() -> bool:
         return True
 
 
-def _get_config_url(version: str) -> str | None:
+def _get_config_url(version: str, is_ui: bool = False) -> str | None:
     """
     Get the config URL for the given MLflow version.
     """
     version_obj = Version(version)
 
     if version_obj.is_devrelease or _IS_MLFLOW_TESTING_TELEMETRY:
-        return f"{CONFIG_STAGING_URL}/{version}.json"
+        base_url = UI_CONFIG_STAGING_URL if is_ui else CONFIG_STAGING_URL
+        return f"{base_url}/{version}.json"
 
     if version_obj.base_version == version or (
         version_obj.is_prerelease and version_obj.pre[0] == "rc"
     ):
-        return f"{CONFIG_URL}/{version}.json"
+        base_url = UI_CONFIG_URL if is_ui else CONFIG_URL
+        return f"{base_url}/{version}.json"
 
     return None
 
@@ -102,3 +112,25 @@ def _get_config_url(version: str) -> str | None:
 def _log_error(message: str) -> None:
     if _MLFLOW_TELEMETRY_LOGGING.get():
         _logger.error(message, exc_info=True)
+
+
+def fetch_ui_telemetry_config() -> dict[str, Any]:
+    # Check if telemetry is disabled
+    if is_telemetry_disabled():
+        return FALLBACK_UI_CONFIG
+
+    # Get config URL
+    config_url = _get_config_url(VERSION, is_ui=True)
+    if not config_url:
+        return FALLBACK_UI_CONFIG
+
+    # Fetch config from remote URL
+    try:
+        response = requests.get(config_url, timeout=1)
+        if response.status_code != 200:
+            return FALLBACK_UI_CONFIG
+
+        return response.json()
+    except Exception as e:
+        _log_error(f"Failed to fetch UI telemetry config: {e}")
+        return FALLBACK_UI_CONFIG

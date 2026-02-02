@@ -4,11 +4,7 @@ sidebar_label: Semantic Kernel
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import ImageBox from "@site/src/components/ImageBox";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing Semantic Kernel
 
@@ -36,7 +32,7 @@ Currently, tracing for streaming is not supported. If you want this feature, ple
 To get started, let's install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
 
 ```bash
-pip install 'mlflow>=3.2.0' semantic_kernel openai
+pip install 'mlflow[genai]>=3.2.0' semantic_kernel openai
 ```
 
 Then, enable autologging in your Python code:

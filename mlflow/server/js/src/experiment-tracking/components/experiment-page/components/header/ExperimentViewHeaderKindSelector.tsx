@@ -110,7 +110,7 @@ export const ExperimentViewHeaderKindSelector = ({
           return (
             <DropdownMenu.CheckboxItem
               key={key}
-              componentId={`mlflow.experiment_view.header.experiment_kind_selector.${key}`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_header_experimentviewheaderkindselector_113"
               onClick={() => onChange?.(key as ExperimentKind)}
               checked={isSelected}
             >

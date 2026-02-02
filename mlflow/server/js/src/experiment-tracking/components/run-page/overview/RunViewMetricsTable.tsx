@@ -261,7 +261,7 @@ export const RunViewMetricsTable = ({
   }, [filter, metricValues, intl]);
 
   const table = useReactTable<MetricEntity>(
-    'mlflow/web/js/src/experiment-tracking/components/run-page/overview/RunViewMetricsTable.tsx',
+    'mlflow/server/js/src/experiment-tracking/components/run-page/overview/RunViewMetricsTable.tsx',
     {
       data: metricValues,
       getCoreRowModel: getCoreRowModel(),

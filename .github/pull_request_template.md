@@ -1,4 +1,4 @@
-<!-- Remove unused checkboxes except for the patch release section at the bottom -->
+<!-- Do not remove any sections. Remove unused checkboxes except for the patch release section at the bottom. -->
 
 ### Related Issues/PRs
 

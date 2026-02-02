@@ -1,7 +1,15 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Button, ChevronDownIcon, ChevronUpIcon, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  LightbulbIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 
@@ -66,6 +74,68 @@ function ModelTraceExplorerChatMessageContent({
   );
 }
 
+function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }) {
+  const { theme } = useDesignSystemTheme();
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      css={{
+        margin: theme.spacing.sm,
+        marginTop: 0,
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        backgroundColor: theme.colors.backgroundSecondary,
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          width: '100%',
+          padding: theme.spacing.sm,
+          backgroundColor: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+          '&:hover': {
+            backgroundColor: theme.colors.actionDefaultBackgroundHover,
+          },
+        }}
+      >
+        {expanded ? (
+          <ChevronDownIcon css={{ color: theme.colors.textSecondary }} />
+        ) : (
+          <ChevronRightIcon css={{ color: theme.colors.textSecondary }} />
+        )}
+        <LightbulbIcon css={{ color: theme.colors.textValidationWarning }} />
+        <Typography.Text bold css={{ color: theme.colors.textSecondary }}>
+          <FormattedMessage
+            defaultMessage="Reasoning"
+            description="Label for the collapsible reasoning section in chat message"
+          />
+        </Typography.Text>
+      </button>
+      {expanded && (
+        <div
+          css={{
+            padding: theme.spacing.sm,
+            paddingTop: 0,
+            borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            marginBottom: -theme.typography.fontSizeBase,
+          }}
+        >
+          <GenAIMarkdownRenderer>{reasoning}</GenAIMarkdownRenderer>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ModelTraceExplorerChatMessage({
   message,
   className,
@@ -106,6 +176,7 @@ export function ModelTraceExplorerChatMessage({
         message={message}
       />
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        {message.reasoning && <ModelTraceExplorerReasoningSection reasoning={message.reasoning} />}
         {!isNil(message.tool_calls) &&
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />

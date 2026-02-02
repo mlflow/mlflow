@@ -1,4 +1,4 @@
-import type { RowSelectionState } from '@tanstack/react-table';
+import type { RowSelectionState, Updater } from '@tanstack/react-table';
 import React, { useState, useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -10,7 +10,6 @@ import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type {
   AssessmentFilter,
   AssessmentInfo,
@@ -18,9 +17,11 @@ import type {
   EvaluationsOverviewTableSort,
   TableFilter,
 } from './types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
+import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -56,9 +57,15 @@ interface GenAITracesTableBodyContainerProps {
    * Whether to display a loading overlay over the table
    */
   displayLoadingOverlay?: boolean;
+
+  /**
+   * Whether to group traces by session
+   */
+  isGroupedBySession: boolean;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   React.memo((props: GenAITracesTableBodyContainerProps) => {
     const {
       experimentId,
@@ -79,6 +86,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       getRunColor,
       enableRowSelection = true,
       displayLoadingOverlay = false,
+      isGroupedBySession,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -120,7 +128,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       [compareToTraceInfoV3],
     );
 
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
 
     // Handle assessment filter toggle
     const handleAssessmentFilterToggle = useCallback(
@@ -245,6 +253,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
                 displayLoadingOverlay={displayLoadingOverlay}
+                isGroupedBySession={isGroupedBySession}
               />
             </AssessmentSchemaContextProvider>
           </div>

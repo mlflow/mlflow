@@ -1,7 +1,6 @@
 import json
 import os
 import pickle
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -46,10 +45,10 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -637,7 +636,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)
-        traces = MlflowClient().search_traces(experiment_ids=["1"], include_spans=include_spans)
+        traces = MlflowClient().search_traces(locations=["1"], include_spans=include_spans)
 
         if include_spans:
             assert traces == []
@@ -671,8 +670,22 @@ def test_client_delete_traces(mock_store):
     )
 
 
+@pytest.fixture
+def disable_prompt_cache():
+    from mlflow.environment_variables import (
+        MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
+        MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
+    )
+
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.set(0)
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.set(0)
+    yield
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
+
+
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path, monkeypatch):
+def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -682,10 +695,7 @@ def tracking_uri(request, tmp_path, monkeypatch):
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = db_uri
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -878,7 +888,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = MlflowClient().search_traces(experiment_ids=[exp_id])
+    traces = MlflowClient().search_traces(locations=[exp_id])
     assert len(traces) == 1
 
     trace_info = traces[0].info
@@ -1015,7 +1025,7 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(
     res = func()
 
     assert res == "done"
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
     # No warning should be issued
     mock_logger.warning.assert_not_called()
 
@@ -1034,7 +1044,7 @@ def test_start_trace_within_active_run(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = client.search_traces(experiment_ids=[exp_id])
+    traces = client.search_traces(locations=[exp_id])
     assert len(traces) == 1
     assert traces[0].info.experiment_id == exp_id
 
@@ -1111,13 +1121,13 @@ def test_log_trace(tracking_uri):
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
 
     # Log the trace manually
     new_trace_id = client._log_trace(trace)
 
     # Validate the trace is added to the backend
-    backend_traces = client.search_traces(experiment_ids=[experiment_id])
+    backend_traces = client.search_traces(locations=[experiment_id])
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1131,10 +1141,11 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID])
     assert len(backend_traces) == 1
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning():
     client = MlflowClient()
     exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id
@@ -2055,7 +2066,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def registry_uri(request, tmp_path):
+def registry_uri(request, tmp_path, db_uri):
     """Set an MLflow Model Registry URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2063,14 +2074,11 @@ def registry_uri(request, tmp_path):
     original_registry_uri = mlflow.get_registry_uri()
 
     if request.param == "file":
-        tracking_uri = tmp_path.joinpath("file").as_uri()
+        registry_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        registry_uri = db_uri
 
-    yield tracking_uri
+    yield registry_uri
 
     # Reset tracking URI
     mlflow.set_tracking_uri(original_registry_uri)
@@ -2109,7 +2117,7 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
-def test_create_prompt_with_tags_and_metadata(tracking_uri):
+def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with version-specific tags
@@ -2171,7 +2179,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
     assert prompt_v1_after_update.tags == {"author": "Alice"}  # Unchanged
 
 
-def test_create_prompt_error_handling(tracking_uri):
+def test_create_prompt_error_handling(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Exceeds the max length
@@ -2370,12 +2378,12 @@ def test_log_and_detach_prompt(tracking_uri):
 
     # Check that initially no prompts are linked to the run
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is None
 
     client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 1
@@ -2383,7 +2391,7 @@ def test_log_and_detach_prompt(tracking_uri):
 
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 2
     prompt_names = [p["name"] for p in prompts]
@@ -2419,7 +2427,6 @@ def test_search_prompt(tracking_uri):
 
 
 def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
-    """Test that delete_prompt_version no longer automatically deletes prompts"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version
@@ -2448,7 +2455,6 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
 
 
 def test_delete_prompt_with_no_versions(tracking_uri):
-    """Test that delete_prompt works when prompt has no versions"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version, then delete version
@@ -2468,7 +2474,6 @@ def test_delete_prompt_with_no_versions(tracking_uri):
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
-    """Test the complete workflow: create, add versions, delete versions, delete prompt"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with multiple versions
@@ -2502,7 +2507,6 @@ def test_delete_prompt_complete_workflow(tracking_uri):
 
 
 def test_delete_prompt_error_handling(tracking_uri):
-    """Test error handling for delete_prompt operations"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Test deleting non-existent prompt
@@ -2516,7 +2520,6 @@ def test_delete_prompt_error_handling(tracking_uri):
 
 
 def test_delete_prompt_version_behavior_consistency(tracking_uri):
-    """Test that delete_prompt_version behavior is consistent across registry types"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create multiple prompts with versions
@@ -2545,8 +2548,6 @@ def test_delete_prompt_version_behavior_consistency(tracking_uri):
 
 @pytest.mark.parametrize("registry_uri", ["databricks-uc"])
 def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
-    """Test that Unity Catalog throws error when deleting prompt with existing versions"""
-
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
@@ -2565,7 +2566,6 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
-    """Smoke test for linking a prompt version to a model - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2585,7 +2585,6 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
 
 
 def test_link_prompts_to_trace_smoke_test(tracking_uri):
-    """Smoke test for linking prompt versions to a trace - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2704,7 +2703,7 @@ def test_log_batch_link_to_active_model(tracking_uri):
     }
 
 
-def test_load_prompt_with_alias_uri(tracking_uri):
+def test_load_prompt_with_alias_uri(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Register two versions of a prompt
@@ -2830,7 +2829,6 @@ def test_create_prompt_chat_format_client_integration():
 
 
 def test_link_chat_prompt_version_to_run():
-    """Test linking chat prompts to runs via client."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -2845,7 +2843,7 @@ def test_link_chat_prompt_version_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -2878,7 +2876,6 @@ def test_create_prompt_with_pydantic_response_format_client():
 
 
 def test_create_prompt_with_dict_response_format_client():
-    """Test client-level integration with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -2904,7 +2901,6 @@ def test_create_prompt_with_dict_response_format_client():
 
 
 def test_create_prompt_text_backward_compatibility_client():
-    """Test that text prompt creation continues to work via client."""
     client = MlflowClient()
     prompt = client.register_prompt(
         name="test_text_backward_client",
@@ -2923,7 +2919,6 @@ def test_create_prompt_text_backward_compatibility_client():
 
 
 def test_create_prompt_complex_chat_template_client():
-    """Test client-level integration with complex chat templates."""
     chat_template = [
         {
             "role": "system",
@@ -2967,21 +2962,7 @@ def test_create_prompt_with_none_response_format_client():
     assert loaded_prompt.response_format is None
 
 
-def test_create_prompt_with_empty_chat_template_client():
-    """Test client-level integration with empty chat template list."""
-    client = MlflowClient()
-    prompt = client.register_prompt(name="test_empty_chat_client", template=[])
-
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
-
-    # Load and verify
-    loaded_prompt = client.get_prompt_version("test_empty_chat_client", 1)
-    assert loaded_prompt.is_text_prompt
-
-
 def test_create_prompt_with_single_message_chat_client():
-    """Test client-level integration with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     client = MlflowClient()
@@ -3021,7 +3002,6 @@ def test_create_prompt_with_multiple_variables_in_chat_client():
 
 
 def test_create_prompt_with_mixed_content_types_client():
-    """Test client-level integration with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -3041,7 +3021,6 @@ def test_create_prompt_with_mixed_content_types_client():
 
 
 def test_create_prompt_with_nested_variables_client():
-    """Test client-level integration with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -3069,7 +3048,6 @@ def test_create_prompt_with_nested_variables_client():
 
 
 def test_link_prompt_with_response_format_to_run():
-    """Test linking prompts with response format to runs via client."""
     response_format = {
         "type": "object",
         "properties": {"answer": {"type": "string"}},
@@ -3087,7 +3065,7 @@ def test_link_prompt_with_response_format_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3097,7 +3075,6 @@ def test_link_prompt_with_response_format_to_run():
 
 
 def test_link_multiple_prompt_types_to_run():
-    """Test linking both text and chat prompts to the same run via client."""
     client = MlflowClient()
 
     # Create text prompt
@@ -3117,7 +3094,7 @@ def test_link_multiple_prompt_types_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3502,3 +3479,36 @@ def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
         assert child_span.end_time_ns == 1_800_000_000
         assert child_span.attributes.get("operation.type") == "database_query"
         assert child_span.attributes.get("custom.attribute") == "child-value"
+
+
+def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+
+        assert isinstance(client._tracking_client.store, SqlAlchemyTrackingStore)
+
+        with mlflow.start_span() as span:
+            pass
+
+        trace_id = span.trace_id
+        sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+        with (
+            mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
+        ):
+            mlflow.get_trace(trace_id)
+
+        mock_get_trace.assert_called_once_with(trace_id)
+
+        with (
+            mock.patch(
+                f"{sql_alchemy_store_module}.get_trace",
+                side_effect=MlflowNotImplementedException,
+            ) as mock_get_trace,
+            mock.patch(f"{sql_alchemy_store_module}.batch_get_traces") as mock_batch_get_traces,
+        ):
+            mlflow.get_trace(trace_id)
+
+        mock_get_trace.assert_called_once_with(trace_id)
+        mock_batch_get_traces.assert_called_once_with([trace_id])

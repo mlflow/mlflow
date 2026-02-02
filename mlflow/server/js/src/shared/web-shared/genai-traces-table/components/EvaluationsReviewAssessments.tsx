@@ -28,7 +28,6 @@ import {
 } from './GenAiEvaluationTracesReview.utils';
 import { useEditAssessmentFormState } from '../hooks/useEditAssessmentFormState';
 import type { AssessmentInfo, RunEvaluationResultAssessmentDraft, RunEvaluationResultAssessment } from '../types';
-import { EXPANDED_ASSESSMENT_DETAILS_VIEW } from '../utils/EvaluationLogging';
 import { useMarkdownConverter } from '../utils/MarkdownUtils';
 
 /**
@@ -295,7 +294,13 @@ const ExpandedAssessments = ({
         })}
         {showAddAssessmentButton && (
           <Button
-            componentId={`mlflow.evaluations_review.add_assessment_${assessmentsType}_button`}
+            componentId={
+              assessmentsType === 'overall'
+                ? 'mlflow.evaluations_review.add_assessment_overall_button'
+                : assessmentsType === 'response'
+                  ? 'mlflow.evaluations_review.add_assessment_response_button'
+                  : 'mlflow.evaluations_review.add_assessment_retrieval_button'
+            }
             onClick={addAssessment}
             icon={<PlusIcon />}
             size="small"
@@ -428,7 +433,13 @@ const CompactAssessments = ({
         })}
         {showAddAssessmentButton && (
           <Button
-            componentId={`mlflow.evaluations_review.add_assessment_${assessmentsType}_button`}
+            componentId={
+              assessmentsType === 'overall'
+                ? 'mlflow.evaluations_review.add_assessment_overall_button'
+                : assessmentsType === 'response'
+                  ? 'mlflow.evaluations_review.add_assessment_response_button'
+                  : 'mlflow.evaluations_review.add_assessment_retrieval_button'
+            }
             onClick={addAssessment}
             icon={<PlusIcon />}
             size="small"
@@ -543,7 +554,13 @@ export const EvaluationsReviewAssessments = ({
           <Button
             size="small"
             type="tertiary"
-            componentId={`mlflow.evaluations_review.see_assessment_details_${assessmentsType}_button`}
+            componentId={
+              assessmentsType === 'overall'
+                ? 'mlflow.evaluations_review.see_assessment_details_overall_button'
+                : assessmentsType === 'response'
+                  ? 'mlflow.evaluations_review.see_assessment_details_response_button'
+                  : 'mlflow.evaluations_review.see_assessment_details_retrieval_button'
+            }
             icon={showExpandedView ? <ChevronUpIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpandedView((mode) => !mode)}
           >

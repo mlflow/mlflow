@@ -32,7 +32,7 @@ import * as mlflow from 'mlflow-tracing';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
-  experimentId: '<experiment-id>'
+  experimentId: '<experiment-id>',
 });
 ```
 
@@ -50,8 +50,8 @@ const response = await client.chat.completions.create({
   model: 'o4-mini',
   messages: [
     { role: 'system', content: 'You are a helpful weather assistant.' },
-    { role: 'user', content: "What's the weather like in Seattle?" }
-  ]
+    { role: 'user', content: "What's the weather like in Seattle?" },
+  ],
 });
 ```
 
@@ -61,7 +61,7 @@ View traces in MLflow UI:
 
 ## Documentation 📘
 
-Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).
+Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
 
 ## License
 

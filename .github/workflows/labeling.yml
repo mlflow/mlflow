@@ -9,6 +9,7 @@ on:
     types:
       - opened
       - edited
+      - ready_for_review
 
 defaults:
   run:

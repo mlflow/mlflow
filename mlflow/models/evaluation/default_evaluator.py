@@ -578,13 +578,13 @@ class BuiltInEvaluator(ModelEvaluator):
         error_message_parts = [f"Metric '{metric_name}' requires the following:"]
 
         special_params = ["targets", "predictions"]
-        for param in special_params:
-            if param in param_names:
-                error_message_parts.append(f"  - the '{param}' parameter needs to be specified")
+        error_message_parts.extend(
+            f"  - the '{param}' parameter needs to be specified"
+            for param in special_params
+            if param in param_names
+        )
 
-        remaining_params = [param for param in param_names if param not in special_params]
-
-        if remaining_params:
+        if remaining_params := [param for param in param_names if param not in special_params]:
             error_message_parts.append(
                 f"  - missing columns {remaining_params} need to be defined or mapped"
             )
@@ -706,8 +706,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 _, eval_fn_args = self._get_args_for_metrics(
                     metric, first_row_df, first_row_input_df, other_output_df
                 )
-                metric_value = metric.evaluate(eval_fn_args)
-                if metric_value:
+                if metric_value := metric.evaluate(eval_fn_args):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
@@ -754,9 +753,7 @@ class BuiltInEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         for metric in metrics:
             _, eval_fn_args = self._get_args_for_metrics(metric, eval_df, input_df, other_output_df)
-            metric_value = metric.evaluate(eval_fn_args)
-
-            if metric_value:
+            if metric_value := metric.evaluate(eval_fn_args):
                 name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
 
@@ -921,10 +918,9 @@ class BuiltInEvaluator(ModelEvaluator):
         if extra_metrics is None:
             extra_metrics = []
 
-        bad_metrics = []
-        for metric in extra_metrics:
-            if not isinstance(metric, EvaluationMetric):
-                bad_metrics.append(metric)
+        bad_metrics = [
+            metric for metric in extra_metrics if not isinstance(metric, EvaluationMetric)
+        ]
         if len(bad_metrics) > 0:
             message = "\n".join(
                 [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]

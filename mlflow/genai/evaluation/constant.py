@@ -33,6 +33,7 @@ class InputDatasetColumn:
     EXPECTATIONS = "expectations"
     TAGS = "tags"
     TRACE = "trace"
+    SOURCE = "source"
 
 
 # Result Dataframe column names

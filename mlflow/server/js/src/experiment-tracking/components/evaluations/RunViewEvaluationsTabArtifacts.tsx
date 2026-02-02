@@ -158,7 +158,7 @@ const useGetCompareToDataWithArtifacts = (
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({
     experimentIds: [experimentId],
-    filter: `attributes.runId = "${compareToRunUuid}"`,
+    filter: `attributes.run_id = "${compareToRunUuid}"`,
     disabled: isNil(compareToRunUuid),
   });
 

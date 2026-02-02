@@ -6,7 +6,7 @@ import json
 
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.prompt.constants import RESPONSE_FORMAT_TAG_KEY
+from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY, RESPONSE_FORMAT_TAG_KEY
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
@@ -80,6 +80,11 @@ def proto_to_mlflow_prompt(
     else:
         response_format = None
 
+    if PROMPT_MODEL_CONFIG_TAG_KEY in version_tags:
+        model_config = json.loads(version_tags[PROMPT_MODEL_CONFIG_TAG_KEY])
+    else:
+        model_config = None
+
     version_tags = {
         key: value for key, value in version_tags.items() if not key.startswith("_mlflow")
     }
@@ -102,6 +107,7 @@ def proto_to_mlflow_prompt(
         tags=version_tags,
         aliases=aliases,
         response_format=response_format,
+        model_config=model_config,
     )
 
 

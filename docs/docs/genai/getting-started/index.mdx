@@ -8,7 +8,7 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, Users, TrendingUp, BookOpen, PlayCircle, Target, Settings } from "lucide-react";
+import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, PlayCircle, Target } from "lucide-react";
 
 # Getting Started with MLflow for GenAI
 
@@ -174,7 +174,7 @@ Transform manual prompt engineering into systematic, data-driven optimization wi
 Ready to get started? You'll need:
 
 - Python 3.10+ installed
-- MLflow 3.5+ (`pip install --upgrade mlflow`)
+- MLflow 3.5+ (`pip install --upgrade 'mlflow[genai]'`)
 - API access to an LLM provider (OpenAI, Anthropic, etc.)
 
 ---
@@ -276,15 +276,6 @@ MLflow provides deep integrations with popular GenAI frameworks. Choose your fra
     description="Instrument RAG pipelines and document processing workflows with LlamaIndex support"
     href="/genai/flavors/llama-index"
     linkText="Use LlamaIndex →"
-    containerHeight={64}
-  />
-  <TileCard
-    image="/images/logos/openai-logo.svg"
-    iconSize={48}
-    title="OpenAI Integration"
-    description="Track completions, embeddings, and function calls with native OpenAI instrumentation"
-    href="/genai/flavors/openai"
-    linkText="Use OpenAI →"
     containerHeight={64}
   />
   <TileCard

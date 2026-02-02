@@ -1,11 +1,15 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import React, { useContext } from 'react';
+import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import type { IntlShape } from '@databricks/i18n';
+import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -29,6 +33,7 @@ import { RunColorCircle } from '../components/RunColorCircle';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -53,8 +58,39 @@ import {
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
-import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+
+type timestampType = number | string | Date | null;
+
+/**
+ * Formats a timestamp into a date and time string.
+ * @param timestamp
+ * @param intl
+ * @param options
+ * @returns {string} formatted date and time string
+ * @example
+ * formatDateTime(1626825600000, intl);
+ * // => 'Jul 21, 2021, 12:00 AM'
+ * formatDateTime(1626825600000, intl, { hour: 'numeric', minute: '2-digit' });
+ * // => 'Jul 21, 2021, 5:30 AM'
+ * formatDateTime(1626825600000, intl, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+ * // => 'Jul 21, 2021, 05:30 AM PDT'
+ * formatDateTime(1626825600000, intl, { month: 'long', minute: '2-digit'});
+ * // => 'July 21, 2021, 05:30 AM'
+ **/
+export function formatDateTime(timestamp: timestampType, intl: IntlShape, options?: FormatDateOptions): string {
+  if (!timestamp) {
+    return '';
+  }
+
+  return intl.formatDate(timestamp, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    ...options,
+  });
+}
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -228,6 +264,27 @@ export const assessmentCellRenderer = (
   );
 };
 
+/**
+ * Wrapper component for assessment cells that checks the context for session grouping.
+ * Hides session-level assessments in regular rows when grouped by session.
+ */
+export const AssessmentCell: React.FC<{
+  isComparing: boolean;
+  assessmentInfo: AssessmentInfo;
+  comparisonEntry: EvalTraceComparisonEntry;
+}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { isGroupedBySession } = useContext(GenAITracesTableContext);
+
+  // Hide session-level assessments in regular rows when grouped by session
+  if (isGroupedBySession && assessmentInfo.isSessionLevelAssessment) {
+    return <NullCell />;
+  }
+
+  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+};
+
 export const expectationCellRenderer = (
   theme: ThemeType,
   intl: IntlShape,
@@ -260,7 +317,7 @@ export const expectationCellRenderer = (
 };
 
 export const inputColumnCellRenderer = (
-  onChangeEvaluationId: (evaluationId: string | undefined) => void,
+  onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void,
   row: CellContext<EvalTraceComparisonEntry, unknown>,
   isComparing: boolean,
   theme: ThemeType,
@@ -268,6 +325,7 @@ export const inputColumnCellRenderer = (
   getRunColor?: (runUuid: string) => string,
 ) => {
   const value = row.getValue() as EvalTraceComparisonEntry;
+
   const evalId = value.currentRunValue?.evaluationId || value.otherRunValue?.evaluationId;
 
   // fetch colors if possible
@@ -306,7 +364,7 @@ export const inputColumnCellRenderer = (
           textOverflow: 'ellipsis',
         }}
         componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-        onClick={() => onChangeEvaluationId(evalId)}
+        onClick={() => onChangeEvaluationId(evalId, value.currentRunValue?.traceInfo)}
       >
         {inputColumnTitle ? (
           inputColumnTitle
@@ -353,9 +411,11 @@ export const traceInfoCellRenderer = (
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
-  onChangeEvaluationId: (evalId: string) => void,
+  onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
+  intl: IntlShape,
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
+  traceIdToTurnMap?: Record<string, number>,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -373,7 +433,15 @@ export const traceInfoCellRenderer = (
               content={date.toLocaleString(navigator.language, { timeZoneName: 'short' })}
             >
               <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {timeSinceStr(date)}
+                {formatDateTime(date, intl, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false,
+                })}
               </span>
             </Tooltip>
           ) : (
@@ -527,7 +595,7 @@ export const traceInfoCellRenderer = (
                   textOverflow: 'ellipsis',
                 }}
                 componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-                onClick={() => evalId && onChangeEvaluationId(evalId)}
+                onClick={() => evalId && onChangeEvaluationId(evalId, comparisonEntry.currentRunValue?.traceInfo)}
               >
                 {currentTraceInfo?.tags?.['mlflow.traceName']}
               </Typography.Link>
@@ -605,7 +673,7 @@ export const traceInfoCellRenderer = (
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
-              onClick={() => onChangeEvaluationId(value)}
+              onClick={() => onChangeEvaluationId(value, currentTraceInfo)}
             >
               <span
                 css={{
@@ -630,7 +698,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
               title={otherValue}
-              onClick={() => onChangeEvaluationId(otherValue)}
+              onClick={() => onChangeEvaluationId(otherValue, otherTraceInfo)}
             >
               <span
                 css={{
@@ -652,11 +720,17 @@ export const traceInfoCellRenderer = (
   } else if (colId === SESSION_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
+    const currentTraceId = currentTraceInfo?.trace_id;
+    const otherTraceId = otherTraceInfo?.trace_id;
+
+    const turnNumber = traceIdToTurnMap?.[currentTraceId ?? ''];
+    const otherTurnNumber = traceIdToTurnMap?.[otherTraceId ?? ''];
+
     return (
       <StackedComponents
         first={
           value ? (
-            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId}>
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -670,7 +744,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {value}
+                  {!isNil(turnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
@@ -681,7 +763,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId}>
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -695,7 +777,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {otherValue}
+                  {!isNil(otherTurnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber: otherTurnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
@@ -816,7 +906,53 @@ export const traceInfoCellRenderer = (
         }
       />
     );
+  } else if (colId === LINKED_PROMPTS_COLUMN_ID) {
+    const formatPrompts = (promptsJson: string | undefined) => {
+      if (!promptsJson) return null;
+      try {
+        const prompts = JSON.parse(promptsJson);
+        if (Array.isArray(prompts) && prompts.length > 0) {
+          return prompts
+            .map((prompt: { name: string; version: string }) => `${prompt.name}/${prompt.version}`)
+            .join(', ');
+        }
+      } catch (e) {
+        // Invalid JSON, return as-is
+        return promptsJson;
+      }
+      return null;
+    };
+
+    const currentPrompts = currentTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const formattedCurrent = formatPrompts(currentPrompts);
+    const formattedOther = formatPrompts(otherPrompts);
+
+    return (
+      <StackedComponents
+        first={
+          formattedCurrent ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedCurrent}>
+              {formattedCurrent}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          )
+        }
+        second={
+          isComparing &&
+          (formattedOther ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedOther}>
+              {formattedOther}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          ))
+        }
+      />
+    );
   }
+
   const value = currentTraceInfo ? stringifyValue(getTraceInfoValueWithColId(currentTraceInfo, colId)) : '';
   const otherValue = otherTraceInfo ? stringifyValue(getTraceInfoValueWithColId(otherTraceInfo, colId)) : '';
 

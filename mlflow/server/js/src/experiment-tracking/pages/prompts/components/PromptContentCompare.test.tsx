@@ -1,4 +1,5 @@
-import { describe, expect, it, jest } from '@jest/globals';
+/* eslint-disable jest/no-standalone-expect */
+import { describe, expect, it, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -24,8 +25,7 @@ describe('PromptContentCompare', () => {
       </IntlProvider>,
     );
   };
-
-  it('stringifies chat prompts for comparison', () => {
+  test('stringifies chat prompts for comparison', () => {
     const baseline = {
       name: 'p',
       version: '1',
@@ -38,6 +38,6 @@ describe('PromptContentCompare', () => {
     };
     renderComponent(baseline, compared);
     expect(screen.getAllByText('user: Hi').length).toBeGreaterThan(0);
-    expect(screen.getByText('there')).toBeInTheDocument();
+    expect(screen.getByText('user: Hi there')).toBeInTheDocument();
   });
 });

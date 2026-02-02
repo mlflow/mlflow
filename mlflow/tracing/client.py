@@ -21,6 +21,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
@@ -173,6 +174,10 @@ class TracingClient:
                 # if the trace is stored in the tracking store, load spans from the tracking store
                 # otherwise, load spans from the artifact repository
                 if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                    try:
+                        return self.store.get_trace(trace_id)
+                    except MlflowNotImplementedException:
+                        pass
                     if traces := self.store.batch_get_traces([trace_info.trace_id]):
                         return traces[0]
                     else:
@@ -678,7 +683,6 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    # TODO: Migrate this to the new association table
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
     ) -> None:

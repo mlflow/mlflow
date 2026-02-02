@@ -13,10 +13,22 @@ class ImplicitOptional(Rule):
         Returns True if the value to assign is `None` but the type annotation is
         not `Optional[...]` or `... | None`. For example: `a: int = None`.
         """
-        return ImplicitOptional._is_none(node.value) and not (
-            ImplicitOptional._is_optional(node.annotation)
-            or ImplicitOptional._is_bitor_none(node.annotation)
-        )
+        if not ImplicitOptional._is_none(node.value):
+            return False
+
+        # Parse stringified annotations
+        if isinstance(node.annotation, ast.Constant) and isinstance(node.annotation.value, str):
+            try:
+                parsed = ast.parse(node.annotation.value, mode="eval")
+                ann = parsed.body
+            except (SyntaxError, ValueError):
+                # If parsing fails, the annotation is invalid and we trigger the rule
+                # since we cannot verify it contains Optional or | None
+                return True
+        else:
+            ann = node.annotation
+
+        return not (ImplicitOptional._is_optional(ann) or ImplicitOptional._is_bitor_none(ann))
 
     @staticmethod
     def _is_optional(ann: ast.expr) -> bool:

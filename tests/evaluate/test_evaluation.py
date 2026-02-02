@@ -888,7 +888,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
-        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
+        evaluator1_config = {"eval1_config_a": 3, "eval1_config_b": 4}
         evaluator1_return_value = EvaluationResult(
             metrics={"m1": 5, "m2": 6},
             artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
@@ -964,8 +964,8 @@ def test_evaluate_with_multi_evaluators(
         "_registry",
         {"test_evaluator1": FakeEvaluator1, "test_evaluator2": FakeEvaluator2},
     ):
-        evaluator1_config = {"eval1_confg": 3}
-        evaluator2_config = {"eval2_confg": 4}
+        evaluator1_config = {"eval1_config": 3}
+        evaluator2_config = {"eval2_config": 4}
         evaluator1_return_value = EvaluationResult(
             metrics={"m1": 5}, artifacts={"a1": FakeArtifact1(uri="uri1")}
         )
@@ -2157,7 +2157,7 @@ def test_metrics_logged_to_model_on_evaluation(
     with mlflow.start_run():
         # Log the model and retrieve its model_id
         model_info = mlflow.sklearn.log_model(
-            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), name="model"
+            mlflow.sklearn.load_model(multiclass_logistic_regressor_model_uri), name="model"
         )
         model_id = model_info.model_id
 

@@ -36,6 +36,10 @@ def patched_call(original, self, *args, **kwargs):
             span.set_inputs(kwargs)
             span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "groq")
 
+            # Extract model name from kwargs
+            if model := kwargs.get("model"):
+                span.set_attribute(SpanAttributeKey.MODEL, model)
+
             if tools := kwargs.get("tools"):
                 try:
                     set_span_chat_tools(span, tools)
@@ -53,8 +57,7 @@ def patched_call(original, self, *args, **kwargs):
 
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,

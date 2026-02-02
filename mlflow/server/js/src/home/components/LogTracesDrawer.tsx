@@ -191,7 +191,7 @@ export const LogTracesDrawer = () => {
                   key={framework.id}
                   type="button"
                   onClick={() => setSelectedFramework(framework.id)}
-                  data-component-id={`mlflow.home.log_traces.drawer.framework.${framework.id}`}
+                  data-component-id="mlflow.home.log_traces.drawer.select-framework"
                   aria-pressed={isSelected}
                   css={{
                     border: 0,

@@ -13,7 +13,6 @@ import json
 import re
 import sys
 import time
-import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -80,7 +79,7 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
 
 
 def get_latest_version(candidates):
-    return sorted(candidates, key=Version, reverse=True)[0]
+    return max(candidates, key=Version)
 
 
 def update_version(src, key, new_version, category, update_max):

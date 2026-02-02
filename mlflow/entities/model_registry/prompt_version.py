@@ -4,13 +4,14 @@ import json
 import re
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TEMPLATE_VARIABLE_PATTERN,
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
@@ -24,12 +25,130 @@ from mlflow.prompt.constants import (
 PromptVersionTag = ModelVersionTag
 
 
+def _is_jinja2_template(template: str | list[dict[str, Any]]) -> bool:
+    """Check if template uses Jinja2 control flow syntax ({% %})."""
+    if isinstance(template, str):
+        return "{%" in template and "%}" in template
+    return any(
+        "{%" in msg.get("content", "") and "%}" in msg.get("content", "") for msg in template
+    )
+
+
+class PromptModelConfig(BaseModel):
+    """
+    Configuration for a model associated with a prompt, including model name and inference
+    parameters.
+    This class provides a structured way to store model-specific settings alongside prompts,
+    ensuring reproducibility and clarity about which model and parameters were used with a
+    particular prompt version.
+
+    Args:
+        provider: The model provider (e.g., "openai", "anthropic", "google").
+        model_name: The name or identifier of the model (e.g., "gpt-4", "claude-3-opus").
+        temperature: Sampling temperature for controlling randomness (typically 0.0-2.0).
+            Lower values make output more deterministic, higher values more random.
+        max_tokens: Maximum number of tokens to generate in the response.
+        top_p: Nucleus sampling parameter (typically 0.0-1.0). The model considers tokens
+            with top_p cumulative probability mass.
+        top_k: Top-k sampling parameter. The model considers only the k most likely tokens.
+        frequency_penalty: Penalty for token frequency (typically -2.0 to 2.0). Positive
+            values reduce repetition of tokens based on their frequency in the text so far.
+        presence_penalty: Penalty for token presence (typically -2.0 to 2.0). Positive
+            values increase likelihood of introducing new topics.
+        stop_sequences: List of sequences that will cause the model to stop generating.
+        extra_params: Additional model-specific parameters not covered by the standard fields.
+            This allows for flexibility with provider-specific or experimental parameters.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.entities.model_registry import PromptModelConfig
+
+        # Basic configuration
+        config = PromptModelConfig(
+            model_name="gpt-4",
+            temperature=0.7,
+            max_tokens=1000,
+        )
+        # Configuration with extra provider-specific params
+        config = PromptModelConfig(
+            model_name="claude-3-opus",
+            temperature=0.5,
+            max_tokens=2000,
+            extra_params={
+                "anthropic_version": "2023-06-01",
+                "response_metadata": {"cache_control": True},
+            },
+        )
+        # Use with prompt registration
+        import mlflow
+
+        mlflow.genai.register_prompt(
+            name="my_prompt",
+            template="Analyze this: {{text}}",
+            model_config=config,
+        )
+    """
+
+    provider: str | None = None
+    model_name: str | None = None
+    temperature: float | None = Field(None, ge=0)
+    max_tokens: int | None = Field(None, gt=0)
+    top_p: float | None = Field(None, ge=0, le=1)
+    top_k: int | None = Field(None, gt=0)
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
+    stop_sequences: list[str] | None = None
+    extra_params: dict[str, Any] = Field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the PromptModelConfig to a dictionary, excluding None values and merging
+        extra_params.
+
+        Returns:
+            A dictionary representation of the config with None values filtered out and
+            extra_params merged at the top level.
+        """
+        config_dict = {
+            k: v for k, v in self.model_dump(exclude_none=True).items() if k != "extra_params"
+        }
+        if self.extra_params:
+            config_dict.update(self.extra_params)
+        return config_dict
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> PromptModelConfig:
+        """
+        Create a PromptModelConfig from a dictionary, separating known fields from extra params.
+
+        Args:
+            config_dict: Dictionary containing model configuration.
+
+        Returns:
+            A PromptModelConfig instance with known fields populated and unknown fields in
+            extra_params.
+        """
+        # Use Pydantic's model_fields to dynamically get field names (excluding extra_params)
+        known_fields = set(cls.model_fields.keys()) - {"extra_params"}
+        known_params = {}
+        extra_params = {}
+        for key, value in config_dict.items():
+            if key in known_fields:
+                known_params[key] = value
+            else:
+                extra_params[key] = value
+        return cls(**known_params, extra_params=extra_params)
+
+
 def _is_reserved_tag(key: str) -> bool:
     return key in {
         IS_PROMPT_TAG_KEY,
         PROMPT_TEXT_TAG_KEY,
         PROMPT_TYPE_TAG_KEY,
         RESPONSE_FORMAT_TAG_KEY,
+        PROMPT_MODEL_CONFIG_TAG_KEY,
     }
 
 
@@ -51,6 +170,12 @@ class PromptVersion(_ModelRegistryEntity):
 
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration including model name and settings like temperature, top_p, max_tokens.
+            Using a PromptModelConfig instance provides validation and type safety for common
+            parameters.
+            Example (dict): {"model_name": "gpt-4", "temperature": 0.7}
+            Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
         commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -74,6 +199,7 @@ class PromptVersion(_ModelRegistryEntity):
         last_updated_timestamp: int | None = None,
         user_id: str | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: PromptModelConfig | dict[str, Any] | None = None,
     ):
         from mlflow.types.chat import ChatMessage
 
@@ -108,6 +234,15 @@ class PromptVersion(_ModelRegistryEntity):
             tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
                 self.convert_response_format_to_dict(response_format)
             )
+
+        if model_config:
+            # Convert PromptModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                # Validate dict by converting through PromptModelConfig
+                config_dict = PromptModelConfig.from_dict(model_config).to_dict()
+            tags[PROMPT_MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
 
         # Store the tags dict
         self._tags: dict[str, str] = tags
@@ -173,6 +308,20 @@ class PromptVersion(_ModelRegistryEntity):
         if RESPONSE_FORMAT_TAG_KEY not in self._tags:
             return None
         return json.loads(self._tags[RESPONSE_FORMAT_TAG_KEY])
+
+    @property
+    def model_config(self) -> dict[str, Any] | None:
+        """
+        Return the model configuration for the prompt.
+
+        Returns:
+            A dictionary containing model-specific configuration including model name
+            and settings like temperature, top_p, max_tokens, etc., or None if no
+            model config is specified.
+        """
+        if PROMPT_MODEL_CONFIG_TAG_KEY not in self._tags:
+            return None
+        return json.loads(self._tags[PROMPT_MODEL_CONFIG_TAG_KEY])
 
     def to_single_brace_format(self) -> str | list[dict[str, Any]]:
         """
@@ -299,7 +448,10 @@ class PromptVersion(_ModelRegistryEntity):
         self._tags[tag.key] = tag.value
 
     def format(
-        self, allow_partial: bool = False, **kwargs
+        self,
+        allow_partial: bool = False,
+        use_jinja_sandbox: bool = True,
+        **kwargs,
     ) -> PromptVersion | str | list[dict[str, Any]]:
         """
         Format the template with the given keyword arguments.
@@ -335,15 +487,55 @@ class PromptVersion(_ModelRegistryEntity):
             print(formatted)
             # Output: PromptVersion(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
 
+            # Jinja2 template formatting (with conditionals and loops)
+            jinja_prompt = PromptVersion(
+                "jinja-prompt",
+                1,
+                "Hello {% if name %}{{ name }}{% else %}Guest{% endif %}!",
+            )
+            formatted = jinja_prompt.format(name="Alice")
+            print(formatted)
+            # Output: "Hello Alice!"
+
 
         Args:
             allow_partial: If True, allow partial formatting of the prompt text.
                 If False, raise an error if there are missing variables.
+            use_jinja_sandbox: If True (default), use Jinja2's SandboxedEnvironment
+                for safe rendering. Set to False to use unrestricted Environment.
+                Only applies to Jinja2 templates (those containing {% %} syntax).
             kwargs: Keyword arguments to replace the variables in the template.
         """
         from mlflow.genai.prompts.utils import format_prompt
 
-        input_keys = set(kwargs.keys())
+        # Jinja2 template rendering
+        if _is_jinja2_template(self.template):
+            try:
+                from jinja2 import Environment, Undefined
+                from jinja2.sandbox import SandboxedEnvironment
+            except ImportError:
+                raise MlflowException.invalid_parameter_value(
+                    "The prompt is a Jinja2 template. To format the prompt, "
+                    "install Jinja2 with `pip install jinja2`."
+                )
+
+            env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
+            env = env_cls(undefined=Undefined)
+
+            if self.is_text_prompt:
+                tmpl = env.from_string(self.template)
+                return tmpl.render(**kwargs)
+            else:
+                # Jinja2 rendering for chat prompts
+                return [
+                    {
+                        "role": message["role"],
+                        "content": env.from_string(message.get("content", "")).render(**kwargs),
+                    }
+                    for message in self.template
+                ]
+
+        # Double-brace template formatting (native MLflow format)
         if self.is_text_prompt:
             template = format_prompt(self.template, **kwargs)
         else:
@@ -356,6 +548,8 @@ class PromptVersion(_ModelRegistryEntity):
                 }
                 for message in self.template
             ]
+
+        input_keys = set(kwargs.keys())
         if missing_keys := self.variables - input_keys:
             if not allow_partial:
                 raise MlflowException.invalid_parameter_value(
@@ -368,6 +562,7 @@ class PromptVersion(_ModelRegistryEntity):
                     version=int(self.version),
                     template=template,
                     response_format=self.response_format,
+                    model_config=self.model_config,
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
                     tags=self.tags,

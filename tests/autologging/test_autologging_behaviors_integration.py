@@ -281,11 +281,8 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     mlflow.autolog(silent=True)
     mlflow.sklearn.autolog(silent=True, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(2):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(2)]
 
     assert all(e.result() is True for e in executions)
     assert not stream.getvalue()
@@ -299,11 +296,8 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(100):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(100)]
 
     assert all(e.result() is True for e in executions)
     assert stream.getvalue()
@@ -323,7 +317,6 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import pyspark
     import pyspark.ml  # noqa: F401
     import sklearn  # noqa: F401
 

@@ -6,7 +6,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+)
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
@@ -69,6 +72,13 @@ class Judge(Scorer):
         Plain text instructions of what this judge evaluates.
         """
 
+    @property
+    @abstractmethod
+    def feedback_value_type(self) -> Any:
+        """
+        Type of the feedback value.
+        """
+
     @abstractmethod
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -109,6 +119,10 @@ class Judge(Scorer):
         Returns:
             A new Judge instance that is better aligned with the input traces.
 
+        Raises:
+            NotImplementedError: If called on a session-level scorer. Alignment is currently
+                only supported for single-turn scorers.
+
         Note on Logging:
             By default, alignment optimization shows minimal progress information.
             To see detailed optimization output, set the optimizer's logger to DEBUG::
@@ -118,6 +132,9 @@ class Judge(Scorer):
                 # For SIMBA optimizer (default)
                 logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
         """
+        if self.is_session_level_scorer:
+            raise NotImplementedError("Alignment is not supported for session-level scorers.")
+
         if optimizer is None:
             optimizer = get_default_optimizer()
         return optimizer.align(self, traces)

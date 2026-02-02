@@ -292,7 +292,7 @@ describe('FetchUtils', () => {
     it('fetchEndpoint resolves on ok response', async () => {
       const okResponse = { ok: true, status: 200, text: () => Promise.resolve('{"dope": "ape"}') };
       // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: boolean; status: number; ... Remove this comment to see the full error message
-      global.fetch = jest.fn(() => Promise.resolve(okResponse));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(okResponse));
       await expect(fetchEndpoint({ relativeUrl: 'http://localhost:3000' })).resolves.toEqual({
         dope: 'ape',
       });
@@ -312,7 +312,7 @@ describe('FetchUtils', () => {
         };
         const responses = [...Array(2).fill(tooManyRequestsResponse), okResponse];
         // pop the head of the array on each call
-        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+        jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(responses.shift()));
         await expect(
           fetchEndpoint({
             relativeUrl: 'http://localhost:3000',
@@ -331,7 +331,7 @@ describe('FetchUtils', () => {
           text: () => Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
         };
         const responses = Array(3).fill(tooManyRequestsResponse);
-        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+        jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(responses.shift()));
         await expect(
           fetchEndpoint({
             relativeUrl: 'http://localhost:3000',
@@ -348,7 +348,7 @@ describe('FetchUtils', () => {
         text: () => Promise.resolve('{error_code: "PermissionDenied", message: "PermissionDenied"}'),
       };
       // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: boolean; status: number; ... Remove this comment to see the full error message
-      global.fetch = jest.fn(() => Promise.resolve(permissionDeniedResponse));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(permissionDeniedResponse));
       await expect(
         fetchEndpoint({
           relativeUrl: 'http://localhost:3000',
@@ -359,7 +359,7 @@ describe('FetchUtils', () => {
     });
     it('fetchEndpoint rejects on random exceptions', async () => {
       const randomError = new Error('something went wrong...');
-      global.fetch = jest.fn(() => Promise.reject(randomError));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject(randomError));
       await expect(
         fetchEndpoint({
           relativeUrl: 'http://localhost:3000',

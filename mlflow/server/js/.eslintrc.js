@@ -2,8 +2,19 @@
 const restrictedGlobals = require('confusing-browser-globals');
 
 module.exports = {
-  extends: ['prettier'],
-  plugins: ['prettier', 'no-only-tests', 'formatjs', 'react', 'import', 'jsx-a11y', 'react-hooks'],
+  extends: ['prettier', 'plugin:react-component-name/recommended', 'plugin:mlflow/recommended'],
+  plugins: [
+    'prettier',
+    'no-only-tests',
+    'formatjs',
+    'react',
+    'import',
+    'jsx-a11y',
+    'react-hooks',
+    'react-component-name',
+    'mlflow',
+    'testing-library',
+  ],
   parser: '@babel/eslint-parser',
   parserOptions: {
     sourceType: 'module',
@@ -149,7 +160,7 @@ module.exports = {
     ],
     'no-with': 'warn',
     'no-whitespace-before-property': 'warn',
-    'react-hooks/exhaustive-deps': 'warn',
+    'react-hooks/exhaustive-deps': 'error',
     'require-yield': 'warn',
     'rest-spread-spacing': ['warn', 'never'],
     strict: ['warn', 'never'],
@@ -606,7 +617,7 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
+      files: ['*.test.js', '*-test.js', '*-test.jsx', '*.test.ts', '*.test.tsx', '*-test.ts', '*-test.tsx', 'test/**'],
       plugins: ['jest', 'chai-expect', 'chai-friendly'],
       globals: {
         sinon: true,
@@ -623,6 +634,8 @@ module.exports = {
         'testing-library/no-debugging-utils': 'error',
         'testing-library/no-dom-import': 'error',
         'testing-library/await-async-utils': 'error',
+        // Allow absolute AJAX URLs in test files for mocking
+        'mlflow/no-absolute-ajax-urls': 'off',
       },
     },
     {

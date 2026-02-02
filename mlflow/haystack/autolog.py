@@ -25,6 +25,8 @@ from mlflow.tracing.utils import (
     _bypass_attribute_guard,
     generate_trace_id_v3,
     get_mlflow_span_for_otel_span,
+    set_span_cost_attribute,
+    set_span_model_attribute,
 )
 
 _logger = logging.getLogger(__name__)
@@ -144,11 +146,16 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
             except Exception:
                 mlflow_span.set_outputs(outputs)
 
+        if isinstance(mlflow_span.inputs, dict):
+            set_span_model_attribute(mlflow_span, mlflow_span.inputs)
+
         if usage := _parse_token_usage(mlflow_span.outputs):
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
-        parent_id = mlflow_span.parent_id
-        if parent_id:
+        # set cost here explicitly because it doesn't go through mlflow_span.end method
+        set_span_cost_attribute(mlflow_span)
+
+        if parent_id := mlflow_span.parent_id:
             key = comp_alias or comp_type or mlflow_span.name
             inputs_agg, outputs_agg = self._pipeline_io.setdefault(parent_id, ({}, {}))
             if mlflow_span.inputs is not None:
@@ -160,8 +167,7 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
         # Pipelines are CHAINs
         mlflow_span.set_span_type(SpanType.CHAIN)
 
-        pipe_name = span.attributes.get("haystack.pipeline.name")
-        if pipe_name:
+        if pipe_name := span.attributes.get("haystack.pipeline.name"):
             mlflow_span._span._name = pipe_name
 
         if (inputs := span.attributes.get("haystack.pipeline.input")) is not None:

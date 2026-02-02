@@ -87,12 +87,12 @@ describe('useCompareRunsAllTracesTooltipData', () => {
         const draglayer = SVG.querySelector('.nsewdrag');
         invariant(draglayer, 'draglayer should exist');
         // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
-        SVG.getBoundingClientRect = jest.fn<typeof SVG.getBoundingClientRect>(() => ({
+        jest.spyOn(SVG, 'getBoundingClientRect').mockImplementation(() => ({
           width: 200,
           x: 0,
         }));
         // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
-        draglayer.getBoundingClientRect = jest.fn<typeof draglayer.getBoundingClientRect>(() => ({
+        jest.spyOn(draglayer, 'getBoundingClientRect').mockImplementation(() => ({
           width: 200,
           x: 0,
         }));

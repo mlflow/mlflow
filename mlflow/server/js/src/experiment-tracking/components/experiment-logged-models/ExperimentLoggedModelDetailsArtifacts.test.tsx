@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from '@jest/globals';
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';

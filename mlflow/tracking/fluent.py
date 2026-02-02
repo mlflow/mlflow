@@ -7,6 +7,7 @@ import atexit
 import contextlib
 import importlib
 import inspect
+import io
 import logging
 import os
 import threading
@@ -34,6 +35,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -64,12 +66,14 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import (
+    get_sgc_job_run_id,
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
@@ -80,7 +84,11 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.utils.validation import (
+    _validate_experiment_id_type,
+    _validate_logged_model_name,
+    _validate_run_id,
+)
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
@@ -92,7 +100,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.figure
     import numpy
     import pandas
@@ -262,6 +269,59 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def _get_sgc_job_run_id_tag_key() -> str | None:
+    """
+    Get the SGC job run ID tag key for run resumption if enabled and available.
+
+    Returns:
+        str or None: The experiment tag key for SGC resumption, or None if not applicable.
+    """
+    if not _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
+        return None
+
+    if sgc_job_run_id := get_sgc_job_run_id():
+        return f"{MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+
+    return None
+
+
+def _get_sgc_mlflow_run_id_for_resumption(
+    client, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
+) -> str | None:
+    """
+    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
+    for potential run resumption.
+
+    This function searches the experiment (specified by `experiment_id`, or the
+    default if None) for an experiment tag named `sgc_job_run_id_tag_key`. If the
+    tag exists, its value (the run ID to resume) is returned; otherwise, returns None.
+
+    Args:
+        client: MlflowClient instance used to query experiment information.
+        experiment_id: The experiment ID to search, or None to use the default.
+        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID
+            to an MLflow run ID.
+
+    Returns:
+        str or None: The MLflow run ID to resume, if found; otherwise None.
+    """
+    search_exp_id = experiment_id or _get_experiment_id()
+
+    try:
+        exp = client.get_experiment(search_exp_id)
+        # Check if experiment has the tag for resumption
+        if prev_mlflow_run_id := exp.tags.get(sgc_job_run_id_tag_key):
+            _logger.info(
+                f"Resuming MLflow run: {prev_mlflow_run_id} "
+                f"using SGC tag key: {sgc_job_run_id_tag_key}"
+            )
+            return prev_mlflow_run_id
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC run ID: {e}", exc_info=True)
+
+    return None
+
+
 def start_run(
     run_id: str | None = None,
     experiment_id: str | None = None,
@@ -388,11 +448,17 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
+    sgc_job_run_id_tag_key: str | None = None
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
         del os.environ[MLFLOW_RUN_ID.name]
+    # Get SGC job run ID tag key for run resumption if applicable
+    elif sgc_job_run_id_tag_key := _get_sgc_job_run_id_tag_key():
+        existing_run_id = _get_sgc_mlflow_run_id_for_resumption(
+            client, experiment_id, sgc_job_run_id_tag_key
+        )
     else:
         existing_run_id = None
     if existing_run_id:
@@ -480,6 +546,22 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
+
+        # If SGC run resumption is enabled, set the experiment tag mapping
+        # SGC job_run_id to this run_id for future run resumption
+        if sgc_job_run_id_tag_key:
+            try:
+                client.set_experiment_tag(
+                    exp_id_for_run, sgc_job_run_id_tag_key, active_run_obj.info.run_id
+                )
+                _logger.info(
+                    f"Set experiment tag {sgc_job_run_id_tag_key} = {active_run_obj.info.run_id} "
+                    f"for SGC run resumption"
+                )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to set experiment tag for SGC resumption: {e}", exc_info=True
+                )
 
     if log_system_metrics is None:
         # If `log_system_metrics` is not specified, we will check environment variable.
@@ -792,8 +874,7 @@ def _shut_down_async_logging() -> None:
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
     run_id = _get_or_start_run().info.run_id
-    _artifact_repo = _get_artifact_repo(run_id)
-    if _artifact_repo:
+    if _artifact_repo := _get_artifact_repo(run_id):
         _artifact_repo.flush_async_logging()
 
 
@@ -1563,6 +1644,38 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
+@experimental(version="3.9.0")
+def log_stream(
+    stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
+) -> None:
+    """
+    Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+    Args:
+        stream: A binary file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.bin").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
+
+
 def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
     artifact_file: str,
@@ -2149,7 +2262,6 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental(version="3.0.0")
 def initialize_logged_model(
     name: str | None = None,
     source_run_id: str | None = None,
@@ -2338,7 +2450,6 @@ def _create_logged_model(
     )
 
 
-@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: str | None = None) -> None:
     """
     Log params to the specified logged model.
@@ -2370,7 +2481,139 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental(version="3.0.0")
+def import_checkpoints(
+    checkpoint_path: str,
+    source_run_id: str | None = None,
+    model_prefix: str | None = None,
+    overwrite_checkpoints: bool = False,
+) -> list[LoggedModel]:
+    """
+    Create external models for all top-level files and directories under the specified
+    checkpoint path.
+
+    This API only supports Databricks runtime currently.
+
+    Args:
+        checkpoint_path: Path that contains the checkpoints.
+            Only Databricks Unity Catalog Volume path is supported for now.
+            It must follows the
+            "/Volumes/<catalog_identifier>/<schema_identifier>/<volume_identifier>/<path_to_checkpoints_directory>"
+            format specified https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes#volume-naming-and-reference.
+            Note: Each path must be isolated from other models and runs.
+        source_run_id: ID of the MLflow source run that these checkpoints were trained with.
+            If not provided, uses the current active run if available.
+        model_prefix: String prefix to prepend to the name of each external model created from
+            each checkpoint. If not provided, no prefix is applied.
+        overwrite_checkpoints: If True and existing models are found with the same name in the
+            associated experiment, they will be deleted and recreated to point to the latest
+            checkpoint. Defaults to False.
+
+    Returns:
+        List of imported models. If 'overwrite_checkpoints' is True, the list only contains
+            new created models, otherwise the list contains new created models for the new model
+            names and existing models for the existing model names.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Optionally start a run so `source_run_id` can be inferred
+        with mlflow.start_run() as run:
+            # ... training code that writes checkpoints to a UC Volume ...
+            logged_models = mlflow.import_checkpoints(
+                checkpoint_path=(
+                    "/Volumes/mycatalog/myschema/myvolume/"
+                    "mytrainingmodel/trainingrun1/checkpoints"
+                ),
+                # You can omit `source_run_id` if there is an active run.
+                # source_run_id=run.info.run_id,
+                model_prefix="my_model_",
+                overwrite_checkpoints=True,
+            )
+    """
+    from databricks.sdk import WorkspaceClient
+
+    # Validate checkpoint_path before accessing workspace files
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
+        raise MlflowException(
+            "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
+            "Volume path that contains checkpoints, e.g. '/Volumes/...'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Resolve source_run_id from the active run if not provided
+    if source_run_id is None:
+        if run := active_run():
+            source_run_id = run.info.run_id
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Please set 'source_run_id' or start an active run before calling "
+                "'import_checkpoints'."
+            )
+
+    # Resolve experiment ID to operate against
+    exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+
+    ws = WorkspaceClient()
+    top_level_paths = [
+        entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
+    ]
+
+    imported_models: list[LoggedModel] = []
+    client = MlflowClient()
+
+    if not top_level_paths:
+        _logger.warning(
+            f"No checkpoints were found at path '{checkpoint_path}'. "
+            "Please verify that 'checkpoint_path' is correct and accessible."
+        )
+        return []
+
+    for sub_checkpoint_path in top_level_paths:
+        base_name = os.path.basename(sub_checkpoint_path)
+
+        model_name = model_prefix + base_name if model_prefix else base_name
+
+        try:
+            _validate_logged_model_name(model_name)
+        except MlflowException as e:
+            _logger.warning(
+                f"The model name is invalid (root error: {e!s}), skip importing the "
+                f"model with name '{model_name}' from checkpoint folder '{sub_checkpoint_path}'."
+            )
+            continue
+
+        existing_models = [
+            model
+            for model in search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"name = '{model_name}'",
+                output_format="list",
+            )
+            if model.source_run_id == source_run_id
+        ]
+
+        if not existing_models or overwrite_checkpoints:
+            # Create a new model pointing to this checkpoint path.
+            created_model = create_external_model(
+                name=model_name,
+                source_run_id=source_run_id,
+                tags={"original_artifact_path": sub_checkpoint_path},
+                experiment_id=exp_id,
+            )
+            imported_models.append(created_model)
+        else:
+            imported_models.extend(existing_models)
+
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
+
+    return imported_models
+
+
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
@@ -2403,7 +2646,6 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2435,7 +2677,6 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental(version="3.0.0")
 def last_logged_model() -> LoggedModel | None:
     """
     Fetches the most recent logged model in the current session.
@@ -2487,7 +2728,6 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -2631,7 +2871,6 @@ def search_logged_models(
         )
 
 
-@experimental(version="3.0.0")
 def log_outputs(models: list[LoggedModelOutput] | None = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
@@ -2916,8 +3155,7 @@ def search_runs(
         experiments = []
         for n in experiment_names:
             if n is not None:
-                experiment_by_name = get_experiment_by_name(n)
-                if experiment_by_name:
+                if experiment_by_name := get_experiment_by_name(n):
                     experiments.append(experiment_by_name)
                 else:
                     _logger.warning("Cannot retrieve experiment by name %s", n)
@@ -3035,8 +3273,7 @@ def _get_experiment_id_from_env():
     experiment_name = MLFLOW_EXPERIMENT_NAME.get()
     experiment_id = MLFLOW_EXPERIMENT_ID.get()
     if experiment_name is not None:
-        exp = MlflowClient().get_experiment_by_name(experiment_name)
-        if exp:
+        if exp := MlflowClient().get_experiment_by_name(experiment_name):
             if experiment_id and experiment_id != exp.experiment_id:
                 raise MlflowException(
                     message=f"The provided {MLFLOW_EXPERIMENT_ID} environment variable "

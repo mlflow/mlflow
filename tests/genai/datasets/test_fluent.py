@@ -11,7 +11,9 @@ import mlflow
 from mlflow.data import Dataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
-from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+from mlflow.entities.evaluation_dataset import (
+    EvaluationDataset as EntityEvaluationDataset,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
     EvaluationDataset,
@@ -33,7 +35,10 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 @pytest.fixture
 def mock_client():
-    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+    with (
+        mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class,
+        mock.patch("mlflow.genai.datasets.MlflowClient", mock_client_class),
+    ):
         mock_client_instance = mock_client_class.return_value
         yield mock_client_instance
 
@@ -44,28 +49,12 @@ def mock_databricks_environment():
         yield
 
 
-@pytest.fixture(params=["sqlalchemy"], autouse=True)
-def tracking_uri(request, tmp_path):
-    if "MLFLOW_SKINNY" in os.environ:
-        pytest.skip("SQLAlchemy store is not available in skinny.")
-
-    original_tracking_uri = mlflow.get_tracking_uri()
-
-    path = tmp_path.joinpath("mlflow.db").as_uri()
-    tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-        len("file://") :
-    ]
-
-    mlflow.set_tracking_uri(tracking_uri)
-
-    yield tracking_uri
-
-    mlflow.set_tracking_uri(original_tracking_uri)
-
-
 @pytest.fixture
-def client(tracking_uri):
-    return MlflowClient(tracking_uri=tracking_uri)
+def client(db_uri):
+    original_tracking_uri = mlflow.get_tracking_uri()
+    mlflow.set_tracking_uri(db_uri)
+    yield MlflowClient(tracking_uri=db_uri)
+    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 @pytest.fixture
@@ -192,7 +181,7 @@ def test_get_dataset(mock_client):
 
 
 def test_get_dataset_missing_id():
-    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required"):
+    with pytest.raises(ValueError, match="Either 'name' or 'dataset_id' must be provided"):
         get_dataset()
 
 
@@ -215,6 +204,70 @@ def test_get_dataset_databricks_missing_name(mock_databricks_environment):
         get_dataset(dataset_id="test_id")
 
 
+def test_get_dataset_by_name_oss(experiments):
+    dataset = create_dataset(
+        name="unique_dataset_name",
+        experiment_id=experiments[0],
+        tags={"test": "get_by_name"},
+    )
+
+    retrieved = get_dataset(name="unique_dataset_name")
+
+    assert retrieved.dataset_id == dataset.dataset_id
+    assert retrieved.name == "unique_dataset_name"
+    assert retrieved.tags["test"] == "get_by_name"
+
+
+def test_get_dataset_by_name_not_found(client):
+    with pytest.raises(MlflowException, match="Dataset with name 'nonexistent_dataset' not found"):
+        get_dataset(name="nonexistent_dataset")
+
+
+def test_get_dataset_by_name_multiple_matches(experiments):
+    create_dataset(
+        name="duplicate_name",
+        experiment_id=experiments[0],
+    )
+    create_dataset(
+        name="duplicate_name",
+        experiment_id=experiments[1],
+    )
+
+    with pytest.raises(MlflowException, match="Multiple datasets found with name 'duplicate_name'"):
+        get_dataset(name="duplicate_name")
+
+
+def test_get_dataset_both_name_and_id_error(experiments):
+    dataset = create_dataset(
+        name="test_dataset_both",
+        experiment_id=experiments[0],
+    )
+
+    with pytest.raises(ValueError, match="Cannot specify both 'name' and 'dataset_id'"):
+        get_dataset(name="test_dataset_both", dataset_id=dataset.dataset_id)
+
+
+def test_get_dataset_neither_name_nor_id_error(client):
+    with pytest.raises(ValueError, match="Either 'name' or 'dataset_id' must be provided"):
+        get_dataset()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "dataset's_with_single_quote",
+        'dataset"with_double_quote',
+    ],
+)
+def test_get_dataset_name_with_quotes(experiments, name):
+    dataset = create_dataset(name=name, experiment_id=experiments[0])
+
+    retrieved = get_dataset(name=name)
+
+    assert retrieved.dataset_id == dataset.dataset_id
+    assert retrieved.name == name
+
+
 def test_delete_dataset(mock_client):
     delete_dataset(dataset_id="test_id")
 
@@ -228,7 +281,8 @@ def test_delete_dataset_missing_id():
 
 def test_delete_dataset_databricks(mock_databricks_environment):
     with mock.patch.dict(
-        "sys.modules", {"databricks.agents.datasets": mock.Mock(delete_dataset=mock.Mock())}
+        "sys.modules",
+        {"databricks.agents.datasets": mock.Mock(delete_dataset=mock.Mock())},
     ):
         delete_dataset(name="catalog.schema.table")
 
@@ -367,9 +421,29 @@ def test_search_datasets_single_page(mock_client):
     assert mock_client.search_datasets.call_count == 1
 
 
-def test_search_datasets_databricks(mock_databricks_environment):
-    with pytest.raises(NotImplementedError, match="Dataset search is not available in Databricks"):
-        search_datasets()
+def test_search_datasets_databricks(mock_databricks_environment, mock_client):
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+    ]
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert len(result) == 1
+    assert isinstance(result, list)
+
+    # Verify that default filter_string and order_by are NOT set for Databricks
+    # (since these parameters may not be supported by all Databricks backends)
+    mock_client.search_datasets.assert_called_once()
+    call_kwargs = mock_client.search_datasets.call_args.kwargs
+    assert call_kwargs.get("filter_string") is None
+    assert call_kwargs.get("order_by") is None
 
 
 def test_databricks_import_error():
@@ -386,7 +460,8 @@ def test_databricks_profile_uri_support():
     mock_dataset = mock.Mock()
     with (
         mock.patch(
-            "mlflow.genai.datasets.get_tracking_uri", return_value="databricks://profilename"
+            "mlflow.genai.datasets.get_tracking_uri",
+            return_value="databricks://profilename",
         ),
         mock.patch.dict(
             "sys.modules",
@@ -529,7 +604,7 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
-def test_create_dataset_with_user_tag(tracking_uri, experiments):
+def test_create_dataset_with_user_tag(experiments):
     dataset = create_dataset(
         name="test_user_attribution",
         experiment_id=experiments[0],
@@ -551,7 +626,7 @@ def test_create_dataset_with_user_tag(tracking_uri, experiments):
     assert dataset2.created_by == dataset2.tags[MLFLOW_USER]
 
 
-def test_create_and_get_dataset(tracking_uri, experiments):
+def test_create_and_get_dataset(experiments):
     dataset = create_dataset(
         name="qa_evaluation_v1",
         experiment_id=[experiments[0], experiments[1]],
@@ -572,7 +647,7 @@ def test_create_and_get_dataset(tracking_uri, experiments):
     assert set(retrieved.experiment_ids) == {experiments[0], experiments[1]}
 
 
-def test_create_dataset_minimal_params(tracking_uri):
+def test_create_dataset_minimal_params(client):
     dataset = create_dataset(name="minimal_dataset")
 
     assert dataset.name == "minimal_dataset"
@@ -580,7 +655,7 @@ def test_create_dataset_minimal_params(tracking_uri):
     assert dataset.experiment_ids == ["0"]
 
 
-def test_active_record_pattern_merge_records(tracking_uri, experiments):
+def test_active_record_pattern_merge_records(experiments):
     dataset = create_dataset(
         name="active_record_test",
         experiment_id=experiments[0],
@@ -669,7 +744,7 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     assert docker_record["tags"]["difficulty"] == "medium"
 
 
-def test_dataset_with_dataframe_records(tracking_uri, experiments):
+def test_dataset_with_dataframe_records(experiments):
     dataset = create_dataset(
         name="dataframe_test",
         experiment_id=experiments[0],
@@ -707,15 +782,13 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     assert sentiments == expected_sentiments
 
 
-def test_search_datasets(tracking_uri, experiments):
-    datasets = []
+def test_search_datasets(experiments):
     for i in range(5):
-        dataset = create_dataset(
+        create_dataset(
             name=f"search_test_{i}",
             experiment_id=[experiments[i % len(experiments)]],
             tags={"type": "human" if i % 2 == 0 else "trace", "index": str(i)},
         )
-        datasets.append(dataset)
 
     all_results = search_datasets()
     assert len(all_results) == 5
@@ -733,7 +806,7 @@ def test_search_datasets(tracking_uri, experiments):
     assert len(more_results) == 4
 
 
-def test_delete_dataset(tracking_uri, experiments):
+def test_delete_dataset(experiments):
     dataset = create_dataset(
         name="to_be_deleted",
         experiment_id=[experiments[0], experiments[1]],
@@ -757,7 +830,7 @@ def test_delete_dataset(tracking_uri, experiments):
     assert dataset_id not in found_ids
 
 
-def test_dataset_lifecycle_workflow(tracking_uri, experiments):
+def test_dataset_lifecycle_workflow(experiments):
     dataset = create_dataset(
         name="qa_eval_prod_v1",
         experiment_id=[experiments[0], experiments[1]],
@@ -831,7 +904,7 @@ def test_error_handling_filestore_backend(tmp_path):
     assert exc.value.error_code == "FEATURE_DISABLED"
 
 
-def test_single_experiment_id_handling(tracking_uri, experiments):
+def test_single_experiment_id_handling(experiments):
     dataset = create_dataset(
         name="single_exp_test",
         experiment_id=experiments[0],
@@ -845,7 +918,7 @@ def test_single_experiment_id_handling(tracking_uri, experiments):
     assert dataset.dataset_id in found_ids
 
 
-def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
+def test_trace_to_evaluation_dataset_integration(experiments):
     trace_inputs = [
         {"question": "What is MLflow?", "context": "ML platforms"},
         {"question": "What is Python?", "context": "programming"},
@@ -874,7 +947,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
                 )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]],
+        locations=[experiments[0], experiments[1]],
         max_results=10,
         return_type="list",
     )
@@ -908,7 +981,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
             span.set_attributes({"model": "test-model"})
 
     all_traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]], max_results=10, return_type="list"
+        locations=[experiments[0], experiments[1]], max_results=10, return_type="list"
     )
     assert len(all_traces) == 4
 
@@ -946,7 +1019,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
     assert dataset.dataset_id not in all_dataset_ids
 
 
-def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiments):
+def test_search_traces_dataframe_to_dataset_integration(experiments):
     for i in range(3):
         with mlflow.start_run(experiment_id=experiments[0]):
             with mlflow.start_span(name=f"test_span_{i}") as span:
@@ -965,7 +1038,7 @@ def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiment
                 )
 
     traces_df = mlflow.search_traces(
-        experiment_ids=[experiments[0]],
+        locations=[experiments[0]],
     )
 
     assert "trace" in traces_df.columns
@@ -1013,7 +1086,10 @@ def test_trace_to_dataset_with_assessments(client, experiment):
             },
         },
         {
-            "inputs": {"question": "What is Python?", "context": "programming languages"},
+            "inputs": {
+                "question": "What is Python?",
+                "context": "programming languages",
+            },
             "outputs": {"answer": "Python is a high-level programming language"},
             "expectations": {
                 "correctness": True,
@@ -1311,25 +1387,24 @@ def test_trace_integration_end_to_end(client, experiment):
     assert len(manual_records) == 1
 
 
-def test_dataset_pagination_transparency_large_records(tracking_uri, experiments):
+def test_dataset_pagination_transparency_large_records(experiments):
     dataset = create_dataset(
         name="test_pagination_transparency",
         experiment_id=experiments[0],
         tags={"test": "large_dataset"},
     )
 
-    large_records = []
-    for i in range(150):
-        large_records.append(
-            {
-                "inputs": {"question": f"Question {i}", "index": i},
-                "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
-            }
-        )
+    large_records = [
+        {
+            "inputs": {"question": f"Question {i}", "index": i},
+            "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
+        }
+        for i in range(150)
+    ]
 
     dataset.merge_records(large_records)
 
-    all_records = dataset.records
+    all_records = dataset._mlflow_dataset.records
     assert len(all_records) == 150
 
     record_indices = {record.inputs["index"] for record in all_records}
@@ -1350,15 +1425,15 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     assert not hasattr(dataset, "next_page_token")
     assert not hasattr(dataset, "max_results")
 
-    second_access = dataset.records
+    second_access = dataset._mlflow_dataset.records
     assert second_access is all_records
 
-    dataset._records = None
-    refreshed_records = dataset.records
+    dataset._mlflow_dataset._records = None
+    refreshed_records = dataset._mlflow_dataset.records
     assert len(refreshed_records) == 150
 
 
-def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
+def test_dataset_internal_pagination_with_mock(experiments):
     from mlflow.tracking._tracking_service.utils import _get_store
 
     dataset = create_dataset(
@@ -1367,26 +1442,25 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         tags={"test": "pagination_mock"},
     )
 
-    records = []
-    for i in range(75):
-        records.append(
-            {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
-        )
+    records = [
+        {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
+        for i in range(75)
+    ]
 
     dataset.merge_records(records)
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     store = _get_store()
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
     ) as mock_load:
-        accessed_records = dataset.records
+        accessed_records = dataset._mlflow_dataset.records
 
         mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
         assert len(accessed_records) == 75
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
@@ -1397,7 +1471,7 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         assert len(df) == 75
 
 
-def test_dataset_experiment_associations(tracking_uri, experiments):
+def test_dataset_experiment_associations(experiments):
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
@@ -1436,7 +1510,8 @@ def test_dataset_experiment_associations(tracking_uri, experiments):
 
     with mock.patch("mlflow.store.tracking.sqlalchemy_store._logger.warning") as mock_warning:
         idempotent = remove_dataset_from_experiments(
-            dataset_id=dataset.dataset_id, experiment_ids=[experiments[1], experiments[2]]
+            dataset_id=dataset.dataset_id,
+            experiment_ids=[experiments[1], experiments[2]],
         )
         assert mock_warning.call_count == 2
         assert "was not associated" in mock_warning.call_args_list[0][0][0]
@@ -1459,7 +1534,7 @@ def test_dataset_associations_filestore_blocking(tmp_path):
         remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
 
 
-def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
+def test_evaluation_dataset_tags_crud_workflow(experiments):
     dataset = create_dataset(
         name="test_tags_crud",
         experiment_id=experiments[0],
@@ -1546,7 +1621,7 @@ def test_delete_dataset_tag_databricks(mock_databricks_environment):
         delete_dataset_tag(dataset_id="test", key="key")
 
 
-def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
+def test_dataset_schema_evolution_and_log_input(experiments):
     dataset = create_dataset(
         name="schema_evolution_test",
         experiment_id=[experiments[0]],
@@ -1706,16 +1781,6 @@ def test_deprecated_parameter_substitution(experiment):
         warnings.simplefilter("always")
 
         with pytest.raises(ValueError, match="name.*only supported in Databricks"):
-            get_dataset(uc_table_name="test_dataset_deprecated")
-
-        assert len(w) == 1
-        assert issubclass(w[0].category, FutureWarning)
-        assert "uc_table_name" in str(w[0].message)
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-
-        with pytest.raises(ValueError, match="name.*only supported in Databricks"):
             delete_dataset(uc_table_name="test_dataset_deprecated")
 
         assert len(w) == 1
@@ -1725,7 +1790,7 @@ def test_deprecated_parameter_substitution(experiment):
     delete_dataset(dataset_id=dataset.dataset_id)
 
 
-def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
+def test_create_dataset_uses_active_experiment_when_not_specified(client):
     exp_id = mlflow.create_experiment("test_active_experiment")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -1738,7 +1803,7 @@ def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_create_dataset_with_no_active_experiment(tracking_uri):
+def test_create_dataset_with_no_active_experiment(client):
     from mlflow.tracking import fluent
 
     fluent._active_experiment_id = None
@@ -1748,7 +1813,7 @@ def test_create_dataset_with_no_active_experiment(tracking_uri):
     assert dataset.experiment_ids == ["0"]
 
 
-def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+def test_create_dataset_explicit_overrides_active_experiment(client):
     active_exp = mlflow.create_experiment("active_exp")
     explicit_exp = mlflow.create_experiment("explicit_exp")
 
@@ -1763,7 +1828,7 @@ def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_create_dataset_none_uses_active_experiment(tracking_uri):
+def test_create_dataset_none_uses_active_experiment(client):
     exp_id = mlflow.create_experiment("test_none_experiment")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -1779,7 +1844,9 @@ def test_create_dataset_none_uses_active_experiment(tracking_uri):
 def test_source_type_inference():
     exp = mlflow.create_experiment("test_source_inference")
     dataset = create_dataset(
-        name="test_source_inference", experiment_id=exp, tags={"test": "source_inference"}
+        name="test_source_inference",
+        experiment_id=exp,
+        tags={"test": "source_inference"},
     )
 
     human_records = [
@@ -1877,7 +1944,9 @@ def test_trace_source_type_detection():
                     )
 
     dataset = create_dataset(
-        name="test_trace_sources", experiment_id=exp, tags={"test": "trace_source_detection"}
+        name="test_trace_sources",
+        experiment_id=exp,
+        tags={"test": "trace_source_detection"},
     )
 
     client = mlflow.MlflowClient()
@@ -1888,15 +1957,17 @@ def test_trace_source_type_detection():
     trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
     assert len(trace_sources) == 3
 
-    for idx, trace_id in enumerate(trace_ids):
+    for trace_id in trace_ids:
         matching_records = df[df["source_id"] == trace_id]
         assert len(matching_records) == 1
 
     dataset2 = create_dataset(
-        name="test_trace_sources_df", experiment_id=exp, tags={"test": "trace_source_df"}
+        name="test_trace_sources_df",
+        experiment_id=exp,
+        tags={"test": "trace_source_df"},
     )
 
-    traces_df = mlflow.search_traces(experiment_ids=[exp])
+    traces_df = mlflow.search_traces(locations=[exp])
     assert not traces_df.empty
     dataset2.merge_records(traces_df)
 
@@ -1905,10 +1976,12 @@ def test_trace_source_type_detection():
     assert len(trace_sources2) == len(traces_df)
 
     dataset3 = create_dataset(
-        name="test_trace_sources_list", experiment_id=exp, tags={"test": "trace_source_list"}
+        name="test_trace_sources_list",
+        experiment_id=exp,
+        tags={"test": "trace_source_list"},
     )
 
-    traces_list = mlflow.search_traces(experiment_ids=[exp], return_type="list")
+    traces_list = mlflow.search_traces(locations=[exp], return_type="list")
     assert len(traces_list) > 0
     dataset3.merge_records(traces_list)
 
@@ -1924,35 +1997,7 @@ def test_trace_source_type_detection():
     delete_dataset(dataset_id=dataset3.dataset_id)
 
 
-def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
-    active_exp = mlflow.create_experiment("active_exp")
-    explicit_exp = mlflow.create_experiment("explicit_exp")
-
-    mlflow.set_experiment(experiment_id=active_exp)
-
-    dataset = create_dataset(name="test_explicit_override", experiment_id=explicit_exp)
-
-    assert dataset.experiment_ids == [explicit_exp]
-
-    from mlflow.tracking import fluent
-
-    fluent._active_experiment_id = None
-
-
-def test_create_dataset_none_uses_active_experiment(tracking_uri):
-    exp_id = mlflow.create_experiment("test_none_experiment")
-    mlflow.set_experiment(experiment_id=exp_id)
-
-    dataset = create_dataset(name="test_none_exp", experiment_id=None)
-
-    assert dataset.experiment_ids == [exp_id]
-
-    from mlflow.tracking import fluent
-
-    fluent._active_experiment_id = None
-
-
-def test_create_dataset_empty_list_stays_empty(tracking_uri):
+def test_create_dataset_empty_list_stays_empty(client):
     exp_id = mlflow.create_experiment("test_empty_list")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -1965,7 +2010,7 @@ def test_create_dataset_empty_list_stays_empty(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_search_datasets_filter_string_edge_cases(tracking_uri):
+def test_search_datasets_filter_string_edge_cases(client):
     exp_id = mlflow.create_experiment("test_filter_edge_cases")
 
     dataset = create_dataset(name="test_dataset", experiment_id=exp_id, tags={"test": "value"})
@@ -2000,7 +2045,7 @@ def test_search_datasets_filter_string_edge_cases(tracking_uri):
         assert filter_arg == 'name = "test"'
 
 
-def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments):
+def test_wrapper_type_is_actually_returned_not_entity(experiments):
     dataset = create_dataset(
         name="test_wrapper",
         experiment_id=experiments[0],
@@ -2014,7 +2059,7 @@ def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments)
     assert isinstance(dataset._mlflow_dataset, EntityEvaluationDataset)
 
 
-def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
+def test_wrapper_delegates_all_properties_correctly(experiments):
     dataset = create_dataset(
         name="test_delegation",
         experiment_id=experiments[0],
@@ -2033,7 +2078,7 @@ def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
     assert dataset.source._get_source_type() == "mlflow_evaluation_dataset"
 
 
-def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
+def test_get_and_search_return_wrapper_not_entity(experiments):
     created = create_dataset(
         name="test_get_wrapper",
         experiment_id=experiments[0],
@@ -2055,7 +2100,7 @@ def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
     assert not isinstance(results[0], EntityEvaluationDataset)
 
 
-def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
+def test_wrapper_vs_direct_client_usage(experiments):
     client = MlflowClient()
 
     entity_dataset = client.create_dataset(
@@ -2079,7 +2124,7 @@ def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
     assert wrapped_from_entity == entity_dataset
 
 
-def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experiments):
+def test_wrapper_works_with_mlflow_log_input_integration(experiments):
     dataset = create_dataset(
         name="test_log_input",
         experiment_id=experiments[0],
@@ -2103,7 +2148,7 @@ def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experimen
     assert dataset_input.dataset.digest == dataset.digest
 
 
-def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experiments):
+def test_wrapper_isinstance_checks_for_dataset_interfaces(experiments):
     dataset = create_dataset(
         name="test_isinstance",
         experiment_id=experiments[0],
@@ -2114,3 +2159,130 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experime
     assert isinstance(dataset, WrapperEvaluationDataset)
     assert not isinstance(dataset, EntityEvaluationDataset)
     assert isinstance(dataset, (WrapperEvaluationDataset, EntityEvaluationDataset))
+
+
+@pytest.mark.parametrize(
+    "records",
+    [
+        [
+            {"inputs": {"persona": "Student", "goal": "Find articles"}},
+            {
+                "inputs": {
+                    "persona": "Researcher",
+                    "goal": "Review",
+                    "context": {"dept": "CS"},
+                }
+            },
+            {"inputs": {"goal": "Single goal"}, "expectations": {"output": "expected"}},
+        ],
+    ],
+)
+def test_multiturn_valid_formats(experiments, records):
+    dataset = create_dataset(name="multiturn_test", experiment_id=experiments[0])
+    dataset.merge_records(records)
+    df = dataset.to_df()
+
+    assert len(df) == 3
+    for _, row in df.iterrows():
+        assert any(key in row["inputs"] for key in ["persona", "goal", "context"])
+
+
+@pytest.mark.parametrize(
+    ("records", "error_pattern"),
+    [
+        # Top-level session fields
+        (
+            [{"persona": "Student", "goal": "Find articles", "custom_field": "value"}],
+            "Each record must have an 'inputs' field",
+        ),
+        # Mixed fields in inputs
+        (
+            [
+                {
+                    "inputs": {
+                        "persona": "Student",
+                        "goal": "Find",
+                        "custom_field": "value",
+                    }
+                }
+            ],
+            "Invalid input schema.*cannot mix session fields",
+        ),
+        # Inconsistent batch schema
+        (
+            [
+                {"inputs": {"persona": "Student", "goal": "Find articles"}},
+                {"inputs": {"question": "What is MLflow?"}},
+            ],
+            "must use the same granularity.*Found",
+        ),
+        # Empty inputs in batch with session records
+        (
+            [
+                {"inputs": {"goal": "Find articles"}},
+                {"inputs": {}},
+            ],
+            "Empty inputs are not allowed for session records.*'goal' field is required",
+        ),
+    ],
+)
+def test_multiturn_validation_errors(experiments, records, error_pattern):
+    dataset = create_dataset(name="multiturn_error_test", experiment_id=experiments[0])
+    with pytest.raises(MlflowException, match=error_pattern):
+        dataset.merge_records(records)
+
+
+@pytest.mark.parametrize(
+    ("existing_records", "new_records"),
+    [
+        # Multiturn then custom
+        (
+            [{"inputs": {"persona": "Student", "goal": "Find articles"}}],
+            [{"inputs": {"question": "What is MLflow?", "model": "gpt-4"}}],
+        ),
+        # Custom then multiturn
+        (
+            [{"inputs": {"question": "What is MLflow?", "model": "gpt-4"}}],
+            [{"inputs": {"persona": "Student", "goal": "Find articles"}}],
+        ),
+    ],
+)
+def test_multiturn_schema_compatibility(experiments, existing_records, new_records):
+    dataset = create_dataset(name="multiturn_compat_test", experiment_id=experiments[0])
+    dataset.merge_records(existing_records)
+
+    with pytest.raises(MlflowException, match="Cannot mix granularities"):
+        dataset.merge_records(new_records)
+
+
+def test_multiturn_with_expectations_and_tags(experiments):
+    dataset = create_dataset(name="multiturn_full_test", experiment_id=experiments[0])
+    records = [
+        {
+            "inputs": {
+                "persona": "Graduate Student",
+                "goal": "Find peer-reviewed articles on machine learning",
+                "context": {"user_id": "U0001", "department": "CS"},
+            },
+            "expectations": {"expected_output": "relevant articles", "quality": "high"},
+            "tags": {"difficulty": "medium"},
+        },
+        {
+            "inputs": {
+                "persona": "Librarian",
+                "goal": "Help with inter-library loan",
+            },
+            "expectations": {"expected_output": "loan information"},
+        },
+    ]
+
+    dataset.merge_records(records)
+
+    df = dataset.to_df()
+    assert len(df) == 2
+
+    grad_record = df[df["inputs"].apply(lambda x: x.get("persona") == "Graduate Student")].iloc[0]
+    assert grad_record["expectations"]["expected_output"] == "relevant articles"
+    assert grad_record["expectations"]["quality"] == "high"
+    assert grad_record["tags"]["difficulty"] == "medium"
+    assert grad_record["inputs"]["context"] == {"user_id": "U0001", "department": "CS"}

@@ -28,7 +28,9 @@ def validate_telemetry_record(
     assert data["event_name"] == event_name
     if check_params:
         if params:
-            assert data["params"] == json.dumps(params)
+            # Compare as dictionaries instead of JSON strings to avoid order-dependency
+            actual_params = json.loads(data["params"]) if data["params"] else None
+            assert actual_params == params
         else:
             assert data["params"] is None
     assert data["status"] == status

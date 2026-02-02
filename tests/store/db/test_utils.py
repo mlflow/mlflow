@@ -1,9 +1,11 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
 from sqlalchemy.pool import NullPool
 from sqlalchemy.pool.impl import QueuePool
 
+from mlflow.exceptions import MlflowException
 from mlflow.store.db import utils
 
 
@@ -105,7 +107,6 @@ def test_create_sqlalchemy_engine_with_retry_fail():
 
 
 def test_mysql_ssl_params(monkeypatch):
-    """Test that MySQL SSL certificate params are correctly passed to create_engine."""
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
@@ -128,7 +129,6 @@ def test_mysql_ssl_params(monkeypatch):
 
 
 def test_mysql_ssl_params_partial(monkeypatch):
-    """Test that MySQL SSL certificate params work with only CA certificate."""
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.delenv("MLFLOW_MYSQL_SSL_CERT", raising=False)
     monkeypatch.delenv("MLFLOW_MYSQL_SSL_KEY", raising=False)
@@ -149,7 +149,6 @@ def test_mysql_ssl_params_partial(monkeypatch):
 
 
 def test_non_mysql_no_ssl_params(monkeypatch):
-    """Test that non-MySQL connections don't get SSL params."""
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
@@ -164,3 +163,30 @@ def test_non_mysql_no_ssl_params(monkeypatch):
             pool_pre_ping=True,
             poolclass=NullPool,
         )
+
+
+def test_check_sqlite_version_too_old():
+    with mock.patch("mlflow.store.db.utils.sqlite3.sqlite_version", "3.30.1"):
+        with pytest.raises(MlflowException, match=r"MLflow requires SQLite"):
+            utils._check_sqlite_version("sqlite:///test.db")
+
+
+def test_make_parent_dirs_if_sqlite(tmp_path: Path) -> None:
+    nested_path = tmp_path / "a" / "b" / "c" / "test.db"
+    db_uri = f"sqlite:///{nested_path}"
+
+    assert not nested_path.parent.exists()
+    utils._make_parent_dirs_if_sqlite(db_uri)
+    assert nested_path.parent.exists()
+
+
+def test_make_parent_dirs_if_sqlite_skips_memory_db() -> None:
+    # Should not raise any errors for in-memory databases
+    utils._make_parent_dirs_if_sqlite("sqlite:///:memory:")
+    utils._make_parent_dirs_if_sqlite("sqlite://")
+
+
+def test_make_parent_dirs_if_sqlite_skips_non_sqlite() -> None:
+    # Should not raise any errors for non-SQLite URIs
+    utils._make_parent_dirs_if_sqlite("postgresql://localhost/db")
+    utils._make_parent_dirs_if_sqlite("mysql://localhost/db")

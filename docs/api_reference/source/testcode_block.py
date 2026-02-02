@@ -1,116 +1,213 @@
-import functools
-import importlib
-import inspect
+"""
+Standalone script to extract code blocks marked with :test: from Python docstrings.
+Uses AST to parse Python files and extract docstrings with test code blocks.
+"""
+
+import ast
 import re
+import subprocess
 import textwrap
 from pathlib import Path
 
-from docutils.parsers.rst import directives
-from sphinx.directives.code import CodeBlock
+_CODE_BLOCK_HEADER_REGEX = re.compile(r"^\.\.\s+code-block::\s*py(thon)?")
+_CODE_BLOCK_OPTION_REGEX = re.compile(r"^:\w+:")
 
 
-def get_obj_and_module(obj_path):
-    splits = obj_path.split(".")
-    for i in reversed(range(1, len(splits) + 1)):
-        try:
-            maybe_module = ".".join(splits[:i])
-            mod = importlib.import_module(maybe_module)
-        except ImportError:
-            continue
-        return mod, functools.reduce(getattr, splits[i:], mod)
-
-    raise Exception("Should not reach here")
+def _get_indent(s: str) -> int:
+    return len(s) - len(s.lstrip())
 
 
-def get_code_block_line(mod_file, obj_line, lineno_in_docstring):
-    with mod_file.open() as f:
-        lines = f.readlines()[obj_line:]
-        for offset, line in enumerate(lines):
-            if line.lstrip().startswith('"""'):
-                extra_offset = 0
-                while re.search(r"[^\"\s]", lines[offset + extra_offset]) is None:
-                    extra_offset += 1
-                return obj_line + offset + extra_offset + lineno_in_docstring
+def _get_header_indent(s: str) -> int | None:
+    if _CODE_BLOCK_HEADER_REGEX.match(s.lstrip()):
+        return _get_indent(s)
+    return None
 
 
-# fmt: off
-# This function helps understand what each variable represents in `get_code_block_line`.
-def _func():           # <- obj_line
-    """                  <- obj_line + offset
-
-    Docstring            <- obj_line + offset + extra_offset
-
-    .. code-block::      <- obj_line + offset + extra_offset + lineno_in_docstring
-        :test:
-        ...
+def extract_code_blocks_from_docstring(docstring: str | None) -> list[tuple[int, str]]:
     """
-# fmt: on
+    Extract all code blocks marked with :test: from a docstring.
+    Uses the same approach as clint for parsing code blocks.
 
-
-def get_code_block_location(obj_path, lineno_in_docstring, repo_root):
-    mod, obj = get_obj_and_module(obj_path)
-    abs_mod_file = Path(mod.__file__)
-    rel_mod_file = abs_mod_file.relative_to(repo_root)
-    obj_line = inspect.getsourcelines(obj)[1]
-    code_block_line = get_code_block_line(abs_mod_file, obj_line, lineno_in_docstring)
-    return f"{rel_mod_file}:{code_block_line}"
-
-
-class TestCodeBlockDirective(CodeBlock):
+    Returns a list of tuples: (line_number, code_content)
     """
-    Overrides the `code-block` directive to dump code blocks marked with the `:test:` option
-    to files for testing.
+    if not docstring:
+        return []
 
-    ```
-    .. code-block:: python
-        :test:
+    blocks = []
+    header_indent: int | None = None
+    code_lines: list[str] = []
+    has_test_option = False
+    code_block_lineno = 0
 
-        print("Hello, world!")
-    ```
+    line_iter = enumerate(docstring.splitlines())
+    while t := next(line_iter, None):
+        idx, line = t
+
+        if code_lines:
+            # We're inside a code block
+            indent = _get_indent(line)
+            # If we encounter a non-blank line with an indent less than or equal to the header
+            # we are done parsing the code block
+            if line.strip() and (header_indent is not None) and indent <= header_indent:
+                if has_test_option:
+                    code = textwrap.dedent("\n".join(code_lines))
+                    blocks.append((code_block_lineno, code))
+
+                # Reset state
+                code_lines.clear()
+                has_test_option = False
+                # It's possible that another code block follows the current one
+                header_indent = _get_header_indent(line)
+                continue
+
+            code_lines.append(line)
+
+        elif header_indent is not None:
+            # We found a code-block header, now advance to the code body
+            # Skip options like :test:, :caption:, etc.
+            while True:
+                stripped = line.lstrip()
+                if stripped.startswith(":test:") or stripped == ":test:":
+                    has_test_option = True
+
+                # Check if this is still an option line or blank
+                if stripped and not _CODE_BLOCK_OPTION_REGEX.match(stripped):
+                    # We are at the first line of the code block
+                    code_lines.append(line)
+                    code_block_lineno = idx + 1  # Line number in docstring (1-indexed)
+                    break
+
+                if next_line := next(line_iter, None):
+                    idx, line = next_line
+                else:
+                    break
+
+        else:
+            # Look for code-block headers
+            header_indent = _get_header_indent(line)
+
+    # The docstring ends with a code block
+    if code_lines and has_test_option:
+        code = textwrap.dedent("\n".join(code_lines))
+        blocks.append((code_block_lineno, code))
+
+    return blocks
+
+
+def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple[str, int, str]]:
     """
+    Extract all code blocks marked with :test: from a Python file.
 
-    option_spec = {**CodeBlock.option_spec, "test": directives.flag}
+    Args:
+        filepath: Path to the Python file
+        repo_root: Root of the repository
 
-    def _dump_code_block(self):
-        docs_dir = Path.cwd()
-        repo_root = docs_dir.parent.parent
-        directory = docs_dir.joinpath(".examples")
-        directory.mkdir(exist_ok=True)
-        source, lineno_in_docstring = self.get_source_info()
-        obj_path = source.split(":docstring of ")[1]
-        code_block_location = get_code_block_location(obj_path, lineno_in_docstring, repo_root)
-        name = re.sub(r"[\._]+", "_", obj_path).strip("")
-        filename = f"test_{name}_{lineno_in_docstring}.py"
-        content = textwrap.indent("\n".join(self.content), " " * 4)
-        code = "\n".join(
-            [
-                f"# Location: {code_block_location}",
-                "import pytest",
-                "",
-                "",
-                # Show the code block location in the test report.
-                f"@pytest.mark.parametrize('_', [' {code_block_location} '])",
-                "def test(_):",
-                content,
-                "",
-                "",
-                'if __name__ == "__main__":',
-                "    test()",
-                "",
-            ]
-        )
-        directory.joinpath(filename).write_text(code)
+    Returns:
+        List of tuples: (location_string, line_number, code_content)
+    """
+    source = filepath.read_text()
+    tree = ast.parse(source)
 
-    def run(self):
-        if "test" in self.options:
-            self._dump_code_block()
-        return super().run()
+    results = []
+    rel_path = filepath.relative_to(repo_root)
+
+    for node in ast.walk(tree):
+        # Check functions and classes for docstrings
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            docstring = ast.get_docstring(node)
+            if not docstring:
+                continue
+
+            blocks = extract_code_blocks_from_docstring(docstring)
+            for lineno_in_docstring, code in blocks:
+                # Calculate the actual line number in the file
+                # The docstring starts at node.lineno, and lineno_in_docstring is relative to that
+                actual_line = node.lineno + lineno_in_docstring
+                location = f"{rel_path}:{actual_line}"
+                results.append((location, lineno_in_docstring, code))
+
+    return results
 
 
-def setup(app):
-    app.add_directive("code-block", TestCodeBlockDirective, override=True)
-    return {
-        "version": "builtin",
-        "parallel_read_safe": False,
-        "parallel_write_safe": False,
-    }
+def find_python_files(directory: Path, repo_root: Path) -> list[Path]:
+    """Find all Python files tracked by git in a directory."""
+    # Get relative path from repo root
+    rel_dir = directory.relative_to(repo_root)
+
+    # Run git ls-files from repo root with the directory as a pattern
+    output = subprocess.check_output(
+        ["git", "ls-files", f"{rel_dir}/*.py"],
+        cwd=repo_root,
+        text=True,
+    )
+    files = [repo_root / line for line in output.strip().split("\n") if line]
+    return sorted(files)
+
+
+def generate_test_file(location: str, line_num: int, code: str, output_dir: Path) -> Path:
+    """Generate a pytest test file for a code block."""
+    # Create a unique filename based on location
+    safe_name = re.sub(r"[/\\:.]", "_", location)
+    filename = f"test_{safe_name}_{line_num}.py"
+    content = textwrap.indent(code, " " * 4)
+
+    test_code = "\n".join(
+        [
+            f"# Location: {location}",
+            "import pytest",
+            "",
+            "",
+            # Show the code block location in the test report.
+            f"@pytest.mark.parametrize('_', [' {location} '])",
+            "def test(_):",
+            content,
+            "",
+            "",
+            'if __name__ == "__main__":',
+            "    test()",
+            "",
+        ]
+    )
+
+    output_path = output_dir / filename
+    output_path.write_text(test_code)
+    return output_path
+
+
+def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> None:
+    """
+    Extract test examples from Python files and generate test files.
+
+    Args:
+        mlflow_dir: Directory containing Python files to scan
+        output_dir: Directory to write test files to
+        repo_root: Root of the repository
+    """
+    output_dir.mkdir(exist_ok=True)
+
+    # Clean up old test files
+    for old_file in output_dir.glob("test_*.py"):
+        old_file.unlink()
+
+    print(f"Scanning Python files in: {mlflow_dir}")
+    python_files = find_python_files(mlflow_dir, repo_root)
+    print(f"Found {len(python_files)} Python files")
+
+    for filepath in python_files:
+        results = extract_code_blocks_from_file(filepath, repo_root)
+
+        for location, line_num, code in results:
+            output_path = generate_test_file(location, line_num, code, output_dir)
+            print(f"  Generated: {output_path.name}")
+
+
+def main() -> None:
+    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
+    repo_root = Path(output.strip())
+    scan_dir = repo_root / "mlflow"
+    output_dir = Path(".examples")
+    extract_examples(scan_dir, output_dir, repo_root)
+
+
+if __name__ == "__main__":
+    main()

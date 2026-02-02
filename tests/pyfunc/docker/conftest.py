@@ -50,7 +50,7 @@ def get_released_mlflow_version():
     versions = [
         v for v in map(Version, data["releases"]) if not (v.is_devrelease or v.is_prerelease)
     ]
-    return str(sorted(versions, reverse=True)[0])
+    return str(max(versions))
 
 
 def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, **kwargs):

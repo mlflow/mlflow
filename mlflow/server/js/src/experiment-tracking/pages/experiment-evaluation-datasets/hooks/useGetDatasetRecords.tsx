@@ -1,8 +1,8 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl, getJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { EvaluationDatasetRecord } from '../types';
+import type { EvaluationDatasetRecord } from '../types';
 import { GET_DATASET_RECORDS_QUERY_KEY } from '../constants';
 
 const GET_DATASET_RECORDS_PAGE_SIZE = 50;

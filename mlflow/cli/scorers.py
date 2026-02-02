@@ -5,6 +5,7 @@ import click
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.genai.judges import make_judge
+from mlflow.genai.scorers import get_all_scorers
 from mlflow.genai.scorers import list_scorers as list_scorers_api
 from mlflow.utils.string_utils import _create_table
 
@@ -23,8 +24,15 @@ def commands():
     "-x",
     envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
-    required=True,
+    required=False,
     help="Experiment ID for which to list scorers. Can be set via MLFLOW_EXPERIMENT_ID env var.",
+)
+@click.option(
+    "--builtin",
+    "-b",
+    is_flag=True,
+    default=False,
+    help="List built-in scorers instead of registered scorers for an experiment.",
 )
 @click.option(
     "--output",
@@ -32,26 +40,53 @@ def commands():
     default="table",
     help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
 )
-def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
+def list_scorers(
+    experiment_id: str | None, builtin: bool, output: Literal["table", "json"]
+) -> None:
     """
-    List all registered scorers, including LLM judges, for the specified experiment.
+    List registered scorers for an experiment, or list all built-in scorers.
 
     \b
     Examples:
 
     .. code-block:: bash
 
-        # List scorers in table format (default)
+        # List built-in scorers (table format)
+        mlflow scorers list --builtin
+        mlflow scorers list -b
+
+        # List built-in scorers (JSON format)
+        mlflow scorers list --builtin --output json
+
+        # List registered scorers in table format (default)
         mlflow scorers list --experiment-id 123
 
-        # List scorers in JSON format
+        # List registered scorers in JSON format
         mlflow scorers list --experiment-id 123 --output json
 
-        # Using environment variable
+        # Using environment variable for experiment ID
         export MLFLOW_EXPERIMENT_ID=123
         mlflow scorers list
     """
-    scorers = list_scorers_api(experiment_id=experiment_id)
+    # Validate mutual exclusivity
+    if builtin and experiment_id:
+        raise click.UsageError(
+            "Cannot specify both --builtin and --experiment-id. "
+            "Use --builtin to list built-in scorers or --experiment-id to list "
+            "registered scorers for an experiment."
+        )
+
+    if not builtin and not experiment_id:
+        raise click.UsageError(
+            "Must specify either --builtin or --experiment-id. "
+            "Use --builtin to list built-in scorers or --experiment-id to list "
+            "registered scorers for an experiment."
+        )
+
+    # Get scorers based on mode
+    scorers = get_all_scorers() if builtin else list_scorers_api(experiment_id=experiment_id)
+
+    # Format scorer data for output
     scorer_data = [{"name": scorer.name, "description": scorer.description} for scorer in scorers]
 
     if output == "json":

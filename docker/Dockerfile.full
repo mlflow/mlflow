@@ -1,0 +1,4 @@
+FROM python:3.10-slim-bullseye
+ARG VERSION
+
+RUN pip install --no-cache-dir mlflow[extras,db,gateway,genai]==$VERSION

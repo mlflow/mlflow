@@ -3,7 +3,6 @@ sidebar_position: 5
 sidebar_label: Microsoft Agent Framework
 ---
 
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Microsoft Agent Framework
@@ -15,7 +14,7 @@ import ImageBox from "@site/src/components/ImageBox";
 ## Step 1: Install libraries
 
 ```bash
-pip install mlflow>=3.6.0 agent-framework opentelemetry-exporter-otlp-proto-http
+pip install 'mlflow[genai]>=3.6.0' agent-framework opentelemetry-exporter-otlp-proto-http
 ```
 
 ## Step 2: Start the MLflow Tracking Server

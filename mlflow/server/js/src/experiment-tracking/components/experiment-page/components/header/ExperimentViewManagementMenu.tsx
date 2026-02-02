@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Typography } from '@databricks/design-system';
+import React, { lazy, useCallback, useMemo, useState } from 'react';
+import { Spinner, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
 import type { ExperimentEntity } from '../../../../types';
@@ -11,8 +11,6 @@ import {
   isExperimentTypeNotebook,
 } from '../../utils/experimentPage.common-utils';
 import { getShareFeedbackOverflowMenuItem } from './ExperimentViewHeader.utils';
-import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
-import { ExperimentKind } from '../../../../constants';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
@@ -56,7 +54,7 @@ export const ExperimentViewManagementMenu = ({
                       />
                     </Typography.Text>
                   ),
-                  onClick: () => setEditing(true),
+                  onClick: () => setEditing?.(true),
                 },
               ]
             : []),

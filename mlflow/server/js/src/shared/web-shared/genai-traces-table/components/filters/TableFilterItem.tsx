@@ -14,19 +14,21 @@ import { FormattedMessage } from '@databricks/i18n';
 import { TableFilterItemTypeahead } from './TableFilterItemTypeahead';
 import { TableFilterItemValueInput } from './TableFilterItemValueInput';
 import {
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
 import type {
   AssessmentInfo,
   TableFilter,
@@ -34,16 +36,35 @@ import type {
   TableFilterOptions,
   TracesTableColumn,
 } from '../../types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
 
-const FILTERABLE_INFO_COLUMNS = [
-  EXECUTION_DURATION_COLUMN_ID,
-  STATE_COLUMN_ID,
-  TRACE_NAME_COLUMN_ID,
-  USER_COLUMN_ID,
-  RUN_NAME_COLUMN_ID,
-  LOGGED_MODEL_COLUMN_ID,
-  SOURCE_COLUMN_ID,
-];
+const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
+  // We use a different set of filterable info columns depending on whether v4 APIs are used
+  if (usesV4APIs) {
+    return [
+      EXECUTION_DURATION_COLUMN_ID,
+      STATE_COLUMN_ID,
+      TRACE_NAME_COLUMN_ID,
+      USER_COLUMN_ID,
+      RUN_NAME_COLUMN_ID,
+      LOGGED_MODEL_COLUMN_ID,
+      SOURCE_COLUMN_ID,
+      INPUTS_COLUMN_ID,
+      RESPONSE_COLUMN_ID,
+      LINKED_PROMPTS_COLUMN_ID,
+    ];
+  }
+  return [
+    EXECUTION_DURATION_COLUMN_ID,
+    STATE_COLUMN_ID,
+    TRACE_NAME_COLUMN_ID,
+    USER_COLUMN_ID,
+    RUN_NAME_COLUMN_ID,
+    LOGGED_MODEL_COLUMN_ID,
+    SOURCE_COLUMN_ID,
+    LINKED_PROMPTS_COLUMN_ID,
+  ];
+};
 
 const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
   if (column === EXECUTION_DURATION_COLUMN_ID) {
@@ -65,6 +86,10 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.CONTAINS];
   }
 
+  if (column === INPUTS_COLUMN_ID || column === RESPONSE_COLUMN_ID) {
+    return [FilterOperator.RLIKE, FilterOperator.EQUALS];
+  }
+
   return [FilterOperator.EQUALS];
 };
 
@@ -77,6 +102,7 @@ export const TableFilterItem = ({
   experimentId,
   tableFilterOptions,
   allColumns,
+  usesV4APIs,
 }: {
   tableFilter: TableFilter;
   index: number;
@@ -86,9 +112,12 @@ export const TableFilterItem = ({
   experimentId: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
+  usesV4APIs?: boolean;
 }) => {
   const { column, operator, key } = tableFilter;
   const { theme } = useDesignSystemTheme();
+
+  const availableFilterableInfoColumns = useMemo(() => getFilterableInfoColumns(usesV4APIs), [usesV4APIs]);
 
   // For now, we don't support filtering on numeric values.
   const assessmentKeyOptions: TableFilterOption[] = useMemo(
@@ -100,9 +129,14 @@ export const TableFilterItem = ({
   );
 
   const columnOptions: TableFilterOption[] = useMemo(() => {
-    const result = allColumns
+    // Order the columns based on their filterOrder property, defaulting to 1 if not provided
+    const sortedColumns = allColumns.slice().sort((a, b) => {
+      return (a.filterOrder ?? 1) - (b.filterOrder ?? 1);
+    });
+    const result = sortedColumns
       .filter(
-        (column) => FILTERABLE_INFO_COLUMNS.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
+        (column) =>
+          availableFilterableInfoColumns.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
       )
       .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
@@ -119,14 +153,18 @@ export const TableFilterItem = ({
     );
 
     // Add individual span filter options
-    result.push(
-      { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
-      { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
-      { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
-    );
+    if (usesV4APIs) {
+      result.push(
+        // TODO: Added via UI sync, but doesn't work in databricks yet. Uncomment
+        // these when the search API supports them
+        { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+        { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+      );
+    }
 
     return result;
-  }, [allColumns]);
+  }, [allColumns, usesV4APIs, availableFilterableInfoColumns]);
 
   return (
     <>

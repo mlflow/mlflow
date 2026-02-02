@@ -486,7 +486,7 @@ def autolog(
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
-    import statsmodels.api
+    import statsmodels.api  # noqa: F401
 
     def find_subclasses(klass):
         """
@@ -498,8 +498,7 @@ def autolog(
         Returns:
             A list of classes that includes the argument in the first position.
         """
-        subclasses = klass.__subclasses__()
-        if subclasses:
+        if subclasses := klass.__subclasses__():
             subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
             return [klass] + list(chain)

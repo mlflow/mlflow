@@ -13,6 +13,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -20,14 +21,13 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-import mlflow.telemetry.utils
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
+from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -85,6 +85,7 @@ def pytest_addoption(parser):
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
+    config.addinivalue_line("markers", "flaky: mark test as flaky to allow reruns")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
     config.addinivalue_line(
         "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
@@ -141,9 +142,80 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+def _to_gb(b: int) -> str:
+    return f"{b / 1024**3:.1f}"
+
+
+@dataclass
+class ResourceUsage:
+    mem_used_bytes: int = 0
+    mem_total_bytes: int = 0
+    disk_used_bytes: int = 0
+    disk_total_bytes: int = 0
+
+    @staticmethod
+    def _get_usage() -> tuple[int, int, int, int] | None:
+        try:
+            import psutil
+        except ImportError:
+            return None
+
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        return mem.used, mem.total, disk.used, disk.total
+
+    def snapshot(self) -> None:
+        usage = self._get_usage()
+        if usage is None:
+            return
+
+        (
+            self.mem_used_bytes,
+            self.mem_total_bytes,
+            self.disk_used_bytes,
+            self.disk_total_bytes,
+        ) = usage
+
+    def check(self) -> str | None:
+        usage = self._get_usage()
+        if usage is None:
+            return None
+
+        THRESHOLD = 500 * 1024 * 1024  # 0.5 GB
+        mu, _, du, _ = usage
+        parts: list[str] = []
+        mem_delta = mu - self.mem_used_bytes
+        if mem_delta >= THRESHOLD:
+            delta = _to_gb(mem_delta)
+            prev = _to_gb(self.mem_used_bytes)
+            curr = _to_gb(mu)
+            parts.append(f"MEM: +{delta} ({prev} -> {curr}) GB")
+        disk_delta = du - self.disk_used_bytes
+        if disk_delta >= THRESHOLD:
+            delta = _to_gb(disk_delta)
+            prev = _to_gb(self.disk_used_bytes)
+            curr = _to_gb(du)
+            parts.append(f"DISK: +{delta} ({prev} -> {curr}) GB")
+        if parts:
+            return ", ".join(parts)
+
+    def format(self) -> str:
+        mem_total = _to_gb(self.mem_total_bytes)
+        mem_used = _to_gb(self.mem_used_bytes)
+        disk_total = _to_gb(self.disk_total_bytes)
+        disk_used = _to_gb(self.disk_used_bytes)
+        return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
+
+
+_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delta
+_RESOURCE_USAGE = ResourceUsage()
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _RESOURCE_HEAVY_TESTS.clear()
+    _RESOURCE_USAGE.snapshot()
 
     if IS_TRACING_SDK_ONLY:
         return
@@ -215,6 +287,9 @@ def generate_duration_stats() -> str:
     if not rows:
         return ""
 
+    # Limit to top 30 files
+    rows = rows[:30]
+
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
@@ -233,12 +308,69 @@ def generate_duration_stats() -> str:
     return to_md_table(table_rows)
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
-    start = time.perf_counter()
-    yield  # This includes setup + call + teardown
-    duration = time.perf_counter() - start
-    _test_results.append(TestResult(path=item.path, test_name=item.name, execution_time=duration))
+    """
+    Custom test protocol that tracks test duration and supports rerunning failed tests
+    marked with @pytest.mark.flaky.
+
+    This is a simplified implementation inspired by pytest-rerunfailures:
+    https://github.com/pytest-dev/pytest-rerunfailures/blob/365dc54ba3069f55a870cda2c3e1e3c33c68f326/src/pytest_rerunfailures.py#L564-L619
+
+    Usage:
+        @pytest.mark.flaky(attempts=3)
+        def test_something():
+            # Will run up to 3 times total if it keeps failing
+            ...
+
+        @pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
+        def test_windows_only_flaky():
+            ...
+    """
+    from _pytest.runner import runtestprotocol
+
+    # Check if we should enable flaky rerun logic
+    should_rerun = False
+    attempts = 1
+    if flaky_marker := item.get_closest_marker("flaky"):
+        condition = flaky_marker.kwargs.get("condition", True)
+        if condition:
+            should_rerun = True
+            attempts = flaky_marker.kwargs.get("attempts", 3)
+
+    item.execution_count = 0
+    need_to_run = True
+    total_duration = 0.0
+
+    while need_to_run:
+        item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+        item.execution_count += 1
+        start = time.perf_counter()
+        reports = runtestprotocol(item, nextitem=nextitem, log=False)
+        total_duration += time.perf_counter() - start
+
+        for report in reports:
+            if (
+                should_rerun
+                and report.when == "call"
+                and report.failed
+                and item.execution_count < attempts
+            ):
+                report.outcome = "rerun"
+                item.ihook.pytest_runtest_logreport(report=report)
+                break
+            else:
+                item.ihook.pytest_runtest_logreport(report=report)
+        else:
+            # No rerun needed (passed or exhausted attempts), exit the loop
+            need_to_run = False
+
+        item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+    _test_results.append(
+        TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
+    )
+    return True  # Indicate that we handled this protocol
 
 
 def pytest_runtest_setup(item):
@@ -263,32 +395,21 @@ def fetch_pr_labels():
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
     outcome = yield
+
+    # Handle rerun outcome
+    if report.outcome == "rerun":
+        outcome.force_result(("rerun", "R", ("RERUN", {"yellow": True})))
+        return
+
     if report.when == "call":
-        try:
-            import psutil
-        except ImportError:
-            return
+        if delta := _RESOURCE_USAGE.check():
+            _RESOURCE_HEAVY_TESTS[report.nodeid] = delta
 
-        (*rest, result) = outcome.get_result()
-        mem = psutil.virtual_memory()
-        mem_used = mem.used / 1024**3
-        mem_total = mem.total / 1024**3
-
-        disk = psutil.disk_usage("/")
-        disk_used = disk.used / 1024**3
-        disk_total = disk.total / 1024**3
-        outcome.force_result(
-            (
-                *rest,
-                (
-                    f"{result} | "
-                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
-                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
-                ),
-            )
-        )
+        (*rest, status) = outcome.get_result()
+        _RESOURCE_USAGE.snapshot()
+        outcome.force_result((*rest, f"{status} | {_RESOURCE_USAGE.format()}"))
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -407,8 +528,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
     # If there are failed tests, display a command to run them
-    failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports:
+    if failed_test_reports := terminalreporter.stats.get("failed", []):
         if len(failed_test_reports) <= 30:
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
@@ -444,6 +564,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    # Display resource-heavy tests
+    if _RESOURCE_HEAVY_TESTS:
+        terminalreporter.section("Resource-heavy tests", yellow=True)
+        for test_name, stats in _RESOURCE_HEAVY_TESTS.items():
+            terminalreporter.write(f"{test_name}: {stats}\n")
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
@@ -537,11 +663,10 @@ def tmp_experiment_for_tracing_sdk_test(monkeypatch):
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[str | None]:
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
-        with _use_tracking_uri(tracking_uri):
-            yield tracking_uri
+        with _use_tracking_uri(db_uri):
+            yield db_uri
     else:
         yield None
 
@@ -596,7 +721,7 @@ def reset_tracing():
 
 
 def _is_span_active():
-    span = trace_api.get_current_span()
+    span = get_current_otel_span()
     return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
 
 
@@ -862,6 +987,85 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def clean_up_telemetry_threads():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()
+
+
+@pytest.fixture(scope="session")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    Creates and caches a SQLite database to avoid repeated migrations for each test run.
+
+    This is a session-scoped fixture that creates the database once per test session.
+    Individual tests should copy this database to their own tmp_path to avoid conflicts.
+    """
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+
+    if IS_TRACING_SDK_ONLY:
+        return db_path
+
+    try:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    except ImportError:
+        return db_path
+
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store.engine.dispose()
+
+    return db_path
+
+
+@pytest.fixture
+def db_uri(cached_db: Path) -> Iterator[str]:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        db_path = Path(tmp_dir) / "mlflow.db"
+
+        if not IS_TRACING_SDK_ONLY and cached_db.exists():
+            shutil.copy2(cached_db, db_path)
+
+        yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(autouse=True)
+def clear_engine_map():
+    """
+    Clear the SQLAlchemy engine cache in all stores between tests.
+
+    Each SQLAlchemy store caches engines by database URI to prevent connection pool leaks.
+    This fixture clears the cache between tests to ensure test isolation and prevent
+    engines from one test affecting another.
+    """
+    try:
+        from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+        from mlflow.store.model_registry.sqlalchemy_store import (
+            SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
+        )
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+        SqlAlchemyStore._engine_map.clear()
+        ModelRegistrySqlAlchemyStore._engine_map.clear()
+        SqlAlchemyJobStore._engine_map.clear()
+    except ImportError:
+        pass
+
+
+@pytest.fixture
+def mock_litellm_cost():
+    """
+    Mock litellm.cost_per_token to calculate cost based on token counts.
+
+    Uses cost of 1.0 per input token and 2.0 per output token.
+    Returns (input_cost, output_cost) based on the token counts passed.
+    """
+
+    def calculate_cost(model, prompt_tokens, completion_tokens):
+        input_cost = prompt_tokens * 1.0
+        output_cost = completion_tokens * 2.0
+        return (input_cost, output_cost)
+
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+        yield mock_cost

@@ -1,21 +1,41 @@
 import json
 import uuid
+from dataclasses import asdict
 from unittest import mock
 
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
-from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, TraceState, ViewType
+from mlflow.entities import (
+    RunStatus,
+    ScorerVersion,
+    Span,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceState,
+    ViewType,
+)
+from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job_status import JobStatus
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
+    PromptVersion,
     RegisteredModel,
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -45,21 +65,32 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
+from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_GEPA,
+    OPTIMIZER_TYPE_METAPROMPT,
+    OPTIMIZER_TYPE_UNSPECIFIED,
+)
 from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
     DeleteScorer,
+    DeleteTraceTag,
+    DeleteTraceTagV3,
     GetScorer,
     GetTrace,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
+    QueryTraceMetrics,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetTraceTag,
+    SetTraceTagV3,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -70,14 +101,17 @@ from mlflow.server import (
     app,
 )
 from mlflow.server.handlers import (
+    ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
+    _cancel_prompt_optimization_job,
     _convert_path_parameter_to_flask_format,
     _create_dataset_handler,
     _create_experiment,
     _create_model_version,
+    _create_prompt_optimization_job,
     _create_registered_model,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
@@ -88,7 +122,10 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _delete_trace_tag,
+    _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
+    _download_artifact,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
@@ -101,10 +138,12 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _link_prompts_to_trace,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
     _log_batch,
+    _query_trace_metrics,
     _register_scorer,
     _rename_registered_model,
     _search_evaluation_datasets_handler,
@@ -118,6 +157,8 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_trace_tag,
+    _set_trace_tag_v3,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
@@ -126,6 +167,8 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
     get_trace_artifact_handler,
+    get_ui_telemetry_handler,
+    post_ui_telemetry_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -137,11 +180,14 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
@@ -193,7 +239,7 @@ def mock_evaluation_dataset():
     dataset.last_updated_by = "test_user"
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
-    dataset.records = []
+    dataset._records = []
     dataset.schema = json.dumps(
         {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
     )
@@ -215,6 +261,66 @@ def mock_evaluation_dataset():
     return dataset
 
 
+@pytest.fixture
+def mock_telemetry_config_cache():
+    with mock.patch("mlflow.server.handlers._telemetry_config_cache", {}) as m:
+        yield m
+
+
+@pytest.fixture
+def bypass_telemetry_env_check(monkeypatch):
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+
+
+@pytest.fixture
+def mock_job_store():
+    with mock.patch("mlflow.server.handlers._get_job_store") as m:
+        mock_store = mock.MagicMock()
+        m.return_value = mock_store
+        yield mock_store
+
+
+def _create_mock_job(
+    job_id="job-123",
+    job_name="optimize_prompts",
+    status_name="PENDING",
+    params=None,
+    result=None,
+    creation_time=1234567890000,
+):
+    from mlflow.entities._job import Job
+    from mlflow.entities._job_status import JobStatus
+
+    if params is None:
+        params = {
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+        }
+
+    return Job(
+        job_id=job_id,
+        creation_time=creation_time,
+        job_name=job_name,
+        params=json.dumps(params),
+        timeout=None,
+        status=JobStatus.from_str(status_name),
+        result=json.dumps(result) if result and status_name == "SUCCEEDED" else result,
+        retry_count=0,
+        last_update_time=creation_time,
+    )
+
+
+def _create_mock_run(run_id="run-456", params=None, metrics=None):
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = run_id
+    mock_run.data.params = params or {}
+    mock_run.data.metrics = metrics or {}
+    return mock_run
+
+
 def test_health():
     with app.test_client() as c:
         response = c.get("/health")
@@ -227,6 +333,14 @@ def test_version():
         response = c.get("/version")
         assert response.status_code == 200
         assert response.get_data().decode() == mlflow.__version__
+
+
+def test_server_info():
+    with app.test_client() as c:
+        response = c.get("/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["store_type"] == "SqlStore"
 
 
 def test_get_endpoints():
@@ -402,7 +516,6 @@ def test_catch_mlflow_exception():
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
@@ -1374,7 +1487,6 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 
 
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
-    """Test register_scorer handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
     serialized_scorer = "serialized_scorer_data"
@@ -1411,7 +1523,6 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
-    """Test list_scorers handler."""
     experiment_id = "123"
 
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
@@ -1453,7 +1564,6 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
-    """Test list_scorer_versions handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1496,7 +1606,6 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1530,7 +1639,6 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler without version (should return latest)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1561,7 +1669,6 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1581,7 +1688,6 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler without version (should delete all versions)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1595,6 +1701,53 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
+
+
+def test_get_online_scoring_configs_batch(mock_tracking_store):
+    mock_configs = [
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-1",
+            scorer_id="scorer-1",
+            sample_rate=0.5,
+            filter_string="status = 'OK'",
+            experiment_id="exp1",
+        ),
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-2",
+            scorer_id="scorer-2",
+            sample_rate=0.8,
+            experiment_id="exp1",
+        ),
+    ]
+    mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
+
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+            query_string=[("scorer_ids", "scorer-1"), ("scorer_ids", "scorer-2")],
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
+        assert len(data["configs"]) == 2
+        configs_by_id = {c["scorer_id"]: c for c in data["configs"]}
+        assert configs_by_id["scorer-1"]["sample_rate"] == 0.5
+        assert configs_by_id["scorer-1"]["filter_string"] == "status = 'OK'"
+        assert configs_by_id["scorer-2"]["sample_rate"] == 0.8
+        assert configs_by_id["scorer-2"].get("filter_string") is None
+
+    mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
+
+
+def test_get_online_scoring_configs_missing_param(mock_tracking_store):
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "scorer_ids" in data["message"]
 
 
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
@@ -1724,7 +1877,6 @@ def test_calculate_trace_filter_correlation_with_nan_npmi(
 
 
 def test_databricks_tracking_store_registration():
-    """Test that Databricks tracking store is properly registered."""
     registry = TrackingStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks scheme
@@ -1739,7 +1891,6 @@ def test_databricks_tracking_store_registration():
 
 
 def test_databricks_model_registry_store_registration():
-    """Test that Databricks model registry stores are properly registered."""
     registry = ModelRegistryStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks
@@ -1770,7 +1921,6 @@ def test_databricks_model_registry_store_registration():
 
 
 def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_experiments converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_experiments_proto = SearchExperiments()
     search_experiments_proto.max_results = 10
@@ -1793,7 +1943,6 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_registered_models_proto = SearchRegisteredModels()
     search_registered_models_proto.max_results = 10
@@ -1816,7 +1965,6 @@ def test_search_registered_models_empty_page_token(
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_model_versions_proto = SearchModelVersions()
     search_model_versions_proto.max_results = 10
@@ -1837,7 +1985,6 @@ def test_search_model_versions_empty_page_token(
 
 
 def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_traces_v3 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     # SearchTracesV3 requires locations field
     search_traces_proto = SearchTracesV3()
@@ -1864,7 +2011,6 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 def test_deprecated_search_traces_v2_empty_page_token(
     mock_get_request_message, mock_tracking_store
 ):
-    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_traces_proto = SearchTraces()
     search_traces_proto.max_results = 10
@@ -1885,7 +2031,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
 
 
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_logged_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_logged_models_proto = SearchLoggedModels()
     search_logged_models_proto.max_results = 10
@@ -1906,7 +2051,6 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
-    """Test that _list_webhooks converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     list_webhooks_proto = ListWebhooks()
     list_webhooks_proto.max_results = 10
@@ -2309,3 +2453,1341 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 delete_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _delete_trace_tag handler is called and invokes store.delete_trace_tag().
+    """
+
+    request_id = "tr-123v2"
+    tag_key = "tk"
+
+    # Create the request message
+    request_msg = DeleteTraceTag(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _delete_trace_tag(request_id=request_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(request_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 delete_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _delete_trace_tag_v3 handler is called and invokes store.delete_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+
+    trace_id = "tr-v3-456"
+    tag_key = "tk"
+
+    # Create the request message with V3
+    request_msg = DeleteTraceTagV3(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _delete_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Both v2 and v3 call the same store method
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(trace_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 set_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _set_trace_tag handler is called and invokes store.set_trace_tag().
+    """
+    trace_id = "tr-test-v2-123"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message
+    request_msg = SetTraceTag(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _set_trace_tag(request_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 set_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _set_trace_tag_v3 handler is called and invokes store.set_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+    trace_id = "tr-test-v3-456"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message (v3 version)
+    request_msg = SetTraceTagV3(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _set_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Note: Both handlers call the same store method
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
+    """Test link_prompts_to_trace handler.
+
+    Verifies that the handler correctly parses the request and calls
+    store.link_prompts_to_trace() with the appropriate PromptVersion objects.
+    """
+    trace_id = "tr-test-123"
+    prompt_versions_refs = [
+        LinkPromptsToTrace.PromptVersionRef(name="prompt1", version="1"),
+        LinkPromptsToTrace.PromptVersionRef(name="prompt2", version="2"),
+    ]
+
+    # Create the request message
+    request_msg = LinkPromptsToTrace(trace_id=trace_id, prompt_versions=prompt_versions_refs)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the handler
+    response = _link_prompts_to_trace()
+
+    # Verify the store method was called with correct parameters
+    # The handler should convert PromptVersionRef to PromptVersion objects
+    call_args = mock_tracking_store.link_prompts_to_trace.call_args
+    assert call_args[1]["trace_id"] == trace_id
+
+    prompt_versions = call_args[1]["prompt_versions"]
+    assert len(prompt_versions) == 2
+    assert isinstance(prompt_versions[0], PromptVersion)
+    assert prompt_versions[0].name == "prompt1"
+    assert prompt_versions[0].version == 1
+    assert isinstance(prompt_versions[1], PromptVersion)
+    assert prompt_versions[1].name == "prompt2"
+    assert prompt_versions[1].version == 2
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+        assert len(data["providers"]) > 0
+        assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models_all_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "auth_modes" in data
+        assert "default_mode" in data
+        assert data["default_mode"] == "api_key"
+        assert len(data["auth_modes"]) >= 1
+        api_key_mode = data["auth_modes"][0]
+        assert api_key_mode["mode"] == "api_key"
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_with_multiple_auth_modes():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=bedrock")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert "auth_modes" in data
+        assert data["default_mode"] == "api_key"
+        assert len(data["auth_modes"]) >= 2
+
+        access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
+        assert len(access_keys_mode["secret_fields"]) == 2
+        assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
+        assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
+
+        iam_role_mode = next(m for m in data["auth_modes"] if m["mode"] == "iam_role")
+        assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_missing_provider():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
+        assert response.status_code == 400
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_litellm_not_available():
+    with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+            assert response.status_code == 400
+            data = response.get_json()
+            assert "LiteLLM is not installed" in data["message"]
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+        "invalid#name",  # hash
+        "invalid@name",  # at sign
+        "invalid:name",  # colon
+        "日本語",  # unicode (Japanese)
+        "naïve",  # unicode (accented)
+    ],
+)
+def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "invalid name",  # space
+        "invalid/name",  # slash
+        "invalid?name",  # question mark
+        "invalid&name",  # ampersand
+    ],
+)
+def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
+    from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
+    from mlflow.server.handlers import _update_gateway_endpoint
+
+    request_msg = UpdateGatewayEndpoint()
+    request_msg.endpoint_id = "test-endpoint-id"
+    request_msg.name = invalid_name
+    mock_get_request_message.return_value = request_msg
+
+    response = _update_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Invalid endpoint name" in response_data["message"]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
+    experiment_ids = ["exp1", "exp2"]
+    metric_name = "latency"
+
+    # Create aggregation protos
+    aggregations_proto = [
+        MetricAggregation(aggregation_type=AggregationType.AVG).to_proto(),
+        MetricAggregation(
+            aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0
+        ).to_proto(),
+    ]
+
+    # Create the request message
+    request_msg = QueryTraceMetrics(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name=metric_name,
+        aggregations=aggregations_proto,
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+    mock_get_request_message.return_value = request_msg
+
+    # Create mock result
+    mock_data_points = [
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "OK", "model": "gpt-4"},
+            values={"AVG": 150.5, "P95.0": 200.0},
+        ),
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "ERROR", "model": "gpt-4"},
+            values={"AVG": 50.0, "P95.0": 75.0},
+        ),
+    ]
+
+    # Create a mock result object with next_page_token attribute
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter(mock_data_points))
+    mock_result.token = "next_token"
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    # Call the handler
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES,
+        metric_name=metric_name,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0),
+        ],
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "data_points" in response_data
+    assert len(response_data["data_points"]) == 2
+    assert response_data["data_points"][0] == asdict(mock_data_points[0])
+    assert response_data["data_points"][1] == asdict(mock_data_points[1])
+    assert response_data["next_page_token"] == "next_token"
+
+
+def test_query_trace_metrics_handler_empty_result(mock_get_request_message, mock_tracking_store):
+    request_msg = QueryTraceMetrics(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG).to_proto()],
+    )
+    mock_get_request_message.return_value = request_msg
+
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter([]))
+    mock_result.token = None
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES,
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=None,
+        filters=None,
+        time_interval_seconds=None,
+        start_time_ms=None,
+        end_time_ms=None,
+        max_results=MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token=None,
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data == {}
+
+
+def test_invoke_scorer_missing_experiment_id():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"serialized_scorer": "test", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "experiment_id" in data["message"]
+
+
+def test_invoke_scorer_missing_serialized_scorer():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "serialized_scorer" in data["message"]
+
+
+def test_invoke_scorer_missing_trace_ids():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "serialized_scorer": "test"},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "Please select at least one trace to evaluate" in data["message"]
+
+
+def test_invoke_scorer_submits_jobs(mock_tracking_store):
+    serialized_scorer = json.dumps(
+        {
+            "name": "test_judge",
+            "aggregations": [],
+            "description": None,
+            "is_session_level_scorer": False,
+            "mlflow_version": mlflow.__version__,
+            "serialization_version": 1,
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+            "instructions_judge_pydantic_data": {
+                "instructions": "Test: {{ inputs }}",
+                "model": "openai:/gpt-4",
+                "feedback_value_type": {
+                    "enum": ["Yes", "No"],
+                    "title": "Result",
+                    "type": "string",
+                },
+            },
+        }
+    )
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace2"],
+                },
+            )
+            assert response.status_code == 200
+            data = response.get_json()
+            assert "jobs" in data
+            assert len(data["jobs"]) == 1
+            assert data["jobs"][0]["job_id"] == "test-job-123"
+            assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
+
+        mock_submit.assert_called_once()
+
+
+def test_get_ui_telemetry_handler(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config = {
+        "disable_telemetry": False,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": ["event1", "event2"],
+        "ui_rollout_percentage": 50,
+    }
+
+    with mock.patch(
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
+    ) as mock_fetch:
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        # rollout percent gets converted to a float as that is the proto definition
+        assert response_data["ui_rollout_percentage"] == 50.0
+        assert "config" in mock_telemetry_config_cache
+        assert mock_fetch.call_count == 1
+        mock_fetch.reset_mock()
+
+        # subsequent call should hit cache
+        response = get_ui_telemetry_handler()
+        mock_fetch.assert_not_called()
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        assert response_data["ui_rollout_percentage"] == 50.0
+
+
+def test_get_ui_telemetry_handler_disabled_by_config(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config = {
+        "disable_telemetry": True,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": [],
+        "ui_rollout_percentage": 0,
+    }
+
+    with mock.patch(
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
+    ) as mock_fetch:
+        response = get_ui_telemetry_handler()
+        assert response is not None
+        assert response.status_code == 200
+        response_data = json.loads(response.get_data())
+
+        # if disable_telemetry is True, the server should always report
+        # that UI telemetry is disabled regardless of disable_ui_telemetry
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0.0
+        assert response_data["disable_ui_events"] == []
+        assert mock_fetch.call_count == 1
+
+
+def test_get_ui_telemetry_handler_disabled_by_env(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
+    with mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch:
+        response = get_ui_telemetry_handler()
+        assert response is not None
+        assert response.status_code == 200
+        response_data = json.loads(response.get_data())
+
+        # if telemetry is disabled by env var, the server should always report
+        # that UI telemetry is disabled, and no config fetch should happen
+        mock_fetch.assert_not_called()
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0.0
+        assert response_data["disable_ui_events"] == []
+
+
+def test_get_ui_telemetry_handler_fallback_values(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config_without_ui_fields = {
+        "disable_telemetry": False,
+        "rollout_percentage": 100,
+    }
+
+    # test fallback values if we forget to define UI config fields
+    with mock.patch("requests.get", return_value=config_without_ui_fields):
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
+
+    # test fallback values if we fail to fetch the config
+    with mock.patch("requests.get", return_value=mock.Mock(status_code=404)):
+        response = get_ui_telemetry_handler()
+
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
+
+
+def test_post_ui_telemetry_handler_success(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    event1 = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+
+    event2 = {
+        "event_name": "test_event_2",
+        "timestamp_ns": 1234567890000001,
+        "params": {"key2": "value2"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+    request = json.dumps({"records": [event1, event2]})
+    config = {"disable_ui_telemetry": False, "disable_telemetry": False}
+    mock_client = mock.MagicMock()
+
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "success"
+        assert mock_client.add_records.call_count == 1
+        assert mock_client.add_records.call_args[0][0] == [
+            Record(**event1, duration_ms=0, status=Status.SUCCESS),
+            Record(**event2, duration_ms=0, status=Status.SUCCESS),
+        ]
+
+
+def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    event = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+
+    request = json.dumps({"records": [event]})
+
+    config = {"disable_ui_telemetry": True}
+
+    mock_client = mock.MagicMock()
+
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "disabled"
+        mock_client.add_record.assert_not_called()
+
+
+def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
+    request = json.dumps({"records": []})
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch,
+        mock.patch("mlflow.server.handlers.get_telemetry_client") as mock_get_client,
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "disabled"
+
+        # assert that no fetch happens and no client is retrieved
+        mock_fetch.assert_not_called()
+        mock_get_client.assert_not_called()
+
+
+def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
+    # Create a test file with binary data larger than the chunk size (2MB + 1000 bytes)
+    test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000
+    test_data = b"x" * test_file_size
+
+    artifact_path = "test_model/model.pkl"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+    ):
+        # Setup mocks
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.download_artifacts.return_value = str(test_file)
+        mock_repo.return_value = mock_artifact_repo
+
+        # Call the function and capture the response
+        response = _download_artifact(artifact_path)
+
+        # Extract chunks from the response by iterating over its data
+        response_chunks = list(response.response)
+
+        # Verify that data was streamed in chunks, not line by line
+        # For a 2MB+ binary file, line-by-line would produce many small chunks
+        # Chunk-based streaming should produce exactly 3 chunks (2*1MB + 1000 bytes)
+        assert len(response_chunks) == 3, f"Expected 3 chunks, got {len(response_chunks)}"
+
+        # Verify chunk sizes
+        assert len(response_chunks[0]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[1]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[2]) == 1000
+
+        # Verify that all data is correctly streamed
+        streamed_data = b"".join(response_chunks)
+        assert streamed_data == test_data
+
+
+def test_create_prompt_optimization_job(mock_tracking_store):
+    mock_job_entity = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params='{"run_id": "run-456"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-456"
+    mock_tracking_store.create_run.return_value = mock_run
+
+    mock_dataset = mock.MagicMock()
+    mock_dataset._to_mlflow_entity.return_value = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
+        mock.patch(
+            "mlflow.genai.datasets.get_dataset", return_value=mock_dataset
+        ) as mock_get_dataset,
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
+                "config": {
+                    "optimizer_type": OPTIMIZER_TYPE_GEPA,
+                    "dataset_id": "dataset-123",
+                    "scorers": ["Correctness", "Safety"],
+                    "optimizer_config_json": '{"reflection_model": "openai:/gpt-4"}',
+                },
+                "tags": [{"key": "env", "value": "test"}],
+            },
+        ):
+            response = _create_prompt_optimization_job()
+
+        mock_get_dataset.assert_called_once_with(dataset_id="dataset-123")
+
+    mock_tracking_store.create_run.assert_called_once()
+    call_kwargs = mock_tracking_store.create_run.call_args[1]
+    assert call_kwargs["experiment_id"] == "exp-123"
+    assert call_kwargs["user_id"] == "test_user"
+
+    mock_tracking_store.log_batch.assert_called_once()
+    logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
+    param_dict = {p.key: p.value for p in logged_params}
+    assert param_dict["source_prompt_uri"] == "prompts:/my-prompt/1"
+    assert param_dict["optimizer_type"] == "gepa"
+    assert param_dict["dataset_id"] == "dataset-123"
+    assert param_dict["scorer_names"] == '["Correctness", "Safety"]'
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-123"
+    assert response_data["job"]["run_id"] == "run-456"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_PENDING"
+    assert response_data["job"]["experiment_id"] == "exp-123"
+    assert response_data["job"]["source_prompt_uri"] == "prompts:/my-prompt/1"
+
+
+def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
+    mock_job_entity = JobEntity(
+        job_id="job-999",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params='{"run_id": "run-999"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-999"
+    mock_tracking_store.create_run.return_value = mock_run
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
+    ):
+        with app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
+                "config": {
+                    "optimizer_type": OPTIMIZER_TYPE_METAPROMPT,
+                    "scorers": [],  # Empty scorers for zero-shot
+                    # No dataset_id - zero-shot optimization
+                },
+            },
+        ):
+            response = _create_prompt_optimization_job()
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-999"
+    assert response_data["job"]["run_id"] == "run-999"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_PENDING"
+
+    mock_tracking_store.log_batch.assert_called_once()
+    logged_params = mock_tracking_store.log_batch.call_args[1]["params"]
+    param_dict = {p.key: p.value for p in logged_params}
+    assert param_dict["dataset_id"] == ""  # Empty string for None
+    assert param_dict["scorer_names"] == "[]"  # Empty list
+
+
+def test_create_prompt_optimization_job_missing_prompt_uri(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "source_prompt_uri" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": OPTIMIZER_TYPE_UNSPECIFIED,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "optimizer_type is required" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "exp-123",
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+                "optimizer_config_json": "invalid json {",
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid JSON in optimizer_config_json" in json_response["message"]
+
+
+def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "",  # Empty experiment_id
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "config": {
+                "optimizer_type": 1,
+                "dataset_id": "dataset-123",
+                "scorers": ["Correctness"],
+            },
+        },
+    ):
+        response = _create_prompt_optimization_job()
+        assert response.status_code == 400
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "experiment_id is required" in json_response["message"]
+
+
+def test_cancel_prompt_optimization_job():
+    mock_job_entity = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890,
+        job_name="optimize_prompts",
+        params=(
+            '{"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1", '
+            '"run_id": "run-456"}'
+        ),
+        timeout=None,
+        status=JobStatus.CANCELED,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job_entity),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        mock_tracking_store = mock.Mock()
+        mock_store.return_value = mock_tracking_store
+        with app.test_request_context(method="POST"):
+            response = _cancel_prompt_optimization_job("job-123")
+
+        # Verify that the underlying run was terminated
+        mock_tracking_store.update_run_info.assert_called_once()
+        call_args = mock_tracking_store.update_run_info.call_args
+        assert call_args.kwargs["run_id"] == "run-456"
+        assert call_args.kwargs["run_status"] == RunStatus.KILLED
+        assert call_args.kwargs["run_name"] is None
+        assert "end_time" in call_args.kwargs
+
+    response_data = json.loads(response.get_data())
+    assert response_data["job"]["job_id"] == "job-123"
+    assert response_data["job"]["state"]["status"] == "JOB_STATUS_CANCELED"
+    assert response_data["job"]["experiment_id"] == "exp-123"
+    assert response_data["job"]["source_prompt_uri"] == "prompts:/my-prompt/1"
+    assert response_data["job"]["run_id"] == "run-456"
+
+
+def test_get_prompt_optimization_job_pending(mock_tracking_store):
+    mock_job = _create_mock_job(status_name="PENDING")
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+            "dataset_id": "dataset-789",
+            "scorer_names": '["Correctness"]',
+        }
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            assert "job" in data
+            job = data["job"]
+            assert job["job_id"] == "job-123"
+            assert job["run_id"] == "run-456"
+            assert job["experiment_id"] == "exp-123"
+            assert job["source_prompt_uri"] == "prompts:/my-prompt/1"
+            assert job["state"]["status"] == "JOB_STATUS_PENDING"
+
+
+def test_get_prompt_optimization_job_succeeded_with_result(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/my-prompt/2"},
+    )
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+            "dataset_id": "dataset-789",
+            "scorer_names": '["Correctness", "Safety"]',
+        },
+        metrics={
+            "initial_eval_score.Correctness": 0.65,
+            "initial_eval_score.Safety": 0.80,
+            "final_eval_score.Correctness": 0.89,
+            "final_eval_score.Safety": 0.95,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_COMPLETED"
+            assert job["optimized_prompt_uri"] == "prompts:/my-prompt/2"
+            # Verify metrics are populated from the run
+            assert job["initial_eval_scores"]["Correctness"] == 0.65
+            assert job["initial_eval_scores"]["Safety"] == 0.80
+            assert job["final_eval_scores"]["Correctness"] == 0.89
+            assert job["final_eval_scores"]["Safety"] == 0.95
+
+
+def test_get_prompt_optimization_job_succeeded_run_fetch_fails(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/my-prompt/2"},
+    )
+
+    # Simulate run fetch failing (e.g., run not found)
+    mock_tracking_store.get_run.side_effect = Exception("Run not found")
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_COMPLETED"
+            assert job["optimized_prompt_uri"] == "prompts:/my-prompt/2"
+            # Metrics should not be present when run fetch fails
+            assert "initial_eval_scores" not in job or job["initial_eval_scores"] == {}
+
+
+def test_get_prompt_optimization_job_failed_with_error(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="FAILED",
+        result="Optimization failed: Invalid scorer",
+    )
+
+    mock_run = _create_mock_run()
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_FAILED"
+            assert "Optimization failed" in job["state"]["error_message"]
+
+
+def test_get_prompt_optimization_job_without_run_id(mock_tracking_store):
+    mock_job = _create_mock_job(
+        params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"}
+    )
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+            data = response.get_json()
+            job = data["job"]
+            assert job["job_id"] == "job-123"
+            assert job["experiment_id"] == "exp-123"
+            assert "run_id" not in job  # run_id is not set
+
+
+def test_get_prompt_optimization_job_with_progress(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"max_metric_calls": 200, "reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        params={
+            "source_prompt_uri": "prompts:/my-prompt/1",
+            "optimizer_type": "gepa",
+        },
+        metrics={
+            "total_metric_calls": 86,
+            "eval_score": 0.75,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            assert job["state"]["status"] == "JOB_STATUS_IN_PROGRESS"
+            # Progress should be 86 / 200 = 0.43
+            assert job["state"]["metadata"]["progress"] == "0.43"
+
+
+def test_get_prompt_optimization_job_progress_capped_at_one(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"max_metric_calls": 100, "reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        metrics={
+            "total_metric_calls": 150,  # Exceeds max_metric_calls
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            # Progress should be capped at 1.0, not 1.5
+            assert job["state"]["metadata"]["progress"] == "1.0"
+
+
+def test_get_prompt_optimization_job_no_progress_without_max_metric_calls(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={
+            "experiment_id": "exp-123",
+            "prompt_uri": "prompts:/my-prompt/1",
+            "run_id": "run-456",
+            "optimizer_config": {"reflection_model": "openai:/gpt-4o"},
+        },
+    )
+
+    mock_run = _create_mock_run(
+        metrics={
+            "total_metric_calls": 50,
+        },
+    )
+    mock_tracking_store.get_run.return_value = mock_run
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            job = data["job"]
+            # Progress should NOT be set when max_metric_calls is not configured
+            assert "progress" not in job["state"].get("metadata", {})
+
+
+def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
+    mock_jobs = [
+        _create_mock_job(
+            job_id="job-1",
+            status_name="SUCCEEDED",
+            result={"optimized_prompt_uri": "prompts:/opt/1"},
+        ),
+        _create_mock_job(job_id="job-2", status_name="RUNNING"),
+        _create_mock_job(job_id="job-3", status_name="PENDING"),
+    ]
+    mock_job_store.list_jobs.return_value = iter(mock_jobs)
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert "jobs" in data
+        assert len(data["jobs"]) == 3
+
+        job_ids = [job["job_id"] for job in data["jobs"]]
+        assert "job-1" in job_ids
+        assert "job-2" in job_ids
+        assert "job-3" in job_ids
+
+    mock_job_store.list_jobs.assert_called_once_with(
+        job_name="optimize_prompts",
+        params={"experiment_id": "exp-123"},
+    )
+
+
+def test_search_prompt_optimization_jobs_returns_empty_list(mock_job_store):
+    mock_job_store.list_jobs.return_value = iter([])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-456"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert data.get("jobs", []) == []
+
+
+def test_search_prompt_optimization_jobs_missing_experiment_id():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={},
+        )
+        assert response.status_code == 400
+
+
+def test_search_prompt_optimization_jobs_includes_succeeded_job_result(mock_job_store):
+    mock_job = _create_mock_job(
+        job_id="job-1",
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
+    mock_job_store.list_jobs.return_value = iter([mock_job])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["optimized_prompt_uri"] == "prompts:/optimized/1"
+
+
+def test_search_prompt_optimization_jobs_includes_failed_job_error(mock_job_store):
+    mock_job = _create_mock_job(
+        job_id="job-1",
+        status_name="FAILED",
+        result="Some error occurred",
+    )
+    mock_job_store.list_jobs.return_value = iter([mock_job])
+
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/prompt-optimization/jobs/search",
+            json={"experiment_id": "exp-123"},
+        )
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert "Some error occurred" in data["jobs"][0]["state"]["error_message"]
+
+
+def test_delete_prompt_optimization_job_success(mock_job_store, mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
+    mock_job_store.get_job.return_value = mock_job
+    mock_tracking_store.get_run.return_value = mock.MagicMock()  # Run exists
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    mock_tracking_store.get_run.assert_called_once_with("run-456")
+    mock_tracking_store.delete_run.assert_called_once_with("run-456")
+
+
+def test_delete_prompt_optimization_job_without_run_id(mock_job_store, mock_tracking_store):
+    mock_job = _create_mock_job(
+        params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"}
+    )
+    mock_job_store.get_job.return_value = mock_job
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    mock_tracking_store.delete_run.assert_not_called()
+
+
+def test_delete_prompt_optimization_job_skips_run_deletion_when_run_not_found(
+    mock_job_store, mock_tracking_store
+):
+    mock_job = _create_mock_job(
+        status_name="SUCCEEDED",
+        result={"optimized_prompt_uri": "prompts:/optimized/1"},
+    )
+    mock_job_store.get_job.return_value = mock_job
+    mock_tracking_store.get_run.side_effect = MlflowException("Run not found")
+
+    with app.test_client() as c:
+        response = c.delete("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+        assert response.status_code == 200
+
+    mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
+    # delete_run should not be called since run doesn't exist
+    mock_tracking_store.delete_run.assert_not_called()

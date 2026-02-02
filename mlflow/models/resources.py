@@ -322,8 +322,7 @@ class _ResourceBuilder:
         if api_version == "1":
             for target_uri, config in data.items():
                 for resource_type, values in config.items():
-                    resource_class = _get_resource_class_by_type(target_uri, resource_type)
-                    if resource_class:
+                    if resource_class := _get_resource_class_by_type(target_uri, resource_type):
                         resources.extend(resource_class.from_dict(value) for value in values)
                     else:
                         raise ValueError(f"Unsupported resource type: {resource_type}")

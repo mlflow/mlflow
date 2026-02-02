@@ -9,6 +9,7 @@ import pandas as pd
 
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
@@ -41,6 +42,28 @@ class EvalItem:
     """Error message if the model invocation fails."""
     error_message: str | None = None
 
+    """Source information for the eval item (e.g., from which trace it was created)."""
+    source: DatasetRecordSource | None = None
+
+    @classmethod
+    def from_trace(cls, trace: Trace) -> "EvalItem":
+        """
+        Create an EvalItem from a Trace.
+
+        Args:
+            trace: The trace to create an EvalItem from.
+
+        Returns:
+            An EvalItem with the trace set and request_id from the trace.
+        """
+        return cls(
+            request_id=trace.info.trace_id,
+            inputs=None,
+            outputs=None,
+            expectations=None,
+            trace=trace,
+        )
+
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
@@ -59,9 +82,16 @@ class EvalItem:
 
         # Extract expectations column from the dataset.
         expectations = row.get(InputDatasetColumn.EXPECTATIONS, {})
+        if is_none_or_nan(expectations):
+            expectations = {}
 
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
+
+        # Extract source column from the dataset.
+        source = row.get(InputDatasetColumn.SOURCE)
+        if is_none_or_nan(source):
+            source = None
 
         # Get the request ID from the row, or generate a new unique ID if not present.
         request_id = row.get(InputDatasetColumn.REQUEST_ID)
@@ -83,6 +113,7 @@ class EvalItem:
             expectations=expectations,
             tags=tags,
             trace=trace,
+            source=source,
         )
 
     @classmethod

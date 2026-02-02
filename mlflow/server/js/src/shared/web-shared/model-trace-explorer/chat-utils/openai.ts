@@ -8,6 +8,7 @@ import type {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
+  OpenAIResponsesReasoning,
   OpenAIResponsesStreamingOutputDelta,
   OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
@@ -94,7 +95,8 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   }
 
   if (get(obj, 'type') === 'reasoning') {
-    return has(obj, 'id') && isArray(get(obj, 'summary'));
+    const summary = get(obj, 'summary');
+    return has(obj, 'id') && (isArray(summary) || summary === null);
   }
 
   return false;
@@ -149,16 +151,54 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
     return message && [message];
   }
 
-  if (isArray(input) && input.every(isOpenAIResponsesInputMessage)) {
-    return compact(input.flatMap(normalizeOpenAIResponsesInputMessage));
+  if (
+    isArray(input) &&
+    // openai inputs can consititute of output items such as function calls and function call outputs
+    input.every((message: unknown) => isOpenAIResponsesInputMessage(message) || isOpenAIResponsesOutputItem(message))
+  ) {
+    return compact(
+      input.flatMap((message: unknown) =>
+        isOpenAIResponsesInputMessage(message)
+          ? normalizeOpenAIResponsesInputMessage(message as OpenAIResponsesInputMessage)
+          : normalizeOpenAIResponsesOutputItem(message as OpenAIResponsesOutputItem),
+      ),
+    );
   }
 
   return null;
 };
 
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
+const extractReasoningText = (reasoning: OpenAIResponsesReasoning): string | null => {
+  if (!reasoning.summary) {
+    return null;
+  }
+  return reasoning.summary.map((s) => s.text).join('\n\n') || null;
+};
+
+// Process output items, attaching reasoning to following messages
+const processOutputItemsWithReasoning = (items: OpenAIResponsesOutputItem[]): ModelTraceChatMessage[] => {
+  const messages: (ModelTraceChatMessage | null)[] = [];
+  let pendingReasoning: string | null = null;
+
+  for (const item of items) {
+    if (item.type === 'reasoning') {
+      pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
+    } else {
+      messages.push(normalizeOpenAIResponsesOutputItem(item, pendingReasoning));
+      pendingReasoning = null;
+    }
+  }
+
+  return compact(messages);
+};
+
+export const normalizeOpenAIResponsesOutputItem = (
+  obj: OpenAIResponsesOutputItem,
+  reasoning?: string | null,
+): ModelTraceChatMessage | null => {
   if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
+    const message = prettyPrintChatMessage(obj);
+    return message && reasoning ? { ...message, reasoning } : message;
   }
 
   if (obj.type === 'function_call') {
@@ -173,6 +213,7 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
           },
         }),
       ],
+      ...(reasoning && { reasoning }),
     };
   }
 
@@ -211,7 +252,8 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
+    const messages = processOutputItemsWithReasoning(output);
+    return messages.length > 0 ? messages : null;
   }
 
   // list of output chunks
@@ -220,7 +262,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     output.length > 0 &&
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
-    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
+    const items = output.map((chunk) => chunk.item);
+    const messages = processOutputItemsWithReasoning(items);
+    return messages.length > 0 ? messages : null;
   }
 
   return null;

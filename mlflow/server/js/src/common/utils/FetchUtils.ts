@@ -8,9 +8,10 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
-import { pickBy } from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
 import { matchPredefinedError } from '@databricks/web-shared/errors';
+import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
 
 export const HTTPMethods = {
   GET: 'GET',
@@ -452,11 +453,18 @@ function serializeRequestBody(payload: any | FormData | Blob) {
     : JSON.stringify(payload);
 }
 
+// Helper method to make a request to the backend.
 export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET', body?: any) => {
-  const response = await fetch(url, {
+  // eslint-disable-next-line no-restricted-globals
+  const fetchFn = fetch;
+  const headers = {
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+    ...getDefaultHeaders(document.cookie),
+  };
+  const response = await fetchFn(url, {
     method,
     body: serializeRequestBody(body),
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers,
   });
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
@@ -473,3 +481,21 @@ export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | '
   }
   return response.json();
 };
+/**
+ * Wrapper around fetch that throws on non-OK responses
+ * Returns the Response object for further processing (.json(), .text(), etc.)
+ *
+ * @param input - URL or Request object
+ * @param options - Fetch options
+ * @returns Response object if successful
+ * @throws PredefinedError (NotFoundError, PermissionError, etc.) if response is not OK
+ */
+export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  const response = await fetch(input, options);
+  if (!response.ok) {
+    const error = matchPredefinedErrorFromResponse(response);
+    throw error;
+  }
+  return response;
+}
