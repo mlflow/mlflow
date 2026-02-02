@@ -32,8 +32,8 @@ def emit_metric_usage_event(
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
 
-    custom_metrics = [s for s in scorers if not isinstance(s, BuiltInScorer)]
-    builtin_metrics = [s for s in scorers if isinstance(s, BuiltInScorer)]
+    custom_metrics = [s for s in scorers if _is_custom_scorer(s)]
+    builtin_metrics = [s for s in scorers if not _is_custom_scorer(s)]
 
     events = []
 
@@ -43,7 +43,9 @@ def emit_metric_usage_event(
         metric_stats = {
             hashed_name: {
                 "average": None,
-                "count": session_count if scorer.is_session_level_scorer else trace_count,
+                "count": session_count
+                if getattr(scorer, "is_session_level_scorer", False)
+                else trace_count,
             }
             for scorer, hashed_name in zip(custom_metrics, metric_name_to_hash.values())
         }
@@ -120,6 +122,22 @@ def _get_or_create_session_id() -> str:
     if not hasattr(_sessions, _SESSION_KEY):
         setattr(_sessions, _SESSION_KEY, str(uuid.uuid4()))
     return getattr(_sessions, _SESSION_KEY)
+
+
+def _is_custom_scorer(scorer) -> bool:
+    if isinstance(scorer, Scorer):
+        return not isinstance(scorer, BuiltInScorer)
+
+    # Check for the legacy custom metrics if databricks-agents is installed
+    try:
+        from databricks.rag_eval.evaluation.custom_metrics import CustomMetric
+
+        return isinstance(scorer, CustomMetric)
+    except ImportError:
+        pass
+
+    # Treat unknown case as not a custom scorer
+    return False
 
 
 def _hash_metric_name(metric_name: str) -> str:

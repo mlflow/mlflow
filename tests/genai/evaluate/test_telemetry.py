@@ -36,6 +36,14 @@ class IsEmpty(Scorer):
         return outputs == ""
 
 
+from databricks.agents.evals import metric
+
+
+@metric
+def not_empty(response):
+    return response != ""
+
+
 session_level_judge = make_judge(
     name="session_quality",
     instructions="Evaluate if the {{ conversation }} is coherent and complete.",
@@ -84,7 +92,7 @@ def test_emit_metric_usage_event_custom_scorers_only(mock_http_request):
         feedback_value_type=str,
     )
     emit_metric_usage_event(
-        scorers=[is_concise, is_correct, IsEmpty(), is_kind],
+        scorers=[is_concise, is_correct, IsEmpty(), is_kind, not_empty],
         trace_count=10,
         session_count=0,
         aggregated_metrics={
@@ -92,6 +100,7 @@ def test_emit_metric_usage_event_custom_scorers_only(mock_http_request):
             "is_correct/mean": 0.2,
             "is_empty/mean": 0.3,
             "is_kind/mean": 0.4,
+            "not_empty/mean": 0.5,
         },
     )
 
@@ -108,6 +117,7 @@ def test_emit_metric_usage_event_custom_scorers_only(mock_http_request):
                         {"name": mock.ANY, "average": 0.2, "count": 10},
                         {"name": mock.ANY, "average": 0.3, "count": 10},
                         {"name": mock.ANY, "average": 0.4, "count": 10},
+                        {"name": mock.ANY, "average": 0.5, "count": 10},
                     ],
                 }
             }
