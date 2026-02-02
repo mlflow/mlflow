@@ -46,6 +46,7 @@ def create_mock_managed_dataset(source_value: Any) -> Mock:
     mock_dataset.to_df.return_value = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
     mock_dataset.set_profile.return_value = mock_dataset
     mock_dataset.merge_records.return_value = mock_dataset
+    mock_dataset.delete_records.return_value = 2
 
     return mock_dataset
 
@@ -171,6 +172,15 @@ def test_evaluation_dataset_merge_records(mock_managed_dataset):
     new_dataset = dataset.merge_records(new_records)
     assert isinstance(new_dataset, EvaluationDataset)
     mock_managed_dataset.merge_records.assert_called_once_with(new_records)
+
+
+def test_evaluation_dataset_delete_records(mock_managed_dataset):
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    record_ids = ["record-1", "record-2"]
+    deleted_count = dataset.delete_records(record_ids)
+    assert deleted_count == 2
+    mock_managed_dataset.delete_records.assert_called_once_with(record_ids)
 
 
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):

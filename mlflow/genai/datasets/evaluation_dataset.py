@@ -181,6 +181,16 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
             dataset = self._databricks_dataset.merge_records(records)
         return EvaluationDataset(dataset)
 
+    def delete_records(self, record_ids: list[str]) -> int:
+        """Delete specific records from the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.delete_records(record_ids)
+
+        from mlflow.genai.datasets import _databricks_profile_env
+
+        with _databricks_profile_env():
+            return self._databricks_dataset.delete_records(record_ids)
+
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
         if self._mlflow_dataset:
