@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -246,7 +247,6 @@ _RESOURCE_USAGE = ResourceUsage()
 
 
 def _should_profile_test(nodeid: str) -> bool:
-    """Check if a test nodeid should be profiled based on _profile_tests."""
     if not _profile_tests:
         return False
 
@@ -263,7 +263,6 @@ def _should_profile_test(nodeid: str) -> bool:
 
 
 def _format_profile_stats(stats: pstats.Stats) -> str:
-    """Format cProfile stats for terminal output."""
     stream = io.StringIO()
     stats.stream = stream
     stats.sort_stats(pstats.SortKey.CUMULATIVE)
@@ -282,25 +281,22 @@ def fetch_profile_tests() -> set[str]:
     if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
         return set()
 
-    try:
-        with open(os.environ["GITHUB_EVENT_PATH"]) as f:
-            pr_data = json.load(f)
-            pr_body = pr_data["pull_request"]["body"] or ""
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        pr_body = pr_data["pull_request"]["body"] or ""
 
-            # Match <!-- profile: ... --> blocks, supporting multiline content
-            pattern = r"<!--\s*profile:\s*(.*?)\s*-->"
-            matches = re.findall(pattern, pr_body, re.DOTALL)
+        # Match <!-- profile: ... --> blocks, supporting multiline content
+        pattern = r"<!--\s*profile:\s*(.*?)\s*-->"
+        matches = re.findall(pattern, pr_body, re.DOTALL)
 
-            nodeids = set()
-            for match in matches:
-                # Split by newlines and filter out empty lines
-                for line in match.strip().split("\n"):
-                    if line := line.strip():
-                        nodeids.add(line)
+        nodeids = set()
+        for match in matches:
+            # Split by newlines and filter out empty lines
+            for line in match.strip().split("\n"):
+                if line := line.strip():
+                    nodeids.add(line)
 
-            return nodeids
-    except Exception:
-        return set()
+        return nodeids
 
 
 def pytest_sessionstart(session):
@@ -444,15 +440,8 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         item.execution_count += 1
         start = time.perf_counter()
 
-        # Enable profiler if needed
-        if profiler:
-            profiler.enable()
-
-        reports = runtestprotocol(item, nextitem=nextitem, log=False)
-
-        # Disable profiler if needed
-        if profiler:
-            profiler.disable()
+        with profiler or nullcontext():
+            reports = runtestprotocol(item, nextitem=nextitem, log=False)
 
         total_duration += time.perf_counter() - start
 
