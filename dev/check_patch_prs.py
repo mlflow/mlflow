@@ -238,6 +238,16 @@ def main(version: str, dry_run: bool) -> None:
 # If conflicts occur, resolve them and run:
 #   git cherry-pick --continue
 
+set -euo pipefail
+
+# Guard: Prevent running on master branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" == "master" ]]; then
+    echo "ERROR: This script must not be run on the master branch."
+    echo "Please checkout a release branch (e.g., {release_branch}) or a branch derived from it."
+    exit 1
+fi
+
 git cherry-pick {" ".join(chunk)}
 """
             script_path.write_text(script_content)
