@@ -25,22 +25,25 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import InvalidUrlException, MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
+from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
     is_tracking_uri_set,
     set_tracking_uri,
 )
-from mlflow.utils import cli_args
+from mlflow.tracking._workspace.registry import get_workspace_store
+from mlflow.utils import cli_args, workspace_context
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
@@ -50,6 +53,7 @@ from mlflow.utils.server_cli_utils import (
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
+from mlflow.utils.workspace_utils import resolve_workspace_store_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -714,6 +718,7 @@ def _gc_tracking_resources(
     time_delta: int,
     skip_experiments: bool,
     skip_logged_models: bool,
+    ignore_not_found: bool = False,
 ):
     """
     Perform garbage collection of tracking resources (runs, experiments, logged models).
@@ -729,6 +734,8 @@ def _gc_tracking_resources(
         time_delta: Time delta in milliseconds for age filtering.
         skip_experiments: Whether to skip experiment deletion.
         skip_logged_models: Whether to skip logged model deletion.
+        ignore_not_found: If True, skip RESOURCE_DOES_NOT_EXIST errors for explicit IDs
+            that may not exist (e.g., when iterating over multiple workspaces).
     """
     from mlflow.utils.time import get_current_time_millis
 
@@ -754,7 +761,16 @@ def _gc_tracking_resources(
     experiment_ids_to_delete = []
     if not skip_experiments:
         if experiment_ids:
-            experiments = [backend_store.get_experiment(id) for id in experiment_ids]
+            experiments = []
+            for exp_id in experiment_ids:
+                try:
+                    experiments.append(backend_store.get_experiment(exp_id))
+                except MlflowException as exc:
+                    if ignore_not_found and exc.error_code == ErrorCode.Name(
+                        RESOURCE_DOES_NOT_EXIST
+                    ):
+                        continue
+                    raise
 
             # Ensure that the specified experiments are soft-deleted
             active_experiment_ids = [
@@ -776,7 +792,7 @@ def _gc_tracking_resources(
                 ]
                 if non_old_experiment_ids:
                     raise MlflowException(
-                        f"Experiments {non_old_experiment_ids} are not older than the required"
+                        f"Experiments {non_old_experiment_ids} are not older than the required "
                         f"age. Only experiments older than {older_than} can be deleted.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
@@ -808,7 +824,12 @@ def _gc_tracking_resources(
             run_ids_to_delete.extend([run.info.run_id for run in fetch_runs()])
 
     for run_id in set(run_ids_to_delete):
-        run = backend_store.get_run(run_id)
+        try:
+            run = backend_store.get_run(run_id)
+        except MlflowException as exc:
+            if ignore_not_found and exc.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                continue
+            raise
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
                 f"Run {run_id} is not in `deleted` lifecycle stage. Only runs in"
@@ -847,6 +868,15 @@ def _gc_tracking_resources(
 
     if not skip_logged_models:
         for model_id in set(logged_model_ids_to_delete):
+            # First, check if the model exists (handles non-existent models correctly)
+            try:
+                logged_model = backend_store.get_logged_model(model_id, allow_deleted=True)
+            except MlflowException as exc:
+                if ignore_not_found and exc.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    continue
+                raise
+            # Model exists - now check if it's in the deleted lifecycle stage
+            # (never skip active models, even with ignore_not_found)
             if model_id not in deleted_logged_model_ids:
                 raise MlflowException(
                     f"Logged model {model_id} is not in `deleted` lifecycle stage. "
@@ -858,7 +888,6 @@ def _gc_tracking_resources(
                     f"Only logged models older than {older_than} can be deleted.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            logged_model = backend_store.get_logged_model(model_id, allow_deleted=True)
             artifact_repo = get_artifact_repository(logged_model.artifact_location)
             try:
                 artifact_repo.delete_artifacts()
@@ -885,6 +914,63 @@ def _gc_tracking_resources(
         for experiment_id in experiment_ids_to_delete:
             backend_store._hard_delete_experiment(experiment_id)
             click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
+
+
+def _resolve_gc_workspaces(
+    backend_store,
+    all_workspaces: bool,
+    workspace: str | None,
+    backend_store_uri: str | None,
+) -> list[str | None]:
+    """
+    Determine which workspaces to iterate over for garbage collection.
+
+    Args:
+        backend_store: The tracking store instance.
+        all_workspaces: If True, return all workspaces from the workspace store.
+        workspace: If provided, return a single-element list with this workspace.
+        backend_store_uri: The backend store URI for resolving workspace store.
+
+    Returns:
+        List of workspace names to iterate over, or [None] for non-workspace mode.
+    """
+    supports_workspaces = (
+        getattr(backend_store, "supports_workspaces", False) and MLFLOW_ENABLE_WORKSPACES.get()
+    )
+    if not supports_workspaces:
+        if all_workspaces or workspace:
+            raise MlflowException.invalid_parameter_value(
+                "Workspace selection flags are only supported when the tracking store "
+                "supports workspaces."
+            )
+        return [None]
+
+    if all_workspaces:
+        workspace_store = get_workspace_store(
+            resolve_workspace_store_uri(tracking_uri=backend_store_uri)
+        )
+        workspaces = [ws.name for ws in workspace_store.list_workspaces()]
+        if not workspaces:
+            raise MlflowException(
+                "No workspaces found. Ensure the workspace provider is configured correctly.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return workspaces
+
+    if workspace:
+        return [workspace]
+
+    workspace_store = get_workspace_store(
+        resolve_workspace_store_uri(tracking_uri=backend_store_uri)
+    )
+    default_workspace, supports_default = get_default_workspace_optional(workspace_store)
+    if supports_default and default_workspace is not None:
+        return [default_workspace.name]
+
+    raise MlflowException.invalid_parameter_value(
+        "Active workspace is required. Configure a default workspace, set MLFLOW_WORKSPACE "
+        "or use --workspace/--all-workspaces when workspaces are enabled."
+    )
 
 
 @cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
@@ -958,7 +1044,24 @@ def _gc_tracking_resources(
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
 )
+@click.option(
+    "--workspace",
+    envvar=MLFLOW_WORKSPACE.name,
+    default=None,
+    help=(
+        "Target workspace for deletions when workspaces are enabled. Defaults to the active "
+        "workspace (MLFLOW_WORKSPACE)."
+    ),
+)
+@click.option(
+    "--all-workspaces",
+    is_flag=True,
+    default=False,
+    help="Delete deleted resources across all workspaces (workspace mode only).",
+)
+@click.pass_context
 def gc(
+    ctx,
     older_than,
     backend_store_uri,
     artifacts_destination,
@@ -968,6 +1071,8 @@ def gc(
     jobs,
     job_ids,
     tracking_uri,
+    workspace,
+    all_workspaces,
 ):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
@@ -1018,6 +1123,9 @@ def gc(
         # Combine criteria: delete runs older than 7 days in specific experiments
         mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
 
+        # Delete deleted resources across all workspaces
+        mlflow gc --all-workspaces --older-than 30d
+
         # Delete all finalized jobs older than 7 days (requires --jobs flag)
         mlflow gc --jobs --older-than 7d
 
@@ -1025,7 +1133,16 @@ def gc(
         mlflow gc --job-ids 'job1,job2,job3'
 
     """
+    if (workspace or all_workspaces) and not MLFLOW_ENABLE_WORKSPACES.get():
+        os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
     backend_store = _get_store(backend_store_uri, artifacts_destination)
+    # Only error if --workspace was explicitly provided on CLI (not from env var)
+    workspace_from_cli = ctx.get_parameter_source("workspace") == ParameterSource.COMMANDLINE
+    if workspace_from_cli and all_workspaces:
+        raise UsageError("Cannot use --workspace and --all-workspaces together.")
+    # If --all-workspaces is set, ignore workspace from env var
+    if all_workspaces:
+        workspace = None
     skip_experiments = False
     skip_logged_models = False
     if not hasattr(backend_store, "_hard_delete_run"):
@@ -1082,18 +1199,9 @@ def gc(
     experiment_ids_list = experiment_ids.split(",") if experiment_ids else None
     logged_model_ids_list = logged_model_ids.split(",") if logged_model_ids else None
 
-    _gc_tracking_resources(
-        backend_store=backend_store,
-        run_ids=run_ids_list,
-        experiment_ids=experiment_ids_list,
-        logged_model_ids=logged_model_ids_list,
-        older_than=older_than,
-        time_delta=time_delta,
-        skip_experiments=skip_experiments,
-        skip_logged_models=skip_logged_models,
-    )
-
-    # Clean up jobs (only when --jobs flag is set or --job-ids are given and for database backends)
+    # Prepare job cleanup if requested (database backends only)
+    job_store = None
+    job_ids_list = None
     if jobs or job_ids:
         from mlflow.utils.uri import extract_db_type_from_uri
 
@@ -1104,15 +1212,47 @@ def gc(
             # Not a database backend - skip job cleanup silently
             pass
         else:
-            from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+            if MLFLOW_ENABLE_WORKSPACES.get():
+                from mlflow.store.jobs.sqlalchemy_workspace_store import (
+                    WorkspaceAwareSqlAlchemyJobStore,
+                )
 
-            job_store = SqlAlchemyJobStore(store_uri)
+                job_store = WorkspaceAwareSqlAlchemyJobStore(store_uri)
+            else:
+                from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 
+                job_store = SqlAlchemyJobStore(store_uri)
             job_ids_list = job_ids.split(",") if job_ids else None
 
-            deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
-            for job_id in deleted_job_ids:
-                click.echo(f"Job with ID {job_id} has been permanently deleted.")
+    for workspace_name in _resolve_gc_workspaces(
+        backend_store=backend_store,
+        all_workspaces=all_workspaces,
+        workspace=workspace,
+        backend_store_uri=backend_store_uri,
+    ):
+        workspace_ctx = (
+            workspace_context.WorkspaceContext(workspace_name)
+            if workspace_name
+            else contextlib.nullcontext()
+        )
+        with workspace_ctx:
+            _gc_tracking_resources(
+                backend_store=backend_store,
+                run_ids=run_ids_list,
+                experiment_ids=experiment_ids_list,
+                logged_model_ids=logged_model_ids_list,
+                older_than=older_than,
+                time_delta=time_delta,
+                skip_experiments=skip_experiments,
+                skip_logged_models=skip_logged_models,
+                ignore_not_found=all_workspaces,
+            )
+
+            # Clean up jobs within the same workspace context
+            if job_store is not None:
+                deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
+                for job_id in deleted_job_ids:
+                    click.echo(f"Job with ID {job_id} has been permanently deleted.")
 
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
