@@ -4436,7 +4436,7 @@ def test_create_endpoint_with_usage_tracking(mlflow_client_with_secrets):
     assert endpoint.usage_tracking is True
     experiment_id = endpoint.experiment_id
 
-    # Endpoint is automatically created with usage tracking enabled
+    # Experiment is automatically created with usage tracking enabled
     experiment = mlflow_client_with_secrets.get_experiment(experiment_id)
     assert experiment.name == "gateway/usage-tracking-endpoint"
 
