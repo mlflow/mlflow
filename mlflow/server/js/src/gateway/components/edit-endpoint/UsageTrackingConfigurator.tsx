@@ -1,6 +1,6 @@
 import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentSelect } from '../create-endpoint/ExperimentSelect';
+import { ExperimentSelect } from '../shared/ExperimentSelect';
 
 export interface UsageTrackingConfiguratorProps {
   value: boolean;
@@ -52,7 +52,7 @@ export const UsageTrackingConfigurator = ({
           />
           <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
             <FormattedMessage
-              defaultMessage="Select an experiment or leave blank to auto-create one."
+              defaultMessage="Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'."
               description="Experiment selector help text"
             />
           </Typography.Text>

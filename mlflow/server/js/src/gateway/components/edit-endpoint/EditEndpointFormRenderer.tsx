@@ -1,6 +1,7 @@
 import { Link } from '../../../common/utils/RoutingUtils';
 import {
   Alert,
+  ArrowRightIcon,
   Breadcrumb,
   Button,
   Spinner,
@@ -295,10 +296,22 @@ export const EditEndpointFormRenderer = ({
                   <Typography.Text bold color="secondary">
                     <FormattedMessage defaultMessage="Usage log" description="Summary usage log label" />
                   </Typography.Text>
-                  <Link to={`/experiments/${experimentId}/traces`}>
+                  <Link
+                    to={`/experiments/${experimentId}/traces`}
+                    css={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.xs,
+                      textDecoration: 'underline',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
                     <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} color="info">
                       <FormattedMessage defaultMessage="View traces" description="Link to view traces for endpoint" />
                     </Typography.Text>
+                    <ArrowRightIcon css={{ color: theme.colors.textValidationInfo, fontSize: 12 }} />
                   </Link>
                 </div>
               )}

@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
-import { ExperimentSelect } from '../create-endpoint/ExperimentSelect';
+import { ExperimentSelect } from '../shared/ExperimentSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -70,7 +70,7 @@ export const EndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameBlur,
-  componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  componentIdPrefix = `mlflow.gateway.endpoint`,
   embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
@@ -250,11 +250,11 @@ export const EndpointFormRenderer = ({
                             <ExperimentSelect
                               value={experimentField.value ?? ''}
                               onChange={experimentField.onChange}
-                              componentIdPrefix={`${componentIdPrefix}.experiment-id`}
+                              componentIdPrefix={"mlflow.gateway.endpoint.experiment-id"}
                             />
                             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                               <FormattedMessage
-                                defaultMessage="Select an experiment or leave blank to auto-create one."
+                                defaultMessage="Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'."
                                 description="Help text for experiment selector"
                               />
                             </Typography.Text>

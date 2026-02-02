@@ -7,7 +7,7 @@ interface ExperimentSelectProps {
   onChange: (experimentId: string) => void;
   disabled?: boolean;
   error?: string;
-  componentIdPrefix?: string;
+  componentIdPrefix: string;
 }
 
 export const ExperimentSelect = ({
@@ -15,7 +15,7 @@ export const ExperimentSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.experiment-select',
+  componentIdPrefix,
 }: ExperimentSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
