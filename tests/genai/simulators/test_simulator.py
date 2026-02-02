@@ -148,7 +148,7 @@ def test_conversation_simulator_max_turns_stopping(
 def test_conversation_simulator_empty_response_stopping(simple_test_case, simulation_mocks):
     simulation_mocks["invoke"].return_value = "Test message"
 
-    def empty_predict_fn(input=None, messages=None):
+    def empty_predict_fn(input=None, messages=None, **kwargs):
         return {
             "output": [
                 {
@@ -232,6 +232,48 @@ def test_conversation_simulator_context_passing(test_case_with_context, simulati
     # Verify context was passed to predict_fn
     assert captured_kwargs.get("user_id") == "U001"
     assert captured_kwargs.get("session_id") == "S001"
+
+
+def test_conversation_simulator_mlflow_session_id_passed_to_predict_fn(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Not yet", "result": "no"}',
+        "Test message 2",
+        '{"rationale": "Not yet", "result": "no"}',
+    ]
+
+    captured_session_ids = []
+
+    def capturing_predict_fn(input=None, **kwargs):
+        captured_session_ids.append(kwargs.get("mlflow_session_id"))
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Response"}],
+                }
+            ]
+        }
+
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+    )
+
+    all_traces = simulator.simulate(capturing_predict_fn)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 2
+    # Verify mlflow_session_id was passed to predict_fn
+    assert len(captured_session_ids) == 2
+    assert all(sid is not None for sid in captured_session_ids)
+    assert all(sid.startswith("sim-") for sid in captured_session_ids)
+    # Verify session ID is consistent across all turns in the same conversation
+    assert captured_session_ids[0] == captured_session_ids[1]
 
 
 def test_conversation_simulator_multiple_test_cases(
@@ -617,3 +659,56 @@ def test_invalid_user_agent_class_raises_type_error(simple_test_case):
             max_turns=2,
             user_agent_class=NotAUserAgent,
         )
+
+
+def test_conversation_simulator_digest_is_deterministic():
+    test_cases = [
+        {"goal": "Learn about MLflow"},
+        {"goal": "Debug deployment", "persona": "Data scientist"},
+        {"goal": "Setup", "context": {"env": "prod"}},
+    ]
+    simulator1 = ConversationSimulator(test_cases=test_cases, max_turns=2)
+    simulator2 = ConversationSimulator(test_cases=test_cases, max_turns=2)
+
+    digest1 = simulator1._compute_test_case_digest()
+    digest2 = simulator2._compute_test_case_digest()
+
+    assert digest1 == digest2
+    assert isinstance(digest1, str)
+    assert len(digest1) == 8
+
+
+@pytest.mark.parametrize(
+    ("test_cases_1", "test_cases_2"),
+    [
+        # Different goals
+        ([{"goal": "Goal A"}], [{"goal": "Goal B"}]),
+        # Adding persona changes digest
+        ([{"goal": "Goal"}], [{"goal": "Goal", "persona": "Engineer"}]),
+        # Different order
+        ([{"goal": "A"}, {"goal": "B"}], [{"goal": "B"}, {"goal": "A"}]),
+    ],
+    ids=["different_goals", "added_persona", "different_order"],
+)
+def test_conversation_simulator_digest_differs_for_different_test_cases(test_cases_1, test_cases_2):
+    simulator1 = ConversationSimulator(test_cases=test_cases_1, max_turns=2)
+    simulator2 = ConversationSimulator(test_cases=test_cases_2, max_turns=2)
+
+    assert simulator1._compute_test_case_digest() != simulator2._compute_test_case_digest()
+
+
+def test_conversation_simulator_get_dataset_name_default():
+    test_cases = [{"goal": "Learn about MLflow"}]
+    simulator = ConversationSimulator(test_cases=test_cases, max_turns=2)
+
+    assert simulator._get_dataset_name() == "conversational_dataset"
+
+
+def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
+    inputs = [{"goal": "Learn about MLflow"}]
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    mock_dataset.name = "my_custom_dataset"
+
+    simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+
+    assert simulator._get_dataset_name() == "my_custom_dataset"

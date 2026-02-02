@@ -595,10 +595,6 @@
     "defaultMessage": "API Keys",
     "description": "API Keys page title"
   },
-  "2QyWfI": {
-    "defaultMessage": "Maximum of 2 runs can be selected for comparison",
-    "description": "Tooltip explaining why a checkbox is disabled when max selection is reached"
-  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
@@ -997,6 +993,10 @@
   "61P6Da": {
     "defaultMessage": "finetuning",
     "description": "A short label for experiments focused on model finetuning"
+  },
+  "62NIhn": {
+    "defaultMessage": "Cost",
+    "description": "Label for the cost section"
   },
   "64SfR8": {
     "defaultMessage": "enter a model identifier",
@@ -1505,6 +1505,10 @@
   "9I8EpX": {
     "defaultMessage": "Automatic evaluation",
     "description": "Accordion section header for automatic evaluation settings"
+  },
+  "9IIkwh": {
+    "defaultMessage": "Cost breakdown",
+    "description": "Header for cost breakdown"
   },
   "9IN1I8": {
     "defaultMessage": "Select as compared version",

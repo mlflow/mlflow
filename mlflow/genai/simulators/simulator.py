@@ -20,7 +20,6 @@ from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
     create_litellm_message_from_databricks_response,
-    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
@@ -33,6 +32,8 @@ from mlflow.genai.simulators.prompts import (
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -97,6 +98,8 @@ _MODEL_API_DOC = {
 * `"databricks"` - Uses the Databricks managed LLM endpoint
 * `"databricks:/<endpoint-name>"` - Uses a Databricks model serving endpoint \
 (e.g., `"databricks:/databricks-claude-sonnet-4-5"`)
+* `"gateway:/<endpoint-name>"` - Uses an MLflow AI Gateway endpoint \
+(e.g., `"gateway:/my-chat-endpoint"`)
 * `"<provider>:/<model-name>"` - Uses LiteLLM (e.g., `"openai:/gpt-4.1-mini"`, \
 `"anthropic:/claude-3.5-sonnet-20240620"`)
 
@@ -201,12 +204,20 @@ def _invoke_model_without_tracing(
         litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
         kwargs = {
-            "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
             # Drop unsupported params (e.g., temperature=0 for certain models)
             "drop_params": True,
         }
+
+        if provider == "gateway":
+            config = get_gateway_litellm_config(model_name)
+            kwargs["api_base"] = config.api_base
+            kwargs["api_key"] = config.api_key
+            kwargs["model"] = config.model
+        else:
+            kwargs["model"] = f"{provider}/{model_name}"
+
         if inference_params:
             kwargs.update(inference_params)
 
@@ -435,6 +446,9 @@ class ConversationSimulator:
     - It must accept an ``input`` parameter containing the conversation history
       as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
     - It may accept additional keyword arguments from the test case's ``context`` field
+    - It receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
+      session. This ID is consistent across all turns in the same conversation, allowing you
+      to associate related traces or maintain stateful context (e.g., for thread-based agents).
     - It should return a response (the assistant's message content will be extracted)
 
     Args:
@@ -463,8 +477,21 @@ class ConversationSimulator:
             from mlflow.genai.simulators import ConversationSimulator
             from mlflow.genai.scorers import ConversationalSafety, Safety
 
+            # Dummy cache to store conversation threads by session ID
+            conversation_threads = {}
+
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
+                # The mlflow_session_id uniquely identifies this conversation session.
+                # All turns in the same conversation share the same session ID.
+                session_id = kwargs.get("mlflow_session_id")
+
+                # Use the session ID to maintain state across turns - for example,
+                # storing conversation context, user preferences, or agent memory
+                if session_id not in conversation_threads:
+                    conversation_threads[session_id] = {"turn_count": 0}
+                conversation_threads[session_id]["turn_count"] += 1
+
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=input,
@@ -510,6 +537,9 @@ class ConversationSimulator:
                 f"user_agent_class must be a subclass of BaseSimulatedUserAgent, "
                 f"got {user_agent_class.__name__}"
             )
+        # Store original dataset reference if test_cases is an EvaluationDataset, so we can
+        # preserve the dataset name when creating the evaluation dataset.
+        self._source_dataset = test_cases if isinstance(test_cases, EvaluationDataset) else None
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
@@ -561,6 +591,29 @@ class ConversationSimulator:
                 f"Test cases at indices {indices_with_extra_keys} contain unexpected keys "
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
+
+    def _compute_test_case_digest(self) -> str:
+        """Compute a digest based on the test cases for consistent dataset identification.
+
+        This ensures the same test cases produce the same digest regardless of
+        simulation output variations caused by LLM non-determinism.
+        """
+        import pandas as pd
+
+        from mlflow.data.digest_utils import compute_pandas_digest
+
+        test_case_df = pd.DataFrame(self.test_cases)
+        return compute_pandas_digest(test_case_df)
+
+    def _get_dataset_name(self) -> str:
+        """Get the dataset name to use for the evaluation dataset.
+
+        If test_cases was an EvaluationDataset, use its name. Otherwise, use the
+        default name for conversational datasets.
+        """
+        if self._source_dataset is not None:
+            return self._source_dataset.name
+        return "conversational_dataset"
 
     @experimental(version="3.10.0")
     @record_usage_event(SimulateConversationEvent)
@@ -737,7 +790,9 @@ class ConversationSimulator:
                 )
             return predict_fn(input=input, **ctx)
 
-        response = traced_predict(input=input_messages, **context)
+        response = traced_predict(
+            input=input_messages, mlflow_session_id=trace_session_id, **context
+        )
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session

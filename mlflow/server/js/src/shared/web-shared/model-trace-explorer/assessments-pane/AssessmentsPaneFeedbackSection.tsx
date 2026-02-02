@@ -56,7 +56,15 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   return Object.entries(aggregated);
 };
 
-const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId: string }) => {
+const AddFeedbackButton = ({
+  onClick,
+  traceId,
+  sessionId,
+}: {
+  onClick: () => void;
+  traceId: string;
+  sessionId?: string;
+}) => {
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
   const [judgeModalVisible, setJudgeModalVisible] = useState(false);
 
@@ -96,7 +104,7 @@ const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId:
           </DropdownMenu.Content>
         </DropdownMenu.Root>
         {runJudgeConfiguration.renderRunJudgeModal?.({
-          traceId,
+          itemId: sessionId ?? traceId,
           visible: judgeModalVisible,
           onClose: () => setJudgeModalVisible(false),
         })}
@@ -122,11 +130,13 @@ export const AssessmentsPaneFeedbackSection = ({
   feedbacks,
   activeSpanId,
   traceId,
+  sessionId,
 }: {
   enableRunScorer: boolean;
   feedbacks: FeedbackAssessment[];
   activeSpanId?: string;
   traceId: string;
+  sessionId?: string;
 }) => {
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
 
@@ -206,7 +216,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <div
           css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
         >
-          <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
+          <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
 
@@ -281,7 +291,7 @@ export const AssessmentsPaneFeedbackSection = ({
           </Typography.Hint>
           <Spacer size="sm" />
           <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-            <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
+            <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
           </div>
         </div>
       )}

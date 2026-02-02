@@ -75,6 +75,8 @@ interface SessionHeaderCellProps {
   experimentId: string;
   isComparing?: boolean;
   getRunColor?: (runUuid: string) => string;
+  runUuid?: string;
+  compareToRunUuid?: string;
 }
 
 /**
@@ -92,17 +94,21 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   experimentId,
   isComparing,
   getRunColor,
+  runUuid,
+  compareToRunUuid,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const firstTrace = traces[0];
   const firstOtherTrace = otherTraces?.[0];
 
-  // Get run colors
-  const currentRunUuid = firstTrace?.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
-  const otherRunUuid = firstOtherTrace?.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
-  const currentRunColor = getRunColor && currentRunUuid ? getRunColor(currentRunUuid) : CURRENT_RUN_COLOR;
-  const otherRunColor = getRunColor && otherRunUuid ? getRunColor(otherRunUuid) : COMPARE_TO_RUN_COLOR;
+  // Get run colors - use the passed runUuid/compareToRunUuid props directly for consistency with the comparison header.
+  // Fall back to extracting from trace metadata if not available.
+  const currentRunUuidResolved = runUuid || firstTrace?.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
+  const otherRunUuidResolved = compareToRunUuid || firstOtherTrace?.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
+  const currentRunColor =
+    getRunColor && currentRunUuidResolved ? getRunColor(currentRunUuidResolved) : CURRENT_RUN_COLOR;
+  const otherRunColor = getRunColor && otherRunUuidResolved ? getRunColor(otherRunUuidResolved) : COMPARE_TO_RUN_COLOR;
 
   // Default: render empty cell for columns without session-level data
   let cellContent: React.ReactNode = null;
@@ -110,11 +116,12 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   // Render specific columns with data from the first trace
   if (column.id === SESSION_COLUMN_ID) {
     // Session ID column - render as a tag with link to session view
-    // In comparison mode, show both session IDs stacked (unless they're the same)
+    // In comparison mode, show both session IDs stacked only if they're different
     const effectiveOtherSessionId = otherSessionId || (otherTraces?.[0] ? getSessionIdFromTrace(otherTraces[0]) : null);
     const showBothSessionIds = isComparing && effectiveOtherSessionId && effectiveOtherSessionId !== sessionId;
 
-    if (isComparing) {
+    if (isComparing && showBothSessionIds) {
+      // Different session IDs - show stacked
       cellContent = (
         <StackedComponents
           first={
@@ -134,25 +141,37 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             )
           }
           second={
-            showBothSessionIds ? (
-              <SessionIdLinkWrapper sessionId={effectiveOtherSessionId} experimentId={experimentId}>
-                <Tag
-                  componentId="mlflow.genai-traces-table.session-header-session-id-other"
-                  title={effectiveOtherSessionId}
-                  css={{ maxWidth: '100%' }}
-                >
-                  <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
-                  <Typography.Text ellipsis>{effectiveOtherSessionId}</Typography.Text>
-                </Tag>
-              </SessionIdLinkWrapper>
-            ) : effectiveOtherSessionId ? (
-              // Same session ID - show a placeholder to maintain row height consistency
-              <div css={{ height: 24 }} />
-            ) : (
-              <NullCell isComparing />
-            )
+            <SessionIdLinkWrapper sessionId={effectiveOtherSessionId} experimentId={experimentId}>
+              <Tag
+                componentId="mlflow.genai-traces-table.session-header-session-id-other"
+                title={effectiveOtherSessionId}
+                css={{ maxWidth: '100%' }}
+              >
+                <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
+                <Typography.Text ellipsis>{effectiveOtherSessionId}</Typography.Text>
+              </Tag>
+            </SessionIdLinkWrapper>
           }
         />
+      );
+    } else if (isComparing) {
+      // Same session ID or only one exists - show single session ID (not stacked)
+      const displaySessionId = sessionId || effectiveOtherSessionId;
+      cellContent = displaySessionId ? (
+        <div css={{ overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
+          <SessionIdLinkWrapper sessionId={displaySessionId} experimentId={experimentId}>
+            <Tag
+              componentId="mlflow.genai-traces-table.session-header-session-id"
+              title={displaySessionId}
+              css={{ maxWidth: '100%' }}
+            >
+              <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
+              <Typography.Text ellipsis>{displaySessionId}</Typography.Text>
+            </Tag>
+          </SessionIdLinkWrapper>
+        </div>
+      ) : (
+        <NullCell />
       );
     } else {
       cellContent = (
@@ -237,17 +256,24 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
       );
     } else {
       cellContent = inputTitle ? (
-        <div
-          css={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            minWidth: 0,
-          }}
-          title={inputTitle}
-        >
-          {inputTitle}
-        </div>
+        <SessionIdLinkWrapper sessionId={sessionId} experimentId={experimentId}>
+          <span
+            css={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0,
+              color: theme.colors.actionPrimaryBackgroundDefault,
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+            title={inputTitle}
+          >
+            {inputTitle}
+          </span>
+        </SessionIdLinkWrapper>
       ) : (
         <NullCell />
       );
