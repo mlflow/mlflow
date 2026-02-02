@@ -4,7 +4,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 import type { ScheduledScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
@@ -15,6 +15,8 @@ interface ScorerModalRendererProps {
   mode: ScorerFormMode;
   existingScorer?: ScheduledScorer;
   initialScorerType?: ScorerFormData['scorerType'];
+  initialScope?: ScorerEvaluationScope;
+  initialItemId?: string;
 }
 
 const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
@@ -24,6 +26,8 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
   mode,
   existingScorer,
   initialScorerType,
+  initialScope,
+  initialItemId,
 }) => {
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
 
@@ -73,6 +77,8 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
           experimentId={experimentId}
           onClose={onClose}
           initialScorerType={initialScorerType}
+          initialScope={initialScope}
+          initialItemId={initialItemId}
         />
       )}
     </Modal>

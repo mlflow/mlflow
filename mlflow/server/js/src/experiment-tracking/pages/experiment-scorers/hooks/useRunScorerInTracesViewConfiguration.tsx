@@ -290,6 +290,8 @@ const RunJudgeModalImpl = ({
           experimentId={experimentId}
           mode={SCORER_FORM_MODE.CREATE}
           initialScorerType="llm"
+          initialScope={scope}
+          initialItemId={itemId}
         />
       )}
     </>
