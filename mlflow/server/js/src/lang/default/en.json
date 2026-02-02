@@ -2274,10 +2274,6 @@
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
   },
-  "EswObV": {
-    "defaultMessage": "Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'.",
-    "description": "Help text for experiment selector"
-  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -2705,10 +2701,6 @@
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
-  },
-  "IX9SJT": {
-    "defaultMessage": "When enabled, traces from endpoint invocations will be logged for monitoring and analytics.",
-    "description": "Help text for usage tracking toggle"
   },
   "IXPpwQ": {
     "defaultMessage": "404: Resource not found",
