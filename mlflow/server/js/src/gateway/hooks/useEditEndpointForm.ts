@@ -254,6 +254,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               }
             : undefined;
 
+        // For experiment_id:
+        // - If usage tracking is enabled, always send the experiment_id value
+        //   (empty string means "auto-create new experiment")
+        // - If usage tracking is disabled, don't send experiment_id
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
           name: values.name || undefined,
@@ -261,7 +265,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
           usage_tracking: values.usageTracking,
-          experiment_id: values.usageTracking ? values.experimentId || undefined : undefined,
+          experiment_id: values.usageTracking ? values.experimentId : undefined,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
