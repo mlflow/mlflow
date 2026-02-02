@@ -164,8 +164,11 @@ async def test_trace_stream_method_handles_error(tracing_wrapper):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
 
-    # Verify error was captured
-    assert provider_span.attributes.get("error") == "Stream error"
+    # Verify error was captured as an exception event
+    exception_events = [e for e in provider_span.events if e.name == "exception"]
+    assert len(exception_events) == 1
+    assert exception_events[0].attributes["exception.message"] == "Stream error"
+    assert exception_events[0].attributes["exception.type"] == "ValueError"
 
 
 @pytest.mark.asyncio
@@ -243,4 +246,8 @@ async def test_trace_method_non_streaming_error(tracing_wrapper):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
 
-    assert provider_span.attributes.get("error") == "Method failed"
+    # Verify error was captured as an exception event
+    exception_events = [e for e in provider_span.events if e.name == "exception"]
+    assert len(exception_events) == 1
+    assert exception_events[0].attributes["exception.message"] == "Method failed"
+    assert exception_events[0].attributes["exception.type"] == "RuntimeError"

@@ -92,18 +92,13 @@ class TracingProviderWrapper(BaseProvider):
         with mlflow.start_span(name=span_name) as span:
             span.set_attributes({**self._get_provider_attributes(), "method": method_name})
 
-            try:
-                result = await method(*args, **kwargs)
+            result = await method(*args, **kwargs)
 
-                # Extract and log token usage if available
-                if token_usage := self._extract_token_usage(result):
-                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+            if token_usage := self._extract_token_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
 
-                span.set_status("OK")
-                return result
-            except Exception as e:
-                span.record_exception(e)
-                raise
+            span.set_status("OK")
+            return result
 
     async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
         """Execute a streaming method with tracing span."""
