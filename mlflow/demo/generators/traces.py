@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -110,34 +111,64 @@ class TracesDemoGenerator(BaseDemoGenerator):
         )
 
     def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
-        """Generate a complete set of traces for the given version."""
-        trace_ids = []
+        """Generate a complete set of traces for the given version using parallel execution."""
+        tasks = []
         trace_index = 0
 
+        # Collect all trace creation tasks
         for trace_def in RAG_TRACES:
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
-            if trace_id := self._create_rag_trace(trace_def, version, start_ns, end_ns):
-                trace_ids.append(trace_id)
+            tasks.append(("rag", trace_def, version, start_ns, end_ns, None))
             trace_index += 1
 
         for trace_def in AGENT_TRACES:
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
-            if trace_id := self._create_agent_trace(trace_def, version, start_ns, end_ns):
-                trace_ids.append(trace_id)
+            tasks.append(("agent", trace_def, version, start_ns, end_ns, None))
             trace_index += 1
 
         for idx, trace_def in enumerate(PROMPT_TRACES):
             start_ns, end_ns = _get_trace_timestamp(trace_index, version)
             prompt_version_num = str(idx % 2 + 1) if version == "v1" else str(idx % 2 + 3)
-            if trace_id := self._create_prompt_trace(
-                trace_def, version, start_ns, end_ns, prompt_version_num
-            ):
-                trace_ids.append(trace_id)
+            tasks.append(("prompt", trace_def, version, start_ns, end_ns, prompt_version_num))
             trace_index += 1
 
-        trace_ids.extend(self._create_session_traces(version, trace_index))
+        for trace_def in SESSION_TRACES:
+            start_ns, end_ns = _get_trace_timestamp(trace_index, version)
+            tasks.append(("session", trace_def, version, start_ns, end_ns, None))
+            trace_index += 1
 
-        return trace_ids
+        # Execute trace creation in parallel
+        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="DemoTraceGenerator") as executor:
+            futures = [executor.submit(self._create_trace_by_type, *task) for task in tasks]
+            return [trace_id for future in as_completed(futures) if (trace_id := future.result())]
+
+    def _create_trace_by_type(
+        self,
+        trace_type: str,
+        trace_def: DemoTrace,
+        version: Literal["v1", "v2"],
+        start_ns: int,
+        end_ns: int,
+        prompt_version: str | None,
+    ) -> str | None:
+        """Create a trace based on its type."""
+        if trace_type == "rag":
+            return self._create_rag_trace(trace_def, version, start_ns, end_ns)
+        elif trace_type == "agent":
+            return self._create_agent_trace(trace_def, version, start_ns, end_ns)
+        elif trace_type == "prompt":
+            return self._create_prompt_trace(trace_def, version, start_ns, end_ns, prompt_version)
+        elif trace_type == "session":
+            versioned_session_id = f"{trace_def.session_id}-{version}"
+            return self._create_session_turn_trace(
+                trace_def,
+                trace_def.turn_index or 1,
+                version,
+                versioned_session_id,
+                start_ns,
+                end_ns,
+            )
+        return None
 
     def _data_exists(self) -> bool:
         from mlflow.tracking._tracking_service.utils import _get_store
