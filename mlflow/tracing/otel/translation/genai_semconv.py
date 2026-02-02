@@ -47,6 +47,11 @@ class GenAiTranslator(OtelSchemaTranslator):
     INPUT_VALUE_KEYS = ["gen_ai.input.messages", "gen_ai.tool.call.arguments"]
     OUTPUT_VALUE_KEYS = ["gen_ai.output.messages", "gen_ai.tool.call.result"]
 
+    # Model name attribute keys from OTEL GenAI semantic conventions
+    # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+    MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
+    LLM_PROVIDER_KEY = "gen_ai.provider.name"
+
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""
         if isinstance(value, str):
@@ -123,8 +128,3 @@ class GenAiTranslator(OtelSchemaTranslator):
                     )
 
         return json.dumps(messages) if messages else None
-        
-    # Model name attribute keys from OTEL GenAI semantic conventions
-    # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
-    MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
-    LLM_PROVIDER_KEY = "gen_ai.provider.name"
