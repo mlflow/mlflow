@@ -120,7 +120,7 @@ def _start_gateway_span(
     try:
         span = start_span_no_context(
             name=f"gateway/{endpoint_config.endpoint_name}",
-            trace_destination=MlflowExperimentLocation(experiment_id=endpoint_config.experiment_id),
+            experiment_id=endpoint_config.experiment_id,
         )
         _configure_gateway_span(span, endpoint_config, request_type, inputs)
 
@@ -234,8 +234,7 @@ async def _make_traced_streaming_response(
         except Exception as e:
             if span is not None:
                 try:
-                    span.set_status("ERROR")
-                    span.set_attribute("error", str(e))
+                    span.record_exception(e)
                 except Exception:
                     pass
             raise

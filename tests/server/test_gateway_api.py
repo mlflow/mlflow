@@ -1971,6 +1971,9 @@ async def _call_chat_completions(endpoint_name: str, request, payload: dict):
 async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler):
     endpoint_name = "tracing-test-endpoint"
 
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
     # Create endpoint with usage tracking enabled
     secret = store.create_gateway_secret(
         secret_name="tracing-test-key",
@@ -1983,7 +1986,7 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_gateway_endpoint(
+    store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -1993,11 +1996,8 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
             ),
         ],
         usage_tracking=True,
+        experiment_id=experiment_id,
     )
-
-    # Get the experiment_id that was auto-created for the endpoint
-    experiment_id = endpoint.experiment_id
-    assert experiment_id is not None
 
     mock_request = MagicMock()
     payload = {
@@ -2068,6 +2068,9 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
 async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     endpoint_name = "stream-tracing-test-endpoint"
 
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
     # Create endpoint with usage tracking enabled
     secret = store.create_gateway_secret(
         secret_name="stream-tracing-test-key",
@@ -2080,7 +2083,7 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_gateway_endpoint(
+    store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2090,11 +2093,8 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
             ),
         ],
         usage_tracking=True,
+        experiment_id=experiment_id,
     )
-
-    # Get the experiment_id that was auto-created for the endpoint
-    experiment_id = endpoint.experiment_id
-    assert experiment_id is not None
 
     mock_request = MagicMock()
     payload = {
