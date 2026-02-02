@@ -16,6 +16,7 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import is_databricks_uri
 
@@ -90,11 +91,18 @@ def invoke_model_without_tracing(
         litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
         kwargs = {
-            "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
             "drop_params": True,
         }
+
+        if provider == "gateway":
+            config = get_gateway_litellm_config(model_name)
+            kwargs["api_base"] = config.api_base
+            kwargs["api_key"] = config.api_key
+            kwargs["model"] = config.model
+        else:
+            kwargs["model"] = f"{provider}/{model_name}"
         if inference_params:
             kwargs.update(inference_params)
         if response_format is not None:

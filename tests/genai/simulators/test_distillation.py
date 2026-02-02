@@ -3,6 +3,7 @@ from unittest import mock
 import pydantic
 import pytest
 
+from mlflow.entities.session import Session
 from mlflow.genai.simulators.distillation import (
     _distill_goal_and_persona,
     _GoalAndPersona,
@@ -13,7 +14,7 @@ from mlflow.genai.simulators.distillation import (
 @pytest.fixture
 def mock_session():
     trace = mock.MagicMock()
-    return [trace]
+    return Session([trace])
 
 
 def test_goal_and_persona_model_goal_required():
@@ -152,3 +153,39 @@ def test_generate_test_cases_handles_exceptions_gracefully():
 
         assert len(result) == 1
         assert result[0] == {"goal": "Goal 2"}
+
+
+def test_distill_accepts_list_of_traces():
+    traces = [mock.MagicMock(), mock.MagicMock()]
+
+    with (
+        mock.patch(
+            "mlflow.genai.simulators.distillation.resolve_conversation_from_session",
+            return_value=[{"role": "user", "content": "Hello"}],
+        ) as mock_resolve,
+        mock.patch(
+            "mlflow.genai.simulators.distillation.invoke_model_without_tracing",
+            return_value='{"goal": "Get help"}',
+        ),
+    ):
+        result = _distill_goal_and_persona(traces, model="openai:/gpt-4o")
+
+        assert result == {"goal": "Get help"}
+        mock_resolve.assert_called_once_with(traces)
+
+
+def test_generate_test_cases_accepts_list_of_trace_lists():
+    trace1 = mock.MagicMock()
+    trace2 = mock.MagicMock()
+    sessions = [[trace1], [trace2]]
+
+    with mock.patch(
+        "mlflow.genai.simulators.distillation._distill_goal_and_persona",
+        side_effect=[{"goal": "Goal 1"}, {"goal": "Goal 2"}],
+    ) as mock_distill:
+        result = generate_test_cases(sessions, model="openai:/gpt-4o")
+
+        assert len(result) == 2
+        assert mock_distill.call_count == 2
+        mock_distill.assert_any_call([trace1], "openai:/gpt-4o")
+        mock_distill.assert_any_call([trace2], "openai:/gpt-4o")

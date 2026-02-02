@@ -25,8 +25,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from mlflow.entities import Trace
-
-    Session = list[Trace]
+    from mlflow.entities.session import Session
 
 _logger = logging.getLogger(__name__)
 
@@ -40,10 +39,13 @@ class _GoalAndPersona(pydantic.BaseModel):
 
 
 def _distill_goal_and_persona(
-    session: Session,
+    session: "Session | list[Trace]",
     model: str,
 ) -> dict[str, str] | None:
-    messages = resolve_conversation_from_session(session)
+    from mlflow.entities.session import Session
+
+    traces = session.traces if isinstance(session, Session) else session
+    messages = resolve_conversation_from_session(traces)
     if not messages:
         return None
 
@@ -73,7 +75,7 @@ def _distill_goal_and_persona(
 @experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 def generate_test_cases(
-    sessions: list[Session],
+    sessions: "list[Session] | list[list[Trace]]",
     *,
     model: str | None = None,
 ) -> list[dict[str, str]]:
@@ -89,7 +91,8 @@ def generate_test_cases(
         or a model of similar capability for best results.
 
     Args:
-        sessions: A list of sessions, where each session is a list of traces.
+        sessions: A list of :py:class:`~mlflow.entities.session.Session` objects or
+            a list of trace lists (where each inner list contains traces from one session).
         model: {{ model }}
 
     Returns:
