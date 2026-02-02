@@ -490,6 +490,7 @@ mlflow.entities.RunTag.to_proto
 mlflow.entities.ScorerVersion
 mlflow.entities.ScorerVersion.from_proto
 mlflow.entities.ScorerVersion.to_proto
+mlflow.entities.Session
 mlflow.entities.SourceType
 mlflow.entities.SourceType.from_string
 mlflow.entities.SourceType.to_string
@@ -658,6 +659,7 @@ mlflow.entities.run_outputs.RunOutputs
 mlflow.entities.run_status.RunStatus
 mlflow.entities.run_tag.RunTag
 mlflow.entities.scorer.ScorerVersion
+mlflow.entities.session.Session
 mlflow.entities.source_type.SourceType
 mlflow.entities.span.LiveSpan
 mlflow.entities.span.NoOpSpan
@@ -1464,6 +1466,7 @@ mlflow.search_logged_models
 mlflow.search_model_versions
 mlflow.search_registered_models
 mlflow.search_runs
+mlflow.search_sessions
 mlflow.search_traces
 mlflow.sentence_transformers.get_default_conda_env
 mlflow.sentence_transformers.get_default_pip_requirements

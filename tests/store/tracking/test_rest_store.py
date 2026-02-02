@@ -127,6 +127,12 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpsertDatasetRecords,
 )
+from mlflow.protos.service_pb2 import (
+    FallbackConfig as ProtoFallbackConfig,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+)
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
@@ -3191,14 +3197,8 @@ def test_create_gateway_endpoint():
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=2,
             ),
+            usage_tracking=True,
         )
-        from mlflow.protos.service_pb2 import (
-            FallbackConfig as ProtoFallbackConfig,
-        )
-        from mlflow.protos.service_pb2 import (
-            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
-        )
-
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
@@ -3226,6 +3226,7 @@ def test_create_gateway_endpoint():
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
+                usage_tracking=True,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)

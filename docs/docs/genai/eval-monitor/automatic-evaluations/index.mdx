@@ -5,6 +5,7 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Scale, MessageSquare } from "lucide-react";
 import { APILink } from "@site/src/components/APILink";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Automatic Evaluation
 
@@ -14,6 +15,8 @@ Automatic evaluation runs your LLM judges automatically on traces and multi-turn
 
 - **Streamlined Quality Iteration**: Seamlessly measure quality as you iterate on your agent or LLM application in development, getting immediate feedback and quality insights without extra evaluation steps
 - **Production Monitoring**: Continuously monitor for issues like hallucinations, PII leakage, or user frustration on live traffic (often referred to as online evaluation)
+
+<video src={useBaseUrl("/images/llms/tracing/automatic-evaluation-ui-setup.mp4")} controls loop autoPlay muted aria-label="Automatic Evaluation Setup" />
 
 ## Automatic vs Offline Evaluation
 

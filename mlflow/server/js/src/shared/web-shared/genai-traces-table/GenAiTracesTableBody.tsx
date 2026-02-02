@@ -495,6 +495,8 @@ export const GenAiTracesTableBody = React.memo(
                 toggleSessionExpanded={toggleSessionExpanded}
                 experimentId={experimentId}
                 getRunColor={getRunColor}
+                runUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             ) : (
