@@ -147,7 +147,7 @@ class AI21Adapter(ProviderAdapter):
 
 class ConverseAdapter(ProviderAdapter):
     # TODO Add tool calling support (toolUse/toolResult blocks, tool_choice mapping)
-    # TODO handle images, documents, videos
+    # TODO handle images
 
     @classmethod
     def _transform_message_content(cls, content):
@@ -165,18 +165,6 @@ class ConverseAdapter(ProviderAdapter):
                     raise AIGatewayException(
                         status_code=422,
                         detail="Image content is not yet supported in "
-                        "Bedrock Converse API integration",
-                    )
-                elif part_type == "document":
-                    raise AIGatewayException(
-                        status_code=422,
-                        detail="Document content is not yet supported in "
-                        "Bedrock Converse API integration",
-                    )
-                elif part_type == "video":
-                    raise AIGatewayException(
-                        status_code=422,
-                        detail="Video content is not yet supported in "
                         "Bedrock Converse API integration",
                     )
                 else:
