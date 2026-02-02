@@ -1,17 +1,29 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Propagate Trace Context Across Services
 
 When your application spans multiple services, you may want to connect spans from these services into a single trace for tracking the end to end execution in one place. MLflow support this via **Distributed Tracing**, by propagating the active trace context over HTTP so spans recorded in different services.
 
-The following is a simple example of distributed tracing. There is a simple LLM application that is made up of two services: a client and a server. The client will create the trace and the parent span, while the server will add a nested span. In order to do this, the trace context (including the trace id and the parent span id) will be formatted according to the W3C TraceContext specification and passed in the headers of the request from the client to the server, MLflow provides two APIs to make it easier to fetch headers in the client and ingest them in the server:
+The following is a simple example of distributed tracing. There is a simple LLM application that is made up of two services: a client and a server. The client will create the trace and the parent span, while the server will add a nested span. In order to do this, the trace context (including the trace id and the parent span id) will be formatted according to the W3C TraceContext specification and passed in the headers of the request from the client to the server.
 
+MLflow provides APIs to fetch headers in the client and ingest them in the server:
+
+**Python:**
 - Use the <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> API in the client to fetch headers.
-- Use the <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> API in the server to extract the trace and span information from the request headers and set them to current trac context.
+- Use the <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> API in the server to extract the trace and span information from the request headers and set them to current trace context.
+
+**TypeScript:**
+- Use the `getTracingContextHeadersForHttpRequest()` API in the client to fetch headers.
+- Use the `withTracingContextFromHeaders()` or `withTracingContextFromHeadersAsync()` API in the server to extract the trace context from the request headers.
 
 ![Tracing Decorator](/images/llms/tracing/distributed-tracing.png)
 
 ## Client example
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 import requests
@@ -25,7 +37,32 @@ with mlflow.start_span("client-root"):
     )
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.withSpan(
+  async (span) => {
+    const headers = mlflow.getTracingContextHeadersForHttpRequest();
+    await fetch("https://your.service/handle", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ input: "hello" }),
+    });
+  },
+  { name: "client-root" }
+);
+```
+
+</TabItem>
+</Tabs>
+
 ## Server handler example
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -44,6 +81,46 @@ def handle():
             span.set_attribute("status", "ok")
     return {"ok": True}
 ```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+app.post("/handle", (req, res) => {
+  mlflow.withTracingContextFromHeaders(req.headers, () => {
+    mlflow.withSpan(
+      (span) => {
+        // ... your logic ...
+        span.setAttribute("status", "ok");
+        res.json({ ok: true });
+      },
+      { name: "server-handler" }
+    );
+  });
+});
+
+// For async handlers, use withTracingContextFromHeadersAsync:
+app.post("/handle-async", async (req, res) => {
+  await mlflow.withTracingContextFromHeadersAsync(req.headers, async () => {
+    await mlflow.withSpan(
+      async (span) => {
+        // ... async logic ...
+        res.json({ ok: true });
+      },
+      { name: "server-handler" }
+    );
+  });
+});
+```
+
+</TabItem>
+</Tabs>
 
 ## Limitation in Databricks
 
