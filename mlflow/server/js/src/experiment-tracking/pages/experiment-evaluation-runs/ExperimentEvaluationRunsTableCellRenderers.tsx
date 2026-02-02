@@ -107,7 +107,8 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  const openDatasetDrawer = () => {
+  const openDatasetDrawer = (e: React.MouseEvent) => {
+    e.stopPropagation();
     (meta as any).setSelectedDatasetWithRun({
       datasetWithTags: { dataset: displayedDataset },
       runData: {
@@ -266,5 +267,13 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
   const runStatus = row.original.info.status;
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
-  return <Icon onClick={() => toggleRowVisibility(runUuid)} css={{ cursor: 'pointer' }} />;
+  return (
+    <Icon
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation();
+        toggleRowVisibility(runUuid);
+      }}
+      css={{ cursor: 'pointer' }}
+    />
+  );
 };
