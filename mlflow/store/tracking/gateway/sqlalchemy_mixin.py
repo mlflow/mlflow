@@ -96,6 +96,27 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
+    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+        """Get an existing experiment ID or create a new experiment if it doesn't exist.
+
+        Args:
+            experiment_name: Name of the experiment to get or create.
+
+        Returns:
+            The experiment ID.
+        """
+        try:
+            # The class that inherits from this mixin must implement the create_experiment method
+            return self.create_experiment(experiment_name)
+        except MlflowException as e:
+            from mlflow.protos.databricks_pb2 import ErrorCode
+
+            if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                experiment = self.get_experiment_by_name(experiment_name)
+                if experiment is not None:
+                    return experiment.experiment_id
+            raise
+
     def _get_cache_key(self, resource_type: str, resource_id: str) -> str:
         """Generate cache key for resource endpoint configs."""
         return f"{resource_type}:{resource_id}"
@@ -581,6 +602,10 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
+            if usage_tracking and experiment_id is None:
+                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
                 config.model_definition_id
@@ -705,6 +730,11 @@ class SqlAlchemyGatewayStoreMixin:
             # Handle usage_tracking update
             if usage_tracking is not None:
                 sql_endpoint.usage_tracking = usage_tracking
+
+            # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
+            if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
+                endpoint_name = name if name is not None else sql_endpoint.name
+                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
 
             if experiment_id is not None:
                 sql_endpoint.experiment_id = experiment_id
