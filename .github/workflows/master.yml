@@ -358,8 +358,8 @@ jobs:
           uv pip install -r requirements/test-requirements.txt
       - uses: ./.github/actions/show-versions
       - name: Run demo integration tests with profiling
-        env:
-          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+        # env:
+        #   MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           uv run --no-sync python -m cProfile -s cumulative -m pytest tests/demo/test_demo_integration.py -v 2>&1 | tee demo_profile.txt
           echo "=== Top 100 cumulative time functions ==="
