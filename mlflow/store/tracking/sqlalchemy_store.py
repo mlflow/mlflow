@@ -4259,7 +4259,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             )
 
                 if model_name:
-                    model_name = json.loads(model_name)
+                    try:
+                        # model name could be json-encoded string or plain string
+                        model_name = json.loads(model_name)
+                    except json.JSONDecodeError:
+                        pass
                     session.merge(
                         SqlSpanAttributes(
                             trace_id=span.trace_id,
