@@ -161,6 +161,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    **kwargs,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -216,21 +217,14 @@ def log_model(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -260,6 +254,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 
@@ -359,15 +354,7 @@ def save_model(
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -501,7 +488,9 @@ def save_model(
     extra_files_config = _copy_extra_files(extra_files, path)
 
     # update flavor info to mlflow_model
-    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_options, **extra_files_config)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, code=code_dir_subpath, **flavor_options, **extra_files_config
+    )
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(

@@ -137,15 +137,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
     """
     import prophet
 
@@ -249,6 +241,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    **kwargs,
 ):
     """
     Logs a Prophet model as an MLflow artifact for the current run.
@@ -289,21 +282,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -329,6 +315,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 

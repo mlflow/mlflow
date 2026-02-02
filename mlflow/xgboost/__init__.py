@@ -125,6 +125,7 @@ def save_model(
     model_format="ubj",
     metadata=None,
     extra_files=None,
+    **kwargs,
 ):
     """Save an XGBoost model to a path on the local file system.
 
@@ -143,15 +144,8 @@ def save_model(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import xgboost as xgb
 
@@ -179,7 +173,7 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save an XGBoost model
-    xgb_model.save_model(model_data_path)
+    xgb_model.save_model(model_data_path, **kwargs)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
 
     extra_files_config = _copy_extra_files(extra_files, path)
@@ -284,15 +278,7 @@ def log_model(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}

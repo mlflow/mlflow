@@ -53,11 +53,10 @@ def _copy_extra_files(extra_files, path):
 
     Example:
         >>> extra_files_config = _copy_extra_files(
-        ...     ["s3://bucket/file1.txt", "/local/file2.txt"],
-        ...     "/path/to/model"
+        ...     ["s3://bucket/f1.txt", "/local/f2.txt"], "/path/to/model"
         ... )
         >>> # extra_files_config will be:
-        >>> # {"extra_files": [{"path": "extra_files/file1.txt"}, {"path": "extra_files/file2.txt"}]}
+        >>> # {"extra_files": [{"path": "extra_files/f1.txt"}, {"path": "extra_files/f2.txt"}]}
     """
     if not extra_files:
         return {}

@@ -88,6 +88,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     extra_files=None,
+    **kwargs,
 ):
     """
     Save a paddle model to a path on the local file system. Produces an MLflow Model
@@ -111,15 +112,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example
@@ -220,9 +214,9 @@ def save_model(
     output_path = os.path.join(path, model_data_subpath)
 
     if isinstance(pd_model, paddle.Model):
-        pd_model.save(output_path, training=training)
+        pd_model.save(output_path, training=training, **kwargs)
     else:
-        paddle.jit.save(pd_model, output_path)
+        paddle.jit.save(pd_model, output_path, **kwargs)
 
     # `PyFuncModel` only works for paddle models that define `predict()`.
     pyfunc.add_to_model(
@@ -359,6 +353,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    **kwargs,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -387,21 +382,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: {{ kwargs }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -453,6 +441,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 

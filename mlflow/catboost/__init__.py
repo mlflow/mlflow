@@ -115,16 +115,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
-        kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+        extra_files: {{ extra_files }}
+        kwargs: kwargs to pass to `CatBoost.save_model` method.
 
     """
     import catboost as cb
@@ -255,15 +247,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}

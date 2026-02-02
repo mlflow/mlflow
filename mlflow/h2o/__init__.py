@@ -87,6 +87,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     extra_files=None,
+    **kwargs,
 ):
     """Save an H2O model to a path on the local file system.
 
@@ -102,15 +103,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import h2o
 
@@ -146,7 +140,9 @@ def save_model(
             "If your cluster is remote, H2O may not store the model correctly. "
             "Please upgrade H2O version to a newer version"
         )
-        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+        h2o_save_location = h2o.save_model(
+            model=h2o_model, path=model_data_path, force=True, **kwargs
+        )
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -249,15 +245,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}

@@ -221,15 +221,7 @@ def save_model(
         metadata: {{ metadata }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
 
     .. code-block:: python
         :caption: Example
@@ -404,6 +396,7 @@ def log_model(
     model_id: str | None = None,
     name: str | None = None,
     skops_trusted_types: list[str] | None = None,
+    **kwargs,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -440,15 +433,7 @@ def log_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -457,6 +442,7 @@ def log_model(
         name: {{ name }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -509,6 +495,7 @@ def log_model(
         step=step,
         model_id=model_id,
         skops_trusted_types=skops_trusted_types,
+        **kwargs,
     )
 
 

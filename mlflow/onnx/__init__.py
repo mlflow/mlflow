@@ -153,15 +153,7 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         kwargs: {{ kwargs }}
     """
     import onnx
@@ -188,9 +180,11 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data=save_as_external_data)
+        onnx.save_model(
+            onnx_model, model_data_path, save_as_external_data=save_as_external_data, **kwargs
+        )
     else:
-        onnx.save_model(onnx_model, model_data_path)
+        onnx.save_model(onnx_model, model_data_path, **kwargs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -537,15 +531,7 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}

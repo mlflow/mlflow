@@ -128,6 +128,7 @@ def save_model(
     conda_env=None,
     metadata: dict[str, Any] | None = None,
     extra_files=None,
+    **kwargs,
 ) -> None:
     """
     .. note::
@@ -167,15 +168,8 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import sentence_transformers
 
@@ -213,7 +207,7 @@ def save_model(
         mlflow_model.metadata = _verify_task_and_update_metadata(task, mlflow_model.metadata)
         model_config = {"task": _LLM_INFERENCE_TASK_EMBEDDING}
 
-    model.save(str(model_data_path))
+    model.save(str(model_data_path), **kwargs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -329,6 +323,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    **kwargs,
 ):
     """
     .. note::
@@ -395,15 +390,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -411,6 +398,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -437,6 +425,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 
