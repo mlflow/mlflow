@@ -79,7 +79,7 @@ def _skip_tracing():
 
 
 @contextlib.contextmanager
-def _force_sampler(sampling_ratio: float | None):
+def _force_sample(sampling_ratio: float | None):
     """Context manager to force the OTel sampler to sample when sampling_ratio is set."""
     if sampling_ratio is not None:
         token = _FORCE_SAMPLE.set(True)
@@ -257,22 +257,22 @@ def trace(
     return decorator(func) if func else decorator
 
 
-def _should_sample(sampling_ratio: float | None) -> bool:
-    """Determine if a new trace should be created based on the decorator-level sampling ratio."""
-    # If we're inside a trace that was explicitly not sampled, don't create any spans
+def _should_skip_sample(sampling_ratio: float | None) -> bool:
+    """Determine if a trace should be skipped based on the decorator-level sampling ratio."""
+    # If we're inside a trace that was explicitly not sampled, skip creating any spans
     if _TRACE_SAMPLING_SKIPPED.get():
-        return False
-
-    # If there's already an active parent span, always trace (follow parent's decision)
-    if get_current_active_span() is not None:
         return True
+
+    # If there's already an active parent span, don't skip (follow parent's decision)
+    if get_current_active_span() is not None:
+        return False
 
     # If no sampling_ratio is specified, defer to global sampler
     if sampling_ratio is None:
-        return True
+        return False
 
     # Apply decorator-level sampling
-    return random.random() < sampling_ratio
+    return random.random() >= sampling_ratio
 
 
 def _wrap_function(
@@ -328,19 +328,19 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio_override):
+            if _should_skip_sample(sampling_ratio_override):
                 with _skip_tracing():
                     return await fn(*args, **kwargs)
-            with _force_sampler(sampling_ratio_override):
+            with _force_sample(sampling_ratio_override):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
     else:
 
         def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio_override):
+            if _should_skip_sample(sampling_ratio_override):
                 with _skip_tracing():
                     return fn(*args, **kwargs)
-            with _force_sampler(sampling_ratio_override):
+            with _force_sample(sampling_ratio_override):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(fn(*args, **kwargs))
 
@@ -431,12 +431,12 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio_override):
+            if _should_skip_sample(sampling_ratio_override):
                 with _skip_tracing():
                     yield from fn(*args, **kwargs)
                 return
 
-            with _force_sampler(sampling_ratio_override):
+            with _force_sample(sampling_ratio_override):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
@@ -462,13 +462,13 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio_override):
+            if _should_skip_sample(sampling_ratio_override):
                 with _skip_tracing():
                     async for value in fn(*args, **kwargs):
                         yield value
                 return
 
-            with _force_sampler(sampling_ratio_override):
+            with _force_sample(sampling_ratio_override):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
