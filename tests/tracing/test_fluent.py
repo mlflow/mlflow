@@ -2576,9 +2576,6 @@ def test_search_sessions_include_spans_false():
     assert len(sessions[0][0].data.spans) == 0
 
 
-# Tests for decorator-level sampling_ratio parameter
-
-
 @pytest.mark.parametrize(
     ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
     [
@@ -2592,7 +2589,7 @@ def test_trace_decorator_sampling_ratio(
 ):
     trace_ids = []
 
-    @mlflow.trace(sampling_ratio=sampling_ratio)
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
     def traced_func():
         if trace_id := mlflow.get_active_trace_id():
             trace_ids.append(trace_id)
@@ -2617,13 +2614,13 @@ def test_trace_decorator_sampling_ratio_nested(
     outer_trace_ids = []
     inner_trace_ids = []
 
-    @mlflow.trace(sampling_ratio=outer_ratio)
+    @mlflow.trace(sampling_ratio_override=outer_ratio)
     def outer():
         if trace_id := mlflow.get_active_trace_id():
             outer_trace_ids.append(trace_id)
         return inner()
 
-    @mlflow.trace(sampling_ratio=inner_ratio)
+    @mlflow.trace(sampling_ratio_override=inner_ratio)
     def inner():
         if trace_id := mlflow.get_active_trace_id():
             inner_trace_ids.append(trace_id)
@@ -2642,7 +2639,7 @@ import mlflow
 
 trace_ids = []
 
-@mlflow.trace(sampling_ratio=1.0)  # Should override global 0.0
+@mlflow.trace(sampling_ratio_override=1.0)  # Should override global 0.0
 def always_traced():
     if trace_id := mlflow.get_active_trace_id():
         trace_ids.append(trace_id)
@@ -2669,7 +2666,7 @@ assert len(trace_ids) == 5
 def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expected_count: int):
     trace_ids = []
 
-    @mlflow.trace(sampling_ratio=sampling_ratio)
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
     def gen():
         if trace_id := mlflow.get_active_trace_id():
             trace_ids.append(trace_id)
