@@ -1,11 +1,11 @@
 import { useMemo, useCallback } from 'react';
-import { Alert, Button, FormUI, Switch, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
-import { ExperimentSelect } from '../shared/ExperimentSelect';
+import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -212,57 +212,20 @@ export const EndpointFormRenderer = ({
               <Controller
                 control={form.control}
                 name="usageTracking"
-                render={({ field }) => (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <Switch
-                        componentId={`${componentIdPrefix}.usage-tracking`}
-                        checked={field.value}
-                        onChange={(checked) => field.onChange(checked)}
-                      />
-                      <Typography.Text>
-                        <FormattedMessage
-                          defaultMessage="Enable usage tracking"
-                          description="Label for usage tracking toggle"
-                        />
-                      </Typography.Text>
-                    </div>
-                    <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                      <FormattedMessage
-                        defaultMessage="When enabled, traces from endpoint invocations will be logged for monitoring and analytics."
-                        description="Help text for usage tracking toggle"
-                      />
-                    </Typography.Text>
-
-                    {/* Experiment selector - only shown when usage tracking is enabled */}
-                    {field.value && (
-                      <Controller
-                        control={form.control}
-                        name="experimentId"
-                        render={({ field: experimentField }) => (
-                          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                            <FormUI.Label htmlFor={`${componentIdPrefix}.experiment-id`}>
-                              <FormattedMessage
-                                defaultMessage="Experiment"
-                                description="Label for experiment selector"
-                              />
-                            </FormUI.Label>
-                            <ExperimentSelect
-                              value={experimentField.value ?? ''}
-                              onChange={experimentField.onChange}
-                              componentIdPrefix={'mlflow.gateway.endpoint.experiment-id'}
-                            />
-                            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                              <FormattedMessage
-                                defaultMessage="Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'."
-                                description="Help text for experiment selector"
-                              />
-                            </Typography.Text>
-                          </div>
-                        )}
+                render={({ field: usageTrackingField }) => (
+                  <Controller
+                    control={form.control}
+                    name="experimentId"
+                    render={({ field: experimentIdField }) => (
+                      <UsageTrackingConfigurator
+                        value={usageTrackingField.value}
+                        onChange={usageTrackingField.onChange}
+                        experimentId={experimentIdField.value ?? ''}
+                        onExperimentIdChange={experimentIdField.onChange}
+                        componentIdPrefix={`${componentIdPrefix}.usage-tracking`}
                       />
                     )}
-                  </div>
+                  />
                 )}
               />
             </LongFormSection>

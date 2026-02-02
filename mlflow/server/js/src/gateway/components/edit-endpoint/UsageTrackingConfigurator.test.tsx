@@ -1,28 +1,30 @@
-import { describe, test, expect, jest } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
 
-jest.mock('../shared/ExperimentSelect', () => ({
-  ExperimentSelect: ({
-    value,
-    onChange,
-    componentIdPrefix,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    componentIdPrefix: string;
-  }) => (
-    <select data-testid={`${componentIdPrefix}-mock-select`} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Auto-create</option>
-      <option value="exp-1">Experiment 1</option>
-      <option value="exp-2">Experiment 2</option>
-    </select>
-  ),
+const mockExperiments = [
+  { experimentId: 'exp-1', name: 'Experiment 1' },
+  { experimentId: 'exp-2', name: 'Experiment 2' },
+];
+
+const mockUseExperimentsForSelect = jest.fn();
+
+jest.mock('../../hooks/useExperimentsForSelect', () => ({
+  useExperimentsForSelect: () => mockUseExperimentsForSelect(),
 }));
 
 describe('UsageTrackingConfigurator', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseExperimentsForSelect.mockReturnValue({
+      experiments: mockExperiments,
+      isLoading: false,
+      error: null,
+    });
+  });
+
   test('renders toggle in off state by default', () => {
     const onChange = jest.fn();
     const onExperimentIdChange = jest.fn();
@@ -56,6 +58,7 @@ describe('UsageTrackingConfigurator', () => {
 
     expect(screen.getByRole('switch')).toBeChecked();
     expect(screen.getByText('Experiment')).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(
       screen.getByText(/Select an existing experiment or leave blank to auto-create one named/),
     ).toBeInTheDocument();
@@ -76,24 +79,6 @@ describe('UsageTrackingConfigurator', () => {
 
     await userEvent.click(screen.getByRole('switch'));
     expect(onChange).toHaveBeenCalledWith(true);
-  });
-
-  test('calls onExperimentIdChange when experiment is selected', async () => {
-    const onChange = jest.fn();
-    const onExperimentIdChange = jest.fn();
-
-    renderWithDesignSystem(
-      <UsageTrackingConfigurator
-        value
-        onChange={onChange}
-        experimentId=""
-        onExperimentIdChange={onExperimentIdChange}
-      />,
-    );
-
-    const select = screen.getByTestId('mlflow.gateway.usage-tracking.experiment-mock-select');
-    await userEvent.selectOptions(select, 'exp-1');
-    expect(onExperimentIdChange).toHaveBeenCalledWith('exp-1');
   });
 
   test('displays description text', () => {

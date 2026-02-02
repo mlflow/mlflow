@@ -254,10 +254,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               }
             : undefined;
 
-        // For experiment_id:
-        // - If usage tracking is enabled, always send the experiment_id value
-        //   (empty string means "auto-create new experiment")
-        // - If usage tracking is disabled, don't send experiment_id
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
           name: values.name || undefined,
