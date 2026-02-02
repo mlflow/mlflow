@@ -43,6 +43,7 @@ def _distill_goal_and_persona(
     model: str,
 ) -> dict[str, str] | None:
     from mlflow.entities.session import Session
+    from mlflow.types.llm import ChatMessage
 
     traces = session.traces if isinstance(session, Session) else session
     messages = resolve_conversation_from_session(traces)
@@ -50,8 +51,6 @@ def _distill_goal_and_persona(
         return None
 
     prompt = DISTILL_GOAL_AND_PERSONA_PROMPT.format(conversation=format_history(messages))
-
-    from mlflow.types.llm import ChatMessage
 
     try:
         response = invoke_model_without_tracing(
