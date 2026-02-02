@@ -153,7 +153,19 @@ const RunJudgeModalImpl = ({
         componentId="mlflow.experiment-scorers.traces-view-judge-select-modal"
         visible
         onCancel={onClose}
-        title={<FormattedMessage defaultMessage="Run judge on trace" description="Title for run judge modal" />}
+        title={
+          scope === ScorerEvaluationScope.SESSIONS ? (
+            <FormattedMessage
+              defaultMessage="Run judge on session"
+              description="Title for run judge modal in sessions view"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Run judge on trace"
+              description="Title for run judge modal in traces view"
+            />
+          )
+        }
         cancelText={intl.formatMessage({
           defaultMessage: 'Cancel',
           description: 'Button text for canceling a judge run',
@@ -257,6 +269,7 @@ const RunJudgeModalImpl = ({
                 template={template}
                 key={template.value}
                 onClick={() => setSelectedJudge(template.value)}
+                scope={scope}
               />
             ))}
         </div>
@@ -329,6 +342,7 @@ const TemplateOption = ({
   template,
   onClick,
   selected,
+  scope,
 }: {
   template: {
     value: LLM_TEMPLATE;
@@ -337,6 +351,7 @@ const TemplateOption = ({
   };
   onClick: (template: LLM_TEMPLATE) => void;
   selected: boolean;
+  scope: ScorerEvaluationScope;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -350,11 +365,17 @@ const TemplateOption = ({
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>
-            {/* TODO: Add session level judges */}
-            <FormattedMessage
-              defaultMessage="Pre-built LLM-as-a-judge | Trace level"
-              description="Label indicating a pre-built LLM-as-a-judge template"
-            />
+            {scope === ScorerEvaluationScope.SESSIONS ? (
+              <FormattedMessage
+                defaultMessage="Pre-built LLM-as-a-judge | Session level"
+                description="Label indicating a pre-built session-level LLM-as-a-judge template"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Pre-built LLM-as-a-judge | Trace level"
+                description="Label indicating a pre-built trace-level LLM-as-a-judge template"
+              />
+            )}
           </Typography.Hint>
         </div>
       </Radio>
