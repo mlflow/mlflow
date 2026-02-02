@@ -50,24 +50,11 @@ def mock_databricks_environment():
 
 
 @pytest.fixture
-def tracking_uri(tmp_path):
+def client(db_uri):
     original_tracking_uri = mlflow.get_tracking_uri()
-
-    path = tmp_path.joinpath("mlflow.db").as_uri()
-    tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-        len("file://") :
-    ]
-
-    mlflow.set_tracking_uri(tracking_uri)
-
-    yield tracking_uri
-
+    mlflow.set_tracking_uri(db_uri)
+    yield MlflowClient(tracking_uri=db_uri)
     mlflow.set_tracking_uri(original_tracking_uri)
-
-
-@pytest.fixture
-def client(tracking_uri):
-    return MlflowClient(tracking_uri=tracking_uri)
 
 
 @pytest.fixture
@@ -231,7 +218,7 @@ def test_get_dataset_by_name_oss(experiments):
     assert retrieved.tags["test"] == "get_by_name"
 
 
-def test_get_dataset_by_name_not_found(tracking_uri):
+def test_get_dataset_by_name_not_found(client):
     with pytest.raises(MlflowException, match="Dataset with name 'nonexistent_dataset' not found"):
         get_dataset(name="nonexistent_dataset")
 
@@ -260,7 +247,7 @@ def test_get_dataset_both_name_and_id_error(experiments):
         get_dataset(name="test_dataset_both", dataset_id=dataset.dataset_id)
 
 
-def test_get_dataset_neither_name_nor_id_error(tracking_uri):
+def test_get_dataset_neither_name_nor_id_error(client):
     with pytest.raises(ValueError, match="Either 'name' or 'dataset_id' must be provided"):
         get_dataset()
 
@@ -660,7 +647,7 @@ def test_create_and_get_dataset(experiments):
     assert set(retrieved.experiment_ids) == {experiments[0], experiments[1]}
 
 
-def test_create_dataset_minimal_params(tracking_uri):
+def test_create_dataset_minimal_params(client):
     dataset = create_dataset(name="minimal_dataset")
 
     assert dataset.name == "minimal_dataset"
@@ -1803,7 +1790,7 @@ def test_deprecated_parameter_substitution(experiment):
     delete_dataset(dataset_id=dataset.dataset_id)
 
 
-def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
+def test_create_dataset_uses_active_experiment_when_not_specified(client):
     exp_id = mlflow.create_experiment("test_active_experiment")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -1816,7 +1803,7 @@ def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_create_dataset_with_no_active_experiment(tracking_uri):
+def test_create_dataset_with_no_active_experiment(client):
     from mlflow.tracking import fluent
 
     fluent._active_experiment_id = None
@@ -1826,7 +1813,7 @@ def test_create_dataset_with_no_active_experiment(tracking_uri):
     assert dataset.experiment_ids == ["0"]
 
 
-def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+def test_create_dataset_explicit_overrides_active_experiment(client):
     active_exp = mlflow.create_experiment("active_exp")
     explicit_exp = mlflow.create_experiment("explicit_exp")
 
@@ -1841,7 +1828,7 @@ def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_create_dataset_none_uses_active_experiment(tracking_uri):
+def test_create_dataset_none_uses_active_experiment(client):
     exp_id = mlflow.create_experiment("test_none_experiment")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -2010,7 +1997,7 @@ def test_trace_source_type_detection():
     delete_dataset(dataset_id=dataset3.dataset_id)
 
 
-def test_create_dataset_empty_list_stays_empty(tracking_uri):
+def test_create_dataset_empty_list_stays_empty(client):
     exp_id = mlflow.create_experiment("test_empty_list")
     mlflow.set_experiment(experiment_id=exp_id)
 
@@ -2023,7 +2010,7 @@ def test_create_dataset_empty_list_stays_empty(tracking_uri):
     fluent._active_experiment_id = None
 
 
-def test_search_datasets_filter_string_edge_cases(tracking_uri):
+def test_search_datasets_filter_string_edge_cases(client):
     exp_id = mlflow.create_experiment("test_filter_edge_cases")
 
     dataset = create_dataset(name="test_dataset", experiment_id=exp_id, tags={"test": "value"})
