@@ -562,7 +562,17 @@ class AmazonBedrockProvider(BaseProvider):
         #     raise HTTPException(status_code=422, detail=str(e)) from e
 
         except botocore.exceptions.ReadTimeoutError as e:
-            raise AIGatewayException(status_code=408) from e
+            raise AIGatewayException(
+                status_code=408,
+                detail="Bedrock invoke_model request timed out",
+            ) from e
+        except botocore.exceptions.ClientError as e:
+            response = getattr(e, "response", {}) or {}
+            status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 500)
+            raise AIGatewayException(
+                status_code=status_code,
+                detail=f"Bedrock invoke_model request failed: {e}",
+            ) from e
 
     def _converse_request(self, **kwargs):
         """
@@ -573,7 +583,17 @@ class AmazonBedrockProvider(BaseProvider):
         try:
             return self.get_bedrock_client().converse(modelId=self.config.model.name, **kwargs)
         except botocore.exceptions.ReadTimeoutError as e:
-            raise AIGatewayException(status_code=408) from e
+            raise AIGatewayException(
+                status_code=408,
+                detail="Bedrock converse request timed out",
+            ) from e
+        except botocore.exceptions.ClientError as e:
+            response = getattr(e, "response", {}) or {}
+            status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 500)
+            raise AIGatewayException(
+                status_code=status_code,
+                detail=f"Bedrock converse request failed: {e}",
+            ) from e
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -630,14 +650,23 @@ class AmazonBedrockProvider(BaseProvider):
         # Transform to Converse API format (same as non-streaming)
         converse_payload = ConverseAdapter.chat_streaming_to_model(payload, self.config)
 
+        import botocore.exceptions
+
         # Make streaming request
         try:
             response = self.get_bedrock_client().converse_stream(
                 modelId=self.config.model.name, **converse_payload
             )
-        except Exception as e:
+        except botocore.exceptions.ReadTimeoutError as e:
             raise AIGatewayException(
-                status_code=500,
+                status_code=408,
+                detail="Bedrock converse_stream request timed out",
+            ) from e
+        except botocore.exceptions.ClientError as e:
+            response = getattr(e, "response", {}) or {}
+            status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 500)
+            raise AIGatewayException(
+                status_code=status_code,
                 detail=f"Bedrock converse_stream request failed: {e}",
             ) from e
 
