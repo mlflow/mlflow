@@ -10,14 +10,13 @@ Reference:
 - https://github.com/livekit/agents
 """
 
-import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
-from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 
 
-class LiveKitTranslator(OtelSchemaTranslator):
+class LiveKitTranslator(GenAiTranslator):
     """
     Translator for LiveKit Agents semantic conventions.
 
@@ -31,8 +30,12 @@ class LiveKitTranslator(OtelSchemaTranslator):
 
     This translator maps LiveKit's span attributes to MLflow's span types
     and extracts relevant metadata for visualization.
+
+    Inherits from GenAiTranslator since LiveKit uses GenAI semantic conventions
+    for token usage and event-based message extraction.
     """
 
+    # LiveKit-specific input/output attribute keys (in addition to GenAI semconv)
     INPUT_VALUE_KEYS = [
         "lk.user_input",
         "lk.user_transcript",
@@ -44,16 +47,6 @@ class LiveKitTranslator(OtelSchemaTranslator):
         "lk.response.function_calls",
     ]
 
-    INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
-    OUTPUT_TOKEN_KEY = "gen_ai.usage.output_tokens"
-
-    SPAN_KIND_ATTRIBUTE_KEYS = ["gen_ai.operation.name"]
-    SPAN_KIND_TO_MLFLOW_TYPE = {
-        "chat": SpanType.CHAT_MODEL,
-        "text_completion": SpanType.LLM,
-        "generate_content": SpanType.LLM,
-    }
-
     # LiveKit-specific attribute keys for detection
     DETECTION_KEYS = [
         "lk.agent_name",
@@ -64,15 +57,6 @@ class LiveKitTranslator(OtelSchemaTranslator):
 
     # Message format for chat UI rendering
     MESSAGE_FORMAT = "livekit"
-
-    def _decode_json_value(self, value: Any) -> Any:
-        """Decode JSON-serialized string values."""
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return value
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -130,105 +114,3 @@ class LiveKitTranslator(OtelSchemaTranslator):
             return self.MESSAGE_FORMAT
 
         return None
-
-    def get_input_tokens(self, attributes: dict[str, Any]) -> int | None:
-        """
-        Get input token count from LiveKit spans.
-
-        LiveKit uses standard GenAI semantic conventions for token usage.
-
-        Args:
-            attributes: Dictionary of span attributes
-
-        Returns:
-            Input token count or None if not found
-        """
-        if value := attributes.get(self.INPUT_TOKEN_KEY):
-            return int(value)
-        return None
-
-    def get_output_tokens(self, attributes: dict[str, Any]) -> int | None:
-        """
-        Get output token count from LiveKit spans.
-
-        LiveKit uses standard GenAI semantic conventions for token usage.
-
-        Args:
-            attributes: Dictionary of span attributes
-
-        Returns:
-            Output token count or None if not found
-        """
-        if value := attributes.get(self.OUTPUT_TOKEN_KEY):
-            return int(value)
-        return None
-
-    def get_input_value_from_events(self, events: list[dict[str, Any]]) -> Any:
-        """
-        Get input value from LiveKit/GenAI events.
-
-        LiveKit uses GenAI semantic convention events for LLM messages:
-        - gen_ai.system.message (EVENT_GEN_AI_SYSTEM_MESSAGE)
-        - gen_ai.user.message (EVENT_GEN_AI_USER_MESSAGE)
-        - gen_ai.assistant.message (EVENT_GEN_AI_ASSISTANT_MESSAGE)
-
-        Args:
-            events: List of span events
-
-        Returns:
-            JSON-serialized list of input messages or None if not found
-        """
-        messages = []
-
-        for event in events:
-            event_name = event.get("name", "")
-            event_attrs = event.get("attributes", {})
-
-            if event_name == "gen_ai.system.message":
-                if content := event_attrs.get("content"):
-                    messages.append({"role": "system", "content": self._decode_json_value(content)})
-
-            elif event_name == "gen_ai.user.message":
-                if content := event_attrs.get("content"):
-                    messages.append({"role": "user", "content": self._decode_json_value(content)})
-
-            elif event_name == "gen_ai.assistant.message":
-                if content := event_attrs.get("content"):
-                    messages.append(
-                        {"role": "assistant", "content": self._decode_json_value(content)}
-                    )
-
-        # Return JSON string for proper storage
-        return json.dumps(messages) if messages else None
-
-    def get_output_value_from_events(self, events: list[dict[str, Any]]) -> Any:
-        """
-        Get output value from LiveKit/GenAI events.
-
-        LiveKit uses GenAI semantic convention events for LLM responses:
-        - gen_ai.choice (EVENT_GEN_AI_CHOICE)
-
-        Args:
-            events: List of span events
-
-        Returns:
-            JSON-serialized list of output messages or None if not found
-        """
-        messages = []
-
-        for event in events:
-            event_name = event.get("name", "")
-            event_attrs = event.get("attributes", {})
-
-            if event_name == "gen_ai.choice":
-                if content := event_attrs.get("content"):
-                    role = event_attrs.get("role", "assistant")
-                    messages.append(
-                        {
-                            "role": self._decode_json_value(role),
-                            "content": self._decode_json_value(content),
-                        }
-                    )
-
-        # Return JSON string for proper storage
-        return json.dumps(messages) if messages else None

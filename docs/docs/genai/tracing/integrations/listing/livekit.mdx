@@ -3,7 +3,11 @@ sidebar_position: 6
 sidebar_label: LiveKit Agents
 ---
 
+import { Users, BookOpen, Scale } from "lucide-react";
+
 import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
 
 # Tracing LiveKit Agents
 
@@ -56,6 +60,16 @@ export LIVEKIT_API_SECRET=your-api-secret
 # LLM provider
 export OPENAI_API_KEY=your-openai-api-key
 ```
+
+:::note About `x-mlflow-experiment-id`
+The `x-mlflow-experiment-id` header tells MLflow which experiment to associate the traces with. You can use `0` for the default experiment, or specify a custom experiment ID. To create a new experiment and get its ID, run:
+
+```bash
+mlflow experiments create --experiment-name "my-livekit-experiment"
+```
+
+This will output the experiment ID which you can use in the header.
+:::
 
 :::tip Free LiveKit Cloud Account
 [LiveKit Cloud](https://cloud.livekit.io) offers a free tier with no credit card required. Sign up to get your `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`.
@@ -260,7 +274,7 @@ if __name__ == "__main__":
 Run with:
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000
 export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
 export OPENAI_API_KEY=your-key
 
@@ -292,6 +306,29 @@ Ensure you're using the latest version of `livekit-agents`. The GenAI events (`g
 
 ## Next Steps
 
-- [Evaluate the Agent](/genai/eval-monitor/running-evaluation/agents): Learn how to evaluate the agent's performance.
-- [Manage Prompts](/genai/prompt-registry): Learn how to manage prompts for the agent.
-- [Automatic Agent Optimization](/genai/prompt-registry/optimize-prompts): Learn how to automatically optimize the agent end-to-end with state-of-the-art optimization algorithms.
+<TilesGrid>
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate the Agent"
+    description="Learn how to evaluate the agent's performance with LLM judges."
+    href="/genai/eval-monitor/running-evaluation/agents"
+    linkText="Evaluate agents →"
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+  />
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Automatic Agent Optimization"
+    description="Automatically optimize the agent end-to-end with state-of-the-art algorithms."
+    href="/genai/prompt-registry/optimize-prompts"
+    linkText="Optimize prompts →"
+  />
+</TilesGrid>
