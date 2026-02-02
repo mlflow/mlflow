@@ -770,6 +770,10 @@
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
   },
+  "4Bl01p": {
+    "defaultMessage": "Click to expand session and see individual trace details",
+    "description": "Tooltip for pass/fail aggregated cell in session header"
+  },
   "4CNVbz": {
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
