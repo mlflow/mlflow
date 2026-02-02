@@ -50,6 +50,8 @@ export interface EditEndpointFormData {
   name: string;
   trafficSplitModels: TrafficSplitModel[];
   fallbackModels: FallbackModel[];
+  usageTracking: boolean;
+  experimentId: string;
 }
 
 export interface UseEditEndpointFormResult {
@@ -79,6 +81,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       name: '',
       trafficSplitModels: [],
       fallbackModels: [],
+      usageTracking: false,
+      experimentId: '',
     },
   });
 
@@ -122,6 +126,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
             },
             fallbackOrder: idx + 1,
           })),
+        usageTracking: endpoint.usage_tracking ?? false,
+        experimentId: endpoint.experiment_id ?? '',
       });
     }
   }, [endpoint, form]);
@@ -254,6 +260,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           model_configs: modelConfigs,
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
+          usage_tracking: values.usageTracking,
+          experiment_id: values.usageTracking ? values.experimentId || undefined : undefined,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
@@ -317,12 +325,20 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
+  const usageTracking = form.watch('usageTracking');
+  const experimentId = form.watch('experimentId');
 
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
     if (name !== originalName) return true;
+
+    const originalUsageTracking = endpoint.usage_tracking ?? false;
+    if (usageTracking !== originalUsageTracking) return true;
+
+    const originalExperimentId = endpoint.experiment_id ?? '';
+    if (experimentId !== originalExperimentId) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -389,7 +405,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, usageTracking, experimentId, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 

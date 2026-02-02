@@ -16,6 +16,7 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
+import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 import { EditableEndpointName } from './EditableEndpointName';
 import type { Endpoint } from '../../types';
@@ -27,7 +28,6 @@ export interface EditEndpointFormRendererProps {
   loadError: Error | null;
   mutationError: Error | null;
   errorMessage: string | null;
-  experimentId: string | undefined;
   endpoint: Endpoint | undefined;
   existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
@@ -44,7 +44,6 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
-  experimentId,
   endpoint,
   existingEndpoints,
   isFormComplete,
@@ -59,6 +58,7 @@ export const EditEndpointFormRenderer = ({
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
+  const experimentId = form.watch('experimentId');
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -218,21 +218,36 @@ export const EditEndpointFormRenderer = ({
               css={{
                 flex: 1,
                 padding: theme.spacing.md,
-                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                border: `1px solid ${theme.colors.border}`,
                 borderRadius: theme.borders.borderRadiusMd,
-                backgroundColor: theme.colors.backgroundPrimary,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
+                backgroundColor: theme.colors.backgroundSecondary,
               }}
             >
-              <Typography.Text bold>
+              <Typography.Title level={3}>
                 <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-              </Typography.Text>
+              </Typography.Title>
+
+              <div css={{ marginTop: theme.spacing.md }}>
+                <Controller
+                  control={form.control}
+                  name="usageTracking"
+                  render={({ field: usageTrackingField }) => (
+                    <Controller
+                      control={form.control}
+                      name="experimentId"
+                      render={({ field: experimentIdField }) => (
+                        <UsageTrackingConfigurator
+                          value={usageTrackingField.value}
+                          onChange={usageTrackingField.onChange}
+                          experimentId={experimentIdField.value}
+                          onExperimentIdChange={experimentIdField.onChange}
+                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </div>
             </div>
 
             <div
@@ -245,6 +260,7 @@ export const EditEndpointFormRenderer = ({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
                 textAlign: 'center',
               }}
             >

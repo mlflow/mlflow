@@ -176,6 +176,8 @@ export interface UpdateEndpointRequest {
     max_attempts: number;
   };
   model_configs?: GatewayEndpointModelConfig[];
+  usage_tracking?: boolean;
+  experiment_id?: string;
 }
 
 export interface UpdateEndpointResponse {
