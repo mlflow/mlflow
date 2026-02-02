@@ -10,13 +10,7 @@ interface ExperimentSelectProps {
   componentIdPrefix: string;
 }
 
-export const ExperimentSelect = ({
-  value,
-  onChange,
-  disabled,
-  error,
-  componentIdPrefix,
-}: ExperimentSelectProps) => {
+export const ExperimentSelect = ({ value, onChange, disabled, error, componentIdPrefix }: ExperimentSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experiments, isLoading, error: queryError } = useExperimentsForSelect();

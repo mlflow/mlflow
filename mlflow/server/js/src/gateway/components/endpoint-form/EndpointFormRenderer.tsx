@@ -250,7 +250,7 @@ export const EndpointFormRenderer = ({
                             <ExperimentSelect
                               value={experimentField.value ?? ''}
                               onChange={experimentField.onChange}
-                              componentIdPrefix={"mlflow.gateway.endpoint.experiment-id"}
+                              componentIdPrefix={'mlflow.gateway.endpoint.experiment-id'}
                             />
                             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                               <FormattedMessage

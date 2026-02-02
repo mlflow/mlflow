@@ -14,11 +14,7 @@ jest.mock('../shared/ExperimentSelect', () => ({
     onChange: (value: string) => void;
     componentIdPrefix: string;
   }) => (
-    <select
-      data-testid={`${componentIdPrefix}-mock-select`}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
+    <select data-testid={`${componentIdPrefix}-mock-select`} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Auto-create</option>
       <option value="exp-1">Experiment 1</option>
       <option value="exp-2">Experiment 2</option>
@@ -113,8 +109,6 @@ describe('UsageTrackingConfigurator', () => {
       />,
     );
 
-    expect(
-      screen.getByText(/all requests to this endpoint will be logged as traces/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/all requests to this endpoint will be logged as traces/)).toBeInTheDocument();
   });
 });
