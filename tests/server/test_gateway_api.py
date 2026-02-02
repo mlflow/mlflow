@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -5,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+from mlflow.gateway.providers.tracing import TracingProviderWrapper
 
 import mlflow
 from mlflow.entities import (
@@ -14,6 +16,7 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     RoutingStrategy,
 )
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     EndpointType,
@@ -24,7 +27,10 @@ from mlflow.gateway.config import (
     OpenAIConfig,
 )
 from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.base import FallbackProvider, TrafficRouteProvider
+from mlflow.gateway.providers.base import (
+    FallbackProvider,
+    TrafficRouteProvider,
+)
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -44,10 +50,23 @@ from mlflow.server.gateway_api import (
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 
 pytestmark = pytest.mark.notrackingurimock
 
 TEST_PASSPHRASE = "test-passphrase-for-gateway-api-tests"
+
+
+def unwrap_provider(provider):
+    """
+    Unwrap a provider from TracingProviderWrapper if present.
+
+    Returns the underlying provider for type checking in tests.
+    """
+    if isinstance(provider, TracingProviderWrapper):
+        return provider.wrapped_provider
+    return provider
 
 
 @pytest.fixture(autouse=True)
@@ -88,11 +107,16 @@ def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, OpenAIProvider)
-    assert isinstance(provider.config.model.config, OpenAIConfig)
-    assert provider.config.model.config.openai_api_key == "sk-test-123"
+    # Provider is wrapped with TracingProviderWrapper for automatic instrumentation
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, OpenAIProvider)
+    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
+    assert unwrapped.config.model.config.openai_api_key == "sk-test-123"
 
 
 def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore):
@@ -124,15 +148,19 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, OpenAIProvider)
-    assert isinstance(provider.config.model.config, OpenAIConfig)
-    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
-    assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert provider.config.model.config.openai_deployment_name == "gpt-4"
-    assert provider.config.model.config.openai_api_version == "2024-02-01"
-    assert provider.config.model.config.openai_api_key == "azure-api-key-test"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, OpenAIProvider)
+    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
+    assert unwrapped.config.model.config.openai_api_type == OpenAIAPIType.AZURE
+    assert unwrapped.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
+    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4"
+    assert unwrapped.config.model.config.openai_api_version == "2024-02-01"
+    assert unwrapped.config.model.config.openai_api_key == "azure-api-key-test"
 
 
 def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: SqlAlchemyStore):
@@ -165,15 +193,21 @@ def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: Sql
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, OpenAIProvider)
-    assert isinstance(provider.config.model.config, OpenAIConfig)
-    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
-    assert provider.config.model.config.openai_api_base == "https://my-resource-ad.openai.azure.com"
-    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment-ad"
-    assert provider.config.model.config.openai_api_version == "2024-02-01"
-    assert provider.config.model.config.openai_api_key == "azuread-api-key-test"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, OpenAIProvider)
+    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
+    assert unwrapped.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
+    assert (
+        unwrapped.config.model.config.openai_api_base == "https://my-resource-ad.openai.azure.com"
+    )
+    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4-deployment-ad"
+    assert unwrapped.config.model.config.openai_api_version == "2024-02-01"
+    assert unwrapped.config.model.config.openai_api_key == "azuread-api-key-test"
 
 
 def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
@@ -199,10 +233,14 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, AnthropicProvider)
-    assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, AnthropicProvider)
+    assert unwrapped.config.model.config.anthropic_api_key == "sk-ant-test"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -229,11 +267,15 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, MistralProvider)
-    assert isinstance(provider.config.model.config, MistralConfig)
-    assert provider.config.model.config.mistral_api_key == "mistral-test-key"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, MistralProvider)
+    assert isinstance(unwrapped.config.model.config, MistralConfig)
+    assert unwrapped.config.model.config.mistral_api_key == "mistral-test-key"
 
 
 def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
@@ -260,11 +302,15 @@ def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, GeminiProvider)
-    assert isinstance(provider.config.model.config, GeminiConfig)
-    assert provider.config.model.config.gemini_api_key == "gemini-test-key"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, GeminiProvider)
+    assert isinstance(unwrapped.config.model.config, GeminiConfig)
+    assert unwrapped.config.model.config.gemini_api_key == "gemini-test-key"
 
 
 def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
@@ -290,12 +336,18 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, LiteLLMProvider)
-    assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
-    assert provider.config.model.config.litellm_provider == "litellm"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, LiteLLMProvider)
+    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
+    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
+    assert unwrapped.config.model.config.litellm_provider == "litellm"
+    # get_provider_name() returns the actual provider name for tracing/metrics
+    assert unwrapped.get_provider_name() == "litellm"
 
 
 def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlchemyStore):
@@ -322,16 +374,20 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, LiteLLMProvider)
-    assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, LiteLLMProvider)
+    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
+    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
     assert (
-        provider.config.model.config.litellm_auth_config["api_base"]
+        unwrapped.config.model.config.litellm_auth_config["api_base"]
         == "https://custom-api.example.com"
     )
-    assert provider.config.model.config.litellm_provider == "litellm"
+    assert unwrapped.config.model.config.litellm_provider == "litellm"
 
 
 @pytest.mark.parametrize(
@@ -367,16 +423,22 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, LiteLLMProvider)
-    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, LiteLLMProvider)
+    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
     # Verify the base URL was normalized to include /serving-endpoints
     assert (
-        provider.config.model.config.litellm_auth_config["api_base"]
+        unwrapped.config.model.config.litellm_auth_config["api_base"]
         == "https://my-workspace.databricks.com/serving-endpoints"
     )
-    assert provider.config.model.config.litellm_provider == "databricks"
+    assert unwrapped.config.model.config.litellm_provider == "databricks"
+    # get_provider_name() returns "databricks" (the actual provider) instead of "LiteLLM"
+    assert unwrapped.get_provider_name() == "databricks"
 
 
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
@@ -441,7 +503,10 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         # Call the handler
         response = await invocations(endpoint.name, mock_request)
@@ -495,7 +560,10 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_provider.embeddings = AsyncMock(return_value=mock_response)
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         # Call the handler
         response = await invocations(endpoint.name, mock_request)
@@ -578,7 +646,10 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
         "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         with pytest.raises(
             HTTPException, match="Invalid request: payload format must be either chat or embeddings"
@@ -625,7 +696,10 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
         "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         with pytest.raises(HTTPException, match="Invalid chat payload") as exc_info:
             await invocations(endpoint.name, mock_request)
@@ -669,7 +743,10 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
         "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         with pytest.raises(HTTPException, match="Invalid embeddings payload") as exc_info:
             await invocations(endpoint.name, mock_request)
@@ -710,27 +787,30 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         }
     )
 
-    # Mock streaming response
-    mock_streaming_response = MagicMock()
+    # Mock streaming response - _make_traced_streaming_response returns a StreamingResponse
+    mock_streaming_response = StreamingResponse(iter([]), media_type="text/event-stream")
 
     with (
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
         patch(
-            "mlflow.server.gateway_api.make_streaming_response",
+            "mlflow.server.gateway_api._make_traced_streaming_response",
             return_value=mock_streaming_response,
-        ) as mock_make_streaming,
+        ) as mock_traced_streaming,
     ):
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value="mock_stream")
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         response = await invocations(endpoint.name, mock_request)
 
         # Verify streaming was called
         assert mock_provider.chat_stream.called
-        assert mock_make_streaming.called
+        assert mock_traced_streaming.called
         assert response == mock_streaming_response
 
 
@@ -831,7 +911,10 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id="test-endpoint-id", endpoint_name="my-chat-endpoint", models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         # Call the handler
         response = await chat_completions(mock_request)
@@ -876,27 +959,30 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         }
     )
 
-    # Mock streaming response
-    mock_streaming_response = MagicMock()
+    # Mock streaming response - _make_traced_streaming_response returns a StreamingResponse
+    mock_streaming_response = StreamingResponse(iter([]), media_type="text/event-stream")
 
     with (
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
         patch(
-            "mlflow.server.gateway_api.make_streaming_response",
+            "mlflow.server.gateway_api._make_traced_streaming_response",
             return_value=mock_streaming_response,
-        ) as mock_make_streaming,
+        ) as mock_traced_streaming,
     ):
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value="mock_stream")
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id="test-endpoint-id", endpoint_name="stream-endpoint", models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         response = await chat_completions(mock_request)
 
         # Verify streaming was called
         assert mock_provider.chat_stream.called
-        assert mock_make_streaming.called
+        assert mock_traced_streaming.called
         assert response == mock_streaming_response
 
 
@@ -918,6 +1004,29 @@ async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlche
 
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore):
+    # Create test endpoint first so we can test payload validation
+    secret = store.create_gateway_secret(
+        secret_name="chat-missing-msg-key",
+        secret_value={"api_key": "sk-test-key"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gpt-missing-msg-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    store.create_gateway_endpoint(
+        name="my-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
     # Create request without messages
     mock_request = MagicMock()
     mock_request.json = AsyncMock(
@@ -1599,12 +1708,18 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
         ),
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
+    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 2
-    assert isinstance(provider._providers[0], TrafficRouteProvider)
-    assert isinstance(provider._providers[1], OpenAIProvider)
+    # Each provider inside FallbackProvider is wrapped with TracingProviderWrapper
+    assert isinstance(provider._providers[0], TracingProviderWrapper)
+    assert isinstance(provider._providers[1], TracingProviderWrapper)
+    assert isinstance(unwrap_provider(provider._providers[0]), TrafficRouteProvider)
+    assert isinstance(unwrap_provider(provider._providers[1]), OpenAIProvider)
     assert provider._max_attempts == 2
 
 
@@ -1666,15 +1781,24 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
         ),
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
+    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
-    assert isinstance(provider._providers[0], TrafficRouteProvider)
-    assert isinstance(provider._providers[0]._providers[0], OpenAIProvider)
-    assert isinstance(provider._providers[0]._providers[1], AnthropicProvider)
-    assert isinstance(provider._providers[1], OpenAIProvider)
-    assert isinstance(provider._providers[2], AnthropicProvider)
+    # Each provider inside FallbackProvider is wrapped with TracingProviderWrapper
+    assert isinstance(provider._providers[0], TracingProviderWrapper)
+    assert isinstance(provider._providers[1], TracingProviderWrapper)
+    assert isinstance(provider._providers[2], TracingProviderWrapper)
+    # Unwrap to check the actual providers
+    primary = unwrap_provider(provider._providers[0])
+    assert isinstance(primary, TrafficRouteProvider)
+    assert isinstance(primary._providers[0], OpenAIProvider)
+    assert isinstance(primary._providers[1], AnthropicProvider)
+    assert isinstance(unwrap_provider(provider._providers[1]), OpenAIProvider)
+    assert isinstance(unwrap_provider(provider._providers[2]), AnthropicProvider)
     assert provider._max_attempts == 3
 
 
@@ -1712,8 +1836,11 @@ def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlche
         ),
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
+    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert provider._max_attempts == 2
 
@@ -1776,8 +1903,11 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
         ),
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
+    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
     assert provider._max_attempts == 3
@@ -1806,7 +1936,207 @@ def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
         ],
     )
 
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
 
-    assert isinstance(provider, OpenAIProvider)
-    assert not isinstance(provider, FallbackProvider)
+    assert isinstance(provider, TracingProviderWrapper)
+    unwrapped = unwrap_provider(provider)
+    assert isinstance(unwrapped, OpenAIProvider)
+    assert not isinstance(unwrapped, FallbackProvider)
+
+
+# =============================================================================
+# Gateway Tracing Tests
+# =============================================================================
+
+
+async def _call_invocations(endpoint_name: str, request, payload: dict):
+    # invocations doesn't use "model" field - endpoint is in URL
+    payload_without_model = {k: v for k, v in payload.items() if k != "model"}
+    request.json = AsyncMock(return_value=payload_without_model)
+    return await invocations(endpoint_name, request)
+
+
+async def _call_chat_completions(endpoint_name: str, request, payload: dict):
+    # chat_completions uses "model" field to specify endpoint
+    request.json = AsyncMock(return_value=payload)
+    return await chat_completions(request)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
+)
+async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler):
+    endpoint_name = "tracing-test-endpoint"
+
+    # Create endpoint with usage tracking enabled
+    secret = store.create_gateway_secret(
+        secret_name="tracing-test-key",
+        secret_value={"api_key": "sk-test-tracing"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="tracing-test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    # Get the experiment_id that was auto-created for the endpoint
+    experiment_id = endpoint.experiment_id
+    assert experiment_id is not None
+
+    mock_request = MagicMock()
+    payload = {
+        "model": endpoint_name,
+        "messages": [{"role": "user", "content": "Hi"}],
+        "stream": False,
+    }
+
+    # Mock the OpenAI send_request to return our mock response
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request",
+        return_value={
+            "id": "test-id",
+            "object": "chat.completion",
+            "created": 1234567890,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Hello!"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        },
+    ):
+        response = await handler(endpoint_name, mock_request, payload)
+
+        assert response.id == "test-id"
+        assert response.choices[0].message.content == "Hello!"
+
+    # Verify trace was created
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # Verify span has provider information (OpenAI uses capitalized provider name)
+    span_names = {span.name for span in trace.data.spans}
+    assert "provider/OpenAI/gpt-4" in span_names
+
+    # Find the provider span and check attributes
+    provider_span = next(
+        (span for span in trace.data.spans if span.name == "provider/OpenAI/gpt-4"), None
+    )
+    assert provider_span is not None
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "OpenAI"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+
+    # Verify token usage is captured on the provider span
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 5
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 15
+
+    # Verify trace metadata has aggregated token usage (auto-generated from span attributes)
+    trace_token_usage = json.loads(trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE))
+    assert trace_token_usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert trace_token_usage[TokenUsageKey.OUTPUT_TOKENS] == 5
+    assert trace_token_usage[TokenUsageKey.TOTAL_TOKENS] == 15
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
+)
+async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
+    endpoint_name = "stream-tracing-test-endpoint"
+
+    # Create endpoint with usage tracking enabled
+    secret = store.create_gateway_secret(
+        secret_name="stream-tracing-test-key",
+        secret_value={"api_key": "sk-test-stream-tracing"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="stream-tracing-test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    # Get the experiment_id that was auto-created for the endpoint
+    experiment_id = endpoint.experiment_id
+    assert experiment_id is not None
+
+    mock_request = MagicMock()
+    payload = {
+        "model": endpoint_name,
+        "messages": [{"role": "user", "content": "Hi"}],
+        "stream": True,
+    }
+
+    # Mock streaming response chunks with usage in the final chunk
+    mock_stream_chunks = [
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}\n\n',  # noqa: E501
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}\n\n',  # noqa: E501
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n',  # noqa: E501
+        b"data: [DONE]\n\n",
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ):
+        response = await handler(endpoint_name, mock_request, payload)
+
+        # Verify streaming response is returned
+        assert isinstance(response, StreamingResponse)
+        # Consume the response
+        chunks = [chunk async for chunk in response.body_iterator]
+        assert len(chunks) > 0
+
+    # Verify trace was created for the gateway invocation
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # Verify gateway span exists with correct attributes
+    gateway_span = next(
+        (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
+    )
+    assert gateway_span is not None
+    assert gateway_span.attributes.get("request_type") == "chat"
+    assert gateway_span.attributes.get("endpoint_name") == endpoint_name
