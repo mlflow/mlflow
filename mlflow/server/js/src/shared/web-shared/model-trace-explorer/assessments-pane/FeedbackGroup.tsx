@@ -9,7 +9,9 @@ import {
   Tooltip,
   DangerIcon,
   TableSkeleton,
+  StopCircleFillIcon,
 } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { getAssessmentDisplayName } from './AssessmentsPane.utils';
@@ -23,6 +25,7 @@ export const FeedbackGroup = ({
   activeSpanId,
   feedbackTypeTag,
   loading,
+  onCancelLoading,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
@@ -30,6 +33,7 @@ export const FeedbackGroup = ({
   activeSpanId?: string;
   feedbackTypeTag?: React.ReactNode;
   loading?: boolean;
+  onCancelLoading?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -80,7 +84,21 @@ export const FeedbackGroup = ({
       {Object.entries(valuesMap).map(([jsonValue, feedbacks]) => (
         <FeedbackValueGroup jsonValue={jsonValue} feedbacks={feedbacks} key={jsonValue} />
       ))}
-      {loading && <TableSkeleton lines={2} />}
+      {loading && (
+        <>
+          <TableSkeleton lines={2} />
+          {onCancelLoading && (
+            <Button
+              componentId="shared.model-trace-explorer.cancel-evaluation-in-group"
+              size="small"
+              icon={<StopCircleFillIcon />}
+              onClick={onCancelLoading}
+            >
+              <FormattedMessage defaultMessage="Cancel" description="Button text for canceling evaluation" />
+            </Button>
+          )}
+        </>
+      )}
       {showCreateForm && (
         <AssessmentCreateForm
           assessmentName={name}
