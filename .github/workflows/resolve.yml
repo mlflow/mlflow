@@ -88,7 +88,7 @@ jobs:
             const isFork = pr.head.repo.full_name !== pr.base.repo.full_name;
             if (isFork && !pr.maintainer_can_modify) {
               const forkMessage = `⚠️ This PR does not allow maintainers to push changes. Please enable "Allow edits by maintainers" in the PR settings and re-trigger the workflow.`;
-              const forkUpdatedBody = `${comment.body}\n\n---\n${message}\n\n---\n${forkMessage}`;
+              const forkUpdatedBody = `${updatedBody}\n\n---\n${forkMessage}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
