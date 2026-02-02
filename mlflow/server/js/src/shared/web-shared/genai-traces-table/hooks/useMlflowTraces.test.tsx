@@ -1730,4 +1730,56 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain("attributes.status = 'OK'");
     expect(filterString).toContain(' AND ');
   });
+
+  test('creates correct filter string for assessment IS NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NULL,
+        key: 'uses_tools_appropriately',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('feedback.`uses_tools_appropriately` IS NULL');
+  });
+
+  test('creates correct filter string for assessment IS NOT NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'safety_score',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('feedback.`safety_score` IS NOT NULL');
+  });
+
+  test('combines assessment IS NULL/IS NOT NULL filters with other filters', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'overall_assessment',
+        value: undefined,
+      },
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'OK',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toContain('feedback.`overall_assessment` IS NOT NULL');
+    expect(filterString).toContain("attributes.status = 'OK'");
+    expect(filterString).toContain(' AND ');
+  });
 });

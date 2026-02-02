@@ -40,7 +40,13 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from '../types';
-import { FilterOperator, HiddenFilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
+import {
+  FilterOperator,
+  HiddenFilterOperator,
+  TracesTableColumnGroup,
+  TracesTableColumnType,
+  isNullOperator,
+} from '../types';
 import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import { getMlflowTracesSearchPageSize, getEvalTabTotalTracesLimit, shouldUseTracesV4API } from '../utils/FeatureUtils';
@@ -257,6 +263,13 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
+      // IS NULL / IS NOT NULL operators should always go to network filters
+      // since they don't require a value and are handled by the backend
+      if (filter.column === TracesTableColumnGroup.ASSESSMENT && isNullOperator(filter.operator)) {
+        acc.networkFilters.push(filter);
+        return acc;
+      }
+
       // Assessment filters with undefined or 'Error' value must always be filtered client-side
       // because the backend cannot query for absence of an assessment or error state.
       // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
@@ -707,9 +720,15 @@ export const createMlflowSearchFilter = (
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case TracesTableColumnGroup.ASSESSMENT:
-          // Skip 'undefined' values - these must be filtered client-side since they represent
-          // absence of an assessment, which cannot be queried on the backend
-          if (networkFilter.value !== 'undefined') {
+          // Handle IS NULL / IS NOT NULL operators for assessments
+          if (
+            networkFilter.operator === FilterOperator.IS_NULL ||
+            networkFilter.operator === FilterOperator.IS_NOT_NULL
+          ) {
+            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator}`);
+          } else if (networkFilter.value !== 'undefined') {
+            // Skip 'undefined' values - these must be filtered client-side since they represent
+            // absence of an assessment, which cannot be queried on the backend
             filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
