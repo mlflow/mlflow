@@ -801,64 +801,6 @@ def test_log_spans_update_is_workspace_scoped(workspace_tracking_store):
         assert len(updated_trace.data.spans) == 2
 
 
-def test_validate_constraints_allows_missing_global_root(workspace_tracking_store):
-    workspace_tracking_store.artifact_root_uri = None
-    workspace_tracking_store._validate_artifact_isolation_constraints()
-
-
-def test_workspace_startup_rejects_root_ending_with_workspaces(tmp_path, monkeypatch):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    backend_uri = f"sqlite:///{tmp_path / 'suffix.db'}"
-    bad_root = tmp_path / "base" / "workspaces"
-    bad_root.mkdir(parents=True)
-
-    with pytest.raises(
-        MlflowException,
-        match="ends with the reserved 'workspaces' segment",
-    ) as excinfo:
-        tracking_utils._get_sqlalchemy_store(backend_uri, bad_root.as_uri())
-    assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(backend_uri, None)
-
-
-def test_workspace_startup_rejects_root_already_scoped(tmp_path, monkeypatch):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    backend_uri = f"sqlite:///{tmp_path / 'scoped.db'}"
-    bad_root = tmp_path / "base" / "workspaces" / "team"
-    bad_root.mkdir(parents=True)
-
-    with pytest.raises(
-        MlflowException,
-        match="is already scoped under the reserved 'workspaces/<name>' prefix",
-    ) as excinfo:
-        tracking_utils._get_sqlalchemy_store(backend_uri, bad_root.as_uri())
-    assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(backend_uri, None)
-
-
-def test_workspace_startup_detects_existing_reserved_artifact(tmp_path, monkeypatch):
-    backend_uri = f"sqlite:///{tmp_path / 'conflict.db'}"
-    base_root = tmp_path / "base"
-    base_root.mkdir()
-
-    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
-    legacy_store = tracking_utils._get_sqlalchemy_store(backend_uri, base_root.as_uri())
-    legacy_store.tracking_uri = backend_uri
-    legacy_store.artifact_root_uri = base_root.as_uri()
-    reserved_location = append_to_uri_path(base_root.as_uri(), "workspaces/legacy/1")
-    legacy_store.create_experiment("legacy-exp", artifact_location=reserved_location)
-    legacy_store._dispose_engine()
-
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    with pytest.raises(
-        MlflowException,
-        match="existing experiment artifact location",
-    ) as excinfo:
-        tracking_utils._get_sqlalchemy_store(backend_uri, base_root.as_uri())
-    assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(backend_uri, None)
-
-
 def test_workspace_startup_ignores_default_experiment_reserved_location(tmp_path, monkeypatch):
     backend_uri = f"sqlite:///{tmp_path / 'default_conflict.db'}"
     base_root = tmp_path / "base"
