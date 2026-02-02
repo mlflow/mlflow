@@ -24,6 +24,7 @@ import {
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
+import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 const GROUP_PRIORITY = [
@@ -249,8 +250,20 @@ export function getSimulationColumnsToAdd(
     return [];
   }
 
-  const hasGoalMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.goal']));
-  const hasPersonaMetadata = traces.some((trace) => Boolean(trace.trace_metadata?.['mlflow.simulation.persona']));
+  let hasGoalMetadata = false;
+  let hasPersonaMetadata = false;
+
+  for (const trace of traces) {
+    if (!hasGoalMetadata && trace.trace_metadata?.[SIMULATION_GOAL_KEY]) {
+      hasGoalMetadata = true;
+    }
+    if (!hasPersonaMetadata && trace.trace_metadata?.[SIMULATION_PERSONA_KEY]) {
+      hasPersonaMetadata = true;
+    }
+    if (hasGoalMetadata && hasPersonaMetadata) {
+      break;
+    }
+  }
 
   if (!hasGoalMetadata && !hasPersonaMetadata) {
     return [];

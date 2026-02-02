@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 
 import { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 import { SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID } from './hooks/useTableColumns';
+import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
 import type { TracesTableColumn } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup } from './types';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
@@ -26,8 +27,8 @@ const personaColumn: TracesTableColumn = {
   group: TracesTableColumnGroup.INFO,
 };
 
-const goalMetadata = { 'mlflow.simulation.goal': 'test-goal' };
-const personaMetadata = { 'mlflow.simulation.persona': 'test-persona' };
+const goalMetadata = { [SIMULATION_GOAL_KEY]: 'test-goal' };
+const personaMetadata = { [SIMULATION_PERSONA_KEY]: 'test-persona' };
 const bothMetadata = { ...goalMetadata, ...personaMetadata };
 
 describe('getSimulationColumnsToAdd', () => {
