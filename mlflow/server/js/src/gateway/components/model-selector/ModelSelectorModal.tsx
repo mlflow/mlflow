@@ -41,26 +41,6 @@ interface FilterState {
   capabilities: CapabilityFilter;
 }
 
-function getCostQuantiles(costs: number[]): [number, number, number] {
-  const sorted = [...costs].sort((a, b) => a - b);
-  const n = sorted.length;
-  if (n === 0) return [0, 0, 0];
-
-  const q1 = sorted[Math.floor(n * 0.25)] ?? 0;
-  const q2 = sorted[Math.floor(n * 0.5)] ?? 0;
-  const q3 = sorted[Math.floor(n * 0.75)] ?? 0;
-  return [q1, q2, q3];
-}
-
-function getRelativeCostTier(cost: number | undefined, quantiles: [number, number, number]): number {
-  if (cost === undefined || cost === 0) return 1;
-  const [q1, q2, q3] = quantiles;
-  if (cost <= q1) return 1;
-  if (cost <= q2) return 2;
-  if (cost <= q3) return 3;
-  return 4;
-}
-
 export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: ModelSelectorModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -77,19 +57,6 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
 
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
-
-  const costTiers = useMemo(() => {
-    if (!models) return new Map<string, number>();
-
-    const validCosts = models.map((m) => m.input_cost_per_token).filter((c): c is number => c !== undefined && c > 0);
-
-    const quantiles = getCostQuantiles(validCosts);
-    const tiers = new Map<string, number>();
-    models.forEach((model) => {
-      tiers.set(model.model, getRelativeCostTier(model.input_cost_per_token, quantiles));
-    });
-    return tiers;
-  }, [models]);
 
   const filteredModels = useMemo(() => {
     if (!models) return [];
@@ -354,7 +321,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
             <div
               css={{
                 display: 'grid',
-                gridTemplateColumns: '40px 1fr 110px 80px',
+                gridTemplateColumns: '40px 1fr 110px 100px',
                 gap: theme.spacing.sm,
                 padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
                 backgroundColor: theme.colors.backgroundSecondary,
@@ -371,8 +338,13 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
               <div css={{ textAlign: 'right' }}>
                 <FormattedMessage defaultMessage="Max Input Tokens" description="Table header for max input tokens" />
               </div>
-              <div css={{ textAlign: 'right' }}>
-                <FormattedMessage defaultMessage="Cost" description="Table header for cost" />
+              <div css={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span>
+                  <FormattedMessage defaultMessage="Input /1M" description="Table header for input cost" />
+                </span>
+                <span>
+                  <FormattedMessage defaultMessage="Output /1M" description="Table header for output cost" />
+                </span>
               </div>
             </div>
 
@@ -400,7 +372,6 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
                       key={model.model}
                       model={model}
                       isSelected={selectedModelId === model.model}
-                      costTier={costTiers.get(model.model) || 1}
                       onSelect={handleModelSelect}
                     />
                   ))}

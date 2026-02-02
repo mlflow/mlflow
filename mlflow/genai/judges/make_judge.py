@@ -195,7 +195,7 @@ def make_judge(
             )
 
             # Use with search_traces() - evaluate each trace
-            traces = mlflow.search_traces(experiment_ids=["1"], return_type="list")
+            traces = mlflow.search_traces(locations=["1"], return_type="list")
             for trace in traces:
                 feedback = trace_judge(trace=trace)
                 print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
@@ -214,7 +214,7 @@ def make_judge(
 
             # Evaluate a multi-turn conversation using session traces
             session = mlflow.search_traces(
-                experiment_ids=["1"],
+                locations=["1"],
                 filter_string="metadata.`mlflow.trace.session` = 'session_123'",
                 return_type="list",
             )

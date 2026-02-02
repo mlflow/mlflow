@@ -51,7 +51,7 @@ export const useUpdateTraceTagsMutation = ({ onSuccess }: { onSuccess?: () => vo
         return Promise.all([...creationPromises, ...deletionPromises]);
       }
 
-      const traceId = isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : modelTraceInfo.request_id ?? '';
+      const traceId = isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '');
       // Otherwise, fallback to v3 API endpoints
       const creationPromises = newTags.map((tag) =>
         TracesServiceV3.setTraceTagV3({

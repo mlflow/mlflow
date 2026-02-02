@@ -1,19 +1,12 @@
 import { useCallback } from 'react';
 
-import {
-  NewWindowIcon,
-  SpeechBubbleIcon,
-  Tag,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { SpeechBubbleIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../experiment-tracking/constants';
 import { getExperimentChatSessionPageRoute } from './MlflowUtils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { Link, useLocation } from './RoutingUtils';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from './constants';
 
 const ID_MAX_LENGTH = 10;
 
@@ -22,11 +15,13 @@ export const ModelTraceHeaderSessionIdTag = ({
   sessionId,
   traceId,
   handleCopy,
+  hideLabel = false,
 }: {
   experimentId: string;
   sessionId: string;
   traceId?: string;
   handleCopy: () => void;
+  hideLabel?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const location = useLocation();
@@ -54,6 +49,7 @@ export const ModelTraceHeaderSessionIdTag = ({
         color="default"
         getTruncatedLabel={getTruncatedLabel}
         onCopy={handleCopy}
+        hideLabel={hideLabel}
       />
     );
   }
@@ -63,14 +59,16 @@ export const ModelTraceHeaderSessionIdTag = ({
       css={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: hideLabel ? 'flex-start' : 'center',
         flexDirection: 'row',
         gap: theme.spacing.sm,
       }}
     >
-      <Typography.Text size="md" color="secondary">
-        <FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />
-      </Typography.Text>
+      {!hideLabel && (
+        <Typography.Text size="md" color="secondary">
+          <FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />
+        </Typography.Text>
+      )}
       <Tooltip
         componentId="mlflow.model-trace-explorer.session-id-tag"
         content={<FormattedMessage defaultMessage="View chat session" description="Tooltip for the session id tag" />}

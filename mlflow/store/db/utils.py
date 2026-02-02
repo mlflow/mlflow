@@ -18,7 +18,6 @@ from sqlalchemy import event, sql
 from sqlalchemy.pool import (
     AssertionPool,
     AsyncAdaptedQueuePool,
-    FallbackAsyncAdaptedQueuePool,
     NullPool,
     QueuePool,
     SingletonThreadPool,
@@ -350,12 +349,18 @@ def create_sqlalchemy_engine(db_uri):
         pool_class_map = {
             "AssertionPool": AssertionPool,
             "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
-            "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
             "NullPool": NullPool,
             "QueuePool": QueuePool,
             "SingletonThreadPool": SingletonThreadPool,
             "StaticPool": StaticPool,
         }
+        try:
+            # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
+            from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
+
+            pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
+        except ImportError:
+            pass
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
@@ -384,11 +389,12 @@ def create_sqlalchemy_engine(db_uri):
 
     engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
 
-    # Register REGEXP function for SQLite to enable RLIKE operator support
+    # Register custom functions for SQLite
     if db_uri.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def _set_sqlite_regexp(dbapi_conn, connection_record):
+        def _register_sqlite_functions(dbapi_conn, connection_record):
+            # Register REGEXP function to enable RLIKE operator support
             def regexp(pattern, string):
                 """Custom REGEXP function for SQLite that uses Python's re module."""
                 if string is None or pattern is None:
@@ -399,5 +405,37 @@ def create_sqlalchemy_engine(db_uri):
                     return False
 
             dbapi_conn.create_function("regexp", 2, regexp)
+
+            # Register PERCENTILE aggregate function (PERCENTILE_CONT with linear interpolation)
+            class PercentileAggregate:
+                def __init__(self):
+                    self.values = []
+                    self.percentile_value = None
+
+                def step(self, value, percentile):
+                    if value is not None:
+                        self.values.append(float(value))
+                    if self.percentile_value is None and percentile is not None:
+                        self.percentile_value = float(percentile)
+
+                def finalize(self):
+                    if not self.values or self.percentile_value is None:
+                        return None
+
+                    sorted_values = sorted(self.values)
+                    n = len(sorted_values)
+                    percentile_ratio = self.percentile_value / 100.0
+
+                    # Linear interpolation: index = percentile_ratio * (n - 1)
+                    index = percentile_ratio * (n - 1)
+                    lower_idx = int(index)
+                    upper_idx = min(lower_idx + 1, n - 1)
+                    fraction = index - lower_idx
+
+                    return sorted_values[lower_idx] + fraction * (
+                        sorted_values[upper_idx] - sorted_values[lower_idx]
+                    )
+
+            dbapi_conn.create_aggregate("percentile", 2, PercentileAggregate)
 
     return engine

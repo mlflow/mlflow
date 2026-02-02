@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 from collections import OrderedDict
@@ -24,6 +25,7 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+_SERVER_ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 
 
 def _has_existing_mlruns_data() -> bool:
@@ -180,8 +182,14 @@ def _get_file_store(store_uri, **_):
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
+    # When running inside the server process (e.g., Model.log() triggered by a job/API),
+    # inherit the server's configured artifact root from the environment rather than
+    # falling back to the local default. This ensures artifacts are stored in the
+    # correct location (e.g., S3) regardless of which code path creates the store.
     if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        artifact_uri = os.environ.get(
+            _SERVER_ARTIFACT_ROOT_ENV_VAR, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        )
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
@@ -236,8 +244,9 @@ def _register_tracking_stores():
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)
 
-    for scheme in DATABASE_ENGINES:
-        _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+    if importlib.util.find_spec("sqlalchemy"):
+        for scheme in DATABASE_ENGINES:
+            _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
 
     _tracking_store_registry.register_entrypoints()
 

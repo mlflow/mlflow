@@ -20,8 +20,8 @@ import {
   LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
-import { TracesTableColumnGroup } from '../../types';
 import type { AssessmentInfo, TableFilter, TableFilterOption, TableFilterOptions } from '../../types';
+import { TracesTableColumnGroup } from '../../types';
 import { getAssessmentValueLabel } from '../GenAiEvaluationTracesReview.utils';
 
 export const TableFilterItemValueInput = ({

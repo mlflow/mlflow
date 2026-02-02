@@ -301,14 +301,14 @@ class OpenAIProvider(BaseProvider):
         api_type = self.openai_config.openai_api_type
         if api_type == OpenAIAPIType.OPENAI:
             headers = {
-                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+                "authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
             if org := self.openai_config.openai_organization:
                 headers["OpenAI-Organization"] = org
             return headers
         elif api_type == OpenAIAPIType.AZUREAD:
             return {
-                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+                "authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
         elif api_type == OpenAIAPIType.AZURE:
             return {
@@ -337,8 +337,11 @@ class OpenAIProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
             # Don't override api key or organization headers
-            result_headers = headers | result_headers
+            result_headers = client_headers | result_headers
 
         return result_headers
 

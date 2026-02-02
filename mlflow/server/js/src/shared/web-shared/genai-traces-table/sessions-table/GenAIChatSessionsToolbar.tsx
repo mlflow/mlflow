@@ -26,6 +26,7 @@ export const GenAIChatSessionsToolbar = ({
   experimentId,
   selectedSessions,
   setRowSelection,
+  addons,
 }: {
   columns: SessionTableColumn[];
   columnVisibility: Record<string, boolean>;
@@ -36,6 +37,7 @@ export const GenAIChatSessionsToolbar = ({
   experimentId: string;
   selectedSessions: SessionTableRow[];
   setRowSelection?: React.Dispatch<React.SetStateAction<RowSelectionState>>;
+  addons?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -93,6 +95,7 @@ export const GenAIChatSessionsToolbar = ({
           setRowSelection={setRowSelection}
         />
       )}
+      {addons}
     </div>
   );
 };

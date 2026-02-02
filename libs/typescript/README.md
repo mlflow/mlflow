@@ -55,7 +55,7 @@ import * as mlflow from 'mlflow-tracing';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
-  experimentId: '<experiment-id>'
+  experimentId: '<experiment-id>',
 });
 ```
 
@@ -88,7 +88,7 @@ mlflow.init({
   trackingUri: 'http://localhost:5000',
   experimentId: '123456789',
   trackingServerUsername: 'user',
-  trackingServerPassword: 'pass'
+  trackingServerPassword: 'pass',
 });
 ```
 
@@ -105,7 +105,7 @@ export MLFLOW_TRACKING_PASSWORD=pass
 mlflow.init({
   trackingUri: 'http://localhost:5000',
   experimentId: '123456789',
-  trackingServerToken: 'my-token'
+  trackingServerToken: 'my-token',
 });
 ```
 
@@ -129,7 +129,7 @@ const getWeather = mlflow.trace(
   },
   // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/quickstart
   // for the full list of options.
-  { name: 'get-weather' }
+  { name: 'get-weather' },
 );
 getWeather('San Francisco');
 

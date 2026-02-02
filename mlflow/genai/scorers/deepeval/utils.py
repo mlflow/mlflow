@@ -8,6 +8,7 @@ from mlflow.entities.span import SpanAttributeKey, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
+    _extract_tool_name_from_span,
     _to_dict,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -86,7 +87,7 @@ def _extract_tool_calls_from_trace(trace: Trace):
 
     return [
         DeepEvalToolCall(
-            name=span.name,
+            name=_extract_tool_name_from_span(span),
             input_parameters=span.attributes.get(SpanAttributeKey.INPUTS),
             output=span.attributes.get(SpanAttributeKey.OUTPUTS),
         )

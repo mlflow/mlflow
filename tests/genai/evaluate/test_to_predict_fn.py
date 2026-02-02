@@ -1,3 +1,4 @@
+import importlib.metadata
 from unittest import mock
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 
@@ -109,7 +111,7 @@ def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_t
 def test_to_predict_fn_does_not_return_trace(
     databricks_output, mock_deploy_client, mock_tracing_client
 ):
-    mock_deploy_client.predict.return_value = {**_DUMMY_CHAT_RESPONSE, **databricks_output}
+    mock_deploy_client.predict.return_value = _DUMMY_CHAT_RESPONSE | databricks_output
     messages = [
         {"content": "You are a helpful assistant.", "role": "system"},
         {"content": "What is Spark?", "role": "user"},
@@ -328,6 +330,225 @@ def test_to_predict_fn_reuses_trace_in_dual_write_mode(
         mock_tracing_client.start_trace.assert_not_called()
         mock_tracing_client._upload_trace_data.assert_not_called()
         mock_get_experiment_id.assert_called_once()
+
+
+# ========== Databricks Apps Tests ==========
+
+
+def test_to_predict_fn_apps_uri_with_app_name(mock_tracing_client):
+    mock_app = mock.MagicMock()
+    mock_app.url = "https://agent-app-123.staging.aws.databricksapps.com"
+
+    mock_oauth_token = mock.MagicMock()
+    mock_oauth_token.access_token = "oauth-token-123"
+
+    mock_config = mock.MagicMock()
+    mock_config.oauth_token.return_value = mock_oauth_token
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+    mock_workspace_client.config = mock_config
+
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"response": "test response"}
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=mock_response
+        ) as mock_http_request,
+    ):
+        predict_fn = to_predict_fn("apps:/agent-app")
+        result = predict_fn(input=[{"role": "user", "content": "test"}])
+
+        # Verify SDK was called with correct app name
+        mock_workspace_client.apps.get.assert_called_once_with(name="agent-app")
+
+        # Verify http_request was called with correct parameters
+        mock_http_request.assert_called_once()
+        call_kwargs = mock_http_request.call_args[1]
+        assert call_kwargs["endpoint"] == "/invocations"
+        assert call_kwargs["method"] == "POST"
+        assert call_kwargs["json"] == {"input": [{"role": "user", "content": "test"}]}
+
+        # Verify host_creds has the OAuth token
+        host_creds = call_kwargs["host_creds"]
+        assert host_creds.host == "https://agent-app-123.staging.aws.databricksapps.com"
+        assert host_creds.token == "oauth-token-123"
+
+        assert result == {"response": "test response"}
+
+
+def test_to_predict_fn_apps_not_found():
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.side_effect = Exception("App not found: nonexistent-app")
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client):
+        with pytest.raises(MlflowException, match="Failed to get Databricks App"):
+            to_predict_fn("apps:/nonexistent-app")
+
+
+def test_to_predict_fn_apps_no_url():
+    mock_app = mock.MagicMock()
+    mock_app.url = None  # App exists but not deployed
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client):
+        with pytest.raises(MlflowException, match="does not have a URL"):
+            to_predict_fn("apps:/undeployed-app")
+
+
+def test_to_predict_fn_apps_no_oauth_raises_error():
+    mock_app = mock.MagicMock()
+    mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
+
+    mock_config = mock.MagicMock()
+    # Simulate non-OAuth auth - oauth_token() raises Exception
+    mock_config.oauth_token.side_effect = Exception(
+        "OAuth tokens are not available for pat authentication"
+    )
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+    mock_workspace_client.config = mock_config
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client):
+        predict_fn = to_predict_fn("apps:/my-app")
+        with pytest.raises(MlflowException, match="Databricks Apps require OAuth authentication"):
+            predict_fn(input=[{"role": "user", "content": "test"}])
+
+
+def test_to_predict_fn_apps_old_sdk_version_error():
+    real_version = importlib.metadata.version
+
+    def mock_version(package):
+        if package == "databricks-sdk":
+            return "0.73.0"
+        return real_version(package)
+
+    with mock.patch("importlib.metadata.version", side_effect=mock_version):
+        with pytest.raises(MlflowException, match="databricks-sdk>=0.74.0"):
+            to_predict_fn("apps:/my-app")
+
+
+def test_to_predict_fn_apps_http_error_handling():
+    mock_app = mock.MagicMock()
+    mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
+
+    mock_oauth_token = mock.MagicMock()
+    mock_oauth_token.access_token = "oauth-token"
+
+    mock_config = mock.MagicMock()
+    mock_config.oauth_token.return_value = mock_oauth_token
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+    mock_workspace_client.config = mock_config
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
+        mock.patch("mlflow.utils.databricks_utils.http_request") as mock_http_request,
+    ):
+        # http_request raises MlflowException on errors
+        mock_http_request.side_effect = MlflowException("Request failed: 403 Forbidden")
+
+        predict_fn = to_predict_fn("apps:/my-app")
+
+        with pytest.raises(MlflowException, match="Request failed"):
+            predict_fn(input=[{"role": "user", "content": "test"}])
+
+
+def test_to_predict_fn_apps_payload_passthrough():
+    mock_app = mock.MagicMock()
+    mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
+
+    mock_oauth_token = mock.MagicMock()
+    mock_oauth_token.access_token = "oauth-token"
+
+    mock_config = mock.MagicMock()
+    mock_config.oauth_token.return_value = mock_oauth_token
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+    mock_workspace_client.config = mock_config
+
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"output": "ok"}
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=mock_response
+        ) as mock_http_request,
+    ):
+        predict_fn = to_predict_fn("apps:/my-app")
+
+        # Test 1: Standard format with input
+        predict_fn(input=[{"role": "user", "content": "test"}])
+        call_kwargs = mock_http_request.call_args[1]
+        assert call_kwargs["json"] == {"input": [{"role": "user", "content": "test"}]}
+
+        mock_http_request.reset_mock()
+
+        # Test 2: With custom_inputs
+        predict_fn(
+            input=[{"role": "user", "content": "test2"}],
+            custom_inputs={"session_id": "123"},
+        )
+        call_kwargs = mock_http_request.call_args[1]
+        assert call_kwargs["json"] == {
+            "input": [{"role": "user", "content": "test2"}],
+            "custom_inputs": {"session_id": "123"},
+        }
+
+        mock_http_request.reset_mock()
+
+        # Test 3: With stream parameter
+        predict_fn(input=[{"role": "user", "content": "test3"}], stream=True)
+        call_kwargs = mock_http_request.call_args[1]
+        assert call_kwargs["json"] == {
+            "input": [{"role": "user", "content": "test3"}],
+            "stream": True,
+        }
+
+
+def test_to_predict_fn_apps_creates_trace():
+    mock_app = mock.MagicMock()
+    mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
+
+    mock_oauth_token = mock.MagicMock()
+    mock_oauth_token.access_token = "oauth-token"
+
+    mock_config = mock.MagicMock()
+    mock_config.oauth_token.return_value = mock_oauth_token
+
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value = mock_app
+    mock_workspace_client.config = mock_config
+
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"output": "test output"}
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=mock_response),
+    ):
+        predict_fn = to_predict_fn("apps:/my-app")
+        result = predict_fn(input=[{"role": "user", "content": "test"}])
+
+        # Verify trace was created
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        assert trace is not None
+        assert len(trace.data.spans) == 1
+        assert trace.data.spans[0].name == "predict"
+        assert result == {"output": "test output"}
+
+
+def test_to_predict_fn_apps_invalid_uri():
+    with pytest.raises(ValueError, match="Invalid endpoint URI"):
+        to_predict_fn("invalid:/my-app")
 
 
 def test_to_predict_fn_copies_trace_when_experiment_differs(

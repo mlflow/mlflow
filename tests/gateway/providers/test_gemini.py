@@ -358,6 +358,28 @@ async def test_gemini_chat():
 
 
 @pytest.mark.asyncio
+async def test_gemini_chat_with_max_completion_tokens():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_completion_tokens": 500,
+    }
+
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(fake_chat_response()),
+        ) as mock_post,
+    ):
+        await provider.chat(chat.RequestPayload(**payload))
+
+    call_kwargs = mock_post.call_args[1]
+    assert call_kwargs["json"]["generationConfig"]["maxOutputTokens"] == 500
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("override", "exclude_keys", "expected_msg"),
     [
@@ -1069,7 +1091,12 @@ async def test_passthrough_gemini_generate_content():
                 }
             ]
         }
-        custom_headers = {"X-Custom-Header": "gemini-custom", "X-Request-ID": "gemini-req-456"}
+        custom_headers = {
+            "X-Custom-Header": "gemini-custom",
+            "X-Request-ID": "gemini-req-456",
+            "host": "example.com",
+            "content-length": "100",
+        }
         response = await provider.passthrough(
             PassthroughAction.GEMINI_GENERATE_CONTENT, payload, headers=custom_headers
         )
@@ -1087,6 +1114,10 @@ async def test_passthrough_gemini_generate_content():
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Custom-Header"] == "gemini-custom"
         assert captured_session_headers["X-Request-ID"] == "gemini-req-456"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in captured_session_headers
+        assert "content-length" not in captured_session_headers
 
 
 @pytest.mark.asyncio
@@ -1179,7 +1210,10 @@ async def test_chat_with_structured_output():
         provider = GeminiProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "What's the weather?"}],
-            "response_format": {"type": "json_schema", "json_schema": json_schema},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"schema": json_schema, "name": "weather_response"},
+            },
         }
         response = await provider.chat(chat.RequestPayload(**payload))
 
@@ -1190,7 +1224,7 @@ async def test_chat_with_structured_output():
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs["json"]["generationConfig"]["responseSchema"] == json_schema
+        assert call_kwargs["json"]["generationConfig"]["responseJsonSchema"] == json_schema
         assert call_kwargs["json"]["generationConfig"]["responseMimeType"] == "application/json"
 
 

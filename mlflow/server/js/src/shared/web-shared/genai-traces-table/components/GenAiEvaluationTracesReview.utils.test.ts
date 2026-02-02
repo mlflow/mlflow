@@ -9,6 +9,7 @@ import {
   getEvaluationResultInputTitle,
   getEvaluationResultTitle,
   stringifyValue,
+  tryExtractUserMessageContent,
 } from './GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, RunEvaluationTracesDataEntry } from '../types';
 
@@ -216,6 +217,70 @@ describe('EvaluationsReview utils', () => {
       'request',
     );
     expect(actual).toEqual('bar');
+  });
+
+  describe('tryExtractUserMessageContent', () => {
+    it('should return undefined for null/undefined input', () => {
+      expect(tryExtractUserMessageContent(null)).toBeUndefined();
+      expect(tryExtractUserMessageContent(undefined)).toBeUndefined();
+    });
+
+    it('should extract user message from Langchain nested array format', () => {
+      const langchainInput = [
+        [
+          {
+            content: 'How to use Databricks?',
+            additional_kwargs: {},
+            response_metadata: {},
+            type: 'human',
+            name: null,
+            id: null,
+          },
+        ],
+      ];
+      expect(tryExtractUserMessageContent(langchainInput)).toEqual('How to use Databricks?');
+    });
+
+    it('should extract last user message from Langchain format with multiple messages', () => {
+      const langchainInput = [
+        [
+          { content: 'First question', type: 'human' },
+          { content: 'Response here', type: 'ai' },
+          { content: 'Follow up question', type: 'human' },
+        ],
+      ];
+      expect(tryExtractUserMessageContent(langchainInput)).toEqual('Follow up question');
+    });
+
+    it('should extract user message from OpenAI format', () => {
+      const openaiInput = {
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant' },
+          { role: 'user', content: 'Hello there' },
+        ],
+      };
+      expect(tryExtractUserMessageContent(openaiInput)).toEqual('Hello there');
+    });
+
+    it('should return undefined for non-chat-like objects', () => {
+      expect(tryExtractUserMessageContent({ foo: 'bar' })).toBeUndefined();
+      expect(tryExtractUserMessageContent({ data: [1, 2, 3] })).toBeUndefined();
+    });
+
+    it('should return undefined for empty arrays', () => {
+      expect(tryExtractUserMessageContent([])).toBeUndefined();
+      expect(tryExtractUserMessageContent([[]])).toBeUndefined();
+    });
+
+    it('should return undefined for primitive values', () => {
+      expect(tryExtractUserMessageContent(123)).toBeUndefined();
+      expect(tryExtractUserMessageContent(true)).toBeUndefined();
+    });
+
+    it('should return undefined for string inputs', () => {
+      // This can happen when request_preview is truncated and JSON.parse fails
+      expect(tryExtractUserMessageContent('just a plain string')).toBeUndefined();
+    });
   });
 });
 

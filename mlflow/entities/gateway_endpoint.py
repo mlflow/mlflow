@@ -13,6 +13,9 @@ from mlflow.protos.service_pb2 import (
     GatewayEndpointBinding as ProtoGatewayEndpointBinding,
 )
 from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+)
+from mlflow.protos.service_pb2 import (
     GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
 )
 from mlflow.protos.service_pb2 import (
@@ -25,7 +28,7 @@ from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 class GatewayResourceType(str, Enum):
     """Valid MLflow resource types that can use gateway endpoints."""
 
-    SCORER_JOB = "scorer_job"
+    SCORER = "scorer"
 
 
 class RoutingStrategy(str, Enum):
@@ -113,6 +116,46 @@ class FallbackConfig(_MlflowObject):
         return cls(
             strategy=strategy,
             max_attempts=proto.max_attempts,
+        )
+
+
+@dataclass
+class GatewayEndpointModelConfig(_MlflowObject):
+    """
+    Configuration for a model attached to an endpoint.
+
+    This structured object combines all configuration needed to attach a model
+    to an endpoint, including the model definition ID, linkage type, weight,
+    and fallback order.
+
+    Args:
+        model_definition_id: ID of the model definition to attach.
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        weight: Routing weight for traffic distribution (default 1.0).
+        fallback_order: Order for fallback attempts (only for FALLBACK linkages, None for PRIMARY).
+    """
+
+    model_definition_id: str
+    linkage_type: GatewayModelLinkageType
+    weight: float = 1.0
+    fallback_order: int | None = None
+
+    def to_proto(self) -> ProtoGatewayEndpointModelConfig:
+        proto = ProtoGatewayEndpointModelConfig()
+        proto.model_definition_id = self.model_definition_id
+        proto.linkage_type = self.linkage_type.to_proto()
+        proto.weight = self.weight
+        if self.fallback_order is not None:
+            proto.fallback_order = self.fallback_order
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoGatewayEndpointModelConfig) -> "GatewayEndpointModelConfig":
+        return cls(
+            model_definition_id=proto.model_definition_id,
+            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            weight=proto.weight if proto.HasField("weight") else 1.0,
+            fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
         )
 
 
@@ -364,12 +407,13 @@ class GatewayEndpointBinding(_MlflowObject):
 
     Args:
         endpoint_id: ID of the endpoint this binding references.
-        resource_type: Type of MLflow resource (e.g., "scorer_job").
+        resource_type: Type of MLflow resource (e.g., "scorer").
         resource_id: ID of the specific resource instance.
         created_at: Timestamp (milliseconds) when the binding was created.
         last_updated_at: Timestamp (milliseconds) when the binding was last updated.
         created_by: User ID who created the binding.
         last_updated_by: User ID who last updated the binding.
+        display_name: Human-readable display name for the resource (e.g., scorer name).
     """
 
     endpoint_id: str
@@ -379,6 +423,7 @@ class GatewayEndpointBinding(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+    display_name: str | None = None
 
     def to_proto(self):
         proto = ProtoGatewayEndpointBinding()
@@ -391,6 +436,8 @@ class GatewayEndpointBinding(_MlflowObject):
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
             proto.last_updated_by = self.last_updated_by
+        if self.display_name is not None:
+            proto.display_name = self.display_name
         return proto
 
     @classmethod
@@ -403,4 +450,5 @@ class GatewayEndpointBinding(_MlflowObject):
             last_updated_at=proto.last_updated_at,
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
+            display_name=proto.display_name or None,
         )

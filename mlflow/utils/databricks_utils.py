@@ -1,5 +1,6 @@
 import functools
 import getpass
+import importlib.metadata
 import json
 import logging
 import os
@@ -7,7 +8,10 @@ import platform
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, NamedTuple, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, ParamSpec, TypeVar
+from urllib.parse import urlparse
+
+from packaging.version import Version
 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.request_utils import augmented_raise_for_status
@@ -545,15 +549,6 @@ def get_job_type_info():
         return None
 
 
-@_use_repl_context_if_available("commandRunId")
-def get_command_run_id():
-    try:
-        return _get_command_context().commandRunId().get()
-    except Exception:
-        # Older runtimes may not have the commandRunId available
-        return None
-
-
 @_use_repl_context_if_available("workloadId")
 def get_workload_id():
     try:
@@ -832,16 +827,50 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
-def get_databricks_workspace_client_config(server_uri: str):
+_DATABRICKS_SDK_SCOPES_MIN_VERSION = "0.74.0"
+
+
+def check_databricks_sdk_supports_scopes():
+    """
+    Check if the installed databricks-sdk version supports the 'scopes' parameter
+    for WorkspaceClient.
+
+    Raises:
+        MlflowException: If databricks-sdk version is < 0.74.0
+    """
+
+    try:
+        sdk_version = importlib.metadata.version("databricks-sdk")
+    except importlib.metadata.PackageNotFoundError:
+        raise MlflowException.invalid_parameter_value(
+            "databricks-sdk is not installed. "
+            "Please install with: pip install databricks-sdk>=0.74.0",
+        )
+
+    if Version(sdk_version) < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
+        raise MlflowException.invalid_parameter_value(
+            f"The 'scopes' parameter requires databricks-sdk>="
+            f"{_DATABRICKS_SDK_SCOPES_MIN_VERSION}. You have version {sdk_version}. "
+            "Please upgrade with: pip install --upgrade databricks-sdk",
+        )
+
+
+def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | None = None):
     from databricks.sdk import WorkspaceClient
+
+    # Only pass scopes if provided to avoid breaking older databricks-sdk versions
+    kwargs = {}
+    if scopes is not None:
+        check_databricks_sdk_supports_scopes()
+        kwargs["scopes"] = scopes
 
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
     if key_prefix is not None:
         config = TrackingURIConfigProvider(server_uri).get_config()
-        return WorkspaceClient(host=config.host, token=config.token).config
+        return WorkspaceClient(host=config.host, token=config.token, **kwargs).config
 
-    return WorkspaceClient(profile=profile).config
+    return WorkspaceClient(profile=profile, **kwargs).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -1173,6 +1202,7 @@ def _get_databricks_creds_config(tracking_uri):
     # configuration providers defined in legacy Databricks CLI python library to
     # read token values.
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
 
     config = None
 
@@ -1508,3 +1538,52 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
         return wrapper
 
     return decorator
+
+
+def invoke_databricks_app(
+    app_invocation_url: str, payload: dict[str, Any], config
+) -> dict[str, Any]:
+    """
+    Invoke Databricks App /invocations endpoint with OAuth authentication.
+
+    Databricks Apps require OAuth authentication and do not support PAT tokens. This function
+    uses the provided config to authenticate to the app.
+
+    Args:
+        app_invocation_url: Full app invocation URL
+            (e.g., "https://app-123.aws.databricksapps.com/invocations")
+        payload: Request payload in the format expected by the app.
+        config: Databricks SDK Config object with OAuth credentials.
+
+    Returns:
+        Response dictionary from the app
+
+    Raises:
+        MlflowException: If authentication is not OAuth-based or request fails
+    """
+    # Verify OAuth authentication and get access token.
+    # config.oauth_token() raises an exception if not using an OAuth provider.
+    try:
+        oauth_token = config.oauth_token().access_token
+    except Exception as e:
+        raise MlflowException(
+            f"Databricks Apps require OAuth authentication. {e}\n\n"
+            "See https://docs.databricks.com/aws/en/dev-tools/auth/oauth-u2m or "
+            "https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m for details.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+    # Parse app URL into host and endpoint for http_request
+    parsed = urlparse(app_invocation_url)
+    host = f"{parsed.scheme}://{parsed.netloc}"
+    endpoint = parsed.path
+
+    # Create host creds with OAuth token for the app host
+    host_creds = MlflowHostCreds(host=host, token=oauth_token)
+    response = http_request(
+        host_creds=host_creds,
+        endpoint=endpoint,
+        method="POST",
+        json=payload,
+    )
+    return response.json()

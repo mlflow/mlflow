@@ -2,6 +2,7 @@ import { first, isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -114,10 +115,10 @@ export function getAssessmentInfos(
         dtype = !isNil(assessment.stringValue)
           ? 'pass-fail'
           : !isNil(assessment.numericValue)
-          ? 'numeric'
-          : !isNil(assessment.booleanValue)
-          ? 'boolean'
-          : undefined;
+            ? 'numeric'
+            : !isNil(assessment.booleanValue)
+              ? 'boolean'
+              : undefined;
         // If we found an assessment with a value, use it and stop searching
         if (dtype !== undefined) {
           break;
@@ -185,6 +186,9 @@ export function getAssessmentInfos(
       const assessment: RunEvaluationResultAssessment | undefined = assessments[0];
 
       const isError = doesAssessmentContainErrors(assessment);
+      const isSessionLevelAssessment = assessments.some(
+        (currentAssessment) => currentAssessment?.metadata?.[ASSESSMENT_SESSION_METADATA_KEY],
+      );
 
       if (isNil(assessmentInfos[assessmentName])) {
         let displayName: string;
@@ -216,14 +220,14 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueDescription
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
             : assessment?.source?.sourceType === 'HUMAN'
-            ? intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a human judge.',
-                description: 'Human judge assessment description',
-              })
-            : intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a custom metric.',
-                description: 'Custom judge assessment description',
-              });
+              ? intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a human judge.',
+                  description: 'Human judge assessment description',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a custom metric.',
+                  description: 'Custom judge assessment description',
+                });
 
         const uniqueValues = new Set<AssessmentValueType>();
         // If no assessments exist for this name, add undefined to track missing assessments
@@ -252,6 +256,7 @@ export function getAssessmentInfos(
           isEditable: assessment?.source?.sourceType === 'AI_JUDGE' || assessment?.source?.sourceType === 'HUMAN',
           isRetrievalAssessment: retrievalAssessmentsByName.some(([name]) => name === assessmentName),
           containsErrors: isError,
+          isSessionLevelAssessment,
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
@@ -276,6 +281,7 @@ export function getAssessmentInfos(
           assessmentInfo.isRetrievalAssessment || retrievalAssessmentsByName.some(([name]) => name === assessmentName);
 
         assessmentInfo.containsErrors = assessmentInfo.containsErrors || isError;
+        assessmentInfo.isSessionLevelAssessment = assessmentInfo.isSessionLevelAssessment || isSessionLevelAssessment;
       }
     }
   });

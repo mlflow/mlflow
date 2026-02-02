@@ -165,8 +165,9 @@ def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: 
         if predict_fn is not None:
             scorer_names = [scorer.name for scorer in session_level_scorers]
             raise MlflowException.invalid_parameter_value(
-                f"Multi-turn scorers are not yet supported with predict_fn. "
-                f"The following scorers require session-level evaluation: {scorer_names}. "
-                f"Please pass existing traces containing session IDs to `data` "
-                f"(e.g., `data=mlflow.search_traces()`)."
+                f"Session-level scorers require traces with session IDs. "
+                f"The following scorers are session-level: {scorer_names}. "
+                f"Either pass a ConversationSimulator to `data` with `predict_fn`, "
+                f"or pass existing traces containing session IDs to `data` "
+                f"(e.g., `data=mlflow.search_traces()`) without `predict_fn`."
             )

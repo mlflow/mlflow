@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import { getFormValuesFromScorer } from './scorerCardUtils';
 import type { LLMScorer, CustomCodeScorer } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
+import { ScorerEvaluationScope } from './constants';
 
 describe('scorerCardUtils', () => {
   describe('getFormValuesFromScorer', () => {
@@ -13,7 +14,7 @@ describe('scorerCardUtils', () => {
           type: 'llm',
           sampleRate: 75,
           filterString: 'status == "success"',
-          llmTemplate: 'Correctness',
+          llmTemplate: 'Safety',
           guidelines: ['Be objective', 'Consider context', 'Rate consistently'],
         };
 
@@ -22,17 +23,19 @@ describe('scorerCardUtils', () => {
 
         // Assert
         expect(result).toEqual({
-          llmTemplate: 'Correctness',
+          llmTemplate: 'Safety',
           name: 'Test LLM Scorer',
           sampleRate: 75,
           code: '',
           scorerType: 'llm',
           guidelines: 'Be objective\nConsider context\nRate consistently',
-          instructions: TEMPLATE_INSTRUCTIONS_MAP['Correctness'],
+          instructions: TEMPLATE_INSTRUCTIONS_MAP['Safety'],
           filterString: 'status == "success"',
           model: '',
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,
+          evaluationScope: ScorerEvaluationScope.TRACES,
+          outputTypeKind: 'default',
         });
       });
 
@@ -62,6 +65,7 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: 'model_name == "gpt-4"',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
 
@@ -86,6 +90,10 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: '',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
+          disableMonitoring: undefined,
+          isInstructionsJudge: undefined,
+          outputTypeKind: 'default',
         });
       });
 
@@ -113,6 +121,7 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: '',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
     });

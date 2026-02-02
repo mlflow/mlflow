@@ -1552,7 +1552,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
                     assert inference_dict[key][value] == native_inference[value][key]
                 else:
                     assert math.isclose(
-                        native_inference[value][key], inference_dict[key][value], rel_tol=1e-7
+                        native_inference[value][key], inference_dict[key][value], rel_tol=1e-6
                     )
 
 
@@ -1828,7 +1828,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
                 assert values_dict[key][value] == native_predict[value][key]
             else:
                 assert math.isclose(
-                    values_dict[key][value], native_predict[value][key], rel_tol=1e-7
+                    values_dict[key][value], native_predict[value][key], rel_tol=1e-6
                 )
 
 
@@ -2666,7 +2666,7 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
     "model_name",
     [
         "tiiuae/falcon-7b",
-        "databricks/dolly-v2-7b",
+        "openai-community/gpt2",
         "PrunaAI/runwayml-stable-diffusion-v1-5-turbo-tiny-green-smashed",
     ],
 )

@@ -7,6 +7,7 @@ import atexit
 import contextlib
 import importlib
 import inspect
+import io
 import logging
 import os
 import threading
@@ -54,6 +55,7 @@ from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
@@ -82,7 +84,11 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.utils.validation import (
+    _validate_experiment_id_type,
+    _validate_logged_model_name,
+    _validate_run_id,
+)
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
@@ -94,7 +100,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.figure
     import numpy
     import pandas
@@ -1639,6 +1644,38 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
+@experimental(version="3.9.0")
+def log_stream(
+    stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
+) -> None:
+    """
+    Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+    Args:
+        stream: A binary file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.bin").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
+
+
 def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
     artifact_file: str,
@@ -2442,6 +2479,139 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     """
     model_id = model_id or get_active_model_id()
     MlflowClient().log_model_params(model_id, params)
+
+
+def import_checkpoints(
+    checkpoint_path: str,
+    source_run_id: str | None = None,
+    model_prefix: str | None = None,
+    overwrite_checkpoints: bool = False,
+) -> list[LoggedModel]:
+    """
+    Create external models for all top-level files and directories under the specified
+    checkpoint path.
+
+    This API only supports Databricks runtime currently.
+
+    Args:
+        checkpoint_path: Path that contains the checkpoints.
+            Only Databricks Unity Catalog Volume path is supported for now.
+            It must follows the
+            "/Volumes/<catalog_identifier>/<schema_identifier>/<volume_identifier>/<path_to_checkpoints_directory>"
+            format specified https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes#volume-naming-and-reference.
+            Note: Each path must be isolated from other models and runs.
+        source_run_id: ID of the MLflow source run that these checkpoints were trained with.
+            If not provided, uses the current active run if available.
+        model_prefix: String prefix to prepend to the name of each external model created from
+            each checkpoint. If not provided, no prefix is applied.
+        overwrite_checkpoints: If True and existing models are found with the same name in the
+            associated experiment, they will be deleted and recreated to point to the latest
+            checkpoint. Defaults to False.
+
+    Returns:
+        List of imported models. If 'overwrite_checkpoints' is True, the list only contains
+            new created models, otherwise the list contains new created models for the new model
+            names and existing models for the existing model names.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Optionally start a run so `source_run_id` can be inferred
+        with mlflow.start_run() as run:
+            # ... training code that writes checkpoints to a UC Volume ...
+            logged_models = mlflow.import_checkpoints(
+                checkpoint_path=(
+                    "/Volumes/mycatalog/myschema/myvolume/"
+                    "mytrainingmodel/trainingrun1/checkpoints"
+                ),
+                # You can omit `source_run_id` if there is an active run.
+                # source_run_id=run.info.run_id,
+                model_prefix="my_model_",
+                overwrite_checkpoints=True,
+            )
+    """
+    from databricks.sdk import WorkspaceClient
+
+    # Validate checkpoint_path before accessing workspace files
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
+        raise MlflowException(
+            "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
+            "Volume path that contains checkpoints, e.g. '/Volumes/...'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Resolve source_run_id from the active run if not provided
+    if source_run_id is None:
+        if run := active_run():
+            source_run_id = run.info.run_id
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Please set 'source_run_id' or start an active run before calling "
+                "'import_checkpoints'."
+            )
+
+    # Resolve experiment ID to operate against
+    exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+
+    ws = WorkspaceClient()
+    top_level_paths = [
+        entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
+    ]
+
+    imported_models: list[LoggedModel] = []
+    client = MlflowClient()
+
+    if not top_level_paths:
+        _logger.warning(
+            f"No checkpoints were found at path '{checkpoint_path}'. "
+            "Please verify that 'checkpoint_path' is correct and accessible."
+        )
+        return []
+
+    for sub_checkpoint_path in top_level_paths:
+        base_name = os.path.basename(sub_checkpoint_path)
+
+        model_name = model_prefix + base_name if model_prefix else base_name
+
+        try:
+            _validate_logged_model_name(model_name)
+        except MlflowException as e:
+            _logger.warning(
+                f"The model name is invalid (root error: {e!s}), skip importing the "
+                f"model with name '{model_name}' from checkpoint folder '{sub_checkpoint_path}'."
+            )
+            continue
+
+        existing_models = [
+            model
+            for model in search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"name = '{model_name}'",
+                output_format="list",
+            )
+            if model.source_run_id == source_run_id
+        ]
+
+        if not existing_models or overwrite_checkpoints:
+            # Create a new model pointing to this checkpoint path.
+            created_model = create_external_model(
+                name=model_name,
+                source_run_id=source_run_id,
+                tags={"original_artifact_path": sub_checkpoint_path},
+                experiment_id=exp_id,
+            )
+            imported_models.append(created_model)
+        else:
+            imported_models.extend(existing_models)
+
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
+
+    return imported_models
 
 
 def finalize_logged_model(

@@ -25,14 +25,14 @@ function createMessageResponse(request: MessagesCreateRequest) {
     usage: {
       input_tokens: 128,
       output_tokens: 256,
-      total_tokens: 384
+      total_tokens: 384,
     },
     content: [
       {
         type: 'text',
-        text: 'This is a mocked Anthropic response.'
-      }
-    ]
+        text: 'This is a mocked Anthropic response.',
+      },
+    ],
   };
 }
 
@@ -40,5 +40,5 @@ export const anthropicMockHandlers = [
   http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
     const body = (await request.json()) as MessagesCreateRequest;
     return HttpResponse.json(createMessageResponse(body));
-  })
+  }),
 ];

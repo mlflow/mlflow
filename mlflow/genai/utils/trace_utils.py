@@ -52,6 +52,7 @@ _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
 _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
+_OUTPUT_KEY = "output"
 
 
 def extract_request_from_trace(trace: Trace) -> str | None:
@@ -190,6 +191,15 @@ def _get_exception_from_span(span: Span) -> str | None:
     return exception_type
 
 
+def _extract_tool_name_from_span(span: Span) -> str:
+    inputs = span.attributes.get(SpanAttributeKey.INPUTS)
+    if isinstance(inputs, dict):
+        call_data = inputs.get("call")
+        if isinstance(call_data, dict) and "tool_name" in call_data:
+            return call_data["tool_name"]
+    return span.name
+
+
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     """
     Extract tool call information from TOOL type spans in a trace.
@@ -217,7 +227,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = FunctionCall(
-            name=tool_span.name,
+            name=_extract_tool_name_from_span(tool_span),
             arguments=tool_span.inputs or None,
             outputs=tool_span.outputs or None,
             exception=_get_exception_from_span(tool_span),
@@ -502,7 +512,7 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
             f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
         )
         predict_fn = _wrap_async_predict_fn(predict_fn)
-    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
+    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get() and sample_input:
         with (
             NoOpTracerPatcher() as counter,
             # Enable auto-tracing before checking if the predict_fn produces traces, so that
@@ -614,9 +624,37 @@ def parse_outputs_to_str(value: Any) -> str:
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
         content = value[_MESSAGES_KEY][-1][_CONTENT_KEY]
+    elif _is_responses_api_output(value.get(_OUTPUT_KEY)):
+        content = _extract_responses_api_content(value[_OUTPUT_KEY])
     else:
         content = json.dumps(value, cls=TraceJSONEncoder)
     return content
+
+
+def _is_responses_api_output(maybe_output: Any) -> bool:
+    """Check if the value is an OpenAI Responses API output format."""
+    if not maybe_output or not isinstance(maybe_output, list) or len(maybe_output) == 0:
+        return False
+    last_item = maybe_output[-1]
+    return (
+        isinstance(last_item, dict)
+        and last_item.get("type") == "message"
+        and "content" in last_item
+    )
+
+
+def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
+    """Extract text content from OpenAI Responses API output format."""
+    for item in reversed(output):
+        if item.get("role") == "assistant" and "content" in item:
+            content = item["content"]
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
+                        return part.get("text", json.dumps(output))
+    return json.dumps(output)
 
 
 def _is_chat_choices(maybe_choices: Any) -> bool:
@@ -731,7 +769,11 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Trace]:
+def clean_up_extra_traces(
+    traces: list[Trace],
+    eval_start_time: int,
+    input_trace_ids: set[str] | None = None,
+) -> list[Trace]:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -743,6 +785,8 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
     Args:
         traces: List of traces to clean up.
         eval_start_time: The start time of the evaluation run.
+        input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
+            These traces should never be deleted.
 
     Returns:
         List of traces that are kept after cleaning up extra traces.
@@ -753,7 +797,7 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
         extra_trace_ids = [
             trace.info.trace_id
             for trace in traces
-            if not _should_keep_trace(trace, eval_start_time)
+            if not _should_keep_trace(trace, eval_start_time, input_trace_ids)
         ]
         if extra_trace_ids:
             _logger.debug(
@@ -777,7 +821,15 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
         )
 
 
-def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
+def _should_keep_trace(
+    trace: Trace,
+    eval_start_time: int,
+    input_trace_ids: set[str] | None = None,
+) -> bool:
+    # Never delete traces that were explicitly passed in the input DataFrame.
+    if input_trace_ids and trace.info.trace_id in input_trace_ids:
+        return True
+
     # We should not delete traces that are generated before the evaluation run started.
     if trace.info.timestamp_ms < eval_start_time:
         return True

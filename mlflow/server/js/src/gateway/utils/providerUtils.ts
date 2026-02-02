@@ -13,19 +13,11 @@ export const PROVIDER_GROUPS: Record<string, Omit<ProviderGroup, 'providers'>> =
     displayName: 'OpenAI / Azure OpenAI',
     defaultProvider: 'openai',
   },
-  vertex_ai: {
-    groupId: 'vertex_ai',
-    displayName: 'Google Vertex AI',
-    defaultProvider: 'vertex_ai',
-  },
 };
 
 export function getProviderGroupId(provider: string): string | null {
   if (provider === 'openai' || provider === 'azure') {
     return 'openai_azure';
-  }
-  if (provider === 'vertex_ai' || provider.startsWith('vertex_ai-')) {
-    return 'vertex_ai';
   }
   return null;
 }
@@ -67,42 +59,7 @@ export function buildProviderGroups(providers: string[]): {
     });
   }
 
-  const vertexProviders = groupedProviders.get('vertex_ai');
-  if (vertexProviders && vertexProviders.length > 0) {
-    vertexProviders.sort((a, b) => {
-      if (a === 'vertex_ai') return -1;
-      if (b === 'vertex_ai') return 1;
-      return a.localeCompare(b);
-    });
-    groups.push({
-      ...PROVIDER_GROUPS['vertex_ai'],
-      providers: vertexProviders,
-    });
-  }
-
   return { groups, ungroupedProviders };
-}
-
-export function groupProviders(providers: string[]): {
-  common: string[];
-  other: string[];
-} {
-  const commonSet = new Set<string>(COMMON_PROVIDERS);
-  const common: string[] = [];
-  const other: string[] = [];
-
-  for (const provider of providers) {
-    if (commonSet.has(provider)) {
-      common.push(provider);
-    } else {
-      other.push(provider);
-    }
-  }
-
-  common.sort((a, b) => COMMON_PROVIDERS.indexOf(a as any) - COMMON_PROVIDERS.indexOf(b as any));
-  other.sort((a, b) => a.localeCompare(b));
-
-  return { common, other };
 }
 
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
@@ -128,33 +85,9 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   cerebras: 'Cerebras',
 };
 
-const VERTEX_AI_VARIANT_NAMES: Record<string, string> = {
-  'vertex_ai-anthropic': 'Vertex AI (Anthropic)',
-  'vertex_ai-llama3': 'Vertex AI (Llama 3)',
-  'vertex_ai-mistral': 'Vertex AI (Mistral)',
-  'vertex_ai-ai21': 'Vertex AI (AI21)',
-  'vertex_ai-codey': 'Vertex AI (Codey)',
-  'vertex_ai-image-models': 'Vertex AI (Image)',
-  'vertex_ai-code-text-models': 'Vertex AI (Code)',
-  'vertex_ai-text-models': 'Vertex AI (Text)',
-  'vertex_ai-chat-models': 'Vertex AI (Chat)',
-  'vertex_ai-embedding-models': 'Vertex AI (Embedding)',
-  'vertex_ai-vision-models': 'Vertex AI (Vision)',
-};
-
 export function formatProviderName(provider: string): string {
   if (PROVIDER_DISPLAY_NAMES[provider]) {
     return PROVIDER_DISPLAY_NAMES[provider];
-  }
-
-  if (VERTEX_AI_VARIANT_NAMES[provider]) {
-    return VERTEX_AI_VARIANT_NAMES[provider];
-  }
-
-  if (provider.startsWith('vertex_ai-')) {
-    const variant = provider.replace('vertex_ai-', '');
-    const formattedVariant = variant.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    return `Vertex AI (${formattedVariant})`;
   }
 
   return provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -197,4 +130,26 @@ export function formatCredentialFieldName(fieldName: string): string {
     databricks_host: 'Databricks Host',
   };
   return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const PROVIDER_FIELD_ORDER: Record<string, string[]> = {
+  databricks: ['client_id', 'client_secret', 'api_base'],
+};
+
+export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {
+  const fieldOrder = PROVIDER_FIELD_ORDER[provider];
+  if (!fieldOrder) {
+    return fields;
+  }
+
+  return [...fields].sort((a, b) => {
+    const aIndex = fieldOrder.indexOf(a.name);
+    const bIndex = fieldOrder.indexOf(b.name);
+
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+
+    return aIndex - bIndex;
+  });
 }

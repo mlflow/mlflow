@@ -486,7 +486,7 @@ def autolog(
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
-    import statsmodels.api
+    import statsmodels.api  # noqa: F401
 
     def find_subclasses(klass):
         """

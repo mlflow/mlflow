@@ -2,12 +2,16 @@
 
 import ast
 import inspect
+import json
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
 
 _logger = logging.getLogger(__name__)
 
@@ -189,3 +193,96 @@ def update_model_in_serialized_scorer(
     elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
         result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
     return result
+
+
+def validate_scorer_name(name: str | None) -> None:
+    """
+    Validate the scorer name.
+
+    Args:
+        name: The scorer name to validate.
+
+    Raises:
+        MlflowException: If the name is invalid.
+    """
+    if name is None:
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
+        )
+
+
+def validate_scorer_model(model: str | None) -> None:
+    """
+    Validate the scorer model string if present.
+
+    Args:
+        model: The model string to validate.
+
+    Raises:
+        MlflowException: If the model is invalid.
+    """
+    if model is None:
+        return
+
+    if not isinstance(model, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
+        )
+    if not model.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
+        )
+
+
+def parse_tool_call_expectations(
+    expectations: dict[str, Any] | None,
+) -> list["FunctionCall"] | None:
+    from mlflow.genai.utils.type import FunctionCall
+
+    if not expectations or "expected_tool_calls" not in expectations:
+        return None
+
+    expected_tool_calls = expectations["expected_tool_calls"]
+    if not expected_tool_calls:
+        return None
+
+    normalized_calls = []
+    for call in expected_tool_calls:
+        if isinstance(call, FunctionCall):
+            normalized_calls.append(call)
+        elif isinstance(call, dict):
+            name = call.get("name")
+            arguments = call.get("arguments")
+            if arguments is not None and not isinstance(arguments, dict):
+                raise MlflowException(
+                    f"Invalid arguments type: {type(arguments)}. Arguments must be a dict."
+                )
+            normalized_calls.append(FunctionCall(name=name, arguments=arguments))
+        else:
+            raise MlflowException(
+                f"Invalid expected tool call format: {type(call)}. "
+                "Expected dict with 'name' and optional 'arguments', or FunctionCall object."
+            )
+
+    return normalized_calls
+
+
+def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
+    if args is None:
+        return {}
+    if isinstance(args, dict):
+        return args
+    raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
+
+
+def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> str | None:
+    if include_arguments:
+        args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
+        return f"{call.name}({args})"
+    return call.name

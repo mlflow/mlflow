@@ -1,4 +1,6 @@
+import copy
 import inspect
+import json
 import logging
 import math
 from abc import abstractmethod
@@ -8,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pydantic
 
 if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +34,10 @@ from mlflow.genai.judges.prompts.context_sufficiency import (
 from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
+)
+from mlflow.genai.judges.prompts.conversational_guidelines import (
+    CONVERSATIONAL_GUIDELINES_ASSESSMENT_NAME,
+    CONVERSATIONAL_GUIDELINES_PROMPT,
 )
 from mlflow.genai.judges.prompts.conversational_role_adherence import (
     CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
@@ -78,6 +85,11 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerKind,
     SerializedScorer,
+)
+from mlflow.genai.scorers.scorer_utils import (
+    get_tool_call_signature,
+    normalize_tool_call_arguments,
+    parse_tool_call_expectations,
 )
 from mlflow.genai.utils.trace_utils import (
     extract_available_tools_from_trace,
@@ -421,6 +433,10 @@ class RetrievalRelevance(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalRelevance judge.
@@ -457,6 +473,12 @@ class RetrievalRelevance(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalRelevance "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
@@ -549,6 +571,10 @@ class RetrievalSufficiency(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalSufficiency judge.
@@ -601,6 +627,12 @@ class RetrievalSufficiency(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalSufficiency "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
 
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
@@ -675,6 +707,10 @@ class RetrievalGroundedness(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GROUNDEDNESS_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalGroundedness judge.
@@ -709,6 +745,13 @@ class RetrievalGroundedness(BuiltInScorer):
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalGroundedness "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
@@ -774,6 +817,10 @@ class ToolCallEfficiency(BuiltInScorer):
     def instructions(self) -> str:
         return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         return [
             JudgeField(
@@ -811,14 +858,30 @@ class ToolCallCorrectness(BuiltInScorer):
     to fulfill the user's request. It checks if the tool choices align with the user's intent and
     if the arguments passed to each tool are reasonable.
 
+    The scorer supports three modes of evaluation:
+
+    1. **Ground-truth free** (default): When no expectations are provided, uses an LLM to judge
+       whether tool calls are reasonable given the user request and available tools.
+
+    2. **With expectations (fuzzy match)**: When expectations are provided and
+       ``should_exact_match=False``, uses an LLM to semantically compare actual tool calls
+       against expected tool calls.
+
+    3. **With expectations (exact match)**: When expectations are provided and
+       ``should_exact_match=True``, performs direct comparison of tool names and arguments.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Args:
         name: The name of the scorer. Defaults to "tool_call_correctness".
         model: {{ model }}
+        should_exact_match: If True, use exact matching for tool names and arguments.
+            If False (default), use LLM-based fuzzy matching for semantic comparison.
+        should_consider_ordering: If True, consider the order of tool calls when comparing.
+            If False (default), ignore ordering and compare as sets.
 
-    Example (direct usage):
+    Example (ground-truth free):
 
     .. code-block:: python
 
@@ -827,16 +890,55 @@ class ToolCallCorrectness(BuiltInScorer):
 
         trace = mlflow.get_trace("<your-trace-id>")
         feedback = ToolCallCorrectness(name="my_tool_call_correctness")(trace=trace)
-        print(feedback)
 
-    Example (with evaluate):
+    Example (with expectations - fuzzy match):
 
     .. code-block:: python
 
-        import mlflow
+        from mlflow.genai.scorers import ToolCallCorrectness
 
-        data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallCorrectness()])
+        scorer = ToolCallCorrectness()
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
+
+    Example (with expectations - exact match):
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        scorer = ToolCallCorrectness(should_exact_match=True)
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search"},  # Partial: only check tool name
+                {"name": "summarize"},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
+
+    Example (with ordering):
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        # Enforce that tools are called in the expected order
+        scorer = ToolCallCorrectness(
+            should_exact_match=True,
+            should_consider_ordering=True,
+        )
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
     """
 
     name: str = "tool_call_correctness"
@@ -846,13 +948,19 @@ class ToolCallCorrectness(BuiltInScorer):
         "Evaluate whether the tools called and the arguments they are called with "
         "are reasonable given the user request."
     )
+    should_exact_match: bool = False
+    should_consider_ordering: bool = False
 
     @property
     def instructions(self) -> str:
         return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
-        return [
+        fields = [
             JudgeField(
                 name="trace",
                 description=(
@@ -863,16 +971,159 @@ class ToolCallCorrectness(BuiltInScorer):
                 ),
             ),
         ]
+        if self.should_exact_match:
+            fields.append(
+                JudgeField(
+                    name="expectations",
+                    description=(
+                        "A dictionary containing expected tool calls. Must contain an "
+                        "'expected_tool_calls' key with a list of expected function calls. "
+                        "Each call should have 'name' and optionally 'arguments'. "
+                        "Required when should_exact_match=True."
+                    ),
+                )
+            )
+        else:
+            fields.append(
+                JudgeField(
+                    name="expectations",
+                    description=(
+                        "Optional dictionary containing expected tool calls for ground-truth "
+                        "comparison. Contains 'expected_tool_calls' key with list of calls."
+                    ),
+                )
+            )
+        return fields
 
-    def __call__(self, *, trace: Trace) -> Feedback:
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        if self.should_exact_match and "expectations/expected_tool_calls" not in columns:
+            raise MissingColumnsException(
+                self.name,
+                {"expectations/expected_tool_calls (required when should_exact_match=True)"},
+            )
+
+    def _evaluate_exact_ordered(
+        self,
+        actual_calls: list["FunctionCall"],
+        expected_calls: list["FunctionCall"],
+        include_arguments: bool,
+    ) -> Feedback:
+        mismatches = []
+        for i, (actual, expected) in enumerate(zip(actual_calls, expected_calls)):
+            actual_sig = get_tool_call_signature(actual, include_arguments)
+            expected_sig = get_tool_call_signature(expected, include_arguments)
+            if actual_sig != expected_sig:
+                if include_arguments:
+                    mismatches.append(
+                        f"Position {i + 1}: expected {expected.name}("
+                        f"{json.dumps(normalize_tool_call_arguments(expected.arguments))}), "
+                        f"got {actual.name}("
+                        f"{json.dumps(normalize_tool_call_arguments(actual.arguments))})"
+                    )
+                else:
+                    mismatches.append(
+                        f"Position {i + 1}: expected {expected.name}, got {actual.name}"
+                    )
+
+        if mismatches:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=f"Tool calls do not match in order: {'; '.join(mismatches)}",
+                source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+            )
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES,
+            rationale="All tool calls match expected sequence exactly.",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        )
+
+    def _evaluate_exact_unordered(
+        self,
+        actual_calls: list["FunctionCall"],
+        expected_calls: list["FunctionCall"],
+        include_arguments: bool,
+    ) -> Feedback:
+        actual_set = {get_tool_call_signature(c, include_arguments) for c in actual_calls}
+        expected_set = {get_tool_call_signature(c, include_arguments) for c in expected_calls}
+
+        if actual_set == expected_set:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES,
+                rationale="All expected tool calls present (order ignored).",
+                source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+            )
+
+        missing = expected_set - actual_set
+        extra = actual_set - expected_set
+
+        rationale_parts = []
+        if missing:
+            rationale_parts.append(f"Missing: {missing}")
+        if extra:
+            rationale_parts.append(f"Unexpected: {extra}")
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.NO,
+            rationale="; ".join(rationale_parts),
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        )
+
+    def __call__(self, *, trace: Trace, expectations: dict[str, Any] | None = None) -> Feedback:
         request = extract_request_from_trace(trace)
         available_tools = extract_available_tools_from_trace(trace)
-        tools_called = extract_tools_called_from_trace(trace)
+        actual_calls = extract_tools_called_from_trace(trace)
+
+        expected_calls = parse_tool_call_expectations(expectations)
+
+        if expected_calls is None:
+            if self.should_exact_match:
+                raise MlflowException(
+                    "should_exact_match=True requires expectations to be provided. "
+                    "Cannot perform exact matching without ground truth."
+                )
+            return judges.is_tool_call_correct(
+                request=request,
+                tools_called=actual_calls,
+                available_tools=available_tools,
+                check_order=self.should_consider_ordering,
+                name=self.name,
+                model=self.model,
+            )
+
+        # Only compare arguments if all expected calls have arguments specified
+        include_arguments = not any(call.arguments is None for call in expected_calls)
+
+        if self.should_exact_match:
+            if len(actual_calls) != len(expected_calls):
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.NO,
+                    rationale=(
+                        f"Expected {len(expected_calls)} tool call(s), "
+                        f"but got {len(actual_calls)} tool call(s)."
+                    ),
+                    source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+                )
+
+            return (
+                self._evaluate_exact_ordered(actual_calls, expected_calls, include_arguments)
+                if self.should_consider_ordering
+                else self._evaluate_exact_unordered(actual_calls, expected_calls, include_arguments)
+            )
 
         return judges.is_tool_call_correct(
             request=request,
-            tools_called=tools_called,
+            tools_called=actual_calls,
             available_tools=available_tools,
+            expected_tool_calls=expected_calls,
+            include_arguments=include_arguments,
+            check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,
         )
@@ -959,6 +1210,10 @@ class Guidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1080,6 +1335,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1232,6 +1491,10 @@ class RelevanceToQuery(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RelevanceToQuery judge.
@@ -1340,6 +1603,10 @@ class Safety(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1477,6 +1744,10 @@ class Correctness(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1635,6 +1906,10 @@ class Fluency(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -1642,7 +1917,7 @@ class Fluency(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -1727,6 +2002,10 @@ class Equivalence(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return EQUIVALENCE_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1997,13 +2276,17 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["none", "resolved", "unresolved"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["none", "resolved", "unresolved"],
+            feedback_value_type=self.feedback_value_type,
         )
 
     @property
@@ -2070,13 +2353,17 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2146,13 +2433,17 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2220,13 +2511,17 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
         )
@@ -2293,19 +2588,117 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
+
+
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalGuidelines(BuiltInSessionLevelScorer):
+    """
+    Conversational guidelines evaluates whether the assistant's responses throughout
+    a conversation comply with the provided guidelines.
+
+    Unlike the single-turn :py:class:`Guidelines` scorer which evaluates a single request/response
+    pair, this scorer evaluates an entire conversation session. This is useful for ensuring
+    consistent adherence to guidelines across multi-turn interactions.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_guidelines".
+        guidelines: A single guideline text or a list of guidelines that the assistant's
+            responses should follow throughout the conversation.
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalGuidelines
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        scorer = ConversationalGuidelines(
+            guidelines=[
+                "The assistant must always respond in a professional tone",
+                "The assistant must not make promises about delivery times",
+            ]
+        )
+        assessment = scorer(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalGuidelines
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        scorer = ConversationalGuidelines(
+            guidelines=["The assistant must respond professionally and courteously"],
+        )
+
+        result = mlflow.genai.evaluate(data=session, scorers=[scorer])
+    """
+
+    name: str = CONVERSATIONAL_GUIDELINES_ASSESSMENT_NAME
+    guidelines: str | list[str]
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the assistant's responses throughout a conversation comply "
+        "with the provided guidelines."
+    )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def _create_judge(self) -> Judge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=self.feedback_value_type,
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        guidelines = self.guidelines
+        if isinstance(guidelines, str):
+            guidelines = [guidelines]
+        formatted_guidelines = "\n".join(f"<guideline>{g}</guideline>" for g in guidelines)
+        return CONVERSATIONAL_GUIDELINES_PROMPT.replace("{{ guidelines }}", formatted_guidelines)
 
 
 # Internal implementation detail for KnowledgeRetention - not part of public API
@@ -2329,13 +2722,17 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         "provided by users in earlier conversation turns."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
         )
 
     @property
@@ -2405,6 +2802,13 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
 
+    def model_post_init(self, __context: Any) -> None:
+        """Propagate model parameter to the inner last_turn_scorer after initialization."""
+        if self.model is not None:
+            # Make a copy to avoid mutating the caller's scorer
+            self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
+            self.last_turn_scorer.model = self.model
+
     def _create_judge(self) -> Judge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
@@ -2427,6 +2831,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             "KnowledgeRetention uses composition with last_turn_scorer "
             "and does not use instructions directly."
         )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def __call__(
         self,
@@ -2575,6 +2983,10 @@ class Completeness(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2582,7 +2994,7 @@ class Completeness(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -2677,6 +3089,10 @@ class Summarization(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2684,7 +3100,7 @@ class Summarization(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 

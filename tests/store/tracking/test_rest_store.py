@@ -14,6 +14,8 @@ from mlflow.entities import (
     ExperimentTag,
     FallbackConfig,
     FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
     LifecycleStage,
@@ -3165,26 +3167,65 @@ def test_create_gateway_endpoint():
     with mock_http_request() as mock_http:
         store.create_gateway_endpoint(
             name="my-endpoint",
-            model_definition_ids=["model-def-123"],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-789",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
             routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
             fallback_config=FallbackConfig(
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=2,
             ),
-            fallback_model_definition_ids=["model-def-456", "model-def-789"],
         )
-        from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+        from mlflow.protos.service_pb2 import (
+            FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
 
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
-                model_definition_ids=["model-def-123"],
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-789",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
                 routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
                 fallback_config=ProtoFallbackConfig(
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
-                fallback_model_definition_ids=["model-def-456", "model-def-789"],
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
@@ -3208,27 +3249,76 @@ def test_update_gateway_endpoint():
         store.update_gateway_endpoint(
             endpoint_id="endpoint-123",
             name="updated-endpoint",
-            model_definition_ids=["model-def-123", "model-def-456"],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-1",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-2",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
             routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
             fallback_config=FallbackConfig(
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=3,
             ),
-            fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
         )
-        from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+        from mlflow.protos.service_pb2 import (
+            FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
 
         body = message_to_json(
             UpdateGatewayEndpoint(
                 endpoint_id="endpoint-123",
                 name="updated-endpoint",
-                model_definition_ids=["model-def-123", "model-def-456"],
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-1",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-2",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
                 routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
                 fallback_config=ProtoFallbackConfig(
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=3,
                 ),
-                fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
@@ -3343,13 +3433,24 @@ def test_attach_model_to_gateway_endpoint():
     with mock_http_request() as mock_http:
         store.attach_model_to_endpoint(
             endpoint_id="endpoint-123",
-            model_definition_id="model-def-456",
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id="model-def-456",
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
         body = message_to_json(
             AttachModelToGatewayEndpoint(
                 endpoint_id="endpoint-123",
-                model_definition_id="model-def-456",
-                weight=1,
+                model_config=ProtoGatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                    weight=1.0,
+                ),
             )
         )
         _verify_requests(
@@ -3381,20 +3482,20 @@ def test_create_gateway_endpoint_binding():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
 
-    response_json = json.dumps({"binding": {"resource_type": "scorer_job"}})
+    response_json = json.dumps({"binding": {"resource_type": "scorer"}})
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text=response_json),
     ) as mock_http:
         store.create_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             CreateGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3410,13 +3511,13 @@ def test_delete_gateway_endpoint_binding():
     with mock_http_request() as mock_http:
         store.delete_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type="scorer_job",
+            resource_type="scorer",
             resource_id="job-456",
         )
         body = message_to_json(
             DeleteGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3432,13 +3533,13 @@ def test_list_gateway_endpoint_bindings():
     with mock_http_request() as mock_http:
         store.list_endpoint_bindings(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             ListGatewayEndpointBindings(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )

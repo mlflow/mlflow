@@ -111,7 +111,8 @@ export const PromptVersionsTable = ({
         ) : (
           table.getRowModel().rows.map((row) => {
             const isSelectedSingle =
-              [PromptVersionsTableMode.PREVIEW].includes(mode) && selectedVersion === row.original.version;
+              [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.TRACES].includes(mode) &&
+              selectedVersion === row.original.version;
 
             const isSelectedFirstToCompare =
               [PromptVersionsTableMode.COMPARE].includes(mode) && selectedVersion === row.original.version;
@@ -130,7 +131,8 @@ export const PromptVersionsTable = ({
               return 'transparent';
             };
 
-            const showCursorForEntireRow = mode === PromptVersionsTableMode.PREVIEW;
+            const showCursorForEntireRow =
+              mode === PromptVersionsTableMode.PREVIEW || mode === PromptVersionsTableMode.TRACES;
             return (
               <TableRow
                 key={row.id}
@@ -139,7 +141,7 @@ export const PromptVersionsTable = ({
                   cursor: showCursorForEntireRow ? 'pointer' : 'default',
                 }}
                 onClick={() => {
-                  if (mode !== PromptVersionsTableMode.PREVIEW) {
+                  if (mode !== PromptVersionsTableMode.PREVIEW && mode !== PromptVersionsTableMode.TRACES) {
                     return;
                   }
                   onUpdateSelectedVersion(row.original.version);

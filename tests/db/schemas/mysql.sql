@@ -151,6 +151,7 @@ CREATE TABLE endpoint_bindings (
 	created_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
+	display_name VARCHAR(255),
 	PRIMARY KEY (endpoint_id, resource_type, resource_id),
 	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
@@ -439,6 +440,18 @@ CREATE TABLE model_version_tags (
 	version INTEGER NOT NULL,
 	PRIMARY KEY (key, name, version),
 	CONSTRAINT model_version_tags_ibfk_1 FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	sample_rate DOUBLE NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	filter_string TEXT,
+	PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 

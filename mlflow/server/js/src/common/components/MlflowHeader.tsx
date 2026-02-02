@@ -17,6 +17,7 @@ export const MlflowHeader = ({
   toggleSidebar: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+
   return (
     <header
       css={{
@@ -65,7 +66,7 @@ export const MlflowHeader = ({
         </span>
       </div>
       <div css={{ flex: 1 }} />
-      <div css={{ display: 'flex', gap: theme.spacing.lg, alignItems: 'center' }}>
+      <div css={{ display: 'flex', gap: theme.spacing.md, alignItems: 'center' }}>
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>

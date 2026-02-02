@@ -5,6 +5,7 @@ sidebar_label: Optimize Prompts
 
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, Card, SmallLogoCard } from "@site/src/components/Card";
+import Link from "@docusaurus/Link";
 
 # Optimize Prompts (Experimental)
 
@@ -14,7 +15,12 @@ MLflow's prompt optimization lets you systematically enhance your AI application
 
 **Minimum rewrites, no lock-in, just better prompts.**
 
-Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
+MLflow supports multiple optimization algorithms to improve your prompts:
+
+- **[GEPA](https://arxiv.org/abs/2507.19457)** (<APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>): Iteratively refines prompts using LLM-driven reflection and automated feedback, achieving systematic improvements through trial-and-error learning.
+- **Metaprompting** (<APILink fn="mlflow.genai.optimize.MetaPromptOptimizer" >`MetaPromptOptimizer`</APILink>): Restructures prompts to be more systematic and effective, working in both zero-shot mode (without training data) and few-shot mode (learning from your examples).
+
+See [Choosing Your Optimizer](#choosing-your-optimizer) for guidance on which optimizer to use for your specific needs.
 
 :::tip Why Use MLflow Prompt Optimization?
 
@@ -112,6 +118,102 @@ print(f"Optimized template: {optimized_prompt.template}")
 ```
 
 The API will automatically improve the prompt to better classify medical paper sections by learning from the training examples.
+
+## Choosing Your Optimizer
+
+MLflow currently supports two optimization algorithms: **GEPA** and **Metaprompting**. Each uses different strategies to improve your prompts.
+
+### GEPA (Genetic-Pareto)
+
+GEPA is a prompt optimization technique that uses natural language reflection to iteratively improve LLM performance through trial-and-error learning. It's particularly effective at extracting rich learning signals from system behavior by analyzing failures in natural language.
+
+**Key Features:**
+
+- **Natural Language Reflection**: Leverages interpretable language to extract learning signals from execution traces, reasoning chains, and tool interactions
+- **High Efficiency**: Achieves superior results with dramatically fewer iterations (up to 35x fewer rollouts compared to traditional methods like GRPO)
+- **Pareto Synthesis**: Smartly picks the past prompt to mutate and improve
+- **Strong Performance**: Demonstrates reliable gains on a wide range of tasks, e.g., context compression, Q&A agents, etc.
+
+**Best For:**
+
+- Tasks where you have clear evaluation metrics and a dataset of decent size (e.g., 100+ records)
+- Tasks where quality is critical to your system (e.g., medical agents, financial agents, etc.), so that the optimization cost and longer prompt as produced by GEPA is worth it
+
+:::tip Reduce the Cost of GEPA Optimization
+
+The cost of GEPA optimization is tightly coupled with the reflection model you use and the max number of metric calls you allow. You can reduce the cost by using a cheaper reflection model or reducing the max number of metric calls.
+
+:::
+
+**Learn More:** [GEPA Research Paper](https://arxiv.org/abs/2507.19457) | [GEPA GitHub Repository](https://github.com/gepa-ai/gepa)
+
+### Metaprompting
+
+Metaprompting is a prompt optimization technique that utilizes a metaprompt to call the language model to restructure your prompts to be more systematic and effective. It operates in two modes:
+
+**Zero-Shot Mode:**
+
+- Analyzes your initial prompt and restructures it to follow best practices
+- Makes prompts more systematic without requiring training data
+- Quick to run and requires no examples
+
+**Few-Shot Mode:**
+
+- Evaluates the initial prompt on your training data to understand task-specific patterns
+- Leverages the evaluation results along with general best practices to restructure the prompt to be more systematic and effective
+
+**Key Features:**
+
+- **Fast Optimization**: Runs fast because it only does one evaluation round in few-shot mode and just one single call to the language model in zero-shot mode
+- **Minimal Data Requirement**: Works well with zero or just a few examples (less than 10)
+- **Systematic Improvement**: Restructures prompts to follow clear patterns and best practices
+- **Data-Aware**: In few-shot mode, learns from your specific data to tailor improvements
+- **Custom Guidelines**: You can provide custom guidelines to the optimizer to tailor the optimization to your specific needs
+
+**Best For:** Tasks where you want quick improvements based on prompt engineering best practices, or when you have limited training data but want to leverage it for targeted improvements.
+
+**Usage Examples:**
+
+```python
+from mlflow.genai.optimize import MetaPromptOptimizer
+
+# Zero-shot mode: No training data or scorers required
+# The optimizer automatically uses zero-shot mode when train_data is empty and scorers is empty
+results = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=[],
+    prompt_uris=[prompt.uri],
+    optimizer=MetaPromptOptimizer(
+        reflection_model="openai:/gpt-5",
+        guidelines="This prompt is used in a finance agent to project tax situations.",
+    ),
+    scorers=[],
+)
+
+# Few-shot mode: Learn from training data
+# The optimizer automatically uses few-shot mode when train_data and scorers are provided
+results = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=MetaPromptOptimizer(
+        reflection_model="openai:/gpt-5",
+        guidelines="This prompt is used in a finance agent to project tax situations.",
+    ),
+    scorers=[Correctness(model="openai:/gpt-5-mini")],
+)
+```
+
+### Comparison Summary
+
+| Feature                    | GEPA                                      | Metaprompting (Zero-Shot)       | Metaprompting (Few-Shot)                |
+| -------------------------- | ----------------------------------------- | ------------------------------- | --------------------------------------- |
+| **Requires Training Data** | Yes                                       | No                              | Yes                                     |
+| **Optimization Speed**     | Moderate                                  | Fast                            | Fast-Moderate                           |
+| **Learning Approach**      | Iterative trial-and-error with reflection | Systematic restructuring        | Data-driven restructuring               |
+| **Best Use Case**          | Complex tasks with clear metrics          | Quick improvements without data | Targeted improvements with limited data |
+
+Choose the optimizer that best fits your task requirements, available data, and optimization budget.
 
 ### Example: Simple Prompt → Optimized Prompt
 
@@ -230,7 +332,7 @@ The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following co
     </tr>
     <tr>
       <td><strong>Optimizer</strong></td>
-      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>)</td>
+      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink> or <APILink fn="mlflow.genai.optimize.MetaPromptOptimizer" >`MetaPromptOptimizer`</APILink>). See <Link to="#choosing-your-optimizer">Choosing Your Optimizer</Link> for guidance.</td>
     </tr>
   </tbody>
 </table>
@@ -337,15 +439,24 @@ dataset = pd.DataFrame(
 
 ### 4. Optimizer
 
-Create an optimizer instance for the optimization algorithm. Currently only <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer">`GepaPromptOptimizer`</APILink> is supported natively.
+Create an optimizer instance for the optimization algorithm. MLflow supports <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer">`GepaPromptOptimizer`</APILink> and <APILink fn="mlflow.genai.optimize.MetaPromptOptimizer">`MetaPromptOptimizer`</APILink>. See [Choosing Your Optimizer](#choosing-your-optimizer) for detailed guidance on which optimizer to use.
 
 ```python
-from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.optimize import GepaPromptOptimizer, MetaPromptOptimizer
 
+# Option 1: GEPA optimizer
 optimizer = GepaPromptOptimizer(
     reflection_model="openai:/gpt-5",  # Powerful model for optimization
     max_metric_calls=100,
     display_progress_bar=False,
+)
+
+# Option 2: Metaprompting optimizer
+# Note: Zero-shot vs few-shot is determined by whether you provide
+# scorers and train_data to optimize_prompts()
+optimizer = MetaPromptOptimizer(
+    reflection_model="openai:/gpt-5",
+    guidelines="Optional custom guidelines for optimization",
 )
 ```
 

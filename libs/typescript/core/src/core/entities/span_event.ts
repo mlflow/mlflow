@@ -118,8 +118,8 @@ export class SpanEvent {
       attributes: {
         'exception.message': exception.message,
         'exception.type': exception.name,
-        'exception.stacktrace': stackTrace
-      }
+        'exception.stacktrace': stackTrace,
+      },
     });
   }
 
@@ -146,7 +146,7 @@ export class SpanEvent {
     return {
       name: this.name,
       timestamp: this.timestamp,
-      attributes: this.attributes
+      attributes: this.attributes,
     };
   }
 

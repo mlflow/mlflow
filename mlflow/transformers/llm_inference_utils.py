@@ -150,7 +150,7 @@ def preprocess_llm_inference_input(
 
     # The rest of fields in input payload should goes to params and override default ones
     params_in_data = {k: v[0] for k, v in data.items() if v[0] is not None}
-    params = {**params, **params_in_data}
+    params = params | params_in_data
 
     if max_tokens := params.pop("max_tokens", None):
         params["max_new_tokens"] = max_tokens

@@ -9,8 +9,8 @@ import {
   InfoTooltip,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { ModelTraceExplorer, getTraceArtifact } from '@databricks/web-shared/model-trace-explorer';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { ModelTraceExplorer, getTraceArtifact } from '@databricks/web-shared/model-trace-explorer';
 
 const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?ref=jupyter-notebook-widget';
 

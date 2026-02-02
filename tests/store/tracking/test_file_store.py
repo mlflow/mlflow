@@ -148,7 +148,7 @@ def create_experiments(store, experiment_names):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*is deprecated"):
         FileStore(str(tmp_path / "mlruns"))
 
 
@@ -3054,8 +3054,8 @@ def test_legacy_end_trace(store_and_trace_info):
     assert trace_info.timestamp_ms == trace.timestamp_ms
     assert trace_info.execution_time_ms == timestamp_ms - trace.timestamp_ms
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
-    assert trace_info.tags == {**trace.tags, **tags}
+    assert trace_info.request_metadata == trace.request_metadata | request_metadata
+    assert trace_info.tags == trace.tags | tags
 
     with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.deprecated_end_trace_v2(

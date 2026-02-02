@@ -1,6 +1,13 @@
 import React from 'react';
+
+import {
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  useDesignSystemTheme,
+  type TagColors,
+} from '@databricks/design-system';
 import { useIntl, FormattedMessage } from '@databricks/i18n';
-import { ClockIcon, CheckCircleIcon, XCircleIcon, TagColors, useDesignSystemTheme } from '@databricks/design-system';
 
 import { type ModelTraceState } from './ModelTrace.types';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
@@ -35,7 +42,10 @@ export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Pr
         color: 'lemon' as TagColors,
       },
       OK: {
-        label: intl.formatMessage({ defaultMessage: 'OK', description: 'Model trace header > status label > ok' }),
+        label: intl.formatMessage({
+          defaultMessage: 'OK',
+          description: 'Model trace header > status label > ok',
+        }),
         icon: <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />,
         color: 'teal' as TagColors,
       },

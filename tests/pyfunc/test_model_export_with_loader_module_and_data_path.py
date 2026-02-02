@@ -6,14 +6,11 @@ import cloudpickle
 import numpy as np
 import pytest
 import sklearn.datasets
-import sklearn.linear_model
 import sklearn.neighbors
 import yaml
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.pyfunc.model
-import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example

@@ -3,12 +3,29 @@ import { compact, has, isNil, isString } from 'lodash';
 import type { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
 import { isModelTraceToolCall, prettyPrintToolCall } from '../ModelTraceExplorer.utils';
 
+// Thinking content can be a string or nested array of text blocks (Mistral format)
+type ThinkingContent = string | Array<{ type: string; text: string }>;
+
 type LangchainContentPart = {
-  type: 'text' | 'image_url';
+  type: 'text' | 'image_url' | 'thinking';
   text?: string;
+  thinking?: ThinkingContent;
   image_url?: {
     url: string;
   };
+};
+
+// Helper to extract text from thinking content (handles both string and Mistral's nested array format)
+const extractThinkingText = (thinking: ThinkingContent | undefined): string | undefined => {
+  if (!thinking) return undefined;
+  if (typeof thinking === 'string') return thinking;
+  if (Array.isArray(thinking)) {
+    return thinking
+      .filter((item) => item.type === 'text' && item.text)
+      .map((item) => item.text)
+      .join('\n\n');
+  }
+  return undefined;
 };
 
 // it has other fields, but we only care about these for now
@@ -62,26 +79,39 @@ export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessag
 
   // Handle content that could be a string or an array of content parts
   let content: string | undefined;
+  let reasoning: string | undefined;
+
   if (isString(message.content)) {
     content = message.content;
   } else if (Array.isArray(message.content)) {
-    // Convert array of content parts to string representation
-    const contentParts = message.content
-      .map((part: any) => {
-        if (isString(part)) {
-          return part;
-        } else if (part.type === 'text' && part.text) {
-          return part.text;
-        } else if (part.type === 'image_url' && part.image_url?.url) {
-          // Convert to markdown image format with spacing
-          return `![](${part.image_url.url})`;
-        }
-        return '';
-      })
-      .filter(Boolean);
+    // Extract thinking/reasoning blocks from the content array.
+    // [{'type': 'thinking', 'thinking': '...'}, 'response text']
+    const thinkingParts: string[] = [];
+    const contentParts: string[] = [];
 
-    // Join with double line breaks for better visual separation
-    content = contentParts.join('\n\n');
+    for (const part of message.content) {
+      if (isString(part)) {
+        contentParts.push(part);
+      } else if (part.type === 'thinking' && part.thinking) {
+        // Extract thinking/reasoning content from reasoning models
+        // Handles both string format and Mistral's nested array format
+        const thinkingText = extractThinkingText(part.thinking);
+        if (thinkingText) {
+          thinkingParts.push(thinkingText);
+        }
+      } else if (part.type === 'text' && part.text) {
+        contentParts.push(part.text);
+      } else if (part.type === 'image_url' && part.image_url?.url) {
+        contentParts.push(`![](${part.image_url.url})`);
+      }
+    }
+
+    // Join thinking parts if there are multiple
+    if (thinkingParts.length > 0) {
+      reasoning = thinkingParts.join('\n\n');
+    }
+
+    content = contentParts.filter(Boolean).join('\n\n');
   } else {
     content = undefined;
   }
@@ -89,6 +119,7 @@ export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessag
   const normalizedMessage: ModelTraceChatMessage = {
     content,
     role,
+    ...(reasoning && { reasoning }),
   };
 
   const toolCalls = message.tool_calls;

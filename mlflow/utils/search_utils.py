@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import sqlparse
 from packaging.version import Version
@@ -36,6 +36,12 @@ from mlflow.tracing.constant import (
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.elements import ClauseElement, ColumnElement
+
+# MSSQL collation for case-sensitive string comparisons
+_MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
 def _convert_like_pattern_to_regex(pattern, flags=0):
@@ -112,6 +118,31 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             and isinstance(third, Parenthesis)
         ):
             joined_tokens.append(Comparison(TokenList([first, second, third])))
+            continue
+
+        # IS NULL (for trace metadata)
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.match(ttype=TokenType.Keyword, values=["NULL"])
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NULL")]))
+            )
+            continue
+
+        # IS NOT NULL (for trace metadata)
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.ttype == TokenType.Keyword
+            and third.value.upper() == "NOT NULL"
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
+            )
             continue
 
         (_, fourth) = next(iterator, (None, None))
@@ -245,7 +276,7 @@ class SearchUtils:
             if not isinstance(column.type, sa.types.String):
                 return comparison_func(column, value)
 
-            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            collated = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
@@ -1643,6 +1674,7 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
+    VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1793,10 +1825,10 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_request_metadata(cls, key_type, comparator):
         if key_type == cls._REQUEST_METADATA_IDENTIFIER:
-            # Request metadata accepts the same set of comparators as tags
-            if comparator not in cls.VALID_TAG_COMPARATORS:
+            if comparator not in cls.VALID_METADATA_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METADATA_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1860,6 +1892,62 @@ class SearchTraceUtils(SearchUtils):
                 )
             return True
         return False
+
+    @staticmethod
+    def _get_sql_json_comparison_func(
+        comparator: str, dialect: str
+    ) -> Callable[["ColumnElement", str], "ClauseElement"]:
+        """
+        Returns a comparison function for JSON-serialized values.
+
+        Assessment values are stored as JSON primitives in the database:
+          - Boolean False -> false (no quotes in JSON)
+          - Numeric value 5 -> 5 (no quotes in JSON)
+          - String "yes" -> '"yes"' (WITH quotes in JSON)
+
+        For equality comparisons, we match either the raw JSON primitive value
+        (for booleans and numeric values) or the JSON-serialized value (for strings).
+        """
+        import sqlalchemy as sa
+
+        def mysql_json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MySQL is case insensitive by default, so we need to use the BINARY operator
+            # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
+            # and the JSON-serialized value (for strings).
+            json_string_value = json.dumps(value)
+            col_ref = f"{column.class_.__tablename__}.{column.key}"
+            template = (
+                f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
+                f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
+            )
+            if comparator == "!=":
+                template = f"NOT {template}"
+            return sa.text(template).bindparams(
+                sa.bindparam("value1", value=value, unique=True),
+                sa.bindparam("value2", value=json_string_value, unique=True),
+            )
+
+        def json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MSSQL uses collation for case-sensitive comparisons on String columns
+            if dialect == MSSQL:
+                column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
+
+            json_string_value = json.dumps(value)
+            clause = sa.or_(column == value, column == json_string_value)
+            if comparator == "!=":
+                clause = sa.not_(clause)
+            return clause
+
+        if comparator not in ("=", "!="):
+            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+        elif dialect == MYSQL:
+            return mysql_json_equality_inequality_comparison
+        else:
+            return json_equality_inequality_comparison
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
@@ -2006,6 +2094,23 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
+        if len(stripped_comparison) == 2:
+            comparator = stripped_comparison[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                comp = cls._get_identifier(
+                    stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
+                )
+                comp["comparator"] = comparator
+                comp["value"] = None
+                return comp
+            raise MlflowException(
+                f"Invalid comparison clause. Expected 3 tokens, found 2 with "
+                f"comparator '{comparator}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         cls._validate_comparison(stripped_comparison, search_traces=True)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value

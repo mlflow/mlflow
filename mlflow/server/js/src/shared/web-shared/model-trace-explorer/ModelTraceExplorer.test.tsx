@@ -21,8 +21,8 @@ import {
   MOCK_SPAN_ASSESSMENT,
   MOCK_TRACE,
   MOCK_V3_TRACE,
-  MOCK_V3_SPANS,
   MOCK_TRACE_INFO_V3,
+  MOCK_V3_SPANS,
 } from './ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
 
@@ -359,7 +359,7 @@ describe('ModelTraceExplorer', () => {
 
     expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
 
-    const createButton = screen.getByText('Add new assessment');
+    const createButton = screen.getByText('Add feedback');
     await userEvent.click(createButton);
 
     // expect that the default assessment input type is boolean

@@ -201,7 +201,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
     throw new Error(
       'Databricks host not found. Please either:\n' +
         '  1. Set the DATABRICKS_HOST environment variable, or\n' +
-        `  2. Add a host to your config file at ${configPath}`
+        `  2. Add a host to your config file at ${configPath}`,
     );
   }
 
@@ -211,7 +211,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
     host: options.host,
     token: options.databricksToken,
     profile,
-    configFile: options.databricksConfigPath
+    configFile: options.databricksConfigPath,
   });
 
   // Headers provider delegates entirely to the SDK
@@ -241,7 +241,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
   return {
     getHost: () => host,
     getHeadersProvider: () => headersProvider,
-    getDatabricksToken: () => databricksToken
+    getDatabricksToken: () => databricksToken,
   };
 }
 
@@ -283,6 +283,6 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   return {
     getHost: () => host,
     getHeadersProvider: () => headersProvider,
-    getDatabricksToken: () => undefined
+    getDatabricksToken: () => undefined,
   };
 }

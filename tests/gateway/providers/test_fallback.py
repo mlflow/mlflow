@@ -269,7 +269,14 @@ async def test_fallback_provider_passthrough():
         action = PassthroughAction.OPENAI_CHAT
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
 
-        response = await provider.passthrough(action, payload)
+        headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-123",
+            "host": "example.com",
+            "content-length": "100",
+        }
+
+        response = await provider.passthrough(action, payload, headers=headers)
         assert response["result"] == "success"
 
 

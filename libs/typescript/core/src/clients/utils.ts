@@ -11,7 +11,7 @@ export async function makeRequest<T>(
   url: string,
   headerProvider: HeadersProvider,
   body?: any,
-  timeout?: number
+  timeout?: number,
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
@@ -22,7 +22,7 @@ export async function makeRequest<T>(
       method,
       headers: headers,
       body: body ? JSONBig.stringify(body) : undefined,
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);

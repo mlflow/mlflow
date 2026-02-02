@@ -322,7 +322,7 @@ def handle_chat_feedback(
     # Search for the trace with the matching client_request_id
     client = MlflowClient()
     experiment = client.get_experiment_by_name("production-genai-app")
-    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    traces = client.search_traces(locations=[experiment.experiment_id])
     traces = [
         trace for trace in traces if trace.info.client_request_id == client_request_id
     ][:1]
@@ -360,21 +360,21 @@ import mlflow
 
 # Query traces by user
 user_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
+    locations=[experiment.experiment_id],
     filter_string="tags.`mlflow.trace.user` = 'user-jane-doe-12345'",
     max_results=100,
 )
 
 # Query traces by session
 session_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
+    locations=[experiment.experiment_id],
     filter_string="tags.`mlflow.trace.session` = 'session-def-456'",
     max_results=100,
 )
 
 # Query traces by environment
 production_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
+    locations=[experiment.experiment_id],
     filter_string="tags.environment = 'production'",
     max_results=100,
 )

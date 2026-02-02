@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
   WorkerToClientMessageType,
   type TelemetryRecord,
@@ -30,7 +31,7 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
 
 class TelemetryLogger {
   private config: Promise<TelemetryConfig | null> = fetchConfig();
-  private sessionId = crypto.randomUUID();
+  private sessionId = uuidv4();
   private logQueue: LogQueue = new LogQueue();
   private samplingValue: number = Math.random() * 100;
 

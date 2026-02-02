@@ -7,8 +7,6 @@ import {
   useDesignSystemTheme,
   Checkbox,
   ParagraphSkeleton,
-  Button,
-  NewWindowIcon,
   SortUnsortedIcon,
   VisibleIcon,
   VisibleOffIcon,
@@ -27,7 +25,7 @@ import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTabl
 import { useMemo } from 'react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
-import { RunPageTabName } from '../../constants';
+import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -39,15 +37,33 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  return (
+  const isDisabled = !row.getCanSelect();
+  const checkbox = (
     <Checkbox
       componentId="mlflow.eval-runs.checkbox-cell"
       data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
-      disabled={!row.getCanSelect()}
+      disabled={isDisabled}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
       onChange={() => row.toggleSelected()}
+      onClick={(e) => e.stopPropagation()}
     />
+  );
+
+  return isDisabled ? (
+    <Tooltip
+      componentId="mlflow.eval-runs.checkbox-disabled-tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Maximum of 2 runs can be selected for comparison"
+          description="Tooltip explaining why a checkbox is disabled when max selection is reached"
+        />
+      }
+    >
+      <span>{checkbox}</span>
+    </Tooltip>
+  ) : (
+    checkbox
   );
 };
 
@@ -85,41 +101,6 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       >
         {row.original.info.runName}
       </Typography.Link>
-      <div
-        css={{
-          display: 'none',
-          flexShrink: 0,
-          '.eval-runs-table-row:hover &': { display: 'inline' },
-          svg: {
-            width: theme.typography.fontSizeMd,
-            height: theme.typography.fontSizeMd,
-          },
-        }}
-      >
-        <Link
-          target="_blank"
-          rel="noreferrer"
-          to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
-        >
-          <Tooltip
-            content={
-              <FormattedMessage
-                defaultMessage="Go to the run"
-                description="Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
-              />
-            }
-            componentId="mlflow.eval-runs.run-name-cell.tooltip"
-          >
-            <Button
-              type="link"
-              target="_blank"
-              icon={<NewWindowIcon />}
-              size="small"
-              componentId="mlflow.eval-runs.run-name-cell.open-run-page"
-            />
-          </Tooltip>
-        </Link>
-      </div>
     </div>
   );
 };
@@ -173,7 +154,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       </Typography.Text>
     </div>
   );
-  const tagContent = baseTagContent;
+  const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
 
   return (
     <div>
@@ -258,7 +239,10 @@ export const SortableHeaderCell = ({
         ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } },
       }}
     >
-      <Tooltip componentId={`mlflow.eval-runs.sortable-header-cell.tooltip-${column.id}`} content={displayedKey}>
+      <Tooltip
+        componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
+        content={displayedKey}
+      >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
           <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
         </span>

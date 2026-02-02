@@ -16,8 +16,6 @@ import numpy as np
 
 import mlflow
 import mlflow.projects
-import mlflow.sklearn
-import mlflow.tracking
 from mlflow.tracking import MlflowClient
 
 _inf = np.finfo(np.float64).max

@@ -18,9 +18,11 @@ import ErrorUtils from '../../common/utils/ErrorUtils';
 import { EndpointsList } from '../components/endpoints';
 import { GatewaySideNav, type GatewayTab } from '../components/side-nav';
 import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
+import { DefaultPassphraseBanner } from '../components/DefaultPassphraseBanner';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
 import GatewayRoutes from '../routes';
+import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
 
 const GatewayPageTitle = () => {
   const { theme } = useDesignSystemTheme();
@@ -70,6 +72,7 @@ const GatewayPage = () => {
   }
 
   const secretsAvailable = secretsConfig?.secrets_available ?? false;
+  const isUsingDefaultPassphrase = secretsConfig?.using_default_passphrase ?? false;
 
   if (!secretsAvailable) {
     return (
@@ -88,13 +91,15 @@ const GatewayPage = () => {
     );
   }
 
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header title={<GatewayPageTitle />} />
-      <Spacer shrinks={false} />
+      {isUsingDefaultPassphrase && <DefaultPassphraseBanner />}
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <GatewaySideNav activeTab={activeTab} />
+        {!enableWorkflowBasedNavigation && <GatewaySideNav activeTab={activeTab} />}
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {isNestedRoute ? (
             <Outlet />

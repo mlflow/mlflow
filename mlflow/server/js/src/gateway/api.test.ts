@@ -79,7 +79,7 @@ describe('GatewayApi', () => {
       await expect(
         GatewayApi.createEndpoint({
           name: 'test-endpoint',
-          model_definition_ids: [],
+          model_configs: [],
         }),
       ).rejects.toThrow('At least one model definition is required');
     });

@@ -41,11 +41,33 @@ deny_unnecessary_github_token contains msg if {
 	msg := "Unnecessary use of github-token for actions/github-script."
 }
 
+deny_github_token_env_var contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	step.env.GITHUB_TOKEN
+	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
+}
+
+deny_github_token_env_var contains msg if {
+	some job in input.jobs
+	job.env.GITHUB_TOKEN
+	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
+}
+
 deny_jobs_without_timeout contains msg if {
 	jobs := jobs_without_timeout(input.jobs)
 	count(jobs) > 0
 	msg := sprintf(
 		"The following jobs are missing timeout-minutes: %s",
+		[concat(", ", jobs)],
+	)
+}
+
+deny_ubuntu_slim_long_timeout contains msg if {
+	jobs := ubuntu_slim_jobs_with_long_timeout(input.jobs)
+	count(jobs) > 0
+	msg := sprintf(
+		"The following ubuntu-slim jobs have timeout-minutes > 15: %s. ubuntu-slim has a 15-minute timeout limit.",
 		[concat(", ", jobs)],
 	)
 }
@@ -82,6 +104,12 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_scheduled_workflow_without_repo_check contains msg if {
+	input["true"].schedule
+	not any_job_has_repo_check(input.jobs)
+	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
+}
+
 ###########################   RULE HELPERS   ##################################
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs
@@ -91,6 +119,12 @@ jobs_without_permissions(jobs) := {job_id |
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
 	not job["timeout-minutes"]
+}
+
+ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
+	some job_id, job in jobs
+	job["runs-on"] == "ubuntu-slim"
+	job["timeout-minutes"] > 15
 }
 
 is_step_unpinned(step) if {
@@ -116,4 +150,13 @@ unpinned_actions(inp) := unpinned if {
 		some step in inp.runs.steps
 		is_step_unpinned(step)
 	}
+}
+
+any_job_has_repo_check(jobs) if {
+	some job in jobs
+	job_has_repo_check(job)
+}
+
+job_has_repo_check(job) if {
+	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }

@@ -49,7 +49,7 @@ export class RoutePaths {
   }
   // Child routes for experiment page:
   static get experimentPageTabOverview() {
-    return createMLflowRoutePath('/experiments/:experimentId/overview');
+    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab?');
   }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');

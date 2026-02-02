@@ -3,7 +3,7 @@ import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { DeepPartial } from 'redux';
-import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
+import { MemoryRouter, NavigateFunction, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import {
   findAntdOption,
@@ -106,8 +106,8 @@ describe('PromoteModelButton', () => {
     );
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
-    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as unknown as NavigateFunction);
 
     // Render the component with pre-populated redux state that already has a registered model entity
     renderComponent({
@@ -161,8 +161,8 @@ describe('PromoteModelButton', () => {
       .mockReturnValue(Promise.resolve(mockRegisteredModelDetailed('modelB')));
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
-    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as unknown as NavigateFunction);
 
     renderComponent({
       entities: {

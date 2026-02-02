@@ -69,10 +69,22 @@ def _get_model_cost():
 # managed identity, IRSA, or ADC that require specific hosting environments).
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use Amazon Bedrock API Key (bearer token)",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "Amazon Bedrock API Key",
+                    "secret": True,
+                    "required": True,
+                },
+            ],
+        },
         "access_keys": {
             "display_name": "Access Keys",
             "description": "Use AWS Access Key ID and Secret Access Key",
-            "default": True,
             "fields": [
                 {
                     "name": "aws_access_key_id",
@@ -130,36 +142,6 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
-        "session_token": {
-            "display_name": "Session Token (STS)",
-            "description": "Use temporary credentials with session token",
-            "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_session_token",
-                    "description": "AWS Session Token",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_region_name",
-                    "description": "AWS Region (e.g., us-east-1)",
-                    "secret": False,
-                    "required": False,
-                },
-            ],
-        },
     },
     "azure": {
         "api_key": {
@@ -183,8 +165,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_version",
                     "description": "API version (e.g., 2024-02-01)",
                     "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
+                    "required": True,
                 },
             ],
         },
@@ -243,7 +224,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "vertex_project",
                     "description": "GCP Project ID",
                     "secret": False,
-                    "required": True,
+                    "required": False,
                 },
                 {
                     "name": "vertex_location",
@@ -301,7 +282,72 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "sagemaker": {
+        "access_keys": {
+            "display_name": "Access Keys",
+            "description": "Use AWS Access Key ID and Secret Access Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "aws_access_key_id",
+                    "description": "AWS Access Key ID",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_secret_access_key",
+                    "description": "AWS Secret Access Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+        "iam_role": {
+            "display_name": "IAM Role Assumption",
+            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "fields": [
+                {
+                    "name": "aws_access_key_id",
+                    "description": "AWS Access Key ID (for assuming role)",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_secret_access_key",
+                    "description": "AWS Secret Access Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+    },
 }
+
+_BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
 
 
 def _build_response_field(field: FieldDict) -> ResponseFieldDict:
@@ -348,6 +394,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "secret": True,
                 "required": True,
             },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
+            },
         ],
     }
 
@@ -376,10 +428,12 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
-    if provider in _PROVIDER_AUTH_MODES:
+    config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
+
+    if config_provider in _PROVIDER_AUTH_MODES:
         auth_modes: list[AuthModeResponseDict] = []
         default_mode: str | None = None
-        for mode_id, mode_config in _PROVIDER_AUTH_MODES[provider].items():
+        for mode_id, mode_config in _PROVIDER_AUTH_MODES[config_provider].items():
             auth_modes.append(_build_auth_mode_response(mode_id, mode_config))
             if mode_config.get("default"):
                 default_mode = mode_id
@@ -395,12 +449,37 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     }
 
 
+_EXCLUDED_PROVIDERS = {"bedrock_converse"}
+
+# Providers that should be consolidated into a single provider.
+# For example, vertex_ai-llama_models, vertex_ai-anthropic, etc. should all be
+# consolidated into vertex_ai to be used by the AI Gateway.
+_PROVIDER_CONSOLIDATION = {
+    "vertex_ai": lambda p: p == "vertex_ai" or p.startswith("vertex_ai-"),
+}
+
+
+def _normalize_provider(provider: str) -> str:
+    """
+    Normalize provider name by consolidating variants into a single provider.
+
+    For example, vertex_ai-llama_models -> vertex_ai
+    """
+    for normalized, matcher in _PROVIDER_CONSOLIDATION.items():
+        if matcher(provider):
+            return normalized
+    return provider
+
+
 def get_all_providers() -> list[str]:
     """
     Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
+
+    Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
+    variants are returned as just vertex_ai).
 
     Returns:
         List of provider names that support chat/completion/embedding
@@ -414,7 +493,8 @@ def get_all_providers() -> list[str]:
         mode = info.get("mode")
         if mode in _SUPPORTED_MODEL_MODES:
             if provider := info.get("litellm_provider"):
-                providers.add(provider)
+                if provider not in _EXCLUDED_PROVIDERS:
+                    providers.add(_normalize_provider(provider))
 
     return list(providers)
 
@@ -427,12 +507,14 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
     excluding image generation, audio, and other non-text services.
 
     Args:
-        provider: Optional provider name to filter by (e.g., 'openai', 'anthropic')
+        provider: Optional provider name to filter by (e.g., 'openai', 'anthropic').
+                  When filtering by a consolidated provider (e.g., 'vertex_ai'),
+                  all variant providers are included (e.g., 'vertex_ai-anthropic').
 
     Returns:
         List of model dictionaries with keys:
             - model: Model name
-            - provider: Provider name
+            - provider: Provider name (normalized, e.g., vertex_ai instead of vertex_ai-anthropic)
             - mode: Model mode (e.g., 'chat', 'completion', 'embedding')
             - supports_function_calling: Whether model supports tool/function calling
             - supports_vision: Whether model supports image/vision input
@@ -449,31 +531,48 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
 
     model_cost = _get_model_cost()
-    models = []
+    # Use dict to dedupe models by (provider, model_name) key
+    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
     for model_name, info in model_cost.items():
-        if provider and info.get("litellm_provider") != provider:
+        litellm_provider = info.get("litellm_provider")
+        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+
+        # Filter by provider (matching against the normalized provider name)
+        if provider and normalized_provider != provider:
             continue
 
         mode = info.get("mode")
         if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
-        models.append(
-            {
-                "model": model_name,
-                "provider": info.get("litellm_provider"),
-                "mode": mode,
-                "supports_function_calling": info.get("supports_function_calling", False),
-                "supports_vision": info.get("supports_vision", False),
-                "supports_reasoning": info.get("supports_reasoning", False),
-                "supports_prompt_caching": info.get("supports_prompt_caching", False),
-                "supports_response_schema": info.get("supports_response_schema", False),
-                "max_input_tokens": info.get("max_input_tokens"),
-                "max_output_tokens": info.get("max_output_tokens"),
-                "input_cost_per_token": info.get("input_cost_per_token"),
-                "output_cost_per_token": info.get("output_cost_per_token"),
-                "deprecation_date": info.get("deprecation_date"),
-            }
-        )
+        # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
+        # Strip the normalized provider prefix if present
+        if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
+            model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-    return models
+        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        if model_name.startswith("ft:"):
+            continue
+
+        # Dedupe by (provider, model_name) - keep the first occurrence
+        key = (normalized_provider, model_name)
+        if key in models_dict:
+            continue
+
+        models_dict[key] = {
+            "model": model_name,
+            "provider": normalized_provider,
+            "mode": mode,
+            "supports_function_calling": info.get("supports_function_calling", False),
+            "supports_vision": info.get("supports_vision", False),
+            "supports_reasoning": info.get("supports_reasoning", False),
+            "supports_prompt_caching": info.get("supports_prompt_caching", False),
+            "supports_response_schema": info.get("supports_response_schema", False),
+            "max_input_tokens": info.get("max_input_tokens"),
+            "max_output_tokens": info.get("max_output_tokens"),
+            "input_cost_per_token": info.get("input_cost_per_token"),
+            "output_cost_per_token": info.get("output_cost_per_token"),
+            "deprecation_date": info.get("deprecation_date"),
+        }
+
+    return list(models_dict.values())

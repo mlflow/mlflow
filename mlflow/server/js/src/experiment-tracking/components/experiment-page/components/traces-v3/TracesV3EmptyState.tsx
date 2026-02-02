@@ -6,8 +6,10 @@ import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import { useMemo } from 'react';
 import { useIntl } from '@databricks/i18n';
-import { getExperimentKindFromTags } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
-import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  useExperimentKind,
+  isGenAIExperimentKind,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
 import type {
   ModelTraceLocationMlflowExperiment,
@@ -41,10 +43,9 @@ export const TracesV3EmptyState = (props: {
     experimentId: experimentIds[0],
   });
   const experiment = experimentEntity;
-  const experimentKind = getExperimentKindFromTags(experiment?.tags);
+  const experimentKind = useExperimentKind(experiment?.tags);
 
-  const isGenAIExperiment =
-    experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+  const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 
   const hasMoreTraces = traces && traces.length > 0;
 

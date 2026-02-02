@@ -32,7 +32,7 @@ export type ExperimentPageSideNavConfig = {
 
 export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'evaluation' | 'prompts-versions';
 
-const ExperimentPageSideNavGenAIConfig = {
+export const ExperimentPageSideNavGenAIConfig = {
   observability: [
     {
       label: (
@@ -44,6 +44,17 @@ const ExperimentPageSideNavGenAIConfig = {
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
       componentId: 'mlflow.experiment-side-nav.genai.traces',
+    },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Sessions"
+          description="Label for the chat sessions tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <SpeechBubbleIcon />,
+      tabName: ExperimentPageTabName.ChatSessions,
+      componentId: 'mlflow.experiment-side-nav.genai.sessions',
     },
   ],
   evaluation: [
@@ -96,7 +107,7 @@ const ExperimentPageSideNavGenAIConfig = {
   ],
 };
 
-const ExperimentPageSideNavCustomModelConfig = {
+export const ExperimentPageSideNavCustomModelConfig = {
   'top-level': [
     {
       label: (
@@ -133,6 +144,7 @@ const ExperimentPageSideNavCustomModelConfig = {
 
 export const getExperimentPageSideNavSectionLabel = (
   section: ExperimentPageSideNavSectionKey,
+  items: ExperimentPageSideNavItem[],
 ): React.ReactNode | undefined => {
   switch (section) {
     case 'observability':
@@ -207,23 +219,8 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      observability: [
-        ...ExperimentPageSideNavGenAIConfig.observability,
-        {
-          label: (
-            <FormattedMessage
-              defaultMessage="Sessions"
-              description="Label for the chat sessions tab in the MLflow experiment navbar"
-            />
-          ),
-          icon: <SpeechBubbleIcon />,
-          tabName: ExperimentPageTabName.ChatSessions,
-          componentId: 'mlflow.experiment-side-nav.genai.chat-sessions',
-        },
-      ],
       evaluation: enableScorersUI()
         ? [
-            ...ExperimentPageSideNavGenAIConfig.evaluation,
             {
               label: (
                 <FormattedMessage
@@ -235,6 +232,7 @@ export const useExperimentPageSideNavConfig = ({
               tabName: ExperimentPageTabName.Judges,
               componentId: 'mlflow.experiment-side-nav.genai.judges',
             },
+            ...ExperimentPageSideNavGenAIConfig.evaluation,
           ]
         : ExperimentPageSideNavGenAIConfig.evaluation,
     };

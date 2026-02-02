@@ -165,7 +165,7 @@ def _call_llm_provider_api(
     else:
         response = _send_request(
             endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
-            headers={**provider.headers, **extra_headers},
+            headers=provider.headers | extra_headers,
             payload=chat_payload,
         )
     chat_response = provider.adapter_class.model_to_chat(response, provider.config)

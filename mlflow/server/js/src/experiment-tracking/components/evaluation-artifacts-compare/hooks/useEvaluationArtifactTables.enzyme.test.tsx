@@ -41,7 +41,7 @@ describe('useEvaluationArtifactTables', () => {
           value: artifactsDeclaration,
         },
       },
-    } as any);
+    }) as any;
 
   it('properly extracts all table names for a set of runs with all tables', () => {
     const { getHookResult } = mountTestComponent([

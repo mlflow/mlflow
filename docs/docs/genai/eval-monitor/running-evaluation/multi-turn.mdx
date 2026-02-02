@@ -56,7 +56,7 @@ Multi-turn evaluation addresses these needs by grouping traces into conversation
 First, install the required packages by running the following command:
 
 ```bash
-pip install --upgrade mlflow>=3.7
+pip install --upgrade 'mlflow[genai]>=3.7'
 ```
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
@@ -108,7 +108,8 @@ results = mlflow.genai.evaluate(
 
 MLflow provides built-in scorers for evaluating conversations:
 
-- **<APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>**: Evaluates whether the agent addressed all user questions throughout the conversation (returns "complete" or "incomplete")
+- **<APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>**: Evaluates whether the agent addressed all user questions throughout the conversation (returns "yes" or "no")
+- **<APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>**: Evaluates whether the assistant's responses throughout the conversation comply with provided guidelines (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>**: Evaluates whether the assistant correctly retains information from earlier user inputs without contradiction or distortion (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>**: Detects and tracks user frustration patterns (returns "none", "resolved", or "unresolved")
 

@@ -8,13 +8,13 @@ describe('SpanEvent', () => {
         key1: 'value1',
         key2: 42,
         key3: true,
-        key4: ['a', 'b', 'c']
+        key4: ['a', 'b', 'c'],
       };
 
       const event = new SpanEvent({
         name: 'test_event',
         timestamp,
-        attributes
+        attributes,
       });
 
       expect(event.name).toBe('test_event');
@@ -46,8 +46,8 @@ describe('SpanEvent', () => {
           boolean_attr: true,
           string_array: ['a', 'b', 'c'],
           number_array: [1, 2, 3],
-          boolean_array: [true, false, true]
-        }
+          boolean_array: [true, false, true],
+        },
       });
 
       const json = originalEvent.toJson();
@@ -62,15 +62,15 @@ describe('SpanEvent', () => {
           boolean_attr: true,
           string_array: ['a', 'b', 'c'],
           number_array: [1, 2, 3],
-          boolean_array: [true, false, true]
-        }
+          boolean_array: [true, false, true],
+        },
       });
 
       // Create new event from JSON data
       const recreatedEvent = new SpanEvent({
         name: json.name as string,
         timestamp: json.timestamp as bigint,
-        attributes: json.attributes as Record<string, any>
+        attributes: json.attributes as Record<string, any>,
       });
 
       // Verify round-trip preservation
@@ -82,7 +82,7 @@ describe('SpanEvent', () => {
 
     it('should handle events with minimal properties', () => {
       const originalEvent = new SpanEvent({
-        name: 'minimal_event'
+        name: 'minimal_event',
       });
 
       const json = originalEvent.toJson();
@@ -95,7 +95,7 @@ describe('SpanEvent', () => {
       const recreatedEvent = new SpanEvent({
         name: json.name as string,
         timestamp: json.timestamp as bigint,
-        attributes: json.attributes as Record<string, any>
+        attributes: json.attributes as Record<string, any>,
       });
 
       expect(recreatedEvent.name).toBe(originalEvent.name);

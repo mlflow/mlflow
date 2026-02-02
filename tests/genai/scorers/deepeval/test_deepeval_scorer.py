@@ -235,6 +235,26 @@ def test_deepeval_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
+@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
+def test_deepeval_scorer_registration_methods_not_supported(method_name):
+    from mlflow.exceptions import MlflowException
+
+    scorer = get_scorer("ExactMatch")
+    method = getattr(scorer, method_name)
+
+    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
+        method()
+
+
+def test_deepeval_scorer_align_not_supported():
+    from mlflow.exceptions import MlflowException
+
+    scorer = get_scorer("ExactMatch")
+
+    with pytest.raises(MlflowException, match="'align\\(\\)' is not supported"):
+        scorer.align()
+
+
 def test_deepeval_scorer_kind_property_with_llm_metric(mock_deepeval_model):
     with patch(
         "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model

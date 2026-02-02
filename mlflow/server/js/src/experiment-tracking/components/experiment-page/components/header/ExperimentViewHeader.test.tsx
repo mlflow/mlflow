@@ -4,12 +4,14 @@ import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/Tes
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { BrowserRouter, MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+
+const mockNavigate = jest.fn();
 
 jest.mock('@databricks/design-system', () => {
   const actual = jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system');
@@ -18,6 +20,16 @@ jest.mock('@databricks/design-system', () => {
   return {
     ...actual,
     Breadcrumb: Object.assign(MockBreadcrumb, { Item: MockBreadcrumbItem }),
+  };
+});
+
+jest.mock('../../../../../common/utils/RoutingUtils', () => {
+  const actual = jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+    '../../../../../common/utils/RoutingUtils',
+  );
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
   };
 });
 
@@ -35,13 +47,19 @@ describe('ExperimentViewHeader', () => {
 
   const setEditing = jest.fn();
 
-  const renderComponent = (experiment = defaultExperiment) => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
+  const renderComponent = (experiment = defaultExperiment, initialPath?: string) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const queryClient = new QueryClient();
+    const Router = initialPath ? MemoryRouter : BrowserRouter;
+    const routerProps = initialPath ? { initialEntries: [initialPath] } : {};
 
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <Router {...routerProps}>
           <DesignSystemProvider>
             <Provider
               store={mockStore({
@@ -53,7 +71,7 @@ describe('ExperimentViewHeader', () => {
               <ExperimentViewHeader experiment={experiment} setEditing={setEditing} />
             </Provider>
           </DesignSystemProvider>
-        </BrowserRouter>
+        </Router>
       </QueryClientProvider>,
     );
   };
@@ -81,6 +99,28 @@ describe('ExperimentViewHeader', () => {
     it('displays share and management buttons', () => {
       expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
       expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+  });
+
+  describe('back button navigation', () => {
+    it('navigates to /experiments from experiment tab pages', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/traces');
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments');
+    });
+
+    it('navigates to parent path from deeper pages like session details', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/chat-sessions/session_1');
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/1/chat-sessions');
     });
   });
 });
