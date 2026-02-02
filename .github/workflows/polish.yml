@@ -34,7 +34,7 @@ jobs:
     permissions:
       pull-requests: write
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
       REPO: ${{ github.repository }}
       COMMENT_ID: ${{ github.event.comment.id }}
