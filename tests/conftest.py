@@ -1,7 +1,10 @@
+import cProfile
 import inspect
+import io
 import json
 import os
 import posixpath
+import pstats
 import re
 import shutil
 import subprocess
@@ -80,6 +83,14 @@ def pytest_addoption(parser):
         default=os.getenv("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
+    parser.addoption(
+        "--profile",
+        default=None,
+        help=(
+            "Comma-separated list of test nodeids to profile "
+            "(e.g., 'tests/foo.py::test_bar,tests/baz.py')"
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config):
@@ -96,6 +107,19 @@ def pytest_configure(config: pytest.Config):
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
         config.option.maxfail = 1
+
+    # Populate _profile_tests from CLI option and PR description
+    global _profile_tests
+    _profile_tests = set()
+
+    # Add tests from CLI --profile option
+    if profile_option := config.getoption("--profile"):
+        for nodeid in profile_option.split(","):
+            if nodeid := nodeid.strip():
+                _profile_tests.add(nodeid)
+
+    # Add tests from PR description
+    _profile_tests.update(fetch_profile_tests())
 
     # Register SQLAlchemy LegacyAPIWarning filter only if sqlalchemy is available
     try:
@@ -140,6 +164,16 @@ class TestResult:
 
 
 _test_results: list[TestResult] = []
+
+
+@dataclass
+class ProfileResult:
+    nodeid: str
+    stats: pstats.Stats
+
+
+_profile_tests: set[str] = set()
+_profile_results: list[ProfileResult] = []
 
 
 def _to_gb(b: int) -> str:
@@ -211,9 +245,68 @@ _RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delt
 _RESOURCE_USAGE = ResourceUsage()
 
 
+def _should_profile_test(nodeid: str) -> bool:
+    """Check if a test nodeid should be profiled based on _profile_tests."""
+    if not _profile_tests:
+        return False
+
+    # Check for exact match first
+    if nodeid in _profile_tests:
+        return True
+
+    # Check for partial matches (e.g., file path matches)
+    for pattern in _profile_tests:
+        if nodeid.startswith(pattern):
+            return True
+
+    return False
+
+
+def _format_profile_stats(stats: pstats.Stats) -> str:
+    """Format cProfile stats for terminal output."""
+    stream = io.StringIO()
+    stats.stream = stream
+    stats.sort_stats(pstats.SortKey.CUMULATIVE)
+    stats.print_stats(50)  # Print top 50 functions
+    return stream.getvalue()
+
+
+def fetch_profile_tests() -> set[str]:
+    """
+    Returns the set of test nodeids to profile from the current pull request description.
+    Parses <!-- profile: --> markers from PR body.
+    """
+    if "GITHUB_ACTIONS" not in os.environ:
+        return set()
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return set()
+
+    try:
+        with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+            pr_data = json.load(f)
+            pr_body = pr_data["pull_request"]["body"] or ""
+
+            # Match <!-- profile: ... --> blocks, supporting multiline content
+            pattern = r"<!--\s*profile:\s*(.*?)\s*-->"
+            matches = re.findall(pattern, pr_body, re.DOTALL)
+
+            nodeids = set()
+            for match in matches:
+                # Split by newlines and filter out empty lines
+                for line in match.strip().split("\n"):
+                    if line := line.strip():
+                        nodeids.add(line)
+
+            return nodeids
+    except Exception:
+        return set()
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _profile_results.clear()
     _RESOURCE_HEAVY_TESTS.clear()
     _RESOURCE_USAGE.snapshot()
 
@@ -338,6 +431,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             should_rerun = True
             attempts = flaky_marker.kwargs.get("attempts", 3)
 
+    # Check if we should profile this test
+    should_profile = _should_profile_test(item.nodeid)
+    profiler = cProfile.Profile() if should_profile else None
+
     item.execution_count = 0
     need_to_run = True
     total_duration = 0.0
@@ -346,7 +443,17 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         item.execution_count += 1
         start = time.perf_counter()
+
+        # Enable profiler if needed
+        if profiler:
+            profiler.enable()
+
         reports = runtestprotocol(item, nextitem=nextitem, log=False)
+
+        # Disable profiler if needed
+        if profiler:
+            profiler.disable()
+
         total_duration += time.perf_counter() - start
 
         for report in reports:
@@ -366,6 +473,11 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             need_to_run = False
 
         item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+    # Store profile results
+    if profiler:
+        stats = pstats.Stats(profiler)
+        _profile_results.append(ProfileResult(nodeid=item.nodeid, stats=stats))
 
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
@@ -508,6 +620,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write(f"::group::{header}\n\n")
         terminalreporter.write(duration_stats)
         terminalreporter.write("\n\n::endgroup::\n")
+        terminalreporter.write("\n")
+
+    # Display profile results
+    if _profile_results:
+        terminalreporter.write("\n")
+        header = "profile results"
+        terminalreporter.write_sep("=", header)
+        terminalreporter.write(f"::group::{header}\n\n")
+
+        for profile_result in _profile_results:
+            terminalreporter.write(f"\nProfile for: {profile_result.nodeid}\n")
+            terminalreporter.write("-" * 80 + "\n")
+            formatted_stats = _format_profile_stats(profile_result.stats)
+            terminalreporter.write(formatted_stats)
+            terminalreporter.write("\n")
+
+        terminalreporter.write("::endgroup::\n")
         terminalreporter.write("\n")
 
     if (
