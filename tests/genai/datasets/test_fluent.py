@@ -49,11 +49,8 @@ def mock_databricks_environment():
         yield
 
 
-@pytest.fixture(params=["sqlalchemy"], autouse=True)
-def tracking_uri(request, tmp_path):
-    if "MLFLOW_SKINNY" in os.environ:
-        pytest.skip("SQLAlchemy store is not available in skinny.")
-
+@pytest.fixture
+def tracking_uri(tmp_path):
     original_tracking_uri = mlflow.get_tracking_uri()
 
     path = tmp_path.joinpath("mlflow.db").as_uri()
@@ -220,7 +217,7 @@ def test_get_dataset_databricks_missing_name(mock_databricks_environment):
         get_dataset(dataset_id="test_id")
 
 
-def test_get_dataset_by_name_oss(tracking_uri, experiments):
+def test_get_dataset_by_name_oss(experiments):
     dataset = create_dataset(
         name="unique_dataset_name",
         experiment_id=experiments[0],
@@ -239,7 +236,7 @@ def test_get_dataset_by_name_not_found(tracking_uri):
         get_dataset(name="nonexistent_dataset")
 
 
-def test_get_dataset_by_name_multiple_matches(tracking_uri, experiments):
+def test_get_dataset_by_name_multiple_matches(experiments):
     create_dataset(
         name="duplicate_name",
         experiment_id=experiments[0],
@@ -253,7 +250,7 @@ def test_get_dataset_by_name_multiple_matches(tracking_uri, experiments):
         get_dataset(name="duplicate_name")
 
 
-def test_get_dataset_both_name_and_id_error(tracking_uri, experiments):
+def test_get_dataset_both_name_and_id_error(experiments):
     dataset = create_dataset(
         name="test_dataset_both",
         experiment_id=experiments[0],
@@ -275,7 +272,7 @@ def test_get_dataset_neither_name_nor_id_error(tracking_uri):
         'dataset"with_double_quote',
     ],
 )
-def test_get_dataset_name_with_quotes(tracking_uri, experiments, name):
+def test_get_dataset_name_with_quotes(experiments, name):
     dataset = create_dataset(name=name, experiment_id=experiments[0])
 
     retrieved = get_dataset(name=name)
@@ -620,7 +617,7 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
-def test_create_dataset_with_user_tag(tracking_uri, experiments):
+def test_create_dataset_with_user_tag(experiments):
     dataset = create_dataset(
         name="test_user_attribution",
         experiment_id=experiments[0],
@@ -642,7 +639,7 @@ def test_create_dataset_with_user_tag(tracking_uri, experiments):
     assert dataset2.created_by == dataset2.tags[MLFLOW_USER]
 
 
-def test_create_and_get_dataset(tracking_uri, experiments):
+def test_create_and_get_dataset(experiments):
     dataset = create_dataset(
         name="qa_evaluation_v1",
         experiment_id=[experiments[0], experiments[1]],
@@ -671,7 +668,7 @@ def test_create_dataset_minimal_params(tracking_uri):
     assert dataset.experiment_ids == ["0"]
 
 
-def test_active_record_pattern_merge_records(tracking_uri, experiments):
+def test_active_record_pattern_merge_records(experiments):
     dataset = create_dataset(
         name="active_record_test",
         experiment_id=experiments[0],
@@ -760,7 +757,7 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     assert docker_record["tags"]["difficulty"] == "medium"
 
 
-def test_dataset_with_dataframe_records(tracking_uri, experiments):
+def test_dataset_with_dataframe_records(experiments):
     dataset = create_dataset(
         name="dataframe_test",
         experiment_id=experiments[0],
@@ -798,7 +795,7 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     assert sentiments == expected_sentiments
 
 
-def test_search_datasets(tracking_uri, experiments):
+def test_search_datasets(experiments):
     for i in range(5):
         create_dataset(
             name=f"search_test_{i}",
@@ -822,7 +819,7 @@ def test_search_datasets(tracking_uri, experiments):
     assert len(more_results) == 4
 
 
-def test_delete_dataset(tracking_uri, experiments):
+def test_delete_dataset(experiments):
     dataset = create_dataset(
         name="to_be_deleted",
         experiment_id=[experiments[0], experiments[1]],
@@ -846,7 +843,7 @@ def test_delete_dataset(tracking_uri, experiments):
     assert dataset_id not in found_ids
 
 
-def test_dataset_lifecycle_workflow(tracking_uri, experiments):
+def test_dataset_lifecycle_workflow(experiments):
     dataset = create_dataset(
         name="qa_eval_prod_v1",
         experiment_id=[experiments[0], experiments[1]],
@@ -920,7 +917,7 @@ def test_error_handling_filestore_backend(tmp_path):
     assert exc.value.error_code == "FEATURE_DISABLED"
 
 
-def test_single_experiment_id_handling(tracking_uri, experiments):
+def test_single_experiment_id_handling(experiments):
     dataset = create_dataset(
         name="single_exp_test",
         experiment_id=experiments[0],
@@ -934,7 +931,7 @@ def test_single_experiment_id_handling(tracking_uri, experiments):
     assert dataset.dataset_id in found_ids
 
 
-def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
+def test_trace_to_evaluation_dataset_integration(experiments):
     trace_inputs = [
         {"question": "What is MLflow?", "context": "ML platforms"},
         {"question": "What is Python?", "context": "programming"},
@@ -1035,7 +1032,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
     assert dataset.dataset_id not in all_dataset_ids
 
 
-def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiments):
+def test_search_traces_dataframe_to_dataset_integration(experiments):
     for i in range(3):
         with mlflow.start_run(experiment_id=experiments[0]):
             with mlflow.start_span(name=f"test_span_{i}") as span:
@@ -1403,7 +1400,7 @@ def test_trace_integration_end_to_end(client, experiment):
     assert len(manual_records) == 1
 
 
-def test_dataset_pagination_transparency_large_records(tracking_uri, experiments):
+def test_dataset_pagination_transparency_large_records(experiments):
     dataset = create_dataset(
         name="test_pagination_transparency",
         experiment_id=experiments[0],
@@ -1449,7 +1446,7 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     assert len(refreshed_records) == 150
 
 
-def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
+def test_dataset_internal_pagination_with_mock(experiments):
     from mlflow.tracking._tracking_service.utils import _get_store
 
     dataset = create_dataset(
@@ -1487,7 +1484,7 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         assert len(df) == 75
 
 
-def test_dataset_experiment_associations(tracking_uri, experiments):
+def test_dataset_experiment_associations(experiments):
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
@@ -1550,7 +1547,7 @@ def test_dataset_associations_filestore_blocking(tmp_path):
         remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
 
 
-def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
+def test_evaluation_dataset_tags_crud_workflow(experiments):
     dataset = create_dataset(
         name="test_tags_crud",
         experiment_id=experiments[0],
@@ -1637,7 +1634,7 @@ def test_delete_dataset_tag_databricks(mock_databricks_environment):
         delete_dataset_tag(dataset_id="test", key="key")
 
 
-def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
+def test_dataset_schema_evolution_and_log_input(experiments):
     dataset = create_dataset(
         name="schema_evolution_test",
         experiment_id=[experiments[0]],
@@ -2061,7 +2058,7 @@ def test_search_datasets_filter_string_edge_cases(tracking_uri):
         assert filter_arg == 'name = "test"'
 
 
-def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments):
+def test_wrapper_type_is_actually_returned_not_entity(experiments):
     dataset = create_dataset(
         name="test_wrapper",
         experiment_id=experiments[0],
@@ -2075,7 +2072,7 @@ def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments)
     assert isinstance(dataset._mlflow_dataset, EntityEvaluationDataset)
 
 
-def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
+def test_wrapper_delegates_all_properties_correctly(experiments):
     dataset = create_dataset(
         name="test_delegation",
         experiment_id=experiments[0],
@@ -2094,7 +2091,7 @@ def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
     assert dataset.source._get_source_type() == "mlflow_evaluation_dataset"
 
 
-def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
+def test_get_and_search_return_wrapper_not_entity(experiments):
     created = create_dataset(
         name="test_get_wrapper",
         experiment_id=experiments[0],
@@ -2116,7 +2113,7 @@ def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
     assert not isinstance(results[0], EntityEvaluationDataset)
 
 
-def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
+def test_wrapper_vs_direct_client_usage(experiments):
     client = MlflowClient()
 
     entity_dataset = client.create_dataset(
@@ -2140,7 +2137,7 @@ def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
     assert wrapped_from_entity == entity_dataset
 
 
-def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experiments):
+def test_wrapper_works_with_mlflow_log_input_integration(experiments):
     dataset = create_dataset(
         name="test_log_input",
         experiment_id=experiments[0],
@@ -2164,7 +2161,7 @@ def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experimen
     assert dataset_input.dataset.digest == dataset.digest
 
 
-def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experiments):
+def test_wrapper_isinstance_checks_for_dataset_interfaces(experiments):
     dataset = create_dataset(
         name="test_isinstance",
         experiment_id=experiments[0],
@@ -2193,7 +2190,7 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experime
         ],
     ],
 )
-def test_multiturn_valid_formats(tracking_uri, experiments, records):
+def test_multiturn_valid_formats(experiments, records):
     dataset = create_dataset(name="multiturn_test", experiment_id=experiments[0])
     dataset.merge_records(records)
     df = dataset.to_df()
@@ -2242,7 +2239,7 @@ def test_multiturn_valid_formats(tracking_uri, experiments, records):
         ),
     ],
 )
-def test_multiturn_validation_errors(tracking_uri, experiments, records, error_pattern):
+def test_multiturn_validation_errors(experiments, records, error_pattern):
     dataset = create_dataset(name="multiturn_error_test", experiment_id=experiments[0])
     with pytest.raises(MlflowException, match=error_pattern):
         dataset.merge_records(records)
@@ -2263,7 +2260,7 @@ def test_multiturn_validation_errors(tracking_uri, experiments, records, error_p
         ),
     ],
 )
-def test_multiturn_schema_compatibility(tracking_uri, experiments, existing_records, new_records):
+def test_multiturn_schema_compatibility(experiments, existing_records, new_records):
     dataset = create_dataset(name="multiturn_compat_test", experiment_id=experiments[0])
     dataset.merge_records(existing_records)
 
@@ -2271,7 +2268,7 @@ def test_multiturn_schema_compatibility(tracking_uri, experiments, existing_reco
         dataset.merge_records(new_records)
 
 
-def test_multiturn_with_expectations_and_tags(tracking_uri, experiments):
+def test_multiturn_with_expectations_and_tags(experiments):
     dataset = create_dataset(name="multiturn_full_test", experiment_id=experiments[0])
     records = [
         {
