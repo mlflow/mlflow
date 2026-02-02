@@ -362,5 +362,6 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           uv run --no-sync python -m cProfile -s cumulative -m pytest tests/demo/test_demo_integration.py -v 2>&1 | tee demo_profile.txt
-          echo "=== Top 50 cumulative time functions ==="
+          echo "=== Top 100 cumulative time functions ==="
           head -100 demo_profile.txt
+          rm demo_profile.txt
