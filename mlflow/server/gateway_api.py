@@ -6,6 +6,7 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
+import contextvars
 import functools
 import logging
 import time
@@ -16,8 +17,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+import mlflow
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.span import LiveSpan
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
@@ -54,6 +57,8 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
@@ -76,8 +81,6 @@ def _configure_gateway_span(
         request_type: Type of request (e.g., "chat", "embeddings", "passthrough").
         inputs: The request inputs to log.
     """
-    import mlflow
-
     span.set_inputs(inputs)
     span.set_attribute("request_type", request_type)
     span.set_attribute("endpoint_id", endpoint_config.endpoint_id)
@@ -95,11 +98,11 @@ def _start_gateway_span(
     endpoint_config: GatewayEndpointConfig,
     request_type: str,
     inputs: dict[str, Any],
-) -> LiveSpan | None:
+) -> tuple[LiveSpan | None, contextvars.Token | None]:
     """
     Start a gateway trace span for streaming scenarios.
 
-    This creates a span that must be manually ended, suitable for streaming
+    This creates a span with proper context management, suitable for streaming
     where the span lifecycle extends beyond the initial function call.
 
     Args:
@@ -108,23 +111,41 @@ def _start_gateway_span(
         inputs: The request inputs to log.
 
     Returns:
-        The span if tracing is enabled, None otherwise.
+        Tuple of (span, context_token) if tracing is enabled, (None, None) otherwise.
+        The context_token must be passed to _end_gateway_span to restore context.
     """
-    from mlflow.tracing.fluent import start_span_no_context
-
     if not endpoint_config.experiment_id:
-        return None
+        return None, None
 
     try:
         span = start_span_no_context(
             name=f"gateway/{endpoint_config.endpoint_name}",
-            experiment_id=endpoint_config.experiment_id,
+            trace_destination=MlflowExperimentLocation(experiment_id=endpoint_config.experiment_id),
         )
         _configure_gateway_span(span, endpoint_config, request_type, inputs)
-        return span
+
+        # Set as active span so child spans can be created
+        token = set_span_in_context(span)
+        return span, token
     except Exception as e:
         _logger.debug(f"Failed to start gateway span: {e}")
-        return None
+        return None, None
+
+
+def _end_gateway_span(span: LiveSpan | None, token: contextvars.Token | None) -> None:
+    if span is None:
+        return
+
+    try:
+        span.end()
+    except Exception as e:
+        _logger.debug(f"Failed to end span: {e}")
+
+    if token is not None:
+        try:
+            detach_span_from_context(token)
+        except Exception as e:
+            _logger.debug(f"Failed to detach context: {e}")
 
 
 @contextmanager
@@ -147,9 +168,6 @@ def _create_gateway_trace(
     Yields:
         The span if tracing is enabled, None otherwise.
     """
-    import mlflow
-    from mlflow.entities.trace_location import MlflowExperimentLocation
-
     if not endpoint_config.experiment_id:
         yield None
         return
@@ -175,6 +193,7 @@ def _set_trace_outputs(span: LiveSpan, outputs: Any):
 async def _make_traced_streaming_response(
     stream,
     span: LiveSpan | None,
+    token: contextvars.Token | None,
     is_sse: bool = True,
 ):
     """
@@ -186,6 +205,7 @@ async def _make_traced_streaming_response(
     Args:
         stream: The async generator producing stream chunks.
         span: The span to set outputs on (can be None if tracing is disabled).
+        token: The context token from _start_gateway_span (for restoring context).
         is_sse: If True, format chunks as SSE data events. If False, yield raw bytes.
 
     Returns:
@@ -194,19 +214,20 @@ async def _make_traced_streaming_response(
     from mlflow.gateway.utils import to_sse_chunk
 
     async def traced_stream():
-        outputs = []
+        chunks = []
         try:
             async for chunk in stream:
-                outputs.append(chunk)
+                chunks.append(chunk)
                 if is_sse:
                     yield to_sse_chunk(chunk.model_dump_json())
                 else:
                     yield chunk
 
-            # Set outputs after successful streaming
+            # Set all chunks as output
             if span is not None:
                 try:
-                    span.set_outputs(outputs)
+                    if chunks:
+                        span.set_outputs(chunks)
                     span.set_status("OK")
                 except Exception as e:
                     _logger.debug(f"Failed to set stream outputs: {e}")
@@ -219,11 +240,7 @@ async def _make_traced_streaming_response(
                     pass
             raise
         finally:
-            if span is not None:
-                try:
-                    span.end()
-                except Exception as e:
-                    _logger.debug(f"Failed to end span: {e}")
+            _end_gateway_span(span, token)
 
     return StreamingResponse(traced_stream(), media_type="text/event-stream")
 
@@ -592,9 +609,9 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
-            span = _start_gateway_span(endpoint_config, "chat", body)
+            span, token = _start_gateway_span(endpoint_config, "chat", body)
             return await _make_traced_streaming_response(
-                provider.chat_stream(payload), span, is_sse=True
+                provider.chat_stream(payload), span, token, is_sse=True
             )
         else:
             with _create_gateway_trace(endpoint_config, "chat", body) as span:
@@ -664,9 +681,9 @@ async def chat_completions(request: Request):
     )
 
     if payload.stream:
-        span = _start_gateway_span(endpoint_config, "chat", body)
+        span, token = _start_gateway_span(endpoint_config, "chat", body)
         return await _make_traced_streaming_response(
-            provider.chat_stream(payload), span, is_sse=True
+            provider.chat_stream(payload), span, token, is_sse=True
         )
     else:
         with _create_gateway_trace(endpoint_config, "chat", body) as span:
@@ -710,9 +727,9 @@ async def openai_passthrough_chat(request: Request):
     )
 
     if body.get("stream"):
-        span = _start_gateway_span(endpoint_config, "passthrough/openai/chat", body)
+        span, token = _start_gateway_span(endpoint_config, "passthrough/openai/chat", body)
         response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
-        return await _make_traced_streaming_response(response, span, is_sse=False)
+        return await _make_traced_streaming_response(response, span, token, is_sse=False)
     else:
         with _create_gateway_trace(endpoint_config, "passthrough/openai/chat", body) as span:
             response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
@@ -791,9 +808,9 @@ async def openai_passthrough_responses(request: Request):
     )
 
     if body.get("stream"):
-        span = _start_gateway_span(endpoint_config, "passthrough/openai/responses", body)
+        span, token = _start_gateway_span(endpoint_config, "passthrough/openai/responses", body)
         response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
-        return await _make_traced_streaming_response(response, span, is_sse=False)
+        return await _make_traced_streaming_response(response, span, token, is_sse=False)
     else:
         with _create_gateway_trace(endpoint_config, "passthrough/openai/responses", body) as span:
             response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
@@ -836,16 +853,16 @@ async def anthropic_passthrough_messages(request: Request):
     )
 
     if body.get("stream"):
-        span = _start_gateway_span(endpoint_config, "passthrough/anthropic/messages", body)
+        span, token = _start_gateway_span(endpoint_config, "passthrough/anthropic/messages", body)
         response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
-        return await _make_traced_streaming_response(response, span, is_sse=False)
+        return await _make_traced_streaming_response(response, span, token, is_sse=False)
     else:
         with _create_gateway_trace(endpoint_config, "passthrough/anthropic/messages", body) as span:
             response = await provider.passthrough(
                 PassthroughAction.ANTHROPIC_MESSAGES, body, headers
             )
-        _set_trace_outputs(span, response)
-        return response
+            _set_trace_outputs(span, response)
+            return response
 
 
 @gateway_router.post(
@@ -924,8 +941,10 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    span = _start_gateway_span(endpoint_config, "passthrough/gemini/streamGenerateContent", body)
+    span, token = _start_gateway_span(
+        endpoint_config, "passthrough/gemini/streamGenerateContent", body
+    )
     response = await provider.passthrough(
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
     )
-    return await _make_traced_streaming_response(response, span, is_sse=False)
+    return await _make_traced_streaming_response(response, span, token, is_sse=False)
