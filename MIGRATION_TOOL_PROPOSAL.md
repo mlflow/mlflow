@@ -1,4 +1,4 @@
-# FileStore to SQLite Migration Tool - Proposal
+# FileStore Migration Tool - Proposal
 
 Author: @harupy
 
@@ -8,7 +8,7 @@ Author: @harupy
 
 GitHub Issue: https://github.com/mlflow/mlflow/issues/18534
 
-MLflow is deprecating the filesystem backend (`./mlruns`) in favor of SQLite (`sqlite:///mlflow.db`). Users need a migration path to convert existing file store data to SQLite.
+MLflow is deprecating the filesystem backend (`./mlruns`) in favor of database backends. Users need a migration path to convert existing FileStore data to a database (SQLite, PostgreSQL, or MySQL).
 
 ## Existing Solution
 
@@ -47,19 +47,34 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 - \*For most users, this migration is a new process they haven't done before.
 - \*\*Clear success criteria (`original data == migrated data`) enables AI-assisted development.
 
+## Requirements
+
+### Functional
+
+- Migrate all FileStore data types (experiments, runs, params, metrics, tags, etc.)
+- Preserve original IDs and timestamps (best effort, unless it violates constraints)
+- Migrate deleted items (preserve complete history)
+- Support all MLflow database backends (SQLite, PostgreSQL, MySQL, MSSQL)
+- Provide verification that migrated data matches source data
+
+### Non-Functional
+
+- Single command execution (no multi-step workflow)
+- Idempotent (can re-run to resume after failure)
+- Progress reporting for large migrations
+- Clear error messages for constraint violations or data issues
+- Target: small to medium datasets (< 100K runs). FileStore doesn't scale well, so users with large datasets likely already use a database backend.
+
 ## Recommendation
 
 **Option 2 (New MLflow tool)** - A built-in CLI command provides the best user experience with no external dependencies. Users can migrate with a single command without installing additional packages.
 
 ## Design Decisions
 
-| Question                  | Decision                                                                                                                         |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Artifacts handling        | Keep in place (only update URI references in database)                                                                           |
-| Incremental migration     | No, full migration only                                                                                                          |
-| Failure handling          | Idempotent (skip existing items, re-run to continue)                                                                             |
-| Deleted items in `.trash` | Skip (only migrate active data)                                                                                                  |
-| Performance target        | Small to medium (< 100K runs). FileStore doesn't scale well, so users with large datasets likely already use a database backend. |
+| Question              | Decision                                               |
+| --------------------- | ------------------------------------------------------ |
+| Artifacts handling    | Keep in place (only update URI references in database) |
+| Incremental migration | No, full migration only                                |
 
 ## Artifact Location
 
@@ -83,14 +98,14 @@ Note: This is not an exhaustive analysis; other constraint violations may exist.
 
 ## Open Questions
 
-1. Target database support - SQLite only, or support PostgreSQL/MySQL too? (Recommendation: Start with SQLite, extend later if needed)
-2. What if users want to stay on an older MLflow version (e.g. 2.x) and can't upgrade to use the new tool?
+1. What if users want to stay on an older MLflow version (e.g. 2.x) and can't upgrade to use the new tool?
+2. Version compatibility: FileStore data may come from older MLflow versions with different field structures or missing fields (e.g., the run `name` field was added later). The migration tool should handle schema differences gracefully, using sensible defaults for missing fields.
 
 ---
 
 ## Data to Migrate
 
-| Data Type       | FileStore                              | SQLite Tables                                           | Since  |
+| Data Type       | FileStore                              | Database Tables                                         | Since  |
 | --------------- | -------------------------------------- | ------------------------------------------------------- | ------ |
 | Experiments     | `<exp_id>/meta.yaml`                   | `experiments`                                           | All    |
 | Experiment Tags | `<exp_id>/tags/<key>`                  | `experiment_tags`                                       | All    |
@@ -113,7 +128,7 @@ Use the existing mlflow-export-import tool with its current export → import wo
 #### How it works
 
 ```
-FileStore (./mlruns) → [Export to files] → [Import via REST API] → SQLite (mlflow.db)
+FileStore (./mlruns) → [Export to files] → [Import via REST API] → Database
 ```
 
 #### Pros
@@ -153,7 +168,7 @@ Create a new migration tool built into MLflow core.
 #### How it works
 
 ```
-FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
+FileStore (./mlruns) → [mlflow db migrate] → Database (SQLite/PostgreSQL/MySQL/MSSQL)
 ```
 
 #### Pros
@@ -184,5 +199,7 @@ FileStore (./mlruns) → [mlflow db migrate] → SQLite (mlflow.db)
 pip install --upgrade mlflow
 
 # 2. Run migration
-mlflow db migrate --source ./mlruns --target sqlite:///mlflow.db
+mlflow db migrate --source ./mlruns --target <database_uri>
 ```
+
+> **Note:** The command `mlflow db migrate` may conflict with Alembic schema migrations. Consider a dedicated command (e.g., `mlflow file2db`) to clearly distinguish from schema migrations.
