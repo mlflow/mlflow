@@ -52,7 +52,8 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 ### Functional
 
 - Migrate all FileStore data types (experiments, runs, params, metrics, tags, etc.)
-- Preserve original IDs and timestamps (best effort, unless it violates constraints)
+- Preserve original run UUIDs and timestamps
+- Preserve experiment IDs where possible (SQLite); reassign sequentially for databases with integer limits (PostgreSQL/MySQL/MSSQL) and output ID mapping
 - Migrate deleted items (preserve complete history)
 - Support all MLflow database backends (SQLite, PostgreSQL, MySQL, MSSQL)
 - Provide verification that migrated data matches source data
@@ -88,18 +89,24 @@ If users move the `mlruns` directory after migration, artifact URIs will break (
 
 ## Constraint Analysis
 
-| Constraint    | Issue                          | Why it's safe                              |
-| ------------- | ------------------------------ | ------------------------------------------ |
-| String length | Values exceeding column limits | FileStore validates and truncates on write |
-| Uniqueness    | Duplicate entries              | FileStore also enforces uniqueness         |
-| NOT NULL      | Missing required values        | FileStore requires these fields too        |
+### High Risk
 
-Note: This is not an exhaustive analysis; other constraint violations may exist.
+- **Integer overflow (PostgreSQL/MySQL/MSSQL)**: FileStore generates 18-digit experiment IDs via `_generate_unique_integer_id()`, but the database schema uses `Integer` (32-bit, max ~2.1 billion). SQLite handles large integers due to dynamic typing, but other databases enforce strict limits. Mitigation: reassign experiment IDs sequentially (1, 2, 3, ...) during migration and output an ID mapping file. This is acceptable because users typically reference experiments by name, and run UUIDs (the more critical identifier) are preserved.
+
+### Low Risk
+
+- **Auto-increment**: `experiment_id` is auto-increment. SQLite/PostgreSQL handle explicit inserts gracefully; MySQL needs `NO_AUTO_VALUE_ON_ZERO`, MSSQL needs `IDENTITY_INSERT ON`.
+- **Check (enums)**: Invalid `lifecycle_stage`, `status`, `source_type` values. FileStore validates enum values consistently during write.
+- **String length**: Values exceeding column limits (e.g., 256 for experiment name). FileStore validates and truncates on write.
+- **NOT NULL**: Missing required values (experiment name, run_uuid, etc.). FileStore requires these fields in its structure.
+- **Primary key**: Duplicate entries for tags, params. FileStore enforces uniqueness via file system.
+- **Foreign key**: Orphaned runs, metrics, tags without parent entities. FileStore stores entities hierarchically (run data inside run dir).
 
 ## Open Questions
 
 1. What if users want to stay on an older MLflow version (e.g. 2.x) and can't upgrade to use the new tool?
 2. Version compatibility: FileStore data may come from older MLflow versions with different field structures or missing fields (e.g., the run `name` field was added later). The migration tool should handle schema differences gracefully, using sensible defaults for missing fields.
+3. Migrating to existing DB: Should we support migrating to a database that already has data? This could cause conflicts (e.g., experiment name collisions). Options: require empty target DB, or provide conflict resolution strategies.
 
 ---
 
