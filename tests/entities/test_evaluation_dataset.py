@@ -1,4 +1,5 @@
 import json
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -716,8 +717,6 @@ def test_to_df_includes_source_column():
 
 
 def test_delete_records():
-    from unittest.mock import Mock, patch
-
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",
@@ -732,9 +731,7 @@ def test_delete_records():
     mock_store = Mock()
     mock_store.delete_dataset_records.return_value = 2
 
-    with patch(
-        "mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store
-    ):
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
         deleted_count = dataset.delete_records(["record1", "record2"])
 
     assert deleted_count == 2

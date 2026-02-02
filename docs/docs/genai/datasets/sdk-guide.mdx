@@ -342,15 +342,17 @@ delete_dataset(dataset_id="d-1a2b3c4d5e6f7890")
 Dataset deletion is permanent and cannot be undone. All records will be deleted.
 :::
 
-## Deleting Dataset Records
+## Deleting Specific Records from a Dataset
 
-Remove specific records from a dataset using <APILink fn="mlflow.entities.EvaluationDataset.delete_records" text="delete_records()" />:
+Remove specific records from a dataset using <APILink fn="mlflow.genai.datasets.EvaluationDataset.delete_records" text="delete_records()" />:
 
 ```python
-import mlflow
+from mlflow import MlflowClient
+
+client = MlflowClient()
 
 # Get the dataset and its records
-dataset = mlflow.get_dataset(dataset_id="d-1a2b3c4d5e6f7890")
+dataset = client.get_dataset(dataset_id="d-1a2b3c4d5e6f7890")
 df = dataset.to_df()
 
 # Get record IDs to delete

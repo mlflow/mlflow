@@ -4155,10 +4155,10 @@ message GetDatasetRecords {
 message DeleteDatasetRecords {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Dataset ID to delete records from
+  // Dataset ID to delete records from.
   optional string dataset_id = 1 [(validate_required) = true];
 
-  // List of dataset record IDs to delete
+  // List of dataset record IDs to delete.
   repeated string dataset_record_ids = 2;
 
   message Response {
