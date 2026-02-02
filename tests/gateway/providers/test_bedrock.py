@@ -609,9 +609,7 @@ def test_chat_to_model_transformation(fixture):
     assert result["messages"] == fixture["expected_converse_request"]["messages"]
 
     if "inferenceConfig" in fixture["expected_converse_request"]:
-        assert (
-            result["inferenceConfig"] == fixture["expected_converse_request"]["inferenceConfig"]
-        )
+        assert result["inferenceConfig"] == fixture["expected_converse_request"]["inferenceConfig"]
 
 
 def test_chat_to_model_uses_max_completion_tokens(bedrock_chat_config):
@@ -696,13 +694,9 @@ async def test_chat_stream_basic(bedrock_chat_config):
 
         provider = AmazonBedrockProvider(bedrock_chat_config)
 
-        payload = chat.RequestPayload(
-            messages=[chat.RequestMessage(role="user", content="Hello")]
-        )
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hello")])
 
-        chunks = [
-            jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk
-        ]
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk]
 
         assert len(chunks) > 0, "Should receive streaming chunks"
 
@@ -774,9 +768,7 @@ def test_unsupported_content_part_types_raise_error(bedrock_chat_config, part):
         ConverseAdapter.chat_to_model(payload, bedrock_chat_config)
 
     assert exc_info.value.status_code == 422
-    assert "Converse API currently only supports 'text' content parts" in str(
-        exc_info.value.detail
-    )
+    assert "Converse API currently only supports 'text' content parts" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio
@@ -822,9 +814,7 @@ async def test_streaming_omits_usage_when_stream_options_not_enabled(bedrock_cha
             messages=[chat.RequestMessage(role="user", content="Hello")],
         )
 
-        chunks = [
-            jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk
-        ]
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk]
 
         chunks_with_usage = [c for c in chunks if c.get("usage")]
         assert len(chunks_with_usage) == 0, "Usage should not be emitted without include_usage"
@@ -887,9 +877,7 @@ def test_tool_calling_not_yet_supported(bedrock_chat_config):
             }
         ],
     }
-    with pytest.raises(
-        AIGatewayException, match="Tool calling is not yet supported"
-    ) as exc_info:
+    with pytest.raises(AIGatewayException, match="Tool calling is not yet supported") as exc_info:
         ConverseAdapter.chat_to_model(payload_with_tools, bedrock_chat_config)
     assert exc_info.value.status_code == 422
 
@@ -897,9 +885,7 @@ def test_tool_calling_not_yet_supported(bedrock_chat_config):
         "messages": [{"role": "user", "content": "Hello"}],
         "tool_choice": "auto",
     }
-    with pytest.raises(
-        AIGatewayException, match="tool_choice is not yet supported"
-    ) as exc_info:
+    with pytest.raises(AIGatewayException, match="tool_choice is not yet supported") as exc_info:
         ConverseAdapter.chat_to_model(payload_with_tool_choice, bedrock_chat_config)
     assert exc_info.value.status_code == 422
 
@@ -943,8 +929,6 @@ def test_tool_messages_not_yet_supported(bedrock_chat_config):
             },
         ],
     }
-    with pytest.raises(
-        AIGatewayException, match="tool_calls are not yet supported"
-    ) as exc_info:
+    with pytest.raises(AIGatewayException, match="tool_calls are not yet supported") as exc_info:
         ConverseAdapter.chat_to_model(payload_with_tool_calls, bedrock_chat_config)
     assert exc_info.value.status_code == 422
