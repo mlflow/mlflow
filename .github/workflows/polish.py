@@ -62,7 +62,7 @@ Rewrite the PR title to be more descriptive and follow the guidelines below.
 ## Guidelines for a good PR title:
 1. Start with a verb in imperative mood (e.g., "Add", "Fix", "Update", "Remove", "Refactor")
 2. Be specific about what changed and where
-3. Keep it concise
+3. Keep it concise (aim for 72 characters or less, 100 characters maximum)
 4. Do not include issue numbers in the title (they belong in the PR body)
 5. Focus on the "what" and "why", not the "how"
 6. Use proper capitalization (capitalize first letter, no period at end)
