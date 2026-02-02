@@ -30,6 +30,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.version import VERSION
 
@@ -238,40 +239,6 @@ def create_litellm_message_from_databricks_response(
         content=content,
         tool_calls=tool_calls,
     )
-
-
-def serialize_messages_to_databricks_prompts(
-    messages: list[Any],
-) -> tuple[str, str | None]:
-    """
-    Serialize litellm Messages to user_prompt and system_prompt for Databricks.
-
-    This is needed because call_chat_completions only accepts string prompts.
-
-    Args:
-        messages: List of litellm Message objects.
-
-    Returns:
-        Tuple of (user_prompt, system_prompt).
-    """
-    system_prompt = None
-    user_parts = []
-
-    for msg in messages:
-        if msg.role == "system":
-            system_prompt = msg.content
-        elif msg.role == "user":
-            user_parts.append(msg.content)
-        elif msg.role == "assistant":
-            if msg.tool_calls:
-                user_parts.append("Assistant: [Called tools]")
-            elif msg.content:
-                user_parts.append(f"Assistant: {msg.content}")
-        elif msg.role == "tool":
-            user_parts.append(f"Tool {msg.name}: {msg.content}")
-
-    user_prompt = "\n\n".join(user_parts)
-    return user_prompt, system_prompt
 
 
 def _run_databricks_agentic_loop(

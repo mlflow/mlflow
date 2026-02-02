@@ -20,7 +20,6 @@ from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
     create_litellm_message_from_databricks_response,
-    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
@@ -33,6 +32,8 @@ from mlflow.genai.simulators.prompts import (
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -97,6 +98,8 @@ _MODEL_API_DOC = {
 * `"databricks"` - Uses the Databricks managed LLM endpoint
 * `"databricks:/<endpoint-name>"` - Uses a Databricks model serving endpoint \
 (e.g., `"databricks:/databricks-claude-sonnet-4-5"`)
+* `"gateway:/<endpoint-name>"` - Uses an MLflow AI Gateway endpoint \
+(e.g., `"gateway:/my-chat-endpoint"`)
 * `"<provider>:/<model-name>"` - Uses LiteLLM (e.g., `"openai:/gpt-4.1-mini"`, \
 `"anthropic:/claude-3.5-sonnet-20240620"`)
 
@@ -201,12 +204,20 @@ def _invoke_model_without_tracing(
         litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
         kwargs = {
-            "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
             # Drop unsupported params (e.g., temperature=0 for certain models)
             "drop_params": True,
         }
+
+        if provider == "gateway":
+            config = get_gateway_litellm_config(model_name)
+            kwargs["api_base"] = config.api_base
+            kwargs["api_key"] = config.api_key
+            kwargs["model"] = config.model
+        else:
+            kwargs["model"] = f"{provider}/{model_name}"
+
         if inference_params:
             kwargs.update(inference_params)
 

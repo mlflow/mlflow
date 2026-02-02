@@ -17,8 +17,8 @@ export interface SessionHeaderRowData {
 
 export type GroupedTraceTableRowData = { type: 'trace'; data: EvalTraceComparisonEntry } | SessionHeaderRowData;
 
-const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
-const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
+export const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
+export const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
 
 /**
  * Extract session ID from a ModelTraceInfoV3.

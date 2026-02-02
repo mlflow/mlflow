@@ -38,11 +38,11 @@ Before setting up automatic evaluation, ensure that:
 
 ## Setting Up Automatic Evaluation
 
-These examples show how to set up LLM judges that automatically evaluate traces and multi-turn conversations as they're logged to an [MLflow Experiment](/genai/tracing/quickstart#create-a-mlflow-experiment), and how to update or disable existing judges. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/).
+These examples show how to set up LLM judges that automatically evaluate traces and multi-turn conversations as they're logged to an [MLflow Experiment](/genai/tracing/quickstart#create-a-mlflow-experiment), and how to update or disable existing judges. For more details on creating LLM judges, see [LLM-as-a-Judge](/genai/eval-monitor/scorers/#llms-as-judges).
 
 :::note
 
-- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/llm-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/make-judge).
+- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom)) are not supported. Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge).
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
   :::
 
@@ -228,7 +228,7 @@ For further debugging, enable debug logging on the MLflow server by setting the 
     iconSize={48}
     title="LLM-as-a-Judge"
     description="Learn more about creating and customizing LLM judges for your specific quality criteria."
-    href="/genai/eval-monitor/scorers/llm-judge/"
+    href="/genai/eval-monitor/scorers/#llms-as-judges"
     linkText="Learn more →"
     containerHeight={64}
   />
