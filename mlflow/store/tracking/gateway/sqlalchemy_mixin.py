@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.tracking._secret_cache import (
     _DEFAULT_CACHE_MAX_SIZE,
@@ -109,8 +110,6 @@ class SqlAlchemyGatewayStoreMixin:
             # The class that inherits from this mixin must implement the create_experiment method
             return self.create_experiment(experiment_name)
         except MlflowException as e:
-            from mlflow.protos.databricks_pb2 import ErrorCode
-
             if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 experiment = self.get_experiment_by_name(experiment_name)
                 if experiment is not None:
