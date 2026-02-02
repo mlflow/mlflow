@@ -152,7 +152,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 2
+    version = 1
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
@@ -301,7 +301,6 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         )
 
         dataset.merge_records(traces)
-
         return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:

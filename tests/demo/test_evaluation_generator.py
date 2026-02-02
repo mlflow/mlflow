@@ -22,7 +22,7 @@ def traces_generator():
 
 def test_generator_attributes(evaluation_generator):
     assert evaluation_generator.name == DemoFeature.EVALUATION
-    assert evaluation_generator.version == 2
+    assert evaluation_generator.version == 1
 
 
 def test_data_exists_false_when_no_experiment(evaluation_generator):
