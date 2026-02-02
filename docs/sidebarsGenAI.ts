@@ -139,13 +139,13 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/lightweight-sdk',
-                  label: 'Use Lightweight SDK',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/prod-tracing',
-                  label: 'Production Monitoring',
+                  id: 'tracing/production-sdk',
+                  label: 'Production Tracing SDK',
                 },
               ],
             },
