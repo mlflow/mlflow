@@ -65,6 +65,17 @@ class LiteLLMProvider(BaseProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config
 
+    def get_provider_name(self) -> str:
+        """
+        Return the actual underlying provider name instead of "LiteLLM".
+
+        For example, if litellm_provider is "anthropic", returns "anthropic"
+        instead of "LiteLLM" for more accurate tracing and metrics.
+        """
+        if self.litellm_config.litellm_provider:
+            return self.litellm_config.litellm_provider
+        return self.NAME
+
     @property
     def adapter_class(self):
         return LiteLLMAdapter

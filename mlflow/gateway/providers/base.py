@@ -97,6 +97,19 @@ class BaseProvider(ABC):
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
 
+    def get_provider_name(self) -> str:
+        """
+        Get the provider name for tracing and metrics.
+
+        Override this method to return a different provider name than the class NAME.
+        For example, LiteLLM provider overrides this to return the actual underlying
+        provider name (e.g., "anthropic", "openai") instead of "litellm".
+
+        Returns:
+            The provider name string.
+        """
+        return self.NAME
+
     def _validate_passthrough_action(self, action: PassthroughAction) -> str:
         """
         Validates that the passthrough action is supported by this provider
@@ -324,6 +337,7 @@ class FallbackProvider(BaseProvider):
                 method = getattr(provider, method_name)
                 async for chunk in method(*args, **kwargs):
                     yield chunk
+                # Stream completed successfully
                 return
             except Exception as e:
                 last_error = e

@@ -387,12 +387,22 @@ class GeminiAdapter(ProviderAdapter):
             )
         current_time = int(time.time())
 
+        # Extract usage from usageMetadata (available in final chunk)
+        usage = None
+        if usage_metadata := resp.get("usageMetadata"):
+            usage = chat_schema.ChatUsage(
+                prompt_tokens=usage_metadata.get("promptTokenCount"),
+                completion_tokens=usage_metadata.get("candidatesTokenCount"),
+                total_tokens=usage_metadata.get("totalTokenCount"),
+            )
+
         return chat_schema.StreamResponsePayload(
             id=f"gemini-chat-stream-{current_time}",
             object="chat.completion.chunk",
             created=current_time,
             model=config.model.name,
             choices=choices,
+            usage=usage,
         )
 
     @classmethod
