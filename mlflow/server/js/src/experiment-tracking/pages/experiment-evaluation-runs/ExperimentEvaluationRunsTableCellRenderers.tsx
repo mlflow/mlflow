@@ -16,7 +16,6 @@ import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { FormattedMessage } from 'react-intl';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -37,33 +36,16 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  const isDisabled = !row.getCanSelect();
-  const checkbox = (
+  return (
     <Checkbox
       componentId="mlflow.eval-runs.checkbox-cell"
       data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
-      disabled={isDisabled}
+      disabled={!row.getCanSelect()}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
       onChange={() => row.toggleSelected()}
       onClick={(e) => e.stopPropagation()}
     />
-  );
-
-  return isDisabled ? (
-    <Tooltip
-      componentId="mlflow.eval-runs.checkbox-disabled-tooltip"
-      content={
-        <FormattedMessage
-          defaultMessage="Maximum of 2 runs can be selected for comparison"
-          description="Tooltip explaining why a checkbox is disabled when max selection is reached"
-        />
-      }
-    >
-      <span>{checkbox}</span>
-    </Tooltip>
-  ) : (
-    checkbox
   );
 };
 

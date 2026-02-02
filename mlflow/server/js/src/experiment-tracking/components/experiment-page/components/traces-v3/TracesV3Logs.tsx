@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
@@ -23,6 +23,7 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
@@ -127,10 +128,6 @@ const TracesV3LogsImpl = React.memo(
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     useRegisterSelectedIds('selectedTraceIds', rowSelection);
 
-    const onToggleSessionGrouping = useCallback(() => {
-      setIsGroupedBySession(!isGroupedBySession);
-    }, [isGroupedBySession]);
-
     const traceSearchLocations = useMemo(
       () => {
         return [createTraceLocationForExperiment(experimentId)];
@@ -205,6 +202,21 @@ const TracesV3LogsImpl = React.memo(
       undefined, // runUuid
       columnStorageKeyPrefix,
     );
+
+    // Toggle session grouping and auto-select session column when enabling
+    const onToggleSessionGrouping = useCallback(() => {
+      const newIsGroupedBySession = !isGroupedBySession;
+      setIsGroupedBySession(newIsGroupedBySession);
+
+      // Auto-select session column when enabling grouping
+      if (newIsGroupedBySession) {
+        const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
+        const isSessionColumnSelected = selectedColumns.some((col) => col.id === SESSION_COLUMN_ID);
+        if (sessionColumn && !isSessionColumnSelected) {
+          setSelectedColumns([...selectedColumns, sessionColumn]);
+        }
+      }
+    }, [isGroupedBySession, allColumns, selectedColumns, setSelectedColumns]);
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
       key: REQUEST_TIME_COLUMN_ID,

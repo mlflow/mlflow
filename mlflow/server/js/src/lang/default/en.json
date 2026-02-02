@@ -595,10 +595,6 @@
     "defaultMessage": "API Keys",
     "description": "API Keys page title"
   },
-  "2QyWfI": {
-    "defaultMessage": "Maximum of 2 runs can be selected for comparison",
-    "description": "Tooltip explaining why a checkbox is disabled when max selection is reached"
-  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"

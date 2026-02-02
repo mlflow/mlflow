@@ -42,7 +42,7 @@ import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -54,6 +54,7 @@ import type {
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
@@ -195,6 +196,17 @@ const RunViewEvaluationsTabInner = ({
     compareToRunUuid,
     isQueryDisabled,
   });
+
+  const hasSetInitialGrouping = useRef(false);
+  useEffect(() => {
+    if (!hasSetInitialGrouping.current && traceInfos && traceInfos.length > 0) {
+      const hasSessionIds = traceInfos.some((trace) => Boolean(trace.trace_metadata?.[SESSION_ID_METADATA_KEY]));
+      if (hasSessionIds) {
+        setIsGroupedBySession(true);
+      }
+      hasSetInitialGrouping.current = true;
+    }
+  }, [traceInfos]);
 
   const countInfo = useMemo(() => {
     return {
