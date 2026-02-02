@@ -2633,6 +2633,7 @@ def test_trace_decorator_sampling_ratio_nested(
     assert len(inner_trace_ids) == expected_inner
 
 
+@skip_when_testing_trace_sdk
 def test_trace_decorator_sampling_ratio_overrides_global():
     code = """
 import mlflow
