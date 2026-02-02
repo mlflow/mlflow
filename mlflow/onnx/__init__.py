@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -103,6 +104,7 @@ def save_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     **kwargs,  # pylint: disable=unused-argument
 ):
     """
@@ -151,6 +153,15 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
         kwargs: {{ kwargs }}
     """
     import onnx
@@ -192,6 +203,8 @@ def save_model(
 
     _validate_onnx_session_options(onnx_session_options)
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,
@@ -199,6 +212,7 @@ def save_model(
         providers=onnx_execution_providers,
         onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -463,6 +477,7 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -522,6 +537,15 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -551,6 +575,7 @@ def log_model(
         onnx_session_options=onnx_session_options,
         metadata=metadata,
         save_as_external_data=save_as_external_data,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,

@@ -51,6 +51,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -105,6 +106,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
 ):
     """
     Save a statsmodels model to a path on the local file system.
@@ -124,6 +126,15 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
     """
     import statsmodels
 
@@ -163,6 +174,8 @@ def save_model(
                 '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
             )
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.statsmodels",
@@ -176,6 +189,7 @@ def save_model(
         statsmodels_version=statsmodels.__version__,
         data=STATSMODELS_DATA_SUBPATH,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -229,6 +243,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -259,6 +274,15 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -286,6 +310,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,

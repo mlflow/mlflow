@@ -47,6 +47,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _download_artifact_from_uri,
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
@@ -126,6 +127,7 @@ def save_model(
     extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
     metadata: dict[str, Any] | None = None,
+    extra_files=None,
 ) -> None:
     """
     .. note::
@@ -165,6 +167,15 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
     """
     import sentence_transformers
 
@@ -214,11 +225,14 @@ def save_model(
         code=code_dir_subpath,
     )
 
+    extra_files_config = _copy_extra_files(extra_files, str(path))
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
         **_get_transformers_model_metadata(model),
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -307,6 +321,7 @@ def log_model(
     extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
     metadata: dict[str, Any] | None = None,
+    extra_files=None,
     prompts: list[str | Prompt] | None = None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
@@ -380,6 +395,15 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        extra_files: A list containing the paths to corresponding extra files. Remote URIs
+            are resolved to absolute filesystem paths.
+            For example, consider the following ``extra_files`` list -
+
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
+
+            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+            If ``None``, no extra files are added to the model.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -398,6 +422,7 @@ def log_model(
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
         metadata=metadata,
+        extra_files=extra_files,
         model=model,
         inference_config=inference_config,
         conda_env=conda_env,

@@ -64,6 +64,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -76,7 +77,6 @@ _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _EXPORTED_TORCH_MODEL_FILE_NAME = "model.pt2"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
-_EXTRA_FILES_KEY = "extra_files"
 _TORCH_CPU_DEVICE_NAME = "cpu"
 _TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
@@ -533,31 +533,14 @@ def save_model(
         else:
             torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
-    torchserve_artifacts_config = {}
-
-    if extra_files:
-        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
-        if not isinstance(extra_files, list):
-            raise TypeError("Extra files argument should be a list")
-
-        with TempDir() as tmp_extra_files_dir:
-            for extra_file in extra_files:
-                _download_artifact_from_uri(
-                    artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
-                )
-                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
-                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
-            shutil.move(
-                tmp_extra_files_dir.path(),
-                posixpath.join(path, _EXTRA_FILES_KEY),
-            )
+    extra_files_config = _copy_extra_files(extra_files, path)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=str(torch.__version__),
         code=code_dir_subpath,
-        **torchserve_artifacts_config,
+        **extra_files_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
