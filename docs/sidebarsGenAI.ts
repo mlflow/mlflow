@@ -144,7 +144,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/production-sdk',
+                  id: 'tracing/lightweight-sdk',
                   label: 'Production Tracing SDK',
                 },
               ],
