@@ -40,6 +40,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     with_active_span,
 )
+from mlflow.tracing.sampling import _FORCE_SAMPLE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -81,11 +82,11 @@ def _skip_tracing():
 def _force_sampler(sampling_ratio: float | None):
     """Context manager to force the OTel sampler to sample when sampling_ratio is set."""
     if sampling_ratio is not None:
-        token = provider._FORCE_SAMPLE.set(True)
+        token = _FORCE_SAMPLE.set(True)
         try:
             yield
         finally:
-            provider._FORCE_SAMPLE.reset(token)
+            _FORCE_SAMPLE.reset(token)
     else:
         yield
 
@@ -103,7 +104,7 @@ def trace(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
-    sampling_ratio: float | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -203,18 +204,18 @@ def trace(
             set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
             should only be used for root span and setting this for non-root spans will be
             ignored with a warning.
-        sampling_ratio: The sampling ratio for this specific function. Must be between 0.0 and
-            1.0. If provided, this overrides the global ``MLFLOW_TRACE_SAMPLING_RATIO`` setting.
-            A value of 1.0 means all traces are sampled, 0.5 means 50% are sampled, and 0.0
-            means no traces are sampled. If not provided (None), the global sampling ratio is
-            used. Note: This only applies to root spans; nested calls always trace if the parent
-            is traced.
+        sampling_ratio_override: The sampling ratio override for this specific function. Must be
+            between 0.0 and 1.0. If provided, this overrides the global
+            ``MLFLOW_TRACE_SAMPLING_RATIO`` setting. A value of 1.0 means all traces are sampled,
+            0.5 means 50% are sampled, and 0.0 means no traces are sampled. If not provided (None),
+            the global sampling ratio is used. Note: This only applies to root spans; nested calls
+            always trace if the parent is traced.
     """
 
-    # Validate sampling_ratio
-    if sampling_ratio is not None and not (0.0 <= sampling_ratio <= 1.0):
+    # Validate sampling_ratio_override
+    if sampling_ratio_override is not None and not (0.0 <= sampling_ratio_override <= 1.0):
         raise MlflowException.invalid_parameter_value(
-            f"sampling_ratio must be between 0.0 and 1.0, got {sampling_ratio}"
+            f"sampling_ratio_override must be between 0.0 and 1.0, got {sampling_ratio_override}"
         )
 
     def decorator(fn):
@@ -234,7 +235,7 @@ def trace(
                 attributes,
                 output_reducer,
                 trace_destination,
-                sampling_ratio,
+                sampling_ratio_override,
             )
         else:
             if output_reducer is not None:
@@ -242,7 +243,7 @@ def trace(
                     "The output_reducer argument is only supported for generator functions."
                 )
             wrapped = _wrap_function(
-                original_fn, name, span_type, attributes, trace_destination, sampling_ratio
+                original_fn, name, span_type, attributes, trace_destination, sampling_ratio_override
             )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
@@ -280,7 +281,7 @@ def _wrap_function(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
-    sampling_ratio: float | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -327,19 +328,19 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio):
+            if not _should_sample(sampling_ratio_override):
                 with _skip_tracing():
                     return await fn(*args, **kwargs)
-            with _force_sampler(sampling_ratio):
+            with _force_sampler(sampling_ratio_override):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
     else:
 
         def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio):
+            if not _should_sample(sampling_ratio_override):
                 with _skip_tracing():
                     return fn(*args, **kwargs)
-            with _force_sampler(sampling_ratio):
+            with _force_sampler(sampling_ratio_override):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(fn(*args, **kwargs))
 
@@ -353,7 +354,7 @@ def _wrap_generator(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
-    sampling_ratio: float | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -430,12 +431,12 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio):
+            if not _should_sample(sampling_ratio_override):
                 with _skip_tracing():
                     yield from fn(*args, **kwargs)
                 return
 
-            with _force_sampler(sampling_ratio):
+            with _force_sampler(sampling_ratio_override):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
@@ -461,13 +462,13 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            if not _should_sample(sampling_ratio):
+            if not _should_sample(sampling_ratio_override):
                 with _skip_tracing():
                     async for value in fn(*args, **kwargs):
                         yield value
                 return
 
-            with _force_sampler(sampling_ratio):
+            with _force_sampler(sampling_ratio_override):
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)

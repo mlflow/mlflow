@@ -20,12 +20,6 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.sampling import (
-    Decision,
-    Sampler,
-    SamplingResult,
-    TraceIdRatioBased,
-)
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -42,6 +36,7 @@ from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
+from mlflow.tracing.sampling import _OverridableSampler
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -61,42 +56,6 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-# Context variable to force sampling, bypassing the global sampling ratio.
-# When set to True, the custom sampler will always sample the trace.
-_FORCE_SAMPLE = contextvars.ContextVar("force_sample", default=False)
-
-
-class _OverridableSampler(Sampler):
-    """
-    A custom sampler that allows per-trace override of the global sampling ratio.
-
-    When _FORCE_SAMPLE context variable is True, this sampler always samples.
-    Otherwise, it delegates to the underlying ratio-based sampler.
-    """
-
-    def __init__(self, ratio: float):
-        self._ratio_sampler = TraceIdRatioBased(ratio)
-
-    def should_sample(
-        self,
-        parent_context,
-        trace_id,
-        name,
-        kind=None,
-        attributes=None,
-        links=None,
-        trace_state=None,
-    ) -> SamplingResult:
-        if _FORCE_SAMPLE.get():
-            return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes, trace_state)
-        return self._ratio_sampler.should_sample(
-            parent_context, trace_id, name, kind, attributes, links, trace_state
-        )
-
-    def get_description(self) -> str:
-        return f"OverridableSampler(ratio={self._ratio_sampler.rate})"
-
 
 # A trace destination specified by the user via the `set_destination` function.
 _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
