@@ -10,6 +10,11 @@ import {
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
 import { InMemoryTraceManager } from './core/trace_manager';
+import {
+  getTracingContextHeadersForHttpRequest,
+  withTracingContextFromHeaders,
+  withTracingContextFromHeadersAsync,
+} from './core/distributed';
 
 export {
   getLastActiveTraceId,
@@ -22,6 +27,10 @@ export {
   withSpan,
   MlflowClient,
   InMemoryTraceManager,
+  // Distributed tracing
+  getTracingContextHeadersForHttpRequest,
+  withTracingContextFromHeaders,
+  withTracingContextFromHeadersAsync,
 };
 
 // Export entities

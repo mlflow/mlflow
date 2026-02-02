@@ -1,5 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Distributed Tracing
 
@@ -9,10 +11,15 @@ When your application spans multiple services, you may want to connect spans fro
 
 ## How It Works
 
-MLflow is OpenTelemetry-compatible, so trace context is propagated through the HTTP headers following the [W3C TraceContext](https://www.w3.org/TR/trace-context/) specification. MLflow provides two APIs to simplify handling the headers at the client and server sides:
+MLflow is OpenTelemetry-compatible, so trace context is propagated through the HTTP headers following the [W3C TraceContext](https://www.w3.org/TR/trace-context/) specification. MLflow provides APIs to simplify handling the headers at the client and server sides:
 
+**Python:**
 - Use <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request">get_tracing_context_headers_for_http_request</APILink> in the **client side** (caller service) to get headers containing the current trace context.
 - Use <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers">set_tracing_context_from_http_request_headers</APILink> in the **server side** (callee service) to extract the trace and span information from the incoming request headers.
+
+**TypeScript:**
+- Use `getTracingContextHeadersForHttpRequest()` in the **client side** to get headers containing the current trace context.
+- Use `withTracingContextFromHeaders()` or `withTracingContextFromHeadersAsync()` in the **server side** to extract the trace context from the incoming request headers.
 
 ![Distributed tracing flow](/images/llms/tracing/distributed-tracing-flow.png)
 
@@ -41,19 +48,58 @@ If services use different experiments, their spans will end up in separate trace
 
 ## Usage Example
 
-Below is a runnable two-service example using FastAPI. The **client** creates the root span and calls the **server**, which adds a nested span under the same trace.
+### Client (Caller Service)
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+
+```python
+import requests
+import mlflow
+from mlflow.tracing import get_tracing_context_headers_for_http_request
+
+with mlflow.start_span("client-root") as span:
+    span.set_inputs({"input": "hello"})
+    headers = get_tracing_context_headers_for_http_request()
+    response = requests.post(
+        "http://localhost:5001/handle", headers=headers, json={"input": "hello"}
+    )
+    span.set_outputs(response.json())
+```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.withSpan(
+  async (span) => {
+    const headers = mlflow.getTracingContextHeadersForHttpRequest();
+    await fetch("https://your.service/handle", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ input: "hello" }),
+    });
+  },
+  { name: "client-root" }
+);
+```
+
+</TabItem>
+</Tabs>
 
 ### Server (Callee Service)
 
-Create a `server.py` file with the following content:
+<Tabs>
+<TabItem value="python" label="Python" default>
 
-```python title="server.py"
+```python
 import mlflow
 import uvicorn
 from fastapi import FastAPI, Request
 from mlflow.tracing import set_tracing_context_from_http_request_headers
 
-# Set the tracking URI and experiment
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("distributed-tracing-demo")
 
@@ -65,7 +111,6 @@ async def handle(request: Request):
     headers = dict(request.headers)
     body = await request.json()
     with set_tracing_context_from_http_request_headers(headers):
-        # This span will be added to the same trace as a child span
         with mlflow.start_span("server-handler") as span:
             span.set_inputs(body)
             result = {"response": f"Processed: {body.get('input', '')}"}
@@ -77,40 +122,45 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5001)
 ```
 
-### Client (Caller Service)
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
 
-Create a `client.py` file with the following content:
+```typescript
+import * as mlflow from "mlflow-tracing";
+import express from "express";
 
-```python title="client.py"
-import requests
-import mlflow
-from mlflow.tracing import get_tracing_context_headers_for_http_request
+const app = express();
+app.use(express.json());
 
-# Connect to the same tracking server and experiment as the server
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("distributed-tracing-demo")
+app.post("/handle", (req, res) => {
+  mlflow.withTracingContextFromHeaders(req.headers, () => {
+    mlflow.withSpan(
+      (span) => {
+        // ... your logic ...
+        span.setAttribute("status", "ok");
+        res.json({ ok: true });
+      },
+      { name: "server-handler" }
+    );
+  });
+});
 
-# Create a root span at client side
-with mlflow.start_span("client-root") as span:
-    span.set_inputs({"input": "hello"})
-    headers = get_tracing_context_headers_for_http_request()
-    response = requests.post(
-        "http://localhost:5001/handle", headers=headers, json={"input": "hello"}
-    )
-    span.set_outputs(response.json())
+// For async handlers, use withTracingContextFromHeadersAsync:
+app.post("/handle-async", async (req, res) => {
+  await mlflow.withTracingContextFromHeadersAsync(req.headers, async () => {
+    await mlflow.withSpan(
+      async (span) => {
+        // ... async logic ...
+        res.json({ ok: true });
+      },
+      { name: "server-handler" }
+    );
+  });
+});
 ```
 
-### Run it
-
-```bash
-# Terminal 1 — start the server
-python server.py
-
-# Terminal 2 — run the client
-python client.py
-```
-
-Open the MLflow UI at `http://localhost:5000` and navigate to the **distributed-tracing-demo** experiment. You will see a single trace containing spans from both the client and the server:
+</TabItem>
+</Tabs>
 
 ## AI Gateway Integration
 
