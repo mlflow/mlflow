@@ -492,6 +492,8 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
             ),
         ],
         created_by="test-user",
+        usage_tracking=True,
+        experiment_id=1,
     )
 
     assert isinstance(endpoint, GatewayEndpoint)
@@ -499,6 +501,8 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
     assert endpoint.name == "my-endpoint"
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
+    assert endpoint.usage_tracking is True
+    assert endpoint.experiment_id == 1
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):

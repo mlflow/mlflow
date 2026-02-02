@@ -71,7 +71,9 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.protos.jobs_pb2 import JobStatus
 from mlflow.protos.mlflow_artifacts_pb2 import (
@@ -4221,6 +4223,17 @@ def _list_gateway_secrets():
 # =============================================================================
 
 
+def _get_or_create_experiment_id(store, experiment_name: str) -> str:
+    try:
+        return store.create_experiment(experiment_name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            experiment = store.get_experiment_by_name(experiment_name)
+            if experiment is not None:
+                return experiment.experiment_id
+        raise
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_gateway_endpoint():
@@ -4254,6 +4267,20 @@ def _create_gateway_endpoint():
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
     ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+    )
+
+    # Auto-create experiment if usage_tracking is enabled and experiment_id not provided
+    if usage_tracking and experiment_id is None:
+        store = _get_tracking_store()
+        experiment_name = f"gateway/{request_message.name}"
+        experiment_id = _get_or_create_experiment_id(store, experiment_name)
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -4262,6 +4289,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4320,6 +4349,24 @@ def _update_gateway_endpoint():
             for config in request_message.model_configs
         ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else None
+    )
+
+    # Auto-create experiment if usage_tracking is being enabled and experiment_id not provided
+    if usage_tracking and experiment_id is None:
+        store = _get_tracking_store()
+        # Check if the endpoint already has an experiment_id
+        existing_endpoint = store.get_gateway_endpoint(endpoint_id=request_message.endpoint_id)
+        if existing_endpoint.experiment_id is None:
+            endpoint_name = request_message.name or existing_endpoint.name
+            experiment_name = f"gateway/{endpoint_name}"
+            experiment_id = _get_or_create_experiment_id(store, experiment_name)
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
@@ -4329,6 +4376,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
