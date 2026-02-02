@@ -41,7 +41,6 @@ mlflow.client.MlflowClient.create_registered_model
 mlflow.client.MlflowClient.create_run
 mlflow.client.MlflowClient.create_webhook
 mlflow.client.MlflowClient.delete_dataset
-mlflow.client.MlflowClient.delete_dataset_records
 mlflow.client.MlflowClient.delete_dataset_tag
 mlflow.client.MlflowClient.delete_experiment
 mlflow.client.MlflowClient.delete_experiment_tag
@@ -776,9 +775,9 @@ mlflow.genai.agent_server.stream
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset
+mlflow.genai.datasets.EvaluationDataset.delete_records
 mlflow.genai.datasets.EvaluationDataset.from_dict
 mlflow.genai.datasets.EvaluationDataset.from_proto
-mlflow.genai.datasets.EvaluationDataset.delete_records
 mlflow.genai.datasets.EvaluationDataset.has_records
 mlflow.genai.datasets.EvaluationDataset.merge_records
 mlflow.genai.datasets.EvaluationDataset.set_profile
