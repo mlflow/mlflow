@@ -4,6 +4,9 @@ title: Quickstart
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Key, Server, GitBranch } from "lucide-react";
 
 # AI Gateway Quickstart
 
@@ -103,8 +106,26 @@ You should receive a response from your configured model.
 
 Now that you have a working gateway, explore these features:
 
-- **[Create and Manage API Keys](/genai/governance/ai-gateway/api-keys/create-and-manage)** - Learn about credential management and best practices
-- **[Create and Manage Endpoints](/genai/governance/ai-gateway/endpoints/create-and-manage)** - Configure endpoints with multiple models
-- **[Query Endpoints](/genai/governance/ai-gateway/endpoints/query-endpoints)** - Explore unified and passthrough APIs
-- **[Model Providers](/genai/governance/ai-gateway/endpoints/model-providers)** - See all supported providers and models
-- **[Traffic Routing & Fallbacks](/genai/governance/ai-gateway/traffic-routing-fallbacks)** - Set up A/B testing and high availability
+<TilesGrid>
+  <TileCard
+    icon={Key}
+    title="API Keys"
+    description="Learn about credential management and best practices for API keys"
+    href="/genai/governance/ai-gateway/api-keys/create-and-manage"
+    linkText="Manage API keys →"
+  />
+  <TileCard
+    icon={Server}
+    title="Endpoints"
+    description="Configure endpoints with multiple models and query options"
+    href="/genai/governance/ai-gateway/endpoints/create-and-manage"
+    linkText="Configure endpoints →"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Traffic Routing"
+    description="Set up A/B testing, fallbacks, and high availability"
+    href="/genai/governance/ai-gateway/traffic-routing-fallbacks"
+    linkText="Set up routing →"
+  />
+</TilesGrid>
