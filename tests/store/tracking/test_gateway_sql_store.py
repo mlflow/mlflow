@@ -482,6 +482,9 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
 
+    # Create an experiment to link with the endpoint
+    experiment_id = store.create_experiment("test-experiment")
+
     endpoint = store.create_gateway_endpoint(
         name="my-endpoint",
         model_configs=[
@@ -493,7 +496,7 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
         ],
         created_by="test-user",
         usage_tracking=True,
-        experiment_id="1",
+        experiment_id=experiment_id,
     )
 
     assert isinstance(endpoint, GatewayEndpoint)
@@ -502,7 +505,7 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
     assert endpoint.usage_tracking is True
-    assert endpoint.experiment_id == "1"
+    assert endpoint.experiment_id == experiment_id
 
 
 def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore):

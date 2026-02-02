@@ -5,21 +5,6 @@ CREATE TABLE alembic_version (
 )
 
 
-CREATE TABLE endpoints (
-	endpoint_id VARCHAR(36) NOT NULL,
-	name VARCHAR(255),
-	created_by VARCHAR(255),
-	created_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
-	routing_strategy VARCHAR(64),
-	fallback_config_json TEXT,
-	experiment_id VARCHAR(32),
-	usage_tracking BOOLEAN DEFAULT false NOT NULL,
-	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
-)
-
-
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) NOT NULL,
 	source_type VARCHAR(36) NOT NULL,
@@ -146,26 +131,19 @@ CREATE TABLE datasets (
 )
 
 
-CREATE TABLE endpoint_bindings (
+CREATE TABLE endpoints (
 	endpoint_id VARCHAR(36) NOT NULL,
-	resource_type VARCHAR(50) NOT NULL,
-	resource_id VARCHAR(255) NOT NULL,
-	created_at BIGINT NOT NULL,
+	name VARCHAR(255),
 	created_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
-	display_name VARCHAR(255),
-	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
-	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE endpoint_tags (
-	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
-	endpoint_id VARCHAR(36) NOT NULL,
-	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
-	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64),
+	fallback_config_json TEXT,
+	experiment_id INTEGER,
+	usage_tracking BOOLEAN DEFAULT false NOT NULL,
+	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
+	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL
 )
 
 
@@ -355,6 +333,20 @@ CREATE TABLE assessments (
 )
 
 
+CREATE TABLE endpoint_bindings (
+	endpoint_id VARCHAR(36) NOT NULL,
+	resource_type VARCHAR(50) NOT NULL,
+	resource_id VARCHAR(255) NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	display_name VARCHAR(255),
+	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
+	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE endpoint_model_mappings (
 	mapping_id VARCHAR(36) NOT NULL,
 	endpoint_id VARCHAR(36) NOT NULL,
@@ -367,6 +359,15 @@ CREATE TABLE endpoint_model_mappings (
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
