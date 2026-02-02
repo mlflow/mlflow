@@ -20,10 +20,11 @@ _MODEL_USAGE = {"prompt_tokens": 6, "completion_tokens": 1}
     "disable",
     [True, False],
 )
-async def test_autolog_assistant_agent(disable):
+async def test_autolog_assistant_agent(disable, mock_litellm_cost):
     model_client = ReplayChatCompletionClient(
         ["2"],
     )
+    model_client.model = "gpt-4o-mini"
     agent = AssistantAgent("assistant", model_client=model_client, system_message=_SYSTEM_MESSAGE)
 
     mlflow.autogen.autolog(disable=disable)
@@ -88,11 +89,18 @@ async def test_autolog_assistant_agent(disable):
             {"content": "1+1", "source": "user", "type": "UserMessage"},
         ]
         assert span.outputs["content"] == "2"
+        assert span.model_name == "gpt-4o-mini"
 
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 6,
             "output_tokens": 1,
             "total_tokens": 7,
+        }
+        # Verify cost is calculated (6 input tokens * 1.0 + 1 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 2.0,
+            "total_cost": 8.0,
         }
 
         assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "autogen"
@@ -105,7 +113,7 @@ async def test_autolog_assistant_agent(disable):
 
 
 @pytest.mark.asyncio
-async def test_autolog_tool_agent():
+async def test_autolog_tool_agent(mock_litellm_cost):
     model_client = ReplayChatCompletionClient(
         [
             CreateResult(
@@ -116,6 +124,7 @@ async def test_autolog_tool_agent():
             ),
         ],
     )
+    model_client.model = "gpt-4o-mini"
     model_client.model_info["function_calling"] = True
     TOOL_ATTRIBUTES = [
         {
@@ -240,11 +249,17 @@ async def test_autolog_tool_agent():
     assert span.outputs["content"] == [
         {"id": "1", "arguments": '{"number": 1}', "name": "increment_number"}
     ]
+    assert span.model_name == "gpt-4o-mini"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 6,
         "output_tokens": 1,
         "total_tokens": 7,
+    }
+    assert span.llm_cost == {
+        "input_cost": 6.0,
+        "output_cost": 2.0,
+        "total_cost": 8.0,
     }
 
     assert traces[0].info.token_usage == {
@@ -255,7 +270,7 @@ async def test_autolog_tool_agent():
 
 
 @pytest.mark.asyncio
-async def test_autolog_multi_modal():
+async def test_autolog_multi_modal(mock_litellm_cost):
     import PIL
 
     pil_image = PIL.Image.new("RGB", (8, 8))
@@ -265,6 +280,7 @@ async def test_autolog_multi_modal():
     model_client = ReplayChatCompletionClient(
         ["2"],
     )
+    model_client.model = "gpt-4o-mini"
     agent = AssistantAgent("assistant", model_client=model_client, system_message=_SYSTEM_MESSAGE)
     mlflow.autogen.autolog()
 
@@ -331,11 +347,17 @@ async def test_autolog_multi_modal():
         {"content": f"{user_message}\n<image>", "source": "user", "type": "UserMessage"},
     ]
     assert span.outputs["content"] == "2"
+    assert span.model_name == "gpt-4o-mini"
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 14,
         "output_tokens": 1,
         "total_tokens": 15,
+    }
+    assert span.llm_cost == {
+        "input_cost": 14.0,
+        "output_cost": 2.0,
+        "total_cost": 16.0,
     }
 
     assert traces[0].info.token_usage == {

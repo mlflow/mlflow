@@ -3,6 +3,7 @@ import type { VirtualItem } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo } from 'react';
 
 import { Button, ChevronDownIcon, ChevronRightIcon, TableRow } from '@databricks/design-system';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
@@ -22,16 +23,28 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
   experimentId: string;
+  getRunColor?: (runUuid: string) => string;
+  runUuid?: string;
+  compareToRunUuid?: string;
+  rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
 }
 
 interface SessionHeaderRowProps {
   sessionId: string;
+  otherSessionId?: string;
   traceCount: number;
-  traces: any[];
+  traces: ModelTraceInfoV3[];
+  otherTraces?: ModelTraceInfoV3[];
+  goal?: string;
+  persona?: string;
   selectedColumns: TracesTableColumn[];
   experimentId: string;
   isExpanded: boolean;
+  isComparing: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
+  getRunColor?: (runUuid: string) => string;
+  runUuid?: string;
+  compareToRunUuid?: string;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({
@@ -46,6 +59,10 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   experimentId,
   expandedSessions,
   toggleSessionExpanded,
+  getRunColor,
+  runUuid,
+  compareToRunUuid,
+  rowSelectionChangeHandler,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
   // actual table row from the tanstack data model. When grouping by
@@ -90,12 +107,20 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
             >
               <SessionHeaderRow
                 sessionId={groupedRow.sessionId}
+                otherSessionId={groupedRow.otherSessionId}
                 traceCount={groupedRow.traces.length}
                 traces={groupedRow.traces}
+                otherTraces={groupedRow.otherTraces}
+                goal={groupedRow.goal}
+                persona={groupedRow.persona}
                 selectedColumns={selectedColumns}
                 experimentId={experimentId}
                 isExpanded={expandedSessions.has(groupedRow.sessionId)}
+                isComparing={isComparing}
                 toggleSessionExpanded={toggleSessionExpanded}
+                getRunColor={getRunColor}
+                runUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
               />
             </div>
           );
@@ -129,6 +154,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
               isSelected={enableRowSelection ? row.getIsSelected() : undefined}
               isComparing={isComparing}
               selectedColumns={selectedColumns}
+              rowSelectionChangeHandler={rowSelectionChangeHandler}
             />
           </div>
         );
@@ -140,11 +166,19 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 // Session header component
 const SessionHeaderRow = React.memo(function SessionHeaderRow({
   sessionId,
+  otherSessionId,
   traces,
+  otherTraces,
+  goal,
+  persona,
   selectedColumns,
   experimentId,
   isExpanded,
+  isComparing,
   toggleSessionExpanded,
+  getRunColor,
+  runUuid,
+  compareToRunUuid,
 }: SessionHeaderRowProps) {
   // Handle toggle all rows in this session
   const handleToggleExpanded = useCallback(() => {
@@ -154,12 +188,15 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   return (
     <TableRow isHeader>
       <div css={{ display: 'flex', alignItems: 'center' }}>
-        <Button
-          componentId="mlflow.genai-traces-table.session-header.toggle-expanded"
-          size="small"
-          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-          onClick={handleToggleExpanded}
-        />
+        {/* Hide expand/collapse button when comparing - sessions are non-expandable in comparison mode */}
+        {!isComparing && (
+          <Button
+            componentId="mlflow.genai-traces-table.session-header.toggle-expanded"
+            size="small"
+            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+            onClick={handleToggleExpanded}
+          />
+        )}
       </div>
       {/* Render a cell for each visible column from the table */}
       {selectedColumns.map((column) => (
@@ -167,8 +204,16 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           key={column.id}
           column={column}
           sessionId={sessionId}
+          otherSessionId={otherSessionId}
           traces={traces}
+          otherTraces={otherTraces}
+          goal={goal}
+          persona={persona}
           experimentId={experimentId}
+          isComparing={isComparing}
+          getRunColor={getRunColor}
+          runUuid={runUuid}
+          compareToRunUuid={compareToRunUuid}
         />
       ))}
     </TableRow>

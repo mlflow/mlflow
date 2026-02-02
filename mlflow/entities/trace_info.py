@@ -235,5 +235,27 @@ class TraceInfo(_MlflowObject):
             return json.loads(usage_json)
         return None
 
+    @property
+    def cost(self) -> dict[str, float] | None:
+        """
+        Returns the aggregated cost for the trace in USD.
+
+        Returns:
+            A dictionary containing the aggregated LLM cost for the trace.
+            - "input_cost": The total cost for input tokens.
+            - "output_cost": The total cost for output tokens.
+            - "total_cost": Sum of input and output costs.
+
+        .. note::
+
+            The cost tracking is calculated based on token usage and model pricing
+            from LiteLLM. Cost tracking is not supported for all LLM providers.
+            Refer to the MLflow Tracing documentation for which providers
+            support cost tracking.
+        """
+        if cost_json := self.trace_metadata.get(TraceMetadataKey.COST):
+            return json.loads(cost_json)
+        return None
+
     def _is_v4(self) -> bool:
         return self.trace_location.uc_schema is not None

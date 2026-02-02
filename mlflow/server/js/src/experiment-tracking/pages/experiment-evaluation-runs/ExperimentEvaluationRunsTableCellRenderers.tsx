@@ -16,7 +16,6 @@ import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { FormattedMessage } from 'react-intl';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';

@@ -275,7 +275,7 @@ export const ExperimentEvaluationRunsTableControls = ({
               />
             ) : (
               <FormattedMessage
-                defaultMessage="Select 2 runs to compare"
+                defaultMessage="Select up to 2 runs to compare"
                 description="Tooltip for the compare button when disabled"
               />
             )

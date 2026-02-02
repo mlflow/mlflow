@@ -123,3 +123,8 @@ class GenAiTranslator(OtelSchemaTranslator):
                     )
 
         return json.dumps(messages) if messages else None
+        
+    # Model name attribute keys from OTEL GenAI semantic conventions
+    # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+    MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
+    LLM_PROVIDER_KEY = "gen_ai.provider.name"

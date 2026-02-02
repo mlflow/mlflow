@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import uuid
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -13,13 +14,12 @@ from typing import TYPE_CHECKING, Any, Callable
 import pydantic
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_GENAI_SIMULATOR_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
     create_litellm_message_from_databricks_response,
-    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
@@ -32,6 +32,8 @@ from mlflow.genai.simulators.prompts import (
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -47,6 +49,7 @@ except ImportError:
 if TYPE_CHECKING:
     from pandas import DataFrame
 
+    from mlflow.entities import Trace
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
@@ -95,6 +98,8 @@ _MODEL_API_DOC = {
 * `"databricks"` - Uses the Databricks managed LLM endpoint
 * `"databricks:/<endpoint-name>"` - Uses a Databricks model serving endpoint \
 (e.g., `"databricks:/databricks-claude-sonnet-4-5"`)
+* `"gateway:/<endpoint-name>"` - Uses an MLflow AI Gateway endpoint \
+(e.g., `"gateway:/my-chat-endpoint"`)
 * `"<provider>:/<model-name>"` - Uses LiteLLM (e.g., `"openai:/gpt-4.1-mini"`, \
 `"anthropic:/claude-3.5-sonnet-20240620"`)
 
@@ -199,12 +204,20 @@ def _invoke_model_without_tracing(
         litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
         kwargs = {
-            "model": f"{provider}/{model_name}",
             "messages": litellm_messages,
             "max_retries": num_retries,
             # Drop unsupported params (e.g., temperature=0 for certain models)
             "drop_params": True,
         }
+
+        if provider == "gateway":
+            config = get_gateway_litellm_config(model_name)
+            kwargs["api_base"] = config.api_base
+            kwargs["api_key"] = config.api_key
+            kwargs["model"] = config.model
+        else:
+            kwargs["model"] = f"{provider}/{model_name}"
+
         if inference_params:
             kwargs.update(inference_params)
 
@@ -250,9 +263,143 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
+def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
+    from mlflow.tracing.client import TracingClient
+
+    flat_trace_ids = [tid for trace_ids in all_trace_ids for tid in trace_ids]
+    if not flat_trace_ids:
+        raise MlflowException(
+            "Simulation produced no traces. This may indicate that all conversations failed during "
+            "simulation. Check the logs above for error details."
+        )
+
+    mlflow.flush_trace_async_logging()
+
+    client = TracingClient()
+    max_workers = min(len(flat_trace_ids), MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="ConversationSimulatorTraceFetcher"
+    ) as executor:
+        flat_traces = list(executor.map(client.get_trace, flat_trace_ids))
+
+    all_traces: list[list["Trace"]] = []
+    idx = 0
+    for trace_ids in all_trace_ids:
+        all_traces.append(flat_traces[idx : idx + len(trace_ids)])
+        idx += len(trace_ids)
+
+    return all_traces
+
+
+@experimental(version="3.10.0")
+@dataclass(frozen=True)
+class SimulatorContext:
+    """
+    Context information passed to simulated user agents for message generation.
+
+    This dataclass bundles all input information needed for a simulated user to
+    generate their next message in a conversation.
+
+    Args:
+        goal: The objective the simulated user is trying to achieve.
+        persona: Description of the user's personality and background.
+        conversation_history: The full conversation history as a list of message dicts.
+        turn: The current turn number (0-indexed).
+    """
+
+    goal: str
+    persona: str
+    conversation_history: list[dict[str, Any]]
+    turn: int
+
+    @property
+    def is_first_turn(self) -> bool:
+        return self.turn == 0
+
+    @property
+    def formatted_history(self) -> str | None:
+        return _format_history(self.conversation_history)
+
+    @property
+    def last_assistant_response(self) -> str | None:
+        if not self.conversation_history:
+            return None
+        return _get_last_response(self.conversation_history)
+
+
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.9.0")
-class SimulatedUserAgent:
+@experimental(version="3.10.0")
+class BaseSimulatedUserAgent(ABC):
+    """
+    Abstract base class for simulated user agents.
+
+    Subclass this to create custom simulated user implementations with specialized
+    behavior. The base class provides common functionality like LLM invocation and
+    context construction.
+
+    Args:
+        goal: The objective the simulated user is trying to achieve in the conversation.
+        persona: Description of the user's personality and background. If None, uses a
+            default helpful user persona.
+        model: {{ model }}
+        **inference_params: Additional parameters passed to the LLM (e.g., temperature).
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.simulators import BaseSimulatedUserAgent, SimulatorContext
+
+
+            class ImpatientUserAgent(BaseSimulatedUserAgent):
+                def generate_message(self, context: SimulatorContext) -> str:
+                    if context.is_first_turn:
+                        return f"I need help NOW with: {context.goal}"
+                    return self.invoke_llm(
+                        f"Respond impatiently. Goal: {context.goal}. "
+                        f"Last response: {context.last_assistant_response}"
+                    )
+    """
+
+    def __init__(
+        self,
+        model: str | None = None,
+        **inference_params,
+    ):
+        self.model = model or get_default_model()
+        self.inference_params = inference_params
+
+    @abstractmethod
+    def generate_message(self, context: SimulatorContext) -> str:
+        """
+        Generate a user message based on the provided context.
+
+        Args:
+            context: A SimulatorContext containing information like goal, persona,
+                     conversation history, and turn.
+
+        Returns:
+            The generated user message string.
+        """
+
+    def invoke_llm(self, prompt: str, system_prompt: str | None = None) -> str:
+        from mlflow.types.llm import ChatMessage
+
+        messages = []
+        if system_prompt:
+            messages.append(ChatMessage(role="system", content=system_prompt))
+        messages.append(ChatMessage(role="user", content=prompt))
+
+        return _invoke_model_without_tracing(
+            model_uri=self.model,
+            messages=messages,
+            num_retries=3,
+            inference_params=self.inference_params,
+        )
+
+
+@format_docstring(_MODEL_API_DOC)
+@experimental(version="3.10.0")
+class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
     An LLM-powered agent that simulates user behavior in conversations.
 
@@ -267,44 +414,20 @@ class SimulatedUserAgent:
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
-    def __init__(
-        self,
-        goal: str,
-        persona: str | None = None,
-        model: str | None = None,
-        **inference_params,
-    ):
-        self.goal = goal
-        self.persona = persona or DEFAULT_PERSONA
-        self.model = model or get_default_model()
-        self.inference_params = inference_params
-
-    def generate_message(
-        self,
-        conversation_history: list[dict[str, Any]],
-        turn: int = 0,
-    ) -> str:
-        from mlflow.types.llm import ChatMessage
-
-        if turn == 0:
-            prompt = INITIAL_USER_PROMPT.format(persona=self.persona, goal=self.goal)
+    def generate_message(self, context: SimulatorContext) -> str:
+        if context.is_first_turn:
+            prompt = INITIAL_USER_PROMPT.format(persona=context.persona, goal=context.goal)
         else:
-            last_response = _get_last_response(conversation_history)
-            history_str = _format_history(conversation_history[:-1])
+            history_without_last = context.conversation_history[:-1]
+            history_str = _format_history(history_without_last)
             prompt = FOLLOWUP_USER_PROMPT.format(
-                persona=self.persona,
-                goal=self.goal,
+                persona=context.persona,
+                goal=context.goal,
                 conversation_history=history_str if history_str is not None else "",
-                last_response=last_response if last_response is not None else "",
+                last_response=context.last_assistant_response or "",
             )
 
-        messages = [ChatMessage(role="user", content=prompt)]
-        return _invoke_model_without_tracing(
-            model_uri=self.model,
-            messages=messages,
-            num_retries=3,
-            inference_params=self.inference_params,
-        )
+        return self.invoke_llm(prompt)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -323,6 +446,9 @@ class ConversationSimulator:
     - It must accept an ``input`` parameter containing the conversation history
       as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
     - It may accept additional keyword arguments from the test case's ``context`` field
+    - It receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
+      session. This ID is consistent across all turns in the same conversation, allowing you
+      to associate related traces or maintain stateful context (e.g., for thread-based agents).
     - It should return a response (the assistant's message content will be extracted)
 
     Args:
@@ -339,6 +465,9 @@ class ConversationSimulator:
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
+        user_agent_class: Optional custom simulated user agent class. Must be a subclass
+            of :py:class:`BaseSimulatedUserAgent`. If not provided, uses the default
+            :py:class:`SimulatedUserAgent`.
         **user_llm_params: Additional parameters passed to the simulated user's LLM calls.
 
     Example:
@@ -348,8 +477,21 @@ class ConversationSimulator:
             from mlflow.genai.simulators import ConversationSimulator
             from mlflow.genai.scorers import ConversationalSafety, Safety
 
+            # Dummy cache to store conversation threads by session ID
+            conversation_threads = {}
+
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
+                # The mlflow_session_id uniquely identifies this conversation session.
+                # All turns in the same conversation share the same session ID.
+                session_id = kwargs.get("mlflow_session_id")
+
+                # Use the session ID to maintain state across turns - for example,
+                # storing conversation context, user preferences, or agent memory
+                if session_id not in conversation_threads:
+                    conversation_threads[session_id] = {"turn_count": 0}
+                conversation_threads[session_id]["turn_count"] += 1
+
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=input,
@@ -385,11 +527,23 @@ class ConversationSimulator:
         test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset,
         max_turns: int = 10,
         user_model: str | None = None,
+        user_agent_class: type[BaseSimulatedUserAgent] | None = None,
         **user_llm_params,
     ):
+        if user_agent_class is not None and not issubclass(
+            user_agent_class, BaseSimulatedUserAgent
+        ):
+            raise TypeError(
+                f"user_agent_class must be a subclass of BaseSimulatedUserAgent, "
+                f"got {user_agent_class.__name__}"
+            )
+        # Store original dataset reference if test_cases is an EvaluationDataset, so we can
+        # preserve the dataset name when creating the evaluation dataset.
+        self._source_dataset = test_cases if isinstance(test_cases, EvaluationDataset) else None
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_model()
+        self.user_agent_class = user_agent_class or SimulatedUserAgent
         self.user_llm_params = user_llm_params
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -438,11 +592,51 @@ class ConversationSimulator:
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
 
+    def _compute_test_case_digest(self) -> str:
+        """Compute a digest based on the test cases for consistent dataset identification.
+
+        This ensures the same test cases produce the same digest regardless of
+        simulation output variations caused by LLM non-determinism.
+        """
+        import pandas as pd
+
+        from mlflow.data.digest_utils import compute_pandas_digest
+
+        test_case_df = pd.DataFrame(self.test_cases)
+        return compute_pandas_digest(test_case_df)
+
+    def _get_dataset_name(self) -> str:
+        """Get the dataset name to use for the evaluation dataset.
+
+        If test_cases was an EvaluationDataset, use its name. Otherwise, use the
+        default name for conversational datasets.
+        """
+        if self._source_dataset is not None:
+            return self._source_dataset.name
+        return "conversational_dataset"
+
+    @experimental(version="3.10.0")
     @record_usage_event(SimulateConversationEvent)
-    def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
+    def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
+        """
+        Run conversation simulations for all test cases.
+
+        Executes the simulated user agent against the provided predict function
+        for each test case, generating multi-turn conversations. Each conversation
+        is traced in MLflow.
+
+        Args:
+            predict_fn: The target function to evaluate. Must accept an ``input``
+                parameter containing the conversation history as a list of message
+                dicts, and may accept additional kwargs from the test case's context.
+
+        Returns:
+            A list of lists containing Trace objects. Each inner list corresponds to
+            a test case and contains the traces for each turn in that conversation.
+        """
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
-        max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+        max_workers = min(num_test_cases, MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
         timings = SimulationTimingTracker()
 
         progress_bar = (
@@ -484,7 +678,7 @@ class ConversationSimulator:
                 if progress_bar:
                     progress_bar.close()
 
-        return all_trace_ids
+        return _fetch_traces(all_trace_ids)
 
     def _run_conversation(
         self,
@@ -493,14 +687,12 @@ class ConversationSimulator:
         timings: SimulationTimingTracker,
     ) -> list[str]:
         goal = test_case["goal"]
-        persona = test_case.get("persona")
+        persona = test_case.get("persona") or DEFAULT_PERSONA
         context = test_case.get("context", {})
         expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
-        user_agent = SimulatedUserAgent(
-            goal=goal,
-            persona=persona,
+        user_agent = self.user_agent_class(
             model=self.user_model,
             **self.user_llm_params,
         )
@@ -511,7 +703,13 @@ class ConversationSimulator:
         for turn in range(self.max_turns):
             try:
                 start_time = time.perf_counter()
-                user_message_content = user_agent.generate_message(conversation_history, turn)
+                simulator_context = SimulatorContext(
+                    goal=goal,
+                    persona=persona,
+                    conversation_history=conversation_history,
+                    turn=turn,
+                )
+                user_message_content = user_agent.generate_message(simulator_context)
                 timings.add(generate_message_seconds=time.perf_counter() - start_time)
 
                 user_message = {"role": "user", "content": user_message_content}
@@ -592,7 +790,9 @@ class ConversationSimulator:
                 )
             return predict_fn(input=input, **ctx)
 
-        response = traced_predict(input=input_messages, **context)
+        response = traced_predict(
+            input=input_messages, mlflow_session_id=trace_session_id, **context
+        )
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session

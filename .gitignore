@@ -8,6 +8,7 @@ mlflow.db
 *-shm
 *-wal
 **/basic_auth.db
+mlflow/protos/protos.json
 
 # Mac
 .DS_Store

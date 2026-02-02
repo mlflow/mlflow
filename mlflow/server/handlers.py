@@ -4254,6 +4254,14 @@ def _create_gateway_endpoint():
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
     ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+    )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -4262,6 +4270,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4320,6 +4330,14 @@ def _update_gateway_endpoint():
             for config in request_message.model_configs
         ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else None
+    )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
@@ -4329,6 +4347,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -5406,17 +5426,26 @@ def _get_prompt_optimization_job(job_id):
         # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
         # Per-scorer scores are logged as "initial_eval_score.<scorer_name>" and
         # "final_eval_score.<scorer_name>"
+        total_metric_calls = None
         for metric_name, metric_value in run_metrics.items():
-            if metric_name == "initial_eval_score":
-                optimization_job.initial_eval_scores["aggregate"] = metric_value
-            elif metric_name == "final_eval_score":
-                optimization_job.final_eval_scores["aggregate"] = metric_value
-            elif metric_name.startswith("initial_eval_score."):
-                scorer_name = metric_name.removeprefix("initial_eval_score.")
-                optimization_job.initial_eval_scores[scorer_name] = metric_value
-            elif metric_name.startswith("final_eval_score."):
-                scorer_name = metric_name.removeprefix("final_eval_score.")
-                optimization_job.final_eval_scores[scorer_name] = metric_value
+            match metric_name.split(".", 1):
+                case ["initial_eval_score"]:
+                    optimization_job.initial_eval_scores["aggregate"] = metric_value
+                case ["final_eval_score"]:
+                    optimization_job.final_eval_scores["aggregate"] = metric_value
+                case ["initial_eval_score", scorer_name]:
+                    optimization_job.initial_eval_scores[scorer_name] = metric_value
+                case ["final_eval_score", scorer_name]:
+                    optimization_job.final_eval_scores[scorer_name] = metric_value
+                case ["total_metric_calls"]:
+                    total_metric_calls = metric_value
+
+        if total_metric_calls is not None:
+            params = json.loads(job_entity.params)
+            optimizer_config = params.get("optimizer_config", {})
+            if max_metric_calls := optimizer_config.get("max_metric_calls"):
+                progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
+                optimization_job.state.metadata["progress"] = str(progress)
 
     except Exception as e:
         _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
