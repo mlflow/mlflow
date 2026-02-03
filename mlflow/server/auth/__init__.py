@@ -1723,7 +1723,6 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     return None
 
 
-
 def _get_workspace_validator(req: Request) -> Callable[[], bool] | None:
     if "/workspaces/" not in req.path:
         return None

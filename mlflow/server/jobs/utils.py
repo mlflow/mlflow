@@ -339,7 +339,6 @@ def _exec_job(
         else:
             lock = None
 
-
         try:
             job_store.start_job(job_id)
 

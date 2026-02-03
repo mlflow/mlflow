@@ -418,10 +418,15 @@ def run_online_scoring_scheduler() -> None:
     Groups are shuffled to prevent starvation when there are limited job runners available.
     """
     tracking_store = _get_tracking_store()
+    # Iterate on each workspaces in the tracking store to run all registered scorers
     for workspace_ctx in _get_online_scoring_workspace_contexts():
         with workspace_ctx as workspace:
             online_scorers = tracking_store.get_active_online_scorers()
-            _logger.debug(f"Online scoring scheduler found {len(online_scorers)} active scorers")
+            workspace_label = f" in workspace '{workspace}'" if workspace else ""
+            _logger.debug(
+                f"Online scoring scheduler found {len(online_scorers)} active scorers"
+                f"{workspace_label}"
+            )
 
             scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
             for scorer in online_scorers:

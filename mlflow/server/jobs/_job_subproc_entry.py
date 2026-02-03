@@ -6,15 +6,15 @@ or the job has extra environment variables setting,
 the job is executed as a subprocess.
 """
 
-import cloudpickle
 import importlib
 import json
 import logging
 import os
 import threading
 import traceback
-
 from contextlib import nullcontext
+
+import cloudpickle
 
 from mlflow.environment_variables import MLFLOW_WORKSPACE
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
