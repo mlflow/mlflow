@@ -271,12 +271,12 @@ simulator = ConversationSimulator(
 
 
 # Wrap your agent to accept conversation history
-def predict_fn(input: list[dict], **kwargs) -> dict:
+def predict_fn(input: list[dict], **kwargs):
     # input is a list of message dicts with "role" and "content" keys
     # Extract the latest user message to pass to the agent
     latest_user_message = input[-1]["content"]
     result = Runner.run_sync(agent, latest_user_message)
-    return {"output": result.final_output}
+    return result.final_output
 
 
 # Evaluate with both conversation-level and turn-level scorers

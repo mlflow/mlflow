@@ -769,6 +769,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'datasets/conversation-simulation',
+              label: 'Conversation Simulation',
+            },
+            {
+              type: 'doc',
               id: 'datasets/end-to-end-workflow',
               label: 'End-to-End Workflow',
             },
