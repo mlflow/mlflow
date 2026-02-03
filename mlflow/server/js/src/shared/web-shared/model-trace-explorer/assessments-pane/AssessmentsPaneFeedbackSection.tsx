@@ -262,7 +262,10 @@ export const AssessmentsPaneFeedbackSection = ({
               icon={<StopCircleFillIcon />}
               onClick={() => reset(evaluation.requestKey)}
             >
-              <FormattedMessage defaultMessage="Cancel" description="Button text for canceling evaluation" />
+              <FormattedMessage
+                defaultMessage="Cancel judge"
+                description="Button text for canceling judge evaluation"
+              />
             </Button>
           )}
         </div>
