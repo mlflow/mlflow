@@ -141,11 +141,11 @@ results = mlflow.genai.evaluate(
 
 Each test case represents a conversation scenario. Test cases support three fields:
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `goal` | Yes | What the simulated user is trying to accomplish |
-| `persona` | No | Description of the user's personality and communication style |
-| `context` | No | Additional kwargs passed to your predict function |
+| Field     | Required | Description                                                   |
+| --------- | -------- | ------------------------------------------------------------- |
+| `goal`    | Yes      | What the simulated user is trying to accomplish               |
+| `persona` | No       | Description of the user's personality and communication style |
+| `context` | No       | Additional kwargs passed to your predict function             |
 
 ### Goal
 
@@ -391,12 +391,12 @@ def predict_fn(input: list[dict], **kwargs) -> dict:
 
 ### ConversationSimulator Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `test_cases` | `list[dict]`, `DataFrame`, or `EvaluationDataset` | Required | Test case definitions |
-| `max_turns` | `int` | 10 | Maximum conversation turns before stopping |
-| `user_model` | `str` | `openai:/gpt-5-mini` | Model for simulating user messages |
-| `**user_llm_params` | `dict` | `{}` | Additional parameters for the user simulation LLM |
+| Parameter           | Type                                              | Default              | Description                                       |
+| ------------------- | ------------------------------------------------- | -------------------- | ------------------------------------------------- |
+| `test_cases`        | `list[dict]`, `DataFrame`, or `EvaluationDataset` | Required             | Test case definitions                             |
+| `max_turns`         | `int`                                             | 10                   | Maximum conversation turns before stopping        |
+| `user_model`        | `str`                                             | `openai:/gpt-5-mini` | Model for simulating user messages                |
+| `**user_llm_params` | `dict`                                            | `{}`                 | Additional parameters for the user simulation LLM |
 
 ### Model Selection
 
@@ -413,6 +413,7 @@ simulator = ConversationSimulator(
 ```
 
 Supported model formats:
+
 - `"openai:/<model>"` - OpenAI models (default: `gpt-5-mini`)
 - `"anthropic:/<model>"` - Anthropic models
 - `"databricks:/<endpoint-name>"` - Databricks serving endpoint

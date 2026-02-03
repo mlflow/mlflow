@@ -27,6 +27,7 @@ MLflow supports two approaches for evaluating conversations:
 **Evaluate existing conversations** that have already been traced.
 
 Use this when you have:
+
 - Production conversation data to analyze
 - Pre-recorded test conversations
 - Conversations from a previous agent version
@@ -57,6 +58,7 @@ results = mlflow.genai.evaluate(
 **Generate new conversations** by simulating user interactions with your agent.
 
 Use this when you want to:
+
 - Test a new agent version systematically
 - Generate diverse test scenarios at scale
 - Stress-test your agent with specific user behaviors
@@ -235,15 +237,15 @@ For complete documentation on conversation simulation, including test case defin
 
 MLflow provides built-in judges for evaluating conversations:
 
-| Scorer | Description | Return Values |
-|--------|-------------|---------------|
-| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink> | Evaluates whether the agent addressed all user questions | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink> | Evaluates compliance with provided guidelines | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink> | Evaluates if the assistant maintains its assigned role | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink> | Evaluates if responses are safe and free of harmful content | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink> | Evaluates if tool usage across the conversation was efficient | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink> | Evaluates if the agent retains information from earlier turns | `"yes"` or `"no"` |
-| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink> | Detects and tracks user frustration patterns | `"none"`, `"resolved"`, or `"unresolved"` |
+| Scorer                                                                                                         | Description                                                   | Return Values                             |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>                 | Evaluates whether the agent addressed all user questions      | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>                 | Evaluates compliance with provided guidelines                 | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink>           | Evaluates if the assistant maintains its assigned role        | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink>                         | Evaluates if responses are safe and free of harmful content   | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink> | Evaluates if tool usage across the conversation was efficient | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>                             | Evaluates if the agent retains information from earlier turns | `"yes"` or `"no"`                         |
+| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>                                   | Detects and tracks user frustration patterns                  | `"none"`, `"resolved"`, or `"unresolved"` |
 
 See the [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn) page for detailed usage examples and API documentation.
 
@@ -289,6 +291,7 @@ Multi-turn assessments are stored on the **first trace** (chronologically) in ea
 - The Sessions UI can efficiently display conversation metrics
 
 Assessments include metadata identifying them as conversation-level:
+
 - `session_id`: The session ID linking the assessment to the full conversation
 
 ## Working with Specific Sessions
