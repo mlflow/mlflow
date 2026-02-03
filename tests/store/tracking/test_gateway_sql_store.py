@@ -535,6 +535,44 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.name == "gateway/auto-exp-endpoint"
 
 
+def test_update_gateway_endpoint_clear_experiment_auto_creates(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="clear-exp-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="clear-exp-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    original_experiment_id = store.create_experiment("original-experiment")
+
+    endpoint = store.create_gateway_endpoint(
+        name="clear-exp-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=original_experiment_id,
+    )
+
+    assert endpoint.experiment_id == original_experiment_id
+
+    # Clear the experiment by passing None - should auto-create a new one
+    updated = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        experiment_id=None,
+    )
+
+    assert updated.experiment_id is not None
+    assert updated.experiment_id != original_experiment_id
+
+    new_experiment = store.get_experiment(updated.experiment_id)
+    assert new_experiment.name == "gateway/clear-exp-endpoint"
+
+
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
         store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])

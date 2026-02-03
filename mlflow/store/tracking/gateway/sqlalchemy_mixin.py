@@ -731,7 +731,7 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_endpoint.usage_tracking = usage_tracking
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
-            if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
+            if sql_endpoint.usage_tracking and experiment_id is None:
                 endpoint_name = name if name is not None else sql_endpoint.name
                 experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
 
