@@ -96,8 +96,9 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path' | grep -q '^uv.lock$'; then
-            echo '::warning file=uv.lock,line=1,col=1::[Non-blocking]' \
+          files=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path')
+          if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then
+            echo '::warning file=pyproject.toml,line=1,col=1::[Non-blocking]' \
                  'Ignore if you did not intend to upgrade package versions.' \
                  '`uv lock` does not automatically upgrade package versions' \
                  'when relaxing version constraints (e.g., bumping max version).' \
