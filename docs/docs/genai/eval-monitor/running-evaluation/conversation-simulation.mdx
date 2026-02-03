@@ -46,8 +46,8 @@ Conversation simulation addresses these challenges by programmatically generatin
     },
     {
       icon: Code,
-      title: "Write predict function",
-      description: "Wrap your agent in a function that accepts conversation history."
+      title: "Define your agent",
+      description: "Implement your agent in a function that accepts conversation history."
     },
     {
       icon: Play,
@@ -154,16 +154,13 @@ The goal describes what the simulated user wants to achieve. It should be specif
 ```python
 # Good goals - specific, actionable, and describe expected outcomes
 {
-    "goal": "Get help configuring MLflow tracking for a distributed training job. "
-    "The response should include code examples and links to relevant documentation."
+    "goal": "Get help configuring MLflow tracking for a distributed training job. The response should include code examples and links to relevant documentation."
 }
 {
-    "goal": "Understand the difference between experiments and runs in MLflow. "
-    "The explanation should include concrete examples of when to use each."
+    "goal": "Understand the difference between experiments and runs in MLflow. The explanation should include concrete examples of when to use each."
 }
 {
-    "goal": "Troubleshoot why model artifacts aren't being logged. "
-    "The assistant should help identify the root cause and provide a working solution."
+    "goal": "Troubleshoot why model artifacts aren't being logged. The assistant should help identify the root cause and provide a working solution."
 }
 
 # Less effective goals - too vague, no expected outcome
@@ -412,11 +409,7 @@ simulator = ConversationSimulator(
 )
 ```
 
-Supported model formats:
-
-- `"openai:/<model>"` - OpenAI models (default: `gpt-5-mini`)
-- `"anthropic:/<model>"` - Anthropic models
-- `"databricks:/<endpoint-name>"` - Databricks serving endpoint
+Supported model formats follow the pattern `"<provider>:/<model>"`. See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for the full list of supported providers.
 
 ### Conversation Stopping
 

@@ -5,7 +5,7 @@ import TileCard from '@site/src/components/TileCard';
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
-import { Code, Activity, BookOpen, Sparkles } from 'lucide-react';
+import { Activity, BookOpen, Sparkles } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluate Conversations
@@ -340,19 +340,10 @@ results = mlflow.genai.evaluate(
   <TileCard
     icon={Activity}
     iconSize={48}
-    title="Built-in Multi-Turn Judges"
-    description="Explore built-in judges for conversation completeness, user frustration, and other multi-turn metrics."
+    title="Multi-Turn Judges"
+    description="Explore built-in and custom judges for conversation completeness, user frustration, and other multi-turn metrics."
     href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn"
     linkText="View judges →"
-    containerHeight={64}
-  />
-  <TileCard
-    icon={Code}
-    iconSize={48}
-    title="Create Custom Multi-Turn Judges"
-    description="Build custom LLM judges using make_judge to evaluate conversation-specific criteria and patterns."
-    href="/genai/eval-monitor/scorers/llm-judge/custom-judges"
-    linkText="Create custom judges →"
     containerHeight={64}
   />
 </TilesGrid>
