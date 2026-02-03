@@ -105,7 +105,9 @@ test_cases = [
     {
         "goal": "Set up model versioning for a production ML pipeline",
         "persona": "You are a beginner who needs step-by-step guidance",
-        "context": {"user_id": "beginner_123"},  # user_id is passed to predict_fn via kwargs
+        "context": {
+            "user_id": "beginner_123"
+        },  # user_id is passed to predict_fn via kwargs
     },
 ]
 
@@ -291,7 +293,7 @@ sessions = mlflow.search_sessions(
 )
 
 # Generate test cases by extracting goals and personas from sessions
-test_cases = generate_test_cases(sessions)
+test_cases = generate_test_cases(sessions)  # clint: disable=unknown-mlflow-function
 
 # Use generated test cases with the simulator
 simulator = ConversationSimulator(test_cases=test_cases)
@@ -449,7 +451,7 @@ Navigate to the **Sessions** tab in your experiment to view conversations groupe
     iconSize={48}
     title="Multi-Turn Scorers"
     description="Explore predefined scorers for conversation completeness, user frustration, and more."
-    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn"
     linkText="View scorers →"
     containerHeight={64}
   />
