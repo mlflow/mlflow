@@ -191,6 +191,11 @@ export function getTracesFilteredByTimeRangeUrl(
   return `${tracesPath}?${queryParams.toString()}`;
 }
 
+/** Allowed component IDs for tooltip "View traces" links */
+type TooltipLinkComponentId =
+  | 'mlflow.overview.usage.traces.view_traces_link'
+  | 'mlflow.overview.usage.latency.view_traces_link';
+
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
   /** Experiment ID for navigation */
@@ -198,7 +203,7 @@ interface TooltipLinkConfig {
   /** Time interval in seconds for calculating end time of the bucket */
   timeIntervalSeconds: number;
   /** Component ID for telemetry tracking */
-  componentId: string;
+  componentId: TooltipLinkComponentId;
 }
 
 interface ScrollableTooltipProps {
@@ -227,7 +232,7 @@ interface ScrollableTooltipProps {
  *     linkConfig={{
  *       experimentId,
  *       timeIntervalSeconds,
- *       componentId: "mlflow.charts.my_chart.view_traces_link"
+ *       componentId: 'mlflow.overview.usage.traces.view_traces_link',
  *     }}
  *   />
  * ), [experimentId, timeIntervalSeconds]);

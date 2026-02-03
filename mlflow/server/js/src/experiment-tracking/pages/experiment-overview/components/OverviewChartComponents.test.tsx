@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import {
@@ -109,7 +109,7 @@ describe('ScrollableTooltip', () => {
       linkConfig: {
         experimentId: 'test-exp-123',
         timeIntervalSeconds: 3600,
-        componentId: 'test.component.link',
+        componentId: 'mlflow.overview.usage.traces.view_traces_link',
       },
     });
 
@@ -125,7 +125,7 @@ describe('ScrollableTooltip', () => {
       linkConfig: {
         experimentId: 'test-exp-123',
         timeIntervalSeconds: 3600,
-        componentId: 'test.component.link',
+        componentId: 'mlflow.overview.usage.traces.view_traces_link',
       },
     });
 
