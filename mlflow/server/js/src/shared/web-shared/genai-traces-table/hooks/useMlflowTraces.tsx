@@ -721,6 +721,7 @@ export const createMlflowSearchFilter = (
           break;
         case TracesTableColumnGroup.ASSESSMENT:
           // Handle IS NULL / IS NOT NULL operators for assessments
+          // Note: This is not supported in managed backend
           if (
             networkFilter.operator === FilterOperator.IS_NULL ||
             networkFilter.operator === FilterOperator.IS_NOT_NULL
