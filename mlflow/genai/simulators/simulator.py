@@ -27,8 +27,6 @@ from mlflow.genai.simulators.utils import (
     get_default_simulation_model,
     invoke_model_without_tracing,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
