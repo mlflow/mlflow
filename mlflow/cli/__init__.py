@@ -1068,12 +1068,6 @@ try:
 except ImportError:
     pass
 
-try:
-    from mlflow.opencode.cli import opencode
-
-    _autolog_group.add_command(opencode)
-except ImportError:
-    pass
 
 if _autolog_group.commands:
     cli.add_command(_autolog_group)

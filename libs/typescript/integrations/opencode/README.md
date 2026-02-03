@@ -1,15 +1,17 @@
-# mlflow-opencode
+# @mlflow/opencode
 
-MLflow tracing plugin for [Opencode](https://opencode.ai).
+MLflow tracing plugin for [OpenCode](https://opencode.ai).
 
-For full documentation, see: https://mlflow.org/docs/latest/genai/tracing/integrations/listing/opencode
+This plugin automatically traces OpenCode conversations to MLflow, capturing:
+- User prompts and assistant responses
+- LLM calls with token usage
+- Tool invocations and results
+- Session metadata
 
 ## Installation
 
 ```bash
-bun add mlflow-opencode
-# or
-npm install mlflow-opencode
+npm install @mlflow/opencode mlflow-tracing
 ```
 
 ## Usage
@@ -18,18 +20,37 @@ npm install mlflow-opencode
 
 ```json
 {
-  "plugin": ["mlflow-opencode"]
+  "plugin": ["@mlflow/opencode"]
 }
 ```
 
 2. Set environment variables:
 
 ```bash
-export MLFLOW_OPENCODE_TRACING_ENABLED=true
-export MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123
 ```
 
-3. Run Opencode normally - traces are created automatically.
+3. Run OpenCode normally - traces are created automatically when sessions become idle.
+
+## Configuration
+
+The plugin is configured via environment variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MLFLOW_TRACKING_URI` | Yes | MLflow tracking server URI (e.g., `http://localhost:5000`) |
+| `MLFLOW_EXPERIMENT_ID` | Yes | MLflow experiment ID |
+| `MLFLOW_OPENCODE_DEBUG` | No | Set to `true` to enable debug logging |
+
+## Viewing Traces
+
+Start an MLflow server and view your traces in the UI:
+
+```bash
+mlflow server
+# Open http://localhost:5000
+```
 
 ## License
 

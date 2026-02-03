@@ -45,6 +45,8 @@ export const TraceMetadataKey = {
   SIZE_BYTES: 'mlflow.trace.sizeBytes',
   SCHEMA_VERSION: 'mlflow.trace_schema.version',
   TOKEN_USAGE: 'mlflow.trace.tokenUsage',
+  TRACE_SESSION: 'mlflow.trace.session',
+  TRACE_USER: 'mlflow.trace.user',
   // Deprecated, do not use. These fields are used for storing trace request and response
   // in MLflow 2.x. In MLflow 3.x, these are replaced in favor of the request_preview and
   // response_preview fields in the trace info.
