@@ -2465,7 +2465,7 @@ def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
     # Create exactly 8 runs (2 pages of 4 runs each)
     runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(8)]
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)]
     )
 
     # First page: should return 4 runs and a token
