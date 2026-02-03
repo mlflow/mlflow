@@ -72,10 +72,7 @@ describe('MLflowTracingPlugin', () => {
   });
 
   // Helper to create event params
-  const createEventParams = (
-    type: string,
-    properties?: Record<string, unknown>,
-  ): EventParams => ({
+  const createEventParams = (type: string, properties?: Record<string, unknown>): EventParams => ({
     event: { type, properties },
   });
 
