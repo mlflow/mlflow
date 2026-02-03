@@ -100,7 +100,7 @@ jobs:
             echo '::warning file=uv.lock::[Non-blocking]' \
                  'Relaxing version constraints (e.g., bumping max version) does not automatically upgrade packages.' \
                  'Use `uv lock --upgrade-package <package>` to upgrade.' \
-                 'Ignore if you didn'\''t update any package versions.'
+                 'Ignore if you did not update any package versions.'
           fi
 
       - name: Check unused media
