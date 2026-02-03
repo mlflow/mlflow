@@ -1,12 +1,11 @@
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
-import WorkflowSteps from '@site/src/components/WorkflowSteps';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
-import { MessageSquare, Users, Target, Play, Code, Activity, BookOpen, Sparkles } from 'lucide-react';
+import { Code, Activity, BookOpen, Sparkles } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluate Conversations
@@ -294,20 +293,20 @@ Assessments include metadata identifying them as conversation-level:
 
 ## Working with Specific Sessions
 
-To evaluate specific sessions, use <APILink fn="mlflow.search_sessions">`mlflow.search_sessions`</APILink> with a filter string:
+To evaluate a specific session, use <APILink fn="mlflow.search_traces">`mlflow.search_traces`</APILink> with a filter string:
 
 ```python
 import mlflow
 from mlflow.genai.scorers import ConversationCompleteness, UserFrustration
 
-# Get traces for specific sessions using filter
-traces = mlflow.search_sessions(
-    locations=["<your-experiment-id>"],
+# Get traces for a specific session using filter
+traces = mlflow.search_traces(
+    experiment_ids=["<your-experiment-id>"],
     filter_string="metadata.`mlflow.trace.session` = '<your-session-id>'",
     return_type="list",
 )
 
-# Evaluate the filtered sessions
+# Evaluate the session
 results = mlflow.genai.evaluate(
     data=traces,
     scorers=[ConversationCompleteness(), UserFrustration()],
