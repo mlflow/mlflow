@@ -126,13 +126,11 @@ export const ExperimentEvaluationRunsTableControls = ({
     [selectedColumns],
   );
 
-  const isCompareEnabled = selectedRunUuids.length >= 1;
+  const isCompareEnabled = selectedRunUuids.length === 2;
 
   const handleCompareClick = useCallback(() => {
-    if (selectedRunUuids.length >= 1) {
-      if (selectedRunUuids.length >= 2) {
-        onCompare(selectedRunUuids[0], selectedRunUuids[1]);
-      }
+    if (selectedRunUuids.length === 2) {
+      onCompare(selectedRunUuids[0], selectedRunUuids[1]);
       setIsComparisonMode(true);
     }
   }, [selectedRunUuids, onCompare, setIsComparisonMode]);

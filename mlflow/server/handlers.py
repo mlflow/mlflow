@@ -4254,6 +4254,14 @@ def _create_gateway_endpoint():
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
     ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+    )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -4262,6 +4270,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4320,6 +4330,14 @@ def _update_gateway_endpoint():
             for config in request_message.model_configs
         ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else None
+    )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
@@ -4329,6 +4347,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())

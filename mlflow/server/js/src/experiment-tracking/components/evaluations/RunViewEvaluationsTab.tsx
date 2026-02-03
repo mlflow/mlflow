@@ -36,13 +36,14 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
+  getSimulationColumnsToAdd,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -54,6 +55,7 @@ import type {
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
@@ -99,12 +101,9 @@ const RunViewEvaluationsTabInner = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-  const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [compareToRunUuid, setCompareToRunUuidBase] = useCompareToRunUuid();
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
-
-  const onToggleSessionGrouping = useCallback(() => {
-    setIsGroupedBySession(!isGroupedBySession);
-  }, [isGroupedBySession]);
+  const hasAutoSelectedGoalPersona = useRef(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -195,6 +194,69 @@ const RunViewEvaluationsTabInner = ({
     compareToRunUuid,
     isQueryDisabled,
   });
+
+  // Helper to add goal/persona columns if traces have the metadata
+  const maybeAddGoalPersonaColumns = useCallback(
+    (traces: ModelTraceInfoV3[]) => {
+      if (hasAutoSelectedGoalPersona.current) {
+        return;
+      }
+
+      const columnsToAdd = getSimulationColumnsToAdd(traces, allColumns, selectedColumns);
+      if (columnsToAdd.length > 0) {
+        toggleColumns(columnsToAdd);
+        hasAutoSelectedGoalPersona.current = true;
+      }
+    },
+    [allColumns, selectedColumns, toggleColumns],
+  );
+
+  // Handler for toggling session grouping
+  const onToggleSessionGrouping = useCallback(() => {
+    const newIsGrouped = !isGroupedBySession;
+    setIsGroupedBySession(newIsGrouped);
+
+    // When enabling grouping while comparing, auto-select goal/persona columns
+    if (newIsGrouped && compareToRunUuid) {
+      const allTraces = (traceInfos || []).concat(compareToRunData || []);
+      maybeAddGoalPersonaColumns(allTraces);
+    }
+
+    // Reset the ref when ungrouping so columns can be auto-selected again later
+    if (!newIsGrouped) {
+      hasAutoSelectedGoalPersona.current = false;
+    }
+  }, [isGroupedBySession, compareToRunUuid, traceInfos, compareToRunData, maybeAddGoalPersonaColumns]);
+
+  // Wrapper for setCompareToRunUuid that handles auto-selecting columns
+  const setCompareToRunUuid = useCallback(
+    (newCompareToRunUuid: string | undefined) => {
+      setCompareToRunUuidBase(newCompareToRunUuid);
+
+      // When starting comparison while grouped, auto-select columns
+      // Note: compareToRunData won't be available yet, so we use current traces
+      if (newCompareToRunUuid && isGroupedBySession && traceInfos) {
+        maybeAddGoalPersonaColumns(traceInfos);
+      }
+
+      // Reset the ref when stopping comparison so columns can be auto-selected again later
+      if (!newCompareToRunUuid) {
+        hasAutoSelectedGoalPersona.current = false;
+      }
+    },
+    [setCompareToRunUuidBase, isGroupedBySession, traceInfos, maybeAddGoalPersonaColumns],
+  );
+
+  const hasSetInitialGrouping = useRef(false);
+  useEffect(() => {
+    if (!hasSetInitialGrouping.current && traceInfos && traceInfos.length > 0) {
+      const hasSessionIds = traceInfos.some((trace) => Boolean(trace.trace_metadata?.[SESSION_ID_METADATA_KEY]));
+      if (hasSessionIds) {
+        setIsGroupedBySession(true);
+      }
+      hasSetInitialGrouping.current = true;
+    }
+  }, [traceInfos]);
 
   const countInfo = useMemo(() => {
     return {
@@ -330,6 +392,7 @@ const RunViewEvaluationsTabInner = ({
                     experimentId={experimentId}
                     currentRunDisplayName={runDisplayName}
                     compareToRunDisplayName={compareToRunDisplayName}
+                    runUuid={runUuid}
                     compareToRunUuid={compareToRunUuid}
                     getTrace={getTrace}
                     getRunColor={getRunColor}

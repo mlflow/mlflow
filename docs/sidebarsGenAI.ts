@@ -139,13 +139,13 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/lightweight-sdk',
-                  label: 'Use Lightweight SDK',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/prod-tracing',
-                  label: 'Production Monitoring',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Production Tracing SDK',
                 },
               ],
             },
@@ -558,52 +558,92 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Scorers',
+          label: 'Judges and Scorers',
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/scorers/index',
+          },
           items: [
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/index',
-              label: 'What is a Scorer?',
-            },
-            {
               type: 'category',
-              label: 'Supported Scorers',
+              label: 'Built-in Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/predefined',
+              },
               items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/predefined',
-                  label: 'Predefined Scorers',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines',
                 },
                 {
                   type: 'category',
-                  label: 'LLM-as-a-Judge',
+                  label: 'RAG',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/rag/index',
+                  },
                   items: [
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/index',
-                      label: 'Overview',
+                      id: 'eval-monitor/scorers/llm-judge/rag/relevance',
+                      label: 'Answer and Context Relevance',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/make-judge',
-                      label: 'Template-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/groundedness',
+                      label: 'Groundedness',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/guidelines',
-                      label: 'Guidelines-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/context-sufficiency',
+                      label: 'Context Sufficiency',
                     },
                   ],
                   collapsed: false,
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/agentic-overview',
-                  label: 'Agent-as-a-Judge',
+                  type: 'category',
+                  label: 'Response Quality',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/safety',
+                      label: 'Safety',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/correctness',
+                      label: 'Correctness',
+                    },
+                  ],
+                  collapsed: false,
                 },
                 {
                   type: 'category',
-                  label: 'Third-party Scorers',
+                  label: 'Tool Call',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/tool-call/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/correctness',
+                      label: 'ToolCallCorrectness',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/efficiency',
+                      label: 'ToolCallEfficiency',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Third-party Judges',
                   items: [
                     {
                       type: 'doc',
@@ -627,12 +667,49 @@ const sidebarsGenAI: SidebarsConfig = {
                     id: 'eval-monitor/scorers/third-party/index',
                   },
                 },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Custom Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/custom-judges/index',
+              },
+              items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/custom',
-                  label: 'Code-based Scorers',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
+                  label: 'Create a Custom Judge',
                 },
               ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
+              label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/code-examples',
+                  label: 'Code-based Scorer Examples',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
             },
             {
               type: 'category',
@@ -672,13 +749,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {

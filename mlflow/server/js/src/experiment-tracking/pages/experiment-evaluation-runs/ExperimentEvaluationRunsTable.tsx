@@ -28,6 +28,7 @@ export interface ExperimentEvaluationRunsTableProps {
   setIsDrawerOpen: (isOpen: boolean) => void;
   viewMode: ExperimentEvaluationRunsPageMode;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
+  isGrouped?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
@@ -47,6 +48,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       setIsDrawerOpen,
       viewMode,
       onScroll,
+      isGrouped,
     },
     ref,
   ) => {
@@ -82,8 +84,6 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       return allColumns.filter((column) => selectedColumns[column.id ?? '']);
     }, [selectedColumns, uniqueColumns, viewMode]);
 
-    const selectedCount = useMemo(() => Object.values(rowSelection).filter(Boolean).length, [rowSelection]);
-
     const table = useReactTable<RunEntityOrGroupData>(
       'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
       {
@@ -115,8 +115,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           if ('subRuns' in row.original) {
             return false;
           }
-          // Allow selection if less than 2 runs selected or this row is already selected
-          return selectedCount < 2 || rowSelection[row.id] === true;
+          return true;
         },
         meta: {
           setSelectedRunUuid,
@@ -166,6 +165,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isExpanded={row.getIsExpanded()}
                 isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
+                isGrouped={isGrouped}
               />
             );
           })}

@@ -219,9 +219,9 @@ export const GenAiTracesTableBody = React.memo(
     const { groupedRows, traceIdToTurnMap } = useMemo(
       () =>
         isGroupedBySession
-          ? groupTracesBySessionForTable(evaluations, expandedSessions)
+          ? groupTracesBySessionForTable(evaluations, expandedSessions, isComparing)
           : { groupedRows: [], traceIdToTurnMap: {} },
-      [isGroupedBySession, evaluations, expandedSessions],
+      [isGroupedBySession, evaluations, expandedSessions, isComparing],
     );
 
     const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>(
@@ -494,6 +494,10 @@ export const GenAiTracesTableBody = React.memo(
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
                 experimentId={experimentId}
+                getRunColor={getRunColor}
+                runUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
+                rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             ) : (
               <MemoizedGenAiTracesTableBodyRows
