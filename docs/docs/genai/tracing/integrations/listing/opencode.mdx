@@ -79,11 +79,11 @@ Traces will be automatically created when your OpenCode session becomes idle (af
 
 The plugin is configured entirely via environment variables:
 
-| Environment Variable       | Required | Description                                                    |
-| -------------------------- | -------- | -------------------------------------------------------------- |
-| `MLFLOW_TRACKING_URI`      | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`)     |
-| `MLFLOW_EXPERIMENT_ID`     | Yes      | Experiment ID to log traces to                                 |
-| `MLFLOW_OPENCODE_DEBUG`    | No       | Set to `true` to enable debug logging to stderr                |
+| Environment Variable    | Required | Description                                                |
+| ----------------------- | -------- | ---------------------------------------------------------- |
+| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
+| `MLFLOW_EXPERIMENT_ID`  | Yes      | Experiment ID to log traces to                             |
+| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging to stderr            |
 
 ### Configuration Examples
 
@@ -172,12 +172,14 @@ Debug output is written to stderr to avoid interfering with OpenCode's TUI.
 **Traces not appearing:**
 
 1. Verify environment variables are set correctly:
+
    ```bash
    echo $MLFLOW_TRACKING_URI
    echo $MLFLOW_EXPERIMENT_ID
    ```
 
 2. Check that the MLflow server is accessible:
+
    ```bash
    curl $MLFLOW_TRACKING_URI/api/2.0/mlflow/experiments/list
    ```
@@ -190,6 +192,7 @@ Debug output is written to stderr to avoid interfering with OpenCode's TUI.
 **Plugin not loading:**
 
 1. Verify the plugin is installed:
+
    ```bash
    npm ls @mlflow/opencode
    ```

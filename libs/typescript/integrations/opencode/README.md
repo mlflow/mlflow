@@ -3,6 +3,7 @@
 MLflow tracing plugin for [OpenCode](https://opencode.ai).
 
 This plugin automatically traces OpenCode conversations to MLflow, capturing:
+
 - User prompts and assistant responses
 - LLM calls with token usage
 - Tool invocations and results
@@ -37,11 +38,11 @@ export MLFLOW_EXPERIMENT_ID=123
 
 The plugin is configured via environment variables:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MLFLOW_TRACKING_URI` | Yes | MLflow tracking server URI (e.g., `http://localhost:5000`) |
-| `MLFLOW_EXPERIMENT_ID` | Yes | MLflow experiment ID |
-| `MLFLOW_OPENCODE_DEBUG` | No | Set to `true` to enable debug logging |
+| Variable                | Required | Description                                                |
+| ----------------------- | -------- | ---------------------------------------------------------- |
+| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
+| `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                       |
+| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                      |
 
 ## Viewing Traces
 

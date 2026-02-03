@@ -110,7 +110,9 @@ interface SessionInfo {
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
  */
 function ensureInitialized(): boolean {
-  if (initialized) return true;
+  if (initialized) {
+    return true;
+  }
 
   const trackingUri = process.env.MLFLOW_TRACKING_URI;
   const experimentId = process.env.MLFLOW_EXPERIMENT_ID;
@@ -249,7 +251,9 @@ function reconstructConversationMessages(
  * Build token usage object for LLM spans
  */
 function buildTokenUsage(tokens: MessageInfo['tokens']): Record<string, number> | null {
-  if (!tokens) return null;
+  if (!tokens) {
+    return null;
+  }
 
   const inputTokens = tokens.input || 0;
   const outputTokens = tokens.output || 0;
@@ -264,8 +268,12 @@ function buildTokenUsage(tokens: MessageInfo['tokens']): Record<string, number> 
   // Add cache info if available
   const cache = tokens.cache;
   if (cache) {
-    if (cache.read) usage.cache_read_tokens = cache.read;
-    if (cache.write) usage.cache_write_tokens = cache.write;
+    if (cache.read) {
+      usage.cache_read_tokens = cache.read;
+    }
+    if (cache.write) {
+      usage.cache_write_tokens = cache.write;
+    }
   }
 
   return usage;
@@ -283,7 +291,9 @@ function createLlmAndToolSpans(
 
   for (let i = startIdx; i < messages.length; i++) {
     const msg = messages[i];
-    if (msg.info?.role !== MESSAGE_ROLE_ASSISTANT) continue;
+    if (msg.info?.role !== MESSAGE_ROLE_ASSISTANT) {
+      continue;
+    }
 
     const parts = msg.parts || [];
     const modelId = msg.info?.modelID || 'unknown';
@@ -388,7 +398,7 @@ async function processSession(
   }
 
   const lastUserIdx = findLastUserMessageIndex(messages);
-  if (lastUserIdx === null) {
+  if (lastUserIdx == null) {
     if (DEBUG) {
       console.error('[mlflow] No user message found in session');
     }
@@ -539,12 +549,7 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
         }
 
         // Process the session
-        await processSession(
-          sessionID,
-          sessionResult.data as SessionInfo,
-          newMessages,
-          directory,
-        );
+        await processSession(sessionID, sessionResult.data as SessionInfo, newMessages, directory);
       } catch (error) {
         if (DEBUG) {
           console.error('[mlflow] Error processing session:', error);
