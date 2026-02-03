@@ -5110,6 +5110,24 @@ DeleteDataset
 | dataset_id | ``STRING`` | Dataset ID to delete This field is required. |
 +------------+------------+----------------------------------------------+
 
+.. _mlflowDeleteDatasetRecords:
+
+DeleteDatasetRecords
+--------------------
+
+
+
+
+
+
++--------------------+------------------------+------------------------------------------------------------+
+|     Field Name     |          Type          |                        Description                         |
++====================+========================+============================================================+
+| dataset_id         | ``STRING``             | Dataset ID to delete records from. This field is required. |
++--------------------+------------------------+------------------------------------------------------------+
+| dataset_record_ids | An array of ``STRING`` | List of dataset record IDs to delete.                      |
++--------------------+------------------------+------------------------------------------------------------+
+
 .. _mlflowDeleteDatasetTag:
 
 DeleteDatasetTag
@@ -7396,6 +7414,22 @@ Response
 +-----------------+------------+--------------------------------------------------------+
 | next_page_token | ``STRING`` | Pagination token for next page (if more records exist) |
 +-----------------+------------+--------------------------------------------------------+
+
+.. _mlflowDeleteDatasetRecordsResponse:
+
+Response
+--------
+
+
+
+
+
+
++---------------+-----------+---------------------------+
+|  Field Name   |   Type    |        Description        |
++===============+===========+===========================+
+| deleted_count | ``INT32`` | Number of records deleted |
++---------------+-----------+---------------------------+
 
 .. _mlflowAddDatasetToExperimentsResponse:
 

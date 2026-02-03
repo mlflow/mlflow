@@ -775,6 +775,7 @@ mlflow.genai.agent_server.stream
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset
+mlflow.genai.datasets.EvaluationDataset.delete_records
 mlflow.genai.datasets.EvaluationDataset.from_dict
 mlflow.genai.datasets.EvaluationDataset.from_proto
 mlflow.genai.datasets.EvaluationDataset.has_records
