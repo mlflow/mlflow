@@ -355,8 +355,7 @@ public class MlflowClientTest {
       client.deleteTag("fakeRunId", "fakeTag");
       Assert.fail();
     } catch (MlflowClientException e) {
-      // SQLite backend uses "Run with id=..." while file backend uses "Run '...' not found"
-      Assert.assertTrue(e.getMessage().contains("Run") && e.getMessage().contains("fakeRunId") && e.getMessage().contains("not found"));
+      Assert.assertTrue(e.getMessage().contains("Run with id=fakeRunId not found"));
     }
   }
 
@@ -466,10 +465,8 @@ public class MlflowClientTest {
 
     Page<Run> page2 = page.getNextPage();
     Assert.assertEquals(page2.getPageSize(), 1);
-    // SQLite backend may optimistically report hasNextPage=true even on last page
-    // The important check is that page3 has 0 items
-    // Assert.assertEquals(page2.hasNextPage(), false);
-    // Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
+    Assert.assertEquals(page2.hasNextPage(), false);
+    Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
 
     Page<Run> page3 = page2.getNextPage();
     Assert.assertEquals(page3.getPageSize(), 0);
@@ -522,7 +519,6 @@ public class MlflowClientTest {
 
     List<Metric> multiSpecifiedMetricHistory = client.getMetricHistory(
       runId, "multi_log_specified_step_ts");
-    // SQLite backend orders by timestamp, step, value (not insertion order)
     assertMetricHistory(multiSpecifiedMetricHistory, "multi_log_specified_step_ts",
       Arrays.asList(1.0, 2.0, 4.0, -3.0), Arrays.asList(1000L, 2000L, 2999L, 3000L),
       Arrays.asList(1L, -5L, 4L, 4L));
