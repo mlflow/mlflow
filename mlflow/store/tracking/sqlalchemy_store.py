@@ -6030,10 +6030,10 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
                     )
-                    if comparator == "IS NULL":
-                        attribute_filters.append(~assessment_exists_subquery.exists())
-                    else:
-                        attribute_filters.append(assessment_exists_subquery.exists())
+                    exists_clause = assessment_exists_subquery.exists()
+                    attribute_filters.append(
+                        ~exists_clause if comparator == "IS NULL" else exists_clause
+                    )
                     continue
 
                 # Other comparators: filter by value
