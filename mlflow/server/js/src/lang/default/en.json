@@ -31,6 +31,10 @@
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
   },
+  "+CHJSV": {
+    "defaultMessage": "Enable usage tracking",
+    "description": "Label for usage tracking toggle"
+  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -342,6 +346,10 @@
   "0M7VVC": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "0NbqZr": {
+    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces in an MLflow experiment. This allows you to monitor usage, debug issues, and analyze performance.",
+    "description": "Usage tracking description"
   },
   "0Qu0bD": {
     "defaultMessage": "Endpoints",
@@ -690,6 +698,10 @@
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
   },
+  "3UM+1S": {
+    "defaultMessage": "Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'.",
+    "description": "Experiment selector help text"
+  },
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
     "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
@@ -966,6 +978,10 @@
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
   },
+  "5pkRII": {
+    "defaultMessage": "View traces",
+    "description": "Link to view traces for endpoint"
+  },
   "5qRFq/": {
     "defaultMessage": "Delete",
     "description": "Delete button text"
@@ -1173,6 +1189,10 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
+  },
+  "76S52o": {
+    "defaultMessage": "Experiment",
+    "description": "Label for experiment selector"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1789,6 +1809,10 @@
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BA/qml": {
+    "defaultMessage": "Loading experiments...",
+    "description": "Loading message for experiments"
   },
   "BB6In/": {
     "defaultMessage": "Tags",
@@ -5455,6 +5479,10 @@
     "defaultMessage": "Created",
     "description": "Created column header"
   },
+  "dOhi2U": {
+    "defaultMessage": "Usage log",
+    "description": "Summary usage log label"
+  },
   "dPn3az": {
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
@@ -7835,6 +7863,10 @@
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
   },
+  "vDAb7C": {
+    "defaultMessage": "Auto-create experiment",
+    "description": "Placeholder for experiment selector when no experiment is selected"
+  },
   "vEuvEt": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
@@ -8306,6 +8338,10 @@
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
     "description": "Message text when no model versions are registered"
+  },
+  "yoD1c7": {
+    "defaultMessage": "Usage Tracking",
+    "description": "Section title for usage tracking configuration"
   },
   "yrsFOP": {
     "defaultMessage": "Datasets",
