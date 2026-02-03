@@ -98,9 +98,10 @@ jobs:
         run: |
           if gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path' | grep -q '^uv.lock$'; then
             echo '::warning file=uv.lock::[Non-blocking]' \
-                 'Relaxing version constraints (e.g., bumping max version) does not automatically upgrade packages.' \
-                 'Use `uv lock --upgrade-package <package>` to upgrade.' \
-                 'Ignore if you did not update any package versions.'
+                 'Ignore if you did not intend to upgrade package versions.' \
+                 '`uv lock` does not automatically upgrade package versions' \
+                 'when relaxing version constraints (e.g., bumping max version).' \
+                 'Use `uv lock --upgrade-package <package>` to upgrade.'
           fi
 
       - name: Check unused media
