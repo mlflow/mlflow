@@ -27,11 +27,7 @@ from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
 from mlflow.server import handlers
-from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-
-from tests.helper_functions import get_safe_port
-from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture
@@ -40,10 +36,11 @@ def tracking_server(db_uri: str, tmp_path: Path):
     handlers._model_registry_store = None
     initialize_backend_stores(db_uri, default_artifact_root=tmp_path.as_uri())
 
-    with ServerThread(app, get_safe_port()) as url:
-        set_tracking_uri(url)
-        yield MlflowClient(url)
-        set_tracking_uri(None)
+    # Point the tracking URI directly at the SQLite database to avoid HTTP
+    # overhead during data generation (3,000+ requests per test run).
+    set_tracking_uri(db_uri)
+    yield MlflowClient(db_uri)
+    set_tracking_uri(None)
 
 
 @pytest.fixture
