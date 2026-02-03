@@ -6,21 +6,16 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
-import contextvars
 import functools
 import logging
 import time
 from collections.abc import Callable
-from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-import mlflow
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
-from mlflow.entities.span import LiveSpan
-from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
@@ -44,6 +39,12 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.tracing import TracingProviderWrapper
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.tracing_utils import (
+    _create_gateway_trace,
+    _make_traced_streaming_response,
+    _set_trace_outputs,
+    _start_gateway_span,
+)
 from mlflow.gateway.utils import translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -56,192 +57,11 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
-
-
-def _configure_gateway_span(
-    span: LiveSpan,
-    endpoint_config: GatewayEndpointConfig,
-    request_type: str,
-    inputs: dict[str, Any],
-):
-    """
-    Configure a gateway span with standard attributes and tags.
-
-    Args:
-        span: The span to configure.
-        endpoint_config: The gateway endpoint configuration.
-        request_type: Type of request (e.g., "chat", "embeddings", "passthrough").
-        inputs: The request inputs to log.
-    """
-    span.set_inputs(inputs)
-    span.set_attribute("request_type", request_type)
-    span.set_attribute("endpoint_id", endpoint_config.endpoint_id)
-    span.set_attribute("endpoint_name", endpoint_config.endpoint_name)
-
-    # Set trace-level tags for filtering in metrics API
-    tags = {
-        TraceMetadataKey.GATEWAY_ENDPOINT_ID: endpoint_config.endpoint_id,
-        TraceMetadataKey.GATEWAY_REQUEST_TYPE: request_type,
-    }
-    mlflow.update_current_trace(tags=tags)
-
-
-def _start_gateway_span(
-    endpoint_config: GatewayEndpointConfig,
-    request_type: str,
-    inputs: dict[str, Any],
-) -> tuple[LiveSpan | None, contextvars.Token | None]:
-    """
-    Start a gateway trace span for streaming scenarios.
-
-    This creates a span with proper context management, suitable for streaming
-    where the span lifecycle extends beyond the initial function call.
-
-    Args:
-        endpoint_config: The gateway endpoint configuration.
-        request_type: Type of request (e.g., "chat", "embeddings", "passthrough").
-        inputs: The request inputs to log.
-
-    Returns:
-        Tuple of (span, context_token) if tracing is enabled, (None, None) otherwise.
-        The context_token must be passed to _end_gateway_span to restore context.
-    """
-    if not endpoint_config.experiment_id:
-        return None, None
-
-    try:
-        span = start_span_no_context(
-            name=f"gateway/{endpoint_config.endpoint_name}",
-            experiment_id=endpoint_config.experiment_id,
-        )
-        _configure_gateway_span(span, endpoint_config, request_type, inputs)
-
-        # Set as active span so child spans can be created
-        token = set_span_in_context(span)
-        return span, token
-    except Exception as e:
-        _logger.debug(f"Failed to start gateway span: {e}")
-        return None, None
-
-
-def _end_gateway_span(span: LiveSpan | None, token: contextvars.Token | None) -> None:
-    if span is None:
-        return
-
-    try:
-        span.end()
-    except Exception as e:
-        _logger.debug(f"Failed to end span: {e}")
-
-    if token is not None:
-        try:
-            detach_span_from_context(token)
-        except Exception as e:
-            _logger.debug(f"Failed to detach context: {e}")
-
-
-@contextmanager
-def _create_gateway_trace(
-    endpoint_config: GatewayEndpointConfig,
-    request_type: str,
-    inputs: dict[str, Any],
-):
-    """
-    Context manager for gateway tracing with proper context management.
-
-    This uses mlflow.start_span which sets the span as active in the context,
-    allowing child spans to be created properly.
-
-    Args:
-        endpoint_config: The gateway endpoint configuration.
-        request_type: Type of request (e.g., "chat", "embeddings", "passthrough").
-        inputs: The request inputs to log.
-
-    Yields:
-        The span if tracing is enabled, None otherwise.
-    """
-    if not endpoint_config.experiment_id:
-        yield None
-        return
-
-    with mlflow.start_span(
-        name=f"gateway/{endpoint_config.endpoint_name}",
-        trace_destination=MlflowExperimentLocation(experiment_id=endpoint_config.experiment_id),
-    ) as span:
-        _configure_gateway_span(span, endpoint_config, request_type, inputs)
-        yield span
-
-
-def _set_trace_outputs(span: LiveSpan, outputs: Any):
-    """Helper to set outputs on a span if it exists."""
-    if span is None:
-        return
-    try:
-        span.set_outputs(outputs)
-    except Exception as e:
-        _logger.debug(f"Failed to set trace outputs: {e}")
-
-
-async def _make_traced_streaming_response(
-    stream,
-    span: LiveSpan | None,
-    token: contextvars.Token | None,
-    is_sse: bool = True,
-):
-    """
-    Create a streaming response that captures outputs for tracing.
-
-    This wraps the stream generator to collect outputs and set them on the span
-    after streaming completes. The span is ended when the stream finishes.
-
-    Args:
-        stream: The async generator producing stream chunks.
-        span: The span to set outputs on (can be None if tracing is disabled).
-        token: The context token from _start_gateway_span (for restoring context).
-        is_sse: If True, format chunks as SSE data events. If False, yield raw bytes.
-
-    Returns:
-        A StreamingResponse that traces the streamed outputs.
-    """
-    from mlflow.gateway.utils import to_sse_chunk
-
-    async def traced_stream():
-        chunks = []
-        try:
-            async for chunk in stream:
-                chunks.append(chunk)
-                if is_sse:
-                    yield to_sse_chunk(chunk.model_dump_json())
-                else:
-                    yield chunk
-
-            # Set all chunks as output
-            if span is not None:
-                try:
-                    if chunks:
-                        span.set_outputs(chunks)
-                    span.set_status("OK")
-                except Exception as e:
-                    _logger.debug(f"Failed to set stream outputs: {e}")
-        except Exception as e:
-            if span is not None:
-                try:
-                    span.record_exception(e)
-                except Exception:
-                    pass
-            raise
-        finally:
-            _end_gateway_span(span, token)
-
-    return StreamingResponse(traced_stream(), media_type="text/event-stream")
 
 
 async def _get_request_body(request: Request) -> dict:
