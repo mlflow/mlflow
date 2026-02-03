@@ -5898,6 +5898,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     attribute_filters = []
     non_attribute_filters = []
     span_filters = []
+    span_filter_conditions = []
     run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -6019,14 +6020,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                         span_column, value
                     )
-
-                span_subquery = (
-                    session.query(SqlSpan.trace_id.label("request_id"))
-                    .filter(val_filter)
-                    .distinct()
-                    .subquery()
-                )
-                span_filters.append(span_subquery)
+                span_filter_conditions.append(val_filter)
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching assessments
@@ -6074,6 +6068,17 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             non_attribute_filters.append(
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
+
+    # Combine all span filter conditions into a single subquery
+    # This ensures all conditions are applied to the SAME span
+    if span_filter_conditions:
+        combined_span_subquery = (
+            session.query(SqlSpan.trace_id.label("request_id"))
+            .filter(*span_filter_conditions)
+            .distinct()
+            .subquery()
+        )
+        span_filters.append(combined_span_subquery)
 
     return attribute_filters, non_attribute_filters, span_filters, run_id_filter
 
