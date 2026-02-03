@@ -5849,6 +5849,69 @@ def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace2_id
 
 
+def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_null_filters")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
+
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    expectation1 = Expectation(
+        trace_id=trace4_id,
+        name="score",
+        value=85,
+        source=AssessmentSource(source_type="CODE", source_id="scorer"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(expectation1)
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace4_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='feedback.quality IS NOT NULL AND feedback.quality = "good"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 

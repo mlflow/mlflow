@@ -6024,14 +6024,28 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching assessments
                 # Filter by assessment name and check the value
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    assessment_exists_subquery = session.query(SqlAssessments.trace_id).filter(
+                        SqlAssessments.trace_id == SqlTraceInfo.request_id,
+                        SqlAssessments.assessment_type == key_type,
+                        SqlAssessments.name == key_name,
+                    )
+                    exists_clause = assessment_exists_subquery.exists()
+                    attribute_filters.append(
+                        ~exists_clause if comparator == "IS NULL" else exists_clause
+                    )
+                    continue
+
+                # Other comparators: filter by value
+                value_filter = SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
+                    SqlAssessments.value, value
+                )
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
-                            SqlAssessments.value, value
-                        ),
+                        value_filter,
                     )
                     .distinct()
                     .subquery()
