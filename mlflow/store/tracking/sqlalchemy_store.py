@@ -5157,6 +5157,46 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return {"inserted": inserted_count, "updated": updated_count}
 
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetRecord)
+                .filter(
+                    SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                    SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+
+            if deleted_count == 0:
+                _logger.warning(
+                    f"No records found to delete for dataset {dataset_id}. "
+                    "Records may have already been deleted or never existed."
+                )
+                return 0
+
+            dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+            if dataset:
+                profile = json.loads(dataset.profile) if dataset.profile else {}
+                new_count = max(0, profile.get("num_records", 0) - deleted_count)
+                dataset.profile = json.dumps({"num_records": new_count} if new_count > 0 else None)
+
+            return deleted_count
+
     def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
