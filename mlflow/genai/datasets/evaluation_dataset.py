@@ -186,10 +186,10 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         if self._mlflow_dataset:
             return self._mlflow_dataset.delete_records(record_ids)
 
-        from mlflow.genai.datasets import _databricks_profile_env
-
-        with _databricks_profile_env():
-            return self._databricks_dataset.delete_records(record_ids)
+        raise NotImplementedError(
+            "Deleting records is not supported for Databricks managed datasets. "
+            "Databricks datasets are managed through Unity Catalog tables."
+        )
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
