@@ -279,7 +279,8 @@ def extract_output_from_span(span) -> str | None:
     Handles various output formats:
     - Direct string output
     - Dict with "content" or "text" key
-    - OpenAI-style response with "choices"
+    - OpenAI-style chat completion response with "choices"
+    - OpenAI responses API format (list with "message" type containing "output_text")
 
     Args:
         span: An MLflow span object.
@@ -301,7 +302,7 @@ def extract_output_from_span(span) -> str | None:
         if "text" in outputs:
             return outputs["text"]
 
-        # OpenAI-style response
+        # OpenAI-style chat completion response
         if "choices" in outputs:
             choices = outputs.get("choices", [])
             if choices and isinstance(choices[0], dict):
@@ -309,6 +310,42 @@ def extract_output_from_span(span) -> str | None:
                 if isinstance(message, dict):
                     return message.get("content")
 
+        # OpenAI responses API format - output is a list in the dict
+        if "output" in outputs:
+            return _extract_from_responses_api_output(outputs["output"])
+
+    # OpenAI responses API format - outputs is a list directly
+    if isinstance(outputs, list):
+        return _extract_from_responses_api_output(outputs)
+
+    return None
+
+
+def _extract_from_responses_api_output(output_list: list) -> str | None:
+    """
+    Extract text from OpenAI responses API output format.
+
+    The format is a list of items, where message items have:
+    {"type": "message", "content": [{"type": "output_text", "text": "..."}]}
+
+    Args:
+        output_list: List of output items from responses API.
+
+    Returns:
+        The extracted output text, or None if not found.
+    """
+    if not isinstance(output_list, list):
+        return None
+
+    for item in output_list:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "message":
+            content = item.get("content", [])
+            if isinstance(content, list):
+                for content_item in content:
+                    if isinstance(content_item, dict) and content_item.get("type") == "output_text":
+                        return content_item.get("text")
     return None
 
 

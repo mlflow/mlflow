@@ -221,7 +221,8 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 self.validation_iteration = 0
                 # Track optimization iterations (each iteration = minibatch + reflective)
                 self.optimization_iteration = 0
-                self._last_minibatch_iteration = -1  # Track if minibatch was logged this iteration
+                # Track whether minibatch was logged in current iteration (for reflective logging)
+                self._minibatch_logged_this_iteration = False
 
             def evaluate(
                 self,
@@ -358,10 +359,10 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 Log minibatch candidate prompts for debugging template variable preservation.
 
                 Each GEPA optimization iteration consists of:
-                1. Minibatch evaluation (capture_traces=False)
-                2. Reflective evaluation (capture_traces=True)
+                1. Minibatch evaluation (capture_traces=False) - triggers logging
+                2. Reflective evaluation (capture_traces=True) - only logged if minibatch was logged
 
-                Both use the same iteration number for proper grouping.
+                Both are stored in the same iteration directory when logged.
 
                 Args:
                     candidate: The candidate prompts being evaluated
@@ -371,18 +372,19 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 if not self.tracking_enabled:
                     return
 
-                # Determine evaluation type
                 is_reflective = capture_traces
 
-                # Minibatch comes first in each iteration, so increment when we see a new minibatch
                 if not is_reflective:
-                    # This is a minibatch evaluation - start of a new iteration
-                    if self._last_minibatch_iteration < self.optimization_iteration:
-                        self._last_minibatch_iteration = self.optimization_iteration
-                    else:
-                        # New minibatch means new iteration
-                        self.optimization_iteration += 1
-                        self._last_minibatch_iteration = self.optimization_iteration
+                    # This is a minibatch evaluation - mark that we should log reflective next
+                    self._minibatch_logged_this_iteration = True
+                else:
+                    # This is a reflective evaluation
+                    # Only log if minibatch was logged in this iteration
+                    if not self._minibatch_logged_this_iteration:
+                        return
+                    # Increment iteration counter and reset flag (iteration complete)
+                    self.optimization_iteration += 1
+                    self._minibatch_logged_this_iteration = False
 
                 iteration = self.optimization_iteration
 
@@ -392,8 +394,9 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 )
 
                 # Determine evaluation type for directory naming
+                # Both minibatch and reflective go in the same iteration directory
                 eval_type = "reflective" if is_reflective else "minibatch"
-                iteration_dir = f"{PROMPT_CANDIDATES_DIR}/iteration_{iteration}/{eval_type}"
+                iteration_dir = f"{PROMPT_CANDIDATES_DIR}/optimization_{iteration}/{eval_type}"
 
                 # Log candidate prompts and basic score info
                 with tempfile.TemporaryDirectory() as tmp_dir:
