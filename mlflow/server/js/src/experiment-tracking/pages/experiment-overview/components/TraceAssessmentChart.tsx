@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -87,24 +87,20 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     [assessmentName],
   );
 
-  // Memoize distribution tooltip content to prevent recreation on every render
-  const distributionTooltipContent = useMemo(
-    () => (
-      <ScrollableTooltip
-        formatter={distributionTooltipFormatter}
-        linkConfig={{
-          componentId: 'mlflow.overview.quality.assessment.view_traces_link',
-          linkText: (
-            <FormattedMessage
-              defaultMessage="View traces with this score"
-              description="Link text to navigate to traces filtered by assessment score"
-            />
-          ),
-          onLinkClick: handleViewTraces,
-        }}
-      />
-    ),
-    [distributionTooltipFormatter, handleViewTraces],
+  const distributionTooltipContent = (
+    <ScrollableTooltip
+      formatter={distributionTooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment.view_traces_link',
+        linkText: (
+          <FormattedMessage
+            defaultMessage="View traces with this score"
+            description="Link text to navigate to traces filtered by assessment score"
+          />
+        ),
+        onLinkClick: handleViewTraces,
+      }}
+    />
   );
 
   // Fetch and process all chart data using the custom hook
