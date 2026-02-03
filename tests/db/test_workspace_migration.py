@@ -139,11 +139,7 @@ _EVALUATION_DATASETS = sa.table(
 )
 
 REVISION = "1b5f0d9ad7c1"
-<<<<<<< HEAD
 PREVIOUS_REVISION = "d0e1f2a3b4c5"
-=======
-PREVIOUS_REVISION = "2c33131f4dae"
->>>>>>> 208e1604e ([Workspace] Document the workspace feature (#19778))
 
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")

@@ -2401,12 +2401,9 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
-<<<<<<< HEAD
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
-=======
             workspace=self.workspace,
->>>>>>> 208e1604e ([Workspace] Document the workspace feature (#19778))
         )
 
 

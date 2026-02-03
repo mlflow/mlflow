@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 
 import pytest
@@ -14,10 +15,13 @@ import mlflow.db
 # This can be removed once we have a workspace store imported.
 import mlflow.store.workspace.dbmodels as _workspace_models  # noqa: F401
 from mlflow.exceptions import MlflowException
+from mlflow.store.db import workspace_migration
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
+from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
 from tests.store.dump_schema import dump_db_schema
@@ -213,3 +217,206 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
         assert _has_unique_index("secrets", ["workspace", "secret_name"])
         assert _has_unique_index("endpoints", ["workspace", "name"])
         assert _has_unique_index("model_definitions", ["workspace", "name"])
+
+
+def test_workspace_migration_tables_include_all_workspace_tables(tmp_path, db_url):
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        workspace_tables = set()
+        for (table_name,) in cursor.fetchall():
+            cursor.execute(f"PRAGMA table_info('{table_name}')")
+            column_names = {row[1] for row in cursor.fetchall()}
+            if "workspace" in column_names:
+                workspace_tables.add(table_name)
+    assert workspace_tables == set(workspace_migration._WORKSPACE_TABLES)
+
+
+def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
+    table = sqlalchemy.Table(table_name, sqlalchemy.MetaData(), autoload_with=conn)
+    base_values = {
+        "experiments": {
+            "name": f"experiment_{seed}",
+            "workspace": workspace,
+            "artifact_location": f"file:///tmp/experiment/{seed}",
+        },
+        "registered_models": {
+            "workspace": workspace,
+            "name": f"model_{seed}",
+        },
+        "model_versions": {
+            "workspace": workspace,
+            "name": f"model_{seed}",
+            "version": seed,
+        },
+        "registered_model_tags": {
+            "workspace": workspace,
+            "name": f"model_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "model_version_tags": {
+            "workspace": workspace,
+            "name": f"model_{seed}",
+            "version": seed,
+            "key": f"mv_tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "registered_model_aliases": {
+            "workspace": workspace,
+            "name": f"model_{seed}",
+            "alias": f"alias_{seed}",
+            "version": seed,
+        },
+        "evaluation_datasets": {
+            "dataset_id": f"dataset_{seed}",
+            "workspace": workspace,
+            "name": f"dataset_name_{seed}",
+        },
+        "webhooks": {
+            "workspace": workspace,
+            "webhook_id": f"wh_{seed}",
+            "name": f"webhook_{seed}",
+            "url": f"http://localhost/{seed}",
+            "status": "ACTIVE",
+        },
+        "secrets": {
+            "secret_id": f"secret_{seed}",
+            "secret_name": f"secret_name_{seed}",
+            "encrypted_value": b"encrypted",
+            "wrapped_dek": b"wrapped",
+            "kek_version": 1,
+            "masked_value": f"masked_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "endpoints": {
+            "endpoint_id": f"endpoint_{seed}",
+            "name": f"endpoint_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "model_definitions": {
+            "model_definition_id": f"model_def_{seed}",
+            "name": f"model_def_{seed}",
+            "provider": f"provider_{seed}",
+            "model_name": f"model_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "jobs": {
+            "id": f"job_{seed}",
+            "creation_time": seed,
+            "job_name": f"job_{seed}",
+            "params": "{}",
+            "workspace": workspace,
+            "status": 0,
+            "retry_count": 0,
+            "last_update_time": seed,
+        },
+    }
+    if table_name not in base_values:
+        raise AssertionError(f"Unexpected table: {table_name}")
+    values = base_values[table_name]
+    overrides = overrides or {}
+    unknown = set(overrides) - set(table.c.keys())
+    assert not unknown, f"Unknown columns for {table_name}: {unknown}"
+    values.update(overrides)
+    conn.execute(table.insert().values(**values))
+
+
+@pytest.mark.parametrize(
+    ("table_name", "conflict_columns", "description"),
+    [
+        ("experiments", ("name",), "experiments with the same name"),
+        ("registered_models", ("name",), "registered models with the same name"),
+        ("evaluation_datasets", ("name",), "evaluation datasets with the same name"),
+        (
+            "model_versions",
+            ("name", "version"),
+            "model versions with the same model name and version",
+        ),
+        (
+            "registered_model_tags",
+            ("name", "key"),
+            "registered model tags with the same model name and key",
+        ),
+        (
+            "model_version_tags",
+            ("name", "version", "key"),
+            "model version tags with the same model name, version, and key",
+        ),
+        (
+            "registered_model_aliases",
+            ("name", "alias"),
+            "registered model aliases with the same model name and alias",
+        ),
+        ("secrets", ("secret_name",), "secrets with the same name"),
+        ("endpoints", ("name",), "endpoints with the same name"),
+        ("model_definitions", ("name",), "model definitions with the same name"),
+    ],
+)
+def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):
+    db_path = tmp_path / f"conflict-{table_name}.db"
+    db_url = f"sqlite:///{db_path}"
+    artifacts = tmp_path / f"artifacts-{table_name}"
+    artifacts.mkdir()
+    SqlAlchemyStore(db_url, artifacts.as_uri())
+    engine = sqlalchemy.create_engine(db_url)
+    conflict_values = {}
+    for column in conflict_columns:
+        if column == "version":
+            conflict_values[column] = 1
+        else:
+            conflict_values[column] = "conflict"
+    with engine.begin() as conn:
+        conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
+        _insert_row(
+            conn,
+            table_name,
+            DEFAULT_WORKSPACE_NAME,
+            overrides=conflict_values,
+            seed=1,
+        )
+        _insert_row(
+            conn,
+            table_name,
+            "team-a",
+            overrides=conflict_values,
+            seed=2,
+        )
+    with pytest.raises(RuntimeError, match=re.escape(description)):
+        migrate_to_default_workspace(engine, dry_run=True)
+    engine.dispose()
+
+
+def test_migrate_to_default_workspace_moves_rows(tmp_path):
+    db_path = tmp_path / "migrate-all.db"
+    db_url = f"sqlite:///{db_path}"
+    artifacts = tmp_path / "artifacts-all"
+    artifacts.mkdir()
+    SqlAlchemyStore(db_url, artifacts.as_uri())
+    engine = sqlalchemy.create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
+        for seed, table_name in enumerate(workspace_migration._WORKSPACE_TABLES, start=1):
+            _insert_row(conn, table_name, "team-a", seed=seed)
+
+    counts = migrate_to_default_workspace(engine, dry_run=True)
+    assert set(counts.keys()) == set(workspace_migration._WORKSPACE_TABLES)
+    assert all(count == 1 for count in counts.values())
+
+    migrate_to_default_workspace(engine, dry_run=False)
+
+    with engine.begin() as conn:
+        for table_name in workspace_migration._WORKSPACE_TABLES:
+            table = sqlalchemy.Table(table_name, sqlalchemy.MetaData(), autoload_with=conn)
+            stmt = sqlalchemy.select(sqlalchemy.func.count()).where(
+                table.c.workspace != DEFAULT_WORKSPACE_NAME
+            )
+            assert conn.execute(stmt).scalar_one() == 0
+    engine.dispose()

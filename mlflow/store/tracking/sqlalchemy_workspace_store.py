@@ -4,7 +4,6 @@ import logging
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
@@ -16,7 +15,6 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
@@ -106,7 +104,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         return query
 
     def _initialize_store_state(self):
-        self._validate_artifact_isolation_constraints()
         self._ensure_default_workspace_experiment()
 
     def _trace_query(self, session, for_update_or_delete=False):
@@ -334,67 +331,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if self._workspace_provider is None:
             self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
-
-    def _validate_artifact_isolation_constraints(self) -> None:
-        """Ensure the default artifact root and existing artifacts do not occupy reserved paths."""
-
-        if not self.artifact_root_uri:
-            # No global default root configured. Workspace-specific overrides (if any) will
-            # determine artifact paths, so skip reserved-path validation.
-            return
-
-        segments = self._artifact_path_segments(self.artifact_root_uri.rstrip("/"))
-        if segments and segments[-1] == WORKSPACES_DIR_NAME:
-            raise MlflowException(
-                "Cannot enable workspace mode because the default artifact root "
-                + f"{self.artifact_root_uri} ends with the reserved '{WORKSPACES_DIR_NAME}' "
-                + "segment. Choose a different artifact root before enabling workspaces.",
-                error_code=INVALID_STATE,
-            )
-        if len(segments) >= 2 and segments[-2] == WORKSPACES_DIR_NAME:
-            raise MlflowException(
-                "Cannot enable workspace mode because the default artifact root "
-                + f"{self.artifact_root_uri} is already scoped under the reserved "
-                + f"'{WORKSPACES_DIR_NAME}/<name>' prefix. Configure a different artifact root "
-                + "before enabling workspaces.",
-                error_code=INVALID_STATE,
-            )
-
-        reserved_prefix = (
-            append_to_uri_path(self.artifact_root_uri, WORKSPACES_DIR_NAME).rstrip("/") + "/"
-        )
-        reserved_prefix_windows = reserved_prefix.replace("/", "\\")
-        with self.ManagedSessionMaker() as session:
-            has_non_default_workspace = (
-                session.query(SqlExperiment.experiment_id)
-                .filter(SqlExperiment.workspace != DEFAULT_WORKSPACE_NAME)
-                .first()
-                is not None
-            )
-            if has_non_default_workspace:
-                # Database already contains workspace data; skip further validation.
-                return
-
-            conflict_row = (
-                session.query(SqlExperiment.artifact_location)
-                .filter(SqlExperiment.name != Experiment.DEFAULT_EXPERIMENT_NAME)
-                .filter(SqlExperiment.artifact_location.isnot(None))
-                .filter(
-                    or_(
-                        SqlExperiment.artifact_location.like(f"{reserved_prefix}%"),
-                        SqlExperiment.artifact_location.like(f"{reserved_prefix_windows}%"),
-                    )
-                )
-                .order_by(SqlExperiment.experiment_id)
-                .first()
-            )
-            if conflict_row:
-                raise MlflowException(
-                    f"Cannot enable workspace mode because existing experiment artifact location "
-                    f"'{conflict_row[0]}' already resides under the reserved '{reserved_prefix}' "
-                    "namespace. Move or rename the artifacts before enabling workspaces.",
-                    error_code=INVALID_STATE,
-                )
 
     def _ensure_default_workspace_experiment(self) -> None:
         """
