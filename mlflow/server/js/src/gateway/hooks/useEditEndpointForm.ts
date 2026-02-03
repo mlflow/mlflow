@@ -8,11 +8,30 @@ import { useUpdateEndpointMutation } from './useUpdateEndpointMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
 import { useCreateSecret } from './useCreateSecret';
+import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 
 export { getReadableErrorMessage };
+
+/**
+ * Get or create an experiment with the given name.
+ * If the experiment already exists, returns its ID.
+ */
+async function getOrCreateExperiment(experimentName: string): Promise<string> {
+  try {
+    const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
+    return response.experiment_id;
+  } catch (error: unknown) {
+    // If experiment already exists, fetch it by name
+    if (error instanceof Error && error.message?.includes('RESOURCE_ALREADY_EXISTS')) {
+      const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
+      return existingExperiment.experiment.experimentId;
+    }
+    throw error;
+  }
+}
 
 export interface TrafficSplitModel {
   modelDefinitionId?: string;
@@ -254,6 +273,18 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               }
             : undefined;
 
+        // If usage tracking is enabled and no experiment is selected, create one
+        let experimentId: string | undefined;
+        if (values.usageTracking) {
+          if (values.experimentId) {
+            experimentId = values.experimentId;
+          } else {
+            // Auto-create experiment with name 'gateway/{endpoint_name}'
+            const endpointName = values.name || endpoint.name || 'endpoint';
+            experimentId = await getOrCreateExperiment(`gateway/${endpointName}`);
+          }
+        }
+
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
           name: values.name || undefined,
@@ -261,7 +292,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
           usage_tracking: values.usageTracking,
-          experiment_id: values.usageTracking ? values.experimentId : undefined,
+          experiment_id: experimentId,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));

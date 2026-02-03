@@ -5,9 +5,28 @@ import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
+
+/**
+ * Get or create an experiment with the given name.
+ * If the experiment already exists, returns its ID.
+ */
+async function getOrCreateExperiment(experimentName: string): Promise<string> {
+  try {
+    const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
+    return response.experiment_id;
+  } catch (error: unknown) {
+    // If experiment already exists, fetch it by name
+    if (error instanceof Error && error.message?.includes('RESOURCE_ALREADY_EXISTS')) {
+      const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
+      return existingExperiment.experiment.experimentId;
+    }
+    throw error;
+  }
+}
 
 export interface CreateEndpointFormData {
   name: string;
@@ -124,6 +143,18 @@ export function useCreateEndpointForm({
 
       const modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
 
+      // If usage tracking is enabled and no experiment is selected, create one
+      let experimentId: string | undefined;
+      if (values.usageTracking) {
+        if (values.experimentId) {
+          experimentId = values.experimentId;
+        } else {
+          // Auto-create experiment with name 'gateway/{endpoint_name}'
+          const endpointName = values.name || 'endpoint';
+          experimentId = await getOrCreateExperiment(`gateway/${endpointName}`);
+        }
+      }
+
       const endpointResponse = await createEndpoint({
         name: values.name || undefined,
         model_configs: [
@@ -134,7 +165,7 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
-        experiment_id: values.usageTracking ? values.experimentId || undefined : undefined,
+        experiment_id: experimentId,
       });
 
       onSuccess?.(endpointResponse.endpoint);
