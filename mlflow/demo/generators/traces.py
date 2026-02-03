@@ -193,10 +193,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
     ) -> str | None:
         """Create a RAG pipeline trace: embed -> retrieve -> generate."""
         response = self._get_response(trace_def, version)
-        prompt_tokens = _estimate_tokens(trace_def.query) + 50  # query + system prompt
+        prompt_tokens = _estimate_tokens(trace_def.query) + 50
         completion_tokens = _estimate_tokens(response)
 
-        # Calculate intermediate timestamps
         total_duration = end_ns - start_ns
         embed_end = start_ns + int(total_duration * 0.1)
         retrieve_end = embed_end + int(total_duration * 0.2)
@@ -346,7 +345,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         if trace_def.prompt_template is None:
             return None
 
-        # Fetch the actual prompt version template from the registry
         full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{trace_def.prompt_template.prompt_name}"
         try:
             client = mlflow.MlflowClient()
@@ -356,17 +354,14 @@ class TracesDemoGenerator(BaseDemoGenerator):
             )
             actual_template = prompt_version_obj.template
         except Exception:
-            # Fall back to the trace definition template if fetch fails
             actual_template = trace_def.prompt_template.template
 
-        # Build variables dict with all possible values for this prompt type
         variables = self._get_prompt_variables(
             trace_def.prompt_template.prompt_name,
             trace_def.query,
             trace_def.prompt_template.variables,
         )
 
-        # Render the actual template
         rendered_prompt = self._render_template(actual_template, variables)
         prompt_tokens = _estimate_tokens(rendered_prompt) + 20
         completion_tokens = _estimate_tokens(response)
