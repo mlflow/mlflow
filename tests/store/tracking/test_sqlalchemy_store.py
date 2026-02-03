@@ -2483,6 +2483,24 @@ def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
     )
 
 
+def test_search_runs_pagination_with_max_results_none(store: SqlAlchemyStore):
+    """Test that search_runs works correctly when max_results is None.
+
+    When max_results=None, all results should be returned in one page with no token.
+    """
+    exp = _create_experiments(store, "test_search_runs_pagination_with_max_results_none")
+    # Create 5 runs
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)]
+    )
+
+    # Call search_runs with max_results=None - should return all runs with no token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=None)
+    assert len(result) == 5
+    assert [r.info.run_id for r in result] == runs
+    assert result.token is None
+
+
 def test_search_runs_run_name(store: SqlAlchemyStore):
     exp_id = _create_experiments(store, "test_search_runs_pagination")
     run1 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name1"))
