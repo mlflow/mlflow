@@ -12,19 +12,15 @@ import { isValidEndpointName } from '../utils/gatewayUtils';
 
 /**
  * Get or create an experiment with the given name.
- * If the experiment already exists, returns its ID.
+ * First tries to fetch an existing experiment, then creates one if not found.
  */
 async function getOrCreateExperiment(experimentName: string): Promise<string> {
   try {
+    const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
+    return existingExperiment.experiment.experimentId;
+  } catch (error: unknown) {
     const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
     return response.experiment_id;
-  } catch (error: unknown) {
-    // If experiment already exists, fetch it by name
-    if (error instanceof Error && error.message?.includes('RESOURCE_ALREADY_EXISTS')) {
-      const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
-      return existingExperiment.experiment.experimentId;
-    }
-    throw error;
   }
 }
 

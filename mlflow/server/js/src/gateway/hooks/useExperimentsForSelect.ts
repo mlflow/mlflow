@@ -22,8 +22,11 @@ export const useExperimentsForSelect = () => {
     },
   );
 
+  // Filter out the Default experiment (id "0") as it's not suitable for gateway usage tracking
+  const experiments = (data?.experiments ?? []).filter((experiment) => experiment.experimentId !== '0');
+
   return {
-    experiments: data?.experiments ?? [],
+    experiments,
     isLoading,
     error,
   };

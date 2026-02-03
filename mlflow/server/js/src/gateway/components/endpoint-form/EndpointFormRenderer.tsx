@@ -222,7 +222,7 @@ export const EndpointFormRenderer = ({
                         onChange={usageTrackingField.onChange}
                         experimentId={experimentIdField.value ?? ''}
                         onExperimentIdChange={experimentIdField.onChange}
-                        componentIdPrefix={`${componentIdPrefix}.usage-tracking`}
+                        componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
                       />
                     )}
                   />

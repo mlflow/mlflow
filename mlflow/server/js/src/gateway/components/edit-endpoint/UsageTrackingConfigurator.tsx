@@ -2,12 +2,14 @@ import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-sys
 import { FormattedMessage } from 'react-intl';
 import { ExperimentSelect } from '../shared/ExperimentSelect';
 
+type ComponentIds = 'mlflow.gateway.edit-endpoint.usage-tracking' | 'mlflow.gateway.create-endpoint.usage-tracking';
+
 export interface UsageTrackingConfiguratorProps {
   value: boolean;
   onChange: (value: boolean) => void;
   experimentId: string;
   onExperimentIdChange: (experimentId: string) => void;
-  componentIdPrefix?: string;
+  componentIdPrefix?: ComponentIds;
 }
 
 export const UsageTrackingConfigurator = ({
@@ -15,7 +17,7 @@ export const UsageTrackingConfigurator = ({
   onChange,
   experimentId,
   onExperimentIdChange,
-  componentIdPrefix = 'mlflow.gateway.usage-tracking',
+  componentIdPrefix = 'mlflow.gateway.edit-endpoint.usage-tracking',
 }: UsageTrackingConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
