@@ -17,6 +17,7 @@ export interface TokenStatsChartDataPoint {
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceTokenStatsChartDataResult {
@@ -101,6 +102,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
         p50: stats?.p50 || 0,
         p90: stats?.p90 || 0,
         p99: stats?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);

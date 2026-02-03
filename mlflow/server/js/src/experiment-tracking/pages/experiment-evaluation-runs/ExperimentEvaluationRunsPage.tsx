@@ -365,8 +365,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
     </div>
   );
 
-  // Full-page list view (default, non-comparison mode)
-  if (!isComparisonMode) {
+  // Full-page list view (default, non-comparison mode, but not when viewing charts)
+  if (!isComparisonMode && viewMode !== ExperimentEvaluationRunsPageMode.CHARTS) {
     return (
       <ExperimentEvaluationRunsRowVisibilityProvider>
         <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '0px' }}>
@@ -450,7 +450,19 @@ const ExperimentEvaluationRunsPageImpl = () => {
             overflowY: 'scroll',
           }}
         >
-          {selectedRunUuid ? (
+          {viewMode === ExperimentEvaluationRunsPageMode.CHARTS ? (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: '0px',
+                paddingLeft: theme.spacing.sm,
+              }}
+            >
+              <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />
+            </div>
+          ) : selectedRunUuid ? (
             <div
               css={{
                 display: 'flex',

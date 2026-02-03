@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import logging
+import os
 from collections.abc import Callable
-from typing import Literal
-
-import pandas as pd
+from typing import TYPE_CHECKING, Literal
 
 import mlflow
+
+if TYPE_CHECKING:
+    from mlflow.genai.datasets import EvaluationDataset
+
 from mlflow.demo.base import (
     DEMO_EXPERIMENT_NAME,
     BaseDemoGenerator,
@@ -22,6 +27,26 @@ from mlflow.genai.datasets import create_dataset, delete_dataset, search_dataset
 from mlflow.genai.scorers import scorer
 
 _logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_evaluation_output():
+    """Suppress tqdm progress bars and evaluation completion messages."""
+    original_tqdm_disable = os.environ.get("TQDM_DISABLE")
+    os.environ["TQDM_DISABLE"] = "1"
+    try:
+        # Suppress both stdout (evaluation messages) and stderr (tqdm progress bars)
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            yield
+    finally:
+        if original_tqdm_disable is None:
+            os.environ.pop("TQDM_DISABLE", None)
+        else:
+            os.environ["TQDM_DISABLE"] = original_tqdm_disable
+
 
 DEMO_DATASET_V1_NAME = "demo-baseline-dataset"
 DEMO_DATASET_V2_NAME = "demo-improved-dataset"
@@ -260,7 +285,9 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
     def _create_evaluation_dataset(
         self, traces: list[Trace], experiment_id: str, dataset_name: str
-    ) -> int:
+    ) -> "EvaluationDataset":
+        from mlflow.genai.datasets import get_dataset
+
         dataset = create_dataset(
             name=dataset_name,
             experiment_id=experiment_id,
@@ -269,7 +296,8 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         dataset.merge_records(traces)
 
-        return len(traces)
+        # Return the dataset object for use with evaluate()
+        return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:
         datasets = search_datasets(
@@ -290,8 +318,6 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         run_name: str,
         pass_rates: dict[str, float],
     ) -> str:
-        trace_df = pd.DataFrame({"trace": traces})
-
         demo_scorers = [
             _create_pass_fail_scorer(
                 name="relevance",
@@ -317,10 +343,11 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         mlflow.set_experiment(experiment_id=experiment_id)
 
-        result = mlflow.genai.evaluate(
-            data=trace_df,
-            scorers=demo_scorers,
-        )
+        with _suppress_evaluation_output():
+            result = mlflow.genai.evaluate(
+                data=traces,
+                scorers=demo_scorers,
+            )
 
         client = mlflow.MlflowClient()
         client.set_tag(result.run_id, "mlflow.runName", run_name)

@@ -159,7 +159,7 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          npm install -g @anthropic-ai/claude-code@2.1.3
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
 
       - name: Run Claude resolve command
         id: claude-fix
@@ -174,7 +174,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
+          timeout 10m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="
