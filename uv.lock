@@ -4260,6 +4260,7 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "packaging" },
     { name = "pandas" },
+    { name = "pbs-installer", extra = ["all"] },
     { name = "protobuf" },
     { name = "pyarrow" },
     { name = "pydantic" },
@@ -4514,6 +4515,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.9.0,<3" },
     { name = "packaging", specifier = "<26" },
     { name = "pandas", specifier = "<3" },
+    { name = "pbs-installer", extras = ["all"], specifier = "<2101" },
     { name = "prometheus-flask-exporter", marker = "extra == 'extras'" },
     { name = "protobuf", specifier = ">=3.12.0,<7" },
     { name = "psycopg2-binary", marker = "extra == 'db'" },
@@ -5949,6 +5951,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fa/2a/52a8da6fe965dea6192eb716b357558e103aea0a1e9a8352ad575a8406ca/pathvalidate-3.3.1.tar.gz", hash = "sha256:b18c07212bfead624345bb8e1d6141cdcf15a39736994ea0b94035ad2b1ba177", size = 63262, upload-time = "2025-06-15T09:07:20.736Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9a/70/875f4a23bfc4731703a5835487d0d2fb999031bd415e7d17c0ae615c18b7/pathvalidate-3.3.1-py3-none-any.whl", hash = "sha256:5263baab691f8e1af96092fa5137ee17df5bdfbd6cff1fcac4d6ef4bc2e1735f", size = 24305, upload-time = "2025-06-15T09:07:19.117Z" },
+]
+
+[[package]]
+name = "pbs-installer"
+version = "2026.1.14"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/07/69/9928b675e8f898e62e08c83f7de6351955bdc1d12bb86012c3bbb156a450/pbs_installer-2026.1.14.tar.gz", hash = "sha256:a668548459ce4a2d05ccd45cac10cb93e1ba10709ecfa7ff3d3b9c129bd243f5", size = 66992, upload-time = "2026-01-15T23:02:25.274Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/28/82/05fe7f648bca173198806903d95c15f8ec0bf1ba76a7a943fead2f55e4c0/pbs_installer-2026.1.14-py3-none-any.whl", hash = "sha256:245c8016bb3d6abcf6f7f39f523be67c085f668f0cd497c427df6b673d8c6cb1", size = 68705, upload-time = "2026-01-15T23:02:24.062Z" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "httpx" },
+    { name = "zstandard" },
 ]
 
 [[package]]

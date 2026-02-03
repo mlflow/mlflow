@@ -429,6 +429,11 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
     "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
 )
 
+#: Specifies whether to use pyenv instead of python-build-standalone (PBS) for
+#: Python version management when using the virtualenv environment manager.
+#: (default: ``False``)
+MLFLOW_USE_PYENV = _BooleanEnvironmentVariable("MLFLOW_USE_PYENV", False)
+
 #: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
 #: (default: ``False``)
 MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(

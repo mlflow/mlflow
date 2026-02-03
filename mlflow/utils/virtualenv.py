@@ -11,7 +11,7 @@ from typing import Literal
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT, MLFLOW_USE_PYENV
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
@@ -33,27 +33,40 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_mlflow_virtualenv_root():
-    """
-    Returns the root directory to store virtualenv environments created by MLflow.
-    """
     return MLFLOW_ENV_ROOT.get()
 
 
+# PBS (python-build-standalone) configuration
+_PBS_INSTALL_DIR = Path.home() / ".mlflow" / "python"
+
+# pyenv configuration
 _DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
+_SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
+
+
+def _is_virtualenv_available():
+    return shutil.which("virtualenv") is not None
+
+
+def _validate_virtualenv_is_available():
+    if not _is_virtualenv_available():
+        raise MlflowException(
+            "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
+            "virtualenv."
+        )
 
 
 def _is_pyenv_available():
-    """
-    Returns True if pyenv is available, otherwise False.
-    """
     return _get_pyenv_bin_path() is not None
 
 
+def _get_pyenv_bin_path():
+    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+        return _DATABRICKS_PYENV_BIN_PATH
+    return shutil.which("pyenv")
+
+
 def _validate_pyenv_is_available():
-    """
-    Validates pyenv is available. If not, throws an `MlflowException` with a brief instruction on
-    how to install pyenv.
-    """
     url = (
         "https://github.com/pyenv/pyenv#installation"
         if not is_windows()
@@ -65,40 +78,7 @@ def _validate_pyenv_is_available():
         )
 
 
-def _is_virtualenv_available():
-    """
-    Returns True if virtualenv is available, otherwise False.
-    """
-    return shutil.which("virtualenv") is not None
-
-
-def _validate_virtualenv_is_available():
-    """
-    Validates virtualenv is available. If not, throws an `MlflowException` with a brief instruction
-    on how to install virtualenv.
-    """
-    if not _is_virtualenv_available():
-        raise MlflowException(
-            "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
-            "virtualenv."
-        )
-
-
-_SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
-
-
-def _get_pyenv_bin_path():
-    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
-        return _DATABRICKS_PYENV_BIN_PATH
-    return shutil.which("pyenv")
-
-
-def _find_latest_installable_python_version(version_prefix):
-    """
-    Find the latest installable python version that matches the given version prefix
-    from the output of `pyenv install --list`. For example, `version_prefix("3.8")` returns '3.8.x'
-    where 'x' represents the latest micro version in 3.8.
-    """
+def _find_latest_installable_python_version_pyenv(version_prefix):
     lines = _exec_cmd(
         [_get_pyenv_bin_path(), "install", "--list"],
         capture_output=True,
@@ -111,23 +91,11 @@ def _find_latest_installable_python_version(version_prefix):
     return max(matched, key=Version)
 
 
-def _install_python(version, pyenv_root=None, capture_output=False):
-    """Installs a specified version of python with pyenv and returns a path to the installed python
-    binary.
-
-    Args:
-        version: Python version to install.
-        pyenv_root: The value of the "PYENV_ROOT" environment variable used when running
-            `pyenv install` which installs python in `{PYENV_ROOT}/versions/{version}`.
-        capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
-
-    Returns:
-        Path to the installed python binary.
-    """
+def _install_python_with_pyenv(version, pyenv_root=None, capture_output=False):
     version = (
         version
         if _SEMANTIC_VERSION_REGEX.match(version)
-        else _find_latest_installable_python_version(version)
+        else _find_latest_installable_python_version_pyenv(version)
     )
     _logger.info("Installing python %s if it does not exist", version)
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
@@ -154,6 +122,52 @@ def _install_python(version, pyenv_root=None, capture_output=False):
             raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
         path_to_bin = ("python.exe",)
     return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
+
+
+def _install_python_with_pbs(version, install_dir=None, capture_output=False):
+    from pbs_installer import get_download_link, install
+
+    install_dir = Path(install_dir) if install_dir else _PBS_INSTALL_DIR
+
+    # Get the minor version prefix (e.g., "3.10" from "3.10.16" or "3.10")
+    match version.rsplit(".", 1):
+        case [major_minor, patch] if "." in major_minor and patch.isdigit():
+            version_prefix = major_minor
+        case [major, minor] if major.isdigit() and minor.isdigit():
+            version_prefix = version
+        case _:
+            raise MlflowException(f"Invalid Python version: {version}")
+
+    # Get the exact version that will be installed
+    try:
+        py_version, _ = get_download_link(version_prefix)
+        full_version = f"{py_version.major}.{py_version.minor}.{py_version.micro}"
+    except ValueError as e:
+        raise MlflowException(f"Could not find Python version matching {version_prefix}: {e}")
+
+    python_dir = install_dir / full_version
+    # pbs-installer extracts with strip=1, removing the 'python/' prefix from the archive
+    python_bin = python_dir / "python.exe" if is_windows() else python_dir / "bin" / "python3"
+
+    if python_bin.exists():
+        _logger.info("Python %s already installed at %s", full_version, python_bin)
+        return python_bin
+
+    _logger.info("Installing Python %s from python-build-standalone", full_version)
+    python_dir.mkdir(parents=True, exist_ok=True)
+    install(version_prefix, python_dir)
+
+    if not python_bin.exists():
+        raise MlflowException(f"Python binary not found at {python_bin} after installation")
+
+    return python_bin
+
+
+def _install_python(version, pyenv_root=None, capture_output=False):
+    if MLFLOW_USE_PYENV.get():
+        _validate_pyenv_is_available()
+        return _install_python_with_pyenv(version, pyenv_root, capture_output)
+    return _install_python_with_pbs(version, pyenv_root, capture_output)
 
 
 def _get_conda_env_file(model_config):
@@ -417,7 +431,6 @@ def _get_or_create_virtualenv(
 
     """
     if env_manager == em.VIRTUALENV:
-        _validate_pyenv_is_available()
         _validate_virtualenv_is_available()
 
     local_model_path = Path(local_model_path)

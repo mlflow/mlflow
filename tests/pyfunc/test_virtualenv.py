@@ -15,16 +15,13 @@ import mlflow
 from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
-from mlflow.utils.virtualenv import (
-    _is_pyenv_available,
-    _is_virtualenv_available,
-)
+from mlflow.utils.virtualenv import _is_virtualenv_available
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 pytestmark = pytest.mark.skipif(
-    not (_is_pyenv_available() and _is_virtualenv_available()),
-    reason="requires pyenv and virtualenv",
+    not _is_virtualenv_available(),
+    reason="requires virtualenv",
 )
 
 TEST_DIR = "tests"
