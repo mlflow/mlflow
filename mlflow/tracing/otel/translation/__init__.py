@@ -16,6 +16,7 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
@@ -33,11 +34,13 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     GoogleADKTranslator(),
     VercelAITranslator(),
     VoltAgentTranslator(),
+    LiveKitTranslator(),
 ]
 
 # Event-based translators (for frameworks that use events for input/output)
 _EVENT_TRANSLATORS = [
     SpringAiTranslator(),
+    LiveKitTranslator(),
 ]
 
 

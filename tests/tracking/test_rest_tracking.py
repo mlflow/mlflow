@@ -4405,6 +4405,42 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
     assert fetched.fallback_config.max_attempts == 2
 
 
+def test_create_endpoint_with_usage_tracking(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="usage-tracking-test-key",
+        secret_value={"api_key": "sk-usage-tracking-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="usage-tracking-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="usage-tracking-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=True,
+    )
+
+    assert endpoint.usage_tracking is True
+    experiment_id = endpoint.experiment_id
+
+    # Experiment is automatically created with usage tracking enabled
+    experiment = mlflow_client_with_secrets.get_experiment(experiment_id)
+    assert experiment.name == "gateway/usage-tracking-endpoint"
+
+
 def test_update_endpoint(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 

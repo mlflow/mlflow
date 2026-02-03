@@ -77,6 +77,7 @@ interface SessionHeaderCellProps {
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
+  onExpandSession?: () => void;
 }
 
 /**
@@ -96,6 +97,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   getRunColor,
   runUuid,
   compareToRunUuid,
+  onExpandSession,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -683,7 +685,13 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
 
     const renderAggregatedCell = (tracesList: ModelTraceInfoV3[]) => {
       if (dtype === 'pass-fail' || dtype === 'boolean') {
-        return <SessionHeaderPassFailAggregatedCell assessmentInfo={assessmentInfo} traces={tracesList} />;
+        return (
+          <SessionHeaderPassFailAggregatedCell
+            assessmentInfo={assessmentInfo}
+            traces={tracesList}
+            onExpandSession={onExpandSession}
+          />
+        );
       } else if (dtype === 'numeric') {
         return <SessionHeaderNumericAggregatedCell assessmentInfo={assessmentInfo} traces={tracesList} />;
       } else if (dtype === 'string' || dtype === 'unknown') {

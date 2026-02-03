@@ -22,7 +22,7 @@ def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
 
 
 def test_simulated_user_agent_generate_initial_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Hello, I have a question about ML."
 
         agent = SimulatedUserAgent()
@@ -47,7 +47,7 @@ def test_simulated_user_agent_generate_initial_message():
 
 
 def test_simulated_user_agent_generate_followup_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Can you tell me more?"
 
         agent = SimulatedUserAgent()
@@ -74,7 +74,7 @@ def test_simulated_user_agent_generate_followup_message():
 
 
 def test_simulated_user_agent_default_persona():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
         agent = SimulatedUserAgent()
@@ -525,7 +525,7 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
 
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Not achieved", "result": "no"}',
@@ -555,7 +555,7 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
 
 
 def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -579,7 +579,7 @@ def test_conversation_simulator_uses_default_persona_and_empty_context(mock_pred
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
     expectations = {"expected_topic": "MLflow", "expected_sentiment": "positive"}
 
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Not achieved", "result": "no"}',
@@ -616,7 +616,7 @@ def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn
 
 
 def test_invoke_llm_with_prompt_only():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "LLM response"
 
         agent = SimulatedUserAgent()
@@ -632,7 +632,7 @@ def test_invoke_llm_with_prompt_only():
 
 
 def test_invoke_llm_with_system_prompt():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "LLM response with system"
 
         agent = SimulatedUserAgent()

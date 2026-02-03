@@ -16,6 +16,7 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +24,7 @@ export const TraceErrorsChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
@@ -67,7 +69,16 @@ export const TraceErrorsChart: React.FC = () => {
                 {...yAxisProps}
               />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId,
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.errors.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Bar
