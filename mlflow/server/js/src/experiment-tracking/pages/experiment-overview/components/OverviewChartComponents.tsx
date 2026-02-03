@@ -194,7 +194,11 @@ export function getTracesFilteredByTimeRangeUrl(
 /** Allowed component IDs for tooltip "View traces" links */
 type TooltipLinkComponentId =
   | 'mlflow.overview.usage.traces.view_traces_link'
-  | 'mlflow.overview.usage.latency.view_traces_link';
+  | 'mlflow.overview.usage.latency.view_traces_link'
+  | 'mlflow.overview.usage.latency.view_traces_link'
+  | 'mlflow.overview.usage.errors.view_traces_link'
+  | 'mlflow.overview.usage.token_stats.view_traces_link'
+  | 'mlflow.overview.usage.token_usage.view_traces_link';
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
