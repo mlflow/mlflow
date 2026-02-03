@@ -1,4 +1,4 @@
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { AssessmentInfo } from '../types';
 import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
@@ -9,9 +9,11 @@ import { NullCell } from './NullCell';
 export const SessionHeaderPassFailAggregatedCell = ({
   assessmentInfo,
   traces,
+  onExpandSession,
 }: {
   assessmentInfo: AssessmentInfo;
   traces: ModelTraceInfoV3[];
+  onExpandSession?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -20,7 +22,18 @@ export const SessionHeaderPassFailAggregatedCell = ({
   const { passCount, totalCount } = aggregatePassFailAssessments(traces, assessmentInfo);
 
   if (totalCount > 0) {
-    return (
+    const handleClick = () => {
+      onExpandSession?.();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onExpandSession?.();
+      }
+    };
+
+    const content = (
       <div
         css={{
           display: 'flex',
@@ -28,7 +41,20 @@ export const SessionHeaderPassFailAggregatedCell = ({
           gap: theme.spacing.sm,
           minWidth: 0,
           width: '100%',
+          cursor: onExpandSession ? 'pointer' : undefined,
+          borderRadius: theme.borders.borderRadiusMd,
+          padding: theme.spacing.xs,
+          margin: -theme.spacing.xs,
+          '&:hover': onExpandSession
+            ? {
+                backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+              }
+            : undefined,
         }}
+        onClick={onExpandSession ? handleClick : undefined}
+        onKeyDown={onExpandSession ? handleKeyDown : undefined}
+        role={onExpandSession ? 'button' : undefined}
+        tabIndex={onExpandSession ? 0 : undefined}
       >
         <div
           css={{
@@ -77,6 +103,22 @@ export const SessionHeaderPassFailAggregatedCell = ({
         </span>
       </div>
     );
+
+    if (onExpandSession) {
+      return (
+        <Tooltip
+          componentId="mlflow.genai-traces-table.session-header.pass-fail-aggregated"
+          content={intl.formatMessage({
+            defaultMessage: 'Click to expand session and see individual trace details',
+            description: 'Tooltip for pass/fail aggregated cell in session header',
+          })}
+        >
+          {content}
+        </Tooltip>
+      );
+    }
+
+    return content;
   }
 
   return <NullCell />;
