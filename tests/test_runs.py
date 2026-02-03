@@ -448,6 +448,7 @@ def test_get_experiment_by_name_json():
         "tags": {"team": "ml"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "workspace": "default",
     }
     assert output == expected
 

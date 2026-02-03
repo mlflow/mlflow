@@ -1581,7 +1581,7 @@ def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
         )
         gateway_workspace_store.create_endpoint_binding(
             endpoint_id=endpoint_a.endpoint_id,
-            resource_type=GatewayResourceType.SCORER_JOB.value,
+            resource_type=GatewayResourceType.SCORER.value,
             resource_id="model-a",
             created_by="user-a",
         )
@@ -1610,7 +1610,7 @@ def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
         )
         gateway_workspace_store.create_endpoint_binding(
             endpoint_id=endpoint_b.endpoint_id,
-            resource_type=GatewayResourceType.SCORER_JOB.value,
+            resource_type=GatewayResourceType.SCORER.value,
             resource_id="model-b",
             created_by="user-b",
         )
@@ -1859,7 +1859,7 @@ def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
 
 
 def test_gateway_config_resolver_scopes_bindings(gateway_workspace_store):
-    resource_type = GatewayResourceType.SCORER_JOB.value
+    resource_type = GatewayResourceType.SCORER.value
     resource_id = "job-42"
 
     with WorkspaceContext("team-resolver-a"):
