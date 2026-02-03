@@ -46,8 +46,8 @@ public class TestClientProvider {
       return client;
     } else {
       Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
-      String mlruns = tempDir.resolve("mlruns").toString();
-      return startServerProcess(mlruns, mlruns);
+      String tempDBFile = tempDir.resolve("mlflow.db").toAbsolutePath().toString();
+      return startServerProcess("sqlite:///" + tempDBFile, tempDir.toString());
     }
   }
 
