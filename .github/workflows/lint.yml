@@ -89,6 +89,19 @@ jobs:
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }}
 
+      - name: Check uv.lock changes
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path' | grep -q '^uv.lock$'; then
+            echo '::warning file=uv.lock::[Non-blocking]' \
+                 'Relaxing version constraints (e.g., bumping max version) does not automatically upgrade packages.' \
+                 'Use `uv lock --upgrade-package <package>` to upgrade.'
+          fi
+
       - name: Check unused media
         run: |
           dev/find-unused-media.sh
