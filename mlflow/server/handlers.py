@@ -5230,7 +5230,11 @@ def _parse_prompt_uri(prompt_uri: str) -> tuple[str, str]:
 def _create_prompt_optimization_job():
     # These imports must be local to avoid circular import with mlflow.server.jobs
     from mlflow.genai.datasets import get_dataset as get_genai_dataset
-    from mlflow.genai.optimize.job import OptimizerType, optimize_prompts_job
+    from mlflow.genai.optimize.job import (
+        OptimizerType,
+        distill_prompts_job,
+        optimize_prompts_job,
+    )
     from mlflow.server.jobs import submit_job
 
     request_message = _get_request_message(
@@ -5257,6 +5261,9 @@ def _create_prompt_optimization_job():
 
     optimizer_type = OptimizerType.from_proto(config.optimizer_type)
 
+    # Get teacher_prompt_uri from proto field (required for distillation)
+    teacher_prompt_uri = config.teacher_prompt_uri or None
+
     experiment_id = (request_message.experiment_id or "").strip()
     if not experiment_id:
         raise MlflowException(
@@ -5276,6 +5283,19 @@ def _create_prompt_optimization_job():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    # Check if this is a distillation job
+    is_distillation = optimizer_type == OptimizerType.DISTILLATION
+
+    # Validate distillation requirements
+    if is_distillation:
+        if not teacher_prompt_uri:
+            raise MlflowException(
+                "teacher_prompt_uri is required when optimizer_type is DISTILLATION.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        # Note: dataset_id is NOT required for distillation - it creates the dataset
+        # from traces linked to the teacher prompt
+
     # Create MLflow run upfront so run_id is immediately available
     # The job will resume this run when it starts executing
     tracking_store = _get_tracking_store()
@@ -5283,7 +5303,7 @@ def _create_prompt_optimization_job():
 
     # Parse prompt name and version from URI for more descriptive run name
     prompt_name, prompt_version = _parse_prompt_uri(prompt_uri)
-    run_name = f"optimize_prompt_{optimizer_type}_{prompt_name}_{prompt_version}_{start_time}"
+    run_name = f"{optimizer_type}_prompt_{prompt_name}_{prompt_version}_{start_time}"
 
     run = tracking_store.create_run(
         experiment_id=experiment_id,
@@ -5296,11 +5316,18 @@ def _create_prompt_optimization_job():
 
     # Log optimization config as run parameters
     params_to_log = [
-        Param("source_prompt_uri", prompt_uri),
         Param("optimizer_type", optimizer_type),
-        Param("dataset_id", dataset_id),
-        Param("scorer_names", json.dumps(scorers)),
     ]
+    if is_distillation:
+        # Distillation: student prompt is the one being optimized, teacher is the source of traces
+        params_to_log.append(Param("student_prompt_uri", prompt_uri))
+        params_to_log.append(Param("teacher_prompt_uri", teacher_prompt_uri))
+        params_to_log.append(Param("scorer_names", json.dumps(["SemanticMatch"])))
+    else:
+        # Regular optimization: source_prompt_uri is the one being optimized
+        params_to_log.append(Param("source_prompt_uri", prompt_uri))
+        params_to_log.append(Param("dataset_id", dataset_id))
+        params_to_log.append(Param("scorer_names", json.dumps(scorers)))
     if config.optimizer_config_json:
         params_to_log.append(Param("optimizer_config_json", config.optimizer_config_json))
     tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
@@ -5314,17 +5341,29 @@ def _create_prompt_optimization_job():
         )
         tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
 
-    params = {
-        "run_id": run_id,
-        "experiment_id": experiment_id,
-        "prompt_uri": prompt_uri,
-        "dataset_id": dataset_id,
-        "optimizer_type": optimizer_type,
-        "optimizer_config": optimizer_config,
-        "scorer_names": scorers,
-    }
-
-    job_entity = submit_job(optimize_prompts_job, params)
+    # Submit appropriate job based on optimizer type
+    if is_distillation:
+        params = {
+            "run_id": run_id,
+            "experiment_id": experiment_id,
+            "student_prompt_uri": prompt_uri,
+            "source_prompt_uri": teacher_prompt_uri,  # Teacher prompt is the source of traces
+            "optimizer_type": "gepa",  # Distillation always uses GEPA internally
+            "optimizer_config": optimizer_config,
+            # max_traces is None by default - the job will use all available traces
+        }
+        job_entity = submit_job(distill_prompts_job, params)
+    else:
+        params = {
+            "run_id": run_id,
+            "experiment_id": experiment_id,
+            "prompt_uri": prompt_uri,
+            "dataset_id": dataset_id,
+            "optimizer_type": optimizer_type,
+            "optimizer_config": optimizer_config,
+            "scorer_names": scorers,
+        }
+        job_entity = submit_job(optimize_prompts_job, params)
 
     response_message = CreatePromptOptimizationJob.Response()
     optimization_job = PromptOptimizationJobProto()
@@ -5356,20 +5395,40 @@ def _build_prompt_optimization_job_from_entity(job_entity):
     params = json.loads(job_entity.params)
     if "experiment_id" in params:
         optimization_job.experiment_id = params["experiment_id"]
+
+    # Handle both regular optimization (prompt_uri) and distillation (student_prompt_uri)
     if "prompt_uri" in params:
         optimization_job.source_prompt_uri = params["prompt_uri"]
+    elif "student_prompt_uri" in params:
+        optimization_job.source_prompt_uri = params["student_prompt_uri"]
 
     if run_id := params.get("run_id"):
         optimization_job.run_id = run_id
 
     # Populate config from job params
     config = optimization_job.config
-    if "optimizer_type" in params:
+
+    # Check if this is a distillation job (job name or source/teacher prompt URI presence)
+    is_distillation = (
+        job_entity.job_name == "distill_prompts"
+        or "source_prompt_uri" in params
+        or "teacher_prompt_uri" in params
+    )
+
+    if is_distillation:
+        # Distillation jobs always use DISTILLATION type
+        config.optimizer_type = OptimizerType.DISTILLATION.to_proto()
+        # source_prompt_uri is the new param name, teacher_prompt_uri is the legacy name
+        teacher_uri = params.get("source_prompt_uri") or params.get("teacher_prompt_uri")
+        if teacher_uri:
+            config.teacher_prompt_uri = teacher_uri
+    elif "optimizer_type" in params:
         try:
             optimizer_type = OptimizerType(params["optimizer_type"])
             config.optimizer_type = optimizer_type.to_proto()
         except (ValueError, KeyError):
             pass
+
     if params.get("dataset_id"):
         config.dataset_id = params["dataset_id"]
     if "scorer_names" in params:
@@ -5459,15 +5518,19 @@ def _search_prompt_optimization_jobs():
 
     job_store = _get_job_store()
 
-    # Search for optimize_prompts jobs in the specified experiment
-    jobs = job_store.list_jobs(
+    # Search for both optimize_prompts and distill_prompts jobs in the experiment
+    optimize_jobs = job_store.list_jobs(
         job_name="optimize_prompts",
+        params={"experiment_id": request_message.experiment_id},
+    )
+    distill_jobs = job_store.list_jobs(
+        job_name="distill_prompts",
         params={"experiment_id": request_message.experiment_id},
     )
 
     response_message = SearchPromptOptimizationJobs.Response()
 
-    for job_entity in jobs:
+    for job_entity in list(optimize_jobs) + list(distill_jobs):
         optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
         response_message.jobs.append(optimization_job)
 

@@ -2166,7 +2166,7 @@ class SemanticMatch(BuiltInScorer):
             outputs="The answer is 4.",
             expectations={"expected_response": "2 + 2 equals 4"},
         )
-        print(assessment)  # Feedback with value "yes" (semantically equivalent)
+        print(assessment)  # Feedback with score 0.0-1.0 (e.g., 0.85 for high equivalence)
 
     Example (with evaluate):
 
@@ -2203,7 +2203,7 @@ class SemanticMatch(BuiltInScorer):
 
     @property
     def feedback_value_type(self) -> Any:
-        return Literal["yes", "no"]
+        return float
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -2264,10 +2264,12 @@ class SemanticMatch(BuiltInScorer):
                 inputs, outputs, and expectations will be automatically extracted from the trace.
 
         Returns:
-            Feedback object with 'yes'/'no' value and rationale
+            Feedback object with score (0.0-1.0) and rationale
         """
-        from mlflow.genai.judges.builtin import _sanitize_feedback
-        from mlflow.genai.judges.prompts.semantic_match import get_prompt
+        from mlflow.genai.judges.prompts.semantic_match import (
+            SemanticMatchResponse,
+            get_prompt,
+        )
 
         fields = resolve_scorer_fields(
             trace,
@@ -2298,9 +2300,17 @@ class SemanticMatch(BuiltInScorer):
             expected_response=expected_response,
             actual_response=actual_response,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, response_format=SemanticMatchResponse
+        )
 
-        return _sanitize_feedback(feedback)
+        # Convert score from 0-100 to 0.0-1.0 range for optimizer compatibility
+        if isinstance(feedback.value, str):
+            feedback.value = int(feedback.value) / 100.0
+        elif isinstance(feedback.value, int):
+            feedback.value = feedback.value / 100.0
+
+        return feedback
 
 
 class SessionLevelScorer(Judge):

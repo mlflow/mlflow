@@ -2306,6 +2306,29 @@ class DeletePromptOptimizationJob(_message.Message):
     job_id: str
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
+class CreateDistillationJob(_message.Message):
+    __slots__ = ("experiment_id", "teacher_prompt_uri", "student_prompt_uri", "dataset_id", "optimizer_type", "optimizer_config_json")
+    class Response(_message.Message):
+        __slots__ = ("job", "distillation_dataset_id")
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        DISTILLATION_DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        distillation_dataset_id: str
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ..., distillation_dataset_id: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TEACHER_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    STUDENT_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    OPTIMIZER_TYPE_FIELD_NUMBER: _ClassVar[int]
+    OPTIMIZER_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    teacher_prompt_uri: str
+    student_prompt_uri: str
+    dataset_id: str
+    optimizer_type: _prompt_optimization_pb2.OptimizerType
+    optimizer_config_json: str
+    def __init__(self, experiment_id: _Optional[str] = ..., teacher_prompt_uri: _Optional[str] = ..., student_prompt_uri: _Optional[str] = ..., dataset_id: _Optional[str] = ..., optimizer_type: _Optional[_Union[_prompt_optimization_pb2.OptimizerType, str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...

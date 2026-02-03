@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,56 @@ _logger = logging.getLogger(__name__)
 PROMPT_CANDIDATES_DIR = "prompt_candidates"
 EVAL_RESULTS_FILE = "eval_results.json"
 SCORES_FILE = "scores.json"
+
+# Compiled regex pattern for extracting template variables (same as metaprompt_optimizer)
+_TEMPLATE_VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+
+
+def _extract_template_variables(prompts: dict[str, str]) -> set[str]:
+    """
+    Extract all unique template variables ({{var}}) from prompts.
+
+    Args:
+        prompts: Dict mapping prompt_name -> template
+
+    Returns:
+        Set of variable names found across all prompts
+    """
+    all_vars = set()
+    for template in prompts.values():
+        all_vars.update(_TEMPLATE_VAR_PATTERN.findall(template))
+    return all_vars
+
+
+def _build_template_variable_rules(template_variables: set[str]) -> str:
+    """
+    Build additional rules to append to GEPA's reflection prompt for preserving
+    template variables.
+
+    Args:
+        template_variables: Set of variable names to preserve
+
+    Returns:
+        String with template variable preservation rules, or empty string if no variables.
+    """
+    if not template_variables:
+        return ""
+
+    vars_list = ", ".join(f"{{{{{v}}}}}" for v in sorted(template_variables))
+    return f"""
+
+CRITICAL - TEMPLATE VARIABLES:
+The current instruction contains template variables that MUST be preserved exactly.
+Template variables use double curly braces like {{{{variable_name}}}}.
+
+The following template variables MUST appear in your new instruction: {vars_list}
+
+Rules:
+1. Each variable must appear EXACTLY ONCE in your new instruction
+2. Copy each variable exactly as shown - do not modify variable names
+3. Do not remove any template variables
+4. Do not add new template variables
+5. Place the variable where the actual input will be substituted at runtime"""
 
 
 @experimental(version="3.5.0")
@@ -168,6 +219,9 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 self.tracking_enabled = tracking_enabled
                 self.full_dataset_size = full_dataset_size
                 self.validation_iteration = 0
+                # Track optimization iterations (each iteration = minibatch + reflective)
+                self.optimization_iteration = 0
+                self._last_minibatch_iteration = -1  # Track if minibatch was logged this iteration
 
             def evaluate(
                 self,
@@ -193,11 +247,16 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 trajectories = eval_results if capture_traces else None
                 objective_scores = [result.individual_scores for result in eval_results]
 
-                # Track validation candidates only during full dataset validation
-                # (not during minibatch evaluation in reflective mutation)
+                # Determine evaluation type
                 is_full_validation = not capture_traces and len(batch) == self.full_dataset_size
-                if is_full_validation and self.tracking_enabled:
-                    self._log_validation_candidate(candidate, eval_results)
+
+                # Log candidate prompts for debugging (both minibatch and full validation)
+                if self.tracking_enabled:
+                    if is_full_validation:
+                        self._log_validation_candidate(candidate, eval_results)
+                    else:
+                        # Log minibatch evaluation for debugging template variable preservation
+                        self._log_minibatch_candidate(candidate, eval_results, capture_traces)
 
                 return gepa.EvaluationBatch(
                     outputs=outputs,
@@ -289,6 +348,76 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                             f.write(prompt_text)
                         mlflow.log_artifact(prompt_path, artifact_path=iteration_dir)
 
+            def _log_minibatch_candidate(
+                self,
+                candidate: dict[str, str],
+                eval_results: list[EvaluationResultRecord],
+                capture_traces: bool,
+            ) -> None:
+                """
+                Log minibatch candidate prompts for debugging template variable preservation.
+
+                Each GEPA optimization iteration consists of:
+                1. Minibatch evaluation (capture_traces=False)
+                2. Reflective evaluation (capture_traces=True)
+
+                Both use the same iteration number for proper grouping.
+
+                Args:
+                    candidate: The candidate prompts being evaluated
+                    eval_results: Evaluation results containing scores
+                    capture_traces: Whether this is a reflective mutation evaluation
+                """
+                if not self.tracking_enabled:
+                    return
+
+                # Determine evaluation type
+                is_reflective = capture_traces
+
+                # Minibatch comes first in each iteration, so increment when we see a new minibatch
+                if not is_reflective:
+                    # This is a minibatch evaluation - start of a new iteration
+                    if self._last_minibatch_iteration < self.optimization_iteration:
+                        self._last_minibatch_iteration = self.optimization_iteration
+                    else:
+                        # New minibatch means new iteration
+                        self.optimization_iteration += 1
+                        self._last_minibatch_iteration = self.optimization_iteration
+
+                iteration = self.optimization_iteration
+
+                # Compute aggregate score
+                aggregate_score = (
+                    sum(r.score for r in eval_results) / len(eval_results) if eval_results else 0.0
+                )
+
+                # Determine evaluation type for directory naming
+                eval_type = "reflective" if is_reflective else "minibatch"
+                iteration_dir = f"{PROMPT_CANDIDATES_DIR}/iteration_{iteration}/{eval_type}"
+
+                # Log candidate prompts and basic score info
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    tmp_path = Path(tmp_dir)
+
+                    # Write summary with score and batch size
+                    summary = {
+                        "evaluation_type": eval_type,
+                        "batch_size": len(eval_results),
+                        "aggregate_score": aggregate_score,
+                        "capture_traces": capture_traces,
+                    }
+                    summary_path = tmp_path / "summary.json"
+                    with open(summary_path, "w") as f:
+                        json.dump(summary, f, indent=2)
+                    mlflow.log_artifact(summary_path, artifact_path=iteration_dir)
+
+                    # Write each prompt as a separate text file for easy inspection
+                    for prompt_name, prompt_text in candidate.items():
+                        prompt_path = tmp_path / f"{prompt_name}.txt"
+                        with open(prompt_path, "w") as f:
+                            f.write(prompt_text)
+                        mlflow.log_artifact(prompt_path, artifact_path=iteration_dir)
+
             def make_reflective_dataset(
                 self,
                 candidate: dict[str, str],
@@ -357,6 +486,31 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             "display_progress_bar": self.display_progress_bar,
             "use_mlflow": enable_tracking,
         }
+
+        # Add template variable preservation rules to GEPA's default reflection prompt
+        # (only if user hasn't provided a custom reflection_prompt_template)
+        if "reflection_prompt_template" not in self.gepa_kwargs:
+            template_variables = _extract_template_variables(target_prompts)
+            template_var_rules = _build_template_variable_rules(template_variables)
+            if template_var_rules:
+                try:
+                    from gepa.strategies.instruction_proposal import InstructionProposalSignature
+
+                    default_prompt = InstructionProposalSignature.default_prompt_template
+                except (ImportError, AttributeError):
+                    # Fallback if gepa internals change or are mocked
+                    default_prompt = None
+
+                if default_prompt:
+                    # Append our rules to GEPA's default prompt (before the final instruction)
+                    insertion_point = default_prompt.rfind("Provide the new instructions")
+                    if insertion_point != -1:
+                        kwargs["reflection_prompt_template"] = (
+                            default_prompt[:insertion_point]
+                            + template_var_rules
+                            + "\n\n"
+                            + default_prompt[insertion_point:]
+                        )
 
         gepa_result = gepa.optimize(**kwargs)
 

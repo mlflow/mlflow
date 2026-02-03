@@ -21,6 +21,7 @@ export const OptimizerType = {
   UNSPECIFIED: 'OPTIMIZER_TYPE_UNSPECIFIED',
   GEPA: 'OPTIMIZER_TYPE_GEPA',
   METAPROMPT: 'OPTIMIZER_TYPE_METAPROMPT',
+  DISTILLATION: 'OPTIMIZER_TYPE_DISTILLATION',
 } as const;
 
 export type OptimizerTypeValue = (typeof OptimizerType)[keyof typeof OptimizerType];
@@ -42,6 +43,8 @@ export interface PromptOptimizationJobConfig {
   dataset_id?: string;
   scorers?: string[];
   optimizer_config_json?: string;
+  teacher_prompt_uri?: string;
+  student_model_config_json?: string;
 }
 
 /**
@@ -80,8 +83,10 @@ export interface CreateOptimizationJobPayload {
   config: {
     optimizer_type: OptimizerTypeValue;
     dataset_id?: string;
-    scorers: string[];
+    scorers?: string[];
     optimizer_config_json?: string;
+    teacher_prompt_uri?: string;
+    student_model_config_json?: string;
   };
   tags?: PromptOptimizationJobTag[];
 }
@@ -123,6 +128,8 @@ export const getOptimizerTypeName = (type?: OptimizerTypeValue): string => {
       return 'GEPA';
     case OptimizerType.METAPROMPT:
       return 'MetaPrompt';
+    case OptimizerType.DISTILLATION:
+      return 'Distillation';
     default:
       return 'Unknown';
   }

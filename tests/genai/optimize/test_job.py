@@ -17,12 +17,14 @@ from mlflow.genai.optimize.job import (
     _build_predict_fn,
     _create_optimizer,
     _load_scorers,
+    distill_prompts_job,
     optimize_prompts_job,
 )
 from mlflow.genai.optimize.optimizers import GepaPromptOptimizer, MetaPromptOptimizer
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import Correctness, Safety
 from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_DISTILLATION,
     OPTIMIZER_TYPE_GEPA,
     OPTIMIZER_TYPE_METAPROMPT,
     OPTIMIZER_TYPE_UNSPECIFIED,
@@ -71,6 +73,7 @@ def test_create_optimizer_unsupported_type():
     [
         (OPTIMIZER_TYPE_GEPA, OptimizerType.GEPA, "gepa", None),
         (OPTIMIZER_TYPE_METAPROMPT, OptimizerType.METAPROMPT, "metaprompt", None),
+        (OPTIMIZER_TYPE_DISTILLATION, OptimizerType.DISTILLATION, "distillation", None),
         (OPTIMIZER_TYPE_UNSPECIFIED, None, None, "optimizer_type is required"),
         (999, None, None, "Unsupported optimizer_type value"),
     ],
@@ -90,6 +93,7 @@ def test_optimizer_type_from_proto(proto_value, expected_type, expected_str, err
     [
         (OptimizerType.GEPA, OPTIMIZER_TYPE_GEPA),
         (OptimizerType.METAPROMPT, OPTIMIZER_TYPE_METAPROMPT),
+        (OptimizerType.DISTILLATION, OPTIMIZER_TYPE_DISTILLATION),
     ],
 )
 def test_optimizer_type_to_proto(optimizer_type, expected_proto):
@@ -323,3 +327,97 @@ def test_optimize_prompts_job_result_structure():
         assert result["final_eval_score"] == 0.9
         assert result["dataset_id"] == "dataset-123"
         assert result["scorer_names"] == ["Correctness", "Safety"]
+
+
+def test_distill_prompts_job_has_metadata():
+    assert hasattr(distill_prompts_job, "_job_fn_metadata")
+    metadata = distill_prompts_job._job_fn_metadata
+    assert metadata.name == "distill_prompts"
+    assert metadata.max_workers == 2
+
+
+def test_distill_prompts_job_result_structure():
+    optimizer_config = {"reflection_model": "openai:/gpt-4o"}
+
+    # Create a mock result
+    mock_optimized_prompt = mock.MagicMock()
+    mock_optimized_prompt.uri = "prompts:/test/2"
+    mock_result = mock.MagicMock()
+    mock_result.optimized_prompts = [mock_optimized_prompt]
+    mock_result.optimizer_name = "GepaPromptOptimizer"
+    mock_result.initial_eval_score = 0.4
+    mock_result.final_eval_score = 0.85
+
+    # Mock the dataset and its methods
+    mock_distillation_dataset = mock.MagicMock()
+    mock_distillation_dataset.dataset_id = "distillation-dataset-123"
+
+    # Mock traces returned by search
+    mock_traces = [mock.MagicMock() for _ in range(2)]
+
+    # Mock student prompt with template
+    mock_student_prompt = mock.MagicMock()
+    mock_student_prompt.template = "Question: {{question}}"
+
+    # All mocks target distillation.py since that's where the implementation is
+    with (
+        mock.patch(
+            "mlflow.genai.optimize.distillation.create_dataset",
+            return_value=mock_distillation_dataset,
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation.load_prompt", return_value=mock_student_prompt
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation._create_optimizer",
+            return_value=mock.MagicMock(),
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation._load_scorers", return_value=[mock.MagicMock()]
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation._build_predict_fn", return_value=lambda **k: "r"
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation.search_traces_by_prompt",
+            return_value=mock_traces,
+        ),
+        mock.patch(
+            "mlflow.genai.optimize.distillation.extract_from_traces",
+            return_value=[
+                ({"question": "Q1"}, "A1"),
+                ({"question": "Q2"}, "A2"),
+            ],
+        ),
+        mock.patch("mlflow.genai.optimize.distillation.set_experiment"),
+        mock.patch("mlflow.genai.optimize.distillation.start_run") as mock_start_run,
+        mock.patch("mlflow.genai.optimize.distillation.mlflow"),
+        mock.patch("mlflow.genai.optimize.distillation.MlflowClient"),
+        mock.patch("mlflow.genai.optimize.distillation.get_dataset"),
+        mock.patch(
+            "mlflow.genai.optimize.distillation.optimize_prompts", return_value=mock_result
+        ),
+    ):
+        # Configure start_run to return a proper context manager
+        mock_start_run.return_value.__enter__ = mock.MagicMock()
+        mock_start_run.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        result = distill_prompts_job(
+            run_id="run-456",
+            experiment_id="exp-456",
+            student_prompt_uri="prompts:/student/1",
+            source_prompt_uri="prompts:/teacher/1",
+            optimizer_type="gepa",
+            optimizer_config=optimizer_config,
+        )
+
+        # Verify result structure includes distillation-specific fields
+        assert result["run_id"] == "run-456"
+        assert result["student_prompt_uri"] == "prompts:/student/1"
+        assert result["optimized_prompt_uri"] == "prompts:/test/2"
+        assert result["optimizer_name"] == "GepaPromptOptimizer"
+        assert result["initial_eval_score"] == 0.4
+        assert result["final_eval_score"] == 0.85
+        assert result["distillation_dataset_id"] == "distillation-dataset-123"
+        assert result["num_traces"] == 2
+        assert result["num_samples"] == 2

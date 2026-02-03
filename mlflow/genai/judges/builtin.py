@@ -33,12 +33,34 @@ def _sanitize_feedback(feedback: Feedback) -> Feedback:
     The judge returns a CategoricalRating class defined in the databricks-agents package.
     This function converts it to our CategoricalRating definition above.
 
+    For numeric scores (e.g., from SemanticMatch), the value is preserved as-is or
+    converted to int if it's a numeric string.
+
     Args:
         feedback: The Feedback object to convert.
 
     Returns:
-        A new Feedback object with our CategoricalRating.
+        A new Feedback object with sanitized value.
     """
+    if feedback.value is None:
+        return feedback
+
+    # Handle numeric values (int, float, or numeric strings)
+    if isinstance(feedback.value, (int, float)):
+        # Keep numeric values as-is (convert float to int if it's a whole number)
+        if isinstance(feedback.value, float) and feedback.value.is_integer():
+            feedback.value = int(feedback.value)
+        return feedback
+
+    # Try to parse as integer (LLM might return "85" instead of 85)
+    if isinstance(feedback.value, str):
+        try:
+            feedback.value = int(feedback.value)
+            return feedback
+        except ValueError:
+            pass
+
+    # For categorical values (yes/no), convert to CategoricalRating
     feedback.value = CategoricalRating(feedback.value) if feedback.value else feedback.value
     return feedback
 

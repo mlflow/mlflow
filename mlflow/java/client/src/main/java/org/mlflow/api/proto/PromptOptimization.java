@@ -43,6 +43,15 @@ public final class PromptOptimization {
      * <code>OPTIMIZER_TYPE_METAPROMPT = 2;</code>
      */
     OPTIMIZER_TYPE_METAPROMPT(2),
+    /**
+     * <pre>
+     * Distillation optimizer - optimizes student prompt to match teacher model responses.
+     * Uses GEPA internally with SemanticMatch scorer. Requires teacher_prompt_uri in config.
+     * </pre>
+     *
+     * <code>OPTIMIZER_TYPE_DISTILLATION = 3;</code>
+     */
+    OPTIMIZER_TYPE_DISTILLATION(3),
     ;
 
     /**
@@ -65,6 +74,15 @@ public final class PromptOptimization {
      * <code>OPTIMIZER_TYPE_METAPROMPT = 2;</code>
      */
     public static final int OPTIMIZER_TYPE_METAPROMPT_VALUE = 2;
+    /**
+     * <pre>
+     * Distillation optimizer - optimizes student prompt to match teacher model responses.
+     * Uses GEPA internally with SemanticMatch scorer. Requires teacher_prompt_uri in config.
+     * </pre>
+     *
+     * <code>OPTIMIZER_TYPE_DISTILLATION = 3;</code>
+     */
+    public static final int OPTIMIZER_TYPE_DISTILLATION_VALUE = 3;
 
 
     public final int getNumber() {
@@ -90,6 +108,7 @@ public final class PromptOptimization {
         case 0: return OPTIMIZER_TYPE_UNSPECIFIED;
         case 1: return OPTIMIZER_TYPE_GEPA;
         case 2: return OPTIMIZER_TYPE_METAPROMPT;
+        case 3: return OPTIMIZER_TYPE_DISTILLATION;
         default: return null;
       }
     }
@@ -991,6 +1010,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1002,6 +1022,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1012,6 +1033,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1023,6 +1045,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1038,6 +1061,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1050,6 +1074,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1062,6 +1087,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1069,6 +1095,41 @@ public final class PromptOptimization {
      */
     com.google.protobuf.ByteString
         getOptimizerConfigJsonBytes();
+
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return Whether the teacherPromptUri field is set.
+     */
+    boolean hasTeacherPromptUri();
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return The teacherPromptUri.
+     */
+    java.lang.String getTeacherPromptUri();
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return The bytes for teacherPromptUri.
+     */
+    com.google.protobuf.ByteString
+        getTeacherPromptUriBytes();
   }
   /**
    * <pre>
@@ -1092,6 +1153,7 @@ public final class PromptOptimization {
       datasetId_ = "";
       scorers_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       optimizerConfigJson_ = "";
+      teacherPromptUri_ = "";
     }
 
     @java.lang.Override
@@ -1156,6 +1218,12 @@ public final class PromptOptimization {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
               optimizerConfigJson_ = bs;
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              teacherPromptUri_ = bs;
               break;
             }
             default: {
@@ -1287,6 +1355,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1300,6 +1369,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1312,6 +1382,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1325,6 +1396,7 @@ public final class PromptOptimization {
      * <pre>
      * List of scorer names. Can be built-in scorer class names
      * (e.g., "Correctness", "Safety") or registered scorer names.
+     * For distillation mode, this is ignored and SemanticMatch is used automatically.
      * </pre>
      *
      * <code>repeated string scorers = 3;</code>
@@ -1344,6 +1416,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1359,6 +1432,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1385,6 +1459,7 @@ public final class PromptOptimization {
      * Different optimizers accept different parameters:
      * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
      * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+     * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
      * </pre>
      *
      * <code>optional string optimizer_config_json = 4;</code>
@@ -1399,6 +1474,72 @@ public final class PromptOptimization {
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         optimizerConfigJson_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int TEACHER_PROMPT_URI_FIELD_NUMBER = 5;
+    private volatile java.lang.Object teacherPromptUri_;
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return Whether the teacherPromptUri field is set.
+     */
+    @java.lang.Override
+    public boolean hasTeacherPromptUri() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return The teacherPromptUri.
+     */
+    @java.lang.Override
+    public java.lang.String getTeacherPromptUri() {
+      java.lang.Object ref = teacherPromptUri_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          teacherPromptUri_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+     * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+     * The teacher prompt's model config defines which LLM generates the target responses.
+     * </pre>
+     *
+     * <code>optional string teacher_prompt_uri = 5;</code>
+     * @return The bytes for teacherPromptUri.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getTeacherPromptUriBytes() {
+      java.lang.Object ref = teacherPromptUri_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        teacherPromptUri_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1431,6 +1572,9 @@ public final class PromptOptimization {
       if (((bitField0_ & 0x00000004) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, optimizerConfigJson_);
       }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, teacherPromptUri_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -1457,6 +1601,9 @@ public final class PromptOptimization {
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, optimizerConfigJson_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, teacherPromptUri_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1489,6 +1636,11 @@ public final class PromptOptimization {
         if (!getOptimizerConfigJson()
             .equals(other.getOptimizerConfigJson())) return false;
       }
+      if (hasTeacherPromptUri() != other.hasTeacherPromptUri()) return false;
+      if (hasTeacherPromptUri()) {
+        if (!getTeacherPromptUri()
+            .equals(other.getTeacherPromptUri())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1515,6 +1667,10 @@ public final class PromptOptimization {
       if (hasOptimizerConfigJson()) {
         hash = (37 * hash) + OPTIMIZER_CONFIG_JSON_FIELD_NUMBER;
         hash = (53 * hash) + getOptimizerConfigJson().hashCode();
+      }
+      if (hasTeacherPromptUri()) {
+        hash = (37 * hash) + TEACHER_PROMPT_URI_FIELD_NUMBER;
+        hash = (53 * hash) + getTeacherPromptUri().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1662,6 +1818,8 @@ public final class PromptOptimization {
         bitField0_ = (bitField0_ & ~0x00000004);
         optimizerConfigJson_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
+        teacherPromptUri_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -1707,6 +1865,10 @@ public final class PromptOptimization {
           to_bitField0_ |= 0x00000004;
         }
         result.optimizerConfigJson_ = optimizerConfigJson_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.teacherPromptUri_ = teacherPromptUri_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1777,6 +1939,11 @@ public final class PromptOptimization {
         if (other.hasOptimizerConfigJson()) {
           bitField0_ |= 0x00000008;
           optimizerConfigJson_ = other.optimizerConfigJson_;
+          onChanged();
+        }
+        if (other.hasTeacherPromptUri()) {
+          bitField0_ |= 0x00000010;
+          teacherPromptUri_ = other.teacherPromptUri_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -1987,6 +2154,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2000,6 +2168,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2012,6 +2181,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2025,6 +2195,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2039,6 +2210,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2060,6 +2232,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2080,6 +2253,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2098,6 +2272,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2113,6 +2288,7 @@ public final class PromptOptimization {
        * <pre>
        * List of scorer names. Can be built-in scorer class names
        * (e.g., "Correctness", "Safety") or registered scorer names.
+       * For distillation mode, this is ignored and SemanticMatch is used automatically.
        * </pre>
        *
        * <code>repeated string scorers = 3;</code>
@@ -2137,6 +2313,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2151,6 +2328,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2176,6 +2354,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2200,6 +2379,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2222,6 +2402,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2239,6 +2420,7 @@ public final class PromptOptimization {
        * Different optimizers accept different parameters:
        * - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
        * - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+       * - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
        * </pre>
        *
        * <code>optional string optimizer_config_json = 4;</code>
@@ -2252,6 +2434,126 @@ public final class PromptOptimization {
   }
   bitField0_ |= 0x00000008;
         optimizerConfigJson_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object teacherPromptUri_ = "";
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @return Whether the teacherPromptUri field is set.
+       */
+      public boolean hasTeacherPromptUri() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @return The teacherPromptUri.
+       */
+      public java.lang.String getTeacherPromptUri() {
+        java.lang.Object ref = teacherPromptUri_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            teacherPromptUri_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @return The bytes for teacherPromptUri.
+       */
+      public com.google.protobuf.ByteString
+          getTeacherPromptUriBytes() {
+        java.lang.Object ref = teacherPromptUri_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          teacherPromptUri_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @param value The teacherPromptUri to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTeacherPromptUri(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        teacherPromptUri_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTeacherPromptUri() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        teacherPromptUri_ = getDefaultInstance().getTeacherPromptUri();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+       * Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+       * The teacher prompt's model config defines which LLM generates the target responses.
+       * </pre>
+       *
+       * <code>optional string teacher_prompt_uri = 5;</code>
+       * @param value The bytes for teacherPromptUri to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTeacherPromptUriBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        teacherPromptUri_ = value;
         onChanged();
         return this;
       }
@@ -6021,29 +6323,31 @@ public final class PromptOptimization {
       "\n\031prompt_optimization.proto\022\006mlflow\032\njob" +
       "s.proto\032\025scalapb/scalapb.proto\"6\n\030Prompt" +
       "OptimizationJobTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t\"\220\001\n\033PromptOptimizationJobConfig\022-" +
+      "\030\002 \001(\t\"\254\001\n\033PromptOptimizationJobConfig\022-" +
       "\n\016optimizer_type\030\001 \001(\0162\025.mlflow.Optimize" +
       "rType\022\022\n\ndataset_id\030\002 \001(\t\022\017\n\007scorers\030\003 \003" +
-      "(\t\022\035\n\025optimizer_config_json\030\004 \001(\t\"\341\004\n\025Pr" +
-      "omptOptimizationJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006r" +
-      "un_id\030\002 \001(\t\022\037\n\005state\030\003 \001(\0132\020.mlflow.JobS" +
-      "tate\022\025\n\rexperiment_id\030\004 \001(\t\022\031\n\021source_pr" +
-      "ompt_uri\030\005 \001(\t\022\034\n\024optimized_prompt_uri\030\006" +
-      " \001(\t\0223\n\006config\030\007 \001(\0132#.mlflow.PromptOpti" +
-      "mizationJobConfig\022\035\n\025creation_timestamp_" +
-      "ms\030\010 \001(\003\022\037\n\027completion_timestamp_ms\030\t \001(" +
-      "\003\022.\n\004tags\030\n \003(\0132 .mlflow.PromptOptimizat" +
-      "ionJobTag\022Q\n\023initial_eval_scores\030\013 \003(\01324" +
-      ".mlflow.PromptOptimizationJob.InitialEva" +
-      "lScoresEntry\022M\n\021final_eval_scores\030\014 \003(\0132" +
-      "2.mlflow.PromptOptimizationJob.FinalEval" +
-      "ScoresEntry\0328\n\026InitialEvalScoresEntry\022\013\n" +
-      "\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001\0326\n\024FinalEv" +
-      "alScoresEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(" +
-      "\001:\0028\001*g\n\rOptimizerType\022\036\n\032OPTIMIZER_TYPE" +
-      "_UNSPECIFIED\020\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022" +
-      "\035\n\031OPTIMIZER_TYPE_METAPROMPT\020\002B\036\n\024org.ml" +
-      "flow.api.proto\220\001\001\342?\002\020\001"
+      "(\t\022\035\n\025optimizer_config_json\030\004 \001(\t\022\032\n\022tea" +
+      "cher_prompt_uri\030\005 \001(\t\"\341\004\n\025PromptOptimiza" +
+      "tionJob\022\016\n\006job_id\030\001 \001(\t\022\016\n\006run_id\030\002 \001(\t\022" +
+      "\037\n\005state\030\003 \001(\0132\020.mlflow.JobState\022\025\n\rexpe" +
+      "riment_id\030\004 \001(\t\022\031\n\021source_prompt_uri\030\005 \001" +
+      "(\t\022\034\n\024optimized_prompt_uri\030\006 \001(\t\0223\n\006conf" +
+      "ig\030\007 \001(\0132#.mlflow.PromptOptimizationJobC" +
+      "onfig\022\035\n\025creation_timestamp_ms\030\010 \001(\003\022\037\n\027" +
+      "completion_timestamp_ms\030\t \001(\003\022.\n\004tags\030\n " +
+      "\003(\0132 .mlflow.PromptOptimizationJobTag\022Q\n" +
+      "\023initial_eval_scores\030\013 \003(\01324.mlflow.Prom" +
+      "ptOptimizationJob.InitialEvalScoresEntry" +
+      "\022M\n\021final_eval_scores\030\014 \003(\01322.mlflow.Pro" +
+      "mptOptimizationJob.FinalEvalScoresEntry\032" +
+      "8\n\026InitialEvalScoresEntry\022\013\n\003key\030\001 \001(\t\022\r" +
+      "\n\005value\030\002 \001(\001:\0028\001\0326\n\024FinalEvalScoresEntr" +
+      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028\001*\210\001\n\rOp" +
+      "timizerType\022\036\n\032OPTIMIZER_TYPE_UNSPECIFIE" +
+      "D\020\000\022\027\n\023OPTIMIZER_TYPE_GEPA\020\001\022\035\n\031OPTIMIZE" +
+      "R_TYPE_METAPROMPT\020\002\022\037\n\033OPTIMIZER_TYPE_DI" +
+      "STILLATION\020\003B\036\n\024org.mlflow.api.proto\220\001\001\342" +
+      "?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6062,7 +6366,7 @@ public final class PromptOptimization {
     internal_static_mlflow_PromptOptimizationJobConfig_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_PromptOptimizationJobConfig_descriptor,
-        new java.lang.String[] { "OptimizerType", "DatasetId", "Scorers", "OptimizerConfigJson", });
+        new java.lang.String[] { "OptimizerType", "DatasetId", "Scorers", "OptimizerConfigJson", "TeacherPromptUri", });
     internal_static_mlflow_PromptOptimizationJob_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_PromptOptimizationJob_fieldAccessorTable = new

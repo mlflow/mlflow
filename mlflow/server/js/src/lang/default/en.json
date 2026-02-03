@@ -311,10 +311,6 @@
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
   },
-  "072qFJ": {
-    "defaultMessage": "Select a scorer",
-    "description": "Placeholder for scorer selection"
-  },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
     "description": "Label for the compared IDs section in the model trace explorer"
@@ -463,6 +459,10 @@
     "defaultMessage": "Alternatively, you can interact with this trace via the MLflow Python SDK, using the {code} function. For more information, please check the {documentation_link}.",
     "description": "Body text for when a trace is too large to display"
   },
+  "1Dkdrq": {
+    "defaultMessage": "Click to select scorers",
+    "description": "Placeholder for scorer selection"
+  },
   "1Iq+NW": {
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
@@ -474,6 +474,10 @@
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
+  },
+  "1Q8y0L": {
+    "defaultMessage": "e.g., gpt-4o-mini, claude-3-haiku",
+    "description": "Placeholder for student model"
   },
   "1RxxTj": {
     "defaultMessage": "(Version {sourceModelVersion})",
@@ -954,6 +958,10 @@
     "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
     "description": "Section title in a side panel that displays session-level scorers"
   },
+  "5M5XR0": {
+    "defaultMessage": "Provider",
+    "description": "Label for student provider"
+  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -973,6 +981,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5WEnAU": {
+    "defaultMessage": "Student Model",
+    "description": "Label for student model"
   },
   "5YDkeM": {
     "defaultMessage": "Experiments",
@@ -1094,6 +1106,10 @@
     "defaultMessage": "Get shareable link",
     "description": "Title text for the experiment \"Get link\" modal"
   },
+  "6KaNF2": {
+    "defaultMessage": "Select built-in scorers (turquoise) or experiment-specific scorers (purple). Click the X to remove.",
+    "description": "Help text for scorer selection"
+  },
   "6Nk5AH": {
     "defaultMessage": "Filter registered models by name or tags",
     "description": "Placeholder text inside model search bar"
@@ -1117,6 +1133,10 @@
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
+  },
+  "6WIPYW": {
+    "defaultMessage": "Zero-shot: No dataset or scorers needed",
+    "description": "Zero-shot mode description"
   },
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
@@ -1177,6 +1197,10 @@
   "6tKW1I": {
     "defaultMessage": "Automatically log traces for Bedrock conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the Bedrock package using MLflow autologging. This message is followed by a code example."
+  },
+  "6tVyJj": {
+    "defaultMessage": "Student Model",
+    "description": "Student model label"
   },
   "6vII7y": {
     "defaultMessage": "Cancel",
@@ -1401,6 +1425,10 @@
   "81PFb9": {
     "defaultMessage": "Prompt type:",
     "description": "A label for selecting prompt type in the prompt creation modal"
+  },
+  "83ao1F": {
+    "defaultMessage": "Version",
+    "description": "Label for teacher prompt version selection"
   },
   "83wDn8": {
     "defaultMessage": "Total",
@@ -1970,10 +1998,6 @@
     "defaultMessage": "Provider",
     "description": "Label for provider select field"
   },
-  "BrkI1d": {
-    "defaultMessage": "MetaPrompt uses an LLM to generate improved prompts without requiring evaluation data.",
-    "description": "Description for MetaPrompt optimizer"
-  },
   "Bs2X0L": {
     "defaultMessage": "Created by",
     "description": "Label for the creator of a logged model on the logged model details page"
@@ -2033,6 +2057,10 @@
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
+  },
+  "CLh6Sl": {
+    "defaultMessage": "Prompt content not available. The prompt may have been deleted or the URI format is not recognized.",
+    "description": "No prompt content message"
   },
   "CPO2ro": {
     "defaultMessage": "GenAI apps & agents",
@@ -2193,6 +2221,10 @@
   "DaF+KK": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
+  },
+  "Db1qm2": {
+    "defaultMessage": "Student Model Configuration",
+    "description": "Section header for student model configuration"
   },
   "DcGPfO": {
     "defaultMessage": "Row height",
@@ -2530,6 +2562,10 @@
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
   },
+  "GhMbKF": {
+    "defaultMessage": "Teacher Prompt",
+    "description": "Teacher prompt label"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
@@ -2541,10 +2577,6 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
-  },
-  "GxN3RA": {
-    "defaultMessage": "GEPA uses evolutionary algorithms to iteratively improve prompts based on evaluation data.",
-    "description": "Description for GEPA optimizer"
   },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
@@ -2561,6 +2593,10 @@
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
+  },
+  "H62TZV": {
+    "defaultMessage": "Teacher Prompt Version",
+    "description": "Label for teacher prompt version selection"
   },
   "H7JwOl": {
     "defaultMessage": "Delete version",
@@ -2706,6 +2742,10 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
+  "I54xem": {
+    "defaultMessage": "The student prompt will be auto-created with the same template as the teacher but configured for this model.",
+    "description": "Help text for student model configuration"
+  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -2753,10 +2793,6 @@
   "IXPpwQ": {
     "defaultMessage": "404: Resource not found",
     "description": "Generic 404 user-friendly error for the MLflow UI"
-  },
-  "IYMRM4": {
-    "defaultMessage": "Prompt Optimization",
-    "description": "Label for the prompt optimization tab in the MLflow experiment navbar"
   },
   "IZ95jb": {
     "defaultMessage": "Datasets",
@@ -2898,6 +2934,10 @@
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
   },
+  "Jl5WVA": {
+    "defaultMessage": "Distillation",
+    "description": "Label for Distillation optimizer type"
+  },
   "JmNdE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
@@ -2969,6 +3009,10 @@
   "KB62p3": {
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
+  },
+  "KDIN8z": {
+    "defaultMessage": "Uses an LLM to generate improved prompts. Supports multiple modes:",
+    "description": "Description for MetaPrompt optimizer"
   },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
@@ -3454,6 +3498,10 @@
     "defaultMessage": "All runs in this experiment have been filtered. Change or clear filters to view runs.",
     "description": "Empty state description text for experiment runs page when all runs have been filtered out"
   },
+  "No6wEC": {
+    "defaultMessage": "Distill knowledge from a teacher prompt (with existing traces) to a smaller, more efficient student model. The student prompt is auto-created with the same template but different model configuration.",
+    "description": "Description for Distillation optimizer"
+  },
   "Np53PR": {
     "defaultMessage": "Try this template",
     "description": "Experiment page > new run modal > prompt examples > try template button"
@@ -3477,6 +3525,10 @@
   "NwNrl4": {
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
+  },
+  "NwQ2wn": {
+    "defaultMessage": "e.g., openai, anthropic",
+    "description": "Placeholder for student provider"
   },
   "NyzPHY": {
     "defaultMessage": "Expand description",
@@ -3716,6 +3768,10 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
+  },
+  "Q2MzIv": {
+    "defaultMessage": "Uses evolutionary algorithms to iteratively improve prompts. Requires both a dataset and scorer(s) for evaluation-driven optimization.",
+    "description": "Description for GEPA optimizer"
   },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
@@ -4177,6 +4233,10 @@
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
   },
+  "TSfi48": {
+    "defaultMessage": "MetaPrompt",
+    "description": "MetaPrompt title"
+  },
   "TWnsnV": {
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
@@ -4467,6 +4527,10 @@
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
+  },
+  "VZlOUq": {
+    "defaultMessage": "Optimized Prompt",
+    "description": "Optimized prompt section title"
   },
   "VcNdOq": {
     "defaultMessage": "No description",
@@ -4890,10 +4954,6 @@
   "Yhydp3": {
     "defaultMessage": "Relevance",
     "description": "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
-  },
-  "Yjxzbb": {
-    "defaultMessage": "Scorer",
-    "description": "Label for scorer selection"
   },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -5523,6 +5583,10 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
+  "ccXgao": {
+    "defaultMessage": "Few-shot: Add a dataset for example-driven improvement",
+    "description": "Few-shot mode description"
+  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -5823,6 +5887,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
+  "eiuNVC": {
+    "defaultMessage": "Version {version}",
+    "description": "Label for teacher prompt version option"
+  },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
     "description": "Label for the evaluations tab in the MLflow experiment navbar"
@@ -5918,6 +5986,10 @@
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
+  },
+  "fdcCTH": {
+    "defaultMessage": "Scorer(s)",
+    "description": "Label for scorer selection"
   },
   "fdfi96": {
     "defaultMessage": "Create judge",
@@ -6143,6 +6215,10 @@
     "defaultMessage": "Iteration {iteration}",
     "description": "Iteration header"
   },
+  "gxQ9A1": {
+    "defaultMessage": "Teacher Prompt",
+    "description": "Label for teacher prompt selection"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -6222,6 +6298,10 @@
   "hWHLjo": {
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
+  },
+  "hX3i4g": {
+    "defaultMessage": "Student Model Provider",
+    "description": "Label for student provider"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -6359,6 +6439,10 @@
     "defaultMessage": "Datasets",
     "description": "Label for the evaluation datasets sub-tab in the MLflow experiment navbar"
   },
+  "iWHIrT": {
+    "defaultMessage": "GEPA (Genetic Prompt Algorithm)",
+    "description": "GEPA title"
+  },
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
@@ -6399,6 +6483,10 @@
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
   },
+  "ikx2LK": {
+    "defaultMessage": "Select a version",
+    "description": "Placeholder for teacher prompt version selection"
+  },
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
@@ -6422,6 +6510,10 @@
   "j/pJM6": {
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
+  },
+  "j1jgKU": {
+    "defaultMessage": "Optimization",
+    "description": "Label for the prompt optimization tab in the MLflow experiment navbar"
   },
   "j25Ttg": {
     "defaultMessage": "Model metrics",
@@ -6694,6 +6786,10 @@
   "l/+0SR": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
+  },
+  "l4TYPh": {
+    "defaultMessage": "Source Prompt",
+    "description": "Source prompt section title"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -7103,6 +7199,10 @@
     "defaultMessage": "Show more columns {count, select, 0 {} other {({count} total)}}",
     "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
+  "npIoeO": {
+    "defaultMessage": "Prompts",
+    "description": "Prompts section title"
+  },
   "npKSv/": {
     "defaultMessage": "No description",
     "description": "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
@@ -7182,6 +7282,10 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
+  },
+  "oPDK/M": {
+    "defaultMessage": "Select a teacher prompt",
+    "description": "Placeholder for teacher prompt selection"
   },
   "oPtQe+": {
     "defaultMessage": "Intermediate Candidates",
@@ -7847,6 +7951,10 @@
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
   },
+  "tD5Ak1": {
+    "defaultMessage": "Experiment Scorers",
+    "description": "Experiment scorers section"
+  },
   "tEaqGu": {
     "defaultMessage": "Expectation",
     "description": "Expectation select menu option for assessment type"
@@ -8147,6 +8255,10 @@
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
   },
+  "w1JnFp": {
+    "defaultMessage": "Distillation",
+    "description": "Distillation title"
+  },
   "w2+rkp": {
     "defaultMessage": "Search metrics",
     "description": "Run page > Overview > Metrics table > Filter input placeholder"
@@ -8315,6 +8427,10 @@
     "defaultMessage": "Response",
     "description": "Evaluation review > Response section > title"
   },
+  "x7LNVm": {
+    "defaultMessage": "Built-in Scorers",
+    "description": "Built-in scorers section"
+  },
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
@@ -8342,6 +8458,10 @@
   "xKpbD3": {
     "defaultMessage": "Chat",
     "description": "Label for chat prompt type in the prompt creation modal"
+  },
+  "xNODrW": {
+    "defaultMessage": "Scorers",
+    "description": "Label for scorer selection"
   },
   "xPkIEE": {
     "defaultMessage": "Active",
@@ -8451,6 +8571,10 @@
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
   },
+  "y8478l": {
+    "defaultMessage": "Model",
+    "description": "Label for student model"
+  },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",
     "description": "LLM template option"
@@ -8474,6 +8598,10 @@
   "yHbOpe": {
     "defaultMessage": "Original logged model: {originalName}",
     "description": "Tooltip text showing the original logged model name"
+  },
+  "yIe6Il": {
+    "defaultMessage": "Few-shot + evaluation: Add dataset and scorer(s) for validated improvements",
+    "description": "Few-shot with eval mode description"
   },
   "yJpGwW": {
     "defaultMessage": "Deleted",

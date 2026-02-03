@@ -18,6 +18,10 @@ enum OptimizerType {
 
   // MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass.
   OPTIMIZER_TYPE_METAPROMPT = 2;
+
+  // Distillation optimizer - optimizes student prompt to match teacher model responses.
+  // Uses GEPA internally with SemanticMatch scorer. Requires teacher_prompt_uri in config.
+  OPTIMIZER_TYPE_DISTILLATION = 3;
 }
 
 // Tag for a prompt optimization job.
@@ -38,13 +42,20 @@ message PromptOptimizationJobConfig {
 
   // List of scorer names. Can be built-in scorer class names
   // (e.g., "Correctness", "Safety") or registered scorer names.
+  // For distillation mode, this is ignored and SemanticMatch is used automatically.
   repeated string scorers = 3;
 
   // JSON-serialized optimizer-specific configuration.
   // Different optimizers accept different parameters:
   // - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
   // - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+  // - Distillation: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300} (uses GEPA internally)
   optional string optimizer_config_json = 4;
+
+  // URI of the teacher prompt for distillation (e.g., "prompts:/my-prompt/1").
+  // Required when optimizer_type is OPTIMIZER_TYPE_DISTILLATION.
+  // The teacher prompt's model config defines which LLM generates the target responses.
+  optional string teacher_prompt_uri = 5;
 }
 
 // Represents a prompt optimization job entity.

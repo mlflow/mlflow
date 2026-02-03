@@ -25,7 +25,7 @@ from typing import Any
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import create_dataset, get_dataset
 from mlflow.genai.optimize import optimize_prompts
 from mlflow.genai.optimize.distillation_utils import (
     extract_from_span,
@@ -39,13 +39,10 @@ from mlflow.genai.optimize.job import (
 )
 from mlflow.genai.prompts import load_prompt
 from mlflow.genai.utils.trace_utils import extract_response_from_trace
-from mlflow.server.jobs import job
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import set_experiment, start_run
 
 _logger = logging.getLogger(__name__)
-
-_DEFAULT_DISTILLATION_JOB_MAX_WORKERS = 2
 
 
 @dataclass
@@ -320,10 +317,6 @@ def create_distillation_dataset_from_prompt(
 
     _logger.info(f"Found {len(traces)} traces")
 
-    import pdb
-
-    pdb.set_trace()
-
     # Load prompt template if not provided
     if prompt_template is None:
         prompt = load_prompt(source_prompt_uri)
@@ -335,10 +328,6 @@ def create_distillation_dataset_from_prompt(
         traces=traces,
         prompt_template=prompt_template,
     )
-
-    import pdb
-
-    pdb.set_trace()
 
     if not extracted_data:
         raise MlflowException(
@@ -408,7 +397,6 @@ def run_distillation(
     Returns:
         Dict containing distillation results (JSON-serializable).
     """
-    from mlflow.genai.datasets import get_dataset
 
     set_experiment(experiment_id=experiment_id)
 
@@ -420,8 +408,8 @@ def run_distillation(
         source_prompt_name, source_prompt_version = _parse_prompt_uri(source_prompt_uri)
 
         # Phase 1: Search for traces linked to the source prompt
+        # Note: student_prompt_uri and teacher_prompt_uri are already logged by the handler
         mlflow.set_tag("distillation.status", "searching_traces")
-        mlflow.log_param("source_prompt_uri", source_prompt_uri)
 
         _logger.info(f"Searching for traces linked to {source_prompt_uri}...")
         traces = search_traces_by_prompt(
@@ -525,52 +513,3 @@ def run_distillation(
     )
 
     return asdict(job_result)
-
-
-@job(name="distill_prompts", max_workers=_DEFAULT_DISTILLATION_JOB_MAX_WORKERS)
-def distill_prompts_job(
-    run_id: str,
-    experiment_id: str,
-    student_prompt_uri: str,
-    source_prompt_uri: str,
-    optimizer_type: str,
-    optimizer_config: dict[str, Any] | None,
-    max_traces: int | None = None,
-) -> dict[str, Any]:
-    """
-    Async job function for prompt distillation.
-
-    This job implements knowledge distillation to optimize a student prompt
-    to match responses from traces linked to a source prompt (typically a teacher).
-
-    **Prerequisites:**
-    1. Run your agent/prompt over your dataset with MLflow tracing enabled
-    2. Ensure your code uses mlflow.genai.load_prompt() to link traces to the prompt
-
-    **Workflow:**
-    1. Searches for traces linked to the source prompt
-    2. Extracts responses from traces using two-stage matching
-    3. Creates a distillation dataset with responses as expected outputs
-    4. Optimizes the student prompt using SemanticMatch scorer
-
-    Args:
-        run_id: MLflow run ID for tracking.
-        experiment_id: Experiment ID for tracking.
-        student_prompt_uri: URI of the student prompt to optimize.
-        source_prompt_uri: URI of the prompt whose traces to use as training data.
-        optimizer_type: Optimizer type ("gepa" or "metaprompt").
-        optimizer_config: Optimizer-specific configuration dict.
-        max_traces: Maximum number of traces to use. None for all available.
-
-    Returns:
-        Dict containing distillation results (JSON-serializable).
-    """
-    return run_distillation(
-        run_id=run_id,
-        experiment_id=experiment_id,
-        student_prompt_uri=student_prompt_uri,
-        source_prompt_uri=source_prompt_uri,
-        optimizer_type=optimizer_type,
-        optimizer_config=optimizer_config,
-        max_traces=max_traces,
-    )

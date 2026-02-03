@@ -13,9 +13,11 @@ class OptimizerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     OPTIMIZER_TYPE_UNSPECIFIED: _ClassVar[OptimizerType]
     OPTIMIZER_TYPE_GEPA: _ClassVar[OptimizerType]
     OPTIMIZER_TYPE_METAPROMPT: _ClassVar[OptimizerType]
+    OPTIMIZER_TYPE_DISTILLATION: _ClassVar[OptimizerType]
 OPTIMIZER_TYPE_UNSPECIFIED: OptimizerType
 OPTIMIZER_TYPE_GEPA: OptimizerType
 OPTIMIZER_TYPE_METAPROMPT: OptimizerType
+OPTIMIZER_TYPE_DISTILLATION: OptimizerType
 
 class PromptOptimizationJobTag(_message.Message):
     __slots__ = ("key", "value")
@@ -26,16 +28,18 @@ class PromptOptimizationJobTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJobConfig(_message.Message):
-    __slots__ = ("optimizer_type", "dataset_id", "scorers", "optimizer_config_json")
+    __slots__ = ("optimizer_type", "dataset_id", "scorers", "optimizer_config_json", "teacher_prompt_uri")
     OPTIMIZER_TYPE_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     SCORERS_FIELD_NUMBER: _ClassVar[int]
     OPTIMIZER_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    TEACHER_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
     optimizer_type: OptimizerType
     dataset_id: str
     scorers: _containers.RepeatedScalarFieldContainer[str]
     optimizer_config_json: str
-    def __init__(self, optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
+    teacher_prompt_uri: str
+    def __init__(self, optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., dataset_id: _Optional[str] = ..., scorers: _Optional[_Iterable[str]] = ..., optimizer_config_json: _Optional[str] = ..., teacher_prompt_uri: _Optional[str] = ...) -> None: ...
 
 class PromptOptimizationJob(_message.Message):
     __slots__ = ("job_id", "run_id", "state", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "tags", "initial_eval_scores", "final_eval_scores")

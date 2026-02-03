@@ -329,14 +329,39 @@ const PromptOptimizationDetailsPageImpl = ({ experimentId, jobId }: PromptOptimi
               title={<FormattedMessage defaultMessage="Optimizer Type" description="Optimizer type label" />}
               value={getOptimizerTypeName(job.config?.optimizer_type)}
             />
-            <DetailsOverviewMetadataRow
-              title={<FormattedMessage defaultMessage="Dataset" description="Dataset label" />}
-              value={formatDatasetDisplay()}
-            />
-            <DetailsOverviewMetadataRow
-              title={<FormattedMessage defaultMessage="Scorer(s)" description="Scorers label" />}
-              value={job.config?.scorers?.join(', ') || '-'}
-            />
+            {/* Distillation-specific fields */}
+            {job.config?.optimizer_type === OptimizerType.DISTILLATION && job.config?.teacher_prompt_uri && (
+              <DetailsOverviewMetadataRow
+                title={<FormattedMessage defaultMessage="Teacher Prompt" description="Teacher prompt label" />}
+                value={formatPromptUriDisplay(job.config.teacher_prompt_uri)}
+              />
+            )}
+            {job.config?.optimizer_type === OptimizerType.DISTILLATION && job.config?.student_model_config_json && (
+              <DetailsOverviewMetadataRow
+                title={<FormattedMessage defaultMessage="Student Model" description="Student model label" />}
+                value={(() => {
+                  try {
+                    const config = JSON.parse(job.config.student_model_config_json);
+                    return `${config.provider}/${config.model_name}`;
+                  } catch {
+                    return job.config.student_model_config_json;
+                  }
+                })()}
+              />
+            )}
+            {/* Non-distillation fields */}
+            {job.config?.optimizer_type !== OptimizerType.DISTILLATION && (
+              <>
+                <DetailsOverviewMetadataRow
+                  title={<FormattedMessage defaultMessage="Dataset" description="Dataset label" />}
+                  value={formatDatasetDisplay()}
+                />
+                <DetailsOverviewMetadataRow
+                  title={<FormattedMessage defaultMessage="Scorer(s)" description="Scorers label" />}
+                  value={job.config?.scorers?.join(', ') || '-'}
+                />
+              </>
+            )}
             {optimizerConfigEntries.map(({ key, value }) => (
               <DetailsOverviewMetadataRow key={key} title={key} value={value} />
             ))}
@@ -362,7 +387,9 @@ const PromptOptimizationDetailsPageImpl = ({ experimentId, jobId }: PromptOptimi
               <ExpandablePromptSection
                 promptUri={job.optimized_prompt_uri}
                 experimentId={experimentId}
-                title={<FormattedMessage defaultMessage="Optimized Prompt" description="Optimized prompt section title" />}
+                title={
+                  <FormattedMessage defaultMessage="Optimized Prompt" description="Optimized prompt section title" />
+                }
               />
             )}
           </div>

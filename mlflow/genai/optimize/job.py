@@ -16,6 +16,7 @@ from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.registry import get_scorer
 from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_DISTILLATION,
     OPTIMIZER_TYPE_GEPA,
     OPTIMIZER_TYPE_METAPROMPT,
     OPTIMIZER_TYPE_UNSPECIFIED,
@@ -37,6 +38,7 @@ class OptimizerType(str, Enum):
 
     GEPA = "gepa"
     METAPROMPT = "metaprompt"
+    DISTILLATION = "distillation"
 
     @classmethod
     def from_proto(cls, proto_value: int) -> "OptimizerType":
@@ -63,6 +65,8 @@ class OptimizerType(str, Enum):
             return cls.GEPA
         elif proto_value == OPTIMIZER_TYPE_METAPROMPT:
             return cls.METAPROMPT
+        elif proto_value == OPTIMIZER_TYPE_DISTILLATION:
+            return cls.DISTILLATION
         else:
             supported_types = [
                 name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
@@ -83,6 +87,8 @@ class OptimizerType(str, Enum):
             return OPTIMIZER_TYPE_GEPA
         elif self == OptimizerType.METAPROMPT:
             return OPTIMIZER_TYPE_METAPROMPT
+        elif self == OptimizerType.DISTILLATION:
+            return OPTIMIZER_TYPE_DISTILLATION
         return OPTIMIZER_TYPE_UNSPECIFIED
 
 
@@ -327,3 +333,57 @@ def optimize_prompts_job(
         scorer_names=scorer_names,
     )
     return asdict(job_result)
+
+
+@job(
+    name="distill_prompts",
+    max_workers=_DEFAULT_OPTIMIZATION_JOB_MAX_WORKERS,
+)
+def distill_prompts_job(
+    run_id: str,
+    experiment_id: str,
+    student_prompt_uri: str,
+    source_prompt_uri: str,
+    optimizer_type: str,
+    optimizer_config: dict[str, Any] | None,
+    max_traces: int | None = None,
+) -> dict[str, Any]:
+    """
+    Async job function for prompt distillation (ICL-KD).
+
+    This job implements knowledge distillation to optimize a student prompt
+    to match responses from traces linked to a source prompt (typically a teacher).
+
+    **Prerequisites:**
+    1. Run your agent/prompt over your dataset with MLflow tracing enabled
+    2. Ensure your code uses mlflow.genai.load_prompt() to link traces to the prompt
+
+    **Workflow:**
+    1. Searches for traces linked to the source prompt
+    2. Extracts responses from traces using two-stage matching
+    3. Creates a distillation dataset with responses as expected outputs
+    4. Optimizes the student prompt using SemanticMatch scorer
+
+    Args:
+        run_id: MLflow run ID for tracking.
+        experiment_id: Experiment ID for tracking.
+        student_prompt_uri: URI of the student prompt to optimize.
+        source_prompt_uri: URI of the prompt whose traces to use as training data.
+        optimizer_type: Optimizer type ("gepa" or "metaprompt").
+        optimizer_config: Optimizer-specific configuration dict.
+        max_traces: Maximum number of traces to use. None for all available.
+
+    Returns:
+        Dict containing distillation results (JSON-serializable).
+    """
+    from mlflow.genai.optimize.distillation import run_distillation
+
+    return run_distillation(
+        run_id=run_id,
+        experiment_id=experiment_id,
+        student_prompt_uri=student_prompt_uri,
+        source_prompt_uri=source_prompt_uri,
+        optimizer_type=optimizer_type,
+        optimizer_config=optimizer_config,
+        max_traces=max_traces,
+    )

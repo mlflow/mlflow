@@ -562,7 +562,7 @@ def test_gepa_optimizer_logs_prompt_candidates(
                     enable_tracking=True,
                 )
 
-                # First: minibatch evaluation (should NOT log any artifacts)
+                # First: minibatch evaluation (now logs artifacts for debugging)
                 minibatch = sample_train_data[:2]
                 captured_adapter.evaluate(
                     minibatch, {"system_prompt": "Test"}, capture_traces=False
@@ -572,7 +572,14 @@ def test_gepa_optimizer_logs_prompt_candidates(
                 candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
                 captured_adapter.evaluate(sample_train_data, candidate, capture_traces=False)
 
-    # Verify scores.json was logged
+    # Verify minibatch artifacts were logged (for debugging template variable preservation)
+    # Path structure: prompt_candidates/iteration_{n}/minibatch
+    minibatch_artifacts = [
+        a for a in logged_artifacts if "/minibatch" in (a.get("artifact_path") or "")
+    ]
+    assert len(minibatch_artifacts) >= 1  # At least summary.json and prompt files
+
+    # Verify scores.json was logged for full validation
     scores_artifact = next((a for a in logged_artifacts if "scores.json" in a["path"]), None)
     assert scores_artifact is not None
     assert scores_artifact["artifact_path"] == "prompt_candidates/iteration_0"
@@ -580,12 +587,14 @@ def test_gepa_optimizer_logs_prompt_candidates(
     assert scores_content["aggregate"] == 0.8
     assert scores_content["per_scorer"] == {"accuracy": 0.9, "relevance": 0.7}
 
-    # Verify prompt text files were logged
-    prompt_artifacts = [a for a in logged_artifacts if a["path"].endswith(".txt")]
-    assert len(prompt_artifacts) == 2  # system_prompt.txt and instruction.txt
-    for a in prompt_artifacts:
-        assert a["artifact_path"] == "prompt_candidates/iteration_0"
-    prompt_contents = {Path(a["path"]).stem: a["content"] for a in prompt_artifacts}
+    # Verify prompt text files were logged for full validation
+    full_validation_prompts = [
+        a
+        for a in logged_artifacts
+        if a["path"].endswith(".txt") and a.get("artifact_path") == "prompt_candidates/iteration_0"
+    ]
+    assert len(full_validation_prompts) == 2  # system_prompt.txt and instruction.txt
+    prompt_contents = {Path(a["path"]).stem: a["content"] for a in full_validation_prompts}
     assert prompt_contents["system_prompt"] == "Optimized prompt"
     assert prompt_contents["instruction"] == "New instruction"
 
@@ -657,3 +666,54 @@ def test_extract_eval_scores_per_scorer(val_aggregate_scores, val_aggregate_subs
 
     result = optimizer._extract_eval_scores(mock_result)
     assert result == expected
+
+
+def test_extract_template_variables():
+    from mlflow.genai.optimize.optimizers.gepa_optimizer import _extract_template_variables
+
+    prompts = {
+        "instruction": "Answer {{question}} about {{topic}}",
+        "system": "You are a {{role}}",
+        "simple": "No variables here",
+    }
+    variables = _extract_template_variables(prompts)
+
+    # Returns a flat set of all unique variables across all prompts
+    assert variables == {"question", "topic", "role"}
+
+
+def test_extract_template_variables_empty():
+    from mlflow.genai.optimize.optimizers.gepa_optimizer import _extract_template_variables
+
+    prompts = {
+        "instruction": "No variables here",
+        "system": "Also no variables",
+    }
+    variables = _extract_template_variables(prompts)
+    assert variables == set()
+
+
+def test_build_template_variable_rules_with_variables():
+    from mlflow.genai.optimize.optimizers.gepa_optimizer import (
+        _build_template_variable_rules,
+    )
+
+    template_vars = {"question", "topic"}
+    rules = _build_template_variable_rules(template_vars)
+
+    # Check template variable instructions are included
+    assert "{{question}}" in rules
+    assert "{{topic}}" in rules
+    assert "CRITICAL - TEMPLATE VARIABLES" in rules
+    assert "MUST" in rules
+
+
+def test_build_template_variable_rules_without_variables():
+    from mlflow.genai.optimize.optimizers.gepa_optimizer import (
+        _build_template_variable_rules,
+    )
+
+    rules = _build_template_variable_rules(set())
+
+    # Should return empty string when no variables
+    assert rules == ""
