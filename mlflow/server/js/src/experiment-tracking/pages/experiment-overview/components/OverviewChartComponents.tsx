@@ -194,7 +194,10 @@ export function getTracesFilteredByTimeRangeUrl(
 /** Allowed component IDs for tooltip "View traces" links */
 type TooltipLinkComponentId =
   | 'mlflow.overview.usage.traces.view_traces_link'
-  | 'mlflow.overview.usage.latency.view_traces_link';
+  | 'mlflow.overview.usage.latency.view_traces_link'
+  | 'mlflow.overview.usage.errors.view_traces_link'
+  | 'mlflow.overview.usage.token_stats.view_traces_link'
+  | 'mlflow.overview.usage.token_usage.view_traces_link';
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
@@ -226,17 +229,18 @@ interface ScrollableTooltipProps {
  *
  * @example
  * // With "View traces" link
- * const tooltipContent = useMemo(() => (
- *   <ScrollableTooltip
- *     formatter={(value) => [`${value}`, 'Requests']}
- *     linkConfig={{
- *       experimentId,
- *       timeIntervalSeconds,
- *       componentId: 'mlflow.overview.usage.traces.view_traces_link',
- *     }}
- *   />
- * ), [experimentId, timeIntervalSeconds]);
- * <Tooltip content={tooltipContent} />
+ * <Tooltip
+ *   content={
+ *     <ScrollableTooltip
+ *       formatter={(value) => [`${value}`, 'Requests']}
+ *       linkConfig={{
+ *         experimentId,
+ *         timeIntervalSeconds,
+ *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
+ *       }}
+ *     />
+ *   }
+ * />
  */
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
