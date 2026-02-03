@@ -5239,6 +5239,10 @@
     "defaultMessage": "Fail",
     "description": "Failing evaluation status in the evaluations table."
   },
+  "c+3yBY": {
+    "defaultMessage": "View traces for this period",
+    "description": "Link text to navigate to traces tab filtered by the selected time period"
+  },
   "c0ljd6": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to MLflow documentation"
