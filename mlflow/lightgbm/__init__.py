@@ -161,6 +161,7 @@ def save_model(
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the "skops" format.
         extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example

@@ -13,8 +13,6 @@ import importlib
 import itertools
 import logging
 import os
-import posixpath
-import shutil
 from functools import partial
 from typing import Any
 
@@ -205,16 +203,7 @@ def log_model(
             being created and is in ``READY`` status. By default, the function waits for five
             minutes.  Specify 0 or None to skip waiting.
 
-        extra_files: A list containing the paths to corresponding extra files, if ``None``, no
-            extra files are added to the model. Remote URIs are resolved to absolute filesystem
-            paths. For example, consider the following ``extra_files`` list:
-
-            .. code-block:: python
-
-                extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
+        extra_files: {{ extra_files }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}

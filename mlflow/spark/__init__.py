@@ -742,6 +742,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example
