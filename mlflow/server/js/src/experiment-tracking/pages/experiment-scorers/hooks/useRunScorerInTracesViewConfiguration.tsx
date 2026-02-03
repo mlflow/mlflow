@@ -55,7 +55,11 @@ export const useRunScorerInTracesViewConfiguration = (
     };
   }, []);
 
-  const { evaluateTraces, allEvaluations } = useRunSerializedScorer({ experimentId, onScorerFinished, scope });
+  const { evaluateTraces, allEvaluations, reset } = useRunSerializedScorer({
+    experimentId,
+    onScorerFinished,
+    scope,
+  });
 
   const renderRunJudgeModal = useCallback<NonNullable<ModelTraceExplorerRunJudgeConfig['renderRunJudgeModal']>>(
     ({ itemId, onClose, visible }) => {
@@ -76,6 +80,7 @@ export const useRunScorerInTracesViewConfiguration = (
     renderRunJudgeModal,
     evaluations: allEvaluations,
     subscribeToScorerFinished,
+    reset,
     scope,
   } as UseRunScorerInTracesViewConfigurationReturnType;
 };

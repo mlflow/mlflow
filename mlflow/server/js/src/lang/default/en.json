@@ -7363,6 +7363,10 @@
     "defaultMessage": "Show execution timeline",
     "description": "Tooltip for a button that shows execution timeline info in the trace UI."
   },
+  "r63O2u": {
+    "defaultMessage": "Cancel judge",
+    "description": "Button text for canceling judge evaluation"
+  },
   "r7aGM3": {
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
