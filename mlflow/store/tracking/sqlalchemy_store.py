@@ -1568,7 +1568,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     ):
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if current_size == max_results + 1:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
 
@@ -1617,7 +1617,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
-                .limit(max_results)
+                .limit(max_results + 1)
             )
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
@@ -1639,6 +1639,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             next_page_token = compute_next_token(len(runs_with_inputs_outputs))
+
+            # Trim results if we fetched an extra row to check for more pages
+            if next_page_token:
+                runs_with_inputs_outputs = runs_with_inputs_outputs[:max_results]
 
         return runs_with_inputs_outputs, next_page_token
 

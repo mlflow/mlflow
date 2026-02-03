@@ -2455,6 +2455,34 @@ def test_search_runs_pagination(store: SqlAlchemyStore):
     assert result.token is None
 
 
+def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
+    """Test that when the last page has exactly max_results items, no token is returned.
+
+    This test validates the N+1 pagination approach: the fix should fetch max_results + 1
+    to accurately determine if there are more results, rather than optimistically assuming
+    there are more results whenever we get exactly max_results back.
+    """
+    exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
+    # Create exactly 8 runs (2 pages of 4 runs each)
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(8)]
+    )
+
+    # First page: should return 4 runs and a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+
+    # Second page: should return exactly 4 runs (last page) with NO token
+    # This is the key test case - with optimistic pagination, this would incorrectly
+    # return a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is None, (
+        "Last page should not have a next page token when it has exactly max_results items"
+    )
+
+
 def test_search_runs_run_name(store: SqlAlchemyStore):
     exp_id = _create_experiments(store, "test_search_runs_pagination")
     run1 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name1"))
