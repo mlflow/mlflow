@@ -5,6 +5,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import {
   useScrollableLegendProps,
   getTracesFilteredByTimeRangeUrl,
+  getTracesFilteredByAssessmentUrl,
   ScrollableTooltip,
 } from './OverviewChartComponents';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -59,6 +60,31 @@ describe('getTracesFilteredByTimeRangeUrl', () => {
     expect(url).toContain('startTimeLabel=CUSTOM');
     expect(url).toContain('startTime=');
     expect(url).toContain('endTime=');
+  });
+});
+
+describe('getTracesFilteredByAssessmentUrl', () => {
+  it('should generate correct URL with assessment filter', () => {
+    const experimentId = 'test-experiment-123';
+    const assessmentName = 'quality';
+    const scoreValue = 'good';
+
+    const url = getTracesFilteredByAssessmentUrl(experimentId, assessmentName, scoreValue);
+
+    expect(url).toContain('/experiments/test-experiment-123/traces');
+    expect(url).toContain('filter=ASSESSMENT%3A%3A%3D%3A%3Agood%3A%3Aquality');
+  });
+
+  it('should include time range params when provided', () => {
+    const url = getTracesFilteredByAssessmentUrl('exp-1', 'accuracy', '0.95', {
+      startTimeLabel: 'CUSTOM',
+      startTime: '2025-01-01T00:00:00Z',
+      endTime: '2025-01-02T00:00:00Z',
+    });
+
+    expect(url).toContain('startTimeLabel=CUSTOM');
+    expect(url).toContain('startTime=2025-01-01T00%3A00%3A00Z');
+    expect(url).toContain('endTime=2025-01-02T00%3A00%3A00Z');
   });
 });
 

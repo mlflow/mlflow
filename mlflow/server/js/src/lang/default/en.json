@@ -1794,6 +1794,10 @@
     "defaultMessage": "I'll choose later",
     "description": "A label for the dismissal button in the modal displayed when the experiment type could not be inferred"
   },
+  "B/mYsr": {
+    "defaultMessage": "View traces with this score",
+    "description": "Link text to navigate to traces filtered by assessment score"
+  },
   "B1Upnc": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
