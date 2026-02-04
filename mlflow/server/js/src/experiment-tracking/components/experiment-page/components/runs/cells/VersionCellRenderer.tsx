@@ -2,6 +2,7 @@ import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
 import type { RunRowVersionInfo } from '../../../utils/experimentPage.row-types';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const VersionCellRenderer = React.memo(({ value }: { value?: RunRowVersionInfo }) => {
   if (!value) {
     return <>-</>;

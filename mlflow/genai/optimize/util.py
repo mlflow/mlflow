@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable
@@ -20,7 +22,7 @@ def prompt_optimization_autolog(
     optimizer_name: str,
     num_prompts: int,
     num_training_samples: int,
-    train_data_df: "pd.DataFrame",
+    train_data_df: "pd.DataFrame" | None,
 ):
     """
     Context manager for autologging prompt optimization runs.
@@ -29,7 +31,8 @@ def prompt_optimization_autolog(
         optimizer_name: Name of the optimizer being used
         num_prompts: Number of prompts being optimized
         num_training_samples: Number of training samples
-        train_data_df: Training data as a pandas DataFrame
+        train_data_df: Training data as a pandas DataFrame. If None or empty, it means zero-shot
+            optimization.
 
     Yields:
         Tuple of (run_id, results_dict) where results_dict should be populated with
@@ -48,9 +51,12 @@ def prompt_optimization_autolog(
         mlflow.log_param("num_prompts", num_prompts)
         mlflow.log_param("num_training_samples", num_training_samples)
 
-        # Log training dataset as run input
-        dataset = mlflow.data.from_pandas(train_data_df, source="prompt_optimization_train_data")
-        mlflow.log_input(dataset, context="training")
+        if train_data_df is not None and not train_data_df.empty:
+            # Log training dataset as run input if it is provided
+            dataset = mlflow.data.from_pandas(
+                train_data_df, source="prompt_optimization_train_data"
+            )
+            mlflow.log_input(dataset, context="training")
 
         results = {}
         yield results
@@ -65,17 +71,33 @@ def prompt_optimization_autolog(
                 mlflow.log_metric("initial_eval_score", output.initial_eval_score)
             if output.final_eval_score is not None:
                 mlflow.log_metric("final_eval_score", output.final_eval_score)
+            if output.initial_eval_score_per_scorer:
+                mlflow.log_metrics(
+                    {
+                        f"initial_eval_score.{scorer_name}": score
+                        for scorer_name, score in output.initial_eval_score_per_scorer.items()
+                    }
+                )
+            if output.final_eval_score_per_scorer:
+                mlflow.log_metrics(
+                    {
+                        f"final_eval_score.{scorer_name}": score
+                        for scorer_name, score in output.final_eval_score_per_scorer.items()
+                    }
+                )
 
 
 def validate_train_data(
-    train_data: "pd.DataFrame", scorers: list[Scorer], predict_fn: Callable[..., Any] | None = None
+    train_data: "pd.DataFrame",
+    scorers: list[Scorer] | None,
+    predict_fn: Callable[..., Any] | None = None,
 ) -> None:
     """
     Validate that training data has required fields for prompt optimization.
 
     Args:
         train_data: Training data as a pandas DataFrame.
-        scorers: Scorers to validate the training data for.
+        scorers: Scorers to validate the training data for. Can be None for zero-shot mode.
         predict_fn: The predict function to validate the training data for.
 
     Raises:
@@ -87,8 +109,9 @@ def validate_train_data(
                 f"Record {i} is missing required 'inputs' field or it is empty"
             )
 
-    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
-    valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
+    if scorers is not None:
+        builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+        valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
 
 
 def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
@@ -116,7 +139,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
 def create_metric_from_scorers(
     scorers: list[Scorer],
     objective: Callable[[dict[str, Any]], float] | None = None,
-) -> Callable[[Any, Any, dict[str, Any]], float]:
+) -> Callable[[Any, Any, dict[str, Any]], tuple[float, dict[str, str], dict[str, float]]]:
     """
     Create a metric function from scorers and an optional objective function.
 
@@ -128,8 +151,8 @@ def create_metric_from_scorers(
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
-        A callable that takes (inputs, outputs, expectations) and
-        returns a tuple of (float score, dict of rationales).
+        A callable that takes (inputs, outputs, expectations, trace) and
+        returns a tuple of (aggregated_score, rationales, individual_scores).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
@@ -154,7 +177,7 @@ def create_metric_from_scorers(
         outputs: Any,
         expectations: dict[str, Any],
         trace: Trace | None,
-    ) -> float:
+    ) -> tuple[float, dict[str, str], dict[str, float]]:
         scores = {}
         rationales = {}
 
@@ -167,9 +190,6 @@ def create_metric_from_scorers(
             if isinstance(score, Feedback):
                 rationales[key] = score.rationale
 
-        if objective is not None:
-            return objective(scores), rationales
-
         # Try to convert all scores to numeric
         numeric_scores = {}
         for name, score in scores.items():
@@ -177,10 +197,14 @@ def create_metric_from_scorers(
             if numeric_value is not None:
                 numeric_scores[name] = numeric_value
 
+        if objective is not None:
+            return objective(scores), rationales, numeric_scores
+
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
             # We average the scores to get the score between 0 and 1.
-            return sum(numeric_scores.values()) / len(numeric_scores), rationales
+            aggregated = sum(numeric_scores.values()) / len(numeric_scores)
+            return aggregated, rationales, numeric_scores
 
         # Otherwise, report error with actual types
         non_convertible = {

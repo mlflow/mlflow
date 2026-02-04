@@ -372,6 +372,27 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     )
 
 
+@pytest.fixture
+def trace_without_retriever():
+    """Create a trace without any RETRIEVER spans."""
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "query"})
+        span.set_outputs("answer")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize(
+    "scorer_class",
+    [RetrievalRelevance, RetrievalSufficiency, RetrievalGroundedness],
+)
+def test_retrieval_scorers_raise_error_without_retriever_span(
+    trace_without_retriever, scorer_class
+):
+    scorer = scorer_class()
+    with pytest.raises(MlflowException, match="No retrieval context found in the trace"):
+        scorer(trace=trace_without_retriever)
+
+
 def test_guidelines():
     # 1. Called with per-row guidelines
     with patch("mlflow.genai.judges.meets_guidelines") as mock_guidelines:

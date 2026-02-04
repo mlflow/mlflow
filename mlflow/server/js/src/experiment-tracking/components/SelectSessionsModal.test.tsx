@@ -62,7 +62,11 @@ describe('SelectSessionsModal', () => {
     jest.mocked(GenAIChatSessionsTable).mockImplementation(MockGenAIChatSessionsTable as any);
   });
 
-  const renderTestComponent = (props: { onClose?: () => void; onSuccess?: (sessionIds: string[]) => void }) => {
+  const renderTestComponent = (props: {
+    onClose?: () => void;
+    onSuccess?: (sessionIds: string[]) => void;
+    maxSessionCount?: number;
+  }) => {
     return render(
       <DesignSystemProvider>
         <IntlProvider locale="en">
@@ -117,5 +121,28 @@ describe('SelectSessionsModal', () => {
     // The Select button should be disabled again
     selectButton = screen.getByRole('button', { name: /select/i });
     expect(selectButton).toBeDisabled();
+  });
+
+  test('should disable OK button when max session count is exceeded', async () => {
+    renderTestComponent({ maxSessionCount: 2 });
+
+    // Select 3 sessions (exceeds max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-session-1'));
+    await userEvent.click(screen.getByTestId('checkbox-session-2'));
+    await userEvent.click(screen.getByTestId('checkbox-session-3'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeDisabled();
+  });
+
+  test('should enable OK button when selection is within max session count', async () => {
+    renderTestComponent({ maxSessionCount: 2 });
+
+    // Select 2 sessions (within max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-session-1'));
+    await userEvent.click(screen.getByTestId('checkbox-session-2'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeEnabled();
   });
 });

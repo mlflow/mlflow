@@ -10,6 +10,9 @@ from sqlalchemy.orm import declarative_base, relationship
 
 from mlflow.server.auth.entities import (
     ExperimentPermission,
+    GatewayEndpointPermission,
+    GatewayModelDefinitionPermission,
+    GatewaySecretPermission,
     RegisteredModelPermission,
     ScorerPermission,
     User,
@@ -89,6 +92,56 @@ class SqlScorerPermission(Base):
         return ScorerPermission(
             experiment_id=self.experiment_id,
             scorer_name=self.scorer_name,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlGatewaySecretPermission(Base):
+    __tablename__ = "gateway_secret_permissions"
+    id = Column(Integer(), primary_key=True)
+    secret_id = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),)
+
+    def to_mlflow_entity(self):
+        return GatewaySecretPermission(
+            secret_id=self.secret_id,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlGatewayEndpointPermission(Base):
+    __tablename__ = "gateway_endpoint_permissions"
+    id = Column(Integer(), primary_key=True)
+    endpoint_id = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("endpoint_id", "user_id", name="unique_endpoint_user"),)
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointPermission(
+            endpoint_id=self.endpoint_id,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlGatewayModelDefinitionPermission(Base):
+    __tablename__ = "gateway_model_definition_permissions"
+    id = Column(Integer(), primary_key=True)
+    model_definition_id = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (
+        UniqueConstraint("model_definition_id", "user_id", name="unique_model_def_user"),
+    )
+
+    def to_mlflow_entity(self):
+        return GatewayModelDefinitionPermission(
+            model_definition_id=self.model_definition_id,
             user_id=self.user_id,
             permission=self.permission,
         )

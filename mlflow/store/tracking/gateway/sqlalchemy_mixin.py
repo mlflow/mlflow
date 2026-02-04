@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.tracking._secret_cache import (
     _DEFAULT_CACHE_MAX_SIZE,
@@ -42,6 +43,18 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
+from mlflow.telemetry.events import (
+    GatewayCreateEndpointEvent,
+    GatewayCreateSecretEvent,
+    GatewayDeleteEndpointEvent,
+    GatewayDeleteSecretEvent,
+    GatewayGetEndpointEvent,
+    GatewayListEndpointsEvent,
+    GatewayListSecretsEvent,
+    GatewayUpdateEndpointEvent,
+    GatewayUpdateSecretEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -84,6 +97,25 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
+    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+        """Get an existing experiment ID or create a new experiment if it doesn't exist.
+
+        Args:
+            experiment_name: Name of the experiment to get or create.
+
+        Returns:
+            The experiment ID.
+        """
+        try:
+            # The class that inherits from this mixin must implement the create_experiment method
+            return self.create_experiment(experiment_name)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                experiment = self.get_experiment_by_name(experiment_name)
+                if experiment is not None:
+                    return experiment.experiment_id
+            raise
+
     def _get_cache_key(self, resource_type: str, resource_id: str) -> str:
         """Generate cache key for resource endpoint configs."""
         return f"{resource_type}:{resource_id}"
@@ -93,6 +125,7 @@ class SqlAlchemyGatewayStoreMixin:
         if self._secret_cache is not None:
             self._secret_cache.clear()
 
+    @record_usage_event(GatewayCreateSecretEvent)
     def create_gateway_secret(
         self,
         secret_name: str,
@@ -188,6 +221,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateSecretEvent)
     def update_gateway_secret(
         self,
         secret_id: str,
@@ -248,6 +282,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteSecretEvent)
     def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
@@ -267,6 +302,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_secret)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListSecretsEvent)
     def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
         List all secret metadata with optional filtering.
@@ -505,6 +541,7 @@ class SqlAlchemyGatewayStoreMixin:
                     error_code=INVALID_STATE,
                 ) from e
 
+    @record_usage_event(GatewayCreateEndpointEvent)
     def create_gateway_endpoint(
         self,
         name: str,
@@ -512,6 +549,8 @@ class SqlAlchemyGatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -523,6 +562,12 @@ class SqlAlchemyGatewayStoreMixin:
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
+            experiment_id: ID of the MLflow experiment where traces are logged.
+                          Only used when usage_tracking is True. If not provided
+                          and usage_tracking is True, an experiment will be auto-created
+                          with name 'gateway/{endpoint_name}'.
+            usage_tracking: Whether to enable usage tracking for this endpoint.
+                           When True, traces will be logged for endpoint invocations.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -556,6 +601,10 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
+            if usage_tracking and experiment_id is None:
+                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
                 config.model_definition_id
@@ -583,6 +632,8 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_by=created_by,
                 routing_strategy=routing_strategy.value if routing_strategy else None,
                 fallback_config_json=fallback_config_json,
+                experiment_id=int(experiment_id) if experiment_id else None,
+                usage_tracking=usage_tracking,
             )
             session.add(sql_endpoint)
 
@@ -606,6 +657,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayGetEndpointEvent)
     def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
@@ -638,6 +690,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateEndpointEvent)
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
@@ -646,6 +699,8 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -657,6 +712,8 @@ class SqlAlchemyGatewayStoreMixin:
             routing_strategy: Optional new routing strategy.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
+            usage_tracking: Optional flag to enable/disable usage tracking.
 
         Returns:
             Updated Endpoint entity.
@@ -668,6 +725,18 @@ class SqlAlchemyGatewayStoreMixin:
 
             if name is not None:
                 sql_endpoint.name = name
+
+            # Handle usage_tracking update
+            if usage_tracking is not None:
+                sql_endpoint.usage_tracking = usage_tracking
+
+            # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
+            if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
+                endpoint_name = name if name is not None else sql_endpoint.name
+                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
+
+            if experiment_id is not None:
+                sql_endpoint.experiment_id = int(experiment_id)
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
@@ -747,6 +816,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteEndpointEvent)
     def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
@@ -762,6 +832,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_endpoint)
             self._invalidate_secret_cache()
 
+    @record_usage_event(GatewayListEndpointsEvent)
     def list_gateway_endpoints(
         self,
         provider: str | None = None,
@@ -915,7 +986,7 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to bind.
-            resource_type: Type of resource (e.g., "scorer_job").
+            resource_type: Type of resource (e.g., "scorer").
             resource_id: Unique identifier for the resource instance.
             created_by: Username of the creator.
 

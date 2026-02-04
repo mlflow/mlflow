@@ -2,7 +2,7 @@
 const restrictedGlobals = require('confusing-browser-globals');
 
 module.exports = {
-  extends: ['prettier', 'plugin:mlflow/recommended'],
+  extends: ['prettier', 'plugin:react-component-name/recommended', 'plugin:mlflow/recommended'],
   plugins: [
     'prettier',
     'no-only-tests',
@@ -11,6 +11,7 @@ module.exports = {
     'import',
     'jsx-a11y',
     'react-hooks',
+    'react-component-name',
     'mlflow',
     'testing-library',
   ],
@@ -159,7 +160,7 @@ module.exports = {
     ],
     'no-with': 'warn',
     'no-whitespace-before-property': 'warn',
-    'react-hooks/exhaustive-deps': 'warn',
+    'react-hooks/exhaustive-deps': 'error',
     'require-yield': 'warn',
     'rest-spread-spacing': ['warn', 'never'],
     strict: ['warn', 'never'],

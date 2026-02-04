@@ -9,13 +9,15 @@ import {
   createAssessmentFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface UseAssessmentChartsSectionDataResult {
   /** Sorted list of assessment names */
   assessmentNames: string[];
-  /** Map of assessment name to its average value */
+  /** Map of assessment name to its average value (only for numeric assessments) */
   avgValuesByName: Map<string, number>;
+  /** Map of assessment name to its total count */
+  countsByName: Map<string, number>;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -26,21 +28,39 @@ export interface UseAssessmentChartsSectionDataResult {
 
 /**
  * Custom hook that fetches and processes assessment data for the charts section.
- * Queries assessments grouped by name and extracts their average values.
+ * Queries assessments grouped by name using COUNT to get all assessments (including string types),
+ * and also fetches AVG values for numeric assessments.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
- * @returns Assessment names, average values, loading state, and error state
+ * @returns Assessment names, average values (for numeric only), loading state, and error state
  */
-export function useAssessmentChartsSectionData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseAssessmentChartsSectionDataResult {
+export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionDataResult {
+  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for feedback assessments only
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
 
-  // Query assessments grouped by assessment_name to get the list and average values
-  const { data, isLoading, error } = useTraceMetricsQuery({
+  // Query assessment counts grouped by name to get ALL assessments
+  const {
+    data: countData,
+    isLoading: isLoadingCount,
+    error: countError,
+  } = useTraceMetricsQuery({
+    experimentId,
+    startTimeMs,
+    endTimeMs,
+    viewType: MetricViewType.ASSESSMENTS,
+    metricName: AssessmentMetricKey.ASSESSMENT_COUNT,
+    aggregations: [{ aggregation_type: AggregationType.COUNT }],
+    filters,
+    dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
+  });
+
+  // Query average values grouped by name (only numeric assessments will have values)
+  const {
+    data: avgData,
+    isLoading: isLoadingAvg,
+    error: avgError,
+  } = useTraceMetricsQuery({
     experimentId,
     startTimeMs,
     endTimeMs,
@@ -51,26 +71,45 @@ export function useAssessmentChartsSectionData({
     dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
   });
 
-  // Extract assessment names and their average values from the response
-  const { assessmentNames, avgValuesByName } = useMemo(() => {
-    if (!data?.data_points) return { assessmentNames: [], avgValuesByName: new Map<string, number>() };
+  // Extract assessment names and counts from count query
+  const { assessmentNames, countsByName } = useMemo(() => {
+    if (!countData?.data_points) return { assessmentNames: [], countsByName: new Map<string, number>() };
+
+    const names = new Set<string>();
+    const counts = new Map<string, number>();
+    for (const dp of countData.data_points) {
+      const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
+      const count = dp.values?.[AggregationType.COUNT];
+      if (name && count !== undefined) {
+        names.add(name);
+        counts.set(name, count);
+      }
+    }
+    return { assessmentNames: Array.from(names).sort(), countsByName: counts };
+  }, [countData?.data_points]);
+
+  // Extract average values from avg query (only numeric assessments)
+  const avgValuesByName = useMemo(() => {
+    if (!avgData?.data_points) return new Map<string, number>();
 
     const avgValues = new Map<string, number>();
-
-    for (const dp of data.data_points) {
+    for (const dp of avgData.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
       const avgValue = dp.values?.[AggregationType.AVG];
       if (name && avgValue !== undefined) {
         avgValues.set(name, avgValue);
       }
     }
+    return avgValues;
+  }, [avgData?.data_points]);
 
-    return { assessmentNames: Array.from(avgValues.keys()).sort(), avgValuesByName: avgValues };
-  }, [data?.data_points]);
+  const isLoading = isLoadingCount || isLoadingAvg;
+  const error = countError || avgError;
 
   return {
     assessmentNames,
     avgValuesByName,
+    countsByName,
     isLoading,
     error,
     hasData: assessmentNames.length > 0,

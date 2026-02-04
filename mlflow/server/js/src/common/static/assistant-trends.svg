@@ -1,0 +1,112 @@
+<svg width="440" height="340" viewBox="114 10 440 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Chat Panel - Main container with shadow -->
+  <rect x="134.5" y="19.5" width="400" height="321" rx="7.5" fill="white" stroke="#E5E7EB" filter="url(#shadow)"/>
+
+  <!-- Header bar -->
+  <rect x="135" y="20" width="399" height="40" rx="7" fill="white"/>
+  <line x1="135" y1="60" x2="534" y2="60" stroke="#E5E7EB"/>
+
+  <!-- Double sparkle icon in header -->
+  <g>
+    <!-- Large sparkle (right/top) - stroke only -->
+    <path d="M156.5 35L153 36.2L156.5 37.4C157.3 37.7 158 38.4 158.3 39.2L159.5 43L160.7 39.2C161 38.4 161.7 37.7 162.5 37.4L166 36.2L162.5 35C161.7 34.7 161 34 160.7 33.2L159.5 29.5L158.3 33.2C158 34 157.3 34.7 156.5 35Z" fill="none" stroke="url(#paint_sparkle_header)" stroke-width="1.5"/>
+    <!-- Small sparkle (left/bottom) - stroke only -->
+    <path d="M148.5 43L146.5 43.7L148.5 44.4C149 44.6 149.4 45 149.6 45.5L150.2 47.5L150.8 45.5C151 45 151.4 44.6 151.9 44.4L154 43.7L151.9 43C151.4 42.8 151 42.4 150.8 41.9L150.2 40L149.6 41.9C149.4 42.4 149 42.8 148.5 43Z" fill="none" stroke="url(#paint_sparkle_header_small)" stroke-width="1.5"/>
+  </g>
+
+  <!-- "MLflow Assistant" text -->
+  <text x="174" y="45" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#11171C">MLflow Assistant</text>
+
+  <!-- Chat area -->
+
+  <!-- User message 1 (right-aligned) - "How was my agent doing last week?" -->
+  <rect x="245" y="70" width="265" height="30" rx="8" fill="#F6F7F9"/>
+  <text x="260" y="90" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">How was my agent doing last week?</text>
+
+  <!-- Tool call 1 -->
+  <rect x="155" y="106" width="180" height="26" rx="6" fill="#F0F4FF" stroke="#B8C9E8"/>
+  <text x="164" y="123" font-family="monospace" font-size="11" font-weight="600" fill="#5F7281">&gt;_</text>
+  <text x="188" y="123" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#5F7281">Watching metrics trend...</text>
+
+  <!-- Assistant message 1 (left-aligned with sparkle) -->
+  <rect x="155" y="138" width="280" height="46" rx="8" fill="white" stroke="#E5E7EB"/>
+
+  <!-- Sparkle icon in assistant message 1 -->
+  <g clip-path="url(#clip_msg_sparkle1)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M175.386 155.347L178.896 154.193L175.386 153.038C174.102 152.616 173.094 151.608 172.672 150.324L171.517 146.814L170.363 150.324C169.941 151.608 168.933 152.616 167.649 153.038L164.139 154.193L167.649 155.347C168.933 155.769 169.941 156.777 170.363 158.061L171.517 161.571L172.672 158.061C173.094 156.777 174.102 155.769 175.386 155.347ZM179.562 156.215C181.513 155.573 181.513 152.812 179.562 152.170L176.052 151.016C175.409 150.804 174.906 150.301 174.694 149.658L173.54 146.148C172.898 144.197 170.137 144.197 169.495 146.148L168.341 149.658C168.129 150.301 167.626 150.804 166.983 151.016L163.473 152.170C161.522 152.812 161.522 155.573 163.473 156.215L166.983 157.369C167.626 157.581 168.129 158.084 168.341 158.727L169.495 162.237C170.137 164.188 172.898 164.188 173.54 162.237L174.694 158.727C174.906 158.084 175.409 157.581 176.052 157.369L179.562 156.215Z" fill="url(#paint_sparkle_msg1)"/>
+  </g>
+
+  <!-- Assistant message 1 text -->
+  <text x="188" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#11171C">Token usage increased by 15% last week</text>
+  <!-- Placeholder bar -->
+  <rect x="188" y="168" width="220" height="8" rx="4" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- User message 2 (right-aligned) - "What is the root cause?" -->
+  <rect x="330" y="190" width="180" height="30" rx="8" fill="#F6F7F9"/>
+  <text x="345" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">What is the root cause?</text>
+
+  <!-- Tool call 2 -->
+  <rect x="155" y="226" width="155" height="26" rx="6" fill="#F0F4FF" stroke="#B8C9E8"/>
+  <text x="164" y="243" font-family="monospace" font-size="11" font-weight="600" fill="#5F7281">&gt;_</text>
+  <text x="188" y="243" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#5F7281">Collecting traces...</text>
+
+  <!-- Assistant message 2 (left-aligned with sparkle) -->
+  <rect x="155" y="258" width="280" height="50" rx="8" fill="white" stroke="#E5E7EB"/>
+
+  <!-- Sparkle icon in assistant message 2 -->
+  <g clip-path="url(#clip_msg_sparkle2)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M175.386 279.347L178.896 278.193L175.386 277.038C174.102 276.616 173.094 275.608 172.672 274.324L171.517 270.814L170.363 274.324C169.941 275.608 168.933 276.616 167.649 277.038L164.139 278.193L167.649 279.347C168.933 279.769 169.941 280.777 170.363 282.061L171.517 285.571L172.672 282.061C173.094 280.777 174.102 279.769 175.386 279.347ZM179.562 280.215C181.513 279.573 181.513 276.812 179.562 276.170L176.052 275.016C175.409 274.804 174.906 274.301 174.694 273.658L173.54 270.148C172.898 268.197 170.137 268.197 169.495 270.148L168.341 273.658C168.129 274.301 167.626 274.804 166.983 275.016L163.473 276.170C161.522 276.812 161.522 279.573 163.473 280.215L166.983 281.369C167.626 281.581 168.129 282.084 168.341 282.727L169.495 286.237C170.137 288.188 172.898 288.188 173.54 286.237L174.694 282.727C174.906 282.084 175.409 281.581 176.052 281.369L179.562 280.215Z" fill="url(#paint_sparkle_msg2)"/>
+  </g>
+
+  <!-- Assistant message 2 text -->
+  <text x="188" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#11171C">I found several traces with high token</text>
+  <!-- Placeholder bar -->
+  <rect x="188" y="290" width="220" height="8" rx="4" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- Definitions -->
+  <defs>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+
+    <!-- Gradient for header sparkle (large - right/top) -->
+    <linearGradient id="paint_sparkle_header" x1="166" y1="29" x2="153" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+    <!-- Gradient for header sparkle (small - left/bottom) -->
+    <linearGradient id="paint_sparkle_header_small" x1="154" y1="40" x2="146" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Gradient for message sparkle 1 -->
+    <linearGradient id="paint_sparkle_msg1" x1="181.886" y1="143.296" x2="160.515" y2="164.666" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Gradient for message sparkle 2 -->
+    <linearGradient id="paint_sparkle_msg2" x1="181.886" y1="267.296" x2="160.515" y2="288.666" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Clip paths -->
+    <clipPath id="clip_header_sparkle">
+      <rect width="20" height="20" fill="white" transform="translate(147 30)"/>
+    </clipPath>
+    <clipPath id="clip_msg_sparkle1">
+      <rect width="20" height="20" fill="white" transform="translate(162 144)"/>
+    </clipPath>
+    <clipPath id="clip_msg_sparkle2">
+      <rect width="20" height="20" fill="white" transform="translate(162 268)"/>
+    </clipPath>
+  </defs>
+</svg>

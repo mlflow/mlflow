@@ -426,7 +426,22 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    # Check if job execution can be enabled (requirements met)
+    job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.utils import _check_requirements
+
+        try:
+            _check_requirements(file_store_path)
+            job_execution_enabled = True
+        except Exception as e:
+            _logger.warning(
+                f"MLflow job execution requirements not met ({e!s}). "
+                "Server will start without job execution support. "
+                "Errors will be surfaced at job invocation time."
+            )
+
+    if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
         env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
@@ -435,23 +450,11 @@ def _run_server(
             else tempfile.mkdtemp()
         )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.utils import _check_requirements
-
-        try:
-            _check_requirements(file_store_path)
-        except Exception as e:
-            raise MlflowException(
-                f"MLflow job runner requirements checking failed (root error: {e!s}). "
-                "If you don't need MLflow job runner, you can disable it by setting "
-                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
-            )
-
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+    if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_runner
 

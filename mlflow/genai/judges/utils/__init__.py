@@ -11,10 +11,6 @@ import mlflow
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    InvokeDatabricksModelOutput,
-    InvokeJudgeModelHelperOutput,
-)
 from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS
 from mlflow.genai.judges.adapters.litellm_adapter import _suppress_litellm_nonfatal_errors
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
@@ -137,8 +133,6 @@ __all__ = [
     "CategoricalRating",
     # Databricks adapter
     "call_chat_completions",
-    "InvokeDatabricksModelOutput",
-    "InvokeJudgeModelHelperOutput",
     # Gateway adapter
     "_NATIVE_PROVIDERS",
     # LiteLLM adapter

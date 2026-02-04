@@ -87,7 +87,7 @@ export const ModelSelect = ({
   );
 };
 
-const ModelCapabilities = memo(({ model }: { model: ProviderModel }) => {
+const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: ProviderModel }) {
   const { theme } = useDesignSystemTheme();
 
   const capabilities = useMemo(() => {

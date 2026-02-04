@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Alert, Button, Header, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useState } from 'react';
+import { Header, TableSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -7,11 +7,13 @@ import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import type { SearchExperimentsApiResponse } from '../experiment-tracking/types';
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-import { GetStarted } from './components/GetStarted';
-import { ExperimentsHomeView } from './components/ExperimentsHomeView';
-import { DiscoverNews } from './components/DiscoverNews';
-import { LogTracesDrawer } from './components/LogTracesDrawer';
+
+// Loaders and lazy imports for expensive components
+import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
 import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
+const GetStarted = React.lazy(() => import('./components/GetStarted'));
+const DiscoverNews = React.lazy(() => import('./components/DiscoverNews'));
+const ExperimentsHomeView = React.lazy(() => import('./components/ExperimentsHomeView'));
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
@@ -58,23 +60,39 @@ const HomePage = () => {
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
       <TelemetryInfoAlert />
-      <GetStarted />
-      <ExperimentsHomeView
-        experiments={experiments}
-        isLoading={isLoading}
-        error={error}
-        onCreateExperiment={handleOpenCreateModal}
-        onRetry={refetch}
-      />
-      <DiscoverNews />
+      <React.Suspense fallback={<HomePageSectionSkeleton />}>
+        <GetStarted />
+      </React.Suspense>
+      <React.Suspense fallback={<HomePageSectionSkeleton />}>
+        <ExperimentsHomeView
+          experiments={experiments}
+          isLoading={isLoading}
+          error={error}
+          onCreateExperiment={handleOpenCreateModal}
+          onRetry={refetch}
+        />
+      </React.Suspense>
+      <React.Suspense fallback={<HomePageSectionSkeleton />}>
+        <DiscoverNews />
+      </React.Suspense>
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         onExperimentCreated={handleExperimentCreated}
       />
-      <LogTracesDrawer />
+      <LogTracesDrawerLoader />
     </ScrollablePageWrapper>
+  );
+};
+
+const HomePageSectionSkeleton = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div>
+      <TitleSkeleton />
+      <TableSkeleton lines={3} />
+    </div>
   );
 };
 

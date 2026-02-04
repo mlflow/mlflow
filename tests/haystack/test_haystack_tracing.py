@@ -78,12 +78,12 @@ def test_pipeline_with_multiple_components_single_trace():
     assert len(traces) == 1
 
 
-def test_token_usage_parsed_for_llm_component():
+def test_token_usage_parsed_for_llm_component(mock_litellm_cost):
     mlflow.haystack.autolog()
 
     @component
     class MyLLM:
-        def run(self, prompt: str):
+        def run(self, prompt: str, model: str):
             return {}
 
     pipe = Pipeline()
@@ -99,7 +99,7 @@ def test_token_usage_parsed_for_llm_component():
     }
 
     with patch.object(MyLLM, "run", return_value=output):
-        pipe.run({"my_llm": {"prompt": "hello"}})
+        pipe.run({"my_llm": {"prompt": "hello", "model": "gpt-4"}})
 
     traces = get_traces()
     assert len(traces) == 1
@@ -111,12 +111,19 @@ def test_token_usage_parsed_for_llm_component():
         "output_tokens": 2,
         "total_tokens": 3,
     }
+    assert span.model_name == "gpt-4"
+    # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
+    assert span.llm_cost == {
+        "input_cost": 1.0,
+        "output_cost": 4.0,
+        "total_cost": 5.0,
+    }
 
     mlflow.haystack.autolog(disable=True)
 
     traces = get_traces()
     with patch.object(MyLLM, "run", return_value=output):
-        pipe.run({"my_llm": {"prompt": "hello"}})
+        pipe.run({"my_llm": {"prompt": "hello", "model": "gpt-4"}})
 
     assert len(traces) == 1
 

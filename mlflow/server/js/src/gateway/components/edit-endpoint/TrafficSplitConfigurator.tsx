@@ -32,7 +32,7 @@ export const TrafficSplitConfigurator = ({
           secretFields: {},
           configFields: {},
         },
-        weight: 50,
+        weight: 0,
       },
     ]);
   }, [value, onChange]);

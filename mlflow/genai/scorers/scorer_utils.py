@@ -195,6 +195,51 @@ def update_model_in_serialized_scorer(
     return result
 
 
+def validate_scorer_name(name: str | None) -> None:
+    """
+    Validate the scorer name.
+
+    Args:
+        name: The scorer name to validate.
+
+    Raises:
+        MlflowException: If the name is invalid.
+    """
+    if name is None:
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
+        )
+
+
+def validate_scorer_model(model: str | None) -> None:
+    """
+    Validate the scorer model string if present.
+
+    Args:
+        model: The model string to validate.
+
+    Raises:
+        MlflowException: If the model is invalid.
+    """
+    if model is None:
+        return
+
+    if not isinstance(model, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
+        )
+    if not model.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
+        )
+
+
 def parse_tool_call_expectations(
     expectations: dict[str, Any] | None,
 ) -> list["FunctionCall"] | None:

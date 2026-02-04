@@ -80,6 +80,7 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
         # Step 2-3: Set current env vars (if needed)
         $ export MLFLOW_CRYPTO_KEK_PASSPHRASE="old-passphrase"
         $ export MLFLOW_CRYPTO_KEK_VERSION="1"
+        $ export MLFLOW_TRACKING_URI="sqlite:///mlflow.db"
 
         # Step 4: Run rotation
         $ mlflow crypto rotate-kek --new-passphrase "new-passphrase"
@@ -118,8 +119,10 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
         click.echo("  - Require updating BOTH environment variables after completion:", err=True)
         click.echo("    * MLFLOW_CRYPTO_KEK_PASSPHRASE='<new-passphrase>'", err=True)
         click.echo(f"    * MLFLOW_CRYPTO_KEK_VERSION='{new_version}'\n", err=True)
+        click.echo("IMPORTANT: Ensure the MLflow server is shut down before proceeding.", err=True)
         click.echo(
-            "IMPORTANT: Ensure the MLflow server is shut down before proceeding.\n", err=True
+            "NOTE: Ensure MLFLOW_TRACKING_URI is set to your tracking server's database URI.\n",
+            err=True,
         )
 
         if not click.confirm("Continue with KEK rotation?"):
@@ -181,11 +184,11 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
 
                     except Exception as e:
                         click.echo(
-                            f"\n✗ Failed to rotate encryption key {secret.secret_id}: {e}", err=True
+                            f"\n✗ Failed to rotate secret '{secret.secret_name}': {e}", err=True
                         )
                         session.rollback()
                         raise MlflowException(
-                            f"KEK rotation failed at encrypted entry {secret.secret_id}. "
+                            f"KEK rotation failed at secret '{secret.secret_name}'. "
                             "No changes were made. Fix the issue and re-run the command."
                         ) from e
 

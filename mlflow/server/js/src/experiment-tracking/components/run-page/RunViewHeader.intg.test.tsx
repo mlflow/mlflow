@@ -13,6 +13,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableExperimentPageHeaderV2: () => true,
   shouldUseRenamedUnifiedTracesTab: () => false,
   shouldDisableReproduceRunButton: () => false,
+  shouldEnableWorkflowBasedNavigation: () => false,
 }));
 
 describe('RunViewHeader - integration test', () => {

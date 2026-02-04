@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { FormUI, Radio, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { GatewayInput } from '../../common';
@@ -56,6 +56,19 @@ export function ApiKeyConfigurator({
     }
     return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
   }, [authModes, value.newSecret.authMode, defaultAuthMode]);
+
+  // Auto-set authMode when it's empty and auth modes are available to ensure the form validation passes
+  useEffect(() => {
+    if (value.mode === 'new' && !value.newSecret.authMode && selectedAuthMode) {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          authMode: selectedAuthMode.mode,
+        },
+      });
+    }
+  }, [value, selectedAuthMode, onChange]);
 
   const handleModeChange = useCallback(
     (mode: 'new' | 'existing') => {

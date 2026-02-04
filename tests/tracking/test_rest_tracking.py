@@ -1884,7 +1884,7 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
-def test_create_model_version_with_validation_regex(tmp_path: Path):
+def test_create_model_version_with_validation_regex(db_uri: str):
     port = get_safe_port()
     with subprocess.Popen(
         [
@@ -1895,7 +1895,7 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "--port",
             str(port),
             "--backend-store-uri",
-            f"sqlite:///{tmp_path / 'mlflow.db'}",
+            db_uri,
         ],
         env=(
             os.environ.copy()
@@ -4046,6 +4046,78 @@ def test_scorer_CRUD(mlflow_client, store_type):
     mlflow_client.delete_experiment(experiment_id)
 
 
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "status = 'OK'",
+        None,
+    ],
+)
+def test_online_scoring_config(mlflow_client_with_secrets, filter_string):
+    """
+    Smoke test for online scoring configuration REST APIs.
+    Tests upsert_online_scoring_config and get_online_scoring_configs with both
+    string and None filter values (None is sent by UI when filter field is blank).
+    """
+    experiment_id = mlflow_client_with_secrets.create_experiment("test_online_scoring")
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret", secret_value={"api_key": "sk-test"}, provider="openai"
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
+    )
+
+    scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
+    serialized_scorer = json.dumps(scorer_data)
+    scorer_version = store.register_scorer(experiment_id, "my_scorer", serialized_scorer)
+    scorer_id = scorer_version.scorer_id
+
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.5,
+        filter_string=filter_string,
+    )
+    assert config.scorer_id == scorer_id
+    assert config.sample_rate == 0.5
+    assert config.filter_string == filter_string
+    assert config.experiment_id == experiment_id
+
+    configs = store.get_online_scoring_configs([scorer_id])
+    assert len(configs) == 1
+    assert configs[0].scorer_id == scorer_id
+    assert configs[0].sample_rate == 0.5
+    assert configs[0].filter_string == filter_string
+
+    # Update with different filter string to test update functionality
+    updated_filter = "status = 'COMPLETED'"
+    updated_config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.8,
+        filter_string=updated_filter,
+    )
+    assert updated_config.scorer_id == scorer_id
+    assert updated_config.sample_rate == 0.8
+    assert updated_config.filter_string == updated_filter
+
+    configs_after_update = store.get_online_scoring_configs([scorer_id])
+    assert len(configs_after_update) == 1
+    assert configs_after_update[0].sample_rate == 0.8
+    assert configs_after_update[0].filter_string == updated_filter
+
+
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
 async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
@@ -4331,6 +4403,42 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
     assert fetched.fallback_config is not None
     assert fetched.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert fetched.fallback_config.max_attempts == 2
+
+
+def test_create_endpoint_with_usage_tracking(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="usage-tracking-test-key",
+        secret_value={"api_key": "sk-usage-tracking-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="usage-tracking-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="usage-tracking-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=True,
+    )
+
+    assert endpoint.usage_tracking is True
+    experiment_id = endpoint.experiment_id
+
+    # Experiment is automatically created with usage tracking enabled
+    experiment = mlflow_client_with_secrets.get_experiment(experiment_id)
+    assert experiment.name == "gateway/usage-tracking-endpoint"
 
 
 def test_update_endpoint(mlflow_client_with_secrets):
@@ -4677,24 +4785,24 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     binding1 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-123",
     )
 
     binding2 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-456",
     )
 
     binding3 = store.create_endpoint_binding(
         endpoint_id=endpoint2.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-789",
     )
 
     assert binding1.endpoint_id == endpoint1.endpoint_id
-    assert binding1.resource_type == GatewayResourceType.SCORER_JOB
+    assert binding1.resource_type == GatewayResourceType.SCORER
     assert binding1.resource_id == "job-123"
 
     bindings_endpoint1 = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
@@ -4704,7 +4812,7 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
     assert binding2.resource_id in resource_ids
     assert binding3.resource_id not in resource_ids
 
-    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER_JOB)
+    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER)
     assert len(bindings_by_type) >= 3
 
     bindings_by_resource = store.list_endpoint_bindings(resource_id="job-123")
@@ -4713,7 +4821,7 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     bindings_multi = store.list_endpoint_bindings(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
     )
     assert len(bindings_multi) == 2
 
@@ -4773,7 +4881,7 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
 
     binding = store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="integration-job",
     )
 
@@ -4835,6 +4943,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "model" in model
     assert "provider" in model
     assert "mode" in model
+    assert all(not m["model"].startswith("ft:") for m in data["models"])
 
     response = requests.get(
         f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
@@ -4896,6 +5005,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
     data = response.json()
     assert data["default_mode"] == "api_key"
     assert data["auth_modes"][0]["mode"] == "api_key"
+    assert data["auth_modes"][0]["config_fields"][0]["name"] == "api_base"
 
     # Missing provider parameter returns 400
     response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")

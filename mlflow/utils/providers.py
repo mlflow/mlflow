@@ -165,8 +165,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_version",
                     "description": "API version (e.g., 2024-02-01)",
                     "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
+                    "required": True,
                 },
             ],
         },
@@ -225,7 +224,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "vertex_project",
                     "description": "GCP Project ID",
                     "secret": False,
-                    "required": True,
+                    "required": False,
                 },
                 {
                     "name": "vertex_location",
@@ -395,6 +394,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "secret": True,
                 "required": True,
             },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
+            },
         ],
     }
 
@@ -446,6 +451,25 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
 
 _EXCLUDED_PROVIDERS = {"bedrock_converse"}
 
+# Providers that should be consolidated into a single provider.
+# For example, vertex_ai-llama_models, vertex_ai-anthropic, etc. should all be
+# consolidated into vertex_ai to be used by the AI Gateway.
+_PROVIDER_CONSOLIDATION = {
+    "vertex_ai": lambda p: p == "vertex_ai" or p.startswith("vertex_ai-"),
+}
+
+
+def _normalize_provider(provider: str) -> str:
+    """
+    Normalize provider name by consolidating variants into a single provider.
+
+    For example, vertex_ai-llama_models -> vertex_ai
+    """
+    for normalized, matcher in _PROVIDER_CONSOLIDATION.items():
+        if matcher(provider):
+            return normalized
+    return provider
+
 
 def get_all_providers() -> list[str]:
     """
@@ -453,6 +477,9 @@ def get_all_providers() -> list[str]:
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
+
+    Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
+    variants are returned as just vertex_ai).
 
     Returns:
         List of provider names that support chat/completion/embedding
@@ -467,7 +494,7 @@ def get_all_providers() -> list[str]:
         if mode in _SUPPORTED_MODEL_MODES:
             if provider := info.get("litellm_provider"):
                 if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(provider)
+                    providers.add(_normalize_provider(provider))
 
     return list(providers)
 
@@ -480,12 +507,14 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
     excluding image generation, audio, and other non-text services.
 
     Args:
-        provider: Optional provider name to filter by (e.g., 'openai', 'anthropic')
+        provider: Optional provider name to filter by (e.g., 'openai', 'anthropic').
+                  When filtering by a consolidated provider (e.g., 'vertex_ai'),
+                  all variant providers are included (e.g., 'vertex_ai-anthropic').
 
     Returns:
         List of model dictionaries with keys:
             - model: Model name
-            - provider: Provider name
+            - provider: Provider name (normalized, e.g., vertex_ai instead of vertex_ai-anthropic)
             - mode: Model mode (e.g., 'chat', 'completion', 'embedding')
             - supports_function_calling: Whether model supports tool/function calling
             - supports_vision: Whether model supports image/vision input
@@ -502,9 +531,14 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
 
     model_cost = _get_model_cost()
-    models = []
+    # Use dict to dedupe models by (provider, model_name) key
+    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
     for model_name, info in model_cost.items():
-        if provider and info.get("litellm_provider") != provider:
+        litellm_provider = info.get("litellm_provider")
+        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+
+        # Filter by provider (matching against the normalized provider name)
+        if provider and normalized_provider != provider:
             continue
 
         mode = info.get("mode")
@@ -512,25 +546,33 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             continue
 
         # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
-        if provider and model_name.startswith(f"{provider}/"):
-            model_name = model_name.removeprefix(f"{provider}/")
+        # Strip the normalized provider prefix if present
+        if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
+            model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        models.append(
-            {
-                "model": model_name,
-                "provider": info.get("litellm_provider"),
-                "mode": mode,
-                "supports_function_calling": info.get("supports_function_calling", False),
-                "supports_vision": info.get("supports_vision", False),
-                "supports_reasoning": info.get("supports_reasoning", False),
-                "supports_prompt_caching": info.get("supports_prompt_caching", False),
-                "supports_response_schema": info.get("supports_response_schema", False),
-                "max_input_tokens": info.get("max_input_tokens"),
-                "max_output_tokens": info.get("max_output_tokens"),
-                "input_cost_per_token": info.get("input_cost_per_token"),
-                "output_cost_per_token": info.get("output_cost_per_token"),
-                "deprecation_date": info.get("deprecation_date"),
-            }
-        )
+        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        if model_name.startswith("ft:"):
+            continue
 
-    return models
+        # Dedupe by (provider, model_name) - keep the first occurrence
+        key = (normalized_provider, model_name)
+        if key in models_dict:
+            continue
+
+        models_dict[key] = {
+            "model": model_name,
+            "provider": normalized_provider,
+            "mode": mode,
+            "supports_function_calling": info.get("supports_function_calling", False),
+            "supports_vision": info.get("supports_vision", False),
+            "supports_reasoning": info.get("supports_reasoning", False),
+            "supports_prompt_caching": info.get("supports_prompt_caching", False),
+            "supports_response_schema": info.get("supports_response_schema", False),
+            "max_input_tokens": info.get("max_input_tokens"),
+            "max_output_tokens": info.get("max_output_tokens"),
+            "input_cost_per_token": info.get("input_cost_per_token"),
+            "output_cost_per_token": info.get("output_cost_per_token"),
+            "deprecation_date": info.get("deprecation_date"),
+        }
+
+    return list(models_dict.values())

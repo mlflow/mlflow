@@ -251,7 +251,7 @@ def _is_private(n: str) -> bool:
 
 
 class FunctionSignatureExtractor(ast.NodeVisitor):
-    def __init__(self):
+    def __init__(self) -> None:
         self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
         self.stack: list[ast.ClassDef] = []
 
@@ -371,7 +371,7 @@ def parse_args() -> Args:
     return Args(base_branch=args.base_branch)
 
 
-def main():
+def main() -> None:
     args = parse_args()
     errors = compare_signatures(args.base_branch)
     for error in errors:

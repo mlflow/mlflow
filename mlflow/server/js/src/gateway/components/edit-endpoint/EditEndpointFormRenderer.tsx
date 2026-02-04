@@ -16,7 +16,10 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
+import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { EditableEndpointName } from './EditableEndpointName';
+import type { Endpoint } from '../../types';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -25,13 +28,13 @@ export interface EditEndpointFormRendererProps {
   loadError: Error | null;
   mutationError: Error | null;
   errorMessage: string | null;
-  resetErrors: () => void;
-  endpointName: string | undefined;
+  endpoint: Endpoint | undefined;
+  existingEndpoints: Endpoint[] | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
-  onNameBlur: () => void;
+  onNameUpdate: (newName: string) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -41,11 +44,13 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
-  endpointName,
+  endpoint,
+  existingEndpoints,
   isFormComplete,
   hasChanges,
   onSubmit,
   onCancel,
+  onNameUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -53,6 +58,7 @@ export const EditEndpointFormRenderer = ({
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
+  const experimentId = form.watch('experimentId');
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -100,7 +106,12 @@ export const EditEndpointFormRenderer = ({
         <div
           css={{ marginTop: theme.spacing.sm, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         >
-          <Typography.Title level={2}>{endpointName}</Typography.Title>
+          <EditableEndpointName
+            endpoint={endpoint}
+            existingEndpoints={existingEndpoints}
+            onNameUpdate={onNameUpdate}
+            isSubmitting={isSubmitting}
+          />
           <Button componentId="mlflow.gateway.edit-endpoint.use-button" onClick={() => setIsUsageModalOpen(true)}>
             <FormattedMessage defaultMessage="Use" description="Use endpoint button" />
           </Button>
@@ -166,26 +177,6 @@ export const EditEndpointFormRenderer = ({
             </div>
           </div>
 
-          {trafficSplitModels.length > 0 && fallbackModels.length > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: theme.spacing.lg,
-                position: 'relative',
-              }}
-            >
-              <div
-                css={{
-                  width: 3,
-                  height: '100%',
-                  backgroundColor: theme.colors.actionDefaultBorderDefault,
-                }}
-              />
-            </div>
-          )}
-
           <div
             css={{
               padding: theme.spacing.md,
@@ -221,6 +212,66 @@ export const EditEndpointFormRenderer = ({
               />
             </div>
           </div>
+
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundSecondary,
+              }}
+            >
+              <Typography.Title level={3}>
+                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+              </Typography.Title>
+
+              <div css={{ marginTop: theme.spacing.md }}>
+                <Controller
+                  control={form.control}
+                  name="usageTracking"
+                  render={({ field: usageTrackingField }) => (
+                    <Controller
+                      control={form.control}
+                      name="experimentId"
+                      render={({ field: experimentIdField }) => (
+                        <UsageTrackingConfigurator
+                          value={usageTrackingField.value}
+                          onChange={usageTrackingField.onChange}
+                          experimentId={experimentIdField.value}
+                          onExperimentIdChange={experimentIdField.onChange}
+                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </div>
+            </div>
+
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+          </div>
         </div>
 
         <div
@@ -239,6 +290,27 @@ export const EditEndpointFormRenderer = ({
             })}
           >
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              {experimentId && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold color="secondary">
+                    <FormattedMessage defaultMessage="Usage log" description="Summary usage log label" />
+                  </Typography.Text>
+                  <Link
+                    to={`/experiments/${experimentId}/traces`}
+                    css={{
+                      fontSize: theme.typography.fontSizeSm,
+                      color: theme.colors.actionPrimaryBackgroundDefault,
+                      textDecoration: 'none',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    <FormattedMessage defaultMessage="View traces" description="Link to view traces for endpoint" />
+                  </Link>
+                </div>
+              )}
+
               {trafficSplitModels.length > 0 && (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                   <Typography.Text bold color="secondary">
@@ -317,16 +389,16 @@ export const EditEndpointFormRenderer = ({
                   description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
                 })
               : !isFormComplete
-              ? intl.formatMessage({
-                  defaultMessage: 'Please configure at least one model in traffic split',
-                  description: 'Tooltip shown when save button is disabled due to incomplete form',
-                })
-              : !hasChanges
-              ? intl.formatMessage({
-                  defaultMessage: 'No changes to save',
-                  description: 'Tooltip shown when save button is disabled due to no changes',
-                })
-              : undefined
+                ? intl.formatMessage({
+                    defaultMessage: 'Please configure at least one model in traffic split',
+                    description: 'Tooltip shown when save button is disabled due to incomplete form',
+                  })
+                : !hasChanges
+                  ? intl.formatMessage({
+                      defaultMessage: 'No changes to save',
+                      description: 'Tooltip shown when save button is disabled due to no changes',
+                    })
+                  : undefined
           }
         >
           <Button
@@ -344,7 +416,7 @@ export const EditEndpointFormRenderer = ({
       <EndpointUsageModal
         open={isUsageModalOpen}
         onClose={() => setIsUsageModalOpen(false)}
-        endpointName={endpointName || ''}
+        endpointName={endpoint?.name || ''}
       />
     </div>
   );

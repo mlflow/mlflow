@@ -87,6 +87,11 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
+# For online scoring checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT = "mlflow.latestOnlineScoring.trace.checkpoint"
+
+# For online scoring session checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT = "mlflow.latestOnlineScoring.session.checkpoint"
 
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}

@@ -1,12 +1,15 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import React, { useContext } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import { type IntlShape } from '@databricks/i18n';
+import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -261,6 +264,27 @@ export const assessmentCellRenderer = (
   );
 };
 
+/**
+ * Wrapper component for assessment cells that checks the context for session grouping.
+ * Hides session-level assessments in regular rows when grouped by session.
+ */
+export const AssessmentCell: React.FC<{
+  isComparing: boolean;
+  assessmentInfo: AssessmentInfo;
+  comparisonEntry: EvalTraceComparisonEntry;
+}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { isGroupedBySession } = useContext(GenAITracesTableContext);
+
+  // Hide session-level assessments in regular rows when grouped by session
+  if (isGroupedBySession && assessmentInfo.isSessionLevelAssessment) {
+    return <NullCell />;
+  }
+
+  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+};
+
 export const expectationCellRenderer = (
   theme: ThemeType,
   intl: IntlShape,
@@ -293,7 +317,7 @@ export const expectationCellRenderer = (
 };
 
 export const inputColumnCellRenderer = (
-  onChangeEvaluationId: (evaluationId: string | undefined) => void,
+  onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void,
   row: CellContext<EvalTraceComparisonEntry, unknown>,
   isComparing: boolean,
   theme: ThemeType,
@@ -301,6 +325,7 @@ export const inputColumnCellRenderer = (
   getRunColor?: (runUuid: string) => string,
 ) => {
   const value = row.getValue() as EvalTraceComparisonEntry;
+
   const evalId = value.currentRunValue?.evaluationId || value.otherRunValue?.evaluationId;
 
   // fetch colors if possible
@@ -339,7 +364,7 @@ export const inputColumnCellRenderer = (
           textOverflow: 'ellipsis',
         }}
         componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-        onClick={() => onChangeEvaluationId(evalId)}
+        onClick={() => onChangeEvaluationId(evalId, value.currentRunValue?.traceInfo)}
       >
         {inputColumnTitle ? (
           inputColumnTitle
@@ -386,10 +411,11 @@ export const traceInfoCellRenderer = (
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
-  onChangeEvaluationId: (evalId: string) => void,
+  onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
   intl: IntlShape,
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
+  traceIdToTurnMap?: Record<string, number>,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -569,7 +595,7 @@ export const traceInfoCellRenderer = (
                   textOverflow: 'ellipsis',
                 }}
                 componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-                onClick={() => evalId && onChangeEvaluationId(evalId)}
+                onClick={() => evalId && onChangeEvaluationId(evalId, comparisonEntry.currentRunValue?.traceInfo)}
               >
                 {currentTraceInfo?.tags?.['mlflow.traceName']}
               </Typography.Link>
@@ -647,7 +673,7 @@ export const traceInfoCellRenderer = (
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
-              onClick={() => onChangeEvaluationId(value)}
+              onClick={() => onChangeEvaluationId(value, currentTraceInfo)}
             >
               <span
                 css={{
@@ -672,7 +698,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
               title={otherValue}
-              onClick={() => onChangeEvaluationId(otherValue)}
+              onClick={() => onChangeEvaluationId(otherValue, otherTraceInfo)}
             >
               <span
                 css={{
@@ -696,6 +722,10 @@ export const traceInfoCellRenderer = (
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const currentTraceId = currentTraceInfo?.trace_id;
     const otherTraceId = otherTraceInfo?.trace_id;
+
+    const turnNumber = traceIdToTurnMap?.[currentTraceId ?? ''];
+    const otherTurnNumber = traceIdToTurnMap?.[otherTraceId ?? ''];
+
     return (
       <StackedComponents
         first={
@@ -714,7 +744,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {value}
+                  {!isNil(turnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>
@@ -739,7 +777,15 @@ export const traceInfoCellRenderer = (
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {otherValue}
+                  {!isNil(otherTurnNumber) ? (
+                    <FormattedMessage
+                      defaultMessage="Turn {turnNumber}"
+                      description="Label for a single turn within an experiment chat session"
+                      values={{ turnNumber: otherTurnNumber }}
+                    />
+                  ) : (
+                    value
+                  )}
                 </span>
               </Tag>
             </SessionIdLinkWrapper>

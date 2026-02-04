@@ -49,7 +49,11 @@ module.exports = {
         }
 
         // Ignore REST API links
-        if (toValue.startsWith('/api_reference/') && !toValue.startsWith('/api_reference/rest-api.html')) {
+        if (
+          toValue.startsWith('/api_reference/') &&
+          !toValue.startsWith('/api_reference/rest-api.html') &&
+          !toValue.startsWith('/api_reference/auth/rest-api.html')
+        ) {
           context.report({
             node,
             messageId: 'useAPILink',

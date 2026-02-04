@@ -27,7 +27,7 @@ describe('tracedOpenAI', () => {
     experimentId = await client.createExperiment(experimentName);
     mlflow.init({
       trackingUri: TEST_TRACKING_URI,
-      experimentId: experimentId
+      experimentId: experimentId,
     });
   });
 
@@ -53,7 +53,7 @@ describe('tracedOpenAI', () => {
 
       const result = await wrappedOpenAI.chat.completions.create({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: 'Hello!' }]
+        messages: [{ role: 'user', content: 'Hello!' }],
       });
 
       const trace = await getLastActiveTrace();
@@ -71,7 +71,7 @@ describe('tracedOpenAI', () => {
       expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(span.inputs).toEqual({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: 'Hello!' }]
+        messages: [{ role: 'user', content: 'Hello!' }],
       });
       expect(span.outputs).toEqual(result);
       expect(span.startTime).toBeDefined();
@@ -93,12 +93,12 @@ describe('tracedOpenAI', () => {
             {
               error: {
                 type: 'requests',
-                message: 'Rate limit exceeded'
-              }
+                message: 'Rate limit exceeded',
+              },
             },
-            { status: 429 }
+            { status: 429 },
           );
-        })
+        }),
       );
 
       const openai = new OpenAI({ apiKey: 'test-key' });
@@ -107,8 +107,8 @@ describe('tracedOpenAI', () => {
       await expect(
         wrappedOpenAI.chat.completions.create({
           model: 'gpt-4',
-          messages: [{ role: 'user', content: 'This should fail' }]
-        })
+          messages: [{ role: 'user', content: 'This should fail' }],
+        }),
       ).rejects.toThrow();
 
       const trace = await getLastActiveTrace();
@@ -118,7 +118,7 @@ describe('tracedOpenAI', () => {
       expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
       expect(span.inputs).toEqual({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: 'This should fail' }]
+        messages: [{ role: 'user', content: 'This should fail' }],
       });
       expect(span.outputs).toBeUndefined();
       expect(span.startTime).toBeDefined();
@@ -133,15 +133,15 @@ describe('tracedOpenAI', () => {
         async (_span) => {
           const response = await wrappedOpenAI.chat.completions.create({
             model: 'gpt-4',
-            messages: [{ role: 'user', content: 'Hello!' }]
+            messages: [{ role: 'user', content: 'Hello!' }],
           });
           return response.choices[0].message.content;
         },
         {
           name: 'predict',
           spanType: mlflow.SpanType.CHAIN,
-          inputs: 'Hello!'
-        }
+          inputs: 'Hello!',
+        },
       );
 
       const trace = await getLastActiveTrace();
@@ -163,7 +163,7 @@ describe('tracedOpenAI', () => {
       expect(childSpan.spanType).toBe(mlflow.SpanType.LLM);
       expect(childSpan.inputs).toEqual({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: 'Hello!' }]
+        messages: [{ role: 'user', content: 'Hello!' }],
       });
       expect(childSpan.outputs).toBeDefined();
       expect(childSpan.startTime).toBeDefined();
@@ -179,7 +179,7 @@ describe('tracedOpenAI', () => {
       const response = await wrappedOpenAI.responses.create({
         input: 'Hello!',
         model: 'gpt-4o',
-        temperature: 0
+        temperature: 0,
       });
 
       // Verify response
@@ -198,7 +198,7 @@ describe('tracedOpenAI', () => {
       expect(span.inputs).toEqual({
         input: 'Hello!',
         model: 'gpt-4o',
-        temperature: 0
+        temperature: 0,
       });
       expect(span.outputs).toEqual(response);
     });
@@ -211,7 +211,7 @@ describe('tracedOpenAI', () => {
 
       const response = await wrappedOpenAI.embeddings.create({
         model: 'text-embedding-3-small',
-        input: ['Hello', 'world']
+        input: ['Hello', 'world'],
       });
 
       expect(response.object).toBe('list');
@@ -236,7 +236,7 @@ describe('tracedOpenAI', () => {
       expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(span.inputs).toEqual({
         model: 'text-embedding-3-small',
-        input: ['Hello', 'world']
+        input: ['Hello', 'world'],
       });
       expect(span.outputs).toEqual(response);
       expect(span.startTime).toBeDefined();

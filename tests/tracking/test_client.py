@@ -1145,6 +1145,7 @@ def test_log_trace(tracking_uri):
     assert len(backend_traces) == 1
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning():
     client = MlflowClient()
     exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id
@@ -2959,18 +2960,6 @@ def test_create_prompt_with_none_response_format_client():
     # Load and verify
     loaded_prompt = client.get_prompt_version("test_none_response_client", 1)
     assert loaded_prompt.response_format is None
-
-
-def test_create_prompt_with_empty_chat_template_client():
-    client = MlflowClient()
-    prompt = client.register_prompt(name="test_empty_chat_client", template=[])
-
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
-
-    # Load and verify
-    loaded_prompt = client.get_prompt_version("test_empty_chat_client", 1)
-    assert loaded_prompt.is_text_prompt
 
 
 def test_create_prompt_with_single_message_chat_client():

@@ -6,7 +6,7 @@ import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.
 import { useExperimentLoggedModelListPageRowVisibilityContext } from './useExperimentLoggedModelListPageRowVisibility';
 
 export const getMetricByDatasetChartDataKey = (metricKey?: string, datasetName?: string) =>
-  datasetName ? JSON.stringify([datasetName, metricKey]) : metricKey ?? '';
+  datasetName ? JSON.stringify([datasetName, metricKey]) : (metricKey ?? '');
 
 /**
  * Creates chart-consumable data based on logged models, including metrics and parameters.

@@ -292,7 +292,7 @@ print("Judge registered and ready for deployment!")
 Retrieve and use your registered judge with `mlflow.genai.evaluate()`:
 
 ```python
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai import get_scorer
 import pandas as pd
 
 # Retrieve the registered judge
@@ -375,7 +375,7 @@ print(results.tables["eval_results_table"])
     iconSize={48}
     title="Main Documentation"
     description="Return to the custom judges overview"
-    link="/genai/eval-monitor/scorers/llm-judge/"
+    link="/genai/eval-monitor/scorers/#llms-as-judges"
     linkText="Back to overview →"
     containerHeight={64}
   />

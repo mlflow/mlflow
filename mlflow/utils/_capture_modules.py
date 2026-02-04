@@ -70,6 +70,10 @@ class _CaptureImportedModules:
                         full_module_name = ".".join(full_modules)
                         if full_module_name in sys.modules:
                             self._record_imported_module(full_module_name)
+                        else:
+                            # in the case that `from_name` is a function or a class
+                            # then record the parent_module
+                            self._record_imported_module(".".join(parent_modules))
                 else:
                     full_module_name = ".".join(parent_modules)
                     self._record_imported_module(full_module_name)

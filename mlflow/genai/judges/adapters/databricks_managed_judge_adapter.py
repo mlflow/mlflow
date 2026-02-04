@@ -30,6 +30,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.version import VERSION
 
@@ -185,7 +186,7 @@ def _parse_databricks_judge_response(
     )
 
 
-def _create_litellm_message_from_databricks_response(
+def create_litellm_message_from_databricks_response(
     response_data: dict[str, Any],
 ) -> Any:
     """
@@ -240,40 +241,6 @@ def _create_litellm_message_from_databricks_response(
     )
 
 
-def _serialize_messages_to_databricks_prompts(
-    messages: list[Any],
-) -> tuple[str, str | None]:
-    """
-    Serialize litellm Messages to user_prompt and system_prompt for Databricks.
-
-    This is needed because call_chat_completions only accepts string prompts.
-
-    Args:
-        messages: List of litellm Message objects.
-
-    Returns:
-        Tuple of (user_prompt, system_prompt).
-    """
-    system_prompt = None
-    user_parts = []
-
-    for msg in messages:
-        if msg.role == "system":
-            system_prompt = msg.content
-        elif msg.role == "user":
-            user_parts.append(msg.content)
-        elif msg.role == "assistant":
-            if msg.tool_calls:
-                user_parts.append("Assistant: [Called tools]")
-            elif msg.content:
-                user_parts.append(f"Assistant: {msg.content}")
-        elif msg.role == "tool":
-            user_parts.append(f"Tool {msg.name}: {msg.content}")
-
-    user_prompt = "\n\n".join(user_parts)
-    return user_prompt, system_prompt
-
-
 def _run_databricks_agentic_loop(
     messages: list["litellm.Message"],
     trace: "Trace | None",
@@ -314,7 +281,7 @@ def _run_databricks_agentic_loop(
             _raise_iteration_limit_exceeded(max_iterations)
 
         try:
-            user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(messages)
+            user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
             llm_result = call_chat_completions(
                 user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
@@ -325,7 +292,7 @@ def _run_databricks_agentic_loop(
                 raise MlflowException("Empty response from Databricks judge")
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            message = _create_litellm_message_from_databricks_response(parsed_json)
+            message = create_litellm_message_from_databricks_response(parsed_json)
 
             if not message.tool_calls:
                 return on_final_answer(message.content)

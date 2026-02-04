@@ -111,7 +111,7 @@ export const FallbackModelItem = ({
         padding: theme.spacing.md,
         border: `2px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.white,
+        backgroundColor: theme.colors.backgroundPrimary,
         opacity: isDragging ? 0.5 : 1,
         borderColor: isOver ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.border,
       }}

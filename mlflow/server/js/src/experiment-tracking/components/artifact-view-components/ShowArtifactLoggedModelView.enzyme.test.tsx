@@ -271,7 +271,8 @@ flavors:
     );
     const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
     const instance = impl.instance();
-    instance.fetchLoggedModelMetadata = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchLoggedModelMetadata').mockImplementation();
     wrapper.setProps({ children: <ShowArtifactLoggedModelView {...commonProps} path="newpath" runUuid="newRunId" /> });
     wrapper.update();
     expect(instance.fetchLoggedModelMetadata).toHaveBeenCalled();

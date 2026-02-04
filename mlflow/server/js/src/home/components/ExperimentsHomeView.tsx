@@ -122,3 +122,5 @@ export const ExperimentsHomeView = ({
     </section>
   );
 };
+
+export default ExperimentsHomeView;

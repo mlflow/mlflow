@@ -276,9 +276,59 @@ describe('PydanticAI message normalization', () => {
 
       expect(result![0]).toMatchObject({
         role: 'assistant',
-        content: expect.stringContaining('[Thinking]'),
+        content: 'Here is my answer.',
+        reasoning: 'Let me think about this...',
       });
-      expect(result![0].content).toContain('Here is my answer.');
+    });
+
+    it('should handle response with thinking + text + tool call', () => {
+      const response = {
+        kind: 'response',
+        parts: [
+          { content: 'Planning the calculation...', part_kind: 'thinking' },
+          { content: 'Step 1: Calculate 15 + 7', part_kind: 'text' },
+          { tool_name: 'add', args: { a: 15, b: 7 }, tool_call_id: 'call_123', part_kind: 'tool-call' },
+        ],
+        model_name: 'claude-sonnet-4-20250514',
+      };
+
+      const result = normalizeConversation(response, 'pydantic_ai');
+
+      expect(result).toHaveLength(1);
+      expect(result![0]).toMatchObject({
+        role: 'assistant',
+        content: 'Step 1: Calculate 15 + 7',
+        reasoning: 'Planning the calculation...',
+      });
+      expect(result![0].tool_calls).toHaveLength(1);
+      expect(result![0].tool_calls![0].function.name).toBe('add');
+    });
+
+    it('should handle multi-turn conversation with thinking and tool calls', () => {
+      const messages = [
+        { kind: 'request', parts: [{ content: 'Calculate 15 + 7', part_kind: 'user-prompt' }] },
+        {
+          kind: 'response',
+          parts: [
+            { content: 'Thinking...', part_kind: 'thinking' },
+            { tool_name: 'add', args: { a: 15, b: 7 }, tool_call_id: 'call_1', part_kind: 'tool-call' },
+          ],
+        },
+        {
+          kind: 'request',
+          parts: [{ tool_name: 'add', content: 22, tool_call_id: 'call_1', part_kind: 'tool-return' }],
+        },
+        { kind: 'response', parts: [{ content: 'The answer is 22.', part_kind: 'text' }] },
+      ];
+
+      const result = normalizeConversation(messages, 'pydantic_ai');
+
+      expect(result).toHaveLength(4);
+      expect(result![0]).toMatchObject({ role: 'user', content: 'Calculate 15 + 7' });
+      expect(result![1]).toMatchObject({ role: 'assistant', reasoning: 'Thinking...' });
+      expect(result![1].tool_calls).toHaveLength(1);
+      expect(result![2]).toMatchObject({ role: 'tool', content: '22', tool_call_id: 'call_1' });
+      expect(result![3]).toMatchObject({ role: 'assistant', content: 'The answer is 22.' });
     });
 
     it('should handle builtin tool calls', () => {

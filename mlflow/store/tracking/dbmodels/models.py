@@ -69,6 +69,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
@@ -1987,6 +1988,71 @@ class SqlScorerVersion(Base):
         )
 
 
+class SqlOnlineScoringConfig(Base):
+    """
+    DB model for storing online scoring configuration. These are recorded in
+    ``online_scoring_configs`` table.
+    """
+
+    __tablename__ = "online_scoring_configs"
+
+    online_scoring_config_id = Column(String(36), nullable=False)
+    """
+    Online Scoring Config ID: `String` (limit 36 characters). *Primary Key* for
+    ``online_scoring_configs`` table.
+    """
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    sample_rate = Column(sa.types.Float(precision=53), nullable=False)
+    """
+    Sample rate for online scoring: `Float` (double precision).
+    Value between 0 and 1 representing the fraction of traces to sample.
+    """
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    """
+    filter_string = Column(Text, nullable=True)
+    """
+    Filter string for online scoring: `Text`. Optional filter expression to select traces.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("online_configs", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
+            f"{self.sample_rate}, {self.experiment_id}, {self.filter_string})>"
+        )
+
+    def to_mlflow_entity(self) -> OnlineScoringConfig:
+        """
+        Convert this SqlOnlineScoringConfig to an OnlineScoringConfig entity.
+
+        Returns:
+            OnlineScoringConfig: The entity representation of this online config.
+        """
+        return OnlineScoringConfig(
+            online_scoring_config_id=self.online_scoring_config_id,
+            scorer_id=self.scorer_id,
+            sample_rate=self.sample_rate,
+            experiment_id=str(self.experiment_id),
+            filter_string=self.filter_string,
+        )
+
+
 class SqlJob(Base):
     """
     DB model for Job entities. These are recorded in the ``jobs`` table.
@@ -2227,6 +2293,19 @@ class SqlGatewayEndpoint(Base):
     Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
     Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
     """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="SET NULL"), nullable=True
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    ID of the MLflow experiment where traces for this endpoint are logged.
+    Uses SET NULL on delete - if the experiment is deleted, this becomes NULL.
+    """
+    usage_tracking = Column(Boolean, nullable=False, default=False)
+    """
+    Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
+    When true, traces will be logged for endpoint invocations.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2265,6 +2344,8 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
+            usage_tracking=self.usage_tracking,
         )
 
 
@@ -2495,6 +2576,11 @@ class SqlGatewayEndpointBinding(Base):
     """
     Last updater user ID: `String` (limit 255 characters).
     """
+    display_name = Column(String(255), nullable=True)
+    """
+    Human-readable display name: `String` (limit 255 characters).
+    E.g., scorer name for display in the UI.
+    """
 
     endpoint = relationship("SqlGatewayEndpoint", backref=backref("bindings", cascade="all"))
     """
@@ -2523,6 +2609,7 @@ class SqlGatewayEndpointBinding(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            display_name=self.display_name,
         )
 
 

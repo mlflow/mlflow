@@ -14,13 +14,13 @@ const EndpointPage = () => {
     isSubmitting,
     loadError,
     mutationError,
-    resetErrors,
     endpoint,
+    existingEndpoints,
     isFormComplete,
     hasChanges,
     handleSubmit,
     handleCancel,
-    handleNameBlur,
+    handleNameUpdate,
   } = useEditEndpointForm(endpointId ?? '');
 
   return (
@@ -32,13 +32,13 @@ const EndpointPage = () => {
         loadError={loadError}
         mutationError={mutationError}
         errorMessage={getReadableErrorMessage(mutationError)}
-        resetErrors={resetErrors}
-        endpointName={endpoint?.name}
+        endpoint={endpoint}
+        existingEndpoints={existingEndpoints}
         isFormComplete={isFormComplete}
         hasChanges={hasChanges}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
-        onNameBlur={handleNameBlur}
+        onNameUpdate={handleNameUpdate}
       />
     </FormProvider>
   );

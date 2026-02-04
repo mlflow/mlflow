@@ -3,9 +3,10 @@ import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { getExperimentKindFromTags } from '../../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
+import { useIsFileStore } from '../../../hooks/useServerInfo';
 
 /**
  * This hook navigates user to the appropriate tab in the experiment page based on the experiment kind.
@@ -18,6 +19,7 @@ export const useNavigateToExperimentPageTab = ({
   experimentId: string;
 }) => {
   const navigate = useNavigate();
+  const isFileStore = useIsFileStore();
 
   const { data: experiment, loading: loadingExperiment } = useGetExperimentQuery({
     experimentId,
@@ -26,18 +28,23 @@ export const useNavigateToExperimentPageTab = ({
     },
   });
 
+  const experimentTags = useMemo(() => {
+    if (!experiment) return [];
+    return experiment && 'tags' in experiment ? experiment?.tags : [];
+  }, [experiment]);
+
+  const experimentKindFromContext = useExperimentKind(experimentTags);
+
   const experimentKind = useMemo(() => {
     if (loadingExperiment || !experiment) {
       return null;
     }
-    const experimentTags = experiment && 'tags' in experiment ? experiment?.tags : [];
 
-    if (experiment) {
-      const experimentKindTagValue = getExperimentKindFromTags(experimentTags);
-      return coerceToEnum(ExperimentKind, experimentKindTagValue, ExperimentKind.NO_INFERRED_TYPE);
+    if (experimentKindFromContext) {
+      return coerceToEnum(ExperimentKind, experimentKindFromContext, ExperimentKind.NO_INFERRED_TYPE);
     }
     return null;
-  }, [experiment, loadingExperiment]);
+  }, [experiment, loadingExperiment, experimentKindFromContext]);
 
   useEffect(() => {
     if (!enabled || !experimentKind) {
@@ -47,16 +54,20 @@ export const useNavigateToExperimentPageTab = ({
     // By default, we navigate to the Runs tab
     let targetTab = ExperimentPageTabName.Runs;
 
-    // For GENAI_DEVELOPMENT, we navigate to the Overview tab if enabled, otherwise Traces tab.
+    // For GENAI_DEVELOPMENT, we navigate to the Overview tab if enabled and not using FileStore,
+    // otherwise Traces tab.
     if (experimentKind === ExperimentKind.GENAI_DEVELOPMENT) {
-      targetTab = shouldEnableExperimentOverviewTab() ? ExperimentPageTabName.Overview : ExperimentPageTabName.Traces;
+      targetTab =
+        shouldEnableExperimentOverviewTab() && isFileStore === false
+          ? ExperimentPageTabName.Overview
+          : ExperimentPageTabName.Traces;
     }
 
     navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), { replace: true });
-  }, [navigate, experimentId, enabled, experimentKind]);
+  }, [navigate, experimentId, enabled, experimentKind, isFileStore]);
 
   return {
     isEnabled: enabled,
-    isLoading: enabled && loadingExperiment,
+    isLoading: enabled && (loadingExperiment || isFileStore === undefined),
   };
 };

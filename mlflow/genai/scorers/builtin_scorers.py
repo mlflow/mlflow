@@ -433,6 +433,10 @@ class RetrievalRelevance(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalRelevance judge.
@@ -469,6 +473,12 @@ class RetrievalRelevance(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalRelevance "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
@@ -561,6 +571,10 @@ class RetrievalSufficiency(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalSufficiency judge.
@@ -613,6 +627,12 @@ class RetrievalSufficiency(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalSufficiency "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
 
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
@@ -687,6 +707,10 @@ class RetrievalGroundedness(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GROUNDEDNESS_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalGroundedness judge.
@@ -721,6 +745,13 @@ class RetrievalGroundedness(BuiltInScorer):
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalGroundedness "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
@@ -785,6 +816,10 @@ class ToolCallEfficiency(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -919,6 +954,10 @@ class ToolCallCorrectness(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         fields = [
@@ -1172,6 +1211,10 @@ class Guidelines(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the Guidelines judge.
@@ -1292,6 +1335,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1444,6 +1491,10 @@ class RelevanceToQuery(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RelevanceToQuery judge.
@@ -1552,6 +1603,10 @@ class Safety(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1689,6 +1744,10 @@ class Correctness(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1847,6 +1906,10 @@ class Fluency(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -1854,7 +1917,7 @@ class Fluency(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -1939,6 +2002,10 @@ class Equivalence(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return EQUIVALENCE_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -2209,13 +2276,17 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["none", "resolved", "unresolved"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["none", "resolved", "unresolved"],
+            feedback_value_type=self.feedback_value_type,
         )
 
     @property
@@ -2282,13 +2353,17 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2358,13 +2433,17 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2432,13 +2511,17 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
         )
@@ -2505,13 +2588,17 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2591,13 +2678,17 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
         "with the provided guidelines."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
         )
 
@@ -2631,13 +2722,17 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         "provided by users in earlier conversation turns."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
         )
 
     @property
@@ -2736,6 +2831,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             "KnowledgeRetention uses composition with last_turn_scorer "
             "and does not use instructions directly."
         )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def __call__(
         self,
@@ -2884,6 +2983,10 @@ class Completeness(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2891,7 +2994,7 @@ class Completeness(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -2986,6 +3089,10 @@ class Summarization(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2993,7 +3100,7 @@ class Summarization(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 

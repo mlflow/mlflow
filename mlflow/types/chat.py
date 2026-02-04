@@ -157,12 +157,30 @@ class ResponseFormat(BaseModel):
     json_schema: dict[str, Any] | None = None
 
 
+class ToolChoiceFunction(BaseModel):
+    """Specifies a tool the model should use."""
+
+    name: str
+
+
+class ToolChoice(BaseModel):
+    """
+    Specifies a particular tool to use.
+
+    OpenAI format: {"type": "function", "function": {"name": "my_function"}}
+    """
+
+    type: Literal["function"]
+    function: ToolChoiceFunction
+
+
 class BaseRequestPayload(BaseModel):
     """Common parameters used for chat completions and completion endpoints."""
 
     n: int = Field(1, ge=1)
     stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
+    max_completion_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
     model: str | None = None
@@ -232,6 +250,7 @@ class ChatCompletionRequest(BaseRequestPayload):
 
     messages: list[ChatMessage] = Field(..., min_length=1)
     tools: list[ChatTool] | None = Field(None, min_length=1)
+    tool_choice: Literal["none", "auto", "required"] | ToolChoice | None = None
 
 
 class ChatCompletionResponse(BaseModel):

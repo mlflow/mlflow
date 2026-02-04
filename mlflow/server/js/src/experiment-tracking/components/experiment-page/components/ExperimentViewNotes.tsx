@@ -24,6 +24,7 @@ export interface ExperimentViewNotesProps {
  * Consumes note from the redux store and dispatches
  * `setExperimentTagApi` redux action from the context.
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNotesProps) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);

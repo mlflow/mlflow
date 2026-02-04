@@ -1048,6 +1048,11 @@ from mlflow.cli import scorers
 
 cli.add_command(scorers.commands)
 
+# Add demo CLI command
+from mlflow.cli.demo import demo
+
+cli.add_command(demo)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
@@ -1063,6 +1068,14 @@ try:
     import mlflow.claude_code.cli
 
     cli.add_command(mlflow.claude_code.cli.commands)
+except ImportError:
+    pass
+
+# Add Assistant CLI commands
+try:
+    import mlflow.assistant.cli
+
+    cli.add_command(mlflow.assistant.cli.commands)
 except ImportError:
     pass
 

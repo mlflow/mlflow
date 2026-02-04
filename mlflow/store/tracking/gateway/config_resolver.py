@@ -39,7 +39,7 @@ def get_resource_endpoint_configs(
     backends.
 
     Args:
-        resource_type: Type of resource (e.g., "scorer_job").
+        resource_type: Type of resource (e.g., "scorer").
         resource_id: Unique identifier for the resource instance.
         store: Optional SqlAlchemyStore instance. If not provided, the current
             tracking store is used.

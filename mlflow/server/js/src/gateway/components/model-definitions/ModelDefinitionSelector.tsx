@@ -43,8 +43,8 @@ export const ModelDefinitionSelector = ({
   const placeholder = hasOptions
     ? 'Select a model definition'
     : provider
-    ? `No existing model definitions for ${formatProviderName(provider)}`
-    : 'No model definitions available';
+      ? `No existing model definitions for ${formatProviderName(provider)}`
+      : 'No model definitions available';
 
   const selectId = `${componentIdPrefix}.select`;
 

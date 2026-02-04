@@ -5,6 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
+import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -69,7 +70,7 @@ export const EndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameBlur,
-  componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  componentIdPrefix = `mlflow.gateway.endpoint`,
   embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
@@ -116,11 +117,11 @@ export const EndpointFormRenderer = ({
         description: 'Tooltip shown when submit button is disabled due to incomplete form',
       })
     : mode === 'edit' && !hasChanges
-    ? intl.formatMessage({
-        defaultMessage: 'No changes to save',
-        description: 'Tooltip shown when save button is disabled due to no changes',
-      })
-    : undefined;
+      ? intl.formatMessage({
+          defaultMessage: 'No changes to save',
+          description: 'Tooltip shown when save button is disabled due to no changes',
+        })
+      : undefined;
 
   return (
     <>
@@ -198,6 +199,37 @@ export const EndpointFormRenderer = ({
               )}
             />
           </LongFormSection>
+
+          {/* Usage Tracking Section (only in create mode) */}
+          {mode === 'create' && (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Usage Tracking',
+                description: 'Section title for usage tracking configuration',
+              })}
+            >
+              <Controller
+                control={form.control}
+                name="usageTracking"
+                render={({ field: usageTrackingField }) => (
+                  <Controller
+                    control={form.control}
+                    name="experimentId"
+                    render={({ field: experimentIdField }) => (
+                      <UsageTrackingConfigurator
+                        value={usageTrackingField.value}
+                        onChange={usageTrackingField.onChange}
+                        experimentId={experimentIdField.value ?? ''}
+                        onExperimentIdChange={experimentIdField.onChange}
+                        componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
+                      />
+                    )}
+                  />
+                )}
+              />
+            </LongFormSection>
+          )}
 
           {/* Model Section */}
           <LongFormSection

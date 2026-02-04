@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { GenAiTracesTableSearchInput } from '@databricks/web-shared/genai-traces-table';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -13,22 +13,24 @@ import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
+import { ToolCallStatistics } from './components/ToolCallStatistics';
+import { ToolCallChartsSection } from './components/ToolCallChartsSection';
+import { LazyToolUsageChart } from './components/LazyToolUsageChart';
+import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
+import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
-import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
+import { TimeUnitSelector } from './components/TimeUnitSelector';
+import { TimeUnit, TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
 import { generateTimeBuckets } from './utils/chartUtils';
-
-enum OverviewTab {
-  Usage = 'usage',
-  Quality = 'quality',
-  ToolCalls = 'tool-calls',
-}
+import { OverviewChartProvider } from './OverviewChartContext';
+import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<OverviewTab>(OverviewTab.Usage);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useOverviewTab();
+  const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const isFileStore = useIsFileStore();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -46,17 +48,27 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
   const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
 
-  // Calculate time interval once for all charts
-  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
+  // Calculate the default time unit for the current time range
+  const defaultTimeUnit = calculateDefaultTimeUnit(startTimeMs, endTimeMs);
+
+  // Auto-clear if selected time unit becomes invalid due to time range change
+  useEffect(() => {
+    if (selectedTimeUnit && !isTimeUnitValid(startTimeMs, endTimeMs, selectedTimeUnit)) {
+      setSelectedTimeUnit(null);
+    }
+  }, [startTimeMs, endTimeMs, selectedTimeUnit]);
+
+  // Use selected if valid, otherwise fall back to default
+  const effectiveTimeUnit = selectedTimeUnit ?? defaultTimeUnit;
+
+  // Use the effective time unit for time interval
+  const timeIntervalSeconds = TIME_UNIT_SECONDS[effectiveTimeUnit];
 
   // Generate all time buckets once for all charts
   const timeBuckets = useMemo(
     () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
     [startTimeMs, endTimeMs, timeIntervalSeconds],
   );
-
-  // Common props for all chart components
-  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
 
   return (
     <div
@@ -67,10 +79,24 @@ const ExperimentGenAIOverviewPageImpl = () => {
         overflow: 'hidden',
       }}
     >
+      {isFileStore && (
+        <Alert
+          componentId="mlflow.experiment.overview.filestore-warning"
+          type="warning"
+          css={{ marginBottom: theme.spacing.sm }}
+          message={
+            <FormattedMessage
+              defaultMessage="The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported."
+              description="Warning banner shown on the Overview tab when using FileStore backend"
+            />
+          }
+        />
+      )}
       <Tabs.Root
         componentId="mlflow.experiment.overview.tabs"
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as OverviewTab)}
+        valueHasNoPii
         css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
       >
         <Tabs.List>
@@ -94,64 +120,86 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Trigger>
         </Tabs.List>
 
-        {/* Control bar with search and time range */}
+        {/* Control bar with time range */}
         <div
           css={{
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: `${theme.spacing.sm}px 0`,
           }}
         >
-          {/* Search input */}
-          <GenAiTracesTableSearchInput
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Search charts',
-              description: 'Placeholder for search charts input',
-            })}
+          {/* Time unit selector for chart grouping */}
+          <TimeUnitSelector
+            value={effectiveTimeUnit}
+            onChange={setSelectedTimeUnit}
+            startTimeMs={startTimeMs}
+            endTimeMs={endTimeMs}
+            allowClear={selectedTimeUnit !== null && selectedTimeUnit !== defaultTimeUnit}
+            onClear={() => setSelectedTimeUnit(null)}
           />
 
           {/*
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
            */}
-          <TracesV3DateSelector excludeOptions={['ALL']} />
+          <TracesV3DateSelector
+            excludeOptions={['ALL']}
+            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
+          />
         </div>
 
-        <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Requests chart - full width */}
-            <LazyTraceRequestsChart {...chartProps} />
+        <OverviewChartProvider
+          experimentId={experimentId}
+          startTimeMs={startTimeMs}
+          endTimeMs={endTimeMs}
+          timeIntervalSeconds={timeIntervalSeconds}
+          timeBuckets={timeBuckets}
+        >
+          <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Requests chart - full width */}
+              <LazyTraceRequestsChart />
 
-            {/* Latency and Errors charts - side by side */}
-            <ChartGrid>
-              <LazyTraceLatencyChart {...chartProps} />
-              <LazyTraceErrorsChart {...chartProps} />
-            </ChartGrid>
+              {/* Latency and Errors charts - side by side */}
+              <ChartGrid>
+                <LazyTraceLatencyChart />
+                <LazyTraceErrorsChart />
+              </ChartGrid>
 
-            {/* Token Usage and Token Stats charts - side by side */}
-            <ChartGrid>
-              <LazyTraceTokenUsageChart {...chartProps} />
-              <LazyTraceTokenStatsChart {...chartProps} />
-            </ChartGrid>
-          </TabContentContainer>
-        </Tabs.Content>
+              {/* Token Usage and Token Stats charts - side by side */}
+              <ChartGrid>
+                <LazyTraceTokenUsageChart />
+                <LazyTraceTokenStatsChart />
+              </ChartGrid>
+            </TabContentContainer>
+          </Tabs.Content>
 
-        <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Assessment charts - dynamically rendered based on available assessments */}
-            <AssessmentChartsSection {...chartProps} />
-          </TabContentContainer>
-        </Tabs.Content>
+          <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Assessment charts - dynamically rendered based on available assessments */}
+              <AssessmentChartsSection />
+            </TabContentContainer>
+          </Tabs.Content>
 
-        <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Tool call charts - placeholder for now */}
-            <div>Tool calls charts coming soon</div>
-          </TabContentContainer>
-        </Tabs.Content>
+          <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Tool call statistics */}
+              <ToolCallStatistics />
+
+              {/* Tool performance summary */}
+              <LazyToolPerformanceSummary />
+
+              {/* Tool usage and latency charts - side by side */}
+              <ChartGrid>
+                <LazyToolUsageChart />
+                <LazyToolLatencyChart />
+              </ChartGrid>
+
+              {/* Tool error rate charts - dynamically rendered based on available tools */}
+              <ToolCallChartsSection />
+            </TabContentContainer>
+          </Tabs.Content>
+        </OverviewChartProvider>
       </Tabs.Root>
     </div>
   );

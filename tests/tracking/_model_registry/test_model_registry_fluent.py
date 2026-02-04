@@ -274,12 +274,11 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
-        ),
+        ) as mock_create_version,
         mock.patch(
             "mlflow.MlflowClient.get_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
         ),
-        mock.patch("mlflow.MlflowClient.log_model_artifacts") as mock_log_artifacts,
     ):
         # Set up the mock pack_env to yield a path
         mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
@@ -291,12 +290,18 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
         mock_pack_env.assert_called_once_with(
             "models:/test-model/1",
             enforce_pip_requirements=True,
+            local_model_path=None,
         )
 
-        # Verify log_model_artifacts was called with correct arguments
-        mock_log_artifacts.assert_called_once_with(
-            None,
-            str(mock_artifacts_dir),
+        # Verify _create_model_version was called with packed artifacts path
+        mock_create_version.assert_called_once_with(
+            name="Model 1",
+            source="models:/test-model/1",
+            run_id=None,
+            tags=None,
+            await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=str(mock_artifacts_dir),
+            model_id=None,
         )
 
         # Verify stage_model was called with correct arguments
@@ -328,12 +333,11 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps):
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
-        ),
+        ) as mock_create_version,
         mock.patch(
             "mlflow.MlflowClient.get_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
         ),
-        mock.patch("mlflow.MlflowClient.log_model_artifacts") as mock_log_artifacts,
     ):
         # Set up the mock pack_env to yield a path
         mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
@@ -350,11 +354,18 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps):
         mock_pack_env.assert_called_once_with(
             "models:/test-model/1",
             enforce_pip_requirements=install_deps,
+            local_model_path=None,
         )
 
-        mock_log_artifacts.assert_called_once_with(
-            None,
-            str(mock_artifacts_dir),
+        # Verify _create_model_version was called with packed artifacts path
+        mock_create_version.assert_called_once_with(
+            name="Model 1",
+            source="models:/test-model/1",
+            run_id=None,
+            tags=None,
+            await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=str(mock_artifacts_dir),
+            model_id=None,
         )
 
         mock_stage_model.assert_called_once_with(
@@ -385,12 +396,11 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
-        ),
+        ) as mock_create_version,
         mock.patch(
             "mlflow.MlflowClient.get_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
         ),
-        mock.patch("mlflow.MlflowClient.log_model_artifacts") as mock_log_artifacts,
         mock.patch("mlflow.tracking._model_registry.fluent.eprint") as mock_eprint,
     ):
         # Set up the mock pack_env to yield a path
@@ -403,12 +413,18 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
         mock_pack_env.assert_called_once_with(
             "models:/test-model/1",
             enforce_pip_requirements=True,
+            local_model_path=None,
         )
 
-        # Verify log_model_artifacts was called with correct arguments
-        mock_log_artifacts.assert_called_once_with(
-            None,
-            str(mock_artifacts_dir),
+        # Verify _create_model_version was called with packed artifacts path
+        mock_create_version.assert_called_once_with(
+            name="Model 1",
+            source="models:/test-model/1",
+            run_id=None,
+            tags=None,
+            await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+            local_model_path=str(mock_artifacts_dir),
+            model_id=None,
         )
 
         # Verify stage_model was called with correct arguments
