@@ -369,35 +369,35 @@ class TrafficRouteProvider(BaseProvider):
         chosen_index = np.random.choice(self._indices, p=self._weights)
         return self._providers[chosen_index]
 
-    async def _chat_stream(
+    async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         prov = self._get_provider()
         async for i in prov.chat_stream(payload):
             yield i
 
-    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         prov = self._get_provider()
         return await prov.chat(payload)
 
-    async def _completions_stream(
+    async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         prov = self._get_provider()
         async for i in prov.completions_stream(payload):
             yield i
 
-    async def _completions(
+    async def completions(
         self, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         prov = self._get_provider()
         return await prov.completions(payload)
 
-    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         prov = self._get_provider()
         return await prov.embeddings(payload)
 
-    async def _passthrough(
+    async def passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
@@ -520,30 +520,30 @@ class FallbackProvider(BaseProvider):
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
-    async def _chat_stream(
+    async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         async for chunk in self._execute_stream_with_fallback("chat_stream", payload):
             yield chunk
 
-    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         return await self._execute_with_fallback("chat", payload)
 
-    async def _completions_stream(
+    async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         async for chunk in self._execute_stream_with_fallback("completions_stream", payload):
             yield chunk
 
-    async def _completions(
+    async def completions(
         self, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         return await self._execute_with_fallback("completions", payload)
 
-    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         return await self._execute_with_fallback("embeddings", payload)
 
-    async def _passthrough(
+    async def passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
