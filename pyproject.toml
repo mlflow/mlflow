@@ -23,9 +23,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "Flask-CORS<7",
   "Flask<4",
@@ -48,7 +48,7 @@ dependencies = [
   "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<27",
-  "pandas<3",
+  "pandas<4",
   "protobuf<7,>=3.12.0",
   "pyarrow<24,>=4.0.0",
   "pydantic<3,>=2.0.0",
@@ -253,6 +253,7 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # TODO: Remove this once transformers 5.x is supported
   "transformers<5",
+  "pandas==3.0.0",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
@@ -437,8 +438,8 @@ exclude = [
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
-  "typing_extensions.Self",        # Added in 4.0.0
-  "typing_extensions.NotRequired", # Added in 4.0.0
+  # "typing_extensions.Self",        # Added in 4.0.0
+  # "typing_extensions.NotRequired", # Added in 4.0.0
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
