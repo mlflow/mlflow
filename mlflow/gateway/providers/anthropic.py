@@ -252,6 +252,20 @@ class AnthropicAdapter(ProviderAdapter):
                 content=content.get("text"),
             )
 
+        # Extract usage from accumulated usage data (message_delta events)
+        usage = None
+        if usage_data := resp.get("_usage_data"):
+            input_tokens = usage_data.get("input_tokens")
+            output_tokens = usage_data.get("output_tokens")
+            total_tokens = None
+            if input_tokens is not None and output_tokens is not None:
+                total_tokens = input_tokens + output_tokens
+            usage = chat.ChatUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=total_tokens,
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             created=int(time.time()),
@@ -263,6 +277,7 @@ class AnthropicAdapter(ProviderAdapter):
                     delta=delta,
                 )
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -357,8 +372,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         PassthroughAction.ANTHROPIC_MESSAGES: "messages",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
@@ -423,7 +438,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         else:
             raise ValueError(f"Invalid route type {route_type}")
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -443,6 +458,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         indices = []
         metadata = {}
+        usage_data = {}  # Track usage across events
         async for chunk in stream:
             chunk = chunk.strip()
             if not chunk:
@@ -457,9 +473,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             resp = json.loads(content.decode("utf-8"))
 
             # response id and model are only present in `message_start`
+            # Also extract input_tokens from message_start
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
+                # Capture input_tokens from message_start
+                if message_usage := resp["message"].get("usage"):
+                    usage_data["input_tokens"] = message_usage.get("input_tokens")
                 continue
 
             if resp["type"] not in (
@@ -475,6 +495,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
+                # Capture output_tokens from message_delta
+                if delta_usage := resp.get("usage"):
+                    usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                # Include accumulated usage in the response
+                resp["_usage_data"] = usage_data
                 for index in indices:
                     yield AnthropicAdapter.model_to_chat_streaming(
                         {**resp, "index": index},
@@ -483,7 +508,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             else:
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -500,7 +525,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -529,12 +556,12 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         provider_path = self._validate_passthrough_action(action)
 
         # Add model name from config

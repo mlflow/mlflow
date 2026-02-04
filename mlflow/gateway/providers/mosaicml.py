@@ -15,8 +15,8 @@ class MosaicMLProvider(BaseProvider):
     NAME = "MosaicML"
     CONFIG_TYPE = MosaicMLConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         warnings.warn(
             "MosaicML provider is deprecated and will be removed in a future MLflow version.",
             category=FutureWarning,
@@ -84,7 +84,7 @@ class MosaicMLProvider(BaseProvider):
         # assistant completion prompts.
         return prompt.removesuffix("</s><s>")
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         # Extract the List[RequestMessage] from the RequestPayload
@@ -154,7 +154,9 @@ class MosaicMLProvider(BaseProvider):
             ),
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -221,7 +223,7 @@ class MosaicMLProvider(BaseProvider):
             ),
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

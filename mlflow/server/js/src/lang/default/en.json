@@ -2162,6 +2162,10 @@
     "defaultMessage": "No traces found",
     "description": "No traces found message"
   },
+  "Dk2itm": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
+    "description": "Label indicating a pre-built trace-level LLM-as-a-judge template"
+  },
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
@@ -2485,10 +2489,6 @@
   "GgPNAZ": {
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
-  },
-  "Gj3Zbz": {
-    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
-    "description": "Label indicating a pre-built LLM-as-a-judge template"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -3569,10 +3569,6 @@
   "PPPbd+": {
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
-  },
-  "PQRoqw": {
-    "defaultMessage": "Run judge on trace",
-    "description": "Title for run judge modal"
   },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
@@ -5150,6 +5146,10 @@
   "b1yfI9": {
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
+  },
+  "b6VGsd": {
+    "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
+    "description": "Label indicating a pre-built session-level LLM-as-a-judge template"
   },
   "b6hjrM": {
     "defaultMessage": "Fallback Models",
@@ -7363,6 +7363,10 @@
     "defaultMessage": "Show execution timeline",
     "description": "Tooltip for a button that shows execution timeline info in the trace UI."
   },
+  "r63O2u": {
+    "defaultMessage": "Cancel judge",
+    "description": "Button text for canceling judge evaluation"
+  },
   "r7aGM3": {
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
@@ -7390,6 +7394,10 @@
   "rFJSWc": {
     "defaultMessage": "Attempt to display",
     "description": "Button label for forcing the display of a large trace"
+  },
+  "rFT5e1": {
+    "defaultMessage": "Run judge on trace",
+    "description": "Title for run judge modal in traces view"
   },
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
@@ -8010,6 +8018,10 @@
   "wJX0a/": {
     "defaultMessage": "Provider",
     "description": "Label for model provider input"
+  },
+  "wKNdFh": {
+    "defaultMessage": "Run judge on session",
+    "description": "Title for run judge modal in sessions view"
   },
   "wKXJ6U": {
     "defaultMessage": "Toggle visibility of evaluation runs",

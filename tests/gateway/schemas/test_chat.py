@@ -153,3 +153,63 @@ def test_chat_response():
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         chat.ResponsePayload(**{"usage": {}})
+
+
+def test_chat_stream_response():
+    # Test stream response without usage
+    chat.StreamResponsePayload(
+        **{
+            "id": "chatcmpl-123",
+            "created": 100,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": "Hello"},
+                    "finish_reason": None,
+                },
+            ],
+        }
+    )
+
+    # Test stream response with usage (final chunk with stream_options.include_usage=true)
+    response = chat.StreamResponsePayload(
+        **{
+            "id": "chatcmpl-123",
+            "created": 100,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": "stop",
+                },
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+            },
+        }
+    )
+    assert response.usage is not None
+    assert response.usage.prompt_tokens == 10
+    assert response.usage.completion_tokens == 20
+    assert response.usage.total_tokens == 30
+
+    # Test stream response without usage field (default)
+    response_no_usage = chat.StreamResponsePayload(
+        **{
+            "id": "chatcmpl-456",
+            "created": 100,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": "chunk"},
+                    "finish_reason": None,
+                },
+            ],
+        }
+    )
+    assert response_no_usage.usage is None

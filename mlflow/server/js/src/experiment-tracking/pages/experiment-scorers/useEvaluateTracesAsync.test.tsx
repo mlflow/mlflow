@@ -477,6 +477,95 @@ describe('useEvaluateTracesAsync', () => {
         expect(result.current[1].isLoading).toBe(false);
       });
     });
+
+    it('should cancel specific evaluation when reset is called with requestKey', async () => {
+      const experimentId = 'exp-123';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      const trace1 = createMockTrace('trace-1');
+      const trace2 = createMockTrace('trace-2');
+      const traces = new Map([
+        ['trace-1', trace1],
+        ['trace-2', trace2],
+      ]);
+
+      let invokeCount = 0;
+
+      // Setup handlers
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(
+            ctx.json({ traces: [{ trace_id: 'trace-1' }, { trace_id: 'trace-2' }], next_page_token: undefined }),
+          );
+        }),
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          // Return different job IDs for each invocation
+          invokeCount++;
+          return res(ctx.json({ jobs: [{ job_id: `job-${invokeCount}` }] }));
+        }),
+        rest.get('ajax-api/3.0/jobs/:jobId', (_req, res, ctx) => {
+          // Keep jobs in RUNNING state so we can test cancellation
+          return res(ctx.json({ status: 'RUNNING' }));
+        }),
+        // Cancel endpoint - fire-and-forget, just acknowledge
+        rest.patch('ajax-api/3.0/jobs/cancel/:jobId', (_req, res, ctx) => {
+          return res(ctx.json({ status: 'CANCELLED' }));
+        }),
+      );
+
+      setupTraceFetchHandlers(server, traces);
+
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
+
+      // Start first evaluation and capture its request key
+      let firstRequestKey: string | undefined;
+      await act(async () => {
+        const [evaluateFunction] = result.current;
+        firstRequestKey = await evaluateFunction({
+          itemIds: ['trace-1'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test 1',
+          serializedScorer,
+        });
+      });
+
+      // Start second evaluation
+      let secondRequestKey: string | undefined;
+      await act(async () => {
+        const [evaluateFunction] = result.current;
+        secondRequestKey = await evaluateFunction({
+          itemIds: ['trace-2'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test 2',
+          serializedScorer,
+        });
+      });
+
+      // Wait for both evaluations to be tracked
+      await waitFor(() => {
+        const evals = result.current[1].allEvaluations;
+        return Object.keys(evals).length === 2;
+      });
+
+      // Verify both evaluations are in allEvaluations
+      expect(result.current[1].allEvaluations[firstRequestKey!]).toBeDefined();
+      expect(result.current[1].allEvaluations[secondRequestKey!]).toBeDefined();
+
+      // Cancel only the first evaluation
+      act(() => {
+        result.current[1].reset(firstRequestKey);
+      });
+
+      // Verify first evaluation is removed, second remains
+      await waitFor(() => {
+        expect(result.current[1].allEvaluations[firstRequestKey!]).toBeUndefined();
+      });
+
+      // Second evaluation should still exist
+      expect(result.current[1].allEvaluations[secondRequestKey!]).toBeDefined();
+    });
   });
 
   describe('Job Success with Trace Failures', () => {
