@@ -85,6 +85,8 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
             SpanMetricDimensionKey.SPAN_NAME,
             SpanMetricDimensionKey.SPAN_TYPE,
             SpanMetricDimensionKey.SPAN_STATUS,
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
