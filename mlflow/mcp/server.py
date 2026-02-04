@@ -10,22 +10,22 @@ import mlflow.deployments.cli as deployments_cli
 import mlflow.experiments
 import mlflow.models.cli as models_cli
 import mlflow.runs
-import mlflow.store.artifact.cli
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
 from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
+from mlflow.mcp.decorator import get_mcp_tool_name
 
 # Environment variable to control which tool categories are enabled
 # Supported values:
-#   - "genai": traces and scorers tools only (default)
-#   - "ml": experiments, runs, artifacts, models, and deployments tools
+#   - "genai": traces, scorers, experiments, and runs tools (default)
+#   - "ml": experiments, runs, models and deployments tools
 #   - "all": all available tools
-#   - Comma-separated list: "traces,scorers,experiments,runs,artifacts,models,deployments"
+#   - Comma-separated list: "traces,scorers,experiments,runs,models,deployments"
 MLFLOW_MCP_TOOLS = os.environ.get("MLFLOW_MCP_TOOLS", "genai")
 
 # Tool category mappings
-_GENAI_TOOLS = {"traces", "scorers"}
-_ML_TOOLS = {"experiments", "runs", "artifacts", "models", "deployments"}
+_GENAI_TOOLS = {"traces", "scorers", "experiments", "runs"}
+_ML_TOOLS = {"models", "deployments", "experiments", "runs"}
 _ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 
 if TYPE_CHECKING:
@@ -100,22 +100,30 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
     return wrapper
 
 
-def cmd_to_function_tool(cmd: click.Command, suffix: str = "") -> "FunctionTool":
+def cmd_to_function_tool(cmd: click.Command) -> "FunctionTool | None":
     """
     Converts a Click command to a FunctionTool.
 
     Args:
         cmd: The Click command to convert.
-        suffix: Optional suffix to add to the tool name (e.g., "experiments").
+
+    Returns:
+        FunctionTool if the command has been decorated with @mlflow_mcp,
+        None if the command should be skipped (not decorated for MCP exposure).
     """
     from fastmcp.tools import FunctionTool
 
-    # Use the command name (CLI name) with optional suffix
-    base_name = cmd.name or (cmd.callback.__name__ if cmd.callback else "unknown")
-    name = f"{base_name}_{suffix}" if suffix else base_name
+    # Get the MCP tool name from the decorator
+    tool_name = get_mcp_tool_name(cmd)
+
+    # Skip commands that don't have the @mlflow_mcp decorator
+    # This allows us to curate which commands are exposed as MCP tools
+    if tool_name is None:
+        return None
+
     return FunctionTool(
         fn=fn_wrapper(cmd),
-        name=name,
+        name=tool_name,
         description=(cmd.help or "").strip(),
         parameters=get_input_schema(cmd.params),
     )
@@ -161,6 +169,16 @@ def _is_tool_enabled(category: str) -> bool:
     return category.lower() in enabled_tools
 
 
+def _collect_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
+    """Collect MCP tools from commands, filtering out undecorated commands."""
+    tools = []
+    for cmd in commands.values():
+        tool = cmd_to_function_tool(cmd)
+        if tool is not None:
+            tools.append(tool)
+    return tools
+
+
 def create_mcp() -> "FastMCP":
     from fastmcp import FastMCP
 
@@ -168,44 +186,27 @@ def create_mcp() -> "FastMCP":
 
     # Traces CLI tools (genai)
     if _is_tool_enabled("traces"):
-        tools.extend(cmd_to_function_tool(cmd, "traces") for cmd in traces_cli.commands.values())
+        tools.extend(_collect_tools(traces_cli.commands))
 
     # Scorers CLI tools (genai)
     if _is_tool_enabled("scorers"):
-        tools.extend(cmd_to_function_tool(cmd, "scorers") for cmd in scorers_cli.commands.values())
+        tools.extend(_collect_tools(scorers_cli.commands))
 
-    # Experiment tracking tools (ml)
+    # Experiment tracking tools (genai)
     if _is_tool_enabled("experiments"):
-        tools.extend(
-            cmd_to_function_tool(cmd, "experiments")
-            for cmd in mlflow.experiments.commands.commands.values()
-        )
+        tools.extend(_collect_tools(mlflow.experiments.commands.commands))
 
-    # Run management tools (ml)
+    # Run management tools (genai)
     if _is_tool_enabled("runs"):
-        tools.extend(
-            cmd_to_function_tool(cmd, "runs") for cmd in mlflow.runs.commands.commands.values()
-        )
-
-    # Artifact handling tools (ml)
-    if _is_tool_enabled("artifacts"):
-        tools.extend(
-            cmd_to_function_tool(cmd, "artifacts")
-            for cmd in mlflow.store.artifact.cli.commands.commands.values()
-        )
+        tools.extend(_collect_tools(mlflow.runs.commands.commands))
 
     # Model serving tools (ml)
     if _is_tool_enabled("models"):
-        tools.extend(
-            cmd_to_function_tool(cmd, "models") for cmd in models_cli.commands.commands.values()
-        )
+        tools.extend(_collect_tools(models_cli.commands.commands))
 
     # Deployment tools (ml)
     if _is_tool_enabled("deployments"):
-        tools.extend(
-            cmd_to_function_tool(cmd, "deployments")
-            for cmd in deployments_cli.commands.commands.values()
-        )
+        tools.extend(_collect_tools(deployments_cli.commands.commands))
 
     mcp = FastMCP(
         name="Mlflow MCP",
