@@ -4153,3 +4153,334 @@ def test_query_span_metrics_cost_percentiles(store: SqlAlchemyStore, percentile_
         "dimensions": {},
         "values": {f"P{percentile_value}": expected_percentile},
     }
+
+
+def test_query_span_metrics_cost_by_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "openai_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "openai_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.015,
+                    "output_cost": 0.025,
+                    "total_cost": 0.04,
+                },
+                SpanAttributeKey.MODEL: "gpt-4-turbo",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.02},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.07},
+    }
+
+
+def test_query_span_metrics_cost_avg_by_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_avg_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            f"openai_call_{i}",
+            span_id=i,
+            span_type="LLM",
+            start_ns=1000000000 + i * 100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01 * i,
+                    "output_cost": 0.01 * i,
+                    "total_cost": 0.02 * i,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        )
+        for i in range(1, 4)
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"AVG": 0.04},
+    }
+
+
+def test_query_span_metrics_cost_by_model_name_and_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_name_and_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "gpt4_call",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "gpt4_turbo_call",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "gpt-4-turbo",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "claude_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.008,
+                    "output_cost": 0.012,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        ],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "claude-3-5-sonnet",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"SUM": 0.02},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"SUM": 0.03},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4-turbo",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"SUM": 0.02},
+    }
+
+
+def test_query_span_metrics_input_output_cost_by_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_input_output_cost_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "openai_call",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_call",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    # Test INPUT_COST
+    result_input = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.INPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result_input) == 2
+    assert asdict(result_input[0]) == {
+        "metric_name": SpanMetricKey.INPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.005},
+    }
+    assert asdict(result_input[1]) == {
+        "metric_name": SpanMetricKey.INPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.01},
+    }
+
+    # Test OUTPUT_COST
+    result_output = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.OUTPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result_output) == 2
+    assert asdict(result_output[0]) == {
+        "metric_name": SpanMetricKey.OUTPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.015},
+    }
+    assert asdict(result_output[1]) == {
+        "metric_name": SpanMetricKey.OUTPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.02},
+    }

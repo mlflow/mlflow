@@ -93,15 +93,24 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
+        dimensions={
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
+        dimensions={
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
+        dimensions={
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        },
     ),
 }
 
@@ -372,6 +381,10 @@ def _apply_dimension_to_query(
                     # Extract model name from span_metrics metric_metadata JSON column
                     model_name = SqlSpanMetrics.metric_metadata[SpanAttributeKey.MODEL]
                     return query, model_name.label(SpanMetricDimensionKey.SPAN_MODEL_NAME)
+                case SpanMetricDimensionKey.SPAN_MODEL_PROVIDER:
+                    # Extract model provider from span_metrics metric_metadata JSON column
+                    model_provider = SqlSpanMetrics.metric_metadata[SpanAttributeKey.MODEL_PROVIDER]
+                    return query, model_provider.label(SpanMetricDimensionKey.SPAN_MODEL_PROVIDER)
         case MetricViewType.ASSESSMENTS:
             match dimension:
                 case AssessmentMetricDimensionKey.ASSESSMENT_NAME:
