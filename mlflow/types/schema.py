@@ -12,6 +12,8 @@ from types import UnionType
 from typing import Any, TypedDict, Union, get_args, get_origin
 
 import numpy as np
+import pandas as pd
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 
@@ -86,6 +88,9 @@ class DataType(Enum):
 
     def to_pandas(self) -> np.dtype:
         """Get equivalent pandas data type."""
+        # pandas 3.0+ uses 'str' dtype by default for string columns
+        if self == DataType.string and Version(pd.__version__).major >= 3:
+            return "str"
         return self._pandas_type
 
     def to_spark(self):
