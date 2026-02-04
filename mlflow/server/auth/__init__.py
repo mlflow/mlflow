@@ -407,9 +407,9 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_model_definition_permission(
-            model_definition_id, username
-        ).permission
+        lambda: (
+            store.get_gateway_model_definition_permission(model_definition_id, username).permission
+        )
     )
 
 
@@ -696,9 +696,9 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     username = authenticate_request().username
     for model_def_id in model_def_ids:
         permission = _get_permission_from_store_or_default(
-            lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
-                md_id, username
-            ).permission
+            lambda md_id=model_def_id: (
+                store.get_gateway_model_definition_permission(md_id, username).permission
+            )
         )
         if not permission.can_use:
             return False
