@@ -4227,6 +4227,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     # Get cost and model name for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
                     model_name = span_attributes.get(SpanAttributeKey.MODEL)
+                    model_provider = span_attributes.get(SpanAttributeKey.MODEL_PROVIDER)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -4248,12 +4249,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # Prepare metric metadata with model name if available
                 span_metric_metadata = {}
                 if model_name:
-                    try:
-                        # model name could be json-encoded string or plain string
-                        model_name = json.loads(model_name)
-                    except json.JSONDecodeError:
-                        pass
-                    span_metric_metadata[SpanAttributeKey.MODEL] = model_name
+                    span_metric_metadata[SpanAttributeKey.MODEL] = _try_parse_json_string(
+                        model_name
+                    )
+                if model_provider:
+                    span_metric_metadata[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
+                        model_provider
+                    )
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
@@ -6193,3 +6195,11 @@ def _get_search_datasets_order_by_clauses(order_by):
         order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
+
+
+def _try_parse_json_string(value: str) -> str:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        pass
+    return value
