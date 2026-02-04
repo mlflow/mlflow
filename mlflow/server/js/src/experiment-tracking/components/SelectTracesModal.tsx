@@ -1,10 +1,12 @@
 import { Button, Modal, Tooltip } from '@databricks/design-system';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
+import Routes from '../routes';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import {
+  ActiveEvaluationContext,
   TRACE_ID_COLUMN_ID,
   TracesTableColumn,
   TracesTableColumnType,
@@ -45,6 +47,41 @@ const SelectTracesModalImpl = ({
 }: SelectTracesModalProps) => {
   const { experimentId } = useParams();
   const timeRange = useMonitoringFiltersTimeRange();
+  const [monitoringFilters] = useMonitoringFilters();
+
+  // Provide isolated context for useActiveEvaluation to prevent the trace drawer
+  // from rendering inside this modal. Instead, clicking a trace opens it in a new tab.
+  const openTraceInNewTab = useCallback(
+    (traceId: string | undefined) => {
+      if (traceId && experimentId) {
+        // Preserve the current time filter so the trace is visible in the new tab
+        const startTimeLabel = monitoringFilters.startTimeLabel || 'LAST_7_DAYS';
+        const params = new URLSearchParams({
+          selectedEvaluationId: traceId,
+          startTimeLabel,
+        });
+        if (startTimeLabel === 'CUSTOM') {
+          if (monitoringFilters.startTime) {
+            params.set('startTime', monitoringFilters.startTime);
+          }
+          if (monitoringFilters.endTime) {
+            params.set('endTime', monitoringFilters.endTime);
+          }
+        }
+        const basePath = Routes.getExperimentPageTracesTabRoute(experimentId);
+        // TODO(BACKSYNC): Use utils for resolving workspace params when backsyncing to managed codebase
+        window.open(`/#${basePath}?${params.toString()}`, '_blank');
+      }
+    },
+    [experimentId, monitoringFilters],
+  );
+  const activeEvaluationContextValue = useMemo(
+    () => ({
+      selectedEvaluationId: undefined,
+      setSelectedEvaluationId: openTraceInNewTab,
+    }),
+    [openTraceInNewTab],
+  );
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(
     initialTraceIdsSelected.reduce(
@@ -121,16 +158,18 @@ const SelectTracesModalImpl = ({
         </>
       }
     >
-      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <TracesV3Logs
-          disableActions
-          experimentId={experimentId}
-          timeRange={timeRange}
-          customDefaultSelectedColumns={customDefaultSelectedColumns}
-          // TODO: Move date selector to the toolbar in all callsites permanently
-          toolbarAddons={<TracesV3DateSelector />}
-        />
-      </GenAiTraceTableRowSelectionProvider>
+      <ActiveEvaluationContext.Provider value={activeEvaluationContextValue}>
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <TracesV3Logs
+            disableActions
+            experimentId={experimentId}
+            timeRange={timeRange}
+            customDefaultSelectedColumns={customDefaultSelectedColumns}
+            // TODO: Move date selector to the toolbar in all callsites permanently
+            toolbarAddons={<TracesV3DateSelector />}
+          />
+        </GenAiTraceTableRowSelectionProvider>
+      </ActiveEvaluationContext.Provider>
     </Modal>
   );
 };
