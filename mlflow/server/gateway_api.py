@@ -224,6 +224,7 @@ def _build_endpoint_config(
 def _create_provider(
     endpoint_config: GatewayEndpointConfig,
     endpoint_type: EndpointType,
+    enable_tracing: bool = False,
 ) -> BaseProvider:
     """
     Create a provider instance based on endpoint routing strategy.
@@ -272,6 +273,7 @@ def _create_provider(
             configs=configs,
             traffic_splits=weights,
             routing_strategy="TRAFFIC_SPLIT",
+            enable_tracing=enable_tracing,
         )
     else:
         # Default: use the first PRIMARY model
@@ -280,7 +282,7 @@ def _create_provider(
             endpoint_config.endpoint_name, model_config, endpoint_type
         )
         provider_class = get_provider(model_config.provider)
-        primary_provider = provider_class(gateway_endpoint_config)
+        primary_provider = provider_class(gateway_endpoint_config, enable_tracing=enable_tracing)
 
     # Wrap with FallbackProvider if fallback configuration exists
     if endpoint_config.fallback_config:
@@ -308,7 +310,8 @@ def _create_provider(
                     endpoint_name=endpoint_config.endpoint_name,
                     model_config=model_config,
                     endpoint_type=endpoint_type,
-                )
+                ),
+                enable_tracing=enable_tracing,
             )
             for model_config in fallback_models
         ]
@@ -323,6 +326,7 @@ def _create_provider(
             providers=all_providers,
             max_attempts=max_attempts + 1,  # +1 to include primary
             strategy=endpoint_config.fallback_config.strategy,
+            enable_tracing=enable_tracing,
         )
 
     return primary_provider
@@ -332,6 +336,7 @@ def _create_provider_from_endpoint_name(
     store: SqlAlchemyStore,
     endpoint_name: str,
     endpoint_type: EndpointType,
+    enable_tracing: bool = True,
 ) -> BaseProvider:
     """
     Create a provider from an endpoint name (backward compatibility helper for tests).
@@ -340,12 +345,13 @@ def _create_provider_from_endpoint_name(
         store: The SQLAlchemy store instance.
         endpoint_name: The endpoint name.
         endpoint_type: Endpoint type (chat or embeddings).
+        enable_tracing: If True, enables MLflow tracing for provider calls.
 
     Returns:
         Provider instance
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    return _create_provider(endpoint_config, endpoint_type)
+    return _create_provider(endpoint_config, endpoint_type, enable_tracing=enable_tracing)
 
 
 def _validate_store(store: AbstractStore) -> None:

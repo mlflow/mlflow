@@ -46,7 +46,7 @@ AI Agents are an emerging pattern of GenAI applications that can use tools, make
 First, install the required packages by running the following command:
 
 ```bash
-pip install --upgrade mlflow>=3.3 openai
+pip install --upgrade 'mlflow[genai]>=3.3' openai
 ```
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
@@ -187,7 +187,7 @@ MLflow provides built-in scorers for evaluating agent tool usage:
 - <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink>: Evaluates if tool calls and arguments are correct for the user query
 - <APILink fn="mlflow.genai.scorers.ToolCallEfficiency">ToolCallEfficiency</APILink>: Evaluates if tool calls are efficient without redundancy
 
-These scorers automatically analyze traces to assess tool usage patterns. See the <ins>[Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)</ins> guide for more details.
+These scorers automatically analyze traces to assess tool usage patterns. See the <ins>[Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined)</ins> guide for more details.
 
 For custom evaluation patterns, you can create your own scorers that parse traces. See the <ins>[Custom Scorers](/genai/eval-monitor/scorers/custom)</ins> guide.
 

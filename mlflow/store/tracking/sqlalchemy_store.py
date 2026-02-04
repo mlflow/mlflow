@@ -51,6 +51,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -71,6 +72,11 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.genai.judges.instructions_judge import (
+    EXPECTATIONS_FIELD,
+    InstructionsJudge,
+)
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
     OnlineScorer,
@@ -112,6 +118,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDatasetTag,
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
@@ -1561,7 +1568,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     ):
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results is not None and current_size == max_results + 1:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
 
@@ -1610,8 +1617,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
-                .limit(max_results)
             )
+            if max_results is not None:
+                stmt = stmt.limit(max_results + 1)
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
@@ -1632,6 +1640,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             next_page_token = compute_next_token(len(runs_with_inputs_outputs))
+
+            # Trim results if we fetched an extra row to check for more pages
+            if next_page_token and max_results is not None:
+                runs_with_inputs_outputs = runs_with_inputs_outputs[:max_results]
 
         return runs_with_inputs_outputs, next_page_token
 
@@ -2125,10 +2137,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             model = extract_model_from_serialized_scorer(serialized_data)
             validate_scorer_model(model)
 
+            endpoint_id = None
             if is_gateway_model(model):
                 endpoint_name = extract_endpoint_ref(model)
                 # Resolve name to ID - raises MlflowException if endpoint doesn't exist
                 endpoint = self.get_gateway_endpoint(name=endpoint_name)
+                endpoint_id = endpoint.endpoint_id
                 # Update serialized scorer with endpoint ID instead of name
                 serialized_data = update_model_in_serialized_scorer(
                     serialized_data, build_gateway_model(endpoint.endpoint_id)
@@ -2174,6 +2188,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             session.add(sql_scorer_version)
+
+            # Create endpoint binding if scorer uses a gateway endpoint
+            # Verify endpoint exists in DB (handles mocked tests and race conditions)
+            if endpoint_id is not None:
+                endpoint_exists = (
+                    session.query(SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if endpoint_exists is not None:
+                    # Delete any existing binding for this scorer (in case of re-registration)
+                    # Use scorer_id for globally unique identification across experiments
+                    session.query(SqlGatewayEndpointBinding).filter(
+                        SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                        SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                    ).delete()
+
+                    binding = SqlGatewayEndpointBinding(
+                        endpoint_id=endpoint_id,
+                        resource_type=GatewayResourceType.SCORER.value,
+                        resource_id=scorer.scorer_id,
+                        display_name=name,
+                        created_at=get_current_time_millis(),
+                        last_updated_at=get_current_time_millis(),
+                    )
+                    session.add(binding)
+
             session.flush()
 
             entity = sql_scorer_version.to_mlflow_entity()
@@ -2375,7 +2416,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.delete(sql_scorer_version)
 
             # If we're deleting all versions, also delete the scorer record
+            # and clean up associated endpoint bindings
             if version is None:
+                # Delete endpoint bindings for this scorer (resource_id stores scorer_id)
+                session.query(SqlGatewayEndpointBinding).filter(
+                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
+                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
+                ).delete()
+
                 session.delete(scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
@@ -2543,7 +2591,27 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if not is_gateway_model(model):
                     raise MlflowException(
                         f"Scorer '{scorer_name}' does not use a gateway model. "
-                        "Online scoring is only supported for scorers that use gateway models.",
+                        "Automatic evaluation is only supported for scorers that use "
+                        "gateway models.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+                # Check if scorer requires expectations (ground truth data)
+                try:
+                    scorer_obj = Scorer.model_validate_json(latest_version.serialized_scorer)
+                except Exception:
+                    # Deserialization should not fail for valid registered scorers. If it does,
+                    # fail open (skip validation) to avoid blocking users in case this is an
+                    # internal issue.
+                    scorer_obj = None
+
+                if (
+                    isinstance(scorer_obj, InstructionsJudge)
+                    and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+                ):
+                    raise MlflowException(
+                        f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                        "expectations are not currently supported for automatic evaluation.",
                         INVALID_PARAMETER_VALUE,
                     )
 
@@ -2551,6 +2619,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.query(SqlOnlineScoringConfig).filter(
                 SqlOnlineScoringConfig.scorer_id == scorer.scorer_id
             ).delete()
+
             # Create new online config
             config = SqlOnlineScoringConfig(
                 online_scoring_config_id=uuid.uuid4().hex,
@@ -3396,14 +3465,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return query
 
     def _validate_max_results_param(self, max_results: int, allow_null=False):
-        if (not allow_null and max_results is None) or max_results < 1:
+        if (not allow_null and max_results is None) or (
+            max_results is not None and max_results < 1
+        ):
             raise MlflowException(
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be "
                 f"a positive integer",
                 INVALID_PARAMETER_VALUE,
             )
 
-        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be at "
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}",
@@ -5093,6 +5164,46 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return {"inserted": inserted_count, "updated": updated_count}
 
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetRecord)
+                .filter(
+                    SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                    SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+
+            if deleted_count == 0:
+                _logger.warning(
+                    f"No records found to delete for dataset {dataset_id}. "
+                    "Records may have already been deleted or never existed."
+                )
+                return 0
+
+            dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+            if dataset:
+                profile = json.loads(dataset.profile) if dataset.profile else {}
+                new_count = max(0, profile.get("num_records", 0) - deleted_count)
+                dataset.profile = json.dumps({"num_records": new_count} if new_count > 0 else None)
+
+            return deleted_count
+
     def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
@@ -5920,14 +6031,28 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching assessments
                 # Filter by assessment name and check the value
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    assessment_exists_subquery = session.query(SqlAssessments.trace_id).filter(
+                        SqlAssessments.trace_id == SqlTraceInfo.request_id,
+                        SqlAssessments.assessment_type == key_type,
+                        SqlAssessments.name == key_name,
+                    )
+                    exists_clause = assessment_exists_subquery.exists()
+                    attribute_filters.append(
+                        ~exists_clause if comparator == "IS NULL" else exists_clause
+                    )
+                    continue
+
+                # Other comparators: filter by value
+                value_filter = SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
+                    SqlAssessments.value, value
+                )
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
-                            SqlAssessments.value, value
-                        ),
+                        value_filter,
                     )
                     .distinct()
                     .subquery()

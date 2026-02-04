@@ -16,6 +16,8 @@ export interface UseAssessmentChartsSectionDataResult {
   assessmentNames: string[];
   /** Map of assessment name to its average value (only for numeric assessments) */
   avgValuesByName: Map<string, number>;
+  /** Map of assessment name to its total count */
+  countsByName: Map<string, number>;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -69,18 +71,21 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
     dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
   });
 
-  // Extract assessment names from count query
-  const assessmentNames = useMemo(() => {
-    if (!countData?.data_points) return [];
+  // Extract assessment names and counts from count query
+  const { assessmentNames, countsByName } = useMemo(() => {
+    if (!countData?.data_points) return { assessmentNames: [], countsByName: new Map<string, number>() };
 
     const names = new Set<string>();
+    const counts = new Map<string, number>();
     for (const dp of countData.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
-      if (name) {
+      const count = dp.values?.[AggregationType.COUNT];
+      if (name && count !== undefined) {
         names.add(name);
+        counts.set(name, count);
       }
     }
-    return Array.from(names).sort();
+    return { assessmentNames: Array.from(names).sort(), countsByName: counts };
   }, [countData?.data_points]);
 
   // Extract average values from avg query (only numeric assessments)
@@ -104,6 +109,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
   return {
     assessmentNames,
     avgValuesByName,
+    countsByName,
     isLoading,
     error,
     hasData: assessmentNames.length > 0,

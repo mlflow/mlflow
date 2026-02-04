@@ -15,7 +15,8 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceTokenStatsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +24,7 @@ export const TraceTokenStatsChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token stats chart data
   const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData();
@@ -68,7 +70,16 @@ export const TraceTokenStatsChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId,
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.token_stats.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Line
@@ -76,7 +87,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p50"
                 stroke={lineColors.p50}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p50)}
                 name="p50"
                 strokeOpacity={getOpacity('p50')}
               />
@@ -85,7 +96,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p90"
                 stroke={lineColors.p90}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p90)}
                 name="p90"
                 strokeOpacity={getOpacity('p90')}
               />
@@ -94,7 +105,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p99"
                 stroke={lineColors.p99}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p99)}
                 name="p99"
                 strokeOpacity={getOpacity('p99')}
               />

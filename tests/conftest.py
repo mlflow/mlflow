@@ -1,7 +1,10 @@
+import cProfile
 import inspect
+import io
 import json
 import os
 import posixpath
+import pstats
 import re
 import shutil
 import subprocess
@@ -11,6 +14,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -80,6 +84,14 @@ def pytest_addoption(parser):
         default=os.getenv("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
+    parser.addoption(
+        "--profile",
+        default=None,
+        help=(
+            "Comma-separated list of test nodeids to profile "
+            "(e.g., 'tests/foo.py::test_bar,tests/baz.py')"
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config):
@@ -96,6 +108,19 @@ def pytest_configure(config: pytest.Config):
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
         config.option.maxfail = 1
+
+    # Populate _profile_tests from CLI option and PR description
+    global _profile_tests
+    _profile_tests = set()
+
+    # Add tests from CLI --profile option
+    if profile_option := config.getoption("--profile"):
+        for nodeid in profile_option.split(","):
+            if nodeid := nodeid.strip():
+                _profile_tests.add(nodeid)
+
+    # Add tests from PR description
+    _profile_tests.update(fetch_profile_tests())
 
     # Register SQLAlchemy LegacyAPIWarning filter only if sqlalchemy is available
     try:
@@ -142,9 +167,144 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+@dataclass
+class ProfileResult:
+    nodeid: str
+    stats: pstats.Stats
+
+
+_profile_tests: set[str] = set()
+_profile_results: list[ProfileResult] = []
+
+
+def _to_gb(b: int) -> str:
+    return f"{b / 1024**3:.1f}"
+
+
+@dataclass
+class ResourceUsage:
+    mem_used_bytes: int = 0
+    mem_total_bytes: int = 0
+    disk_used_bytes: int = 0
+    disk_total_bytes: int = 0
+
+    @staticmethod
+    def _get_usage() -> tuple[int, int, int, int] | None:
+        try:
+            import psutil
+        except ImportError:
+            return None
+
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        return mem.used, mem.total, disk.used, disk.total
+
+    def snapshot(self) -> None:
+        usage = self._get_usage()
+        if usage is None:
+            return
+
+        (
+            self.mem_used_bytes,
+            self.mem_total_bytes,
+            self.disk_used_bytes,
+            self.disk_total_bytes,
+        ) = usage
+
+    def check(self) -> str | None:
+        usage = self._get_usage()
+        if usage is None:
+            return None
+
+        THRESHOLD = 500 * 1024 * 1024  # 0.5 GB
+        mu, _, du, _ = usage
+        parts: list[str] = []
+        mem_delta = mu - self.mem_used_bytes
+        if mem_delta >= THRESHOLD:
+            delta = _to_gb(mem_delta)
+            prev = _to_gb(self.mem_used_bytes)
+            curr = _to_gb(mu)
+            parts.append(f"MEM: +{delta} ({prev} -> {curr}) GB")
+        disk_delta = du - self.disk_used_bytes
+        if disk_delta >= THRESHOLD:
+            delta = _to_gb(disk_delta)
+            prev = _to_gb(self.disk_used_bytes)
+            curr = _to_gb(du)
+            parts.append(f"DISK: +{delta} ({prev} -> {curr}) GB")
+        if parts:
+            return ", ".join(parts)
+
+    def format(self) -> str:
+        mem_total = _to_gb(self.mem_total_bytes)
+        mem_used = _to_gb(self.mem_used_bytes)
+        disk_total = _to_gb(self.disk_total_bytes)
+        disk_used = _to_gb(self.disk_used_bytes)
+        return f"MEM {mem_used}/{mem_total} GB | DISK {disk_used}/{disk_total} GB"
+
+
+_RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delta
+_RESOURCE_USAGE = ResourceUsage()
+
+
+def _should_profile_test(nodeid: str) -> bool:
+    if not _profile_tests:
+        return False
+
+    # Check for exact match first
+    if nodeid in _profile_tests:
+        return True
+
+    # Check for partial matches (e.g., file path matches)
+    for pattern in _profile_tests:
+        if nodeid.startswith(pattern):
+            return True
+
+    return False
+
+
+def _format_profile_stats(stats: pstats.Stats) -> str:
+    stream = io.StringIO()
+    stats.stream = stream
+    stats.sort_stats(pstats.SortKey.CUMULATIVE)
+    stats.print_stats(50)  # Print top 50 functions
+    return stream.getvalue()
+
+
+def fetch_profile_tests() -> set[str]:
+    """
+    Returns the set of test nodeids to profile from the current pull request description.
+    Parses <!-- profile: --> markers from PR body.
+    """
+    if "GITHUB_ACTIONS" not in os.environ:
+        return set()
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return set()
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        pr_body = pr_data["pull_request"]["body"] or ""
+
+        # Match <!-- profile: ... --> blocks, supporting multiline content
+        pattern = r"<!--\s*profile:\s*(.*?)\s*-->"
+        matches = re.findall(pattern, pr_body, re.DOTALL)
+
+        nodeids = set()
+        for match in matches:
+            # Split by newlines and filter out empty lines
+            for line in match.strip().split("\n"):
+                if line := line.strip():
+                    nodeids.add(line)
+
+        return nodeids
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _profile_results.clear()
+    _RESOURCE_HEAVY_TESTS.clear()
+    _RESOURCE_USAGE.snapshot()
 
     if IS_TRACING_SDK_ONLY:
         return
@@ -267,6 +427,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             should_rerun = True
             attempts = flaky_marker.kwargs.get("attempts", 3)
 
+    # Check if we should profile this test
+    should_profile = _should_profile_test(item.nodeid)
+    profiler = cProfile.Profile() if should_profile else None
+
     item.execution_count = 0
     need_to_run = True
     total_duration = 0.0
@@ -275,7 +439,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         item.execution_count += 1
         start = time.perf_counter()
-        reports = runtestprotocol(item, nextitem=nextitem, log=False)
+
+        with profiler or nullcontext():
+            reports = runtestprotocol(item, nextitem=nextitem, log=False)
+
         total_duration += time.perf_counter() - start
 
         for report in reports:
@@ -295,6 +462,11 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             need_to_run = False
 
         item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+    # Store profile results
+    if profiler:
+        stats = pstats.Stats(profiler)
+        _profile_results.append(ProfileResult(nodeid=item.nodeid, stats=stats))
 
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
@@ -324,7 +496,7 @@ def fetch_pr_labels():
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report: pytest.TestReport, config: pytest.Config):
     outcome = yield
 
     # Handle rerun outcome
@@ -333,29 +505,12 @@ def pytest_report_teststatus(report, config):
         return
 
     if report.when == "call":
-        try:
-            import psutil
-        except ImportError:
-            return
+        if delta := _RESOURCE_USAGE.check():
+            _RESOURCE_HEAVY_TESTS[report.nodeid] = delta
 
-        (*rest, result) = outcome.get_result()
-        mem = psutil.virtual_memory()
-        mem_used = mem.used / 1024**3
-        mem_total = mem.total / 1024**3
-
-        disk = psutil.disk_usage("/")
-        disk_used = disk.used / 1024**3
-        disk_total = disk.total / 1024**3
-        outcome.force_result(
-            (
-                *rest,
-                (
-                    f"{result} | "
-                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
-                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
-                ),
-            )
-        )
+        (*rest, status) = outcome.get_result()
+        _RESOURCE_USAGE.snapshot()
+        outcome.force_result((*rest, f"{status} | {_RESOURCE_USAGE.format()}"))
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -456,6 +611,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n\n::endgroup::\n")
         terminalreporter.write("\n")
 
+    # Display profile results
+    if _profile_results:
+        terminalreporter.write("\n")
+        header = "profile results"
+        terminalreporter.write_sep("=", header)
+        terminalreporter.write(f"::group::{header}\n\n")
+
+        for profile_result in _profile_results:
+            terminalreporter.write(f"\nProfile for: {profile_result.nodeid}\n")
+            terminalreporter.write("-" * 80 + "\n")
+            formatted_stats = _format_profile_stats(profile_result.stats)
+            terminalreporter.write(formatted_stats)
+            terminalreporter.write("\n")
+
+        terminalreporter.write("::endgroup::\n")
+        terminalreporter.write("\n")
+
     if (
         # `uv run` was used to run tests
         "UV" in os.environ
@@ -510,6 +682,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    # Display resource-heavy tests
+    if _RESOURCE_HEAVY_TESTS:
+        terminalreporter.section("Resource-heavy tests", yellow=True)
+        for test_name, stats in _RESOURCE_HEAVY_TESTS.items():
+            terminalreporter.write(f"{test_name}: {stats}\n")
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
@@ -986,8 +1164,32 @@ def clear_engine_map():
         )
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-        SqlAlchemyStore._engine_map.clear()
-        ModelRegistrySqlAlchemyStore._engine_map.clear()
-        SqlAlchemyJobStore._engine_map.clear()
+        for store_class in [
+            SqlAlchemyStore,
+            ModelRegistrySqlAlchemyStore,
+            SqlAlchemyJobStore,
+        ]:
+            with store_class._engine_map_lock:
+                while store_class._engine_map:
+                    _, engine = store_class._engine_map.popitem()
+                    engine.dispose()
     except ImportError:
         pass
+
+
+@pytest.fixture
+def mock_litellm_cost():
+    """
+    Mock litellm.cost_per_token to calculate cost based on token counts.
+
+    Uses cost of 1.0 per input token and 2.0 per output token.
+    Returns (input_cost, output_cost) based on the token counts passed.
+    """
+
+    def calculate_cost(model, prompt_tokens, completion_tokens):
+        input_cost = prompt_tokens * 1.0
+        output_cost = completion_tokens * 2.0
+        return (input_cost, output_cost)
+
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+        yield mock_cost

@@ -191,6 +191,15 @@ def _get_exception_from_span(span: Span) -> str | None:
     return exception_type
 
 
+def _extract_tool_name_from_span(span: Span) -> str:
+    inputs = span.attributes.get(SpanAttributeKey.INPUTS)
+    if isinstance(inputs, dict):
+        call_data = inputs.get("call")
+        if isinstance(call_data, dict) and "tool_name" in call_data:
+            return call_data["tool_name"]
+    return span.name
+
+
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     """
     Extract tool call information from TOOL type spans in a trace.
@@ -218,7 +227,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = FunctionCall(
-            name=tool_span.name,
+            name=_extract_tool_name_from_span(tool_span),
             arguments=tool_span.inputs or None,
             outputs=tool_span.outputs or None,
             exception=_get_exception_from_span(tool_span),
