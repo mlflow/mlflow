@@ -372,6 +372,7 @@ export const GenAiTracesTableBody = React.memo(
     const virtualItems = rowVirtualizer.getVirtualItems();
     const virtualizerTotalSize = rowVirtualizer.getTotalSize();
     const tableHeaderGroups = table.getHeaderGroups();
+    const columnSizingInfo = table.getState().columnSizingInfo;
 
     /**
      * Instead of calling `column.getSize()` on every render for every header
@@ -399,7 +400,8 @@ export const GenAiTracesTableBody = React.memo(
       }
 
       return { columnSizeVars: colSizes, tableWidth: tableWidth + 'px' };
-    }, [tableHeaderGroups, rows]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tableHeaderGroups, rows, columnSizingInfo]);
 
     // Compute assessment aggregates.
     const assessmentNameToAggregates = useMemo(() => {
