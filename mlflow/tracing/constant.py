@@ -225,7 +225,7 @@ class SpanMetricDimensionKey:
     SPAN_NAME = "span_name"
     SPAN_TYPE = "span_type"
     SPAN_STATUS = "span_status"
-    MODEL_NAME = "span_model_name"
+    SPAN_MODEL_NAME = "span_model_name"
 
 
 class AssessmentMetricKey:

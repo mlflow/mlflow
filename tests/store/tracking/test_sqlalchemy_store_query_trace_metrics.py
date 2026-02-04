@@ -3843,18 +3843,18 @@ def test_query_span_metrics_cost_by_model_name(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.TOTAL_COST,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
-        dimensions=[SpanMetricDimensionKey.MODEL_NAME],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.TOTAL_COST,
-        "dimensions": {SpanMetricDimensionKey.MODEL_NAME: "claude-3"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "claude-3"},
         "values": {"SUM": 0.02},
     }
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.TOTAL_COST,
-        "dimensions": {SpanMetricDimensionKey.MODEL_NAME: "gpt-4"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
         "values": {"SUM": 0.06},
     }
 
@@ -3911,13 +3911,13 @@ def test_query_span_metrics_cost_avg_by_model_name(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.TOTAL_COST,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=[SpanMetricDimensionKey.MODEL_NAME],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.TOTAL_COST,
-        "dimensions": {SpanMetricDimensionKey.MODEL_NAME: "gpt-4"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
         "values": {"AVG": 0.04},
     }
 
@@ -4085,13 +4085,13 @@ def test_query_span_metrics_cost_across_multiple_traces(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.TOTAL_COST,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
-        dimensions=[SpanMetricDimensionKey.MODEL_NAME],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.TOTAL_COST,
-        "dimensions": {SpanMetricDimensionKey.MODEL_NAME: "gpt-4"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
         "values": {"SUM": 0.09},
     }
 

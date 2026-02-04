@@ -17,7 +17,6 @@ from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlSpan,
-    SqlSpanAttributes,
     SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -94,15 +93,15 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.MODEL_NAME},
+        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.MODEL_NAME},
+        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.MODEL_NAME},
+        dimensions={SpanMetricDimensionKey.SPAN_MODEL_NAME},
     ),
 }
 
@@ -369,17 +368,10 @@ def _apply_dimension_to_query(
                     return query, SqlSpan.type.label(SpanMetricDimensionKey.SPAN_TYPE)
                 case SpanMetricDimensionKey.SPAN_STATUS:
                     return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
-                case SpanMetricDimensionKey.MODEL_NAME:
-                    # Join with SqlSpanAttributes to get model name
-                    query = query.join(
-                        SqlSpanAttributes,
-                        and_(
-                            SqlSpan.trace_id == SqlSpanAttributes.trace_id,
-                            SqlSpan.span_id == SqlSpanAttributes.span_id,
-                            SqlSpanAttributes.key == SpanAttributeKey.MODEL,
-                        ),
-                    )
-                    return query, SqlSpanAttributes.value.label(SpanMetricDimensionKey.MODEL_NAME)
+                case SpanMetricDimensionKey.SPAN_MODEL_NAME:
+                    # Extract model name from span_metrics metric_metadata JSON column
+                    model_name = SqlSpanMetrics.metric_metadata[SpanAttributeKey.MODEL]
+                    return query, model_name.label(SpanMetricDimensionKey.SPAN_MODEL_NAME)
         case MetricViewType.ASSESSMENTS:
             match dimension:
                 case AssessmentMetricDimensionKey.ASSESSMENT_NAME:
@@ -663,6 +655,11 @@ def query_metrics(
 
     query = _apply_filters(query, filters, view_type)
 
+    # Apply metric-specific joins first, before dimensions
+    # This ensures tables like SqlSpanMetrics are available for dimension extraction
+    query = _apply_metric_specific_joins(query, metric_name, view_type)
+    agg_column = _get_column_to_aggregate(view_type, metric_name)
+
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []
 
@@ -673,10 +670,6 @@ def query_metrics(
     for dimension in dimensions or []:
         query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
         dimension_columns.append(dimension_column)
-
-    # Apply metric-specific joins and get aggregation column
-    query = _apply_metric_specific_joins(query, metric_name, view_type)
-    agg_column = _get_column_to_aggregate(view_type, metric_name)
 
     # MSSQL and MySQL with percentile need special handling (window function requires subquery)
     if db_type in (db_types.MSSQL, db_types.MYSQL) and _has_percentile_aggregation(aggregations):
