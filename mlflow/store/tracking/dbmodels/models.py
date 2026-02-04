@@ -1835,8 +1835,8 @@ class SqlSpan(Base):
 
     span_metadata = Column(MutableJSON, nullable=True)
     """
-    Span metadata JSON: `JSON`. Optional field for storing frequently-accessed span attributes.
-    Can be used to store attributes like model name and model provider for efficient querying.
+    Span metadata JSON: `JSON`. Optional field for storing reserved span attributes for
+    efficient querying or metrics aggregation.
     """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
