@@ -400,6 +400,7 @@ export const GenAiTracesTableBody = React.memo(
       }
 
       return { columnSizeVars: colSizes, tableWidth: tableWidth + 'px' };
+      // we need to recompute this whenever columns get resized or changed
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableHeaderGroups, rows, columnSizingInfo]);
 
