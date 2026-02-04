@@ -34,11 +34,11 @@ The OIDC plugin requires an Identity Provider (IDP) service that supports the OI
 
 2. Create a application for mlflow, select application type as "Regular Web Application". View the "Domain", "Client ID", "Client Secret" values of the application on the application basic information page, these values will be used when deploying the MLflow server with the OIDC plugin.
 
-![App basic information](/images/sso-okta-app-info.png)
+![App basic information](/images/self-hosting/sso-okta-app-info.png)
 
 3. Configure allowed callback URL for the Okta application, assuming the mlflow server is deployed at "http://127.0.0.1:8080", then the callback URL is "http://127.0.0.1:8080/callback"
 
-![callback setting](/images/sso-callback-setting.png)
+![callback setting](/images/self-hosting/sso-callback-setting.png)
 
 4. Configure and deploy a "post-login" trigger for assigning the user's group membership
 
@@ -60,11 +60,11 @@ exports.onExecutePostLogin = async (event, api) => {
 
 then click the "Deploy" button.
 
-![custom action setting](/images/sso-custom-action.png)
+![custom action setting](/images/self-hosting/sso-custom-action.png)
 
 Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-login, install the trigger as follows:
 
-![custom action setting](/images/sso-install-trigger.png)
+![custom action setting](/images/self-hosting/sso-install-trigger.png)
 
 ### Deploy MLflow server with the OIDC plugin
 
@@ -99,7 +99,7 @@ mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 
 Then you can open URL "http://127.0.0.1:8080/" and it will jump to the OIDC login page, use your Okta account to log in, after login, it will jump to the OIDC permission configuration page as follows:
 
-![custom action setting](/images/oidc-page.png)
+![custom action setting](/images/self-hosting/oidc-page.png)
 
 If the current login user is assigned to the administrator group, then you can configure the permissions for other users through the OIDC permission UI portal.
 
@@ -109,7 +109,7 @@ After login via OIDC, open "http://127.0.0.1:8080/" again and then it will jump 
 
 The MLflow OIDC plugin allows mlflow client to connect to the MLflow server via the mlflow basic auth protocol. First, you need to generate an "access token" on the OIDC permission page as follows:
 
-![custom action setting](/images/sso-access-token.png)
+![custom action setting](/images/self-hosting/sso-access-token.png)
 
 then, in MLflow client side, you can run code as follows:
 
