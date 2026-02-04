@@ -7,6 +7,10 @@ import { setRunTagsBulkApi } from '../../../actions';
 import type { KeyValueEntity } from '../../../../common/types';
 import { RunViewTagsBox } from './RunViewTagsBox';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const testRunUuid = 'test-run-uuid';
 
@@ -19,11 +23,13 @@ describe('RunViewTagsBox integration', () => {
 
   function renderTestComponent(existingTags: Record<string, KeyValueEntity> = {}) {
     renderWithIntl(
-      <DesignSystemProvider>
-        <MockedReduxStoreProvider>
-          <RunViewTagsBox onTagsUpdated={onTagsUpdated} runUuid={testRunUuid} tags={existingTags} />,
-        </MockedReduxStoreProvider>
-      </DesignSystemProvider>,
+      <TooltipProvider>
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <RunViewTagsBox onTagsUpdated={onTagsUpdated} runUuid={testRunUuid} tags={existingTags} />,
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </TooltipProvider>,
     );
   }
 

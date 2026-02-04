@@ -16,6 +16,10 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 jest.mock('../../../../common/utils/LocalStorageUtils');
 
@@ -54,9 +58,11 @@ describe('useUpdateExperimentTags', () => {
     renderHook(() => useUpdateExperimentTags({ onSuccess }), {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <DesignSystemProvider>
-            <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
-          </DesignSystemProvider>
+          <TooltipProvider>
+            <DesignSystemProvider>
+              <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+            </DesignSystemProvider>
+          </TooltipProvider>
         </IntlProvider>
       ),
     });

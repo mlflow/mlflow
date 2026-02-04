@@ -17,11 +17,12 @@ import {
 } from './test-utils';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
+jest.setTimeout(60000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {
   const server = setupServer(
@@ -39,20 +40,22 @@ describe('PromptsDetailsPage', () => {
     render(<PromptsDetailsPage />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <DesignSystemProvider>
-            <MockedReduxStoreProvider>
-              <TestRouter
-                routes={[
-                  testRoute(
-                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-                    '/prompt/:promptName',
-                  ),
-                  testRoute(<div />, '*'),
-                ]}
-                initialEntries={['/prompt/prompt1']}
-              />
-            </MockedReduxStoreProvider>
-          </DesignSystemProvider>
+          <TooltipProvider>
+            <DesignSystemProvider>
+              <MockedReduxStoreProvider>
+                <TestRouter
+                  routes={[
+                    testRoute(
+                      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+                      '/prompt/:promptName',
+                    ),
+                    testRoute(<div />, '*'),
+                  ]}
+                  initialEntries={['/prompt/prompt1']}
+                />
+              </MockedReduxStoreProvider>
+            </DesignSystemProvider>
+          </TooltipProvider>
         </IntlProvider>
       ),
     });

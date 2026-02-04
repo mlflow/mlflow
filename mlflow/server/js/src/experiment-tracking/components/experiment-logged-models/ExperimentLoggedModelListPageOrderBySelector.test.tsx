@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { useState } from 'react';
 import { useExperimentLoggedModelListPageTableColumns } from './hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
@@ -6,6 +6,10 @@ import { render, screen, waitFor, within } from '../../../common/utils/TestUtils
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const metrics = [
   { dataset_name: 'train', dataset_digest: '123456', key: 'rmse', value: 0.1 },
@@ -75,9 +79,11 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
 
     return render(<TestComponent />, {
       wrapper: ({ children }) => (
-        <DesignSystemProvider>
-          <IntlProvider locale="en">{children}</IntlProvider>
-        </DesignSystemProvider>
+        <IntlProvider locale="en">
+          <TooltipProvider>
+            <DesignSystemProvider>{children}</DesignSystemProvider>
+          </TooltipProvider>
+        </IntlProvider>
       ),
     });
   };

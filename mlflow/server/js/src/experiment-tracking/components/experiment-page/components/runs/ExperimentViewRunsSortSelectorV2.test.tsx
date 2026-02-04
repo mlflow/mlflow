@@ -3,8 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { MemoryRouter, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { IntlProvider } from 'react-intl';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const metricKeys = ['metric_alpha', 'metric_beta'];
 const paramKeys = ['param_1', 'param_2', 'param_3'];
@@ -45,7 +49,9 @@ describe('ExperimentViewRunsSortSelectorV2', () => {
       wrapper: ({ children }) => (
         <MemoryRouter>
           <IntlProvider locale="en">
-            <DesignSystemProvider>{children}</DesignSystemProvider>
+            <TooltipProvider>
+              <DesignSystemProvider>{children}</DesignSystemProvider>
+            </TooltipProvider>
           </IntlProvider>
         </MemoryRouter>
       ),

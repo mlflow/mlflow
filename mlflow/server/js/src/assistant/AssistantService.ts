@@ -10,7 +10,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
 } from './types';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -145,10 +145,12 @@ export const sendMessageStream = async (
 
   try {
     // Step 1: POST the message to initiate processing
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(`${API_BASE}/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
       },
       body: JSON.stringify(request),
     });
