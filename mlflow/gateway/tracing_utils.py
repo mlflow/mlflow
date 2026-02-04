@@ -1,9 +1,3 @@
-"""
-Tracing utilities for MLflow Gateway.
-
-This module provides tracing functionality for gateway API endpoints.
-"""
-
 from collections.abc import Callable
 
 import mlflow
