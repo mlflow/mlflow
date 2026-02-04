@@ -134,7 +134,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
-    SqlSpanAttributes,
     SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
@@ -4225,7 +4224,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
-                    # Get model name for span metrics
+                    # Get cost and model name for span metrics
+                    span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
                     model_name = span_attributes.get(SpanAttributeKey.MODEL)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
@@ -4245,6 +4245,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 session.merge(sql_span)
 
+                # Prepare metric metadata with model name if available
+                span_metric_metadata = {}
+                if model_name:
+                    try:
+                        # model name could be json-encoded string or plain string
+                        model_name = json.loads(model_name)
+                    except json.JSONDecodeError:
+                        pass
+                    span_metric_metadata[SpanAttributeKey.MODEL] = model_name
+
                 if span_cost:
                     span_cost = json.loads(span_cost)
                     for cost_key in CostKey.all_keys():
@@ -4255,23 +4265,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                     span_id=span.span_id,
                                     key=cost_key,
                                     value=float(cost_value),
+                                    metric_metadata=span_metric_metadata or None,
                                 )
                             )
-
-                if model_name:
-                    try:
-                        # model name could be json-encoded string or plain string
-                        model_name = json.loads(model_name)
-                    except json.JSONDecodeError:
-                        pass
-                    session.merge(
-                        SqlSpanAttributes(
-                            trace_id=span.trace_id,
-                            span_id=span.span_id,
-                            key=SpanAttributeKey.MODEL,
-                            value=model_name,
-                        )
-                    )
 
                 if span.parent_id is None:
                     update_dict.update(

@@ -533,21 +533,12 @@ CREATE TABLE trace_tags (
 )
 
 
-CREATE TABLE span_attributes (
-	trace_id VARCHAR(50) NOT NULL,
-	span_id VARCHAR(50) NOT NULL,
-	key VARCHAR(250) NOT NULL,
-	value VARCHAR(8000),
-	CONSTRAINT span_attributes_pk PRIMARY KEY (trace_id, span_id, key),
-	CONSTRAINT fk_span_attributes_span FOREIGN KEY(trace_id, span_id) REFERENCES spans (trace_id, span_id) ON DELETE CASCADE
-)
-
-
 CREATE TABLE span_metrics (
 	trace_id VARCHAR(50) NOT NULL,
 	span_id VARCHAR(50) NOT NULL,
 	key VARCHAR(250) NOT NULL,
 	value FLOAT,
+	metric_metadata JSON,
 	CONSTRAINT span_metrics_pk PRIMARY KEY (trace_id, span_id, key),
 	CONSTRAINT fk_span_metrics_span FOREIGN KEY(trace_id, span_id) REFERENCES spans (trace_id, span_id) ON DELETE CASCADE
 )
