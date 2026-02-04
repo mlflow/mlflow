@@ -37,7 +37,6 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
-from mlflow.gateway.providers.tracing import TracingProviderWrapper
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import (
     _create_gateway_trace,
@@ -291,9 +290,6 @@ def _create_provider(
         provider_class = get_provider(model_config.provider)
         primary_provider = provider_class(gateway_endpoint_config, enable_tracing=enable_tracing)
 
-    # Wrap primary provider with TracingProviderWrapper for automatic instrumentation
-    primary_provider = TracingProviderWrapper(primary_provider)
-
     # Wrap with FallbackProvider if fallback configuration exists
     if endpoint_config.fallback_config:
         fallback_models = [
@@ -314,7 +310,6 @@ def _create_provider(
             key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
         )
 
-        # Wrap each fallback provider with TracingProviderWrapper
         fallback_providers = [
             get_provider(model_config.provider)(
                 _build_endpoint_config(
