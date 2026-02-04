@@ -181,7 +181,9 @@ module.exports = async ({ github, context }) => {
           reviewers: reviewersToAdd,
         });
         console.log(`Stacked PR detected (base: ${baseBranch})`);
-        console.log(`Copied reviewers from parent PR #${parentPR.number}: ${reviewersToAdd.join(", ")}`);
+        console.log(
+          `Copied reviewers from parent PR #${parentPR.number}: ${reviewersToAdd.join(", ")}`
+        );
       } catch (error) {
         console.error("Failed to assign reviewers from parent PR:", error);
       }
