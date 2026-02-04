@@ -1,6 +1,4 @@
 import json
-import os
-import sys
 
 import pytest
 from click.testing import CliRunner
@@ -13,25 +11,6 @@ from mlflow.genai.datasets import create_dataset
 @pytest.fixture
 def runner():
     return CliRunner(catch_exceptions=False)
-
-
-@pytest.fixture(autouse=True)
-def tracking_uri(tmp_path):
-    if "MLFLOW_SKINNY" in os.environ:
-        pytest.skip("SQLAlchemy store is not available in skinny.")
-
-    original_tracking_uri = mlflow.get_tracking_uri()
-
-    path = tmp_path.joinpath("mlflow.db").as_uri()
-    tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-        len("file://") :
-    ]
-
-    mlflow.set_tracking_uri(tracking_uri)
-
-    yield tracking_uri
-
-    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 @pytest.fixture
