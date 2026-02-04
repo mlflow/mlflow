@@ -16,7 +16,6 @@ After setting up the MLflow plugin, MLflow will automatically capture traces of 
 - User prompts and assistant responses
 - Tool usage (file operations, bash commands, code edits, etc.)
 - Conversation timing and duration per turn
-- Tool execution results
 - Token usage (input, output, and total tokens)
 - Session metadata including working directory and user
 
@@ -103,56 +102,9 @@ export MLFLOW_EXPERIMENT_ID=123456789
 
 ## Token Usage
 
-MLflow automatically tracks the token usage for each LLM call within OpenCode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the `token_usage` field of the trace info object.
+MLflow automatically tracks the token usage for each LLM call within OpenCode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the Overview tab of the trace detail view.
 
-```python
-import mlflow
-
-# Get an OpenCode trace by its trace ID
-trace = mlflow.get_trace("<your-trace-id>")
-
-# Print the total token usage
-total_usage = trace.info.token_usage
-if total_usage:
-    print("== Total token usage: ==")
-    print(f"  Input tokens: {total_usage['input_tokens']}")
-    print(f"  Output tokens: {total_usage['output_tokens']}")
-    print(f"  Total tokens: {total_usage['total_tokens']}")
-
-# Print the token usage for each LLM call
-print("\n== Detailed usage for each LLM call: ==")
-for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
-        print(f"  Input tokens: {usage['input_tokens']}")
-        print(f"  Output tokens: {usage['output_tokens']}")
-        print(f"  Total tokens: {usage['total_tokens']}")
-```
-
-```bash
-== Total token usage: ==
-  Input tokens: 17839
-  Output tokens: 588
-  Total tokens: 18427
-
-== Detailed usage for each LLM call: ==
-llm_call_1:
-  Input tokens: 65
-  Output tokens: 53
-  Total tokens: 118
-llm_call_2:
-  Input tokens: 1854
-  Output tokens: 51
-  Total tokens: 1905
-llm_call_3:
-  Input tokens: 401
-  Output tokens: 38
-  Total tokens: 439
-llm_call_4:
-  Input tokens: 15519
-  Output tokens: 446
-  Total tokens: 15965
-```
+<ImageBox src="/images/llms/opencode/opencode-overview.png" alt="OpenCode Trace Overview" />
 
 ## Troubleshooting
 

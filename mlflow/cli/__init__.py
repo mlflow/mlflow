@@ -1063,19 +1063,14 @@ try:
 except ImportError:
     pass
 
-# Add autolog commands - merge integrations into a single autolog group
-_autolog_group = click.Group("autolog", help="Commands for autologging with MLflow.")
-
+# Add Claude Code integration commands
 try:
-    from mlflow.claude_code.cli import claude
+    import mlflow.claude_code.cli
 
-    _autolog_group.add_command(claude)
+    cli.add_command(mlflow.claude_code.cli.commands)
+
 except ImportError:
     pass
-
-
-if _autolog_group.commands:
-    cli.add_command(_autolog_group)
 
 # Add Assistant CLI commands
 try:
