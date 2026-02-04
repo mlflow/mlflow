@@ -1,4 +1,4 @@
-"""add span metrics table
+"""add span metrics table and span metadata column
 
 Create Date: 2026-01-27 12:00:00.000000
 
@@ -27,13 +27,13 @@ def _get_json_type():
 def upgrade():
     json_type = _get_json_type()
 
+    # Create span_metrics table without metric_metadata column
     op.create_table(
         "span_metrics",
         sa.Column("trace_id", sa.String(length=50), nullable=False),
         sa.Column("span_id", sa.String(length=50), nullable=False),
         sa.Column("key", sa.String(length=250), nullable=False),
         sa.Column("value", sa.Float(precision=53), nullable=True),
-        sa.Column("metric_metadata", json_type, nullable=True),
         sa.ForeignKeyConstraint(
             ["trace_id", "span_id"],
             ["spans.trace_id", "spans.span_id"],
@@ -50,6 +50,15 @@ def upgrade():
             unique=False,
         )
 
+    # Add span_metadata column to spans table
+    with op.batch_alter_table("spans", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("span_metadata", json_type, nullable=True))
+
 
 def downgrade():
+    # Remove span_metadata column from spans table
+    with op.batch_alter_table("spans", schema=None) as batch_op:
+        batch_op.drop_column("span_metadata")
+
+    # Drop span_metrics table
     op.drop_table("span_metrics")

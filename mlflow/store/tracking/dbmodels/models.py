@@ -867,11 +867,6 @@ class SqlSpanMetrics(Base):
     """
     Metric value: `Float`. Could be *null* if not available.
     """
-    metric_metadata = Column(MutableJSON, nullable=True)
-    """
-    Metric metadata JSON: `JSON`. Optional field for storing additional metric metadata.
-    Can be used to store frequently-accessed attributes like model name for efficient querying.
-    """
     span = relationship("SqlSpan", backref=backref("metrics", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with
@@ -1836,6 +1831,12 @@ class SqlSpan(Base):
     """
     Full span content as JSON: `Text`.
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
+    """
+
+    span_metadata = Column(MutableJSON, nullable=True)
+    """
+    Span metadata JSON: `JSON`. Optional field for storing frequently-accessed span attributes.
+    Can be used to store attributes like model name and model provider for efficient querying.
     """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))

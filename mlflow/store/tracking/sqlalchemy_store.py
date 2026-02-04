@@ -4231,6 +4231,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
+                # Prepare span metadata with model name and provider if available
+                span_metadata = {}
+                if model_name:
+                    span_metadata[SpanAttributeKey.MODEL] = _try_parse_json_string(model_name)
+                if model_provider:
+                    span_metadata[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
+                        model_provider
+                    )
+
                 sql_span = SqlSpan(
                     trace_id=span.trace_id,
                     experiment_id=sql_trace_info.experiment_id,
@@ -4242,20 +4251,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     start_time_unix_nano=span.start_time_ns,
                     end_time_unix_nano=span.end_time_ns,
                     content=content_json,
+                    span_metadata=span_metadata or None,
                 )
 
                 session.merge(sql_span)
-
-                # Prepare metric metadata with model name if available
-                span_metric_metadata = {}
-                if model_name:
-                    span_metric_metadata[SpanAttributeKey.MODEL] = _try_parse_json_string(
-                        model_name
-                    )
-                if model_provider:
-                    span_metric_metadata[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
-                        model_provider
-                    )
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
@@ -4267,7 +4266,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                     span_id=span.span_id,
                                     key=cost_key,
                                     value=float(cost_value),
-                                    metric_metadata=span_metric_metadata or None,
                                 )
                             )
 
