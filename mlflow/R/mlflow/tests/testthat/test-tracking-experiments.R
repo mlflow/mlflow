@@ -74,11 +74,15 @@ test_that("mlflow_search_experiments() works properly", {
   allexperiments <- allexperiments_result$experiments
   expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
-  # Verify artifact locations are set (paths may vary with SQLite backend)
+  # Verify artifact locations are set and contain expected paths
   expect_true(all(nchar(allexperiments$artifact_location) > 0))
-  expect_true(any(grepl("art_loc1", allexperiments$artifact_location)))
-  expect_true(any(grepl("art_loc2", allexperiments$artifact_location)))
-  expect_true(any(grepl("art_loc3", allexperiments$artifact_location)))
+  # Verify each experiment has the correct artifact location
+  foo1_exp <- allexperiments[allexperiments$name == "foo1", ]
+  expect_true(grepl("art_loc1", foo1_exp$artifact_location))
+  foo2_exp <- allexperiments[allexperiments$name == "foo2", ]
+  expect_true(grepl("art_loc2", foo2_exp$artifact_location))
+  foo3_exp <- allexperiments[allexperiments$name == "foo3", ]
+  expect_true(grepl("art_loc3", foo3_exp$artifact_location))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
@@ -133,11 +137,15 @@ test_that("mlflow_search_experiments() works properly", {
   allexperiments <- allexperiments_result$experiments
   expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
-  # Verify artifact locations are set (paths may vary with SQLite backend)
+  # Verify artifact locations are set and contain expected paths
   expect_true(all(nchar(allexperiments$artifact_location) > 0))
-  expect_true(any(grepl(art_loc_1, allexperiments$artifact_location, fixed = TRUE)))
-  expect_true(any(grepl(art_loc_2, allexperiments$artifact_location, fixed = TRUE)))
-  expect_true(any(grepl(art_loc_3, allexperiments$artifact_location, fixed = TRUE)))
+  # Verify each experiment has the correct artifact location
+  foo1_exp <- allexperiments[allexperiments$name == "foo1", ]
+  expect_true(grepl(art_loc_1, foo1_exp$artifact_location, fixed = TRUE))
+  foo2_exp <- allexperiments[allexperiments$name == "foo2", ]
+  expect_true(grepl(art_loc_2, foo2_exp$artifact_location, fixed = TRUE))
+  foo3_exp <- allexperiments[allexperiments$name == "foo3", ]
+  expect_true(grepl(art_loc_3, foo3_exp$artifact_location, fixed = TRUE))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")

@@ -56,7 +56,11 @@ mlflow_get_tracking_uri <- function() {
       env_uri
     } else {
       # Default to SQLite instead of file store
-      paste0("sqlite:///", tempfile(pattern = "mlflow_", fileext = ".db"))
+      # Cache the default URI to avoid creating multiple temp files
+      if (is.null(.globals$default_tracking_uri)) {
+        .globals$default_tracking_uri <- paste0("sqlite:///", tempfile(pattern = "mlflow_", fileext = ".db"))
+      }
+      .globals$default_tracking_uri
     }
   }
 }
