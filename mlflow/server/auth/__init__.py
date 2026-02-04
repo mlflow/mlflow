@@ -634,7 +634,10 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     experiment_id = params.get("experiment_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
     )
 
 
@@ -2621,7 +2624,10 @@ def is_auth_enabled() -> bool:
 
 def _graphql_get_permission_for_experiment(experiment_id: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
     )
 
 
@@ -2629,13 +2635,19 @@ def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
     )
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(model_name, username).permission
+        lambda: store.get_registered_model_permission(model_name, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
+            username, model_name
+        ),
     )
 
 
@@ -2846,8 +2858,12 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
         endpoint_id = endpoint.endpoint_id
 
-        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
-        permission = get_permission(permission_str)
+        permission = _get_permission_from_store_or_default(
+            lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
+            workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
+                username, endpoint_id
+            ),
+        )
         return permission.can_use
     except MlflowException:
         return False
