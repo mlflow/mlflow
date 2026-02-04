@@ -356,6 +356,7 @@ def _exec_job(
                     tmpdir,
                     job_store,
                     job_id,
+                    job_name,
                     workspace,
                 )
 

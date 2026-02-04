@@ -135,7 +135,7 @@ def log_everything():
             sa.insert(jobs_table).values(
                 id=uuid.uuid4().hex,
                 creation_time=0,
-                function_fullname="tests.db.check_migration.log_everything",
+                job_name="tests.db.check_migration.log_everything",
                 params="{}",
                 timeout=None,
                 status=0,
