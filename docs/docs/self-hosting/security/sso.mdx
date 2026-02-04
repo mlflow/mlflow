@@ -32,18 +32,18 @@ The OIDC plugin requires an Identity Provider (IDP) service that supports the OI
 
 1. Register a [free Okta Auth0 account](https://developer.okta.com/signup/) and log in.
 
-2. Create a application for mlflow, select application type as "Regular Web Application". View the "Domain", "Client ID", "Client Secret" values of the application on the application basic information page, these values will be used when deploying the MLflow server with the OIDC plugin.
+2. Create an application for MLflow, select application type as "Regular Web Application". View the "Domain", "Client ID", "Client Secret" values of the application on the application basic information page, these values will be used when deploying the MLflow server with the OIDC plugin.
 
 ![App basic information](/images/self-hosting/sso-okta-app-info.png)
 
-3. Configure allowed callback URL for the Okta application, assuming the mlflow server is deployed at "http://127.0.0.1:8080", then the callback URL is "http://127.0.0.1:8080/callback"
+3. Configure allowed callback URL for the Okta application, assuming the MLflow server is deployed at "http://127.0.0.1:8080", then the callback URL is "http://127.0.0.1:8080/callback"
 
 ![callback setting](/images/self-hosting/sso-callback-setting.png)
 
 4. Configure and deploy a "post-login" trigger for assigning the user's group membership
 
 Your Okta account login username is used as the user in the MLflow server with OIDC plugin. You need to assign a group to it.
-MLflow OIDC plugin supports 2 kinds of groups: (1) administrator group (default group name is "mlflow-admin"), (2) plain group (default group name is "mlflow"). For the user that is assigned to the administrator group, the user automatically gets all entity access permissions, and can grant permissions to any other users. For the user that is assigned to the plain group, the user does not have permissions to mlflow entities util the user in the administrator group grants permission for the user.
+MLflow OIDC plugin supports 2 kinds of groups: (1) administrator group (default group name is "mlflow-admin"), (2) plain group (default group name is "mlflow"). For the user that is assigned to the administrator group, the user automatically gets all entity access permissions, and can grant permissions to any other users. For the user that is assigned to the plain group, the user does not have permissions to MLflow entities until the user in the administrator group grants permission for the user.
 
 Below is an example to assign the administrator group to current Okta user:
 
@@ -105,9 +105,9 @@ If the current login user is assigned to the administrator group, then you can c
 
 After login via OIDC, open "http://127.0.0.1:8080/" again and then it will jump to the MLflow UI main page.
 
-### Configure mlflow client
+### Configure MLflow client
 
-The MLflow OIDC plugin allows mlflow client to connect to the MLflow server via the mlflow basic auth protocol. First, you need to generate an "access token" on the OIDC permission page as follows:
+The MLflow OIDC plugin allows MLflow client to connect to the MLflow server via the MLflow basic auth protocol. First, you need to generate an "access token" on the OIDC permission page as follows:
 
 ![custom action setting](/images/self-hosting/sso-access-token.png)
 
