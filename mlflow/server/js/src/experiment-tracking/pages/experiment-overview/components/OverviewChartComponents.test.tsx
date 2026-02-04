@@ -5,7 +5,9 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import {
   useScrollableLegendProps,
   getTracesFilteredByTimeRangeUrl,
-  getTracesFilteredByAssessmentUrl,
+  getTracesFilteredUrl,
+  createAssessmentEqualsFilter,
+  createAssessmentExistsFilter,
   ScrollableTooltip,
 } from './OverviewChartComponents';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -63,28 +65,52 @@ describe('getTracesFilteredByTimeRangeUrl', () => {
   });
 });
 
-describe('getTracesFilteredByAssessmentUrl', () => {
-  it('should generate correct URL with assessment filter', () => {
+describe('getTracesFilteredUrl', () => {
+  it('should generate correct URL with time range and filters', () => {
     const experimentId = 'test-experiment-123';
-    const assessmentName = 'quality';
-    const scoreValue = 'good';
-
-    const url = getTracesFilteredByAssessmentUrl(experimentId, assessmentName, scoreValue);
-
-    expect(url).toContain('/experiments/test-experiment-123/traces');
-    expect(url).toContain('filter=ASSESSMENT%3A%3A%3D%3A%3Agood%3A%3Aquality');
-  });
-
-  it('should include time range params when provided', () => {
-    const url = getTracesFilteredByAssessmentUrl('exp-1', 'accuracy', '0.95', {
+    const timeRange = {
       startTimeLabel: 'CUSTOM',
       startTime: '2025-01-01T00:00:00Z',
       endTime: '2025-01-02T00:00:00Z',
-    });
+    };
 
+    const url = getTracesFilteredUrl(experimentId, timeRange, [createAssessmentEqualsFilter('quality', 'good')]);
+
+    expect(url).toContain('/experiments/test-experiment-123/traces');
     expect(url).toContain('startTimeLabel=CUSTOM');
     expect(url).toContain('startTime=2025-01-01T00%3A00%3A00Z');
     expect(url).toContain('endTime=2025-01-02T00%3A00%3A00Z');
+    expect(url).toContain('filter=ASSESSMENT%3A%3A%3D%3A%3Agood%3A%3Aquality');
+  });
+
+  it('should generate URL without time range when not provided', () => {
+    const url = getTracesFilteredUrl('exp-1', undefined, [createAssessmentEqualsFilter('accuracy', '0.95')]);
+
+    expect(url).toContain('/experiments/exp-1/traces');
+    expect(url).not.toContain('startTimeLabel');
+    expect(url).toContain('filter=ASSESSMENT%3A%3A%3D%3A%3A0.95%3A%3Aaccuracy');
+  });
+
+  it('should generate URL without filters when not provided', () => {
+    const url = getTracesFilteredUrl('exp-1', { startTimeLabel: 'LAST_7_DAYS' });
+
+    expect(url).toContain('/experiments/exp-1/traces');
+    expect(url).toContain('startTimeLabel=LAST_7_DAYS');
+    expect(url).not.toContain('filter=');
+  });
+});
+
+describe('createAssessmentEqualsFilter', () => {
+  it('should create correct filter string format', () => {
+    const filter = createAssessmentEqualsFilter('quality', 'good');
+    expect(filter).toBe('ASSESSMENT::=::good::quality');
+  });
+});
+
+describe('createAssessmentExistsFilter', () => {
+  it('should create correct filter string format', () => {
+    const filter = createAssessmentExistsFilter('quality');
+    expect(filter).toBe('ASSESSMENT::IS NOT NULL::::quality');
   });
 });
 

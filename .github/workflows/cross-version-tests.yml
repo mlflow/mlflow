@@ -58,7 +58,7 @@ jobs:
     timeout-minutes: 10
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     permissions:
-      issues: read # listLabelsOnIssue
+      contents: read
     outputs:
       matrix1: ${{ steps.set-matrix.outputs.matrix1 }}
       matrix2: ${{ steps.set-matrix.outputs.matrix2 }}
@@ -86,12 +86,7 @@ jobs:
                 only_latest: false,
               };
             }
-            const labels = await github.rest.issues.listLabelsOnIssue({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const labelNames = labels.data.map(({ name }) => name);
+            const labelNames = context.payload.pull_request.labels.map(l => l.name);
             return {
               enable_dev_tests: labelNames.includes("enable-dev-tests"),
               only_latest: labelNames.includes("only-latest"),

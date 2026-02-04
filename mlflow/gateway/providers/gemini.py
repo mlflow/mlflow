@@ -387,12 +387,22 @@ class GeminiAdapter(ProviderAdapter):
             )
         current_time = int(time.time())
 
+        # Extract usage from usageMetadata (available in final chunk)
+        usage = None
+        if usage_metadata := resp.get("usageMetadata"):
+            usage = chat_schema.ChatUsage(
+                prompt_tokens=usage_metadata.get("promptTokenCount"),
+                completion_tokens=usage_metadata.get("candidatesTokenCount"),
+                total_tokens=usage_metadata.get("totalTokenCount"),
+            )
+
         return chat_schema.StreamResponsePayload(
             id=f"gemini-chat-stream-{current_time}",
             object="chat.completion.chunk",
             created=current_time,
             model=config.model.name,
             choices=choices,
+            usage=usage,
         )
 
     @classmethod
@@ -616,8 +626,8 @@ class GeminiProvider(BaseProvider):
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent?alt=sse",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.gemini_config: GeminiConfig = config.model.config
@@ -668,7 +678,7 @@ class GeminiProvider(BaseProvider):
             payload=payload,
         )
 
-    async def embeddings(
+    async def _embeddings(
         self, payload: embeddings_schema.RequestPayload
     ) -> embeddings_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -691,7 +701,7 @@ class GeminiProvider(BaseProvider):
         )
         return self.adapter_class.model_to_embeddings(resp, self.config)
 
-    async def completions(
+    async def _completions(
         self, payload: completions_schema.RequestPayload
     ) -> completions_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -709,7 +719,7 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -735,7 +745,7 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
-    async def chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
+    async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -751,7 +761,7 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_chat(resp, self.config)
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat_schema.RequestPayload
     ) -> AsyncIterable[chat_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -779,12 +789,12 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         provider_path = self._validate_passthrough_action(action)
         provider_path = provider_path.format(model=self.config.model.name)
 

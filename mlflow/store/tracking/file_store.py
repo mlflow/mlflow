@@ -1001,11 +1001,13 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_dirs = list_all(
             experiment_dir,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         run_infos = []
@@ -1586,11 +1588,13 @@ class FileStore(AbstractStore):
             experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
             run_dirs = list_all(
                 experiment_dir,
-                filter_func=lambda x: all(
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                )
-                and os.path.isdir(x),
+                filter_func=lambda x: (
+                    all(
+                        os.path.basename(os.path.normpath(x)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(x)
+                ),
                 full_path=True,
             )
             for run_dir in run_dirs:
@@ -2460,11 +2464,13 @@ class FileStore(AbstractStore):
                 continue
             model_dirs = list_all(
                 models_folder,
-                filter_func=lambda path: all(
-                    os.path.basename(os.path.normpath(path)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                )
-                and os.path.isdir(path),
+                filter_func=lambda path: (
+                    all(
+                        os.path.basename(os.path.normpath(path)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(path)
+                ),
                 full_path=True,
             )
             for m_dir in model_dirs:
@@ -2686,11 +2692,13 @@ class FileStore(AbstractStore):
             return []
         model_dirs = list_all(
             models_folder,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         models = []

@@ -177,13 +177,11 @@ jobs:
           java-version: 11
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+          uv sync --no-dev
       - name: Run tests
+        working-directory: mlflow/java
         run: |
-          cd mlflow/java
-          mvn clean package -q
+          uv run --no-dev mvn clean package -q
 
   flavors:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

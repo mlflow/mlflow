@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "preinstall": "npx only-allow npm",
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
     "preview": "npm run build && npm run serve",

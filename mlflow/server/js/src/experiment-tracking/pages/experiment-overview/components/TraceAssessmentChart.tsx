@@ -25,7 +25,10 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
-  getTracesFilteredByAssessmentUrl,
+  getTracesFilteredUrl,
+  getTracesFilteredByTimeRangeUrl,
+  createAssessmentExistsFilter,
+  createAssessmentEqualsFilter,
 } from './OverviewChartComponents';
 import { getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -63,7 +66,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
-  const { experimentId } = useOverviewChartContext();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
   const [monitoringFilters] = useMonitoringFilters();
   const navigate = useNavigate();
 
@@ -76,7 +79,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const handleViewTraces = useCallback(
     (scoreValue: string | undefined) => {
       if (!scoreValue) return;
-      const url = getTracesFilteredByAssessmentUrl(experimentId, assessmentName, scoreValue, monitoringFilters);
+      const url = getTracesFilteredUrl(experimentId, monitoringFilters, [
+        createAssessmentEqualsFilter(assessmentName, scoreValue),
+      ]);
       navigate(url);
     },
     [experimentId, assessmentName, monitoringFilters, navigate],
@@ -85,6 +90,28 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const timeSeriestooltipFormatter = useCallback(
     (value: number) => [value.toFixed(2), assessmentName] as [string, string],
     [assessmentName],
+  );
+
+  // Handle click on time series tooltip link to navigate to traces filtered by time AND assessment exists
+  const handleViewTimeSeriesTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentId, dataPoint.timestampMs, timeIntervalSeconds, [
+        createAssessmentExistsFilter(assessmentName),
+      ]);
+      navigate(url);
+    },
+    [experimentId, timeIntervalSeconds, assessmentName, navigate],
+  );
+
+  const timeSeriestooltipContent = (
+    <ScrollableTooltip
+      formatter={timeSeriestooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment_timeseries.view_traces_link',
+        onLinkClick: handleViewTimeSeriesTraces,
+      }}
+    />
   );
 
   const distributionTooltipContent = (
@@ -174,7 +201,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={timeSeriestooltipFormatter} />}
+                content={timeSeriestooltipContent}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Legend {...scrollableLegendProps} />

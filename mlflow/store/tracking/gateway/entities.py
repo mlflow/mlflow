@@ -57,6 +57,7 @@ class GatewayEndpointConfig:
         models: List of model configurations with decrypted credentials.
         routing_strategy: Optional routing strategy (e.g., FALLBACK).
         fallback_config: Optional fallback configuration from GatewayEndpoint entity.
+        experiment_id: Optional experiment ID for tracing (if usage tracking is enabled).
     """
 
     endpoint_id: str
@@ -64,3 +65,4 @@ class GatewayEndpointConfig:
     models: list[GatewayModelConfig] = field(default_factory=list)
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
+    experiment_id: str | None = None

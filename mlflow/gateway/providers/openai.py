@@ -122,6 +122,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = chat.ChatUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             object=resp["object"],
@@ -142,6 +151,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -193,6 +203,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = completions.CompletionsUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return completions.StreamResponsePayload(
             id=resp["id"],
             # The chat models response from OpenAI is of object type "chat.completion.chunk".
@@ -209,6 +228,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -262,8 +282,8 @@ class OpenAIProvider(BaseProvider):
         PassthroughAction.OPENAI_RESPONSES: "responses",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
             raise MlflowException.invalid_parameter_value(
@@ -364,13 +384,19 @@ class OpenAIProvider(BaseProvider):
         parsed_base_url = urlparse(self.base_url)
         return urlunparse(parsed_base_url._replace(path=f"{parsed_base_url.path}/{route_path}"))
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if payload.get("stream_options") is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
 
         stream = send_stream_request(
             headers=self.headers,
@@ -391,7 +417,7 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -581,7 +607,7 @@ class OpenAIProvider(BaseProvider):
 
         return resp
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         if MLFLOW_ENABLE_UC_FUNCTIONS.get():
             warnings.warn(
                 "Unity Catalog function integration via the MLflow AI Gateway is deprecated "
@@ -592,17 +618,24 @@ class OpenAIProvider(BaseProvider):
             )
             resp = await self._chat_uc_function(payload)
         else:
-            resp = await self._chat(payload)
+            resp = await self._send_chat_request(payload)
 
         return OpenAIAdapter.model_to_chat(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if payload.get("stream_options") is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
+
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
@@ -622,7 +655,9 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -635,7 +670,7 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -648,12 +683,12 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
             payload, self.config
         )
