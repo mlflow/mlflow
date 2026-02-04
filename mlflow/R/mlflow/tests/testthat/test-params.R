@@ -22,11 +22,13 @@ test_that("mlflow can read typed command line parameters", {
   expect_true(nrow(runs) > 0)
   
   # Verify params were logged
-  run <- runs[1, ]
-  params <- run$params[[1]]
-  expect_true("my_int" %in% params$key)
-  expect_true("my_num" %in% params$key)
-  expect_true("my_str" %in% params$key)
+  if (nrow(runs) > 0) {
+    run <- runs[1, ]
+    params <- run$params[[1]]
+    expect_true("my_int" %in% params$key)
+    expect_true("my_num" %in% params$key)
+    expect_true("my_str" %in% params$key)
+  }
 })
 
 test_that("ml_param() type checking works", {

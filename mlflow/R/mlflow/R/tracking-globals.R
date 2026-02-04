@@ -57,6 +57,8 @@ mlflow_get_tracking_uri <- function() {
     } else {
       # Default to SQLite instead of file store
       # Cache the default URI to avoid creating multiple temp files
+      # Note: Temporary SQLite database files are created in the system temp directory
+      # and should be cleaned up by the OS or by calling mlflow_clear_test_dir() in tests
       if (is.null(.globals$default_tracking_uri)) {
         .globals$default_tracking_uri <- paste0("sqlite:///", tempfile(pattern = "mlflow_", fileext = ".db"))
       }
