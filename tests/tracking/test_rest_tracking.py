@@ -3403,13 +3403,13 @@ def test_log_url_includes_workspace_when_set(mlflow_client: MlflowClient, monkey
         "mlflow.tracking._tracking_service.client.get_workspace_url", lambda: "http://localhost"
     )
     monkeypatch.setattr(
-        "mlflow.tracking._tracking_service.client.get_request_workspace", lambda: "team space"
+        "mlflow.tracking._tracking_service.client.get_request_workspace", lambda: "team-space"
     )
 
     mlflow_client._tracking_client._log_url(run.info.run_id)
 
     out = captured_output.getvalue()
-    expected_fragment = f"/#/workspaces/team%20space/experiments/{exp_id}/runs/{run.info.run_id}"
+    expected_fragment = f"/#/experiments/{exp_id}/runs/{run.info.run_id}?workspace=team-space"
     assert expected_fragment in out
 
 
