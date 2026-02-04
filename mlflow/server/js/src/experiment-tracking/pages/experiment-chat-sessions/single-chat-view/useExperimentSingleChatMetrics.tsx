@@ -1,9 +1,10 @@
 import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  SIMULATION_GOAL_KEY,
+  SIMULATION_PERSONA_KEY,
+} from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/SessionGroupingUtils';
 import { first, last } from 'lodash';
 import { useMemo } from 'react';
-
-const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
-const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
 
 type TraceTokenUsage = ReturnType<typeof getTraceTokenUsage>;
 export interface ExperimentSingleChatMetrics {
