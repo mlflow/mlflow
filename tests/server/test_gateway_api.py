@@ -57,16 +57,6 @@ pytestmark = pytest.mark.notrackingurimock
 TEST_PASSPHRASE = "test-passphrase-for-gateway-api-tests"
 
 
-def unwrap_provider(provider):
-    """
-    Return the provider for type checking in tests.
-
-    Note: Tracing is now built into BaseProvider via enable_tracing flag,
-    so providers are no longer wrapped with a separate TracingProviderWrapper.
-    """
-    return provider
-
-
 @pytest.fixture(autouse=True)
 def set_kek_passphrase(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", TEST_PASSPHRASE)
@@ -109,12 +99,9 @@ def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Provider has tracing built-in via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, OpenAIProvider)
-    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
-    assert unwrapped.config.model.config.openai_api_key == "sk-test-123"
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_key == "sk-test-123"
 
 
 def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore):
@@ -150,15 +137,13 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, OpenAIProvider)
-    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
-    assert unwrapped.config.model.config.openai_api_type == OpenAIAPIType.AZURE
-    assert unwrapped.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4"
-    assert unwrapped.config.model.config.openai_api_version == "2024-02-01"
-    assert unwrapped.config.model.config.openai_api_key == "azure-api-key-test"
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
+    assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
+    assert provider.config.model.config.openai_api_version == "2024-02-01"
+    assert provider.config.model.config.openai_api_key == "azure-api-key-test"
 
 
 def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: SqlAlchemyStore):
@@ -195,17 +180,13 @@ def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: Sql
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, OpenAIProvider)
-    assert isinstance(unwrapped.config.model.config, OpenAIConfig)
-    assert unwrapped.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
-    assert (
-        unwrapped.config.model.config.openai_api_base == "https://my-resource-ad.openai.azure.com"
-    )
-    assert unwrapped.config.model.config.openai_deployment_name == "gpt-4-deployment-ad"
-    assert unwrapped.config.model.config.openai_api_version == "2024-02-01"
-    assert unwrapped.config.model.config.openai_api_key == "azuread-api-key-test"
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
+    assert provider.config.model.config.openai_api_base == "https://my-resource-ad.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment-ad"
+    assert provider.config.model.config.openai_api_version == "2024-02-01"
+    assert provider.config.model.config.openai_api_key == "azuread-api-key-test"
 
 
 def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
@@ -235,10 +216,8 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, AnthropicProvider)
-    assert unwrapped.config.model.config.anthropic_api_key == "sk-ant-test"
+    assert isinstance(provider, AnthropicProvider)
+    assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -269,11 +248,9 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, MistralProvider)
-    assert isinstance(unwrapped.config.model.config, MistralConfig)
-    assert unwrapped.config.model.config.mistral_api_key == "mistral-test-key"
+    assert isinstance(provider, MistralProvider)
+    assert isinstance(provider.config.model.config, MistralConfig)
+    assert provider.config.model.config.mistral_api_key == "mistral-test-key"
 
 
 def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
@@ -304,11 +281,9 @@ def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, GeminiProvider)
-    assert isinstance(unwrapped.config.model.config, GeminiConfig)
-    assert unwrapped.config.model.config.gemini_api_key == "gemini-test-key"
+    assert isinstance(provider, GeminiProvider)
+    assert isinstance(provider.config.model.config, GeminiConfig)
+    assert provider.config.model.config.gemini_api_key == "gemini-test-key"
 
 
 def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
@@ -338,14 +313,12 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, LiteLLMProvider)
-    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
-    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
-    assert unwrapped.config.model.config.litellm_provider == "litellm"
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
+    assert provider.config.model.config.litellm_provider == "litellm"
     # get_provider_name() returns the actual provider name for tracing/metrics
-    assert unwrapped.get_provider_name() == "litellm"
+    assert provider.get_provider_name() == "litellm"
 
 
 def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlchemyStore):
@@ -376,16 +349,14 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, LiteLLMProvider)
-    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
-    assert unwrapped.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
     assert (
-        unwrapped.config.model.config.litellm_auth_config["api_base"]
+        provider.config.model.config.litellm_auth_config["api_base"]
         == "https://custom-api.example.com"
     )
-    assert unwrapped.config.model.config.litellm_provider == "litellm"
+    assert provider.config.model.config.litellm_provider == "litellm"
 
 
 @pytest.mark.parametrize(
@@ -425,18 +396,16 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, LiteLLMProvider)
-    assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
     # Verify the base URL was normalized to include /serving-endpoints
     assert (
-        unwrapped.config.model.config.litellm_auth_config["api_base"]
+        provider.config.model.config.litellm_auth_config["api_base"]
         == "https://my-workspace.databricks.com/serving-endpoints"
     )
-    assert unwrapped.config.model.config.litellm_provider == "databricks"
+    assert provider.config.model.config.litellm_provider == "databricks"
     # get_provider_name() returns "databricks" (the actual provider) instead of "LiteLLM"
-    assert unwrapped.get_provider_name() == "databricks"
+    assert provider.get_provider_name() == "databricks"
 
 
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
@@ -1724,14 +1693,10 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 2
-    # Each provider inside FallbackProvider has tracing built-in via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    assert isinstance(unwrap_provider(provider._providers[0]), TrafficRouteProvider)
-    assert isinstance(unwrap_provider(provider._providers[1]), OpenAIProvider)
+    assert isinstance(provider._providers[0], TrafficRouteProvider)
+    assert isinstance(provider._providers[1], OpenAIProvider)
     assert provider._max_attempts == 2
 
 
@@ -1797,20 +1762,14 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
-    # Each provider inside FallbackProvider has tracing built-in via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    # Tracing is built into BaseProvider via enable_tracing flag
-    # Unwrap to check the actual providers
-    primary = unwrap_provider(provider._providers[0])
+    primary = provider._providers[0]
     assert isinstance(primary, TrafficRouteProvider)
     assert isinstance(primary._providers[0], OpenAIProvider)
     assert isinstance(primary._providers[1], AnthropicProvider)
-    assert isinstance(unwrap_provider(provider._providers[1]), OpenAIProvider)
-    assert isinstance(unwrap_provider(provider._providers[2]), AnthropicProvider)
+    assert isinstance(provider._providers[1], OpenAIProvider)
+    assert isinstance(provider._providers[2], AnthropicProvider)
     assert provider._max_attempts == 3
 
 
@@ -1952,10 +1911,8 @@ def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Tracing is built into BaseProvider via enable_tracing flag
-    unwrapped = unwrap_provider(provider)
-    assert isinstance(unwrapped, OpenAIProvider)
-    assert not isinstance(unwrapped, FallbackProvider)
+    assert isinstance(provider, OpenAIProvider)
+    assert not isinstance(provider, FallbackProvider)
 
 
 # =============================================================================
