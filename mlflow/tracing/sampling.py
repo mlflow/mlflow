@@ -28,6 +28,7 @@ class _OverridableSampler(Sampler):
     """
 
     def __init__(self, ratio: float):
+        self._ratio = ratio
         self._ratio_sampler = TraceIdRatioBased(ratio)
 
     def should_sample(
@@ -47,4 +48,4 @@ class _OverridableSampler(Sampler):
         )
 
     def get_description(self) -> str:
-        return f"OverridableSampler(ratio={self._ratio_sampler.rate})"
+        return f"OverridableSampler(ratio={self._ratio})"

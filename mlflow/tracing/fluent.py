@@ -263,8 +263,17 @@ def _should_skip_sample(sampling_ratio: float | None) -> bool:
     if _TRACE_SAMPLING_SKIPPED.get():
         return True
 
-    # If there's already an active parent span, don't skip (follow parent's decision)
-    if get_current_active_span() is not None:
+    # Check the current OTel span directly to honor the parent's sampling decision.
+    # We can't use get_current_active_span() here because it returns None for
+    # NonRecordingSpan, which would cause children to re-sample when they shouldn't.
+    current_otel_span = get_current_otel_span()
+    span_context = current_otel_span.get_span_context() if current_otel_span else None
+    # Only consider spans with valid context (not INVALID_SPAN which has trace_id=0)
+    if span_context is not None and span_context.is_valid:
+        if isinstance(current_otel_span, trace_api.NonRecordingSpan):
+            # Parent was not sampled by the global sampler, skip this span too
+            return True
+        # There's an active (recording) parent span; follow the parent's decision
         return False
 
     # If no sampling_ratio is specified, defer to global sampler
