@@ -447,10 +447,6 @@
     "defaultMessage": "Using controls above, select at least one artifact containing table.",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
   },
-  "1BIc9x": {
-    "defaultMessage": "Launch Demo",
-    "description": "Demo banner launch button"
-  },
   "1Buj/Q": {
     "defaultMessage": "Alternatively, you can interact with this trace via the MLflow Python SDK, using the {code} function. For more information, please check the {documentation_link}.",
     "description": "Body text for when a trace is too large to display"
@@ -738,6 +734,10 @@
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
     "description": "Help text for custom model input"
   },
+  "3oBg7C": {
+    "defaultMessage": "AI Gateway",
+    "description": "Feature card title for AI Gateway"
+  },
   "3pRh9n": {
     "defaultMessage": "The type of value the judge will return.",
     "description": "Hint text for output type selection"
@@ -977,10 +977,6 @@
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
-  },
-  "5hpTyI": {
-    "defaultMessage": "Explore demo",
-    "description": "Feature card explore button"
   },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
@@ -1542,6 +1538,10 @@
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
   },
+  "9HzNUt": {
+    "defaultMessage": "Unified API for multiple LLM providers with rate limiting.",
+    "description": "Feature card summary for AI Gateway"
+  },
   "9I8EpX": {
     "defaultMessage": "Automatic evaluation",
     "description": "Accordion section header for automatic evaluation settings"
@@ -1893,10 +1893,6 @@
   "BY1k4W": {
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
-  },
-  "BZAhcC": {
-    "defaultMessage": "Go to {feature}",
-    "description": "Feature card go button"
   },
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
@@ -2310,6 +2306,10 @@
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
   },
+  "Eu0gxa": {
+    "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
+    "description": "Feature card summary for tracing"
+  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -2353,10 +2353,6 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
-  },
-  "FJ+IDR": {
-    "defaultMessage": "Try out features with demo data or dive into the docs",
-    "description": "Home page features section subtitle"
   },
   "FKoHx5": {
     "defaultMessage": "Security Notice: Default Passphrase in Use",
@@ -2498,10 +2494,6 @@
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
   },
-  "GOr/Bm": {
-    "defaultMessage": "Try it out",
-    "description": "Feature card try it out section header"
-  },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
@@ -2525,14 +2517,6 @@
   "GgPNAZ": {
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
-  },
-  "GifD0J": {
-    "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
-    "description": "Demo banner description"
-  },
-  "Gj3Zbz": {
-    "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
-    "description": "Label indicating a pre-built LLM-as-a-judge template"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -2929,10 +2913,6 @@
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
-  },
-  "K+R0im": {
-    "defaultMessage": "Cleared {count} {count, plural, one {demo} other {demos}}",
-    "description": "Demo cleanup success message showing number of demo types cleaned"
   },
   "K1JLVU": {
     "defaultMessage": "Latency",
@@ -3574,6 +3554,10 @@
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
   },
+  "P+pqTs": {
+    "defaultMessage": "This will delete the demo experiment and all associated traces, evaluations, and prompts. You can regenerate demo data from the home page, but any manual changes you made to the demo data will be lost.",
+    "description": "Demo data deletion confirmation message"
+  },
   "P/Uvf4": {
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
@@ -3741,6 +3725,10 @@
     "defaultMessage": "Hide assessments",
     "description": "Label for the button to hide the assessments pane"
   },
+  "QMCliz": {
+    "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
+    "description": "Feature card summary for evaluation"
+  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -3788,10 +3776,6 @@
   "QnZkGt": {
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
-  },
-  "QoehKn": {
-    "defaultMessage": "Measure and compare LLM quality using built-in and custom scorers. Run offline evaluations to iterate on prompts, models, and retrieval strategies.",
-    "description": "Feature card summary for evaluation"
   },
   "QqbUt/": {
     "defaultMessage": "Search API Keys",
@@ -3864,10 +3848,6 @@
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
     "description": "Hint for UserFrustration template"
-  },
-  "RTL614": {
-    "defaultMessage": "Version control your prompts with full history tracking. Manage aliases, collaborate across teams, and deploy prompt updates without code changes.",
-    "description": "Feature card summary for prompts"
   },
   "RUju4k": {
     "defaultMessage": "Charts",
@@ -4384,6 +4364,10 @@
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
   },
+  "VBhmhO": {
+    "defaultMessage": "Explore MLflow's core features with pre-populated sample data including traces, evaluations, and prompts.",
+    "description": "Demo banner description"
+  },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
     "description": "Title for the quality summary table section"
@@ -4399,6 +4383,10 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
+  },
+  "VMTV4I": {
+    "defaultMessage": "Getting Started",
+    "description": "Home page features section title"
   },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
@@ -4435,6 +4423,10 @@
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
+  },
+  "VamxJ7": {
+    "defaultMessage": "Version control and manage prompts with aliases across teams.",
+    "description": "Feature card summary for prompts"
   },
   "VcNdOq": {
     "defaultMessage": "No description",
@@ -4811,10 +4803,6 @@
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
   },
-  "YOi/UX": {
-    "defaultMessage": "No demo data found to clear",
-    "description": "Demo cleanup message when no data exists"
-  },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
     "description": "Experiment page > view mode switch > evaluation mode disabled tooltip"
@@ -4842,6 +4830,10 @@
   "YZDyOo": {
     "defaultMessage": "Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
+  },
+  "YZKPST": {
+    "defaultMessage": "Clear",
+    "description": "Demo data deletion confirm button"
   },
   "YamyaP": {
     "defaultMessage": "Auto-refresh",
@@ -4962,6 +4954,10 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
+  },
+  "Zb1znQ": {
+    "defaultMessage": "Clear demo data",
+    "description": "Demo data deletion confirmation modal title"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
@@ -5174,6 +5170,10 @@
   "adVHxN": {
     "defaultMessage": "Outputs",
     "description": "Section title for the outputs of a single chat turn"
+  },
+  "aecpPo": {
+    "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
+    "description": "Feature card summary for experiments"
   },
   "akmaST": {
     "defaultMessage": "Irrelevant",
@@ -5518,6 +5518,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d402vp": {
+    "defaultMessage": "Explore Features",
+    "description": "Feature cards section title"
   },
   "d44IPd": {
     "defaultMessage": "Reopen review",
@@ -6119,10 +6123,6 @@
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
   },
-  "hKSnOt": {
-    "defaultMessage": "Failed to clear demo data",
-    "description": "Demo cleanup error message"
-  },
   "hR2Zvd": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
     "description": "Step 2 description for defining judge function"
@@ -6326,10 +6326,6 @@
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
-  },
-  "ijIlZG": {
-    "defaultMessage": "Read the docs",
-    "description": "Feature card docs link"
   },
   "imKpxw": {
     "defaultMessage": "ID",
@@ -6699,10 +6695,6 @@
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
   },
-  "lWs3qq": {
-    "defaultMessage": "Learn more",
-    "description": "Feature card learn more section header"
-  },
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
@@ -6770,10 +6762,6 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
-  },
-  "mD9M6/": {
-    "defaultMessage": "Capture and analyze LLM interactions, from simple prompts to complex multi-step agents. Debug issues, monitor performance, and understand your AI application's behavior.",
-    "description": "Feature card summary for tracing"
   },
   "mIFcgu": {
     "defaultMessage": "Cancel",
@@ -7367,10 +7355,6 @@
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
-  "qPUSeb": {
-    "defaultMessage": "Track ML experiments with parameters, metrics, and artifacts. Compare runs, visualize results, and reproduce any model training.",
-    "description": "Feature card summary for experiments"
-  },
   "qR3llD": {
     "defaultMessage": "Max tokens",
     "description": "Experiment page > prompt lab > max tokens parameter label"
@@ -7422,10 +7406,6 @@
   "qvEOHi": {
     "defaultMessage": "MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>.",
     "description": "Telemetry alert description"
-  },
-  "qw2OFy": {
-    "defaultMessage": "Explore MLflow",
-    "description": "Home page features section title"
   },
   "qz9XeG": {
     "defaultMessage": "Cancel",
@@ -7718,6 +7698,10 @@
   "ss//L4": {
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
+  },
+  "sulPqT": {
+    "defaultMessage": "Start Demo",
+    "description": "Demo banner launch button"
   },
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
@@ -8206,6 +8190,10 @@
   "wusz4l": {
     "defaultMessage": "Input",
     "description": "Label indicating that the logged model was the input of the experiment run. Displayed in logged model list table on the run page."
+  },
+  "wvirRa": {
+    "defaultMessage": "Cancel",
+    "description": "Demo data deletion cancel button"
   },
   "wvskxE": {
     "defaultMessage": "Log traces",

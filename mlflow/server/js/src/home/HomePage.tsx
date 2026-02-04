@@ -58,7 +58,6 @@ const HomePage = () => {
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
       <TelemetryInfoAlert />
-      <FeaturesSection />
       <React.Suspense fallback={<HomePageSectionSkeleton />}>
         <ExperimentsHomeView
           experiments={experiments}
@@ -68,6 +67,7 @@ const HomePage = () => {
           onRetry={refetch}
         />
       </React.Suspense>
+      <FeaturesSection />
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}

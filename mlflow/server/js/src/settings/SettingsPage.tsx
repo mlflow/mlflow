@@ -10,8 +10,7 @@ const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isCleaningDemo, setIsCleaningDemo] = useState(false);
-  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
-  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -32,44 +31,17 @@ const SettingsPage = () => {
   );
 
   const handleClearAllDemoData = useCallback(async () => {
-    setIsConfirmModalVisible(false);
     setIsCleaningDemo(true);
-    setCleanupMessage(null);
     try {
-      const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/demo/delete'), {
+      await fetch(getAjaxUrl('ajax-api/3.0/mlflow/demo/delete'), {
         method: 'POST',
       });
-      const data = await response.json();
-      const featuresDeleted = data.features_deleted ?? [];
-      if (featuresDeleted.length === 0) {
-        setCleanupMessage(
-          intl.formatMessage({
-            defaultMessage: 'No demo data found to clear',
-            description: 'Demo cleanup message when no data exists',
-          }),
-        );
-      } else {
-        setCleanupMessage(
-          intl.formatMessage(
-            {
-              defaultMessage: 'Cleared {count} {count, plural, one {demo} other {demos}}',
-              description: 'Demo cleanup success message showing number of demo types cleaned',
-            },
-            { count: featuresDeleted.length },
-          ),
-        );
-      }
     } catch (error) {
-      setCleanupMessage(
-        intl.formatMessage({
-          defaultMessage: 'Failed to clear demo data',
-          description: 'Demo cleanup error message',
-        }),
-      );
+      console.error('Failed to clear demo data:', error);
     } finally {
       setIsCleaningDemo(false);
     }
-  }, [intl]);
+  }, []);
 
   return (
     <div css={{ padding: theme.spacing.md }}>
@@ -129,15 +101,10 @@ const SettingsPage = () => {
               description="Demo data settings description"
             />
           </Typography.Text>
-          {cleanupMessage && (
-            <Typography.Text css={{ marginTop: theme.spacing.xs }} color="secondary">
-              {cleanupMessage}
-            </Typography.Text>
-          )}
         </div>
         <Button
           componentId="mlflow.settings.demo.clear-all-button"
-          onClick={() => setIsConfirmModalVisible(true)}
+          onClick={() => setIsConfirmModalOpen(true)}
           disabled={isCleaningDemo}
         >
           {isCleaningDemo ? (
@@ -149,19 +116,33 @@ const SettingsPage = () => {
       </div>
 
       <Modal
-        componentId="mlflow.settings.demo.clear-confirm-modal"
-        visible={isConfirmModalVisible}
-        onOk={handleClearAllDemoData}
-        onCancel={() => setIsConfirmModalVisible(false)}
+        componentId="mlflow.settings.demo.confirm-modal"
+        title={intl.formatMessage({
+          defaultMessage: 'Clear demo data',
+          description: 'Demo data deletion confirmation modal title',
+        })}
+        visible={isConfirmModalOpen}
+        onCancel={() => setIsConfirmModalOpen(false)}
+        onOk={async () => {
+          setIsConfirmModalOpen(false);
+          await handleClearAllDemoData();
+        }}
+        okText={intl.formatMessage({
+          defaultMessage: 'Clear',
+          description: 'Demo data deletion confirm button',
+        })}
+        cancelText={intl.formatMessage({
+          defaultMessage: 'Cancel',
+          description: 'Demo data deletion cancel button',
+        })}
         okButtonProps={{ danger: true }}
-        okText={<FormattedMessage defaultMessage="Clear demo data" description="Confirm clear demo data button" />}
-        cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel clear demo data button" />}
-        title={<FormattedMessage defaultMessage="Clear demo data" description="Confirm clear demo data modal title" />}
       >
-        <FormattedMessage
-          defaultMessage="Are you sure you want to clear all demo data? This will remove demo experiments, traces, evaluations, and prompts. This action cannot be undone."
-          description="Confirm clear demo data modal body"
-        />
+        <Typography.Text>
+          <FormattedMessage
+            defaultMessage="This will delete the demo experiment and all associated traces, evaluations, and prompts. You can regenerate demo data from the home page, but any manual changes you made to the demo data will be lost."
+            description="Demo data deletion confirmation message"
+          />
+        </Typography.Text>
       </Modal>
     </div>
   );

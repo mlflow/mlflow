@@ -4972,43 +4972,10 @@ def _delete_demo():
             generator.delete_demo()
             deleted_features.append(name)
 
-    # Hard delete the demo experiment and all its runs
     store = _get_tracking_store()
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-
-    if experiment is not None:
-        experiment_id = experiment.experiment_id
-
-        # Ensure experiment is in deleted state for hard deletion
-        if experiment.lifecycle_stage == "active":
-            store.delete_experiment(experiment_id)
-
-        # Hard delete all runs in the experiment (must be done before experiment)
-        if hasattr(store, "_hard_delete_run"):
-            try:
-                # Get all runs (including already soft-deleted ones)
-                runs = store.search_runs(
-                    experiment_ids=[experiment_id],
-                    filter_string="",
-                    run_view_type=ViewType.ALL,
-                    max_results=1000,
-                )
-                for run in runs:
-                    # Ensure run is soft-deleted first
-                    if run.info.lifecycle_stage == "active":
-                        store.delete_run(run.info.run_id)
-                    store._hard_delete_run(run.info.run_id)
-            except Exception:
-                # If hard delete fails, continue - soft delete is sufficient
-                pass
-
-        # Hard delete the experiment itself
-        if hasattr(store, "_hard_delete_experiment"):
-            try:
-                store._hard_delete_experiment(experiment_id)
-            except Exception:
-                # If hard delete fails, continue - soft delete is sufficient
-                pass
+    if experiment and experiment.lifecycle_stage == "active":
+        store.delete_experiment(experiment.experiment_id)
 
     return jsonify(
         {
