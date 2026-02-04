@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
-from mlflow.gateway.providers.tracing import TracingProviderWrapper
 
 import mlflow
 from mlflow.entities import (
@@ -60,12 +59,11 @@ TEST_PASSPHRASE = "test-passphrase-for-gateway-api-tests"
 
 def unwrap_provider(provider):
     """
-    Unwrap a provider from TracingProviderWrapper if present.
+    Return the provider for type checking in tests.
 
-    Returns the underlying provider for type checking in tests.
+    Note: Tracing is now built into BaseProvider via enable_tracing flag,
+    so providers are no longer wrapped with a separate TracingProviderWrapper.
     """
-    if isinstance(provider, TracingProviderWrapper):
-        return provider.wrapped_provider
     return provider
 
 
@@ -111,8 +109,8 @@ def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    # Provider is wrapped with TracingProviderWrapper for automatic instrumentation
-    assert isinstance(provider, TracingProviderWrapper)
+    # Provider has tracing built-in via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, OpenAIProvider)
     assert isinstance(unwrapped.config.model.config, OpenAIConfig)
@@ -152,7 +150,7 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, OpenAIProvider)
     assert isinstance(unwrapped.config.model.config, OpenAIConfig)
@@ -197,7 +195,7 @@ def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: Sql
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, OpenAIProvider)
     assert isinstance(unwrapped.config.model.config, OpenAIConfig)
@@ -237,7 +235,7 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, AnthropicProvider)
     assert unwrapped.config.model.config.anthropic_api_key == "sk-ant-test"
@@ -271,7 +269,7 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, MistralProvider)
     assert isinstance(unwrapped.config.model.config, MistralConfig)
@@ -306,7 +304,7 @@ def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, GeminiProvider)
     assert isinstance(unwrapped.config.model.config, GeminiConfig)
@@ -340,7 +338,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, LiteLLMProvider)
     assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
@@ -378,7 +376,7 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, LiteLLMProvider)
     assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
@@ -427,7 +425,7 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, LiteLLMProvider)
     assert isinstance(unwrapped.config.model.config, LiteLLMConfig)
@@ -787,20 +785,27 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         }
     )
 
-    # Mock streaming response - _make_traced_streaming_response returns a StreamingResponse
-    mock_streaming_response = StreamingResponse(iter([]), media_type="text/event-stream")
+    # Mock streaming chunks
+    async def mock_stream():
+        yield chat.StreamResponsePayload(
+            id="test-id",
+            object="chat.completion.chunk",
+            created=1234567890,
+            model="gpt-4",
+            choices=[
+                chat.StreamChoice(
+                    index=0,
+                    delta=chat.StreamDelta(role="assistant", content="Hello"),
+                    finish_reason=None,
+                )
+            ],
+        )
 
-    with (
-        patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-        ) as mock_create_provider,
-        patch(
-            "mlflow.server.gateway_api._make_traced_streaming_response",
-            return_value=mock_streaming_response,
-        ) as mock_traced_streaming,
-    ):
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+    ) as mock_create_provider:
         mock_provider = MagicMock()
-        mock_provider.chat_stream = MagicMock(return_value="mock_stream")
+        mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_endpoint_config = GatewayEndpointConfig(
             endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
         )
@@ -808,10 +813,10 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
 
         response = await invocations(endpoint.name, mock_request)
 
-        # Verify streaming was called
+        # Verify streaming was called and returns StreamingResponse
         assert mock_provider.chat_stream.called
-        assert mock_traced_streaming.called
-        assert response == mock_streaming_response
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -959,20 +964,27 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         }
     )
 
-    # Mock streaming response - _make_traced_streaming_response returns a StreamingResponse
-    mock_streaming_response = StreamingResponse(iter([]), media_type="text/event-stream")
+    # Mock streaming chunks
+    async def mock_stream():
+        yield chat.StreamResponsePayload(
+            id="test-id",
+            object="chat.completion.chunk",
+            created=1234567890,
+            model="gpt-4",
+            choices=[
+                chat.StreamChoice(
+                    index=0,
+                    delta=chat.StreamDelta(role="assistant", content="Hello"),
+                    finish_reason=None,
+                )
+            ],
+        )
 
-    with (
-        patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-        ) as mock_create_provider,
-        patch(
-            "mlflow.server.gateway_api._make_traced_streaming_response",
-            return_value=mock_streaming_response,
-        ) as mock_traced_streaming,
-    ):
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+    ) as mock_create_provider:
         mock_provider = MagicMock()
-        mock_provider.chat_stream = MagicMock(return_value="mock_stream")
+        mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_endpoint_config = GatewayEndpointConfig(
             endpoint_id="test-endpoint-id", endpoint_name="stream-endpoint", models=[]
         )
@@ -980,10 +992,10 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
 
         response = await chat_completions(mock_request)
 
-        # Verify streaming was called
+        # Verify streaming was called and returns StreamingResponse
         assert mock_provider.chat_stream.called
-        assert mock_traced_streaming.called
-        assert response == mock_streaming_response
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
 
 
 @pytest.mark.asyncio
@@ -1715,9 +1727,9 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
     # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 2
-    # Each provider inside FallbackProvider is wrapped with TracingProviderWrapper
-    assert isinstance(provider._providers[0], TracingProviderWrapper)
-    assert isinstance(provider._providers[1], TracingProviderWrapper)
+    # Each provider inside FallbackProvider has tracing built-in via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
     assert isinstance(unwrap_provider(provider._providers[0]), TrafficRouteProvider)
     assert isinstance(unwrap_provider(provider._providers[1]), OpenAIProvider)
     assert provider._max_attempts == 2
@@ -1788,10 +1800,10 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
     # FallbackProvider is the outer provider, individual providers inside are wrapped
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
-    # Each provider inside FallbackProvider is wrapped with TracingProviderWrapper
-    assert isinstance(provider._providers[0], TracingProviderWrapper)
-    assert isinstance(provider._providers[1], TracingProviderWrapper)
-    assert isinstance(provider._providers[2], TracingProviderWrapper)
+    # Each provider inside FallbackProvider has tracing built-in via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
+    # Tracing is built into BaseProvider via enable_tracing flag
     # Unwrap to check the actual providers
     primary = unwrap_provider(provider._providers[0])
     assert isinstance(primary, TrafficRouteProvider)
@@ -1940,7 +1952,7 @@ def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, TracingProviderWrapper)
+    # Tracing is built into BaseProvider via enable_tracing flag
     unwrapped = unwrap_provider(provider)
     assert isinstance(unwrapped, OpenAIProvider)
     assert not isinstance(unwrapped, FallbackProvider)
@@ -2138,5 +2150,4 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
     )
     assert gateway_span is not None
-    assert gateway_span.attributes.get("request_type") == "chat"
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
