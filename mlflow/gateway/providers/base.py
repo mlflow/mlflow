@@ -387,9 +387,7 @@ class TrafficRouteProvider(BaseProvider):
         async for i in prov.completions_stream(payload):
             yield i
 
-    async def completions(
-        self, payload: completions.RequestPayload
-    ) -> completions.ResponsePayload:
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         prov = self._get_provider()
         return await prov.completions(payload)
 
@@ -535,9 +533,7 @@ class FallbackProvider(BaseProvider):
         async for chunk in self._execute_stream_with_fallback("completions_stream", payload):
             yield chunk
 
-    async def completions(
-        self, payload: completions.RequestPayload
-    ) -> completions.ResponsePayload:
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         return await self._execute_with_fallback("completions", payload)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
