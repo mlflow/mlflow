@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - pyproject.toml
+      - uv.lock
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
@@ -17,6 +18,7 @@ on:
       - ready_for_review
     paths:
       - pyproject.toml
+      - uv.lock
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
@@ -61,17 +63,33 @@ jobs:
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
-      - run: |
-          uv pip install --system -r ../requirements/doc-requirements.txt '..[gateway]' pytest
+      - name: Install dependencies
+        working-directory: .
+        run: |
+          uv sync --group docs --extra gateway
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
       - run: |
           npm run convert-notebooks
+      - name: Set alias
+        id: alias
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            ALIAS="dev"
+          else
+            ALIAS="pr-$PR_NUMBER"
+          fi
+          echo "value=$ALIAS" >> $GITHUB_OUTPUT
+          echo "$ALIAS" > /tmp/alias.txt
+          cat /tmp/alias.txt
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
-          API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
+          API_REFERENCE_PREFIX: https://${{ steps.alias.outputs.value }}--mlflow-docs-preview.netlify.app/docs/
         run: |
           npm run build-all -- --no-r --use-npm
       - name: Check API inventory
@@ -105,17 +123,6 @@ jobs:
 
       # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - name: Save alias
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [ "$EVENT_NAME" = "push" ]; then
-            echo "dev" > /tmp/alias.txt
-          else
-            echo "pr-$PR_NUMBER" > /tmp/alias.txt
-          fi
-          cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: alias
@@ -136,14 +143,15 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
+        working-directory: .
         run: |
-          uv pip install --system -r ../../requirements/doc-requirements.txt '../..[gateway]' pytest
+          uv sync --group docs --extra gateway
       - name: Extract examples
         run: |
-          python source/testcode_block.py
+          uv run source/testcode_block.py
       - name: Run tests
         run: |
-          pytest .examples
+          uv run pytest .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

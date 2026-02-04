@@ -225,7 +225,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("warnings.warn") as mock_warning,
+    ):
         pyfunc_model_info = mlflow.pyfunc.log_model(
             name=pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_info.model_uri},
@@ -233,6 +236,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         )
         pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+        assert "Consider using a file path (str or Path) instead" in mock_warning.call_args[0][0]
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
@@ -1124,7 +1128,6 @@ def test_save_and_load_model_with_special_chars(
 
 
 def test_model_with_code_path_containing_main(tmp_path):
-    """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
     directory.mkdir()
     main = directory.joinpath("__main__.py")

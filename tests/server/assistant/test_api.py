@@ -1,0 +1,416 @@
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+
+from mlflow.assistant.config import AssistantConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    ProviderConfig,
+)
+from mlflow.assistant.types import Event, Message
+from mlflow.server.assistant.api import _require_localhost, assistant_router
+from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
+from mlflow.utils.os import is_windows
+
+
+class MockProvider(AssistantProvider):
+    """Mock provider for testing."""
+
+    @property
+    def name(self) -> str:
+        return "mock_provider"
+
+    @property
+    def display_name(self) -> str:
+        return "Mock Provider"
+
+    @property
+    def description(self) -> str:
+        return "Mock provider for testing"
+
+    @property
+    def config_path(self) -> Path:
+        return Path.home() / ".mlflow" / "assistant" / "mock-config.json"
+
+    def is_available(self) -> bool:
+        return True
+
+    def load_config(self) -> ProviderConfig:
+        return ProviderConfig()
+
+    def check_connection(self, echo=print) -> None:
+        pass
+
+    def resolve_skills_path(self, base_directory: Path) -> Path:
+        return base_directory / ".mock" / "skills"
+
+    async def astream(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        session_id: str | None = None,
+        cwd: Path | None = None,
+        context: dict | None = None,
+        mlflow_session_id: str | None = None,
+    ):
+        yield Event.from_message(message=Message(role="user", content="Hello from mock"))
+        yield Event.from_result(result="complete", session_id="mock-session-123")
+
+
+@pytest.fixture(autouse=True)
+def isolated_config(tmp_path, monkeypatch):
+    """Redirect config to tmp_path to avoid modifying real user config."""
+    import mlflow.assistant.config as config_module
+
+    config_home = tmp_path / ".mlflow" / "assistant"
+    config_path = config_home / "config.json"
+
+    monkeypatch.setattr(config_module, "MLFLOW_ASSISTANT_HOME", config_home)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    return config_home
+
+
+@pytest.fixture(autouse=True)
+def clear_sessions():
+    """Clear session storage before each test."""
+    if SESSION_DIR.exists():
+        shutil.rmtree(SESSION_DIR)
+    yield
+    if SESSION_DIR.exists():
+        shutil.rmtree(SESSION_DIR)
+
+
+@pytest.fixture
+def client():
+    """Create test client with mock provider and bypassed localhost check."""
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    # Override localhost dependency to allow TestClient requests
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    with patch("mlflow.server.assistant.api._provider", MockProvider()):
+        yield TestClient(app)
+
+
+def test_message(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Hello",
+            "context": {"trace_id": "tr-123", "experiment_id": "exp-456"},
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    session_id = data["session_id"]
+    assert session_id is not None
+    assert data["stream_url"] == f"/ajax-api/3.0/mlflow/assistant/stream/{data['session_id']}"
+
+    # continue the conversation
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Second message", "session_id": session_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == session_id
+
+
+def test_stream_not_found_for_invalid_session(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/sessions/invalid-session-id/stream")
+    assert response.status_code == 404
+    assert "Session not found" in response.json()["detail"]
+
+
+def test_stream_bad_request_when_no_pending_message(client):
+    # Create session and consume the pending message
+    r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+    session_id = r.json()["session_id"]
+    client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    # Try to stream again without a new message
+    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    assert response.status_code == 400
+    assert "No pending message" in response.json()["detail"]
+
+
+def test_stream_returns_sse_events(client):
+    r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+    session_id = r.json()["session_id"]
+
+    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    content = response.text
+    assert "event: message" in content
+    assert "event: done" in content
+    assert "Hello from mock" in content
+
+
+def test_health_check_returns_ok_when_healthy(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_check_returns_404_for_unknown_provider(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/unknown_provider/health")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_health_check_returns_412_when_cli_not_installed():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class CLINotInstalledProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise CLINotInstalledError("CLI not installed")
+
+    with patch("mlflow.server.assistant.api._provider", CLINotInstalledProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 412
+        assert "CLI not installed" in response.json()["detail"]
+
+
+def test_health_check_returns_401_when_not_authenticated():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+
+    class NotAuthenticatedProvider(MockProvider):
+        def check_connection(self, echo=None):
+            raise NotAuthenticatedError("Not authenticated")
+
+    with patch("mlflow.server.assistant.api._provider", NotAuthenticatedProvider()):
+        client = TestClient(app)
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
+        assert response.status_code == 401
+        assert "Not authenticated" in response.json()["detail"]
+
+
+def test_get_config_returns_empty_config(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == {}
+    assert data["projects"] == {}
+
+
+def test_get_config_returns_existing_config(client, tmp_path):
+    # Set up existing config by saving it first
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    config = AssistantConfig(
+        providers={"claude_code": AssistantProviderConfig(model="default", selected=True)},
+        projects={"exp-123": ProjectConfig(type="local", location=str(project_dir))},
+    )
+    config.save()
+
+    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["model"] == "default"
+    assert data["providers"]["claude_code"]["selected"] is True
+    assert data["projects"]["exp-123"]["location"] == str(project_dir)
+
+
+def test_update_config_sets_provider(client):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": {"model": "opus", "selected": True}}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["selected"] is True
+
+
+def test_update_config_sets_project(client, tmp_path):
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"projects": {"exp-456": {"type": "local", "location": str(project_dir)}}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["projects"]["exp-456"]["location"] == str(project_dir)
+
+
+def test_update_config_expand_user_home(client, tmp_path):
+    # Create a directory under a "fake home" structure to test ~ expansion
+    fake_home = tmp_path / "home" / "user"
+    project_dir = fake_home / "my_project"
+    project_dir.mkdir(parents=True)
+
+    with patch("mlflow.server.assistant.api.Path.expanduser") as mock_expanduser:
+        # Make expanduser return our tmp_path directory
+        mock_expanduser.return_value = project_dir
+
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={"projects": {"exp-456": {"type": "local", "location": "~/my_project"}}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["projects"]["exp-456"]["location"] == str(project_dir)
+
+
+@pytest.mark.asyncio
+async def test_localhost_allows_ipv4():
+    mock_request = MagicMock()
+    mock_request.client.host = "127.0.0.1"
+    await _require_localhost(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_localhost_allows_ipv6():
+    mock_request = MagicMock()
+    mock_request.client.host = "::1"
+    await _require_localhost(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_localhost_blocks_external_ip():
+    mock_request = MagicMock()
+    mock_request.client.host = "192.168.1.100"
+
+    with pytest.raises(HTTPException, match="same host"):
+        await _require_localhost(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_localhost_blocks_external_hostname():
+    mock_request = MagicMock()
+    mock_request.client.host = "external.example.com"
+
+    with pytest.raises(HTTPException, match="same host"):
+        await _require_localhost(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_localhost_blocks_when_no_client():
+    mock_request = MagicMock()
+    mock_request.client = None
+
+    with pytest.raises(HTTPException, match="same host"):
+        await _require_localhost(mock_request)
+
+
+def test_validate_session_id_accepts_valid_uuid():
+    valid_uuid = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    SessionManager.validate_session_id(valid_uuid)  # Should not raise
+
+
+def test_validate_session_id_rejects_invalid_format():
+    with pytest.raises(ValueError, match="Invalid session ID format"):
+        SessionManager.validate_session_id("invalid-session-id")
+
+
+def test_validate_session_id_rejects_path_traversal():
+    with pytest.raises(ValueError, match="Invalid session ID format"):
+        SessionManager.validate_session_id("../../../etc/passwd")
+
+
+def _is_process_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):  # ValueError is raised on Windows
+        return False
+
+
+def test_patch_session_cancel_with_process(client):
+    r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+    session_id = r.json()["session_id"]
+
+    # Start a real subprocess and register it with the session
+    with subprocess.Popen(["sleep", "10"]) as proc:
+        save_process_pid(session_id, proc.pid)
+
+        assert _is_process_running(proc.pid)
+
+        response = client.patch(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}",
+            json={"status": "cancelled"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "terminated" in data["message"]
+
+        # Wait for the process to actually terminate
+        proc.wait(timeout=5)
+        assert proc.returncode is not None
+        # On non-Windows, verify the process is no longer running via PID check.
+        # Skip on Windows because PIDs are reused more aggressively.
+        if not is_windows():
+            assert not _is_process_running(proc.pid)
+
+
+def test_install_skills_success(client):
+    with patch(
+        "mlflow.server.assistant.api.install_skills", return_value=["skill1", "skill2"]
+    ) as mock_install:
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["skill1", "skill2"]
+        expected_path = os.path.join(os.sep, "tmp", "test-skills")
+        assert data["skills_directory"] == expected_path
+        mock_install.assert_called_once_with(Path(expected_path))
+
+
+def test_install_skills_skips_when_already_installed(client):
+    with (
+        patch("mlflow.server.assistant.api.Path.exists", return_value=True),
+        patch(
+            "mlflow.server.assistant.api.list_installed_skills",
+            return_value=["existing_skill"],
+        ) as mock_list,
+        patch("mlflow.server.assistant.api.install_skills") as mock_install,
+    ):
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["installed_skills"] == ["existing_skill"]
+        mock_install.assert_not_called()
+        mock_list.assert_called_once()

@@ -102,7 +102,7 @@ export const useSampledMetricHistoryGraphQL = ({
                   value: value ?? undefined,
                 })),
               },
-            } as SampledMetricsByRun),
+            }) as SampledMetricsByRun,
         ),
         'runUuid',
       );

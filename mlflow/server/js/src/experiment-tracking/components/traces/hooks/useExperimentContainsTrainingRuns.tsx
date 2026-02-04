@@ -32,6 +32,7 @@ export const useExperimentContainsTrainingRuns = ({
     },
     {
       enabled: Boolean(experimentId) && enabled,
+      refetchOnWindowFocus: false,
     },
   );
 

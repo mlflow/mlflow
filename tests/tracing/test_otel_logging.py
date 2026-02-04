@@ -6,7 +6,6 @@ when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
 import gzip
-import shutil
 import time
 import zlib
 from pathlib import Path
@@ -42,36 +41,19 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.helper_functions import get_safe_port
-from tests.store.tracking.test_sqlalchemy_store import ARTIFACT_URI
 from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel endpoint tests require full MLflow server", allow_module_level=True)
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
-def mlflow_server(tmp_path: Path, cached_db: Path) -> Iterator[str]:
-    # Copy the pre-initialized cached DB into this test's tmp path
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-
-    backend_store_uri = f"sqlite:///{db_path}"
+def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     artifact_root = tmp_path.as_uri()
 
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_store_uri, default_artifact_root=artifact_root)
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_root)
 
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:
@@ -143,7 +125,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     traces = []
     for _ in range(30):
         traces = mlflow.search_traces(
-            experiment_ids=[experiment_id], include_spans=False, return_type="list"
+            locations=[experiment_id], include_spans=False, return_type="list"
         )
         if traces:
             break
@@ -389,7 +371,7 @@ def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
     span_processor.force_flush()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -452,7 +434,7 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
     assert response.status_code == 200
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -502,7 +484,7 @@ def test_logging_many_traces_in_single_request(mlflow_server: str):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == num_traces
@@ -565,9 +547,7 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
 
     assert response.status_code == 200
 
-    traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=True, return_type="list"
-    )
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
 
     assert len(traces) == 3
     span_counts = [len(trace.data.spans) for trace in traces]
@@ -628,7 +608,7 @@ def test_error_logging_spans(mlflow_server: str):
         assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 1
@@ -730,6 +710,7 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_client.config = None  # Ensure telemetry is not disabled for any event
         mock_get_client.return_value = mock_client
 
         response = requests.post(

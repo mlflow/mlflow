@@ -420,7 +420,7 @@ const styles = {
       gridTemplateColumns: `${theme.general.iconSize + theme.spacing.xs}px 1fr`,
       gap: theme.spacing.xs,
       alignItems: 'center',
-    } as Interpolation<Theme>),
+    }) as Interpolation<Theme>,
   field: {
     // TODO: wait for modal dimensions decision
     display: 'grid',

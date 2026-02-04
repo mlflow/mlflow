@@ -58,6 +58,9 @@ export function updateScheduledScorersCache(
       finalScorers = newScorers;
     }
 
+    // Sort alphabetically by name to match backend ordering
+    finalScorers.sort((a, b) => a.name.localeCompare(b.name));
+
     queryClient.setQueryData<ScheduledScorersResponse>(['mlflow', 'scheduled-scorers', experimentId], {
       experimentId: data.experiment_id,
       scheduledScorers: finalScorers,

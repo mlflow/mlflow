@@ -55,8 +55,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __setattr__(self, name, value):
         """Allow setting internal attributes on the wrapped dataset."""
         object.__setattr__(self, name, value)
-        if name == "_records" and hasattr(self, "_mlflow_dataset") and self._mlflow_dataset:
-            self._mlflow_dataset._records = value
 
     def __getattr__(self, name):
         """
@@ -65,7 +63,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         This handles attributes that don't require special logic and can be
         directly delegated to the underlying dataset implementation.
         """
-        if name.startswith("_"):
+        if name.startswith("_") or name == "records":
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         if self._mlflow_dataset and hasattr(self._mlflow_dataset, name):
@@ -147,13 +145,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
     @property
-    def records(self):
-        """The records in the dataset (MLflow only)."""
-        if self._mlflow_dataset:
-            return self._mlflow_dataset.records
-        raise NotImplementedError("Records access is not supported for Databricks managed datasets")
-
-    @property
     def schema(self) -> str | None:
         """The schema of the dataset."""
         if self._mlflow_dataset:
@@ -189,6 +180,16 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         with _databricks_profile_env():
             dataset = self._databricks_dataset.merge_records(records)
         return EvaluationDataset(dataset)
+
+    def delete_records(self, record_ids: list[str]) -> int:
+        """Delete specific records from the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.delete_records(record_ids)
+
+        raise NotImplementedError(
+            "Deleting records is not supported for Databricks managed datasets. "
+            "Databricks datasets are managed through Unity Catalog tables."
+        )
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""

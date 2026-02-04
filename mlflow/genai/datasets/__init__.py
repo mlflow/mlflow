@@ -12,9 +12,13 @@ import time
 from contextlib import contextmanager
 from typing import Any
 
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import deprecated_parameter, experimental
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
@@ -89,7 +93,7 @@ def _validate_non_databricks_params(
     dataset_id: str | None = None,
 ) -> None:
     """
-    Validate parameters for non-Databricks environment.
+    Validate parameters for non-Databricks environment (delete_dataset).
 
     Args:
         name: The dataset name parameter (should not be provided)
@@ -108,6 +112,52 @@ def _validate_non_databricks_params(
             "Parameter 'dataset_id' is required. "
             "Use search_datasets() to find the dataset ID by name if needed."
         )
+
+
+def _validate_non_databricks_get_params(
+    name: str | None,
+    dataset_id: str | None = None,
+) -> None:
+    if name is not None and dataset_id is not None:
+        raise ValueError("Cannot specify both 'name' and 'dataset_id'. Use only one parameter.")
+    if name is None and dataset_id is None:
+        raise ValueError("Either 'name' or 'dataset_id' must be provided.")
+
+
+def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
+    """Get a dataset by name."""
+    # Build filter string with appropriate quoting:
+    # - Use double quotes if name has no double quotes (handles single quotes)
+    # - Use single quotes if name has double quotes but no single quotes
+    # - Use single quotes with SQL-style escaping ('') if name has both
+    if '"' not in name:
+        filter_string = f'name = "{name}"'
+    elif "'" not in name:
+        filter_string = f"name = '{name}'"
+    else:
+        escaped_name = name.replace("'", "''")
+        filter_string = f"name = '{escaped_name}'"
+
+    results = MlflowClient().search_datasets(
+        filter_string=filter_string,
+        max_results=2,
+        order_by=["created_time DESC"],
+    )
+
+    match results:
+        case []:
+            raise MlflowException(
+                f"Dataset with name '{name}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        case [dataset]:
+            return dataset
+        case _:
+            raise MlflowException(
+                f"Multiple datasets found with name '{name}'. "
+                "Use 'dataset_id' for unambiguous retrieval.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 @deprecated_parameter("uc_table_name", "name")
@@ -272,27 +322,31 @@ def get_dataset(
     Get the dataset with the given name or ID.
 
     Args:
-        name: The name of the dataset (Databricks only). In Databricks, this is the UC table name.
-        dataset_id: The ID of the dataset.
+        name: The name of the dataset. In Databricks, this is the UC table name.
+            In non-Databricks environments, this will search for a dataset with the given name.
+        dataset_id: The ID of the dataset (non-Databricks only).
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
 
     Note:
         - In Databricks environments: Use 'name' to specify the dataset.
-        - Outside of Databricks: Use 'dataset_id' to specify the dataset
+        - Outside of Databricks: Use either 'name' or 'dataset_id' to specify the dataset.
+          If using 'name', the dataset name must be unique; otherwise use 'dataset_id'.
 
     Examples:
         .. code-block:: python
 
             from mlflow.genai.datasets import get_dataset
 
-            # Get a dataset by ID (non-Databricks)
+            # Get a dataset by name
+            dataset = get_dataset(name="my_evaluation_dataset")
+
+            # Get a dataset by ID
             dataset = get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
 
             # Access dataset properties
             print(f"Dataset name: {dataset.name}")
-            print(f"Number of records: {len(dataset.records)}")
             print(f"Tags: {dataset.tags}")
             print(f"Created by: {dataset.created_by}")
 
@@ -321,12 +375,12 @@ def get_dataset(
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
-        _validate_non_databricks_params(name, dataset_id)
+        _validate_non_databricks_get_params(name, dataset_id)
 
-        from mlflow.tracking.client import MlflowClient
+        if name is not None:
+            return EvaluationDataset(_get_dataset_by_name(name))
 
-        mlflow_dataset = MlflowClient().get_dataset(dataset_id)
-        return EvaluationDataset(mlflow_dataset)
+        return EvaluationDataset(MlflowClient().get_dataset(dataset_id))
 
 
 @experimental(version="3.4.0")
@@ -462,31 +516,29 @@ def search_datasets(
             # Iterate through results (pagination handled automatically)
             for dataset in prod_datasets:
                 print(f"{dataset.name} (ID: {dataset.dataset_id})")
-                print(f"  Records: {len(dataset.records)}")
                 print(f"  Tags: {dataset.tags}")
 
     Note:
         This API is not available in Databricks environments. Use Unity Catalog
         search capabilities in Databricks instead.
     """
-    if is_databricks_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Dataset search is not available in Databricks. "
-            "Use Unity Catalog search capabilities instead."
-        )
-
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
 
+    # Check if we're using Databricks - don't set defaults for unsupported parameters
+    is_databricks = is_databricks_uri(get_tracking_uri())
+
     # Set default filter to return datasets created in the last 7 days if no filter provided
+    # Skip this for Databricks as filter_string is not supported
     # Also handle empty list/string cases where user might pass [] or ""
-    if not filter_string:
+    if not is_databricks and not filter_string:
         # 7 days ago in milliseconds
         seven_days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)
         filter_string = f"created_time >= {seven_days_ago}"
 
     # Set default order by creation time DESC if no order provided
-    if order_by is None:
+    # Skip this for Databricks as order_by is not supported
+    if not is_databricks and order_by is None:
         order_by = ["created_time DESC"]
 
     from mlflow.tracking.client import MlflowClient

@@ -421,7 +421,7 @@ Distributable Artifact](#building-a-distributable-artifact).
 In one shell:
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 And in another shell:

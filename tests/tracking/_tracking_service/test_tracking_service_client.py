@@ -63,7 +63,7 @@ def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
     ):
         client = TrackingServiceClient(databricks_uri)
         client._get_artifact_repo("some-run-id")
-        get_repo_mock.assert_called_once_with(uri_for_repo)
+        get_repo_mock.assert_called_once_with(uri_for_repo, tracking_uri=databricks_uri)
 
 
 def test_artifact_repo_is_cached_per_run_id(tmp_path):

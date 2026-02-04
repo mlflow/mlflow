@@ -36,7 +36,7 @@ def get_latest_major_version(package_name: str) -> int:
     return max(versions).major
 
 
-def main():
+def main() -> None:
     yaml = YAML()
     yaml.preserve_quotes = True
 

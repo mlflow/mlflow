@@ -22,7 +22,7 @@ export enum TraceState {
   /**
    * Trace is currently in progress
    */
-  IN_PROGRESS = 'IN_PROGRESS'
+  IN_PROGRESS = 'IN_PROGRESS',
 }
 
 /**

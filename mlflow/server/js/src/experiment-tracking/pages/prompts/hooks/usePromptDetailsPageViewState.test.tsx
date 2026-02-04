@@ -14,14 +14,6 @@ describe('usePromptDetailsPageViewState', () => {
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.PREVIEW);
   });
 
-  it('should set table mode', () => {
-    const { result } = renderHook(() => usePromptDetailsPageViewState());
-    act(() => {
-      result.current.setTableMode();
-    });
-    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.TABLE);
-  });
-
   it('should set preview mode with selected version', () => {
     const { result } = renderHook(() => usePromptDetailsPageViewState(mockPromptDetailsData));
     act(() => {
@@ -37,8 +29,8 @@ describe('usePromptDetailsPageViewState', () => {
       result.current.setCompareMode();
     });
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.COMPARE);
-    expect(result.current.viewState.selectedVersion).toBe('2');
-    expect(result.current.viewState.comparedVersion).toBe('1');
+    expect(result.current.viewState.selectedVersion).toBe('1');
+    expect(result.current.viewState.comparedVersion).toBe('2');
   });
 
   it('should switch sides', () => {
@@ -49,8 +41,8 @@ describe('usePromptDetailsPageViewState', () => {
     act(() => {
       result.current.switchSides();
     });
-    expect(result.current.viewState.selectedVersion).toBe('1');
-    expect(result.current.viewState.comparedVersion).toBe('2');
+    expect(result.current.viewState.selectedVersion).toBe('2');
+    expect(result.current.viewState.comparedVersion).toBe('1');
   });
 
   it('should set selected version', () => {

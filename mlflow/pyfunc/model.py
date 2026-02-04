@@ -19,9 +19,11 @@ import pandas as pd
 import yaml
 
 import mlflow.pyfunc
-import mlflow.utils
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+    MLFLOW_LOG_MODEL_COMPRESSION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -73,9 +75,11 @@ from mlflow.types.responses import (
     to_chat_completions_input,
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
 )
 from mlflow.utils.environment import (
@@ -841,7 +845,6 @@ def _maybe_decompress_cloudpickle_load(path, compression):
         return cloudpickle.load(f)
 
 
-@experimental(version="3.0.0")
 class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     """
     A base class for creating ResponsesAgent models. It can be used as a wrapper around any
@@ -1254,6 +1257,19 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
+            mlflow.pyfunc._logger.warning(
+                "Saving the Pyfunc models in the CloudPickle format requires exercising "
+                "caution as Python's object serialization mechanism may execute arbitrary code "
+                "during deserialization. "
+                "The recommended safe alternative is saving it as the model-from-code "
+                "artifacts, see https://mlflow.org/docs/latest/ml/model/models-from-code/ "
+                "for details",
+            )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(

@@ -10,9 +10,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, TypeAlias
-
-FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
+from typing import Literal
 
 KILL_SWITCH_ENV_VAR = "CLAUDE_LINT_HOOK_DISABLED"
 
@@ -49,22 +47,8 @@ def parse_diff_ranges(diff_output: str) -> list[DiffRange]:
     return ranges
 
 
-def overlaps_with_diff(node: ast.Constant, ranges: list[DiffRange]) -> bool:
+def overlaps_with_diff(node: ast.AST, ranges: list[DiffRange]) -> bool:
     return any(r.overlaps(node.lineno, node.end_lineno or node.lineno) for r in ranges)
-
-
-def get_docstring_node(node: FuncNode) -> ast.Constant | None:
-    match node.body:
-        case [ast.Expr(value=ast.Constant(value=str()) as const), *_]:
-            return const
-    return None
-
-
-def is_redundant_docstring(node: FuncNode) -> bool:
-    docstring = ast.get_docstring(node)
-    if not docstring:
-        return False
-    return "\n" not in docstring.strip()
 
 
 class Visitor(ast.NodeVisitor):
@@ -73,30 +57,10 @@ class Visitor(ast.NodeVisitor):
         self.diff_ranges = diff_ranges
         self.errors: list[LintError] = []
 
-    def _check_docstring(self, node: FuncNode) -> None:
-        if not node.name.startswith("test_"):
-            return
-        docstring_node = get_docstring_node(node)
-        if not docstring_node:
-            return
-        if not overlaps_with_diff(docstring_node, self.diff_ranges):
-            return
-        if is_redundant_docstring(node):
-            self.errors.append(
-                LintError(
-                    file=self.file_path,
-                    line=docstring_node.lineno,
-                    column=docstring_node.col_offset + 1,
-                    message=f"Redundant docstring in '{node.name}'. Consider removing it.",
-                )
-            )
-
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._check_docstring(node)
         self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._check_docstring(node)
         self.generic_visit(node)
 
 

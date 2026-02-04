@@ -4,11 +4,11 @@ import {
   type Control,
   type UseFormSetValue,
   type UseFormGetValues,
-  Controller,
   useWatch,
+  useFormContext,
 } from 'react-hook-form';
-import { useDesignSystemTheme, Button, FormUI, Alert, Radio, Tag } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { useDesignSystemTheme, Button, Alert } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import {
   ModelTraceExplorerResizablePane,
@@ -17,10 +17,8 @@ import {
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
-import type { ScheduledScorer } from './types';
-import { getTypeDisplayName, getTypeIcon } from './scorerCardUtils';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;
@@ -36,8 +34,9 @@ interface ScorerFormRendererProps {
   };
   componentError: string | null;
   handleCancel: () => void;
-  isSubmitButtonDisabled: () => boolean;
+  isSubmitDisabled: boolean;
   experimentId: string;
+  initialSelectedItemIds?: string[];
 }
 
 // Extracted form content component
@@ -47,11 +46,7 @@ interface ScorerFormContentProps {
   setValue: UseFormSetValue<ScorerFormData>;
   getValues: UseFormGetValues<ScorerFormData>;
   scorerType: ScorerFormData['scorerType'];
-  mutation: {
-    isLoading: boolean;
-    error: any;
-  };
-  componentError: string | null;
+  onScopeChange?: () => void;
 }
 
 const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
@@ -60,66 +55,10 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
   setValue,
   getValues,
   scorerType,
-  mutation,
-  componentError,
+  onScopeChange,
 }) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-
   return (
     <>
-      {/* Scorer Type Selection - only show in create mode */}
-      {mode === SCORER_FORM_MODE.CREATE && (
-        <div>
-          <FormUI.Label>
-            <FormattedMessage defaultMessage="Judge type" description="Label for judge type selection" />
-          </FormUI.Label>
-          <Controller
-            name="scorerType"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Radio.Group
-                {...field}
-                componentId={`${COMPONENT_ID_PREFIX}.new-scorer-type.radio-group`}
-                name="scorer-type"
-              >
-                <Radio value="llm">
-                  <Tag
-                    componentId={`${COMPONENT_ID_PREFIX}.llm-type-tag`}
-                    color="purple"
-                    icon={getTypeIcon({ type: 'llm' } as ScheduledScorer)}
-                  >
-                    {getTypeDisplayName({ type: 'llm' } as ScheduledScorer, intl)}
-                  </Tag>
-                </Radio>
-                <FormUI.Hint>
-                  <FormattedMessage
-                    defaultMessage="Use a large language model to automatically evaluate traces."
-                    description="Hint text for LLM scorer type option"
-                  />
-                </FormUI.Hint>
-
-                <Radio value="custom-code">
-                  <Tag
-                    componentId={`${COMPONENT_ID_PREFIX}.custom-code-type-tag`}
-                    color="pink"
-                    icon={getTypeIcon({ type: 'custom-code' } as ScheduledScorer)}
-                  >
-                    {getTypeDisplayName({ type: 'custom-code' } as ScheduledScorer, intl)}
-                  </Tag>
-                </Radio>
-                <FormUI.Hint>
-                  <FormattedMessage
-                    defaultMessage="Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges."
-                    description="Hint text for custom code judge type option"
-                  />
-                </FormUI.Hint>
-              </Radio.Group>
-            )}
-          />
-        </div>
-      )}
       {/* Conditional Form Content */}
       {scorerType === 'llm' ? (
         <LLMScorerFormRenderer
@@ -127,19 +66,10 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
           control={control as Control<LLMScorerFormData>}
           setValue={setValue as UseFormSetValue<LLMScorerFormData>}
           getValues={getValues as UseFormGetValues<LLMScorerFormData>}
+          onScopeChange={onScopeChange}
         />
       ) : (
         <CustomCodeScorerFormRenderer mode={mode} control={control as Control<CustomCodeScorerFormData>} />
-      )}
-      {/* Error message - display with priority: local error first, then mutation error */}
-      {(mutation.error || componentError) && (
-        <Alert
-          componentId={`${COMPONENT_ID_PREFIX}.scorer-form-error`}
-          type="error"
-          message={componentError || mutation.error?.message || mutation.error?.displayMessage}
-          closable={false}
-          css={{ marginTop: theme.spacing.md }}
-        />
       )}
     </>
   );
@@ -156,13 +86,25 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   mutation,
   componentError,
   handleCancel,
-  isSubmitButtonDisabled,
+  isSubmitDisabled,
   experimentId,
+  initialSelectedItemIds,
 }) => {
   const { theme } = useDesignSystemTheme();
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
   const resizablePaneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
+  const evaluationScope = useWatch({ control, name: 'evaluationScope' });
+  const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
+  const { resetField } = useFormContext<ScorerFormData>();
+
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(initialSelectedItemIds ?? []);
+
+  const handleScopeChange = useCallback(() => {
+    setSelectedItemIds([]);
+    resetField('instructions');
+    resetField('llmTemplate');
+  }, [resetField]);
 
   // Callback to adjust panel ratio after scorer runs
   const handleScorerFinished = useCallback(() => {
@@ -224,8 +166,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                     setValue={setValue}
                     getValues={getValues}
                     scorerType={scorerType}
-                    mutation={mutation}
-                    componentError={componentError}
+                    onScopeChange={handleScopeChange}
                   />
                 </div>
               </div>
@@ -247,6 +188,9 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                   control={control}
                   experimentId={experimentId}
                   onScorerFinished={handleScorerFinished}
+                  isSessionLevelScorer={isSessionLevelScorer}
+                  selectedItemIds={selectedItemIds}
+                  onSelectedItemIdsChange={setSelectedItemIds}
                 />
               </div>
             }
@@ -270,38 +214,54 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
             setValue={setValue}
             getValues={getValues}
             scorerType={scorerType}
-            mutation={mutation}
-            componentError={componentError}
           />
         </div>
       )}
-      {/* Sticky footer with buttons */}
+      {/* Sticky footer with error message and buttons */}
       <div
         css={{
           display: 'flex',
           justifyContent: 'flex-end',
+          alignItems: 'center',
           gap: theme.spacing.sm,
           paddingTop: theme.spacing.md,
           position: 'sticky',
           bottom: 0,
+          backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
-        <Button componentId={`${COMPONENT_ID_PREFIX}.new-scorer-form.cancel-button`} onClick={handleCancel}>
+        {/* Error message - display with priority: local error first, then mutation error */}
+        {(mutation.error || componentError) && (
+          <Alert
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_140"
+            type="error"
+            message={componentError || mutation.error?.message || mutation.error?.displayMessage}
+            closable={false}
+            css={{ flex: 1 }}
+          />
+        )}
+        <Button
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_293"
+          onClick={handleCancel}
+        >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
         </Button>
-        <Button
-          componentId={`${COMPONENT_ID_PREFIX}.scorer-form.submit-button`}
-          type="primary"
-          htmlType="submit"
-          loading={mutation.isLoading}
-          disabled={isSubmitButtonDisabled()}
-        >
-          {mode === SCORER_FORM_MODE.EDIT ? (
-            <FormattedMessage defaultMessage="Save" description="Save judge button text" />
-          ) : (
-            <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
-          )}
-        </Button>
+        {/* Hide submit button for custom-code in create mode since it's always disabled */}
+        {!(scorerType === 'custom-code' && mode === SCORER_FORM_MODE.CREATE) && (
+          <Button
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
+            type="primary"
+            htmlType="submit"
+            loading={mutation.isLoading}
+            disabled={isSubmitDisabled}
+          >
+            {mode === SCORER_FORM_MODE.EDIT ? (
+              <FormattedMessage defaultMessage="Save" description="Save judge button text" />
+            ) : (
+              <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
+            )}
+          </Button>
+        )}
       </div>
     </form>
   );

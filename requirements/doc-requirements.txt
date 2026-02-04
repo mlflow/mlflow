@@ -1,7 +1,7 @@
 -r doc-min-requirements.txt
 tensorflow-cpu<=2.12.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos<=2.12.0; platform_system=="Darwin" and platform_machine=="arm64"
-pyspark
+pyspark<4.1.0
 datasets
 # requried to run `log_figure` examples
 plotly
@@ -26,3 +26,10 @@ polars>=1
 openai
 # required for the haystack
 haystack-ai
+# required for deepeval scorer documentation
+deepeval
+# required for ragas scorer documentation
+ragas
+instructor
+litellm
+langchain-community>=0.3.0

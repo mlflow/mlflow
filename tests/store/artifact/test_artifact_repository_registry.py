@@ -35,8 +35,6 @@ def test_standard_artifact_registry():
 
 
 def test_plugin_registration_via_installed_package():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     reload(artifact_repository_registry)
 
     assert "file-plugin" in artifact_repository_registry._artifact_repository_registry._registry

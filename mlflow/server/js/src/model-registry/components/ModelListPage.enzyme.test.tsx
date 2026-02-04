@@ -107,6 +107,7 @@ describe('ModelListPage', () => {
       expect(instance.state.searchInput).toBe('name ilike "%xyz%" AND tags.k="v"');
       expect(instance.state.currentPage).toBe(1);
     });
+    // eslint-disable-next-line jest/expect-expect -- TODO(FEINF-1337)
     test('the states should be correctly set when user clear input', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       instance.state.searchInput = 'abc';

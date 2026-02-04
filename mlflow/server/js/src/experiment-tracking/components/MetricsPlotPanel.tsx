@@ -536,7 +536,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           hidden: false,
           color: getStableColorForRun(runUuid),
           displayName: runNames?.[index] || runDisplayNames?.[index] || runUuid,
-        } as RunsChartsRunData),
+        }) as RunsChartsRunData,
     );
   };
 

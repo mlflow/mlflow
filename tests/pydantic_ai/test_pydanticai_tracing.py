@@ -10,6 +10,12 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.pydantic_ai.autolog import (
+    _get_agent_attributes,
+    _get_mcp_server_attributes,
+    _get_model_attributes,
+    _get_tool_attributes,
+)
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
@@ -112,7 +118,7 @@ def agent_with_tool():
     return roulette_agent
 
 
-def test_agent_run_sync_enable_disable_autolog(simple_agent):
+def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -155,6 +161,13 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span2.model_name == "gpt-4o"
+    # Verify cost is calculated (1 input token * 1.0 + 1 output token * 2.0)
+    assert span2.llm_cost == {
+        "input_cost": 1.0,
+        "output_cost": 2.0,
+        "total_cost": 3.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -169,7 +182,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog(simple_agent):
+async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -198,6 +211,12 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span1.model_name == "gpt-4o"
+    assert span1.llm_cost == {
+        "input_cost": 1.0,
+        "output_cost": 2.0,
+        "total_cost": 3.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -206,7 +225,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     }
 
 
-def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
+def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -236,6 +255,12 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
+    assert span2.model_name == "gpt-4o"
+    assert span2.llm_cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
 
     span3 = spans[3]
     assert span3.span_type == SpanType.TOOL
@@ -245,6 +270,12 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span4.name == "InstrumentedModel.request"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
+    assert span4.model_name == "gpt-4o"
+    assert span4.llm_cost == {
+        "input_cost": 100.0,
+        "output_cost": 400.0,
+        "total_cost": 500.0,
+    }
 
     assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
@@ -266,7 +297,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
+async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -293,6 +324,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
+    assert span1.model_name == "gpt-4o"
 
     span2 = spans[2]
     assert span2.span_type == SpanType.TOOL
@@ -302,19 +334,28 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span3.name == "InstrumentedModel.request"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
+    assert span3.model_name == "gpt-4o"
 
     assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
-
+    assert span1.llm_cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
     assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 200,
         TokenUsageKey.TOTAL_TOKENS: 300,
     }
-
+    assert span3.llm_cost == {
+        "input_cost": 100.0,
+        "output_cost": 400.0,
+        "total_cost": 500.0,
+    }
     assert traces[0].info.token_usage == {
         "input_tokens": 110,
         "output_tokens": 220,
@@ -323,10 +364,13 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
 
 
 def test_agent_run_sync_failure(simple_agent):
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
-        with pytest.raises(Exception, match="e"):
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
@@ -339,14 +383,97 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
-    assert spans[2].name == "InstrumentedModel.AsyncMock"
+    assert spans[2].name.startswith("InstrumentedModel.")
     assert spans[2].span_type == SpanType.LLM
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(disable=True)
 
-        with pytest.raises(Exception):  # noqa
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
     assert len(traces) == 1
+
+
+class _MockUnsafeClient:
+    _state = "open"
+
+    def __del__(self):
+        if self._state == "open":
+            pass
+
+
+@pytest.mark.parametrize(
+    ("getter_func", "mock_attrs", "expected_attrs", "excluded_attrs"),
+    [
+        (
+            _get_agent_attributes,
+            {"name": "test-agent", "system_prompt": "helpful", "retries": 3, "output_type": str},
+            {"name": "test-agent", "system_prompt": "helpful", "retries": 3, "output_type": "str"},
+            ["_client", "provider", "_internal_state"],
+        ),
+        (
+            _get_model_attributes,
+            {"model_name": "gpt-4", "name": "test-model"},
+            {"model_name": "gpt-4", "name": "test-model"},
+            ["client", "_client", "provider", "api_key", "callbacks"],
+        ),
+        (
+            _get_tool_attributes,
+            {"name": "my_tool", "description": "helpful", "max_retries": 2},
+            {"name": "my_tool", "description": "helpful", "max_retries": 2},
+            ["_internal", "func"],
+        ),
+        (
+            _get_mcp_server_attributes,
+            {"name": "my_server", "url": "http://localhost:8080"},
+            {"name": "my_server", "url": "http://localhost:8080"},
+            ["_client", "_session", "_internal"],
+        ),
+    ],
+)
+def test_attribute_getter_excludes_private_attrs(
+    getter_func, mock_attrs, expected_attrs, excluded_attrs
+):
+    class MockInstance:
+        pass
+
+    instance = MockInstance()
+    for key, value in mock_attrs.items():
+        setattr(instance, key, value)
+    for key in excluded_attrs:
+        setattr(instance, key, _MockUnsafeClient())
+
+    attrs = getter_func(instance)
+
+    for key, value in expected_attrs.items():
+        assert attrs[key] == value
+    for key in excluded_attrs:
+        assert key not in attrs
+
+
+def test_autolog_does_not_capture_client_references(simple_agent):
+    dummy = _make_dummy_response_without_tool()
+
+    async def request(self, *args, **kwargs):
+        return dummy
+
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+        simple_agent.run_sync("France")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    for span in spans:
+        attrs = span.attributes or {}
+        for key in attrs:
+            assert "client" not in key.lower() or key == "openai_client"
+            assert "provider" not in key.lower()
+            assert "_state" not in key.lower()
+            assert "httpx" not in key.lower()

@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { geminiMockHandlers } from './mockGeminiServer';
+import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -17,13 +18,14 @@ describe('tracedGemini', () => {
   let server: ReturnType<typeof setupServer>;
 
   beforeAll(async () => {
-    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     experimentId = await client.createExperiment(experimentName);
     mlflow.init({
       trackingUri: TEST_TRACKING_URI,
-      experimentId: experimentId
+      experimentId: experimentId,
     });
 
     server = setupServer(...geminiMockHandlers);
@@ -57,7 +59,7 @@ describe('tracedGemini', () => {
 
       const result = await wrappedGemini.models.generateContent({
         model: 'gemini-2.0-flash-001',
-        contents: 'Hello Gemini'
+        contents: 'Hello Gemini',
       });
 
       expect(result).toBeDefined();
@@ -75,7 +77,7 @@ describe('tracedGemini', () => {
       expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(llmSpan.inputs).toEqual({
         model: 'gemini-2.0-flash-001',
-        contents: 'Hello Gemini'
+        contents: 'Hello Gemini',
       });
       expect(llmSpan.outputs).toEqual(result);
       expect(llmSpan.startTime).toBeDefined();
@@ -102,13 +104,13 @@ describe('tracedGemini', () => {
         async () => {
           return await wrappedGemini.models.generateContent({
             model: 'gemini-2.0-flash-001',
-            contents: 'Hello Gemini'
+            contents: 'Hello Gemini',
           });
         },
         {
           name: 'test-trace',
-          spanType: mlflow.SpanType.CHAIN
-        }
+          spanType: mlflow.SpanType.CHAIN,
+        },
       );
 
       expect(result).toBeDefined();
@@ -125,7 +127,7 @@ describe('tracedGemini', () => {
       expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(llmSpan.inputs).toEqual({
         model: 'gemini-2.0-flash-001',
-        contents: 'Hello Gemini'
+        contents: 'Hello Gemini',
       });
       expect(llmSpan.outputs).toEqual(result);
       expect(llmSpan.startTime).toBeDefined();
@@ -154,13 +156,13 @@ describe('tracedGemini', () => {
                 error: {
                   code: 429,
                   message: 'Resource has been exhausted',
-                  status: 'RESOURCE_EXHAUSTED'
-                }
+                  status: 'RESOURCE_EXHAUSTED',
+                },
               },
-              { status: 429 }
+              { status: 429 },
             );
-          }
-        )
+          },
+        ),
       );
 
       const gemini = new GoogleGenAI({ apiKey: 'test-key' });
@@ -171,14 +173,14 @@ describe('tracedGemini', () => {
           async () => {
             return await wrappedGemini.models.generateContent({
               model: 'gemini-2.0-flash-001',
-              contents: 'This should fail'
+              contents: 'This should fail',
             });
           },
           {
             name: 'error-test-trace',
-            spanType: mlflow.SpanType.CHAIN
-          }
-        )
+            spanType: mlflow.SpanType.CHAIN,
+          },
+        ),
       ).rejects.toThrow();
 
       const trace = await getLastActiveTrace();
@@ -189,7 +191,7 @@ describe('tracedGemini', () => {
       expect(llmSpan!.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
       expect(llmSpan!.inputs).toEqual({
         model: 'gemini-2.0-flash-001',
-        contents: 'This should fail'
+        contents: 'This should fail',
       });
       expect(llmSpan!.outputs).toBeUndefined();
       expect(llmSpan!.startTime).toBeDefined();
@@ -204,15 +206,15 @@ describe('tracedGemini', () => {
         async (_span) => {
           const response = await wrappedGemini.models.generateContent({
             model: 'gemini-2.0-flash-001',
-            contents: 'Hello from parent span'
+            contents: 'Hello from parent span',
           });
           return response;
         },
         {
           name: 'predict',
           spanType: mlflow.SpanType.CHAIN,
-          inputs: 'Hello from parent span'
-        }
+          inputs: 'Hello from parent span',
+        },
       );
 
       const trace = await getLastActiveTrace();
@@ -234,7 +236,7 @@ describe('tracedGemini', () => {
       expect(childSpan.spanType).toBe(mlflow.SpanType.LLM);
       expect(childSpan.inputs).toEqual({
         model: 'gemini-2.0-flash-001',
-        contents: 'Hello from parent span'
+        contents: 'Hello from parent span',
       });
       expect(childSpan.outputs).toBeDefined();
       expect(childSpan.startTime).toBeDefined();

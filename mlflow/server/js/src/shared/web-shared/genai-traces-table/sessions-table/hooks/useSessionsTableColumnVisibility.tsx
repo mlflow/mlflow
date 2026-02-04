@@ -15,10 +15,13 @@ export const useSessionsTableColumnVisibility = ({
   columns: SessionTableColumn[];
 }) => {
   const defaultColumnVisibility = useMemo(() => {
-    return columns.reduce((acc, column) => {
-      acc[column.id] = column.defaultVisibility;
-      return acc;
-    }, {} as Record<string, boolean>);
+    return columns.reduce(
+      (acc, column) => {
+        acc[column.id] = column.defaultVisibility;
+        return acc;
+      },
+      {} as Record<string, boolean>,
+    );
   }, [columns]);
 
   const [columnVisibility, setColumnVisibility] = useLocalStorage<Record<string, boolean>>({

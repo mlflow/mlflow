@@ -20,6 +20,10 @@ class MockJudgeImplementation(Judge):
             return self._custom_instructions
         return f"Mock judge implementation: {self.name}"
 
+    @property
+    def feedback_value_type(self):
+        return bool
+
     def get_input_fields(self) -> list[JudgeField]:
         """Get input fields for mock judge."""
         return [
@@ -77,6 +81,10 @@ def test_judge_factory_pattern():
             @property
             def instructions(self) -> str:
                 return instructions
+
+            @property
+            def feedback_value_type(self):
+                return str
 
             def get_input_fields(self) -> list[JudgeField]:
                 """Get input fields for dynamic judge."""

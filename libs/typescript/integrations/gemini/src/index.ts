@@ -7,7 +7,7 @@ import {
   SpanAttributeKey,
   SpanType,
   type TokenUsage,
-  type LiveSpan
+  type LiveSpan,
 } from 'mlflow-tracing';
 
 const SUPPORTED_MODULES = ['models'];
@@ -43,7 +43,7 @@ export function tracedGemini<T = any>(geminiClient: T): T {
       }
 
       return original as T;
-    }
+    },
   });
 
   return tracedClient as T;
@@ -91,7 +91,7 @@ function wrapWithTracing(fn: Function, methodName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name: methodName, spanType }
+      { name: methodName, spanType },
     );
   };
 }
@@ -121,7 +121,7 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
     return {
       input_tokens: input,
       output_tokens: output,
-      total_tokens: total
+      total_tokens: total,
     };
   }
 

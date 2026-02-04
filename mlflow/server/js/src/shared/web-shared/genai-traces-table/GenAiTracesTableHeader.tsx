@@ -1,5 +1,5 @@
-import { flexRender } from '@tanstack/react-table';
 import type { HeaderGroup, ColumnSizingState, Updater } from '@tanstack/react-table';
+import { flexRender } from '@tanstack/react-table';
 import { isNil } from 'lodash';
 import React, { useState } from 'react';
 
@@ -52,6 +52,7 @@ interface GenAiTracesTableHeaderProps {
 }
 
 export const GenAiTracesTableHeader = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     enableRowSelection,
     enableGrouping,

@@ -66,7 +66,7 @@ async def test_completions():
             "https://models.hosted-on.mosaicml.hosting/mpt-7b-instruct/v1/predict",
             json={
                 "inputs": ["This is a test"],
-                "parameters": {"temperature": 0.0, "n": 1, "max_new_tokens": 1000},
+                "parameters": {"n": 1, "max_new_tokens": 1000},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -103,7 +103,6 @@ def chat_response():
             {
                 "inputs": ["<s>[INST] Tell me a joke [/INST]"],
                 "parameters": {
-                    "temperature": 0.0,
                     "n": 1,
                 },
             },
@@ -118,7 +117,6 @@ def chat_response():
             {
                 "inputs": ["<s>[INST] <<SYS>> You're funny <</SYS>> Tell me a joke [/INST]"],
                 "parameters": {
-                    "temperature": 0.0,
                     "n": 1,
                 },
             },
@@ -156,7 +154,6 @@ def chat_response():
                     )
                 ],
                 "parameters": {
-                    "temperature": 0.0,
                     "n": 1,
                 },
             },

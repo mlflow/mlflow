@@ -5,6 +5,10 @@ on:
     types:
       - labeled
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
@@ -12,40 +16,19 @@ defaults:
 jobs:
   review:
     runs-on: ubuntu-slim
-    # Our GitHub Plan doesn't support team pull request reviewers. Use the `team-review` label to trigger this workflow.
     if: ${{ github.event.label.name == 'team-review' }}
     timeout-minutes: 5
     permissions:
       pull-requests: write
+      issues: write
     steps:
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Select reviewers
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const pull_number = context.payload.pull_request.number;
-            const members = [
-              "B-Step62",
-              "BenWilson2",
-              "daniellok-db",
-              "harupy",
-              "serena-ruan",
-              "TomeHirata",
-              "WeichenXu123",
-              "xq-yin",
-              "kevin-lyn",
-            ];
-            const author = context.payload.pull_request.user.login;
-            const reviews = await github.rest.pulls.listReviews({
-              owner,
-              repo,
-              pull_number,
-            });
-            const approved = reviews.data
-              .filter((r) => r.state === "APPROVED")
-              .map((r) => r.user.login);
-            await github.rest.pulls.requestReviewers({
-              owner,
-              repo,
-              pull_number,
-              reviewers: members.filter((m) => !approved.includes(m) && m !== author),
-            });
+            const script = require('./.github/scripts/select-reviewers.js');
+            await script({ github, context });

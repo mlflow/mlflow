@@ -34,15 +34,18 @@ const ComponentMap: Record<AssessmentFormInputDataType, React.ComponentType<Asse
 
 type AssessmentCreateFormProps = {
   assessmentName?: string;
+  initialAssessmentType?: 'feedback' | 'expectation';
   spanId?: string;
   traceId: string;
   setExpanded: (expanded: boolean) => void;
 };
 
 export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateFormProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (
     {
       assessmentName,
+      initialAssessmentType,
       spanId,
       traceId,
       // used to close the form
@@ -55,7 +58,9 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
     const { schemas } = useAssessmentSchemas();
 
     const [name, setName] = useState('');
-    const [assessmentType, setAssessmentType] = useState<'feedback' | 'expectation'>('feedback');
+    const [assessmentType, setAssessmentType] = useState<'feedback' | 'expectation'>(
+      initialAssessmentType ?? 'feedback',
+    );
     const [dataType, setDataType] = useState<AssessmentFormInputDataType>('boolean');
     const [value, setValue] = useState<string | boolean | number>(true);
     const [rationale, setRationale] = useState('');
@@ -138,7 +143,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         // clear the form back to defaults
         if (!schema) {
           setName('');
-          setAssessmentType('feedback');
+          setAssessmentType(initialAssessmentType ?? 'feedback');
           setDataType('boolean');
           setValue(true);
           setRationale('');
@@ -175,7 +180,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
             break;
         }
       },
-      [schemas],
+      [schemas, initialAssessmentType],
     );
 
     return (
@@ -185,7 +190,6 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing.xs,
-          marginTop: theme.spacing.sm,
           border: `1px solid ${theme.colors.border}`,
           padding: theme.spacing.sm,
           borderRadius: theme.borders.borderRadiusSm,

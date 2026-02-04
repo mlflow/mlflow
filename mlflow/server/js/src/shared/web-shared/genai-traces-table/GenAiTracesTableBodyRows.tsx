@@ -1,5 +1,5 @@
-import { flexRender } from '@tanstack/react-table';
 import type { Cell, Row, RowSelectionState } from '@tanstack/react-table';
+import { flexRender } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
 import React from 'react';
 
@@ -19,9 +19,11 @@ interface GenAiTracesTableBodyRowsProps {
   // eslint-disable-next-line react/no-unused-prop-types
   rowSelectionState: RowSelectionState | undefined;
   selectedColumns: TracesTableColumn[];
+  rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
 }
 
 export const GenAiTracesTableBodyRows = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     rows,
     isComparing,
@@ -30,6 +32,7 @@ export const GenAiTracesTableBodyRows = React.memo(
     virtualizerTotalSize,
     virtualizerMeasureElement,
     selectedColumns,
+    rowSelectionChangeHandler,
   }: GenAiTracesTableBodyRowsProps) => {
     return (
       <div
@@ -61,6 +64,7 @@ export const GenAiTracesTableBodyRows = React.memo(
                 isSelected={enableRowSelection ? row.getIsSelected() : undefined}
                 isComparing={isComparing}
                 selectedColumns={selectedColumns}
+                rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             </div>
           );
@@ -74,6 +78,7 @@ export const GenAiTracesTableBodyRows = React.memo(
 export const MemoizedGenAiTracesTableBodyRows = React.memo(GenAiTracesTableBodyRows) as typeof GenAiTracesTableBodyRows;
 
 export const GenAiTracesTableBodyRow = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     row,
     exportableTrace,
@@ -82,6 +87,7 @@ export const GenAiTracesTableBodyRow = React.memo(
     isSelected,
     // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
+    rowSelectionChangeHandler,
   }: {
     row: Row<EvalTraceComparisonEntry>;
     exportableTrace?: boolean;
@@ -89,9 +95,13 @@ export const GenAiTracesTableBodyRow = React.memo(
     isComparing: boolean;
     isSelected?: boolean;
     selectedColumns: TracesTableColumn[];
+    rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
   }) => {
     const cells = row.getVisibleCells();
     const intl = useIntl();
+    const rowSelectHandler = rowSelectionChangeHandler
+      ? (event: unknown) => rowSelectionChangeHandler(row, event)
+      : row.getToggleSelectedHandler();
     return (
       <>
         <TableRow>
@@ -106,18 +116,18 @@ export const GenAiTracesTableBodyRow = React.memo(
                         description: 'Tooltip message for the select button when comparing runs',
                       })
                     : !exportableTrace
-                    ? intl.formatMessage({
-                        defaultMessage:
-                          'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
-                        description: 'Tooltip message for the export button when the trace is not exportable',
-                      })
-                    : null
+                      ? intl.formatMessage({
+                          defaultMessage:
+                            'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
+                          description: 'Tooltip message for the export button when the trace is not exportable',
+                        })
+                      : null
                 }
               >
                 <TableRowSelectCell
                   componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
                   checked={isSelected && exportableTrace}
-                  onChange={row.getToggleSelectedHandler()}
+                  onChange={rowSelectHandler}
                   isDisabled={isComparing || !exportableTrace}
                 />
               </Tooltip>
@@ -132,6 +142,7 @@ export const GenAiTracesTableBodyRow = React.memo(
   },
 );
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const GenAiTracesTableBodyRowCell = React.memo(({ cell }: { cell: Cell<EvalTraceComparisonEntry, unknown> }) => {
   const { theme } = useDesignSystemTheme();
   return (

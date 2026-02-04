@@ -28,9 +28,11 @@ export interface ExperimentEvaluationRunsTableProps {
   setIsDrawerOpen: (isOpen: boolean) => void;
   viewMode: ExperimentEvaluationRunsPageMode;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
+  isGrouped?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (
     {
       data,
@@ -46,6 +48,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       setIsDrawerOpen,
       viewMode,
       onScroll,
+      isGrouped,
     },
     ref,
   ) => {
@@ -107,6 +110,13 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         },
         getRowCanExpand: (row) => Boolean(row.subRows?.length),
         onExpandedChange: setExpandedRows,
+        enableRowSelection: (row) => {
+          // Groups are not selectable
+          if ('subRuns' in row.original) {
+            return false;
+          }
+          return true;
+        },
         meta: {
           setSelectedRunUuid,
           setSelectedDatasetWithRun,
@@ -145,6 +155,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         {!isLoading &&
           table.getRowModel().rows.map((row) => {
             const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
+            const runStatus = 'info' in row.original ? row.original.info.status : undefined;
             return (
               <ExperimentEvaluationRunsTableRow
                 key={row.id}
@@ -152,8 +163,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isActive={isActive}
                 isSelected={rowSelection[row.id]}
                 isExpanded={row.getIsExpanded()}
-                isHidden={isRowHidden(row.id)}
+                isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
+                isGrouped={isGrouped}
               />
             );
           })}

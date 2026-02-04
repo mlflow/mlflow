@@ -48,7 +48,20 @@ repos:
       - id: mypy
         name: mypy
         language: system
-        files: '^dev/clint/.*\.py$'
+        files: |
+          (?x)^(
+            dev/.*\.py|
+            \.claude/skills/.*\.py
+          )$
+        exclude: |
+          (?x)^(
+            dev/gen_rest_api\.py|
+            dev/proto_plugin\.py|
+            dev/set_matrix\.py|
+            dev/update_ml_package_versions\.py|
+            dev/proto_to_graphql/.*\.py|
+            dev/tests/.*\.py
+          )$
         entry: uv run --only-group lint mypy
         require_serial: true
 
@@ -98,6 +111,31 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-mlflow-ui
+        name: check-mlflow-ui
+        entry: |
+          bash -c '
+            if bin/rg "mlflow ui" --line-number --with-filename "$@"; then
+              echo
+              echo "Error - Use \"mlflow server\" instead of \"mlflow ui\""
+              exit 1
+            fi
+          ' --
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml|
+            changelogs/CHANGELOG\.md|
+            docs/api_reference/source/R-api\.rst|
+            examples/llms/RAG/.*\.(json|csv)|
+            mlflow/cli/__init__\.py|
+            mlflow/R/mlflow/.*|
+            tests/test_cli\.py
+          )$
+
       - id: pyproject
         name: pyproject
         entry: uv run --only-group lint dev/pyproject.py
@@ -117,7 +155,13 @@ repos:
 
       - id: lint-proto
         name: lint-proto
-        entry: dev/lint-proto.sh
+        entry: |
+          bash -c '
+            if grep -n "com.databricks.mlflow.api.MlflowTrackingMessage" "$@"; then
+              echo "Remove com.databricks.mlflow.api.MlflowTrackingMessage"
+              exit 1
+            fi
+          ' --
         files: '\.proto$'
         language: system
         stages: [pre-commit]
@@ -181,3 +225,17 @@ repos:
         entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
         stages: [pre-commit]
+
+      - id: js-fmt
+        name: js-fmt
+        entry: dev/js.sh fmt
+        language: system
+        files: ^mlflow/server/js/
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: no-spaces
+        name: no-spaces
+        language: fail
+        entry: "Filenames must not contain spaces"
+        files: " "

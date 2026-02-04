@@ -12,11 +12,17 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
+    GatewayResourceType,
     InputTag,
     LifecycleStage,
     LoggedModelParameter,
     Metric,
     Param,
+    RoutingStrategy,
     RunTag,
     SourceType,
     ViewType,
@@ -30,12 +36,19 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -43,32 +56,51 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AttachModelToGatewayEndpoint,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
+    CreateGatewayEndpoint,
+    CreateGatewayEndpointBinding,
+    CreateGatewayModelDefinition,
+    CreateGatewaySecret,
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
+    DeleteGatewayEndpoint,
+    DeleteGatewayEndpointBinding,
+    DeleteGatewayModelDefinition,
+    DeleteGatewaySecret,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
     DeleteTraces,
+    DetachModelFromGatewayEndpoint,
     EndTrace,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
     GetExperimentByName,
+    GetGatewayEndpoint,
+    GetGatewayModelDefinition,
+    GetGatewaySecretInfo,
     GetLoggedModel,
     GetScorer,
     GetTrace,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
+    ListGatewayEndpointBindings,
+    ListGatewayEndpoints,
+    ListGatewayModelDefinitions,
+    ListGatewaySecretInfos,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -90,7 +122,16 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UpdateGatewayEndpoint,
+    UpdateGatewayModelDefinition,
+    UpdateGatewaySecret,
     UpsertDatasetRecords,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackConfig as ProtoFallbackConfig,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -751,7 +792,6 @@ def test_deprecated_end_trace_v2():
 
 
 def test_search_traces():
-    """Test the search_traces method with default behavior using SearchTracesV3Request."""
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -843,7 +883,6 @@ def test_search_traces_errors():
 
 
 def test_get_artifact_uri_for_trace_compatibility():
-    """Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects."""
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
     # Create a TraceInfo (v2) object
@@ -912,7 +951,6 @@ def test_delete_traces(delete_traces_kwargs):
 
 
 def test_delete_traces_with_batching():
-    """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
     from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
 
     creds = MlflowHostCreds("https://hello")
@@ -1363,6 +1401,34 @@ def test_get_trace_with_allow_partial_false():
         assert request_body_json["allow_partial"] is False
 
 
+def test_get_trace_handles_old_server_routing_conflict():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    # Simulate old server returning "Trace with ID 'get' not found"
+    error_response = MlflowException(
+        "Trace with ID 'get' not found",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=error_response):
+        with pytest.raises(MlflowNotImplementedException):  # noqa: PT011
+            store.get_trace("some-trace-id")
+
+
+def test_get_trace_raises_other_errors():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    error_message = "Trace with ID 'abc123' not found"
+    genuine_error = MlflowException(
+        error_message,
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=genuine_error):
+        with pytest.raises(MlflowException, match=error_message):
+            store.get_trace("abc123")
+
+
 def test_log_logged_model_params():
     with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
         # Create test data
@@ -1809,6 +1875,57 @@ def test_upsert_evaluation_dataset_records():
             expected_json,
             endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )
+
+
+def test_delete_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-record1", "dr-record2"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 2
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 2
+
+        req = DeleteDatasetRecords(
+            dataset_record_ids=record_ids,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_delete_evaluation_dataset_records_empty():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-nonexistent"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 0
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 0
 
 
 def test_get_evaluation_dataset_experiment_ids():
@@ -2464,7 +2581,6 @@ def test_remove_dataset_from_experiments():
 
 
 def test_register_scorer():
-    """Test register_scorer method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2502,7 +2618,6 @@ def test_register_scorer():
 
 
 def test_list_scorers():
-    """Test list_scorers method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2546,7 +2661,6 @@ def test_list_scorers():
 
 
 def test_list_scorer_versions():
-    """Test list_scorer_versions method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2589,7 +2703,6 @@ def test_list_scorer_versions():
 
 
 def test_get_scorer_with_version():
-    """Test get_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2625,7 +2738,6 @@ def test_get_scorer_with_version():
 
 
 def test_get_scorer_without_version():
-    """Test get_scorer method without version (should return latest)."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2660,7 +2772,6 @@ def test_get_scorer_without_version():
 
 
 def test_delete_scorer_with_version():
-    """Test delete_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2684,7 +2795,6 @@ def test_delete_scorer_with_version():
 
 
 def test_delete_scorer_without_version():
-    """Test delete_scorer method without version (should delete all versions)."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2816,7 +2926,6 @@ def _create_test_spans() -> list[LiveSpan]:
 
 
 def test_log_spans_with_version_check():
-    """Test that log_spans raises NotImplementedError for old server versions."""
     spans = _create_test_spans()
     experiment_id = "exp-123"
 
@@ -2883,7 +2992,6 @@ def test_log_spans_with_version_check():
 
 
 def test_server_version_check_caching():
-    """Test that server version is cached and not fetched multiple times."""
     spans = _create_test_spans()
     experiment_id = "exp-123"
 
@@ -2954,3 +3062,568 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+def test_link_prompts_to_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    trace_id = "tr-1234"
+    prompt_versions = [
+        PromptVersion(name="prompt1", version=1, template="template1"),
+        PromptVersion(name="prompt2", version=2, template="template2"),
+    ]
+
+    request = LinkPromptsToTrace(
+        trace_id=trace_id,
+        prompt_versions=[
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ],
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_prompts_to_trace(trace_id=trace_id, prompt_versions=prompt_versions)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/link-prompts",
+            "POST",
+            message_to_json(request),
+        )
+
+
+def test_create_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_secret(
+            secret_name="test-key",
+            secret_value={"api_key": "sk-test-12345"},
+            provider="openai",
+        )
+        body = message_to_json(
+            CreateGatewaySecret(
+                secret_name="test-key",
+                secret_value={"api_key": "sk-test-12345"},
+                provider="openai",
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/secrets/create", "POST", body, use_v3=True)
+
+
+def test_get_gateway_secret_info():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_secret_info(secret_id="secret-123")
+        body = message_to_json(GetGatewaySecretInfo(secret_id="secret-123"))
+        _verify_requests(mock_http, creds, "gateway/secrets/get", "GET", body, use_v3=True)
+
+
+def test_update_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_secret(
+            secret_id="secret-123",
+            secret_value={"api_key": "sk-new-value"},
+            auth_config={"region": "us-east-1"},
+        )
+        body = message_to_json(
+            UpdateGatewaySecret(
+                secret_id="secret-123",
+                secret_value={"api_key": "sk-new-value"},
+                auth_config={"region": "us-east-1"},
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)
+
+
+def test_delete_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_secret(secret_id="secret-123")
+        body = message_to_json(DeleteGatewaySecret(secret_id="secret-123"))
+        _verify_requests(mock_http, creds, "gateway/secrets/delete", "DELETE", body, use_v3=True)
+
+
+def test_list_gateway_secret_infos():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_secret_infos()
+        body = message_to_json(ListGatewaySecretInfos())
+        _verify_requests(mock_http, creds, "gateway/secrets/list", "GET", body, use_v3=True)
+
+
+def test_create_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_endpoint(
+            name="my-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-789",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=2,
+            ),
+            usage_tracking=True,
+        )
+        body = message_to_json(
+            CreateGatewayEndpoint(
+                name="my-endpoint",
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-789",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=2,
+                ),
+                usage_tracking=True,
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
+
+
+def test_get_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_gateway_endpoint(endpoint_id="endpoint-123")
+        body = message_to_json(GetGatewayEndpoint(endpoint_id="endpoint-123"))
+        _verify_requests(mock_http, creds, "gateway/endpoints/get", "GET", body, use_v3=True)
+
+
+def test_update_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_endpoint(
+            endpoint_id="endpoint-123",
+            name="updated-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-1",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-2",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=3,
+            ),
+        )
+        from mlflow.protos.service_pb2 import (
+            FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
+        body = message_to_json(
+            UpdateGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                name="updated-endpoint",
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-1",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-2",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=3,
+                ),
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
+
+
+def test_delete_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_endpoint(endpoint_id="endpoint-123")
+        body = message_to_json(DeleteGatewayEndpoint(endpoint_id="endpoint-123"))
+        _verify_requests(mock_http, creds, "gateway/endpoints/delete", "DELETE", body, use_v3=True)
+
+
+def test_list_gateway_endpoints():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_gateway_endpoints()
+        body = message_to_json(ListGatewayEndpoints())
+        _verify_requests(mock_http, creds, "gateway/endpoints/list", "GET", body, use_v3=True)
+
+
+def test_create_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_model_definition(
+            name="my-model-def",
+            secret_id="secret-456",
+            provider="anthropic",
+            model_name="claude-3-5-sonnet",
+        )
+        body = message_to_json(
+            CreateGatewayModelDefinition(
+                name="my-model-def",
+                secret_id="secret-456",
+                provider="anthropic",
+                model_name="claude-3-5-sonnet",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True
+        )
+
+
+def test_get_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_gateway_model_definition(model_definition_id="model-def-123")
+        body = message_to_json(GetGatewayModelDefinition(model_definition_id="model-def-123"))
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/get", "GET", body, use_v3=True
+        )
+
+
+def test_list_gateway_model_definitions():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_gateway_model_definitions()
+        body = message_to_json(ListGatewayModelDefinitions())
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/list", "GET", body, use_v3=True
+        )
+
+
+def test_update_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_model_definition(
+            model_definition_id="model-def-123",
+            name="updated-name",
+            model_name="gpt-4o-mini",
+        )
+        body = message_to_json(
+            UpdateGatewayModelDefinition(
+                model_definition_id="model-def-123",
+                name="updated-name",
+                model_name="gpt-4o-mini",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True
+        )
+
+
+def test_delete_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_model_definition(model_definition_id="model-def-123")
+        body = message_to_json(DeleteGatewayModelDefinition(model_definition_id="model-def-123"))
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/delete", "DELETE", body, use_v3=True
+        )
+
+
+def test_attach_model_to_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.attach_model_to_endpoint(
+            endpoint_id="endpoint-123",
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id="model-def-456",
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
+        body = message_to_json(
+            AttachModelToGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                model_config=ProtoGatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                    weight=1.0,
+                ),
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True
+        )
+
+
+def test_detach_model_from_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.detach_model_from_endpoint(
+            endpoint_id="endpoint-123",
+            model_definition_id="model-def-456",
+        )
+        body = message_to_json(
+            DetachModelFromGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                model_definition_id="model-def-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True
+        )
+
+
+def test_create_gateway_endpoint_binding():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    response_json = json.dumps({"binding": {"resource_type": "scorer"}})
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text=response_json),
+    ) as mock_http:
+        store.create_endpoint_binding(
+            endpoint_id="endpoint-123",
+            resource_type=GatewayResourceType.SCORER,
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            CreateGatewayEndpointBinding(
+                endpoint_id="endpoint-123",
+                resource_type="scorer",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True
+        )
+
+
+def test_delete_gateway_endpoint_binding():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_endpoint_binding(
+            endpoint_id="endpoint-123",
+            resource_type="scorer",
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            DeleteGatewayEndpointBinding(
+                endpoint_id="endpoint-123",
+                resource_type="scorer",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/delete", "DELETE", body, use_v3=True
+        )
+
+
+def test_list_gateway_endpoint_bindings():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_endpoint_bindings(
+            endpoint_id="endpoint-123",
+            resource_type=GatewayResourceType.SCORER,
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            ListGatewayEndpointBindings(
+                endpoint_id="endpoint-123",
+                resource_type="scorer",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/list", "GET", body, use_v3=True
+        )
+
+
+def test_query_trace_metrics():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response
+    response.text = json.dumps(
+        {
+            "data_points": [
+                {
+                    "metric_name": "latency",
+                    "dimensions": {"span_name": "chat", "status": "OK"},
+                    "values": {"AVG": 123.45, "COUNT": 10.0},
+                },
+                {
+                    "metric_name": "latency",
+                    "dimensions": {"span_name": "embeddings", "status": "OK"},
+                    "values": {"AVG": 50.0, "COUNT": 5.0},
+                },
+            ],
+            "next_page_token": "next_token",
+        }
+    )
+
+    # Parameters for query_trace_metrics
+    experiment_ids = ["1234", "5678"]
+    view_type = MetricViewType.SPANS
+    metric_name = "latency"
+    aggregations = [
+        MetricAggregation(AggregationType.AVG),
+        MetricAggregation(AggregationType.COUNT),
+    ]
+    dimensions = ["span_name", "status"]
+    filters = ["status = 'OK'"]
+    max_results = 100
+    page_token = "page_token_123"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.query_trace_metrics(
+            experiment_ids=experiment_ids,
+            view_type=view_type,
+            metric_name=metric_name,
+            aggregations=aggregations,
+            dimensions=dimensions,
+            filters=filters,
+            max_results=max_results,
+            page_token=page_token,
+        )
+
+        # Verify the correct endpoint was called
+        call_args = mock_http.call_args[1]
+        assert call_args["endpoint"] == f"{_V3_TRACE_REST_API_PATH_PREFIX}/metrics"
+
+        # Verify the correct parameters were passed
+        json_body = call_args["json"]
+        assert json_body["experiment_ids"] == experiment_ids
+        assert json_body["view_type"] == "SPANS"
+        assert json_body["metric_name"] == metric_name
+        assert json_body["max_results"] == max_results
+        assert json_body["dimensions"] == dimensions
+        assert json_body["filters"] == filters
+        assert json_body["page_token"] == page_token
+        assert len(json_body["aggregations"]) == 2
+
+    # Verify the correct data points were returned
+    assert len(result) == 2
+    assert isinstance(result[0], MetricDataPoint)
+    assert result[0].metric_name == "latency"
+    assert result[0].dimensions == {"span_name": "chat", "status": "OK"}
+    assert result[0].values == {"AVG": 123.45, "COUNT": 10.0}
+
+    assert result[1].metric_name == "latency"
+    assert result[1].dimensions == {"span_name": "embeddings", "status": "OK"}
+    assert result[1].values == {"AVG": 50.0, "COUNT": 5.0}
+
+    # Verify pagination token
+    assert result.token == "next_token"

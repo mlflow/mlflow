@@ -412,6 +412,7 @@ import sys
 import tempfile
 import threading
 import uuid
+import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Tuple, Union
@@ -2889,10 +2890,15 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3035,6 +3041,18 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
+    if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
+        warnings.warn(
+            "Passing a Python object as `python_model` causes it to be serialized "
+            "using CloudPickle, "
+            "it requires exercising caution as Python object serialization mechanisms may "
+            "execute arbitrary code during deserialization."
+            "Consider using a file path (str or Path) instead. See "
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
@@ -3172,7 +3190,7 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
@@ -3424,10 +3442,15 @@ def log_model(
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3754,7 +3777,9 @@ def _save_model_with_loader_module_and_data_path(
     return mlflow_model
 
 
-def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_chat_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ChatAgent models
 
     Returns: a dict input_example
@@ -3792,6 +3817,8 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ChatAgentRequest(**input_example)
     output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:

@@ -6,6 +6,9 @@ from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_deprecation_warning import ForbiddenDeprecationWarning
+from clint.rules.forbidden_make_judge_in_builtin_scorers import (
+    ForbiddenMakeJudgeInBuiltinScorers,
+)
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
@@ -32,19 +35,19 @@ from clint.rules.no_shebang import NoShebang
 from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
+from clint.rules.prefer_dict_union import PreferDictUnion
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
 from clint.rules.temp_dir_in_test import TempDirInTest
 from clint.rules.test_name_typo import TestNameTypo
-from clint.rules.thread_pool_executor_without_thread_name_prefix import (
-    ThreadPoolExecutorWithoutThreadNamePrefix,
-)
 from clint.rules.typing_extensions import TypingExtensions
 from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
 from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
+from clint.rules.unnamed_thread_pool import UnnamedThreadPool
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
+from clint.rules.use_gh_token import UseGhToken
 from clint.rules.use_sys_executable import UseSysExecutable
 from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
 from clint.rules.version_major_check import MajorVersionCheck
@@ -61,9 +64,10 @@ __all__ = [
     "ExampleSyntaxError",
     "ExtraneousDocstringParam",
     "ForbiddenDeprecationWarning",
-    "GetArtifactUri",
+    "ForbiddenMakeJudgeInBuiltinScorers",
     "ForbiddenSetActiveModelUsage",
     "ForbiddenTopLevelImport",
+    "GetArtifactUri",
     "ForbiddenTraceUIInNotebook",
     "ImplicitOptional",
     "IncorrectTypeAnnotation",
@@ -86,12 +90,13 @@ __all__ = [
     "OsChdirInTest",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
+    "PreferDictUnion",
     "PytestMarkRepeat",
     "RedundantTestDocstring",
     "SubprocessCheckCall",
     "TempDirInTest",
     "TestNameTypo",
-    "ThreadPoolExecutorWithoutThreadNamePrefix",
+    "UnnamedThreadPool",
     "TypingExtensions",
     "UnknownMlflowArguments",
     "UnknownMlflowFunction",
@@ -99,6 +104,7 @@ __all__ = [
     "UnnamedThread",
     "UnparameterizedGenericType",
     "AssignBeforeAppend",
+    "UseGhToken",
     "UseSysExecutable",
     "UseWalrusOperator",
     "WalrusOperatorVisitor",

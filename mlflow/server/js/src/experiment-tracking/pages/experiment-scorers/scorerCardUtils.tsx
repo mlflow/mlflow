@@ -8,6 +8,8 @@ import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
+import { ScorerFormData, outputTypeSpecToFormData } from './utils/scorerTransformUtils';
+import { ScorerEvaluationScope } from './constants';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
   if (scorer.type === 'custom-code') {
@@ -72,7 +74,7 @@ export const getStatusTag = (
  * @param scorer The ScheduledScorer to derive form values from
  * @returns Form values object suitable for react-hook-form
  */
-export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | CustomCodeScorerFormData => {
+export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | ScorerFormData => {
   // For LLM scorers, get instructions from the scorer or fall back to template defaults
   let instructions = '';
   if (scorer.type === 'llm') {
@@ -81,6 +83,10 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     const templateInstructions = llmScorer.llmTemplate ? TEMPLATE_INSTRUCTIONS_MAP[llmScorer.llmTemplate] : '';
     instructions = llmScorer.instructions || templateInstructions || '';
   }
+
+  const outputTypeFormFields = scorer.type === 'llm' ? outputTypeSpecToFormData((scorer as LLMScorer).outputType) : {};
+
+  const model = scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '';
 
   return {
     llmTemplate: scorer.type === 'llm' ? (scorer as LLMScorer).llmTemplate || '' : '',
@@ -91,9 +97,11 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     guidelines: scorer.type === 'llm' ? (scorer as LLMScorer).guidelines?.join('\n') || '' : '',
     instructions,
     filterString: scorer.filterString || '',
-    model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
+    model,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
+    evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,
+    ...outputTypeFormFields,
   };
 };
 
