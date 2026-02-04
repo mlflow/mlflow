@@ -14,20 +14,59 @@ def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 
-def get_pr_info(repo: str, pr_number: str) -> tuple[str, str]:
+def extract_stacked_pr_base_sha(pr_body: str | None, head_ref: str) -> str | None:
+    """Extract the base SHA from the stacked PR incremental diff link.
+
+    In stacked PR descriptions, the current PR is marked with bold (double
+    asterisks). We find the bold entry matching the branch name and extract
+    the base SHA from the files URL pattern /files/<base>..<head>.
+    """
+    if not pr_body or "Stacked PR" not in pr_body:
+        return None
+
+    # Find the line with bold branch name [**<branch>**], then extract /files/<base>..<head>
+    marker = f"[**{head_ref}**]"
+    for line in pr_body.split("\n"):
+        if marker in line:
+            if m := re.search(r"/files/(?P<base>[a-f0-9]{7,40})\.\.(?P<head>[a-f0-9]{7,40})", line):
+                return m.group("base")
+
+    return None
+
+
+def get_pr_info(repo: str, pr_number: str) -> tuple[str, str, str, str]:
+    """Return (title, body, head_sha, head_ref)."""
     print("Fetching PR information...", file=sys.stderr)
-    output = run_gh("pr", "view", pr_number, "--repo", repo, "--json", "title,body")
+    output = run_gh(
+        "pr", "view", pr_number, "--repo", repo, "--json", "title,body,headRefOid,headRefName"
+    )
     data = json.loads(output)
-    return data["title"], data.get("body") or ""
+    return data["title"], data.get("body") or "", data["headRefOid"], data["headRefName"]
 
 
-def get_pr_diff(repo: str, pr_number: str) -> str:
-    """Fetch PR diff, truncated if too long."""
+def get_pr_diff(repo: str, pr_number: str, body: str, head_sha: str, head_ref: str) -> str:
+    """Fetch PR diff with stacked PR support."""
     print("Fetching PR diff...", file=sys.stderr)
-    try:
-        diff = run_gh("pr", "diff", pr_number, "--repo", repo)
-    except subprocess.CalledProcessError:
-        return ""
+
+    if base_sha := extract_stacked_pr_base_sha(body, head_ref):
+        print(
+            f"Detected stacked PR, fetching incremental diff: {base_sha[:7]}..{head_sha[:7]}",
+            file=sys.stderr,
+        )
+        try:
+            diff = run_gh(
+                "api",
+                f"repos/{repo}/compare/{base_sha}...{head_sha}",
+                "-H",
+                "Accept: application/vnd.github.v3.diff",
+            )
+        except subprocess.CalledProcessError:
+            return ""
+    else:
+        try:
+            diff = run_gh("pr", "diff", pr_number, "--repo", repo)
+        except subprocess.CalledProcessError:
+            return ""
 
     max_length = 50000
     if len(diff) > max_length:
@@ -123,10 +162,10 @@ def main() -> None:
     parser.add_argument("--pr-number", required=True, help="Pull request number")
     args = parser.parse_args()
 
-    title, body = get_pr_info(args.repo, args.pr_number)
+    title, body, head_sha, head_ref = get_pr_info(args.repo, args.pr_number)
     print(f"Original title: {title}", file=sys.stderr)
 
-    diff = get_pr_diff(args.repo, args.pr_number)
+    diff = get_pr_diff(args.repo, args.pr_number, body, head_sha, head_ref)
     prompt = build_prompt(title, body, diff)
     new_title = call_anthropic_api(prompt)
 
