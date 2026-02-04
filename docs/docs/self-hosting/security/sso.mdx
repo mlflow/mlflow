@@ -24,7 +24,6 @@ This plugin is maintained by the community.
 
 :::
 
-
 To use MLflow with the OIDC plugin, we need to (1) configure OIDC provider (2) deploy MLflow server with OIDC plugin (3) configure mlflow client. Below are the configuration details.
 
 ### Configure the OIDC provider
@@ -49,6 +48,7 @@ MLflow OIDC plugin supports 2 kinds of groups: (1) administrator group (default 
 Below is an example to assign the administrator group to current Okta user:
 
 In Okta account sidebar menu: Actions -> Library -> Create Actions -> Create Custom Action, and fill in the code as follows:
+
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
   api.idToken.setCustomClaim(
@@ -57,6 +57,7 @@ exports.onExecutePostLogin = async (event, api) => {
   );
 };
 ```
+
 then click the "Deploy" button.
 
 ![custom action setting](/images/sso-custom-action.png)
@@ -65,10 +66,10 @@ Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-
 
 ![custom action setting](/images/sso-install-trigger.png)
 
-
 ### Deploy MLflow server with the OIDC plugin
 
 Use the following commands to deploy the MLflow server, note that we need to set a couple of environment variables correctly.
+
 ```bash
 pip install "mlflow-oidc-auth[full]"
 
@@ -89,7 +90,7 @@ export OIDC_GROUPS_ATTRIBUTE="urn:mlflow:groups"
 export OIDC_SCOPE="openid profile email"
 
 # Set a stable, secret value (e.g. 32+ random characters) and keep it the same across restarts and replicas.
-# If you don’t set it, the app will use an auto-generated key that changes on server restart / UI page reloading
+# If you don't set it, the app will use an auto-generated key that changes on server restart / UI page reloading
 # and breaks sessions.
 export SECRET_KEY="your-stable-secret-at-least-32-chars-long"
 
@@ -103,7 +104,6 @@ Then you can open URL "http://127.0.0.1:8080/" and it will jump to the OIDC logi
 If the current login user is assigned to the administrator group, then you can configure the permissions for other users through the OIDC permission UI portal.
 
 After login via OIDC, open "http://127.0.0.1:8080/" again and then it will jump to the MLflow UI main page.
-
 
 ### Configure mlflow client
 
@@ -129,7 +129,6 @@ os.environ["MLFLOW_TRACKING_PASSWORD"] = ...
 with mlflow.start_run():
     mlflow.log_param("key", "value")
 ```
-
 
 ## Reverse proxy pattern
 
