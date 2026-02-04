@@ -1,14 +1,15 @@
+import time
 from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.entities.trace_state import TraceState
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.base import BaseProvider, PassthroughAction
+from mlflow.gateway.schemas import chat, embeddings
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.types.chat import ChatUsage
 
 
 def get_traces():
@@ -29,14 +30,34 @@ class MockProvider(BaseProvider):
         self.config = mock.MagicMock()
         self.config.model.name = "mock-model"
         self._enable_tracing = enable_tracing
+        # These will be set by tests to control behavior
+        self._chat_response = None
+        self._chat_stream_chunks = None
+        self._chat_error = None
+        self._embeddings_response = None
+        self._passthrough_response = None
+        self._passthrough_error = None
 
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if self._chat_error:
+            raise self._chat_error
+        return self._chat_response
 
-class MockChunk:
-    """Mock streaming chunk with optional usage."""
+    async def _chat_stream(self, payload: chat.RequestPayload):
+        for chunk in self._chat_stream_chunks:
+            if isinstance(chunk, Exception):
+                raise chunk
+            yield chunk
 
-    def __init__(self, content: str, usage: ChatUsage | None = None):
-        self.content = content
-        self.usage = usage
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        return self._embeddings_response
+
+    async def _passthrough(
+        self, action: PassthroughAction, payload: dict, headers: dict | None = None
+    ) -> dict:
+        if self._passthrough_error:
+            raise self._passthrough_error
+        return self._passthrough_response
 
 
 @pytest.fixture
@@ -49,27 +70,40 @@ async def _collect_chunks(async_gen):
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_stream_method_captures_usage_from_final_chunk(mock_provider):
-    async def mock_stream(*args, **kwargs):
-        yield MockChunk("Hello")
-        yield MockChunk(" world")
-        usage = ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        yield MockChunk("!", usage=usage)
+async def test_chat_stream_captures_usage_from_final_chunk(mock_provider):
+    # Set up mock chunks - final chunk has usage
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+        ),
+        chat.StreamResponsePayload(
+            id="2",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content=" world"))],
+        ),
+        chat.StreamResponsePayload(
+            id="3",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="!"))],
+            usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+        ),
+    ]
 
-    # Create a parent trace context so the wrapper creates spans
+    # Create a parent trace context so the provider creates spans
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            mock_provider._maybe_trace_stream_method("test_stream", mock_stream)
-        )
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
 
     chunks = await traced_operation()
 
     # Verify all chunks were yielded
     assert len(chunks) == 3
-    assert chunks[0].content == "Hello"
-    assert chunks[1].content == " world"
-    assert chunks[2].content == "!"
 
     # Get traces and verify
     traces = get_traces()
@@ -85,10 +119,10 @@ async def test_maybe_trace_stream_method_captures_usage_from_final_chunk(mock_pr
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
     assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
-    assert provider_span.attributes.get("method") == "test_stream"
+    assert provider_span.attributes.get("method") == "chat_stream"
     assert provider_span.attributes.get("streaming") is True
 
-    # Verify usage was captured in mlflow.chat.tokenUsage format
+    # Verify usage was captured
     token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
     assert token_usage is not None
     assert token_usage[TokenUsageKey.INPUT_TOKENS] == 10
@@ -97,16 +131,26 @@ async def test_maybe_trace_stream_method_captures_usage_from_final_chunk(mock_pr
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_stream_method_without_usage(mock_provider):
-    async def mock_stream(*args, **kwargs):
-        yield MockChunk("Hello")
-        yield MockChunk(" world")
+async def test_chat_stream_without_usage(mock_provider):
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+        ),
+        chat.StreamResponsePayload(
+            id="2",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content=" world"))],
+        ),
+    ]
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            mock_provider._maybe_trace_stream_method("test_stream", mock_stream)
-        )
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
 
     chunks = await traced_operation()
     assert len(chunks) == 2
@@ -124,19 +168,27 @@ async def test_maybe_trace_stream_method_without_usage(mock_provider):
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_stream_method_no_active_span(mock_provider):
-    async def mock_stream(*args, **kwargs):
-        yield MockChunk("Hello")
-        yield MockChunk(" world")
+async def test_chat_stream_no_active_span(mock_provider):
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+        ),
+        chat.StreamResponsePayload(
+            id="2",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content=" world"))],
+        ),
+    ]
 
     # Call without a parent trace context
-    chunks = await _collect_chunks(
-        mock_provider._maybe_trace_stream_method("test_stream", mock_stream)
-    )
+    payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+    chunks = await _collect_chunks(mock_provider.chat_stream(payload))
 
     assert len(chunks) == 2
-    assert chunks[0].content == "Hello"
-    assert chunks[1].content == " world"
 
     # No traces should be created
     traces = get_traces()
@@ -144,16 +196,21 @@ async def test_maybe_trace_stream_method_no_active_span(mock_provider):
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_stream_method_handles_error(mock_provider):
-    async def mock_stream(*args, **kwargs):
-        yield MockChunk("Hello")
-        raise ValueError("Stream error")
+async def test_chat_stream_handles_error(mock_provider):
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+        ),
+        ValueError("Stream error"),  # Error will be raised
+    ]
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            mock_provider._maybe_trace_stream_method("test_stream", mock_stream)
-        )
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
 
     with pytest.raises(ValueError, match="Stream error"):
         await traced_operation()
@@ -175,16 +232,21 @@ async def test_maybe_trace_stream_method_handles_error(mock_provider):
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_stream_method_partial_usage(mock_provider):
-    async def mock_stream(*args, **kwargs):
-        usage = ChatUsage(prompt_tokens=10, completion_tokens=None, total_tokens=None)
-        yield MockChunk("!", usage=usage)
+async def test_chat_stream_partial_usage(mock_provider):
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="!"))],
+            usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=None, total_tokens=None),
+        ),
+    ]
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            mock_provider._maybe_trace_stream_method("test_stream", mock_stream)
-        )
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
 
     await traced_operation()
 
@@ -204,16 +266,28 @@ async def test_maybe_trace_stream_method_partial_usage(mock_provider):
 
 
 @pytest.mark.asyncio
-async def test_maybe_trace_method_non_streaming(mock_provider):
-    async def mock_method(*args, **kwargs):
-        return "result"
+async def test_chat_non_streaming(mock_provider):
+    mock_provider._chat_response = chat.ResponsePayload(
+        id="1",
+        created=int(time.time()),
+        model="mock-model",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+    )
 
     @mlflow.trace
     async def traced_operation():
-        return await mock_provider._maybe_trace_method("test_method", mock_method)
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await mock_provider.chat(payload)
 
     result = await traced_operation()
-    assert result == "result"
+    assert result.choices[0].message.content == "Hello!"
 
     traces = get_traces()
     assert len(traces) == 1
@@ -225,19 +299,26 @@ async def test_maybe_trace_method_non_streaming(mock_provider):
 
     assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
-    assert provider_span.attributes.get("method") == "test_method"
+    assert provider_span.attributes.get("method") == "chat"
     # Non-streaming should not have streaming attribute
     assert provider_span.attributes.get("streaming") is None
 
+    # Verify usage was captured
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 5
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 3
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 8
+
 
 @pytest.mark.asyncio
-async def test_maybe_trace_method_non_streaming_error(mock_provider):
-    async def mock_method(*args, **kwargs):
-        raise RuntimeError("Method failed")
+async def test_chat_non_streaming_error(mock_provider):
+    mock_provider._chat_error = RuntimeError("Method failed")
 
     @mlflow.trace
     async def traced_operation():
-        return await mock_provider._maybe_trace_method("test_method", mock_method)
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await mock_provider.chat(payload)
 
     with pytest.raises(RuntimeError, match="Method failed"):
         await traced_operation()
@@ -254,3 +335,93 @@ async def test_maybe_trace_method_non_streaming_error(mock_provider):
     assert len(exception_events) == 1
     assert exception_events[0].attributes["exception.message"] == "Method failed"
     assert exception_events[0].attributes["exception.type"] == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_embeddings(mock_provider):
+    mock_provider._embeddings_response = embeddings.ResponsePayload(
+        data=[embeddings.EmbeddingObject(embedding=[0.1, 0.2, 0.3], index=0)],
+        model="mock-model",
+        usage=embeddings.EmbeddingsUsage(prompt_tokens=4, total_tokens=4),
+    )
+
+    @mlflow.trace
+    async def traced_operation():
+        payload = embeddings.RequestPayload(input="Hello")
+        return await mock_provider.embeddings(payload)
+
+    result = await traced_operation()
+    assert len(result.data) == 1
+    assert result.data[0].embedding == [0.1, 0.2, 0.3]
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
+    assert provider_span.attributes.get("method") == "embeddings"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_with_tracing(mock_provider):
+    mock_provider._passthrough_response = {"id": "1", "result": "success"}
+
+    result = await mock_provider.passthrough(
+        action=PassthroughAction.OPENAI_CHAT,
+        payload={"messages": [{"role": "user", "content": "Hi"}]},
+    )
+
+    assert result == {"id": "1", "result": "success"}
+
+    # Passthrough with @mlflow.trace creates its own trace
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # The span should have provider attributes and action
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    assert "passthrough" in span_name_to_span
+
+    passthrough_span = span_name_to_span["passthrough"]
+    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
+    assert passthrough_span.attributes.get("action") == "openai_chat"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_without_tracing():
+    provider = MockProvider(enable_tracing=False)
+    provider._passthrough_response = {"id": "1", "result": "success"}
+
+    result = await provider.passthrough(
+        action=PassthroughAction.OPENAI_CHAT,
+        payload={"messages": [{"role": "user", "content": "Hi"}]},
+    )
+
+    assert result == {"id": "1", "result": "success"}
+
+    # No traces should be created when tracing is disabled
+    traces = get_traces()
+    assert len(traces) == 0
+
+
+@pytest.mark.asyncio
+async def test_passthrough_error_with_tracing(mock_provider):
+    mock_provider._passthrough_error = RuntimeError("Passthrough failed")
+
+    with pytest.raises(RuntimeError, match="Passthrough failed"):
+        await mock_provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT,
+            payload={"messages": [{"role": "user", "content": "Hi"}]},
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.ERROR

@@ -158,8 +158,19 @@ class BaseProvider(ABC):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        # TODO: Token usage should be traced at the individual provider level
-        return await mlflow.trace(self._passthrough)(action, payload, headers)
+        async def passthrough(
+            action: PassthroughAction,
+            payload: dict[str, Any],
+            headers: dict[str, str] | None = None,
+        ) -> dict[str, Any] | AsyncIterable[Any]:
+            # TODO: Token usage should be traced at the individual provider level
+            span = mlflow.get_current_active_span()
+            if span is not None and self._enable_tracing:
+                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+            return await self._passthrough(action, payload, headers)
+
+        passthrough_method = mlflow.trace(passthrough) if self._enable_tracing else passthrough
+        return await passthrough_method(action, payload, headers)
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
