@@ -131,6 +131,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -4254,6 +4255,14 @@ def _create_gateway_endpoint():
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
     ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+    )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -4262,6 +4271,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4320,6 +4331,14 @@ def _update_gateway_endpoint():
             for config in request_message.model_configs
         ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else None
+    )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
@@ -4329,6 +4348,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4825,6 +4846,7 @@ def get_endpoints(get_handler=get_handler):
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
         + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
         + get_gateway_endpoints()
+        + get_demo_endpoints()
     )
 
 
@@ -4857,6 +4879,98 @@ def get_gateway_endpoints():
             ["POST"],
         ),
     ]
+
+
+# Demo APIs
+
+
+def get_demo_endpoints():
+    """Returns endpoint tuples for demo data generation and deletion APIs."""
+    return [
+        (
+            _get_ajax_path("/mlflow/demo/generate", version=3),
+            _generate_demo,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/demo/delete", version=3),
+            _delete_demo,
+            ["POST"],
+        ),
+    ]
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _generate_demo():
+    """Generate demo data for registered demo generators.
+
+    Accepts an optional JSON body with a ``features`` list to generate only specific
+    features (e.g. ``{"features": ["traces", "prompts"]}``). When omitted, all features
+    are generated.
+    """
+    from mlflow.demo import generate_all_demos
+    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
+    from mlflow.demo.registry import demo_registry
+
+    request_json = request.get_json(silent=True) or {}
+    features = request_json.get("features")
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    generator_names = demo_registry.list_generators()
+    if features is not None:
+        generator_names = [n for n in generator_names if n in features]
+
+    all_exist = False
+    if experiment and experiment.lifecycle_stage == "active":
+        all_exist = all(demo_registry.get(name)().is_generated() for name in generator_names)
+
+    if experiment and all_exist:
+        return jsonify(
+            {
+                "status": "exists",
+                "experiment_id": experiment.experiment_id,
+                "features_generated": [],
+                "navigation_url": f"#/experiments/{experiment.experiment_id}/traces",
+            }
+        )
+
+    results = generate_all_demos(features=features)
+
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    experiment_id = experiment.experiment_id if experiment else None
+
+    return jsonify(
+        {
+            "status": "created",
+            "experiment_id": experiment_id,
+            "features_generated": [r.feature for r in results],
+            "navigation_url": f"#/experiments/{experiment_id}/traces" if experiment_id else None,
+        }
+    )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_demo():
+    """Delete demo data for all registered demo generators."""
+    from mlflow.demo.registry import demo_registry
+
+    deleted_features = []
+    for name in demo_registry.list_generators():
+        generator = demo_registry.get(name)()
+        if generator._data_exists():
+            generator.delete_demo()
+            deleted_features.append(name)
+
+    return jsonify(
+        {
+            "status": "deleted",
+            "features_deleted": deleted_features,
+        }
+    )
 
 
 def get_internal_online_scoring_endpoints():
@@ -5102,6 +5216,26 @@ def _get_dataset_records_handler(dataset_id):
     if next_page_token:
         response_message.next_page_token = next_page_token
 
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset_records_handler(dataset_id):
+    request_message = _get_request_message(
+        DeleteDatasetRecords(),
+        schema={
+            "dataset_record_ids": [_assert_array],
+        },
+    )
+
+    deleted_count = _get_tracking_store().delete_dataset_records(
+        dataset_id=dataset_id,
+        dataset_record_ids=list(request_message.dataset_record_ids),
+    )
+
+    response_message = DeleteDatasetRecords.Response()
+    response_message.deleted_count = deleted_count
     return _wrap_response(response_message)
 
 
@@ -5557,6 +5691,7 @@ HANDLERS = {
     UpsertDatasetRecords: _upsert_dataset_records_handler,
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
+    DeleteDatasetRecords: _delete_dataset_records_handler,
     AddDatasetToExperiments: _add_dataset_to_experiments_handler,
     RemoveDatasetFromExperiments: _remove_dataset_from_experiments_handler,
     # Model Registry APIs

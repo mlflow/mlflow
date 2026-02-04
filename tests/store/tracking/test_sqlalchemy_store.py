@@ -2455,6 +2455,40 @@ def test_search_runs_pagination(store: SqlAlchemyStore):
     assert result.token is None
 
 
+def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
+    # Create exactly 8 runs (2 pages of 4 runs each)
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)]
+    )
+
+    # First page: should return 4 runs and a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+
+    # Second page: should return exactly 4 runs (last page) with NO token
+    # This is the key test case - with optimistic pagination, this would incorrectly
+    # return a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is None
+
+
+def test_search_runs_pagination_with_max_results_none(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_with_max_results_none")
+    # Create 5 runs
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)]
+    )
+
+    # Call search_runs with max_results=None - should return all runs with no token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=None)
+    assert len(result) == 5
+    assert [r.info.run_id for r in result] == runs
+    assert result.token is None
+
+
 def test_search_runs_run_name(store: SqlAlchemyStore):
     exp_id = _create_experiments(store, "test_search_runs_pagination")
     run1 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name1"))
@@ -5847,6 +5881,69 @@ def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='feedback.comment LIKE "%okay%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
+
+
+def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_null_filters")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
+
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    expectation1 = Expectation(
+        trace_id=trace4_id,
+        name="score",
+        value=85,
+        source=AssessmentSource(source_type="CODE", source_id="scorer"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(expectation1)
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace4_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='feedback.quality IS NOT NULL AND feedback.quality = "good"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
@@ -9896,6 +9993,60 @@ def test_dataset_upsert_comprehensive(store):
     empty_result = store.upsert_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
     assert empty_result["updated"] == 0
+
+
+def test_dataset_delete_records(store):
+    test_prefix = "test_delete_records_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    records = [
+        {
+            "inputs": {"id": 1, "question": "What is MLflow?"},
+            "expectations": {"answer": "ML platform"},
+        },
+        {
+            "inputs": {"id": 2, "question": "What is Python?"},
+            "expectations": {"answer": "Programming language"},
+        },
+        {
+            "inputs": {"id": 3, "question": "What is Docker?"},
+            "expectations": {"answer": "Container platform"},
+        },
+    ]
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    loaded_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(loaded_records) == 3
+
+    record_ids = [r.dataset_record_id for r in loaded_records]
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[0]])
+    assert deleted_count == 1
+
+    remaining_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(remaining_records) == 2
+
+    updated_dataset = store.get_dataset(dataset.dataset_id)
+    profile = json.loads(updated_dataset.profile)
+    assert profile["num_records"] == 2
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[1], record_ids[2]])
+    assert deleted_count == 2
+
+    final_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(final_records) == 0
+
+
+def test_dataset_delete_records_idempotent(store):
+    test_prefix = "test_delete_idempotent_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, ["nonexistent-record-id"])
+    assert deleted_count == 0
 
 
 def test_dataset_associations_and_lazy_loading(store):

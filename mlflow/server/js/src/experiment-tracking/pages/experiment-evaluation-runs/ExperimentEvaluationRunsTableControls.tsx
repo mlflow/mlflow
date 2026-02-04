@@ -265,30 +265,32 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
-        <Tooltip
-          componentId="mlflow.eval-runs.compare-button.tooltip"
-          content={
-            isCompareEnabled ? (
-              <FormattedMessage
-                defaultMessage="Compare selected runs"
-                description="Tooltip for the compare button when enabled"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Select up to 2 runs to compare"
-                description="Tooltip for the compare button when disabled"
-              />
-            )
-          }
-        >
-          <Button
-            componentId="mlflow.eval-runs.compare-button"
-            onClick={handleCompareClick}
-            disabled={!isCompareEnabled}
+        {viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
+          <Tooltip
+            componentId="mlflow.eval-runs.compare-button.tooltip"
+            content={
+              isCompareEnabled ? (
+                <FormattedMessage
+                  defaultMessage="Compare selected runs"
+                  description="Tooltip for the compare button when enabled"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Select up to 2 runs to compare"
+                  description="Tooltip for the compare button when disabled"
+                />
+              )
+            }
           >
-            <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
-          </Button>
-        </Tooltip>
+            <Button
+              componentId="mlflow.eval-runs.compare-button"
+              onClick={handleCompareClick}
+              disabled={!isCompareEnabled}
+            >
+              <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
+            </Button>
+          </Tooltip>
+        )}
 
         <ExperimentEvaluationRunsTableActions
           rowSelection={rowSelection}

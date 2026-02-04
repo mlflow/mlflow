@@ -214,6 +214,7 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           getRunColor={getRunColor}
           runUuid={runUuid}
           compareToRunUuid={compareToRunUuid}
+          onExpandSession={!isComparing ? handleToggleExpanded : undefined}
         />
       ))}
     </TableRow>

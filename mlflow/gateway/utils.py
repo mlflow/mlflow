@@ -300,7 +300,7 @@ async def make_streaming_response(resp):
 
     if isinstance(resp, AsyncGenerator):
         return StreamingResponse(
-            (to_sse_chunk(d.json()) async for d in resp),
+            (to_sse_chunk(d.model_dump_json()) async for d in resp),
             media_type="text/event-stream",
         )
     else:

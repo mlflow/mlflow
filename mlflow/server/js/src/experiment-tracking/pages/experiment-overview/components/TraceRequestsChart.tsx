@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDesignSystemTheme, ChartLineIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
@@ -9,18 +9,20 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
   useChartZoomSelectionProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  ScrollableTooltip,
 } from './OverviewChartComponents';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process requests chart data (includes zoom state)
   const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
@@ -28,6 +30,21 @@ export const TraceRequestsChart: React.FC = () => {
     zoom;
 
   const tooltipFormatter = useCallback((value: number) => [`${value}`, 'Requests'] as [string, string], []);
+
+  // Memoize tooltip content to prevent recreation on every render
+  const tooltipContent = useMemo(
+    () => (
+      <ScrollableTooltip
+        formatter={tooltipFormatter}
+        linkConfig={{
+          experimentId,
+          timeIntervalSeconds,
+          componentId: 'mlflow.overview.usage.traces.view_traces_link',
+        }}
+      />
+    ),
+    [experimentId, timeIntervalSeconds, tooltipFormatter],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -66,10 +83,7 @@ export const TraceRequestsChart: React.FC = () => {
             >
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
-              <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
-                cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              />
+              <Tooltip content={tooltipContent} cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }} />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (
                 <ReferenceLine
