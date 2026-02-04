@@ -181,7 +181,7 @@ jobs:
       - name: Run tests
         working-directory: mlflow/java
         run: |
-          uv run mvn clean package -q
+          uv run --no-dev mvn clean package -q
 
   flavors:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
