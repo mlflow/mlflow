@@ -53,7 +53,7 @@ class SqlRegisteredModel(Base):
             f"{self.creation_time}, {self.last_updated_time})>"
         )
 
-    def to_mlflow_entity(self, preloaded_latest_versions: list | None = None):
+    def to_mlflow_entity(self, preloaded_latest_versions: list["SqlModelVersion"] | None = None):
         """
         Convert to MLflow RegisteredModel entity.
 

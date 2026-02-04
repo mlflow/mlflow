@@ -178,7 +178,9 @@ class SqlAlchemyStore(AbstractStore):
         ]
 
     @classmethod
-    def _get_latest_versions_for_models(cls, session, model_names: list[str]) -> dict[str, list]:
+    def _get_latest_versions_for_models(
+        cls, session, model_names: list[str]
+    ) -> dict[str, list[SqlModelVersion]]:
         """
         Batch-fetch the latest model version per stage for multiple registered models.
 
@@ -221,7 +223,7 @@ class SqlAlchemyStore(AbstractStore):
 
         latest_versions = session.execute(query).scalars().all()
 
-        result: dict[str, list] = {name: [] for name in model_names}
+        result: dict[str, list[SqlModelVersion]] = {name: [] for name in model_names}
         for mv in latest_versions:
             result[mv.name].append(mv)
 
@@ -446,8 +448,8 @@ class SqlAlchemyStore(AbstractStore):
 
             rm_entities = [
                 rm.to_mlflow_entity(preloaded_latest_versions=latest_versions_map.get(rm.name))
-                for rm in sql_registered_models
-            ][:max_results]
+                for rm in sql_registered_models[:max_results]
+            ]
             return PagedList(rm_entities, next_page_token)
 
     @classmethod
