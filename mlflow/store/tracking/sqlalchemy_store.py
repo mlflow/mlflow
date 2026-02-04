@@ -1568,7 +1568,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     ):
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results is not None and current_size == max_results + 1:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
 
@@ -1617,8 +1617,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
-                .limit(max_results)
             )
+            if max_results is not None:
+                stmt = stmt.limit(max_results + 1)
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
@@ -1639,6 +1640,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             next_page_token = compute_next_token(len(runs_with_inputs_outputs))
+
+            # Trim results if we fetched an extra row to check for more pages
+            if next_page_token and max_results is not None:
+                runs_with_inputs_outputs = runs_with_inputs_outputs[:max_results]
 
         return runs_with_inputs_outputs, next_page_token
 
@@ -3460,14 +3465,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return query
 
     def _validate_max_results_param(self, max_results: int, allow_null=False):
-        if (not allow_null and max_results is None) or max_results < 1:
+        if (not allow_null and max_results is None) or (
+            max_results is not None and max_results < 1
+        ):
             raise MlflowException(
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be "
                 f"a positive integer",
                 INVALID_PARAMETER_VALUE,
             )
 
-        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be at "
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}",
