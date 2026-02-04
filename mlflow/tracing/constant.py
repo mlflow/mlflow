@@ -22,6 +22,10 @@ class TraceMetadataKey:
     # Total size of the trace in bytes. Deprecated, use SIZE_STATS instead.
     SIZE_BYTES = "mlflow.trace.sizeBytes"
 
+    # Gateway-specific metadata keys
+    GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
+    GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
@@ -97,6 +101,10 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
+    # Provider name for LLM provider spans (e.g., "OpenAI", "Anthropic")
+    MODEL_PROVIDER = "mlflow.llm.provider"
+    # Model name for LLM provider spans (e.g., "gpt-4", "claude-3-opus")
+    MODEL = "mlflow.llm.model"
 
 
 class AssessmentMetadataKey:
