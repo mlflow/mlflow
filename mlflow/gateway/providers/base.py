@@ -4,12 +4,15 @@ from typing import Any, AsyncIterable
 
 import numpy as np
 
+import mlflow
 from mlflow.entities.gateway_endpoint import FallbackStrategy
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.utils.annotations import developer_stable
 
 
@@ -41,6 +44,10 @@ PASSTHROUGH_ROUTES = {
 class BaseProvider(ABC):
     """
     Base class for MLflow Gateway providers.
+
+    Args:
+        config: The endpoint configuration.
+        enable_tracing: If True, wraps method calls with MLflow tracing spans.
     """
 
     NAME: str = ""
@@ -48,7 +55,7 @@ class BaseProvider(ABC):
     CONFIG_TYPE: type[ConfigModel]
     PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
 
-    def __init__(self, config: EndpointConfig):
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         if self.NAME == "":
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "
@@ -62,8 +69,13 @@ class BaseProvider(ABC):
             )
 
         self.config = config
+        self._enable_tracing = enable_tracing
 
-    async def chat_stream(
+    # -------------------------------------------------------------------------
+    # Internal implementation methods (override these in subclasses)
+    # -------------------------------------------------------------------------
+
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         raise AIGatewayException(
@@ -71,13 +83,13 @@ class BaseProvider(ABC):
             detail=f"The chat streaming route is not implemented for {self.NAME} models.",
         )
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
             detail=f"The chat route is not implemented for {self.NAME} models.",
         )
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         raise AIGatewayException(
@@ -85,17 +97,88 @@ class BaseProvider(ABC):
             detail=f"The completions streaming route is not implemented for {self.NAME} models.",
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
             detail=f"The completions route is not implemented for {self.NAME} models.",
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        route = PASSTHROUGH_ROUTES.get(action)
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
+        )
+
+    # -------------------------------------------------------------------------
+    # Public methods (with optional tracing)
+    # -------------------------------------------------------------------------
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        if not self._enable_tracing:
+            async for chunk in self._chat_stream(payload):
+                yield chunk
+            return
+
+        async for chunk in self._trace_stream_method("chat_stream", self._chat_stream, payload):
+            yield chunk
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if not self._enable_tracing:
+            return await self._chat(payload)
+        return await self._trace_method("chat", self._chat, payload)
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        if not self._enable_tracing:
+            async for chunk in self._completions_stream(payload):
+                yield chunk
+            return
+
+        async for chunk in self._trace_stream_method(
+            "completions_stream", self._completions_stream, payload
+        ):
+            yield chunk
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        if not self._enable_tracing:
+            return await self._completions(payload)
+        return await self._trace_method("completions", self._completions, payload)
+
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        if not self._enable_tracing:
+            return await self._embeddings(payload)
+        return await self._trace_method("embeddings", self._embeddings, payload)
+
+    async def passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        if not self._enable_tracing:
+            return await self._passthrough(action, payload, headers)
+        return await self._trace_method("passthrough", self._passthrough, action, payload, headers)
+
+    # -------------------------------------------------------------------------
+    # Tracing helper methods
+    # -------------------------------------------------------------------------
 
     def get_provider_name(self) -> str:
         """
@@ -109,6 +192,105 @@ class BaseProvider(ABC):
             The provider name string.
         """
         return self.NAME
+
+    def _get_span_name(self) -> str:
+        """Generate span name based on provider and model."""
+        provider_name = self.get_provider_name()
+        model_name = ""
+        if hasattr(self, "config") and hasattr(self.config, "model"):
+            model_name = getattr(self.config.model, "name", "")
+
+        span_name = f"provider/{provider_name}"
+        if model_name:
+            span_name = f"{span_name}/{model_name}"
+        return span_name
+
+    def _get_provider_attributes(self) -> dict[str, str]:
+        """Get provider attributes for span."""
+        attrs = {
+            SpanAttributeKey.MODEL_PROVIDER: self.get_provider_name(),
+        }
+        if hasattr(self, "config") and hasattr(self.config, "model"):
+            if model_name := getattr(self.config.model, "name", ""):
+                attrs[SpanAttributeKey.MODEL] = model_name
+        return attrs
+
+    def _extract_token_usage(self, result) -> dict[str, int] | None:
+        """Extract token usage from a response object if available."""
+        if not hasattr(result, "usage") or result.usage is None:
+            return None
+
+        usage = result.usage
+        token_usage = {}
+        if (prompt_tokens := getattr(usage, "prompt_tokens", None)) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+        if (completion_tokens := getattr(usage, "completion_tokens", None)) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+        if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        return token_usage or None
+
+    async def _trace_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a method with tracing span."""
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            return await method(*args, **kwargs)
+
+        span_name = self._get_span_name()
+        with mlflow.start_span(name=span_name) as span:
+            span.set_attributes({**self._get_provider_attributes(), "method": method_name})
+
+            result = await method(*args, **kwargs)
+
+            if token_usage := self._extract_token_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+
+            span.set_status("OK")
+            return result
+
+    async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a streaming method with tracing span."""
+        active_span = mlflow.get_current_active_span()
+        if active_span is None:
+            async for chunk in method(*args, **kwargs):
+                yield chunk
+            return
+
+        span_name = self._get_span_name()
+        # Use start_span_no_context to get a LiveSpan that can be manually ended
+        span = start_span_no_context(
+            name=span_name,
+            parent_span=active_span,
+            attributes={
+                **self._get_provider_attributes(),
+                "method": method_name,
+                "streaming": True,
+            },
+        )
+
+        try:
+            last_chunk = None
+            async for chunk in method(*args, **kwargs):
+                last_chunk = chunk
+                yield chunk
+
+            # Extract usage from the final chunk if available (OpenAI includes this
+            # when stream_options.include_usage=true)
+            if last_chunk is not None:
+                if token_usage := self._extract_token_usage(last_chunk):
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+
+            span.set_status("OK")
+            span.end()
+        except Exception as e:
+            span.record_exception(e)
+            span.end()
+            raise
+
+    # -------------------------------------------------------------------------
+    # Utility methods
+    # -------------------------------------------------------------------------
 
     def _validate_passthrough_action(self, action: PassthroughAction) -> str:
         """
@@ -138,32 +320,6 @@ class BaseProvider(ABC):
             )
         return provider_path
 
-    async def passthrough(
-        self,
-        action: PassthroughAction,
-        payload: dict[str, Any],
-        headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
-        """
-        Unified passthrough endpoint for raw API requests.
-
-        Args:
-            action: The passthrough action to perform (e.g., OPENAI_CHAT, OPENAI_EMBEDDINGS)
-            payload: Raw request payload in the format expected by the target API
-            headers: Optional HTTP headers from client request to propagate
-
-        Returns:
-            Raw response from the target API, optionally as an async iterable for streaming
-
-        Raises:
-            AIGatewayException: If the passthrough action is not implemented for this provider
-        """
-        route = PASSTHROUGH_ROUTES.get(action)
-        raise AIGatewayException(
-            status_code=501,
-            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
-        )
-
     @staticmethod
     def check_for_model_field(payload):
         if "model" in payload:
@@ -186,6 +342,7 @@ class TrafficRouteProvider(BaseProvider):
         configs: list[EndpointConfig],
         traffic_splits: list[int],
         routing_strategy: str,
+        enable_tracing: bool = False,
     ):
         from mlflow.gateway.providers import get_provider
 
@@ -199,42 +356,48 @@ class TrafficRouteProvider(BaseProvider):
                 "'routing_strategy' must be 'TRAFFIC_SPLIT'."
             )
 
-        self._providers = [get_provider(config.model.provider)(config) for config in configs]
+        self._providers = [
+            get_provider(config.model.provider)(config, enable_tracing=enable_tracing)
+            for config in configs
+        ]
         # Normalize the weights to sum to 1
         self._weights = np.array(traffic_splits, dtype=np.float32) / np.sum(traffic_splits)
         self._indices = np.arange(len(self._providers))
+        self._enable_tracing = enable_tracing
 
     def _get_provider(self):
         chosen_index = np.random.choice(self._indices, p=self._weights)
         return self._providers[chosen_index]
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         prov = self._get_provider()
         async for i in prov.chat_stream(payload):
             yield i
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         prov = self._get_provider()
         return await prov.chat(payload)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         prov = self._get_provider()
         async for i in prov.completions_stream(payload):
             yield i
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         prov = self._get_provider()
         return await prov.completions(payload)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         prov = self._get_provider()
         return await prov.embeddings(payload)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
@@ -258,6 +421,7 @@ class FallbackProvider(BaseProvider):
         providers: list[BaseProvider],
         strategy: FallbackStrategy | None = None,
         max_attempts: int | None = None,
+        enable_tracing: bool = False,
     ):
         if not providers:
             raise MlflowException.invalid_parameter_value(
@@ -265,6 +429,7 @@ class FallbackProvider(BaseProvider):
             )
 
         self._providers = providers
+        self._enable_tracing = enable_tracing
 
         max_attempts = max_attempts if max_attempts is not None else len(self._providers)
         self._max_attempts = min(max_attempts, len(self._providers))
@@ -355,28 +520,30 @@ class FallbackProvider(BaseProvider):
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         async for chunk in self._execute_stream_with_fallback("chat_stream", payload):
             yield chunk
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         return await self._execute_with_fallback("chat", payload)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         async for chunk in self._execute_stream_with_fallback("completions_stream", payload):
             yield chunk
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         return await self._execute_with_fallback("completions", payload)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         return await self._execute_with_fallback("embeddings", payload)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],

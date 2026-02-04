@@ -4,7 +4,7 @@ import pytest
 
 import mlflow
 from mlflow.entities.trace_state import TraceState
-from mlflow.gateway.providers.tracing import TracingProviderWrapper
+from mlflow.gateway.providers.base import BaseProvider
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracking.fluent import _get_experiment_id
@@ -15,14 +15,20 @@ def get_traces():
     return TracingClient().search_traces(locations=[_get_experiment_id()])
 
 
-class MockProvider:
-    """Mock provider for testing."""
+class MockProvider(BaseProvider):
+    """Mock provider for testing tracing functionality built into BaseProvider."""
 
     NAME = "MockProvider"
 
-    def __init__(self):
+    class MockConfig:
+        pass
+
+    CONFIG_TYPE = MockConfig
+
+    def __init__(self, enable_tracing: bool = False):
         self.config = mock.MagicMock()
         self.config.model.name = "mock-model"
+        self._enable_tracing = enable_tracing
 
 
 class MockChunk:
@@ -35,12 +41,7 @@ class MockChunk:
 
 @pytest.fixture
 def mock_provider():
-    return MockProvider()
-
-
-@pytest.fixture
-def tracing_wrapper(mock_provider):
-    return TracingProviderWrapper(mock_provider)
+    return MockProvider(enable_tracing=True)
 
 
 async def _collect_chunks(async_gen):
@@ -48,7 +49,7 @@ async def _collect_chunks(async_gen):
 
 
 @pytest.mark.asyncio
-async def test_trace_stream_method_captures_usage_from_final_chunk(tracing_wrapper):
+async def test_trace_stream_method_captures_usage_from_final_chunk(mock_provider):
     async def mock_stream(*args, **kwargs):
         yield MockChunk("Hello")
         yield MockChunk(" world")
@@ -58,9 +59,7 @@ async def test_trace_stream_method_captures_usage_from_final_chunk(tracing_wrapp
     # Create a parent trace context so the wrapper creates spans
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            tracing_wrapper._trace_stream_method("test_stream", mock_stream)
-        )
+        return await _collect_chunks(mock_provider._trace_stream_method("test_stream", mock_stream))
 
     chunks = await traced_operation()
 
@@ -96,16 +95,14 @@ async def test_trace_stream_method_captures_usage_from_final_chunk(tracing_wrapp
 
 
 @pytest.mark.asyncio
-async def test_trace_stream_method_without_usage(tracing_wrapper):
+async def test_trace_stream_method_without_usage(mock_provider):
     async def mock_stream(*args, **kwargs):
         yield MockChunk("Hello")
         yield MockChunk(" world")
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            tracing_wrapper._trace_stream_method("test_stream", mock_stream)
-        )
+        return await _collect_chunks(mock_provider._trace_stream_method("test_stream", mock_stream))
 
     chunks = await traced_operation()
     assert len(chunks) == 2
@@ -123,13 +120,13 @@ async def test_trace_stream_method_without_usage(tracing_wrapper):
 
 
 @pytest.mark.asyncio
-async def test_trace_stream_method_no_active_span(tracing_wrapper):
+async def test_trace_stream_method_no_active_span(mock_provider):
     async def mock_stream(*args, **kwargs):
         yield MockChunk("Hello")
         yield MockChunk(" world")
 
     # Call without a parent trace context
-    chunks = await _collect_chunks(tracing_wrapper._trace_stream_method("test_stream", mock_stream))
+    chunks = await _collect_chunks(mock_provider._trace_stream_method("test_stream", mock_stream))
 
     assert len(chunks) == 2
     assert chunks[0].content == "Hello"
@@ -141,16 +138,14 @@ async def test_trace_stream_method_no_active_span(tracing_wrapper):
 
 
 @pytest.mark.asyncio
-async def test_trace_stream_method_handles_error(tracing_wrapper):
+async def test_trace_stream_method_handles_error(mock_provider):
     async def mock_stream(*args, **kwargs):
         yield MockChunk("Hello")
         raise ValueError("Stream error")
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            tracing_wrapper._trace_stream_method("test_stream", mock_stream)
-        )
+        return await _collect_chunks(mock_provider._trace_stream_method("test_stream", mock_stream))
 
     with pytest.raises(ValueError, match="Stream error"):
         await traced_operation()
@@ -172,16 +167,14 @@ async def test_trace_stream_method_handles_error(tracing_wrapper):
 
 
 @pytest.mark.asyncio
-async def test_trace_stream_method_partial_usage(tracing_wrapper):
+async def test_trace_stream_method_partial_usage(mock_provider):
     async def mock_stream(*args, **kwargs):
         usage = ChatUsage(prompt_tokens=10, completion_tokens=None, total_tokens=None)
         yield MockChunk("!", usage=usage)
 
     @mlflow.trace
     async def traced_operation():
-        return await _collect_chunks(
-            tracing_wrapper._trace_stream_method("test_stream", mock_stream)
-        )
+        return await _collect_chunks(mock_provider._trace_stream_method("test_stream", mock_stream))
 
     await traced_operation()
 
@@ -201,13 +194,13 @@ async def test_trace_stream_method_partial_usage(tracing_wrapper):
 
 
 @pytest.mark.asyncio
-async def test_trace_method_non_streaming(tracing_wrapper):
+async def test_trace_method_non_streaming(mock_provider):
     async def mock_method(*args, **kwargs):
         return "result"
 
     @mlflow.trace
     async def traced_operation():
-        return await tracing_wrapper._trace_method("test_method", mock_method)
+        return await mock_provider._trace_method("test_method", mock_method)
 
     result = await traced_operation()
     assert result == "result"
@@ -228,13 +221,13 @@ async def test_trace_method_non_streaming(tracing_wrapper):
 
 
 @pytest.mark.asyncio
-async def test_trace_method_non_streaming_error(tracing_wrapper):
+async def test_trace_method_non_streaming_error(mock_provider):
     async def mock_method(*args, **kwargs):
         raise RuntimeError("Method failed")
 
     @mlflow.trace
     async def traced_operation():
-        return await tracing_wrapper._trace_method("test_method", mock_method)
+        return await mock_provider._trace_method("test_method", mock_method)
 
     with pytest.raises(RuntimeError, match="Method failed"):
         await traced_operation()

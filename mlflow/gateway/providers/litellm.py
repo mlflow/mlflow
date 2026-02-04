@@ -59,8 +59,8 @@ class LiteLLMProvider(BaseProvider):
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, LiteLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config
@@ -88,7 +88,7 @@ class LiteLLMProvider(BaseProvider):
 
         return kwargs
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
 
@@ -142,7 +142,7 @@ class LiteLLMProvider(BaseProvider):
 
         return self.adapter_class.model_to_chat(resp_dict, self.config)
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         import litellm
@@ -198,7 +198,7 @@ class LiteLLMProvider(BaseProvider):
 
             yield self.adapter_class.model_to_chat_streaming(resp_dict, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
 
@@ -226,7 +226,7 @@ class LiteLLMProvider(BaseProvider):
 
         return self.adapter_class.model_to_embeddings(resp_dict, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],

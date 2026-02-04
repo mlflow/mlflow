@@ -282,8 +282,8 @@ class OpenAIProvider(BaseProvider):
         PassthroughAction.OPENAI_RESPONSES: "responses",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
             raise MlflowException.invalid_parameter_value(
@@ -384,7 +384,7 @@ class OpenAIProvider(BaseProvider):
         parsed_base_url = urlparse(self.base_url)
         return urlunparse(parsed_base_url._replace(path=f"{parsed_base_url.path}/{route_path}"))
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -417,7 +417,7 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -607,7 +607,7 @@ class OpenAIProvider(BaseProvider):
 
         return resp
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         if MLFLOW_ENABLE_UC_FUNCTIONS.get():
             warnings.warn(
                 "Unity Catalog function integration via the MLflow AI Gateway is deprecated "
@@ -618,11 +618,11 @@ class OpenAIProvider(BaseProvider):
             )
             resp = await self._chat_uc_function(payload)
         else:
-            resp = await self._chat(payload)
+            resp = await self._send_chat_request(payload)
 
         return OpenAIAdapter.model_to_chat(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -655,7 +655,9 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -668,7 +670,7 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -681,7 +683,7 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
