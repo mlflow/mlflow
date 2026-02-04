@@ -4600,8 +4600,8 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
     )
 
     # Results should be sorted by dimensions: first by status, then by provider.
-    # Spans without model provider are included with None value.
-    assert len(result) == 6
+    # Spans without model provider (None value) are filtered out.
+    assert len(result) == 4
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
@@ -4621,8 +4621,8 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
     assert asdict(result[2]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
-            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
-            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: None,
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
         },
         "values": {"COUNT": 1},
     }
@@ -4630,23 +4630,7 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
             SpanMetricDimensionKey.SPAN_STATUS: "OK",
-            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
-        },
-        "values": {"COUNT": 1},
-    }
-    assert asdict(result[4]) == {
-        "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {
-            SpanMetricDimensionKey.SPAN_STATUS: "OK",
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
-        },
-        "values": {"COUNT": 2},
-    }
-    assert asdict(result[5]) == {
-        "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {
-            SpanMetricDimensionKey.SPAN_STATUS: "OK",
-            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: None,
         },
         "values": {"COUNT": 2},
     }

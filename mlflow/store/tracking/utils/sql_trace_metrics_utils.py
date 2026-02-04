@@ -815,6 +815,10 @@ def convert_results_to_metric_data_points(
         # Split row values into dimensions and aggregations based on select_columns
         dims = {col.name: row[i] for i, col in enumerate(select_columns[:num_dimensions])}
 
+        # Skip data points with None dimension values
+        if any(value is None for value in dims.values()):
+            continue
+
         # Convert time_bucket from milliseconds to ISO 8601 datetime string
         if TIME_BUCKET_LABEL in dims:
             timestamp_ms = float(dims[TIME_BUCKET_LABEL])
