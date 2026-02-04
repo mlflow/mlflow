@@ -38,19 +38,15 @@ def _format_datasets_as_json(datasets) -> dict[str, Any]:
     }
 
 
-def _format_datasets_as_table(datasets) -> tuple[list[list[str]], list[str], str | None]:
-    """Format datasets as table rows with headers.
-
-    Returns:
-        A tuple of (rows, headers, next_page_token).
-    """
+def _format_datasets_as_table(datasets) -> tuple[list[list[str]], list[str]]:
+    """Format datasets as table rows with headers."""
     headers = ["Dataset ID", "Name", "Created", "Last Updated", "Created By"]
     rows = []
     for ds in datasets:
         created = conv_longdate_to_str(ds.created_time) if ds.created_time else ""
         updated = conv_longdate_to_str(ds.last_update_time) if ds.last_update_time else ""
         rows.append([ds.dataset_id, ds.name, created, updated, ds.created_by or ""])
-    return rows, headers, datasets.token
+    return rows, headers
 
 
 @click.group("datasets")
@@ -135,8 +131,8 @@ def list_datasets(
         result = _format_datasets_as_json(datasets)
         click.echo(json.dumps(result, indent=2))
     else:
-        rows, headers, next_page_token = _format_datasets_as_table(datasets)
+        rows, headers = _format_datasets_as_table(datasets)
         click.echo(_create_table(rows, headers=headers))
 
-        if next_page_token:
-            click.echo(f"\nNext page token: {next_page_token}")
+        if datasets.token:
+            click.echo(f"\nNext page token: {datasets.token}")

@@ -135,14 +135,14 @@ def test_list_datasets_missing_experiment_id(runner: CliRunner):
     result = runner.invoke(commands, ["list"])
 
     assert result.exit_code != 0
-    assert "experiment-id" in result.output.lower() or "experiment_id" in result.output.lower()
+    assert "Missing option '--experiment-id' / '-x'" in result.output
 
 
 def test_list_datasets_invalid_output_format(runner: CliRunner, experiment: str):
     result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "invalid"])
 
     assert result.exit_code != 0
-    assert "invalid" in result.output.lower() or "choice" in result.output.lower()
+    assert "'invalid' is not one of 'table', 'json'" in result.output
 
 
 def test_list_datasets_with_filter_string(runner: CliRunner, experiment: str, dataset_a, dataset_b):
