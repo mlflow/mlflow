@@ -100,7 +100,7 @@ public class TestClientProvider {
     ProcessBuilder pb = new ProcessBuilder();
     int freePort = getFreePort();
     String bindAddress = "127.0.0.1";
-    pb.command("mlflow", "server",
+    pb.command("uv", "run", "--no-dev", "mlflow", "server",
             "--host", bindAddress,
             "--port", "" + freePort,
             "--backend-store-uri", backendStoreUri,
