@@ -38,13 +38,8 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import (
-    _create_gateway_trace,
-    _make_traced_streaming_response,
-    _set_trace_outputs,
-    _start_gateway_span,
-)
-from mlflow.gateway.utils import translate_http_exception
+from mlflow.gateway.tracing_utils import traced_gateway_call
+from mlflow.gateway.utils import to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -423,15 +418,13 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
-            span, token = _start_gateway_span(endpoint_config, "chat", body)
-            return await _make_traced_streaming_response(
-                provider.chat_stream(payload), span, token, is_sse=True
+            stream = traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
+            return StreamingResponse(
+                (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                media_type="text/event-stream",
             )
         else:
-            with _create_gateway_trace(endpoint_config, "chat", body) as span:
-                result = await provider.chat(payload)
-                _set_trace_outputs(span, result)
-                return result
+            return await traced_gateway_call(provider.chat, endpoint_config)(payload)
 
     elif "input" in body:
         # Embeddings request
@@ -445,10 +438,7 @@ async def invocations(endpoint_name: str, request: Request):
             store, endpoint_name, endpoint_type
         )
 
-        with _create_gateway_trace(endpoint_config, "embeddings", body) as span:
-            result = await provider.embeddings(payload)
-            _set_trace_outputs(span, result)
-            return result
+        return await traced_gateway_call(provider.embeddings, endpoint_config)(payload)
 
     else:
         raise HTTPException(
@@ -495,15 +485,13 @@ async def chat_completions(request: Request):
     )
 
     if payload.stream:
-        span, token = _start_gateway_span(endpoint_config, "chat", body)
-        return await _make_traced_streaming_response(
-            provider.chat_stream(payload), span, token, is_sse=True
+        stream = traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
+        return StreamingResponse(
+            (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            media_type="text/event-stream",
         )
     else:
-        with _create_gateway_trace(endpoint_config, "chat", body) as span:
-            result = await provider.chat(payload)
-            _set_trace_outputs(span, result)
-            return result
+        return await traced_gateway_call(provider.chat, endpoint_config)(payload)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -540,15 +528,12 @@ async def openai_passthrough_chat(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    if body.get("stream"):
-        span, token = _start_gateway_span(endpoint_config, "passthrough/openai/chat", body)
-        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
-        return await _make_traced_streaming_response(response, span, token, is_sse=False)
-    else:
-        with _create_gateway_trace(endpoint_config, "passthrough/openai/chat", body) as span:
-            response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
-            _set_trace_outputs(span, response)
-            return response
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    result = await traced_passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
+
+    if body.get("stream", False):
+        return StreamingResponse(result, media_type="text/event-stream")
+    return result
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -581,10 +566,8 @@ async def openai_passthrough_embeddings(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
 
-    with _create_gateway_trace(endpoint_config, "passthrough/openai/embeddings", body) as span:
-        result = await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
-        _set_trace_outputs(span, result)
-        return result
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
@@ -621,15 +604,12 @@ async def openai_passthrough_responses(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    if body.get("stream"):
-        span, token = _start_gateway_span(endpoint_config, "passthrough/openai/responses", body)
-        response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
-        return await _make_traced_streaming_response(response, span, token, is_sse=False)
-    else:
-        with _create_gateway_trace(endpoint_config, "passthrough/openai/responses", body) as span:
-            response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
-            _set_trace_outputs(span, response)
-            return response
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    result = await traced_passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
+
+    if body.get("stream", False):
+        return StreamingResponse(result, media_type="text/event-stream")
+    return result
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -666,17 +646,12 @@ async def anthropic_passthrough_messages(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    if body.get("stream"):
-        span, token = _start_gateway_span(endpoint_config, "passthrough/anthropic/messages", body)
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
-        return await _make_traced_streaming_response(response, span, token, is_sse=False)
-    else:
-        with _create_gateway_trace(endpoint_config, "passthrough/anthropic/messages", body) as span:
-            response = await provider.passthrough(
-                PassthroughAction.ANTHROPIC_MESSAGES, body, headers
-            )
-            _set_trace_outputs(span, response)
-            return response
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    result = await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+
+    if body.get("stream", False):
+        return StreamingResponse(result, media_type="text/event-stream")
+    return result
 
 
 @gateway_router.post(
@@ -713,12 +688,8 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    with _create_gateway_trace(endpoint_config, "passthrough/gemini/generateContent", body) as span:
-        result = await provider.passthrough(
-            PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers
-        )
-        _set_trace_outputs(span, result)
-        return result
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
 @gateway_router.post(
@@ -755,10 +726,8 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    span, token = _start_gateway_span(
-        endpoint_config, "passthrough/gemini/streamGenerateContent", body
-    )
-    response = await provider.passthrough(
+    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    result = await traced_passthrough(
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
     )
-    return await _make_traced_streaming_response(response, span, token, is_sse=False)
+    return StreamingResponse(result, media_type="text/event-stream")
