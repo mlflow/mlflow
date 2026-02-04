@@ -178,8 +178,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --no-dev
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         working-directory: mlflow/java
         run: |
