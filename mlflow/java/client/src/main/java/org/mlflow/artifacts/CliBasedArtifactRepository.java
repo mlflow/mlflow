@@ -42,10 +42,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
   // Name of the Python CLI utility which can be exec'd directly, with MLflow on its path
   private final String PYTHON_EXECUTABLE =
-    Optional.ofNullable(System.getenv("MLFLOW_PYTHON_EXECUTABLE")).orElse("uv");
-
-  // Python CLI command args for running mlflow via uv
-  private final String[] PYTHON_COMMAND_ARGS = new String[]{"run", "--no-dev", "python", "-m"};
+    Optional.ofNullable(System.getenv("MLFLOW_PYTHON_EXECUTABLE")).orElse("python");
 
   // Python CLI command
   private final String PYTHON_COMMAND = "mlflow.store.artifact.cli";
@@ -199,10 +196,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       logger.info("Found local mlflow executable");
       mlflowSuccessfullyLoaded.set(true);
     } catch (MlflowClientException e) {
-      String errorMessage = String.format("Failed to exec '%s %s -m %s', needed to" +
+      String errorMessage = String.format("Failed to exec '%s -m %s', needed to" +
           " access artifacts within the non-Java-native artifact store at '%s'. Please make" +
           " sure mlflow is available on your local system path (e.g., from 'pip install mlflow')",
-        PYTHON_EXECUTABLE, String.join(" ", PYTHON_COMMAND_ARGS), PYTHON_COMMAND, artifactBaseDir);
+        PYTHON_EXECUTABLE, PYTHON_COMMAND, artifactBaseDir);
       throw new MlflowClientException(errorMessage, e);
     }
   }
@@ -222,11 +219,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     Process process = null;
     try {
       MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
-      List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE);
-      for (String arg : PYTHON_COMMAND_ARGS) {
-        fullCommand.add(arg);
-      }
-      fullCommand.add(PYTHON_COMMAND);
+      List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", PYTHON_COMMAND);
       fullCommand.addAll(mlflowCommand);
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
       if (hostCreds instanceof DatabricksMlflowHostCreds) {
