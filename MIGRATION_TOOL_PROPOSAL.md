@@ -53,9 +53,9 @@ Source Server → [Export to files] → [Recreate entities] → Target Server
 
 - Migrate all FileStore data types (experiments, runs, params, metrics, tags, etc.)
 - Preserve original run UUIDs and timestamps
-- Preserve experiment IDs where possible (SQLite); reassign sequentially for databases with integer limits (PostgreSQL/MySQL/MSSQL) and output ID mapping
+- Preserve original experiment IDs
 - Migrate deleted items (preserve complete history)
-- Support all MLflow database backends (SQLite, PostgreSQL, MySQL, MSSQL)
+- Support SQLite initially (other backends like PostgreSQL, MySQL, MSSQL can be added later if requested)
 - Provide verification that migrated data matches source data
 
 ### Non-Functional
@@ -89,13 +89,18 @@ If users move the `mlruns` directory after migration, artifact URIs will break (
 
 ## Constraint Analysis
 
-### High Risk
+Since SQLite is the only supported target in the initial version, most constraint risks are mitigated by SQLite's flexible type system.
 
-- **Integer overflow (PostgreSQL/MySQL/MSSQL)**: FileStore generates 18-digit experiment IDs via `_generate_unique_integer_id()`, but the database schema uses `Integer` (32-bit, max ~2.1 billion). SQLite handles large integers due to dynamic typing, but other databases enforce strict limits. Mitigation: reassign experiment IDs sequentially (1, 2, 3, ...) during migration and output an ID mapping file. This is acceptable because users typically reference experiments by name, and run UUIDs (the more critical identifier) are preserved.
+### Rationale for SQLite-Only Initial Support
+
+Supporting only SQLite initially allows us to **preserve original experiment IDs**. FileStore generates 18-digit experiment IDs via `_generate_unique_integer_id()`, which exceed the 32-bit integer limit (~2.1 billion) enforced by PostgreSQL, MySQL, and MSSQL. SQLite's dynamic typing handles large integers natively, so original IDs are preserved without modification.
+
+**Verified:** The prototype successfully migrated an 18-digit experiment ID (`726979332293725066`) to SQLite and confirmed the ID was preserved exactly.
 
 ### Low Risk
 
-- **Auto-increment**: `experiment_id` is auto-increment. SQLite/PostgreSQL handle explicit inserts gracefully; MySQL needs `NO_AUTO_VALUE_ON_ZERO`, MSSQL needs `IDENTITY_INSERT ON`.
+- **Integer overflow**: FileStore generates 18-digit experiment IDs, but SQLite handles large integers due to dynamic typing (no strict 32-bit limit). Original experiment IDs are preserved.
+- **Auto-increment**: `experiment_id` is auto-increment. SQLite handles explicit inserts gracefully.
 - **Check (enums)**: Invalid `lifecycle_stage`, `status`, `source_type` values. FileStore validates enum values consistently during write.
 - **String length**: Values exceeding column limits (e.g., 256 for experiment name). FileStore validates and truncates on write.
 - **NOT NULL**: Missing required values (experiment name, run_uuid, etc.). FileStore requires these fields in its structure.
@@ -175,7 +180,7 @@ Create a new migration tool built into MLflow core.
 #### How it works
 
 ```
-FileStore (./mlruns) → [mlflow db migrate] → Database (SQLite/PostgreSQL/MySQL/MSSQL)
+FileStore (./mlruns) → [mlflow migrate-filestore] → SQLite database
 ```
 
 #### Pros
@@ -205,8 +210,6 @@ FileStore (./mlruns) → [mlflow db migrate] → Database (SQLite/PostgreSQL/MyS
 # 1. Upgrade MLflow (tool is only available in 3.<TBD>)
 pip install --upgrade mlflow
 
-# 2. Run migration
-mlflow db migrate --source ./mlruns --target <database_uri>
+# 2. Run migration (SQLite only in initial version)
+mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow.db
 ```
-
-> **Note:** The command `mlflow db migrate` may conflict with Alembic schema migrations. Consider a dedicated command (e.g., `mlflow file2db`) to clearly distinguish from schema migrations.
