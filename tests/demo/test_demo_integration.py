@@ -27,6 +27,8 @@ from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 @pytest.fixture
 def client(db_uri: str, tmp_path: Path):

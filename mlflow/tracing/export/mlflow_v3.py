@@ -207,7 +207,8 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
-            _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+            # DEBUG
+            _logger.warning(f"Failed to send trace to MLflow backend: {e}", exc_info=True)
 
         try:
             # Always run prompt linking asynchronously since (1) prompt linking API calls
