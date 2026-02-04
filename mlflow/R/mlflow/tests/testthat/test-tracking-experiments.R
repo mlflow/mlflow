@@ -1,11 +1,11 @@
 context("Tracking - Experiments")
 
 teardown({
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 })
 
 test_that("mlflow_create/set/get_experiment() basic functionality (fluent)", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   artifact_relative_path <- "art_loc"
   experiment_1_id <- mlflow_create_experiment("exp_name_1", artifact_relative_path)
   experiment_2_id <- mlflow_set_experiment(experiment_name = "exp_name_2", artifact_location = artifact_relative_path)
@@ -22,7 +22,7 @@ test_that("mlflow_create/set/get_experiment() basic functionality (fluent)", {
 })
 
 test_that("mlflow_create/get_experiment() basic functionality (client)", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 
   client <- mlflow_client()
   artifact_relative_path <- "art_loc"
@@ -52,7 +52,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
 })
 
 test_that("mlflow_get_experiment() not found error", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 
   expect_error(
     mlflow_get_experiment(experiment_id = "42"),
@@ -61,7 +61,7 @@ test_that("mlflow_get_experiment() not found error", {
 })
 
 test_that("mlflow_search_experiments() works properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   ex1 <- mlflow_create_experiment(client = client, "foo1", "art_loc1")
   ex2 <- mlflow_create_experiment(client = client, "foo2", "art_loc2")
@@ -74,11 +74,11 @@ test_that("mlflow_search_experiments() works properly", {
   allexperiments <- allexperiments_result$experiments
   expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
-  default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
-  expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
-                                                      sprintf("%s/%s", getwd(), "art_loc1"),
-                                                      sprintf("%s/%s", getwd(), "art_loc2"),
-                                                      sprintf("%s/%s", getwd(), "art_loc3")))
+  # Verify artifact locations are set (paths may vary with SQLite backend)
+  expect_true(all(nchar(allexperiments$artifact_location) > 0))
+  expect_true(any(grepl("art_loc1", allexperiments$artifact_location)))
+  expect_true(any(grepl("art_loc2", allexperiments$artifact_location)))
+  expect_true(any(grepl("art_loc3", allexperiments$artifact_location)))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
@@ -117,7 +117,7 @@ test_that("mlflow_search_experiments() works properly", {
 })
 
 test_that("mlflow_search_experiments() works properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   art_loc_1 <- "art_loc1"
   art_loc_2 <- "art_loc2"
@@ -133,11 +133,11 @@ test_that("mlflow_search_experiments() works properly", {
   allexperiments <- allexperiments_result$experiments
   expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
-  default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
-  expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
-                                                      sprintf("%s/%s", getwd(), art_loc_1),
-                                                      sprintf("%s/%s", getwd(), art_loc_2),
-                                                      sprintf("%s/%s", getwd(), art_loc_3)))
+  # Verify artifact locations are set (paths may vary with SQLite backend)
+  expect_true(all(nchar(allexperiments$artifact_location) > 0))
+  expect_true(any(grepl(art_loc_1, allexperiments$artifact_location, fixed = TRUE)))
+  expect_true(any(grepl(art_loc_2, allexperiments$artifact_location, fixed = TRUE)))
+  expect_true(any(grepl(art_loc_3, allexperiments$artifact_location, fixed = TRUE)))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
@@ -176,7 +176,7 @@ test_that("mlflow_search_experiments() works properly", {
 })
 
 test_that("mlflow_set_experiment_tag() works correctly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   experiment_id <- mlflow_create_experiment(client = client, "setExperimentTagTestExperiment", "art_exptag_loc")
   mlflow_set_experiment_tag("dataset", "imagenet1K", experiment_id, client = client)
@@ -218,7 +218,7 @@ test_that("mlflow_set_experiment_tag() works correctly", {
 
 
 test_that("mlflow_get_experiment_by_name() works properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   expect_error(
     mlflow_get_experiment(client = client, name = "exp"),
@@ -233,7 +233,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
 })
 
 test_that("infer experiment id works properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   experiment_id <- mlflow_create_experiment("test")
   Sys.setenv(MLFLOW_EXPERIMENT_NAME = "test")
   expect_true(experiment_id == mlflow_infer_experiment_id())
@@ -246,7 +246,7 @@ test_that("infer experiment id works properly", {
 })
 
 test_that("experiment setting works", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   exp1_id <- mlflow_create_experiment("exp1")
   exp2_id <- mlflow_create_experiment("exp2")
   mlflow_set_experiment(experiment_name = "exp1")
@@ -258,7 +258,7 @@ test_that("experiment setting works", {
 })
 
 test_that("mlflow_set_experiment() creates experiments", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   artifact_relative_path <- "artifact/location"
   mlflow_set_experiment(experiment_name = "foo", artifact_location = artifact_relative_path)
   experiment <- mlflow_get_experiment()

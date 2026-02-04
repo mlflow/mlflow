@@ -1,17 +1,19 @@
 context("Run")
 
 teardown({
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 })
 
 test_that("mlflow can run and save model", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 
   mlflow_source("examples/train_example.R")
 
-  expect_true(dir.exists("mlruns"))
-  expect_true(dir.exists("mlruns/0"))
-  expect_true(file.exists("mlruns/0/meta.yaml"))
+  # With SQLite backend, we no longer check for mlruns directory structure
+  # Instead, verify the run was logged
+  client <- mlflow_client()
+  runs <- mlflow_search_runs(experiment_ids = list("0"), client = client)
+  expect_true(nrow(runs) > 0)
 })
 
 
@@ -67,7 +69,7 @@ test_that("mlflow_run passes all numbers as non-scientific", {
 })
 
 test_that("active experiment is set when starting a run with experiment specified", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   id <- mlflow_create_experiment("one-more")
   mlflow_start_run(experiment_id = id)
   expect_equal(
@@ -78,7 +80,7 @@ test_that("active experiment is set when starting a run with experiment specifie
 })
 
 test_that("active experiment is set when starting a run without experiment specified", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   id <- mlflow_create_experiment("second-exp")
   mlflow_start_run()
   expect_equal(
