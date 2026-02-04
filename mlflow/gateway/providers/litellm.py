@@ -231,7 +231,7 @@ class LiteLLMProvider(BaseProvider):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         """
         Passthrough endpoint for raw API requests using LiteLLM.
 

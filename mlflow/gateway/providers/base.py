@@ -116,7 +116,7 @@ class BaseProvider(ABC):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         route = PASSTHROUGH_ROUTES.get(action)
         raise AIGatewayException(
             status_code=501,
@@ -130,51 +130,36 @@ class BaseProvider(ABC):
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
-        if not self._enable_tracing:
-            async for chunk in self._chat_stream(payload):
-                yield chunk
-            return
-
-        async for chunk in self._trace_stream_method("chat_stream", self._chat_stream, payload):
+        async for chunk in self._maybe_trace_stream_method(
+            "chat_stream", self._chat_stream, payload
+        ):
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        if not self._enable_tracing:
-            return await self._chat(payload)
-        return await self._trace_method("chat", self._chat, payload)
+        return await self._maybe_trace_method("chat", self._chat, payload)
 
     async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
-        if not self._enable_tracing:
-            async for chunk in self._completions_stream(payload):
-                yield chunk
-            return
-
-        async for chunk in self._trace_stream_method(
+        async for chunk in self._maybe_trace_stream_method(
             "completions_stream", self._completions_stream, payload
         ):
             yield chunk
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        if not self._enable_tracing:
-            return await self._completions(payload)
-        return await self._trace_method("completions", self._completions, payload)
+        return await self._maybe_trace_method("completions", self._completions, payload)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        if not self._enable_tracing:
-            return await self._embeddings(payload)
-        return await self._trace_method("embeddings", self._embeddings, payload)
+        return await self._maybe_trace_method("embeddings", self._embeddings, payload)
 
     async def passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
-        if not self._enable_tracing:
-            return await self._passthrough(action, payload, headers)
-        return await self._trace_method("passthrough", self._passthrough, action, payload, headers)
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # TODO: Token usage should be traced at the individual provider level
+        return await mlflow.trace(self._passthrough)(action, payload, headers)
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
@@ -231,8 +216,11 @@ class BaseProvider(ABC):
 
         return token_usage or None
 
-    async def _trace_method(self, method_name: str, method, *args, **kwargs):
-        """Execute a method with tracing span."""
+    async def _maybe_trace_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a method with optional tracing span based on _enable_tracing."""
+        if not self._enable_tracing:
+            return await method(*args, **kwargs)
+
         active_span = mlflow.get_current_active_span()
         if active_span is None:
             return await method(*args, **kwargs)
@@ -249,8 +237,13 @@ class BaseProvider(ABC):
             span.set_status("OK")
             return result
 
-    async def _trace_stream_method(self, method_name: str, method, *args, **kwargs):
-        """Execute a streaming method with tracing span."""
+    async def _maybe_trace_stream_method(self, method_name: str, method, *args, **kwargs):
+        """Execute a streaming method with optional tracing span based on _enable_tracing."""
+        if not self._enable_tracing:
+            async for chunk in method(*args, **kwargs):
+                yield chunk
+            return
+
         active_span = mlflow.get_current_active_span()
         if active_span is None:
             async for chunk in method(*args, **kwargs):
@@ -400,7 +393,7 @@ class TrafficRouteProvider(BaseProvider):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         prov = self._get_provider()
         return await prov.passthrough(action, payload, headers)
 
@@ -544,7 +537,7 @@ class FallbackProvider(BaseProvider):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
 
 

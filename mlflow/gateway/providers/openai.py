@@ -688,7 +688,7 @@ class OpenAIProvider(BaseProvider):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
             payload, self.config
         )

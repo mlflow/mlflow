@@ -561,7 +561,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         provider_path = self._validate_passthrough_action(action)
 
         # Add model name from config
