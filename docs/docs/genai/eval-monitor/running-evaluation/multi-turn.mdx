@@ -30,8 +30,8 @@ Multi-turn evaluation is experimental in MLflow 3.7.0. The API and behavior may 
     },
     {
       icon: Target,
-      title: "Define conversation scorers",
-      description: "Use built-in multi-turn scorers or create custom ones to evaluate full conversations."
+      title: "Define conversation judges",
+      description: "Use built-in multi-turn judges or create custom ones to evaluate full conversations."
     },
     {
       icon: Play,
@@ -49,14 +49,14 @@ Traditional single-turn evaluation assesses each agent response independently. H
 - **Conversation Completeness**: Were all user questions answered by the end of the conversation?
 - **Dialogue Coherence**: Does the conversation flow naturally?
 
-Multi-turn evaluation addresses these needs by grouping traces into conversation sessions and applying scorers that analyze the entire conversation history.
+Multi-turn evaluation addresses these needs by grouping traces into conversation sessions and applying judges that analyze the entire conversation history.
 
 ## Prerequisites
 
 First, install the required packages by running the following command:
 
 ```bash
-pip install --upgrade mlflow>=3.7
+pip install --upgrade 'mlflow[genai]>=3.7'
 ```
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
@@ -100,24 +100,24 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-**How it works:** MLflow automatically groups traces by their `mlflow.trace.session` metadata and sorts them chronologically by timestamp within each session. Multi-turn scorers run once per session and analyze the complete conversation history. Multi-turn assessments are logged to the first trace (chronologically) in each session. You can use the Sessions tab to view session-level metrics for the entire conversation as well as trace-level metrics for individual turns.
+**How it works:** MLflow automatically groups traces by their `mlflow.trace.session` metadata and sorts them chronologically by timestamp within each session. Multi-turn judges run once per session and analyze the complete conversation history. Multi-turn assessments are logged to the first trace (chronologically) in each session. You can use the Sessions tab to view session-level metrics for the entire conversation as well as trace-level metrics for individual turns.
 
-## Multi-Turn Scorers
+## Multi-Turn Judges
 
-### Built-in Scorers
+### Built-in Judges
 
-MLflow provides built-in scorers for evaluating conversations:
+MLflow provides built-in judges for evaluating conversations:
 
 - **<APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>**: Evaluates whether the agent addressed all user questions throughout the conversation (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>**: Evaluates whether the assistant's responses throughout the conversation comply with provided guidelines (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>**: Evaluates whether the assistant correctly retains information from earlier user inputs without contradiction or distortion (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>**: Detects and tracks user frustration patterns (returns "none", "resolved", or "unresolved")
 
-See the [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers) page for detailed usage examples and API documentation.
+See the [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn) page for detailed usage examples and API documentation.
 
-### Custom Scorers
+### Custom Judges
 
-You can create custom multi-turn scorers using <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> with the `{{ conversation }}` template variable:
+You can create custom multi-turn judges using <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> with the `{{ conversation }}` template variable:
 
 ```python
 from mlflow.genai.judges import make_judge
@@ -148,9 +148,9 @@ The `{{ conversation }}` variable injects the complete conversation history in a
 The variable can only be used with `{{ expectations }}`, not with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}`.
 :::
 
-### Combining Single-Turn and Multi-Turn Scorers
+### Combining Single-Turn and Multi-Turn Judges
 
-You can use both single-turn and multi-turn scorers in the same evaluation:
+You can use both single-turn and multi-turn judges in the same evaluation:
 
 ```python
 from mlflow.genai.scorers import (
@@ -171,7 +171,7 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-Single-turn scorers run on every trace individually, while multi-turn scorers run once per session and analyze the complete conversation history.
+Single-turn judges run on every trace individually, while multi-turn judges run once per session and analyze the complete conversation history.
 
 ## Working with Specific Sessions
 
@@ -212,7 +212,7 @@ results = mlflow.genai.evaluate(
 
 ## Limitations
 
-- **No `predict_fn` support**: Multi-turn scorers currently work only with pre-collected traces. You cannot use them with `predict_fn` in `mlflow.genai.evaluate`.
+- **No `predict_fn` support**: Multi-turn judges currently work only with pre-collected traces. You cannot use them with `predict_fn` in `mlflow.genai.evaluate`.
 
 ## Next Steps
 
@@ -229,10 +229,10 @@ results = mlflow.genai.evaluate(
   <TileCard
     icon={Activity}
     iconSize={48}
-    title="Built-in Multi-Turn Scorers"
-    description="Explore predefined scorers for conversation completeness, user frustration, and other multi-turn metrics."
-    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers"
-    linkText="View scorers →"
+    title="Built-in Multi-Turn Judges"
+    description="Explore built-in judges for conversation completeness, user frustration, and other multi-turn metrics."
+    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn"
+    linkText="View judges →"
     containerHeight={64}
   />
   <TileCard
@@ -240,7 +240,7 @@ results = mlflow.genai.evaluate(
     iconSize={48}
     title="Create Custom Multi-Turn Judges"
     description="Build custom LLM judges using make_judge to evaluate conversation-specific criteria and patterns."
-    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    href="/genai/eval-monitor/scorers/llm-judge/custom-judges"
     linkText="Create custom judges →"
     containerHeight={64}
   />

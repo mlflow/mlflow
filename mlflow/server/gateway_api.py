@@ -57,6 +57,35 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
+async def _get_request_body(request: Request) -> dict:
+    """
+    Get request body, using cached version if available.
+
+    The auth middleware may have already parsed the request body for permission
+    validation. Since Starlette request body can only be read once, we cache
+    the parsed body in request.state.cached_body for reuse by route handlers.
+
+    Args:
+        request: The FastAPI Request object.
+
+    Returns:
+        Parsed JSON body as a dictionary.
+
+    Raises:
+        HTTPException: If the request body is not valid JSON.
+    """
+    # Check if body was already parsed by auth middleware
+    cached_body = getattr(request.state, "cached_body", None)
+    if isinstance(cached_body, dict):
+        return cached_body
+
+    # Otherwise parse it now
+    try:
+        return await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
     Decorator to record telemetry for gateway invocation endpoints.
@@ -361,10 +390,7 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "messages" field -> chat endpoint
     - If payload has "input" field -> embeddings endpoint
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     store = _get_store()
 
@@ -423,10 +449,7 @@ async def chat_completions(request: Request):
             "messages": [{"role": "user", "content": "Hello"}]
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     # Extract endpoint name from "model" parameter
     endpoint_name = _extract_endpoint_name_from_model(body)
@@ -471,10 +494,7 @@ async def openai_passthrough_chat(request: Request):
             "stream": true
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -508,10 +528,7 @@ async def openai_passthrough_embeddings(request: Request):
             "input": "The food was delicious and the waiter..."
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -547,10 +564,7 @@ async def openai_passthrough_responses(request: Request):
             "stream": true
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -588,10 +602,7 @@ async def anthropic_passthrough_messages(request: Request):
             "stream": true
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -631,10 +642,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
             ]
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     store = _get_store()
     _validate_store(store)
@@ -668,10 +676,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
             ]
         }
     """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+    body = await _get_request_body(request)
 
     store = _get_store()
     _validate_store(store)

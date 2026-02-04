@@ -2293,6 +2293,19 @@ class SqlGatewayEndpoint(Base):
     Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
     Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
     """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="SET NULL"), nullable=True
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    ID of the MLflow experiment where traces for this endpoint are logged.
+    Uses SET NULL on delete - if the experiment is deleted, this becomes NULL.
+    """
+    usage_tracking = Column(Boolean, nullable=False, default=False)
+    """
+    Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
+    When true, traces will be logged for endpoint invocations.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2331,6 +2344,8 @@ class SqlGatewayEndpoint(Base):
             last_updated_by=self.last_updated_by,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
+            usage_tracking=self.usage_tracking,
         )
 
 
@@ -2561,6 +2576,11 @@ class SqlGatewayEndpointBinding(Base):
     """
     Last updater user ID: `String` (limit 255 characters).
     """
+    display_name = Column(String(255), nullable=True)
+    """
+    Human-readable display name: `String` (limit 255 characters).
+    E.g., scorer name for display in the UI.
+    """
 
     endpoint = relationship("SqlGatewayEndpoint", backref=backref("bindings", cascade="all"))
     """
@@ -2589,6 +2609,7 @@ class SqlGatewayEndpointBinding(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            display_name=self.display_name,
         )
 
 

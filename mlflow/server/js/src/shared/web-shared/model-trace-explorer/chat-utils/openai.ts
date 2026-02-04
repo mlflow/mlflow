@@ -151,8 +151,18 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
     return message && [message];
   }
 
-  if (isArray(input) && input.every(isOpenAIResponsesInputMessage)) {
-    return compact(input.flatMap(normalizeOpenAIResponsesInputMessage));
+  if (
+    isArray(input) &&
+    // openai inputs can consititute of output items such as function calls and function call outputs
+    input.every((message: unknown) => isOpenAIResponsesInputMessage(message) || isOpenAIResponsesOutputItem(message))
+  ) {
+    return compact(
+      input.flatMap((message: unknown) =>
+        isOpenAIResponsesInputMessage(message)
+          ? normalizeOpenAIResponsesInputMessage(message as OpenAIResponsesInputMessage)
+          : normalizeOpenAIResponsesOutputItem(message as OpenAIResponsesOutputItem),
+      ),
+    );
   }
 
   return null;

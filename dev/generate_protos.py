@@ -44,6 +44,7 @@ def gen_stub_files(
     protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
     subprocess.check_call(
         [
             protoc_bin,
@@ -51,6 +52,26 @@ def gen_stub_files(
             *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
+            *[proto_dir / pf for pf in proto_files],
+        ]
+    )
+
+
+def gen_proto_docs(
+    proto_dir: Path,
+    proto_files: list[Path],
+    protoc_bin: Path,
+    protoc_include_path: Path,
+    out_dir: Path,
+) -> None:
+    plugin_path = Path("dev/proto-plugin.sh").resolve()
+    subprocess.check_call(
+        [
+            protoc_bin,
+            f"-I={protoc_include_path}",
+            f"-I={proto_dir}",
+            f"--plugin=protoc-gen-doc={plugin_path}",
+            f"--doc_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
         ]
     )
@@ -84,6 +105,8 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "webhooks.proto",
+    "jobs.proto",
+    "prompt_optimization.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -144,6 +167,14 @@ python_gencode_replacements = [
     (
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
+    ),
+    (
+        "import jobs_pb2 as jobs__pb2",
+        "from . import jobs_pb2 as jobs__pb2",
+    ),
+    (
+        "import prompt_optimization_pb2 as prompt__optimization__pb2",
+        "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
     ),
 ]
 
@@ -270,6 +301,14 @@ def main() -> None:
         protoc5260,
         protoc5260_includes,
         Path("mlflow/protos/"),
+    )
+
+    gen_proto_docs(
+        MLFLOW_PROTOS_DIR,
+        basic_proto_files,
+        protoc5260,
+        protoc5260_include,
+        Path("mlflow/protos"),
     )
 
 

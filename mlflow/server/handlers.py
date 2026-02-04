@@ -30,8 +30,10 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayEndpointTag,
     GatewayResourceType,
+    InputTag,
     Metric,
     Param,
+    RunStatus,
     RunTag,
     ViewType,
 )
@@ -71,6 +73,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.jobs_pb2 import JobStatus
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
     CompleteMultipartUpload,
@@ -107,11 +110,15 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
+from mlflow.protos.prompt_optimization_pb2 import (
+    PromptOptimizationJob as PromptOptimizationJobProto,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
+    CancelPromptOptimizationJob,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -120,9 +127,11 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePromptOptimizationJob,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -133,6 +142,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -155,6 +165,7 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
+    GetPromptOptimizationJob,
     GetRun,
     GetScorer,
     GetTrace,
@@ -187,6 +198,7 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
+    SearchPromptOptimizationJobs,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
@@ -242,6 +254,7 @@ from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -256,6 +269,7 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
     _validate_batch_log_api_req,
@@ -4241,6 +4255,14 @@ def _create_gateway_endpoint():
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
     ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+    )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -4249,6 +4271,8 @@ def _create_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4307,6 +4331,14 @@ def _update_gateway_endpoint():
             for config in request_message.model_configs
         ]
 
+    # Determine experiment_id and usage_tracking
+    experiment_id = (
+        request_message.experiment_id if request_message.HasField("experiment_id") else None
+    )
+    usage_tracking = (
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else None
+    )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
@@ -4316,6 +4348,8 @@ def _update_gateway_endpoint():
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
+        experiment_id=experiment_id,
+        usage_tracking=usage_tracking,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4614,6 +4648,21 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+def _get_server_info():
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    store = _get_tracking_store()
+
+    if isinstance(store, FileStore):
+        store_type = "FileStore"
+    elif isinstance(store, SqlAlchemyStore):
+        store_type = "SqlStore"
+    else:
+        store_type = None
+    return jsonify({"store_type": store_type})
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_supported_providers():
@@ -4795,7 +4844,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
         + get_gateway_endpoints()
+        + get_demo_endpoints()
     )
 
 
@@ -4828,6 +4879,98 @@ def get_gateway_endpoints():
             ["POST"],
         ),
     ]
+
+
+# Demo APIs
+
+
+def get_demo_endpoints():
+    """Returns endpoint tuples for demo data generation and deletion APIs."""
+    return [
+        (
+            _get_ajax_path("/mlflow/demo/generate", version=3),
+            _generate_demo,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/demo/delete", version=3),
+            _delete_demo,
+            ["POST"],
+        ),
+    ]
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _generate_demo():
+    """Generate demo data for registered demo generators.
+
+    Accepts an optional JSON body with a ``features`` list to generate only specific
+    features (e.g. ``{"features": ["traces", "prompts"]}``). When omitted, all features
+    are generated.
+    """
+    from mlflow.demo import generate_all_demos
+    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
+    from mlflow.demo.registry import demo_registry
+
+    request_json = request.get_json(silent=True) or {}
+    features = request_json.get("features")
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    generator_names = demo_registry.list_generators()
+    if features is not None:
+        generator_names = [n for n in generator_names if n in features]
+
+    all_exist = False
+    if experiment and experiment.lifecycle_stage == "active":
+        all_exist = all(demo_registry.get(name)().is_generated() for name in generator_names)
+
+    if experiment and all_exist:
+        return jsonify(
+            {
+                "status": "exists",
+                "experiment_id": experiment.experiment_id,
+                "features_generated": [],
+                "navigation_url": f"#/experiments/{experiment.experiment_id}/traces",
+            }
+        )
+
+    results = generate_all_demos(features=features)
+
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    experiment_id = experiment.experiment_id if experiment else None
+
+    return jsonify(
+        {
+            "status": "created",
+            "experiment_id": experiment_id,
+            "features_generated": [r.feature for r in results],
+            "navigation_url": f"#/experiments/{experiment_id}/traces" if experiment_id else None,
+        }
+    )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_demo():
+    """Delete demo data for all registered demo generators."""
+    from mlflow.demo.registry import demo_registry
+
+    deleted_features = []
+    for name in demo_registry.list_generators():
+        generator = demo_registry.get(name)()
+        if generator._data_exists():
+            generator.delete_demo()
+            deleted_features.append(name)
+
+    return jsonify(
+        {
+            "status": "deleted",
+            "features_deleted": deleted_features,
+        }
+    )
 
 
 def get_internal_online_scoring_endpoints():
@@ -5076,6 +5219,26 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset_records_handler(dataset_id):
+    request_message = _get_request_message(
+        DeleteDatasetRecords(),
+        schema={
+            "dataset_record_ids": [_assert_array],
+        },
+    )
+
+    deleted_count = _get_tracking_store().delete_dataset_records(
+        dataset_id=dataset_id,
+        dataset_record_ids=list(request_message.dataset_record_ids),
+    )
+
+    response_message = DeleteDatasetRecords.Response()
+    response_message.deleted_count = deleted_count
+    return _wrap_response(response_message)
+
+
 # Cache for telemetry config with 3 hour TTL
 _telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
 
@@ -5163,6 +5326,333 @@ def post_ui_telemetry_handler():
         return jsonify({"status": "disabled"})
 
 
+def _parse_prompt_uri(prompt_uri: str) -> tuple[str, str]:
+    """
+    Parse a prompt URI to extract the prompt name and version.
+
+    Args:
+        prompt_uri: Prompt URI in the format "prompts:/prompt_name/version"
+
+    Returns:
+        A tuple of (prompt_name, version). Returns empty strings if parsing fails.
+    """
+    try:
+        # Format: "prompts:/prompt_name/version"
+        if prompt_uri.startswith("prompts:/"):
+            parts = prompt_uri.replace("prompts:/", "").split("/")
+            if len(parts) >= 2:
+                return parts[0], parts[1]
+    except Exception:
+        pass
+    return "", ""
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_prompt_optimization_job():
+    # These imports must be local to avoid circular import with mlflow.server.jobs
+    from mlflow.genai.datasets import get_dataset as get_genai_dataset
+    from mlflow.genai.optimize.job import OptimizerType, optimize_prompts_job
+    from mlflow.server.jobs import submit_job
+
+    request_message = _get_request_message(
+        CreatePromptOptimizationJob(),
+        schema={
+            "experiment_id": [_assert_string],
+            "source_prompt_uri": [_assert_string, _assert_required],
+            "config": [_assert_required],
+            "tags": [_assert_array],
+        },
+    )
+
+    prompt_uri = request_message.source_prompt_uri or ""
+    if not prompt_uri:
+        raise MlflowException(
+            "source_prompt_uri is required for optimization job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    config = request_message.config
+    dataset_id = config.dataset_id or ""
+
+    scorers = list(config.scorers) if config.scorers else []
+
+    optimizer_type = OptimizerType.from_proto(config.optimizer_type)
+
+    experiment_id = (request_message.experiment_id or "").strip()
+    if not experiment_id:
+        raise MlflowException(
+            "experiment_id is required for optimization job",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Parse optimizer_config_json to dict for the job function
+    # Validate before creating run to avoid creating unused runs on validation failure
+    optimizer_config = None
+    if config.optimizer_config_json:
+        try:
+            optimizer_config = json.loads(config.optimizer_config_json)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Invalid JSON in optimizer_config_json: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Create MLflow run upfront so run_id is immediately available
+    # The job will resume this run when it starts executing
+    tracking_store = _get_tracking_store()
+    start_time = int(time.time() * 1000)
+
+    # Parse prompt name and version from URI for more descriptive run name
+    prompt_name, prompt_version = _parse_prompt_uri(prompt_uri)
+    run_name = f"optimize_prompt_{optimizer_type}_{prompt_name}_{prompt_version}_{start_time}"
+
+    run = tracking_store.create_run(
+        experiment_id=experiment_id,
+        user_id=_get_user(),
+        start_time=start_time,
+        tags=[],
+        run_name=run_name,
+    )
+    run_id = run.info.run_id
+
+    # Log optimization config as run parameters
+    params_to_log = [
+        Param("source_prompt_uri", prompt_uri),
+        Param("optimizer_type", optimizer_type),
+        Param("dataset_id", dataset_id),
+        Param("scorer_names", json.dumps(scorers)),
+    ]
+    if config.optimizer_config_json:
+        params_to_log.append(Param("optimizer_config_json", config.optimizer_config_json))
+    tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
+
+    # Link the evaluation dataset to the run for lineage tracking (if dataset_id is provided)
+    if dataset_id:
+        dataset = get_genai_dataset(dataset_id=dataset_id)
+        dataset_input = DatasetInput(
+            dataset=dataset._to_mlflow_entity(),
+            tags=[InputTag(key="mlflow.data.context", value="optimization")],
+        )
+        tracking_store.log_inputs(run_id=run_id, datasets=[dataset_input])
+
+    params = {
+        "run_id": run_id,
+        "experiment_id": experiment_id,
+        "prompt_uri": prompt_uri,
+        "dataset_id": dataset_id,
+        "optimizer_type": optimizer_type,
+        "optimizer_config": optimizer_config,
+        "scorer_names": scorers,
+    }
+
+    job_entity = submit_job(optimize_prompts_job, params)
+
+    response_message = CreatePromptOptimizationJob.Response()
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.run_id = run_id
+    optimization_job.state.status = JobStatus.JOB_STATUS_PENDING
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+    optimization_job.experiment_id = experiment_id
+    optimization_job.config.CopyFrom(config)
+    optimization_job.source_prompt_uri = prompt_uri
+
+    for tag in request_message.tags:
+        job_tag = optimization_job.tags.add()
+        job_tag.key = tag.key
+        job_tag.value = tag.value
+
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.genai.optimize.job import OptimizerType
+
+    optimization_job = PromptOptimizationJobProto()
+    optimization_job.job_id = job_entity.job_id
+    optimization_job.state.status = job_entity.status.to_proto()
+    optimization_job.creation_timestamp_ms = job_entity.creation_time
+
+    params = json.loads(job_entity.params)
+    if "experiment_id" in params:
+        optimization_job.experiment_id = params["experiment_id"]
+    if "prompt_uri" in params:
+        optimization_job.source_prompt_uri = params["prompt_uri"]
+
+    if run_id := params.get("run_id"):
+        optimization_job.run_id = run_id
+
+    # Populate config from job params
+    config = optimization_job.config
+    if "optimizer_type" in params:
+        try:
+            optimizer_type = OptimizerType(params["optimizer_type"])
+            config.optimizer_type = optimizer_type.to_proto()
+        except (ValueError, KeyError):
+            pass
+    if params.get("dataset_id"):
+        config.dataset_id = params["dataset_id"]
+    if "scorer_names" in params:
+        try:
+            scorer_names = params["scorer_names"]
+            if isinstance(scorer_names, str):
+                scorer_names = json.loads(scorer_names)
+            if isinstance(scorer_names, list):
+                config.scorers.extend(scorer_names)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if params.get("optimizer_config"):
+        optimizer_config = params["optimizer_config"]
+        if isinstance(optimizer_config, dict):
+            config.optimizer_config_json = json.dumps(optimizer_config)
+        elif isinstance(optimizer_config, str):
+            config.optimizer_config_json = optimizer_config
+
+    # Get optimized_prompt_uri from job result (only available when job succeeds)
+    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+        result = job_entity.parsed_result
+        if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+            optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
+
+    # If job failed, add error message to state
+    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
+        optimization_job.state.error_message = str(job_entity.parsed_result)
+
+    return optimization_job
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_prompt_optimization_job(job_id):
+    from mlflow.server.jobs import get_job
+
+    job_entity = get_job(job_id)
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+
+    # Fetch MLflow run to get evaluation scores from metrics
+    try:
+        mlflow_run = _get_tracking_store().get_run(optimization_job.run_id)
+        run_metrics = mlflow_run.data.metrics
+
+        # Populate evaluation scores from run metrics
+        # Aggregated scores are logged as "initial_eval_score" and "final_eval_score"
+        # Per-scorer scores are logged as "initial_eval_score.<scorer_name>" and
+        # "final_eval_score.<scorer_name>"
+        total_metric_calls = None
+        for metric_name, metric_value in run_metrics.items():
+            match metric_name.split(".", 1):
+                case ["initial_eval_score"]:
+                    optimization_job.initial_eval_scores["aggregate"] = metric_value
+                case ["final_eval_score"]:
+                    optimization_job.final_eval_scores["aggregate"] = metric_value
+                case ["initial_eval_score", scorer_name]:
+                    optimization_job.initial_eval_scores[scorer_name] = metric_value
+                case ["final_eval_score", scorer_name]:
+                    optimization_job.final_eval_scores[scorer_name] = metric_value
+                case ["total_metric_calls"]:
+                    total_metric_calls = metric_value
+
+        if total_metric_calls is not None:
+            params = json.loads(job_entity.params)
+            optimizer_config = params.get("optimizer_config", {})
+            if max_metric_calls := optimizer_config.get("max_metric_calls"):
+                progress = round(min(total_metric_calls / max_metric_calls, 1.0), 2)
+                optimization_job.state.metadata["progress"] = str(progress)
+
+    except Exception as e:
+        _logger.debug("Failed to fetch run details for optimization job %s: %s", job_id, e)
+
+    response_message = GetPromptOptimizationJob.Response()
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_prompt_optimization_jobs():
+    request_message = _get_request_message(
+        SearchPromptOptimizationJobs(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+
+    job_store = _get_job_store()
+
+    # Search for optimize_prompts jobs in the specified experiment
+    jobs = job_store.list_jobs(
+        job_name="optimize_prompts",
+        params={"experiment_id": request_message.experiment_id},
+    )
+
+    response_message = SearchPromptOptimizationJobs.Response()
+
+    for job_entity in jobs:
+        optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+        response_message.jobs.append(optimization_job)
+
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _cancel_prompt_optimization_job(job_id):
+    # This import must be local to avoid circular import with mlflow.server.jobs
+    from mlflow.server.jobs import cancel_job
+
+    job_entity = cancel_job(job_id)
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+    # Override status to CANCELED since cancel_job may not update the entity status immediately
+    optimization_job.state.status = JobStatus.JOB_STATUS_CANCELED
+
+    # Terminate the underlying MLflow run if it exists
+    if optimization_job.run_id:
+        try:
+            _get_tracking_store().update_run_info(
+                run_id=optimization_job.run_id,
+                run_status=RunStatus.KILLED,
+                end_time=get_current_time_millis(),
+                run_name=None,
+            )
+        except Exception:
+            # If the run doesn't exist or is already terminated, log warning and continue
+            _logger.warning(
+                "Failed to terminate MLflow run '%s' when canceling job '%s'",
+                optimization_job.run_id,
+                job_id,
+            )
+
+    response_message = CancelPromptOptimizationJob.Response()
+    response_message.job.CopyFrom(optimization_job)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_prompt_optimization_job(job_id):
+    job_store = _get_job_store()
+    job_entity = job_store.get_job(job_id)
+    optimization_job = _build_prompt_optimization_job_from_entity(job_entity)
+    run_id = optimization_job.run_id
+
+    job_store.delete_jobs(job_ids=[job_id])
+
+    # Delete the associated MLflow run if it exists.
+    # Check if run exists before attempting deletion - user may have
+    # deleted it manually before the job deletion request.
+    if run_id:
+        try:
+            _get_tracking_store().get_run(run_id)
+            _get_tracking_store().delete_run(run_id)
+        except MlflowException:
+            pass
+
+    response_message = DeletePromptOptimizationJob.Response()
+    return _wrap_response(response_message)
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -5201,6 +5691,7 @@ HANDLERS = {
     UpsertDatasetRecords: _upsert_dataset_records_handler,
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
+    DeleteDatasetRecords: _delete_dataset_records_handler,
     AddDatasetToExperiments: _add_dataset_to_experiments_handler,
     RemoveDatasetFromExperiments: _remove_dataset_from_experiments_handler,
     # Model Registry APIs
@@ -5310,4 +5801,10 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    # Prompt Optimization APIs
+    CreatePromptOptimizationJob: _create_prompt_optimization_job,
+    GetPromptOptimizationJob: _get_prompt_optimization_job,
+    SearchPromptOptimizationJobs: _search_prompt_optimization_jobs,
+    CancelPromptOptimizationJob: _cancel_prompt_optimization_job,
+    DeletePromptOptimizationJob: _delete_prompt_optimization_job,
 }

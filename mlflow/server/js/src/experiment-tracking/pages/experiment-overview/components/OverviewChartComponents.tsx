@@ -1,7 +1,10 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import Routes from '../../../routes';
+import { ExperimentPageTabName } from '../../../constants';
 
 export const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
@@ -163,23 +166,102 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
   );
 };
 
+/**
+ * Generates a URL to the traces tab filtered by a specific time range.
+ * Use this to create navigation links from charts to the traces view.
+ *
+ * @param experimentId - The experiment ID
+ * @param timestampMs - Start timestamp in milliseconds
+ * @param timeIntervalSeconds - Duration of the time bucket in seconds
+ * @returns Full URL path with query parameters for the traces tab
+ */
+export function getTracesFilteredByTimeRangeUrl(
+  experimentId: string,
+  timestampMs: number,
+  timeIntervalSeconds: number,
+): string {
+  const startTime = new Date(timestampMs).toISOString();
+  const endTime = new Date(timestampMs + timeIntervalSeconds * 1000).toISOString();
+  const tracesPath = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces);
+  const queryParams = new URLSearchParams({
+    startTimeLabel: 'CUSTOM',
+    startTime,
+    endTime,
+  });
+  return `${tracesPath}?${queryParams.toString()}`;
+}
+
+/** Allowed component IDs for tooltip "View traces" links */
+type TooltipLinkComponentId =
+  | 'mlflow.overview.usage.traces.view_traces_link'
+  | 'mlflow.overview.usage.latency.view_traces_link'
+  | 'mlflow.overview.usage.errors.view_traces_link'
+  | 'mlflow.overview.usage.token_stats.view_traces_link'
+  | 'mlflow.overview.usage.token_usage.view_traces_link';
+
+/** Optional link configuration for ScrollableTooltip */
+interface TooltipLinkConfig {
+  /** Experiment ID for navigation */
+  experimentId: string;
+  /** Time interval in seconds for calculating end time of the bucket */
+  timeIntervalSeconds: number;
+  /** Component ID for telemetry tracking */
+  componentId: TooltipLinkComponentId;
+}
+
 interface ScrollableTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ payload?: { timestampMs?: number }; name: string; value: number; color: string }>;
   label?: string;
-  formatter?: (value: number, name: string) => [string | number, string];
+  /** Formatter function to display the value - returns [formattedValue, label] */
+  formatter: (value: number, name: string) => [string | number, string];
+  /** Optional link configuration. When provided, shows a "View traces for this period" link */
+  linkConfig?: TooltipLinkConfig;
 }
 
 /**
  * Custom scrollable tooltip component for Recharts.
- * Use with: <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ * Optionally shows a "View traces for this period" link when linkConfig is provided.
+ *
+ * @example
+ * // Basic usage without link
+ * <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ *
+ * @example
+ * // With "View traces" link
+ * <Tooltip
+ *   content={
+ *     <ScrollableTooltip
+ *       formatter={(value) => [`${value}`, 'Requests']}
+ *       linkConfig={{
+ *         experimentId,
+ *         timeIntervalSeconds,
+ *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
+ *       }}
+ *     />
+ *   }
+ * />
  */
-export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, payload, label, formatter }) => {
+export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
 
   if (!active || !payload?.length) {
     return null;
   }
+
+  const dataPoint = payload[0]?.payload;
+  const showLink = linkConfig && dataPoint?.timestampMs !== undefined;
+
+  const handleViewTraces = () => {
+    if (!linkConfig || !dataPoint?.timestampMs) return;
+    const url = getTracesFilteredByTimeRangeUrl(
+      linkConfig.experimentId,
+      dataPoint.timestampMs,
+      linkConfig.timeIntervalSeconds,
+    );
+    navigate(url);
+  };
 
   return (
     <div
@@ -208,9 +290,7 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
         }}
       >
         {payload.map((entry, index) => {
-          const [formattedValue, formattedName] = formatter
-            ? formatter(entry.value, entry.name)
-            : [entry.value, entry.name];
+          const [formattedValue, formattedName] = formatter(entry.value, entry.name);
           return (
             <div
               key={index}
@@ -237,9 +317,35 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
           );
         })}
       </div>
+      {/* Link to view traces for this time bucket */}
+      {showLink && (
+        <div
+          css={{
+            borderTop: `1px solid ${theme.colors.border}`,
+            marginTop: theme.spacing.xs,
+            paddingTop: theme.spacing.xs,
+          }}
+        >
+          <Typography.Link
+            componentId={linkConfig.componentId}
+            onClick={handleViewTraces}
+            css={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+            }}
+          >
+            <FormattedMessage
+              defaultMessage="View traces for this period"
+              description="Link text to navigate to traces tab filtered by the selected time period"
+            />
+          </Typography.Link>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 /**
  * Returns common XAxis props for time-series charts
@@ -265,33 +371,6 @@ export function useChartYAxisProps() {
     tickLine: false,
     width: 40,
   };
-}
-
-/**
- * Checks if a value at the given index is isolated (non-null with null neighbors on both sides).
- * Used for determining when to render dots for single data points in line charts.
- */
-export function isIsolatedPoint<T>(values: (T | null)[], index: number): boolean {
-  return (
-    values[index] !== null &&
-    (index === 0 || values[index - 1] === null) &&
-    (index === values.length - 1 || values[index + 1] === null)
-  );
-}
-
-/**
- * Returns a memoized dot renderer for line charts that only renders dots for isolated points.
- * Used when chart data has `isIsolated` field pre-computed to indicate points surrounded by nulls.
- *
- * @param color - The fill color for the dot
- * @param fieldName - The field name to check for isolation (defaults to 'isIsolated')
- */
-export function useIsolatedDotRenderer(color: string, fieldName = 'isIsolated') {
-  return useCallback(
-    ({ cx, cy, payload }: { cx?: number; cy?: number; payload?: Record<string, unknown> }) =>
-      payload?.[fieldName] ? <circle cx={cx} cy={cy} r={2} fill={color} /> : <></>,
-    [color, fieldName],
-  );
 }
 
 /**

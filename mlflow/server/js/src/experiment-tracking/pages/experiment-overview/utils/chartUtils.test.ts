@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint, useChartZoom } from './chartUtils';
+import { formatTimestampForTraceMetrics, getTimestampFromDataPoint, getLineDotStyle, useChartZoom } from './chartUtils';
 import type { MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 
 // Time intervals in seconds
@@ -105,6 +105,32 @@ describe('chartUtils', () => {
 
       const result = getTimestampFromDataPoint(dataPoint);
       expect(result).toBe(new Date('2025-12-22T15:30:00Z').getTime());
+    });
+  });
+
+  describe('getLineDotStyle', () => {
+    it('should return dot style object with the given color', () => {
+      const result = getLineDotStyle('#ff0000');
+
+      expect(result).toEqual({
+        r: 2,
+        fill: '#ff0000',
+        strokeWidth: 0,
+      });
+    });
+
+    it('should return consistent style for different colors', () => {
+      const blueResult = getLineDotStyle('blue');
+      const greenResult = getLineDotStyle('green');
+
+      // Same structure, different fill
+      expect(blueResult.r).toBe(2);
+      expect(blueResult.strokeWidth).toBe(0);
+      expect(blueResult.fill).toBe('blue');
+
+      expect(greenResult.r).toBe(2);
+      expect(greenResult.strokeWidth).toBe(0);
+      expect(greenResult.fill).toBe('green');
     });
   });
 

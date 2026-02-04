@@ -72,6 +72,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteGatewayEndpoint,
@@ -125,6 +126,12 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpsertDatasetRecords,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackConfig as ProtoFallbackConfig,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -1870,6 +1877,57 @@ def test_upsert_evaluation_dataset_records():
         )
 
 
+def test_delete_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-record1", "dr-record2"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 2
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 2
+
+        req = DeleteDatasetRecords(
+            dataset_record_ids=record_ids,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_delete_evaluation_dataset_records_empty():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-nonexistent"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 0
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 0
+
+
 def test_get_evaluation_dataset_experiment_ids():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)
@@ -3139,14 +3197,8 @@ def test_create_gateway_endpoint():
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=2,
             ),
+            usage_tracking=True,
         )
-        from mlflow.protos.service_pb2 import (
-            FallbackConfig as ProtoFallbackConfig,
-        )
-        from mlflow.protos.service_pb2 import (
-            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
-        )
-
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
@@ -3174,6 +3226,7 @@ def test_create_gateway_endpoint():
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
+                usage_tracking=True,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
@@ -3430,20 +3483,20 @@ def test_create_gateway_endpoint_binding():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
 
-    response_json = json.dumps({"binding": {"resource_type": "scorer_job"}})
+    response_json = json.dumps({"binding": {"resource_type": "scorer"}})
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         return_value=mock.MagicMock(status_code=200, text=response_json),
     ) as mock_http:
         store.create_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             CreateGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3459,13 +3512,13 @@ def test_delete_gateway_endpoint_binding():
     with mock_http_request() as mock_http:
         store.delete_endpoint_binding(
             endpoint_id="endpoint-123",
-            resource_type="scorer_job",
+            resource_type="scorer",
             resource_id="job-456",
         )
         body = message_to_json(
             DeleteGatewayEndpointBinding(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )
@@ -3481,13 +3534,13 @@ def test_list_gateway_endpoint_bindings():
     with mock_http_request() as mock_http:
         store.list_endpoint_bindings(
             endpoint_id="endpoint-123",
-            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_type=GatewayResourceType.SCORER,
             resource_id="job-456",
         )
         body = message_to_json(
             ListGatewayEndpointBindings(
                 endpoint_id="endpoint-123",
-                resource_type="scorer_job",
+                resource_type="scorer",
                 resource_id="job-456",
             )
         )

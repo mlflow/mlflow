@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
@@ -28,6 +28,12 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'link',
       href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
       className: 'sidebar-top-level-category',
     },
     {
@@ -67,6 +73,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/app-instrumentation/opentelemetry',
                   label: 'Tracing with OpenTelemetry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
                 },
               ],
             },
@@ -128,13 +139,13 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/lightweight-sdk',
-                  label: 'Use Lightweight SDK',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/prod-tracing',
-                  label: 'Production Monitoring',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Production Tracing SDK',
                 },
               ],
             },
@@ -200,8 +211,23 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/livekit',
+                  label: 'LiveKit Agents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
                 },
                 {
                   type: 'doc',
@@ -401,18 +427,26 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'category',
               label: 'Gateways',
               items: [
-                // TODO: Add MLflow AI Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/mlflow-gateway',
-                //   label: 'MLflow AI Gateway',
-                // },
-                // TODO: Add Databricks integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/databricks-gateway',
-                //   label: 'Databricks',
-                // },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mlflow-ai-gateway',
+                  label: 'MLflow AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks-ai-gateway',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/helicone',
+                  label: 'Helicone',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/kong',
+                  label: 'Kong AI Gateway',
+                },
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/litellm-proxy',
@@ -420,38 +454,29 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/vercel-ai-gateway',
-                  label: 'Vercel AI Gateway',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/openrouter',
                   label: 'OpenRouter',
                 },
-                // TODO: Add Kong Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/kong-gateway',
-                //   label: 'Kong Gateway',
-                // },
-                // TODO: Add Portkey integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/portkey',
-                //   label: 'Portkey',
-                // },
-                // TODO: Add Pydantic AI Gateway integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/pydantic-ai-gateway',
-                //   label: 'Pydantic AI Gateway',
-                // },
-                // TODO: Add Helicone integration
-                // {
-                //   type: 'doc',
-                //   id: 'tracing/integrations/listing/helicone',
-                //   label: 'Helicone',
-                // },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/portkey',
+                  label: 'Portkey',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                  label: 'Pydantic AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/truefoundry',
+                  label: 'TrueFoundry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
+                },
               ],
             },
             {
@@ -511,6 +536,11 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
               label: 'Evaluate Prompts',
             },
@@ -532,53 +562,98 @@ const sidebarsGenAI: SidebarsConfig = {
           ],
         },
         {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
+        },
+        {
           type: 'category',
-          label: 'Scorers',
+          label: 'Judges and Scorers',
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/scorers/index',
+          },
           items: [
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/index',
-              label: 'What is a Scorer?',
-            },
-            {
               type: 'category',
-              label: 'Supported Scorers',
+              label: 'Built-in Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/predefined',
+              },
               items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/predefined',
-                  label: 'Predefined Scorers',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines',
                 },
                 {
                   type: 'category',
-                  label: 'LLM-as-a-Judge',
+                  label: 'RAG',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/rag/index',
+                  },
                   items: [
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/index',
-                      label: 'Overview',
+                      id: 'eval-monitor/scorers/llm-judge/rag/relevance',
+                      label: 'Answer and Context Relevance',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/make-judge',
-                      label: 'Template-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/groundedness',
+                      label: 'Groundedness',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/guidelines',
-                      label: 'Guidelines-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/context-sufficiency',
+                      label: 'Context Sufficiency',
                     },
                   ],
                   collapsed: false,
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/agentic-overview',
-                  label: 'Agent-as-a-Judge',
+                  type: 'category',
+                  label: 'Response Quality',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/safety',
+                      label: 'Safety',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/correctness',
+                      label: 'Correctness',
+                    },
+                  ],
+                  collapsed: false,
                 },
                 {
                   type: 'category',
-                  label: 'Third-party Scorers',
+                  label: 'Tool Call',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/tool-call/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/correctness',
+                      label: 'ToolCallCorrectness',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/efficiency',
+                      label: 'ToolCallEfficiency',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Third-party Judges',
                   items: [
                     {
                       type: 'doc',
@@ -590,6 +665,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/ragas',
                       label: 'RAGAS',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -597,17 +677,74 @@ const sidebarsGenAI: SidebarsConfig = {
                     id: 'eval-monitor/scorers/third-party/index',
                   },
                 },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/custom',
-                  label: 'Code-based Scorers',
-                },
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
+              label: 'Custom Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/custom-judges/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
+                  label: 'Create a Custom Judge',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
+              label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/code-examples',
+                  label: 'Code-based Scorer Examples',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',
@@ -622,13 +759,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {

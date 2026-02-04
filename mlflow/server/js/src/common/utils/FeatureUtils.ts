@@ -152,3 +152,11 @@ export const shouldEnableExperimentPageSideTabs = () => {
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
+
+/**
+ * Determines if the top-level nested sidebar feature is enabled.
+ * This enables the workflow type selector and nested navigation items in the main sidebar.
+ */
+export const shouldEnableWorkflowBasedNavigation = () => {
+  return false;
+};
