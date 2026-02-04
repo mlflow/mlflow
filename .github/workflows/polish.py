@@ -53,20 +53,14 @@ def get_pr_diff(repo: str, pr_number: str, body: str, head_sha: str, head_ref: s
             f"Detected stacked PR, fetching incremental diff: {base_sha[:7]}..{head_sha[:7]}",
             file=sys.stderr,
         )
-        try:
-            diff = run_gh(
-                "api",
-                f"repos/{repo}/compare/{base_sha}...{head_sha}",
-                "-H",
-                "Accept: application/vnd.github.v3.diff",
-            )
-        except subprocess.CalledProcessError:
-            return ""
+        diff = run_gh(
+            "api",
+            f"repos/{repo}/compare/{base_sha}...{head_sha}",
+            "-H",
+            "Accept: application/vnd.github.v3.diff",
+        )
     else:
-        try:
-            diff = run_gh("pr", "diff", pr_number, "--repo", repo)
-        except subprocess.CalledProcessError:
-            return ""
+        diff = run_gh("pr", "diff", pr_number, "--repo", repo)
 
     max_length = 50000
     if len(diff) > max_length:
