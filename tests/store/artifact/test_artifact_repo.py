@@ -319,8 +319,6 @@ def test_create_download_destination_sanitizes_windows_paths():
 
 
 def test_create_download_destination_prevents_path_traversal():
-    """Test that path traversal attacks are prevented."""
-
     class TestRepo(ArtifactRepository):
         def log_artifact(self, local_file, artifact_path=None):
             pass

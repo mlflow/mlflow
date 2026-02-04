@@ -91,6 +91,9 @@ def _sanitize_path_component_for_windows(component: str) -> str:
     Returns:
         The sanitized path component with invalid characters replaced by underscores.
     """
+    # On non-Windows platforms, return component unchanged
+    if _WINDOWS_INVALID_CHARS_REGEX is None:
+        return component
     # Replace Windows-invalid characters with underscores using precompiled regex (single pass)
     return _WINDOWS_INVALID_CHARS_REGEX.sub("_", component)
 
@@ -269,9 +272,8 @@ class ArtifactRepository:
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
         # Sanitize path for Windows by replacing invalid characters (: < > " | ? *)
         src_artifact_path = _sanitize_path_for_windows(src_artifact_path)
-        dirpath = posixpath.dirname(src_artifact_path)
         # os.path.normpath() converts forward slashes (/) to OS-specific separators (\\ on Windows)
-        if dirpath:
+        if dirpath := posixpath.dirname(src_artifact_path):
             local_dir_path = os.path.join(dst_local_dir_path, os.path.normpath(dirpath))
         else:
             local_dir_path = dst_local_dir_path
