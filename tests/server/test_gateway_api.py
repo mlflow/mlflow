@@ -2109,3 +2109,87 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     )
     assert gateway_span is not None
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
+)
+async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, handler):
+    endpoint_name = "user-attrs-tracing-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    # Create endpoint with usage tracking enabled
+    secret = store.create_gateway_secret(
+        secret_name="user-attrs-tracing-key",
+        secret_value={"api_key": "sk-test-user-attrs"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="user-attrs-tracing-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    # Create mock request with user attributes set (as auth middleware would do)
+    mock_request = MagicMock()
+    mock_request.state.username = "test_user"
+    mock_request.state.user_id = 42
+    payload = {
+        "model": endpoint_name,
+        "messages": [{"role": "user", "content": "Hi"}],
+        "stream": False,
+    }
+
+    # Mock the OpenAI send_request to return our mock response
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request",
+        return_value={
+            "id": "test-id",
+            "object": "chat.completion",
+            "created": 1234567890,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Hello!"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        },
+    ):
+        response = await handler(endpoint_name, mock_request, payload)
+
+        assert response.id == "test-id"
+        assert response.choices[0].message.content == "Hello!"
+
+    # Verify trace was created
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # Find the gateway span and verify user attributes are present
+    gateway_span = next(
+        (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
+    )
+    assert gateway_span is not None
+    assert gateway_span.attributes.get(SpanAttributeKey.USERNAME) == "test_user"
+    assert gateway_span.attributes.get(SpanAttributeKey.USER_ID) == 42
+    assert gateway_span.attributes.get("endpoint_name") == endpoint_name
