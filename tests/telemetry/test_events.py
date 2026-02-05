@@ -88,6 +88,7 @@ def test_create_model_version_parse_params(arguments, expected_params):
 
 
 def test_event_name():
+    assert AgentServerImportEvent.name == "agent_server_import"
     assert AiCommandRunEvent.name == "ai_command_run"
     assert CreatePromptEvent.name == "create_prompt"
     assert CreateLoggedModelEvent.name == "create_logged_model"
