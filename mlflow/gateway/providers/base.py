@@ -383,6 +383,18 @@ class BaseProvider(ABC):
             )
         return provider_path
 
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[Any]
+    ) -> AsyncIterable[Any]:
+        """Stream passthrough response while accumulating token usage."""
+        accumulated_usage: dict[str, int] = {}
+        try:
+            async for chunk in stream:
+                accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+                yield chunk
+        finally:
+            self._set_span_token_usage(accumulated_usage)
+
     @staticmethod
     def check_for_model_field(payload):
         if "model" in payload:
