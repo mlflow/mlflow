@@ -111,7 +111,9 @@ The MLflow OIDC plugin allows MLflow client to connect to the MLflow server via 
 
 ![custom action setting](/images/self-hosting/sso-access-token.png)
 
-then set the credentials for basic auth to environment variables:
+Note: Each time you create a new access token, it invalidates the previous one. Only the latest generated token is valid.
+
+Then set the credentials for basic auth to environment variables:
 
 ```bash
 # set the `MLFLOW_TRACKING_USERNAME` to the username that you use to log in the Okta
