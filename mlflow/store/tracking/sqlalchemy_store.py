@@ -4231,12 +4231,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
-                # Prepare span metadata with model name and provider if available
-                span_metadata = {}
+                # Prepare dimension attributes with model name and provider if available
+                dimension_attributes = {}
                 if model_name:
-                    span_metadata[SpanAttributeKey.MODEL] = _try_parse_json_string(model_name)
+                    dimension_attributes[SpanAttributeKey.MODEL] = _try_parse_json_string(
+                        model_name
+                    )
                 if model_provider:
-                    span_metadata[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
+                    dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
                         model_provider
                     )
 
@@ -4251,7 +4253,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     start_time_unix_nano=span.start_time_ns,
                     end_time_unix_nano=span.end_time_ns,
                     content=content_json,
-                    span_metadata=span_metadata or None,
+                    dimension_attributes=dimension_attributes or None,
                 )
 
                 session.merge(sql_span)

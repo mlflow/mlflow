@@ -12561,14 +12561,14 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
             CostKey.TOTAL_COST: 0.03,
         }
 
-        # Check that span_metadata is stored on the span
+        # Check that dimension_attributes is stored on the span
         sql_span = (
             session.query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
-        assert sql_span.span_metadata[SpanAttributeKey.MODEL] == "gpt-4-turbo"
-        assert sql_span.span_metadata[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
 
 
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:

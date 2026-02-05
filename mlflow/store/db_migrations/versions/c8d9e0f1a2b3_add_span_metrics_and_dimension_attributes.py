@@ -1,4 +1,4 @@
-"""add span metrics table and span metadata column
+"""add span metrics table and dimension attributes column
 
 Create Date: 2026-01-27 12:00:00.000000
 
@@ -50,15 +50,15 @@ def upgrade():
             unique=False,
         )
 
-    # Add span_metadata column to spans table
+    # Add dimension_attributes column to spans table
     with op.batch_alter_table("spans", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("span_metadata", json_type, nullable=True))
+        batch_op.add_column(sa.Column("dimension_attributes", json_type, nullable=True))
 
 
 def downgrade():
-    # Remove span_metadata column from spans table
+    # Remove dimension_attributes column from spans table
     with op.batch_alter_table("spans", schema=None) as batch_op:
-        batch_op.drop_column("span_metadata")
+        batch_op.drop_column("dimension_attributes")
 
     # Drop span_metrics table
     op.drop_table("span_metrics")
