@@ -807,6 +807,14 @@ MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
     "MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", int, None
 )
 
+#: Specifies the maximum time in seconds to wait for async logging threads to complete during
+#: program shutdown. This timeout prevents indefinite hangs when threads are blocked on network
+#: I/O or other operations. Applies to both artifact logging and metrics/params/tags logging.
+#: (default: 30)
+MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT", float, 30.0
+)
+
 #: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
 #: to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
 #: to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
