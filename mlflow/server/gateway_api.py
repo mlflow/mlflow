@@ -709,19 +709,8 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    if body.get("stream", False):
-        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
-
-        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
-        async def yield_stream(body: dict[str, Any]):
-            async for chunk in stream:
-                yield chunk
-
-        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
-
     traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
-    return await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+    return await traced_passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
 @gateway_router.post(
