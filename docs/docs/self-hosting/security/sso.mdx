@@ -28,7 +28,9 @@ To use MLflow with the OIDC plugin, we need to (1) configure OIDC provider (2) d
 
 ### Configure the OIDC provider
 
-The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Azure AD](https://learn.microsoft.com/en-us/entra/identity-platform/v2-protocols-oidc), etc. Below is a configuration example using Okta:
+The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Google Identity Platform](https://cloud.google.com/security/products/identity-platform), etc. Below is a configuration example using Okta:
+
+#### Okta Auth0 configuration
 
 1. Register a [free Okta Auth0 account](https://developer.okta.com/signup/) and log in.
 
@@ -36,19 +38,14 @@ The OIDC plugin requires an Identity Provider (IDP) service that supports the OI
 
 ![App basic information](/images/self-hosting/sso-okta-app-info.png)
 
-3. Configure allowed callback URL for the Okta application, assuming the MLflow server is deployed at "http://127.0.0.1:8080", then the callback URL is "http://127.0.0.1:8080/callback"
+3. Configure allowed callback URL for the Okta application, assuming the MLflow server is deployed at "http://localhost:8080", then the callback URL is "http://localhost:8080/callback"
 
 ![callback setting](/images/self-hosting/sso-callback-setting.png)
 
-4. Create Okta users
 
-The Okta application is already accessible to your Okta account user. You need to create more users under this Okta account considering team use. Open the page from the Okta account side bar menu: User Management -> Users, and create users as follows:
+4. Configure and deploy a "post-login" trigger for assigning the user's group membership
 
-![Create Okta Users](/images/self-hosting/sso-okta-users.png)
-
-5. Configure and deploy a "post-login" trigger for assigning the user's group membership
-
-Your Okta account login user or the users created under the Okta account can be used as the users in the MLflow server with OIDC plugin. You need to assign a group to each user.
+The username of any Okta auth0 account can be used as the user to log in the MLflow server deployed with the OIDC plugin. You need to assign a group to each user.
 MLflow OIDC plugin supports 2 kinds of groups: (1) administrator group (default group name is "mlflow-admin"), (2) plain group (default group name is "mlflow"). For the user that is assigned to the administrator group, the user automatically gets all entity access permissions, and can grant permissions to any other users. For the user that is assigned to the plain group, the user does not have permissions to MLflow entities until the user in the administrator group grants permission for the user.
 
 Below is an example to assign the administrator group to a certain user, and assign the plain group to other users:
@@ -78,6 +75,45 @@ Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-
 
 ![install trigger](/images/self-hosting/sso-install-trigger.png)
 
+
+#### Google Identity Platform configuration
+
+1. Register a google cloud account, open [console page](https://console.cloud.google.com/)
+Select menu: API & Services -> Credentials -> Create Credentials -> OAuth Client ID -> Application type: Web Application, fill the client name, and add the callback URL (e.g. http://localhost:8080/callback) into Authorized redirect URIs.
+
+![Google oauth credentials creation](/images/self-hosting/google-create-oauth-credentials.png)
+
+2. Open [Google Identity Platform console](https://console.cloud.google.com/customer-identity), add a provider with type "OpenID Connect" as follows:
+
+![Google OIDC provider creation](/images/self-hosting/google-create-oidc-provider.png)
+
+
+3. Unlike Okta Auth0, Google Identity Platform does not support the post-login trigger, so that we can't configure the user group setting there. Instead, we need to write a simple plugin as follows. The example group configuration plugin assigns the administrator group to a certain user, and assign the plain group to other users.
+
+Create a python file named as "google_oidc_auth_plugin.py":
+```python
+import requests
+
+
+def get_user_groups(access_token):
+    resp = requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    userinfo = resp.json()
+
+    # userinfo contains: email, name, picture, sub, etc.
+    email = userinfo.get("email")
+
+    if email == "weichenxuworks@gmail.com":
+        return ["mlflow-admin"]
+    return ["mlflow"]
+```
+
+The plugin python file will be used when you deploy the mlflow server.
+
 ### Deploy MLflow server with the OIDC plugin
 
 Use the following commands to deploy the MLflow server with the OIDC plugin, note that we need to set a couple of environment variables correctly.
@@ -85,18 +121,18 @@ Use the following commands to deploy the MLflow server with the OIDC plugin, not
 ```bash
 pip install "mlflow-oidc-auth[full]"
 
-# The ${Domain} is the domain value that you can view on the Okta application's basic information page.
-export OIDC_DISCOVERY_URL="https://${Domain}/.well-known/openid-configuration"
+# If using Okta Auth0, the URL is "https://${Domain}/.well-known/openid-configuration",
+# the ${Domain} is the domain value that you can view on the Okta application's basic information page.
+# If using Google Identity Platform, the URL is "https://accounts.google.com/.well-known/openid-configuration"
+export OIDC_DISCOVERY_URL=...
 
 # You can view the OIDC_CLIENT_ID and OIDC_CLIENT_SECRET values on the Okta application's basic information page.
+# or in the Google OAuth credentials configuration page.
 export OIDC_CLIENT_ID=...
 export OIDC_CLIENT_SECRET=...
 
 # this is the callback URL that is configured for the Okta application.
-export OIDC_REDIRECT_URI="http://127.0.0.1:8080/callback"
-
-# this must match the key used in the Okta post-login trigger action "api.idToken.setCustomClaim"
-export OIDC_GROUPS_ATTRIBUTE="urn:mlflow:groups"
+export OIDC_REDIRECT_URI="http://localhost:8080/callback"
 
 # NOTE: OAuth 2.0 and OIDC define the scope parameter as a space-separated list of scope values
 export OIDC_SCOPE="openid profile email"
@@ -106,10 +142,20 @@ export OIDC_SCOPE="openid profile email"
 # and breaks sessions.
 export SECRET_KEY="your-stable-secret-at-least-32-chars-long"
 
+# NOTE: `OIDC_GROUPS_ATTRIBUTE` is only required for Okta Auth0 that configures the post-login trigger.
+# this must match the key used in the Okta post-login trigger action "api.idToken.setCustomClaim"
+export OIDC_GROUPS_ATTRIBUTE="urn:mlflow:groups"
+
+# NOTE: `OIDC_GROUP_DETECTION_PLUGIN` is only required for Google Identity Platform configuration.
+# assuming you put the plugin python file under current directory and the file name is
+# 'google_oidc_auth_plugin.py'. For plugin code, please refer to the section
+# "Google Identity Platform configuration".
+export OIDC_GROUP_DETECTION_PLUGIN=google_oidc_auth_plugin
+
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 ```
 
-Then you can open URL "http://127.0.0.1:8080/" and it will jump to the OIDC login page, use your Okta account to log in, after login, it will jump to the OIDC permission configuration page as follows:
+Then you can open URL "http://localhost:8080/" and it will jump to the OIDC login page, use your Okta account to log in, after login, it will jump to the OIDC permission configuration page as follows:
 
 ![custom action setting](/images/self-hosting/oidc-page.png)
 
@@ -117,7 +163,7 @@ If the current login user is assigned to the administrator group, then you can c
 
 ![custom action setting](/images/self-hosting/oidc-permission-settings.png)
 
-After login via OIDC, open "http://127.0.0.1:8080/" again and then it will jump to the MLflow UI main page.
+After login via OIDC, open "http://localhost:8080/" again and then it will jump to the MLflow UI main page.
 
 ### Configure MLflow client
 
@@ -143,7 +189,7 @@ then, in MLflow client side, you can run code as follows:
 import os
 import mlflow
 
-mlflow.set_tracking_uri("http://127.0.0.1:8080")
+mlflow.set_tracking_uri("http://localhost:8080")
 
 # Use MLflow
 with mlflow.start_run():
