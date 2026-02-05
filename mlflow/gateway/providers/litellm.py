@@ -317,21 +317,31 @@ class LiteLLMProvider(BaseProvider):
     def _extract_usage_from_data(
         self, data: dict[str, Any], accumulated_usage: dict[str, int]
     ) -> None:
-        # OpenAI format (in chunk.usage)
+        # OpenAI / Anthropic format (in chunk.usage)
         if usage := data.get("usage"):
-            # OpenAI style
-            if (prompt_tokens := usage.get("prompt_tokens")) is not None:
-                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-            if (completion_tokens := usage.get("completion_tokens")) is not None:
-                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
-            if (total_tokens := usage.get("total_tokens")) is not None:
-                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+            has_openai_keys = any(
+                key in usage for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+            )
+            has_anthropic_keys = any(
+                key in usage for key in ("input_tokens", "output_tokens")
+            )
 
-            # Anthropic style (in usage field for message_delta)
-            if (input_tokens := usage.get("input_tokens")) is not None:
-                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-            if (output_tokens := usage.get("output_tokens")) is not None:
-                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+            # OpenAI style
+            if has_openai_keys:
+                if (prompt_tokens := usage.get("prompt_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+                if (completion_tokens := usage.get("completion_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+                if (total_tokens := usage.get("total_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            # Anthropic style (in usage field for message_delta or chunk.usage);
+            # only apply when OpenAI-style keys are not present to avoid overwriting.
+            if has_anthropic_keys and not has_openai_keys:
+                if (input_tokens := usage.get("input_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                if (output_tokens := usage.get("output_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
 
         # Anthropic message_start format
         if data.get("type") == "message_start":
@@ -411,10 +421,12 @@ class LiteLLMProvider(BaseProvider):
     ) -> AsyncIterable[bytes]:
         """Stream passthrough response while accumulating token usage."""
         accumulated_usage: dict[str, int] = {}
-        async for chunk in stream:
-            accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
-            yield chunk
-        self._set_span_token_usage(accumulated_usage)
+        try:
+            async for chunk in stream:
+                accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+                yield chunk
+        finally:
+            self._set_span_token_usage(accumulated_usage)
 
     async def _passthrough_openai_responses(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Passthrough for OpenAI Response API using litellm.aresponses()."""

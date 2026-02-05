@@ -678,7 +678,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     ) -> AsyncIterable[bytes]:
         """Stream passthrough response while accumulating token usage."""
         accumulated_usage: dict[str, int] = {}
-        async for chunk in stream:
-            accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
-            yield chunk
-        self._set_span_token_usage(accumulated_usage)
+        try:
+            async for chunk in stream:
+                accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+                yield chunk
+        finally:
+            self._set_span_token_usage(accumulated_usage)
