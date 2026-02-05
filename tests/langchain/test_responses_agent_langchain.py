@@ -266,11 +266,6 @@ def test_output_to_responses_items_stream_langchain():
 
 
 def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_ids():
-    """
-    Tests that when an AI message has multiple tool calls, each function_call_item
-    gets a unique ID from the tool_call's own ID, not the shared message ID.
-    This prevents ID duplication when a single message contains multiple tool calls.
-    """
     messages = [
         AIMessage(
             content="I'll look up both the current and historical stock prices for Apple.",
