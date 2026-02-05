@@ -625,3 +625,140 @@ def test_response_to_dict_with_unknown_type_raises():
 
     with pytest.raises(TypeError, match="Unexpected response type"):
         provider._response_to_dict("string value")
+
+
+# Token extraction tests
+
+
+def test_litellm_extract_passthrough_token_usage_openai_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "total_tokens": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_anthropic_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_gemini_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "candidates": [{"content": {"parts": [{"text": "Hello"}]}}],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_no_usage():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {"id": "chatcmpl-123", "choices": []}
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage is None
+
+
+def test_litellm_extract_streaming_token_usage_openai_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n'
+    )
+    accumulated_usage = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_start():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"type":"message_start","message":{"usage":{"input_tokens":100}}}\n'
+    accumulated_usage = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {"input_tokens": 100}
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_delta():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"type":"message_delta","usage":{"output_tokens":50}}\n'
+    accumulated_usage = {"input_tokens": 100}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
+
+
+def test_litellm_extract_streaming_token_usage_gemini_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{}}],"usageMetadata":'
+        b'{"promptTokenCount":10,"candidatesTokenCount":20,"totalTokenCount":30}}\n'
+    )
+    accumulated_usage = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_empty_chunk():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b""
+    accumulated_usage = {"input_tokens": 10}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {"input_tokens": 10}
+
+
+def test_litellm_extract_streaming_token_usage_done_chunk():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: [DONE]\n"
+    accumulated_usage = {"input_tokens": 10, "output_tokens": 20}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {"input_tokens": 10, "output_tokens": 20}
+
+
+def test_litellm_extract_streaming_token_usage_invalid_json():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: {invalid json}\n"
+    accumulated_usage = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {}

@@ -21,6 +21,7 @@ from mlflow.gateway.schemas import (
     embeddings as embeddings_schema,
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCall
 
 GENERATION_CONFIG_KEY_MAPPING = {
@@ -789,6 +790,77 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Gemini passthrough response.
+
+        Gemini response format:
+        {
+            "usageMetadata": {
+                "promptTokenCount": int,
+                "candidatesTokenCount": int,
+                "totalTokenCount": int
+            }
+        }
+        """
+        usage_metadata = result.get("usageMetadata")
+        if not usage_metadata:
+            return None
+
+        token_usage = {}
+        if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+        if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
+        if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        return token_usage or None
+
+    def _extract_streaming_token_usage(
+        self, chunk: bytes, accumulated_usage: dict[str, int]
+    ) -> dict[str, int]:
+        """
+        Extract and accumulate token usage from Gemini streaming chunks.
+
+        Gemini streaming format uses SSE with usageMetadata in chunks (typically final chunk):
+        data: {"candidates": [...], "usageMetadata": {"promptTokenCount": X, ...}}
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return accumulated_usage
+
+            # Parse SSE format - look for data lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+
+                data_str = line[5:].strip()
+                if not data_str or data_str == "[DONE]":
+                    continue
+
+                data = json.loads(data_str)
+
+                # Extract usageMetadata if present
+                if usage_metadata := data.get("usageMetadata"):
+                    if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
+                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+                    if (
+                        candidates_tokens := usage_metadata.get("candidatesTokenCount")
+                    ) is not None:
+                        accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
+                    if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
+                        accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return accumulated_usage
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -803,12 +875,13 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,
@@ -816,3 +889,13 @@ class GeminiProvider(BaseProvider):
                 path=provider_path,
                 payload=payload,
             )
+
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[bytes]
+    ) -> AsyncIterable[bytes]:
+        """Stream passthrough response while accumulating token usage."""
+        accumulated_usage: dict[str, int] = {}
+        async for chunk in stream:
+            accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+            yield chunk
+        self._set_span_token_usage(accumulated_usage)

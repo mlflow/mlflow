@@ -16,6 +16,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
@@ -556,6 +557,93 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Anthropic passthrough response.
+
+        Anthropic response format:
+        {
+            "usage": {
+                "input_tokens": int,
+                "output_tokens": int
+            }
+        }
+        """
+        usage = result.get("usage")
+        if not usage:
+            return None
+
+        token_usage = {}
+        input_tokens = usage.get("input_tokens")
+        output_tokens = usage.get("output_tokens")
+
+        if input_tokens is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+        if output_tokens is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        if input_tokens is not None and output_tokens is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
+
+        return token_usage or None
+
+    def _extract_streaming_token_usage(
+        self, chunk: bytes, accumulated_usage: dict[str, int]
+    ) -> dict[str, int]:
+        """
+        Extract and accumulate token usage from Anthropic streaming chunks.
+
+        Anthropic streaming format:
+        - message_start event: {"message": {"usage": {"input_tokens": X}}}
+        - message_delta event: {"usage": {"output_tokens": Y}}
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return accumulated_usage
+
+            # Parse SSE format - look for data lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+
+                data_str = line[5:].strip()
+                if not data_str or data_str == "[DONE]":
+                    continue
+
+                data = json.loads(data_str)
+                event_type = data.get("type")
+
+                # Extract input_tokens from message_start
+                if event_type == "message_start":
+                    if message := data.get("message"):
+                        if usage := message.get("usage"):
+                            if (input_tokens := usage.get("input_tokens")) is not None:
+                                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+
+                # Extract output_tokens from message_delta
+                elif event_type == "message_delta":
+                    if usage := data.get("usage"):
+                        if (output_tokens := usage.get("output_tokens")) is not None:
+                            accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+                # Calculate total if we have both
+                if (
+                    TokenUsageKey.INPUT_TOKENS in accumulated_usage
+                    and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+                ):
+                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                        accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                        + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+                    )
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return accumulated_usage
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -570,12 +658,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,
@@ -583,3 +672,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 path=provider_path,
                 payload=payload,
             )
+
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[bytes]
+    ) -> AsyncIterable[bytes]:
+        """Stream passthrough response while accumulating token usage."""
+        accumulated_usage: dict[str, int] = {}
+        async for chunk in stream:
+            accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+            yield chunk
+        self._set_span_token_usage(accumulated_usage)

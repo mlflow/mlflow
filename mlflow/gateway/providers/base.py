@@ -158,19 +158,25 @@ class BaseProvider(ABC):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        async def passthrough(
-            action: PassthroughAction,
-            payload: dict[str, Any],
-            headers: dict[str, str] | None = None,
-        ) -> dict[str, Any] | AsyncIterable[Any]:
-            # TODO: Token usage should be traced at the individual provider level
-            span = mlflow.get_current_active_span()
-            if span is not None and self._enable_tracing:
-                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+        if not self._enable_tracing:
             return await self._passthrough(action, payload, headers)
 
-        passthrough_method = mlflow.trace(passthrough) if self._enable_tracing else passthrough
-        return await passthrough_method(action, payload, headers)
+        @mlflow.trace
+        async def passthrough():
+            span = mlflow.get_current_active_span()
+            if span is not None:
+                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+
+            result = await self._passthrough(action, payload, headers)
+
+            # For non-streaming responses, extract and set token usage
+            if isinstance(result, dict) and span is not None:
+                if token_usage := self._extract_passthrough_token_usage(action, result):
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+
+            return result
+
+        return await passthrough()
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
@@ -226,6 +232,36 @@ class BaseProvider(ABC):
             token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
         return token_usage or None
+
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from a passthrough response dictionary.
+
+        Override this method in provider subclasses to handle provider-specific
+        response formats for passthrough endpoints.
+
+        Args:
+            action: The passthrough action that was performed.
+            result: The raw response dictionary from the provider API.
+
+        Returns:
+            A dictionary with token usage keys (input_tokens, output_tokens, total_tokens)
+            or None if usage information is not available.
+        """
+        return None
+
+    def _set_span_token_usage(self, token_usage: dict[str, int]) -> None:
+        """
+        Set token usage on the current active span if tracing is enabled.
+
+        This is a helper for providers to call at the end of streaming passthrough.
+        """
+        if self._enable_tracing:
+            if span := mlflow.get_current_active_span():
+                if token_usage:
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
 
     async def _maybe_trace_method(self, method_name: str, method, *args, **kwargs):
         """Execute a method with optional tracing span based on _enable_tracing."""

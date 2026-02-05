@@ -6,6 +6,7 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.tracing.constant import TokenUsageKey
 
 
 class LiteLLMAdapter(ProviderAdapter):
@@ -226,6 +227,145 @@ class LiteLLMProvider(BaseProvider):
 
         return self.adapter_class.model_to_embeddings(resp_dict, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from LiteLLM passthrough response.
+
+        LiteLLM normalizes responses to different formats depending on the action:
+        - OpenAI-style actions: usage.prompt_tokens, completion_tokens, total_tokens
+        - Anthropic-style actions: usage.input_tokens, output_tokens
+        - Gemini-style actions: usageMetadata.promptTokenCount, candidatesTokenCount,
+          totalTokenCount
+        """
+        # Try OpenAI format first (most common)
+        if usage := result.get("usage"):
+            token_usage = {}
+            # OpenAI format
+            if (prompt_tokens := usage.get("prompt_tokens")) is not None:
+                token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+            if (completion_tokens := usage.get("completion_tokens")) is not None:
+                token_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+            if (total_tokens := usage.get("total_tokens")) is not None:
+                token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            # Anthropic format (input_tokens, output_tokens)
+            if not token_usage:
+                input_tokens = usage.get("input_tokens")
+                output_tokens = usage.get("output_tokens")
+                if input_tokens is not None:
+                    token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                if output_tokens is not None:
+                    token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+                if input_tokens is not None and output_tokens is not None:
+                    token_usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
+
+            return token_usage or None
+
+        # Try Gemini format
+        if usage_metadata := result.get("usageMetadata"):
+            token_usage = {}
+            if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
+                token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+            if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
+                token_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
+            if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
+                token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+            return token_usage or None
+
+        return None
+
+    def _extract_streaming_token_usage(
+        self, chunk: bytes, accumulated_usage: dict[str, int]
+    ) -> dict[str, int]:
+        """
+        Extract and accumulate token usage from LiteLLM streaming chunks.
+
+        LiteLLM handles multiple provider formats:
+        - OpenAI: data: {"usage": {"prompt_tokens": X, "completion_tokens": Y, "total_tokens": Z}}
+        - Anthropic: event: message_start/message_delta with usage data
+        - Gemini: data: {"usageMetadata": {"promptTokenCount": X, ...}}
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return accumulated_usage
+
+            # Parse SSE format - handle multiple lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+
+                # Skip event lines and empty lines
+                if not line or line.startswith("event:"):
+                    continue
+
+                # Handle data lines
+                if line.startswith("data:"):
+                    data_str = line[5:].strip()
+                    if not data_str or data_str == "[DONE]":
+                        continue
+
+                    data = json.loads(data_str)
+                    self._extract_usage_from_data(data, accumulated_usage)
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return accumulated_usage
+
+    def _extract_usage_from_data(
+        self, data: dict[str, Any], accumulated_usage: dict[str, int]
+    ) -> None:
+        # OpenAI format (in chunk.usage)
+        if usage := data.get("usage"):
+            # OpenAI style
+            if (prompt_tokens := usage.get("prompt_tokens")) is not None:
+                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+            if (completion_tokens := usage.get("completion_tokens")) is not None:
+                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+            if (total_tokens := usage.get("total_tokens")) is not None:
+                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            # Anthropic style (in usage field for message_delta)
+            if (input_tokens := usage.get("input_tokens")) is not None:
+                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if (output_tokens := usage.get("output_tokens")) is not None:
+                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        # Anthropic message_start format
+        if data.get("type") == "message_start":
+            if message := data.get("message"):
+                if msg_usage := message.get("usage"):
+                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+
+        # Anthropic message_delta format
+        if data.get("type") == "message_delta":
+            if delta_usage := data.get("usage"):
+                if (output_tokens := delta_usage.get("output_tokens")) is not None:
+                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        # Gemini format
+        if usage_metadata := data.get("usageMetadata"):
+            if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
+                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+            if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
+                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
+            if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
+                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        # Calculate total if we have input and output but no total
+        if (
+            TokenUsageKey.INPUT_TOKENS in accumulated_usage
+            and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+            and TokenUsageKey.TOTAL_TOKENS not in accumulated_usage
+        ):
+            accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+            )
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -246,19 +386,35 @@ class LiteLLMProvider(BaseProvider):
 
         match action:
             case PassthroughAction.OPENAI_RESPONSES:
-                return await self._passthrough_openai_responses(kwargs)
+                result = await self._passthrough_openai_responses(kwargs)
             case PassthroughAction.ANTHROPIC_MESSAGES:
-                return await self._passthrough_anthropic_messages(kwargs)
+                result = await self._passthrough_anthropic_messages(kwargs)
             case PassthroughAction.GEMINI_GENERATE_CONTENT:
-                return await self._passthrough_gemini_generate_content(kwargs)
+                result = await self._passthrough_gemini_generate_content(kwargs)
             case PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT:
-                return self._passthrough_gemini_stream_generate_content(kwargs)
+                result = self._passthrough_gemini_stream_generate_content(kwargs)
             case PassthroughAction.OPENAI_CHAT:
-                return await self._passthrough_openai_chat(kwargs)
+                result = await self._passthrough_openai_chat(kwargs)
             case PassthroughAction.OPENAI_EMBEDDINGS:
-                return await self._passthrough_openai_embeddings(kwargs)
+                result = await self._passthrough_openai_embeddings(kwargs)
             case _:
                 raise ValueError(f"Unsupported passthrough action: {action!r}")
+
+        # Wrap streaming responses with token usage extraction
+        if not isinstance(result, dict):
+            return self._stream_passthrough_with_usage(result)
+
+        return result
+
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[bytes]
+    ) -> AsyncIterable[bytes]:
+        """Stream passthrough response while accumulating token usage."""
+        accumulated_usage: dict[str, int] = {}
+        async for chunk in stream:
+            accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+            yield chunk
+        self._set_span_token_usage(accumulated_usage)
 
     async def _passthrough_openai_responses(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Passthrough for OpenAI Response API using litellm.aresponses()."""
