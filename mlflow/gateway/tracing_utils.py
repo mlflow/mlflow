@@ -6,7 +6,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
-def traced_gateway_call(
+def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
 ) -> Callable[..., Any]:

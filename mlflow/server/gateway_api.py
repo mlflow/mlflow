@@ -38,7 +38,7 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import traced_gateway_call
+from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.gateway.utils import to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -418,13 +418,13 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
-            stream = traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
+            stream = maybe_traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
             return StreamingResponse(
                 (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
                 media_type="text/event-stream",
             )
         else:
-            return await traced_gateway_call(provider.chat, endpoint_config)(payload)
+            return await maybe_traced_gateway_call(provider.chat, endpoint_config)(payload)
 
     elif "input" in body:
         # Embeddings request
@@ -438,7 +438,7 @@ async def invocations(endpoint_name: str, request: Request):
             store, endpoint_name, endpoint_type
         )
 
-        return await traced_gateway_call(provider.embeddings, endpoint_config)(payload)
+        return await maybe_traced_gateway_call(provider.embeddings, endpoint_config)(payload)
 
     else:
         raise HTTPException(
@@ -485,13 +485,13 @@ async def chat_completions(request: Request):
     )
 
     if payload.stream:
-        stream = traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
+        stream = maybe_traced_gateway_call(provider.chat_stream, endpoint_config)(payload)
         return StreamingResponse(
             (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
             media_type="text/event-stream",
         )
     else:
-        return await traced_gateway_call(provider.chat, endpoint_config)(payload)
+        return await maybe_traced_gateway_call(provider.chat, endpoint_config)(payload)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -528,12 +528,19 @@ async def openai_passthrough_chat(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
-    result = await traced_passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
-
     if body.get("stream", False):
-        return StreamingResponse(result, media_type="text/event-stream")
-    return result
+        stream = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
+        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+
+    traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -566,7 +573,7 @@ async def openai_passthrough_embeddings(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
+    traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
     return await traced_passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
 
@@ -604,12 +611,19 @@ async def openai_passthrough_responses(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
-    result = await traced_passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
-
     if body.get("stream", False):
-        return StreamingResponse(result, media_type="text/event-stream")
-    return result
+        stream = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
+        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+
+    traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -646,12 +660,19 @@ async def anthropic_passthrough_messages(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
-    result = await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
-
     if body.get("stream", False):
-        return StreamingResponse(result, media_type="text/event-stream")
-    return result
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
+        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+
+    traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
 
 @gateway_router.post(
@@ -688,8 +709,19 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
-    return await traced_passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
+    if body.get("stream", False):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
+        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+
+    traced_passthrough = maybe_traced_gateway_call(provider.passthrough, endpoint_config)
+    return await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
 
 @gateway_router.post(
@@ -726,8 +758,14 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
 
-    traced_passthrough = traced_gateway_call(provider.passthrough, endpoint_config)
-    result = await traced_passthrough(
+    stream = await provider.passthrough(
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
     )
-    return StreamingResponse(result, media_type="text/event-stream")
+
+    # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+    async def yield_stream(body: dict[str, Any]):
+        async for chunk in stream:
+            yield chunk
+
+    traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config)
+    return StreamingResponse(traced_stream(body), media_type="text/event-stream")
