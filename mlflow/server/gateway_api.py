@@ -57,7 +57,7 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
-async def _get_request_body(request: Request) -> dict:
+async def _get_request_body(request: Request) -> dict[str, Any]:
     """
     Get request body, using cached version if available.
 

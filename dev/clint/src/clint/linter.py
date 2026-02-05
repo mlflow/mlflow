@@ -644,6 +644,14 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
+
+        for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+            if arg.annotation:
+                self.visit_type_annotation(arg.annotation)
+
+        if node.returns:
+            self.visit_type_annotation(node.returns)
+
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
