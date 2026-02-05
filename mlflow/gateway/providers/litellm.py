@@ -322,11 +322,8 @@ class LiteLLMProvider(BaseProvider):
             has_openai_keys = any(
                 key in usage for key in ("prompt_tokens", "completion_tokens", "total_tokens")
             )
-            has_anthropic_keys = any(
-                key in usage for key in ("input_tokens", "output_tokens")
-            )
+            has_anthropic_keys = any(key in usage for key in ("input_tokens", "output_tokens"))
 
-            # OpenAI style
             if has_openai_keys:
                 if (prompt_tokens := usage.get("prompt_tokens")) is not None:
                     accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
@@ -334,10 +331,7 @@ class LiteLLMProvider(BaseProvider):
                     accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
                 if (total_tokens := usage.get("total_tokens")) is not None:
                     accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-
-            # Anthropic style (in usage field for message_delta or chunk.usage);
-            # only apply when OpenAI-style keys are not present to avoid overwriting.
-            if has_anthropic_keys and not has_openai_keys:
+            elif has_anthropic_keys:
                 if (input_tokens := usage.get("input_tokens")) is not None:
                     accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
                 if (output_tokens := usage.get("output_tokens")) is not None:
@@ -349,12 +343,6 @@ class LiteLLMProvider(BaseProvider):
                 if msg_usage := message.get("usage"):
                     if (input_tokens := msg_usage.get("input_tokens")) is not None:
                         accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-
-        # Anthropic message_delta format
-        if data.get("type") == "message_delta":
-            if delta_usage := data.get("usage"):
-                if (output_tokens := delta_usage.get("output_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
 
         # Gemini format
         if usage_metadata := data.get("usageMetadata"):
