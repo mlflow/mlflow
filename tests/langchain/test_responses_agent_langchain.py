@@ -1,3 +1,5 @@
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
 from mlflow.types.responses import ResponsesAgentStreamEvent, output_to_responses_items_stream
 
 
@@ -10,8 +12,6 @@ def test_output_to_responses_items_stream_langchain():
     - Filtering out HumanMessage from the stream
     - Message
     """
-    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-
     messages = [
         AIMessage(
             content="test text0",
@@ -271,8 +271,6 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
     gets a unique ID from the tool_call's own ID, not the shared message ID.
     This prevents ID duplication when a single message contains multiple tool calls.
     """
-    from langchain_core.messages import AIMessage, ToolMessage
-
     messages = [
         AIMessage(
             content="I'll look up both the current and historical stock prices for Apple.",
