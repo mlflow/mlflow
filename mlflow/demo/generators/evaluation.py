@@ -23,6 +23,7 @@ from mlflow.demo.data import EXPECTED_ANSWERS
 from mlflow.demo.generators.traces import DEMO_VERSION_TAG, TracesDemoGenerator
 from mlflow.entities.assessment import AssessmentSource, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.entities.view_type import ViewType
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
 from mlflow.genai.scorers import scorer
 
@@ -79,72 +80,75 @@ def _get_safety_rationale(is_safe: bool) -> str:
     return "The response may contain potentially harmful or inappropriate content."
 
 
-def _create_pass_fail_scorer(
+def _create_quality_aware_scorer(
     name: str,
-    pass_rate: float,
+    baseline_pass_rate: float,
+    improved_pass_rate: float,
     rationale_fn: Callable[[bool], str],
 ):
-    """Create a deterministic scorer that returns 'yes' or 'no' Feedback.
+    """Create a deterministic scorer that simulates quality-aware evaluation.
 
-    These scorers simulate LLM judges but use deterministic pass/fail decisions
-    based on content hashes, making demo data reproducible.
+    The scorer detects response quality based on content characteristics:
+    - Longer, more detailed responses (v2) get evaluated with higher pass rates
+    - Shorter, less detailed responses (v1) get evaluated with lower pass rates
+
+    This simulates the real-world scenario where improved model outputs
+    naturally score better when evaluated by the same scorers.
     """
+    # Threshold for "high quality" response detection (v2 responses are more detailed)
+    quality_threshold = 400
 
     @scorer(name=name)
-    def pass_fail_scorer(inputs, outputs) -> Feedback:
+    def quality_aware_scorer(inputs, outputs) -> Feedback:
         content = str(inputs) + str(outputs)
+        output_str = str(outputs)
+
+        # Determine effective pass rate based on response quality
+        # V2 responses are more detailed/longer, so they score better
+        if len(output_str) > quality_threshold:
+            effective_pass_rate = improved_pass_rate
+        else:
+            effective_pass_rate = baseline_pass_rate
+
+        # Use content hash for deterministic but varied results
         hash_input = f"{content}:{name}"
         hash_val = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest()[:8], 16)
         normalized = hash_val / 0xFFFFFFFF
-        is_passing = normalized < pass_rate
+        is_passing = normalized < effective_pass_rate
+
         return Feedback(
             value="yes" if is_passing else "no",
             rationale=rationale_fn(is_passing),
             source=AssessmentSource(
                 source_type="LLM_JUDGE",
-                source_id=f"demo-judge/{name}",
+                source_id=f"judges/{name}",
             ),
         )
 
-    return pass_fail_scorer
+    return quality_aware_scorer
 
 
-BASELINE_PROFILE = {
-    "name": "baseline-evaluation",
-    "pass_rates": {
-        "relevance": 0.65,
-        "correctness": 0.60,
-        "groundedness": 0.55,
-        "safety": 0.95,
-    },
-}
-
-IMPROVED_PROFILE = {
-    "name": "improved-evaluation",
-    "pass_rates": {
-        "relevance": 0.90,
-        "correctness": 0.85,
-        "groundedness": 0.85,
-        "safety": 1.0,
-    },
+SCORER_PASS_RATES = {
+    "relevance": {"baseline": 0.65, "improved": 0.92},
+    "correctness": {"baseline": 0.58, "improved": 0.88},
+    "groundedness": {"baseline": 0.52, "improved": 0.85},
+    "safety": {"baseline": 0.95, "improved": 1.0},
 }
 
 
 class EvaluationDemoGenerator(BaseDemoGenerator):
-    """Generates demo evaluation data comparing baseline (v1) and improved (v2) traces.
+    """Generates demo evaluation data comparing baseline and improved model outputs.
 
     Creates:
     - Ground truth expectations on all demo traces
-    - Two datasets: baseline (v1) and improved (v2) - both include all trace types
-    - Two evaluation runs comparing the same inputs with different outputs
+    - Two datasets: baseline (v1 traces) and improved (v2 traces)
+    - Two evaluation runs using the SAME scorers on different datasets
 
-    The baseline and improved evaluations include matching trace types:
-    - 2 RAG traces
-    - 2 agent traces
-    - 6 prompt traces (2 per prompt type)
-    - Session traces
+    The same quality-aware scorers evaluate both datasets:
+    - V1 traces have shorter, less detailed responses → lower scores
+    - V2 traces have longer, more detailed responses → higher scores
 
-    This allows direct comparison between v1 and v2 performance.
+    This demonstrates how improving your model/prompts leads to better evaluation results.
     """
 
     name = DemoFeature.EVALUATION
@@ -175,18 +179,16 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             v2_traces_with_expectations, experiment_id, DEMO_DATASET_V2_NAME
         )
 
-        v1_run_id = self._create_single_evaluation_run(
+        v1_run_id = self._create_evaluation_run(
             traces=v1_traces_with_expectations,
             experiment_id=experiment_id,
-            run_name=BASELINE_PROFILE["name"],
-            pass_rates=BASELINE_PROFILE["pass_rates"],
+            run_name="baseline-evaluation",
         )
 
-        v2_run_id = self._create_single_evaluation_run(
+        v2_run_id = self._create_evaluation_run(
             traces=v2_traces_with_expectations,
             experiment_id=experiment_id,
-            run_name=IMPROVED_PROFILE["name"],
-            pass_rates=IMPROVED_PROFILE["pass_rates"],
+            run_name="improved-evaluation",
         )
 
         return DemoResult(
@@ -222,10 +224,14 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             runs = client.search_runs(
                 experiment_ids=[experiment.experiment_id],
                 filter_string="params.demo = 'true'",
+                run_view_type=ViewType.ALL,
                 max_results=100,
             )
             for run in runs:
                 try:
+                    # Restore if deleted, then delete again to ensure consistent state
+                    if run.info.lifecycle_stage == "deleted":
+                        client.restore_run(run.info.run_id)
                     client.delete_run(run.info.run_id)
                 except Exception:
                     _logger.debug("Failed to delete run %s", run.info.run_id, exc_info=True)
@@ -296,7 +302,6 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         dataset.merge_records(traces)
 
-        # Return the dataset object for use with evaluate()
         return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:
@@ -311,32 +316,35 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             except Exception:
                 _logger.debug("Failed to delete dataset %s", ds.dataset_id, exc_info=True)
 
-    def _create_single_evaluation_run(
+    def _create_evaluation_run(
         self,
         traces: list[Trace],
         experiment_id: str,
         run_name: str,
-        pass_rates: dict[str, float],
     ) -> str:
         demo_scorers = [
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="relevance",
-                pass_rate=pass_rates["relevance"],
+                baseline_pass_rate=SCORER_PASS_RATES["relevance"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["relevance"]["improved"],
                 rationale_fn=_get_relevance_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="correctness",
-                pass_rate=pass_rates["correctness"],
+                baseline_pass_rate=SCORER_PASS_RATES["correctness"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["correctness"]["improved"],
                 rationale_fn=_get_correctness_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="groundedness",
-                pass_rate=pass_rates["groundedness"],
+                baseline_pass_rate=SCORER_PASS_RATES["groundedness"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["groundedness"]["improved"],
                 rationale_fn=_get_groundedness_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="safety",
-                pass_rate=pass_rates["safety"],
+                baseline_pass_rate=SCORER_PASS_RATES["safety"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["safety"]["improved"],
                 rationale_fn=_get_safety_rationale,
             ),
         ]

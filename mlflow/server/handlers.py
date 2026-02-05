@@ -4933,7 +4933,7 @@ def _generate_demo():
                 "status": "exists",
                 "experiment_id": experiment.experiment_id,
                 "features_generated": [],
-                "navigation_url": f"#/experiments/{experiment.experiment_id}/traces",
+                "navigation_url": f"/experiments/{experiment.experiment_id}/traces",
             }
         )
 
@@ -4941,13 +4941,14 @@ def _generate_demo():
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
+    navigation_url = f"/experiments/{experiment_id}/traces" if experiment_id else "/experiments"
 
     return jsonify(
         {
             "status": "created",
             "experiment_id": experiment_id,
             "features_generated": [r.feature for r in results],
-            "navigation_url": f"#/experiments/{experiment_id}/traces" if experiment_id else None,
+            "navigation_url": navigation_url,
         }
     )
 
@@ -4955,7 +4956,13 @@ def _generate_demo():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_demo():
-    """Delete demo data for all registered demo generators."""
+    """Delete demo data for all registered demo generators.
+
+    Performs a full hard delete of the demo experiment and all associated data,
+    equivalent to what `mlflow gc` would do. This ensures the demo data is
+    completely removed rather than just soft-deleted.
+    """
+    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
     from mlflow.demo.registry import demo_registry
 
     deleted_features = []
@@ -4964,6 +4971,44 @@ def _delete_demo():
         if generator._data_exists():
             generator.delete_demo()
             deleted_features.append(name)
+
+    # Hard delete the demo experiment and all its runs
+    store = _get_tracking_store()
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    if experiment is not None:
+        experiment_id = experiment.experiment_id
+
+        # Ensure experiment is in deleted state for hard deletion
+        if experiment.lifecycle_stage == "active":
+            store.delete_experiment(experiment_id)
+
+        # Hard delete all runs in the experiment (must be done before experiment)
+        if hasattr(store, "_hard_delete_run"):
+            try:
+                # Get all runs (including already soft-deleted ones)
+                runs = store.search_runs(
+                    experiment_ids=[experiment_id],
+                    filter_string="",
+                    run_view_type=ViewType.ALL,
+                    max_results=1000,
+                )
+                for run in runs:
+                    # Ensure run is soft-deleted first
+                    if run.info.lifecycle_stage == "active":
+                        store.delete_run(run.info.run_id)
+                    store._hard_delete_run(run.info.run_id)
+            except Exception:
+                # If hard delete fails, continue - soft delete is sufficient
+                pass
+
+        # Hard delete the experiment itself
+        if hasattr(store, "_hard_delete_experiment"):
+            try:
+                store._hard_delete_experiment(experiment_id)
+            except Exception:
+                # If hard delete fails, continue - soft delete is sufficient
+                pass
 
     return jsonify(
         {
