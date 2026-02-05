@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1920,14 +1921,14 @@ def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
 # =============================================================================
 
 
-async def _call_invocations(endpoint_name: str, request, payload: dict):
+async def _call_invocations(endpoint_name: str, request, payload: dict[str, Any]):
     # invocations doesn't use "model" field - endpoint is in URL
     payload_without_model = {k: v for k, v in payload.items() if k != "model"}
     request.json = AsyncMock(return_value=payload_without_model)
     return await invocations(endpoint_name, request)
 
 
-async def _call_chat_completions(endpoint_name: str, request, payload: dict):
+async def _call_chat_completions(endpoint_name: str, request, payload: dict[str, Any]):
     # chat_completions uses "model" field to specify endpoint
     request.json = AsyncMock(return_value=payload)
     return await chat_completions(request)

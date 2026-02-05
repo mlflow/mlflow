@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 import mlflow
 from mlflow.entities.trace_location import MlflowExperimentLocation
@@ -6,9 +7,9 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
 def traced_gateway_call(
-    func: Callable,
+    func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
-) -> Callable:
+) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
 
