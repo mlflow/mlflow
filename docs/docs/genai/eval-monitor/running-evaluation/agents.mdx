@@ -271,9 +271,9 @@ simulator = ConversationSimulator(
 
 
 # Wrap your agent to accept conversation history
+# The predict function follows the Chat Completions API format
 def predict_fn(input: list[dict], **kwargs):
     # input is a list of message dicts with "role" and "content" keys
-    # Extract the latest user message to pass to the agent
     latest_user_message = input[-1]["content"]
     result = Runner.run_sync(agent, latest_user_message)
     return result.final_output

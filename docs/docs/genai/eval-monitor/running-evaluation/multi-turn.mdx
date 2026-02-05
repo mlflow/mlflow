@@ -320,15 +320,6 @@ results = mlflow.genai.evaluate(
 
 <TilesGrid>
   <TileCard
-    icon={Sparkles}
-    iconSize={48}
-    title="Conversation Simulation"
-    description="Generate synthetic conversations to test your agent with diverse scenarios and user behaviors."
-    href="/genai/eval-monitor/running-evaluation/conversation-simulation"
-    linkText="Simulate conversations →"
-    containerHeight={64}
-  />
-  <TileCard
     icon={BookOpen}
     iconSize={48}
     title="Session Tracing Guide"
@@ -340,10 +331,19 @@ results = mlflow.genai.evaluate(
   <TileCard
     icon={Activity}
     iconSize={48}
-    title="Multi-Turn Judges"
-    description="Explore built-in and custom judges for conversation completeness, user frustration, and other multi-turn metrics."
+    title="Built-in Judges"
+    description="Explore built-in judges for conversation completeness, user frustration, and other multi-turn metrics."
     href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn"
     linkText="View judges →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Sparkles}
+    iconSize={48}
+    title="Conversation Simulation"
+    description="Generate synthetic conversations to test your agent with diverse scenarios and user behaviors."
+    href="/genai/eval-monitor/running-evaluation/conversation-simulation"
+    linkText="Simulate conversations →"
     containerHeight={64}
   />
 </TilesGrid>
