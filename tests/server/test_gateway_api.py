@@ -2110,6 +2110,13 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     assert gateway_span is not None
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
+    # Verify that streaming chunks are captured in the span outputs
+    assert gateway_span.outputs is not None
+    assert len(gateway_span.outputs) > 0
+    first_output = gateway_span.outputs[0]
+    assert isinstance(first_output, dict), "Streaming output should be dict, not string repr"
+    assert "choices" in first_output, "Streaming output should contain chat completion data"
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -2588,3 +2595,81 @@ async def test_gemini_passthrough_generate_content_token_usage_tracking(store: S
     assert token_usage[TokenUsageKey.INPUT_TOKENS] == 7
     assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 9
     assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 16
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemyStore):
+    endpoint_name = "openai-passthrough-streaming-chunks"
+
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="openai-stream-chunks-key",
+        secret_value={"api_key": "sk-test-stream-chunks"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-stream-chunks-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": True,
+        }
+    )
+    mock_request.headers = {}
+
+    mock_stream_chunks = [
+        b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"!"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ):
+        response = await openai_passthrough_chat(mock_request)
+        assert isinstance(response, StreamingResponse)
+        chunks = [chunk async for chunk in response.body_iterator]
+        assert len(chunks) == len(mock_stream_chunks)
+
+    # Verify trace was created
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    gateway_span = next(
+        (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
+    )
+    assert gateway_span is not None
+
+    # Verify streaming chunks are captured in outputs (raw SSE bytes decoded to strings)
+    assert gateway_span.outputs is not None
+    assert len(gateway_span.outputs) == len(mock_stream_chunks)
+    # Verify the outputs contain actual SSE data (not async generator object repr)
+    assert "data:" in gateway_span.outputs[0]
+    assert "chatcmpl-123" in gateway_span.outputs[0]
