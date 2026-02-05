@@ -11,6 +11,10 @@ module.exports = {
   core: {
     builder: 'webpack5',
   },
+  typescript: {
+    // Disable react-docgen-typescript-plugin which is incompatible with TypeScript 5.x
+    reactDocgen: false,
+  },
   webpackFinal: (config) => {
     /**
      * Setting proper tsconfig file for the ForkTsChecker plugin

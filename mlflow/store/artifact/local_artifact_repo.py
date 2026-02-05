@@ -16,7 +16,7 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
     shutil_copytree_without_file_permissions,
 )
-from mlflow.utils.uri import validate_path_is_safe
+from mlflow.utils.uri import validate_path_is_safe, validate_path_within_directory
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -86,20 +86,18 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)
-        # NOTE: The artifact_path is expected to be a relative path in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         artifact_path = validate_path_is_safe(artifact_path)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
+        validate_path_within_directory(self.artifact_dir, local_artifact_path)
         if not os.path.exists(local_artifact_path):
             raise OSError(f"No such file or directory: '{local_artifact_path}'")
         return os.path.abspath(local_artifact_path)
 
     def list_artifacts(self, path=None):
-        # NOTE: The path is expected to be in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         if path:
             path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
+        validate_path_within_directory(self.artifact_dir, list_dir)
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
             infos = [
@@ -113,10 +111,9 @@ class LocalArtifactRepository(ArtifactRepository):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        # NOTE: The remote_file_path is expected to be a relative path in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = validate_path_is_safe(remote_file_path)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
+        validate_path_within_directory(self.artifact_dir, remote_file_path)
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):

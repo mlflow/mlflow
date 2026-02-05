@@ -1,4 +1,5 @@
 import json
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -301,7 +302,6 @@ def test_evaluation_dataset_complex_tags():
 
 
 def test_evaluation_dataset_to_df():
-    """Test that to_df method returns a DataFrame with outputs column."""
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",
@@ -714,3 +714,30 @@ def test_to_df_includes_source_column():
     assert "source" in df.columns
     assert df["source"].notna().all()
     assert df["source"].iloc[0] == source
+
+
+def test_delete_records():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Add some records to cache
+    dataset._records = [Mock(), Mock()]
+
+    mock_store = Mock()
+    mock_store.delete_dataset_records.return_value = 2
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        deleted_count = dataset.delete_records(["record1", "record2"])
+
+    assert deleted_count == 2
+    mock_store.delete_dataset_records.assert_called_once_with(
+        dataset_id="dataset123",
+        dataset_record_ids=["record1", "record2"],
+    )
+    # Verify cache was cleared
+    assert dataset._records is None

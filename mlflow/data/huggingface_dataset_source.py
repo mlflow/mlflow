@@ -74,8 +74,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         if Version(datasets.__version__) >= Version("2.16.0"):
             load_kwargs["trust_remote_code"] = self.trust_remote_code
 
-        intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
-        if intersecting_keys:
+        if intersecting_keys := set(load_kwargs.keys()) & set(kwargs.keys()):
             raise KeyError(
                 f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
                 f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."

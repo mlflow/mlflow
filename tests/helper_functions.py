@@ -27,6 +27,45 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
+
+
+def kill_process_tree(pid: int) -> None:
+    """
+    Gracefully terminate or kill a process tree (children first, then parent).
+    """
+    import psutil
+
+    try:
+        parent = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+
+    # Kill children first to prevent the parent from spawning new processes
+    children = parent.children(recursive=True)
+    for child in children:
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Wait for children to terminate, then force-kill any that remain
+    _, still_alive = psutil.wait_procs(children, timeout=5)
+    for p in still_alive:
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Finally, kill the parent
+    try:
+        parent.terminate()
+        parent.wait(timeout=5)
+    except psutil.NoSuchProcess:
+        pass
+    except psutil.TimeoutExpired:
+        parent.kill()
+
+
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
@@ -120,8 +159,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         "-d",
         output_directory,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
@@ -750,7 +788,7 @@ def _iter_pr_files() -> Iterator[str]:
     repo = pr_data["repository"]["full_name"]
     page = 1
     per_page = 100
-    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    headers = {"Authorization": token} if (token := os.environ.get("GH_TOKEN")) else None
     while True:
         resp = requests.get(
             f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",

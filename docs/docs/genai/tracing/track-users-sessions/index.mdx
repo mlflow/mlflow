@@ -3,7 +3,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Search, TrendingUp } from "lucide-react";
+import { Search, TrendingUp, MessageSquare } from "lucide-react";
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Track Users & Sessions
@@ -13,10 +13,6 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 Many real-world AI applications use session to maintain multi-turn user interactions. MLflow Tracing provides built-in support for associating traces with users and grouping them into sessions. Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization.
 
 ## Store User and Session IDs in Metadata
-
-:::note New in MLflow 3
-The standard metadata for user and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`.
-:::
 
 MLflow provides two standard metadata fields for session and user tracking:
 
@@ -54,22 +50,22 @@ To record user and session information in your application, use the <APILink fn=
     ```
 
   </TabItem>
-  <TabItem value="typescript" label="Typescript">
+  <TabItem value="typescript" label="TypeScript">
     ```typescript
     import * as mlflow from "mlflow-tracing";
 
     const chatCompletion = mlflow.trace(
-        (message: list[dict], user_id: str, session_id: str) => {
+        (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
             // Add user and session context to the current trace
             mlflow.updateCurrentTrace({
                 metadata: {
-                    "mlflow.trace.user": user_id,
-                    "mlflow.trace.session": session_id,
+                    "mlflow.trace.user": userId,
+                    "mlflow.trace.session": sessionId,
                 },
             });
 
             // Your chat logic here
-            return generate_response(message);
+            return generateResponse(message);
         },
         { name: "chat_completion" }
     );
@@ -93,8 +89,8 @@ To record user and session information in your application, use the <APILink fn=
     app = FastAPI()
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment(experiment_id="3044868363145534")
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment(experiment_id="<your-experiment-id>")
     mlflow.openai.autolog()
 
 
@@ -142,35 +138,83 @@ To record user and session information in your application, use the <APILink fn=
         uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
 
-    **Example request:**
-    ```bash
-    python app.py
-
-    curl -X POST http://localhost:8000/chat \
-        -H "Content-Type: application/json" \
-        -H "X-Session-ID: session-123" \
-        -H "X-User-ID: user-456" \
-        -d '{"message": "Hello, how are you?"}'
-    ```
-
   </TabItem>
-  <TabItem value="typescript" label="Typescript (Node.js)">
+  <TabItem value="typescript" label="TypeScript (express)">
+    ```typescript
+    import express, { Request, Response } from 'express';
+    import bodyParser from 'body-parser';
+    import * as mlflow from 'mlflow-tracing';
+    import { tracedOpenAI } from "mlflow-openai";
+    import OpenAI from 'openai';
 
-    ```python
+    const app = express();
+    app.use(bodyParser.json());
 
-    ```
+    const openai = tracedOpenAI(new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    }));
 
-    **Example request:**
-    ```bash
-    curl -X POST "http://127.0.0.1:8000/chat" \
-         -H "Content-Type: application/json" \
-         -H "X-Session-ID: session-def-456" \
-         -H "X-User-ID: user-jane-doe-12345" \
-         -d '{"message": "What is my account balance?"}'
+    mlflow.init({
+      trackingUri: "http://localhost:5000",
+      experimentId: "<your-experiment-id>",
+    });
+
+    class Chat {
+      @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+      static async process(message: string, userId: string, sessionId: string) {
+        // Update MLflow trace metadata for this user and session
+        await mlflow.updateCurrentTrace({
+          metadata: {
+            'mlflow.trace.session': sessionId,
+            'mlflow.trace.user': userId,
+          },
+        });
+
+        const response = await openai.responses.create({
+          model: 'gpt-4.1-mini',
+          instructions: 'You are a helpful assistant.',
+          input: message,
+        });
+        return response.output_text;
+      }
+    }
+
+    app.post('/chat', async (req: Request, res: Response) => {
+      const sessionId = req.header('X-Session-ID') || 'default-session';
+      const userId = req.header('X-User-ID') || 'default-user';
+      const message = req.body.message;
+
+      try {
+        const response = await Chat.process(message, userId, sessionId);
+        res.json({ response: response });
+      } catch (err) {
+        res.status(500).json({ error: 'OpenAI request failed.' });
+      }
+    });
+
+    app.get('/', (req: Request, res: Response) => {
+      res.json({ message: 'Express MLflow Tracing Example' });
+    });
+
+    if (require.main === module) {
+      app.listen(8000, () => {
+        console.log('Server listening on http://localhost:8000');
+      });
+    }
     ```
 
   </TabItem>
 </Tabs>
+
+**Example request:**
+
+```bash
+curl -X POST http://localhost:8000/chat \
+    -H "Content-Type: application/json" \
+    -H "X-Session-ID: session-123" \
+    -H "X-User-ID: user-456" \
+    -d '{"message": "Hello, how are you?"}'
+```
 
 ## Querying
 
@@ -234,5 +278,12 @@ To record user and session information in your application, use the <APILink fn=
     description="Set up comprehensive production observability with user context"
     href="/genai/tracing/prod-tracing"
     linkText="Monitor production →"
+  />
+  <TileCard
+    icon={MessageSquare}
+    title="Multi-turn Evaluation"
+    description="Evaluate the quality of multi-turn conversations in your application"
+    href="/genai/eval-monitor/running-evaluation/multi-turn/"
+    linkText="Evaluate sessions →"
   />
 </TilesGrid>

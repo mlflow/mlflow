@@ -66,6 +66,12 @@ def autolog(
                 )
                 span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
+                # Extract model name from client instance
+                # ChatCompletionClient has 'model' as an instance attribute
+                if model := getattr(self, "model", None):
+                    if isinstance(model, str):
+                        span.set_attribute(SpanAttributeKey.MODEL, model)
+
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
@@ -129,8 +135,7 @@ def _get_all_subclasses(cls):
 
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,

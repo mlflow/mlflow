@@ -21,6 +21,20 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
+    GatewayEndpointModelMapping,
+    GatewayEndpointTag,
+    GatewayModelDefinition,
+    GatewayModelLinkageType,
+    GatewayResourceType,
+    RoutingStrategy,
+)
+from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
@@ -40,6 +54,7 @@ from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
+from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -93,6 +108,7 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "Session",
     "TraceLocation",
     "TraceLocationType",
     "MlflowExperimentLocation",
@@ -121,6 +137,18 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "FallbackConfig",
+    "FallbackStrategy",
+    "GatewayEndpoint",
+    "GatewayEndpointBinding",
+    "GatewayEndpointModelConfig",
+    "GatewayEndpointModelMapping",
+    "GatewayEndpointTag",
+    "GatewayModelDefinition",
+    "GatewayResourceType",
+    "GatewaySecretInfo",
+    "GatewayModelLinkageType",
+    "RoutingStrategy",
     "Webhook",
     "WebhookEvent",
     "WebhookStatus",

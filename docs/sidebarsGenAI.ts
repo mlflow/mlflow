@@ -5,7 +5,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category',
+      className: 'sidebar-overview',
       label: 'Overview',
     },
     {
@@ -16,19 +16,24 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/connect-environment',
-      label: 'Set Up MLflow',
-      className: 'sidebar-top-level-category',
-    },
-    {
-      type: 'link',
-      href: '/genai/tracing/quickstart/python-openai',
-      label: 'Tracing Quickstart',
       className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',
-      id: 'eval-monitor/quickstart',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
       className: 'sidebar-top-level-category',
     },
     {
@@ -42,46 +47,109 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
-          label: 'How to Trace Your App/Agents',
+          label: 'Guides',
           items: [
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/automatic',
+              type: 'category',
+              label: 'Trace Your App & Agents',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/automatic',
+                  label: 'Automatic Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/manual-tracing',
+                  label: 'Manual Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/opentelemetry',
+                  label: 'Tracing with OpenTelemetry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/manual-tracing',
+              type: 'category',
+              label: 'Enhance Your Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/track-users-sessions/index',
+                  label: 'Track Users and Sessions',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/attach-tags/index',
+                  label: 'Tag Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/collect-user-feedback/index',
+                  label: 'Collect User Feedback',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/masking',
+                  label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/track-environments-context/index',
+                  label: 'Track Application Versions',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/typescript-sdk',
+              type: 'category',
+              label: 'View & Manage Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/ui',
+                  label: 'View Traces in the UI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/search-traces',
+                  label: 'Search Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/delete-traces',
+                  label: 'Delete Traces',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/opentelemetry',
+              type: 'category',
+              label: 'Deploy to Production',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Production Tracing SDK',
+                },
+              ],
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/app-instrumentation/index',
-          },
         },
         {
           type: 'category',
@@ -100,6 +168,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/agno',
                   label: 'Agno',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock-agentcore',
+                  label: 'Amazon Bedrock AgentCore',
                 },
                 {
                   type: 'doc',
@@ -128,13 +201,33 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/koog',
+                  label: 'Koog',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langchain',
                   label: 'LangChain',
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langgraph',
                   label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/livekit',
+                  label: 'LiveKit Agents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
                 },
                 {
                   type: 'doc',
@@ -158,8 +251,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/pipecat',
+                  label: 'Pipecat',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/pydantic_ai',
                   label: 'PydanticAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/quarkus-langchain4j',
+                  label: 'Quarkus LangChain4j',
                 },
                 {
                   type: 'doc',
@@ -170,6 +273,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/smolagents',
                   label: 'Smolagents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/spring-ai',
+                  label: 'Spring AI',
                 },
                 {
                   type: 'doc',
@@ -186,6 +294,16 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/integrations/listing/vercelai',
                   label: 'Vercel AI SDK',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/voltagent',
+                  label: 'VoltAgent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/watsonx-orchestrate',
+                  label: 'Watsonx Orchestrate',
+                },
               ],
             },
             {
@@ -201,6 +319,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/bedrock',
                   label: 'AWS Bedrock',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/byteplus',
+                  label: 'BytePlus',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/cohere',
+                  label: 'Cohere',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks',
+                  label: 'Databricks',
                 },
                 {
                   type: 'doc',
@@ -224,6 +357,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/moonshot',
+                  label: 'Kimi (Moonshot AI)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/litellm',
                   label: 'LiteLLM',
                 },
@@ -234,6 +372,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/novitaai',
+                  label: 'Novita AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/ollama',
                   label: 'Ollama',
                 },
@@ -241,6 +384,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openai',
                   label: 'OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen',
+                  label: 'Qwen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/togetherai',
+                  label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/xai-grok',
+                  label: 'xAI / Grok',
                 },
               ],
             },
@@ -261,6 +419,62 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
+              type: 'category',
+              label: 'Gateways',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mlflow-ai-gateway',
+                  label: 'MLflow AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks-ai-gateway',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/helicone',
+                  label: 'Helicone',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/kong',
+                  label: 'Kong AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/litellm-proxy',
+                  label: 'LiteLLM Proxy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openrouter',
+                  label: 'OpenRouter',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/portkey',
+                  label: 'Portkey',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                  label: 'Pydantic AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/truefoundry',
+                  label: 'TrueFoundry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
+                },
+              ],
+            },
+            {
               type: 'doc',
               id: 'tracing/integrations/contribute',
               label: 'Add New Integration',
@@ -270,62 +484,6 @@ const sidebarsGenAI: SidebarsConfig = {
             type: 'doc',
             id: 'tracing/integrations/index',
           },
-        },
-        {
-          type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/track-users-sessions/index',
-              label: 'Track Users and Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/collect-user-feedback/index',
-              label: 'User Feedback Collection',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/attach-tags/index',
-              label: 'Tagging Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/delete-traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track Application Versions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/masking',
-              label: 'Redacting Sensitive Data',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK',
-            },
-          ],
-        },
-
-        {
-          type: 'category',
-          label: 'Viewing & Searching Traces',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/ui',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Searching for Traces',
-            },
-          ],
         },
         {
           type: 'category',
@@ -348,13 +506,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/prod-tracing',
-          label: 'Production Tracing',
-        },
-        {
-          type: 'doc',
           id: 'tracing/faq',
-          label: 'Tracing FAQ',
+          label: 'FAQ',
         },
       ],
       link: {
@@ -378,6 +531,11 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
               label: 'Evaluate Prompts',
             },
@@ -391,64 +549,197 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'eval-monitor/running-evaluation/traces',
               label: 'Evaluate Traces',
             },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/multi-turn',
+              label: 'Evaluate Conversations',
+            },
           ],
         },
         {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
+        },
+        {
           type: 'category',
-          label: 'Scorers',
+          label: 'Judges and Scorers',
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/scorers/index',
+          },
           items: [
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/index',
-              label: 'What is a Scorer?',
-            },
-            {
               type: 'category',
-              label: 'Supported Scorers',
+              label: 'Built-in Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/predefined',
+              },
               items: [
                 {
                   type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/predefined',
-                  label: 'Predefined Scorers',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines',
                 },
                 {
                   type: 'category',
-                  label: 'LLM-as-a-Judge',
+                  label: 'RAG',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/rag/index',
+                  },
                   items: [
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/index',
-                      label: 'Overview',
+                      id: 'eval-monitor/scorers/llm-judge/rag/relevance',
+                      label: 'Answer and Context Relevance',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/make-judge',
-                      label: 'Template-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/groundedness',
+                      label: 'Groundedness',
                     },
                     {
                       type: 'doc',
-                      id: 'eval-monitor/scorers/llm-judge/guidelines',
-                      label: 'Guidelines-based',
+                      id: 'eval-monitor/scorers/llm-judge/rag/context-sufficiency',
+                      label: 'Context Sufficiency',
                     },
                   ],
                   collapsed: false,
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/agentic-overview',
-                  label: 'Agent-as-a-Judge',
+                  type: 'category',
+                  label: 'Response Quality',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/safety',
+                      label: 'Safety',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/correctness',
+                      label: 'Correctness',
+                    },
+                  ],
+                  collapsed: false,
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/custom',
-                  label: 'Code-based Scorers',
+                  type: 'category',
+                  label: 'Tool Call',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/tool-call/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/correctness',
+                      label: 'ToolCallCorrectness',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/efficiency',
+                      label: 'ToolCallEfficiency',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Third-party Judges',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
                 },
               ],
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/scorers/llm-judge/alignment',
+              type: 'category',
+              label: 'Custom Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/custom-judges/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
+                  label: 'Create a Custom Judge',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
+              label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/code-examples',
+                  label: 'Code-based Scorer Examples',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
               label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
             },
             {
               type: 'doc',
@@ -463,13 +754,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {
@@ -559,7 +850,19 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langchain-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langgraph-optimization',
+            },
+            {
+              type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/pydantic-ai-optimization',
             },
           ],
         },
@@ -585,28 +888,75 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
+          id: 'governance/ai-gateway/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'API Keys',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/create-and-manage',
+              label: 'Create and Manage API Keys',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/key-rotation',
+              label: 'Encryption & Rotation',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Endpoints',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/create-and-manage',
+              label: 'Create and Manage Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/query-endpoints',
+              label: 'Query Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/model-providers',
+              label: 'Model Providers',
+            },
+          ],
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
+          id: 'governance/ai-gateway/traffic-routing-fallbacks',
+          label: 'Traffic Routing & Fallbacks',
         },
         {
-          type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {
@@ -648,56 +998,6 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Packaging & Deployment',
       className: 'sidebar-top-level-category',
       items: [
-        {
-          type: 'category',
-          label: 'OpenAI',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/openai/guide/index',
-              label: 'Guide',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/openai/autologging/index',
-              label: 'Autologging Support',
-            },
-            {
-              type: 'category',
-              label: 'Tutorials',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                  label: 'OpenAI Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                  label: 'Chat Completions with OpenAI',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                  label: 'Building a Code Assistant with OpenAI & MLflow',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                  label: 'Embeddings Support with OpenAI in MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/openai/notebooks/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/openai/index',
-          },
-        },
         {
           type: 'category',
           label: 'DSPy',
@@ -887,6 +1187,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluation Datasets',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'references/request-features',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',

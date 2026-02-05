@@ -25,13 +25,19 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    PROTOBUF_REQUIREMENT,
+    get_safe_port,
+    kill_process_tree,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -39,14 +45,14 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        resp = requests.get(f"http://localhost:{port}/health")
-        augmented_raise_for_status(resp)
-        assert resp.text == "OK"
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/health")
+            augmented_raise_for_status(resp)
+            assert resp.text == "OK"
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_server_static_prefix_validation():
@@ -67,7 +73,6 @@ def test_server_static_prefix_validation():
 
 
 def test_server_uvicorn_options():
-    """Test that uvicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
@@ -88,6 +93,8 @@ def test_server_uvicorn_options():
             app_name=None,
             uvicorn_opts=None,
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -110,12 +117,13 @@ def test_server_uvicorn_options():
             app_name=None,
             uvicorn_opts="--loop asyncio --limit-concurrency 100",
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
 
 @pytest.mark.skipif(is_windows(), reason="--dev mode is not supported on Windows")
 def test_server_dev_mode():
-    """Test that --dev flag sets proper uvicorn options."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with --dev flag (should set uvicorn opts)
         CliRunner().invoke(server, ["--dev"])
@@ -136,12 +144,13 @@ def test_server_dev_mode():
             app_name=None,
             uvicorn_opts="--reload --log-level debug",
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
 
 @pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
 def test_server_gunicorn_options():
-    """Test that gunicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
@@ -162,6 +171,8 @@ def test_server_gunicorn_options():
             app_name=None,
             uvicorn_opts=None,
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
     # Test conflicting options
@@ -172,21 +183,53 @@ def test_server_gunicorn_options():
     assert "Cannot specify multiple server options" in result.output
 
 
+def test_server_initializes_backend_store_when_tracking_enabled():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server)
+    assert result.exit_code == 0
+    init_backend_mock.assert_called_once_with(mock.ANY, mock.ANY, mock.ANY)
+    run_server_mock.assert_called_once()
+
+
+def test_server_skips_backend_store_init_in_artifacts_only_mode():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server, ["--artifacts-only"])
+    assert result.exit_code == 0
+    init_backend_mock.assert_not_called()
+    run_server_mock.assert_called_once()
+
+
 def test_server_mlflow_artifacts_options():
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--no-serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--no-serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
 
 
 @pytest.mark.parametrize("command", [server])
@@ -270,15 +313,10 @@ def test_registry_store_uri_different_from_tracking_store(command):
 
 
 @pytest.fixture
-def sqlite_store():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
-    store = SqlAlchemyStore(db_uri, "artifact_folder")
-    yield (store, db_uri)
-    os.remove(temp_dbfile)
-    shutil.rmtree("artifact_folder")
+def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    return (store, db_uri)
 
 
 @pytest.fixture
@@ -529,7 +567,12 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_5)
     with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
         invoke_gc(
-            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+            "--backend-store-uri",
+            uri,
+            "--experiment-ids",
+            exp_id_5,
+            "--older-than",
+            "10d10h10m10s",
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert sorted([e.experiment_id for e in experiments]) == sorted(
@@ -538,17 +581,14 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
 
 @pytest.fixture
-def sqlite_store_with_s3_artifact_repository():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
+def sqlite_store_with_s3_artifact_repository(
+    tmp_path: Path,
+) -> tuple[SqlAlchemyStore, str, str]:
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
     s3_uri = "s3://mlflow"
     store = SqlAlchemyStore(db_uri, s3_uri)
-
-    yield (store, db_uri, s3_uri)
-
-    os.remove(temp_dbfile)
+    return (store, db_uri, s3_uri)
 
 
 def test_mlflow_gc_sqlite_with_s3_artifact_repository(
@@ -644,17 +684,19 @@ def test_mlflow_models_serve(enable_mlserver):
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
 
 
-def test_mlflow_tracking_disabled_in_artifacts_only_mode():
+def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
-    _await_server_up_or_die(port)
-    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
-    assert (
-        "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
-        "in `--artifacts-only` mode." in resp.text
-    )
-    process.kill()
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
+            assert (
+                "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow "
+                "server running in `--artifacts-only` mode." in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
@@ -668,23 +710,23 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             assert resp.status_code == 200
             assert resp.text == "{}"
         finally:
-            process.kill()
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        endpoint = "/api/2.0/mlflow-artifacts/artifacts"
-        resp = requests.get(f"http://localhost:{port}{endpoint}")
-        assert (
-            f"Endpoint: {endpoint} disabled due to the mlflow server running with "
-            "`--no-serve-artifacts`" in resp.text
-        )
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            endpoint = "/api/2.0/mlflow-artifacts/artifacts"
+            resp = requests.get(f"http://localhost:{port}{endpoint}")
+            assert (
+                f"Endpoint: {endpoint} disabled due to the mlflow server running with "
+                "`--no-serve-artifacts`" in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
@@ -776,7 +818,9 @@ def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
     # Use the existing experiments search CLI command with --env-file
     result = runner.invoke(
-        cli, ["--env-file", str(env_file_path), "experiments", "search"], catch_exceptions=False
+        cli,
+        ["--env-file", str(env_file_path), "experiments", "search"],
+        catch_exceptions=False,
     )
 
     # Check that the command executed successfully
@@ -795,14 +839,56 @@ def test_env_file_loading_invalid_path() -> None:
 
     # Test error handling for non-existent file
     result = runner.invoke(
-        cli, ["--env-file", "nonexistent.env", "experiments", "search"], catch_exceptions=False
+        cli,
+        ["--env-file", "nonexistent.env", "experiments", "search"],
+        catch_exceptions=False,
     )
     assert result.exit_code != 0
     assert "Environment file 'nonexistent.env' does not exist" in result.output
 
 
+@pytest.mark.parametrize(
+    ("args", "expected_max_results", "expected_view"),
+    [
+        (["experiments", "search"], None, ViewType.ACTIVE_ONLY),
+        (["experiments", "search", "--max-results", "50"], 50, ViewType.ACTIVE_ONLY),
+        (
+            ["experiments", "search", "--view", "all", "--max-results", "100"],
+            100,
+            ViewType.ALL,
+        ),
+    ],
+)
+def test_experiments_search_max_results(args, expected_max_results, expected_view):
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(cli, args, catch_exceptions=False)
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == expected_max_results
+        assert call_kwargs.get("view_type") == expected_view
+
+
+def test_experiments_search_max_results_zero():
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(
+            cli, ["experiments", "search", "--max-results", "0"], catch_exceptions=False
+        )
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == 0
+
+
+def test_experiments_search_max_results_negative():
+    result = CliRunner().invoke(
+        cli, ["experiments", "search", "--max-results", "-1"], catch_exceptions=False
+    )
+    assert result.exit_code != 0
+    assert "max-results must be a non-negative integer" in result.output
+
+
 def test_server_with_env_file(tmp_path):
-    """Test that --env-file is passed through to uvicorn."""
     env_file = tmp_path / ".env"
     env_file.write_text("TEST_VAR=test_value\n")
 
@@ -949,3 +1035,234 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
 
     retrieved_model = store.get_logged_model(recent_model.model_id, allow_deleted=True)
     assert retrieved_model.model_id == recent_model.model_id
+
+
+@pytest.fixture
+def sqlite_store_with_jobs(
+    db_uri: str, tmp_path: Path
+) -> tuple[SqlAlchemyStore, SqlAlchemyJobStore, str]:
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    tracking_store = SqlAlchemyStore(db_uri, artifact_uri)
+    job_store = SqlAlchemyJobStore(db_uri)
+    return (tracking_store, job_store, db_uri)
+
+
+def _create_test_job(job_store, job_name="test_job", finalize=True):
+    job = job_store.create_job(job_name=job_name, params="{}")
+    if finalize:
+        job_store.start_job(job.job_id)
+        job_store.finish_job(job.job_id, result="done")
+        return job_store.get_job(job.job_id)
+    return job
+
+
+def _set_job_creation_time(job_store, job_id, creation_time_ms):
+    from mlflow.store.tracking.dbmodels.models import SqlJob
+
+    with job_store.ManagedSessionMaker() as session:
+        job = session.query(SqlJob).filter(SqlJob.id == job_id).first()
+        job.creation_time = creation_time_ms
+
+
+def test_mlflow_gc_no_jobs_deleted_without_jobs_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+        ]
+    )
+
+    retrieved_job1 = job_store.get_job(job1.job_id)
+    retrieved_job2 = job_store.get_job(job2.job_id)
+    assert retrieved_job1.job_id == job1.job_id
+    assert retrieved_job2.job_id == job2.job_id
+
+
+def test_mlflow_gc_all_jobs_deleted_with_jobs_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+    job3 = _create_test_job(job_store, "job3")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job2.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job3.job_id)
+
+
+def test_mlflow_gc_specific_jobs_deleted_with_job_ids(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+    job3 = _create_test_job(job_store, "job3")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--job-ids",
+            f"{job1.job_id},{job2.job_id}",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job2.job_id)
+
+    retrieved_job3 = job_store.get_job(job3.job_id)
+    assert retrieved_job3.job_id == job3.job_id
+
+
+def test_mlflow_gc_jobs_deleted_with_older_than_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    old_job = _create_test_job(job_store, "old_job")
+    new_job = _create_test_job(job_store, "new_job")
+
+    one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
+    _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+            "--older-than",
+            "30m",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(old_job.job_id)
+
+    retrieved_new_job = job_store.get_job(new_job.job_id)
+    assert retrieved_new_job.job_id == new_job.job_id
+
+
+def test_mlflow_gc_job_ids_with_older_than_filter(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    old_job = _create_test_job(job_store, "old_job")
+    new_job = _create_test_job(job_store, "new_job")
+
+    one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
+    _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--job-ids",
+            new_job.job_id,
+            "--older-than",
+            "30m",
+        ]
+    )
+
+    retrieved_new_job = job_store.get_job(new_job.job_id)
+    assert retrieved_new_job.job_id == new_job.job_id
+
+    retrieved_old_job = job_store.get_job(old_job.job_id)
+    assert retrieved_old_job.job_id == old_job.job_id
+
+
+def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
+    from mlflow.entities._job_status import JobStatus
+
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    # Create jobs with different statuses
+    pending_job = _create_test_job(job_store, "pending_job", finalize=False)
+    assert pending_job.status == JobStatus.PENDING
+
+    running_job = _create_test_job(job_store, "running_job", finalize=False)
+    job_store.start_job(running_job.job_id)
+    running_job = job_store.get_job(running_job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+
+    succeeded_job = _create_test_job(job_store, "succeeded_job", finalize=True)
+    assert succeeded_job.status == JobStatus.SUCCEEDED
+
+    failed_job = _create_test_job(job_store, "failed_job", finalize=False)
+    job_store.start_job(failed_job.job_id)
+    job_store.fail_job(failed_job.job_id, "error")
+    failed_job = job_store.get_job(failed_job.job_id)
+    assert failed_job.status == JobStatus.FAILED
+
+    timeout_job = _create_test_job(job_store, "timeout_job", finalize=False)
+    job_store.start_job(timeout_job.job_id)
+    job_store.mark_job_timed_out(timeout_job.job_id)
+    timeout_job = job_store.get_job(timeout_job.job_id)
+    assert timeout_job.status == JobStatus.TIMEOUT
+
+    canceled_job = _create_test_job(job_store, "canceled_job", finalize=False)
+    job_store.cancel_job(canceled_job.job_id)
+    canceled_job = job_store.get_job(canceled_job.job_id)
+    assert canceled_job.status == JobStatus.CANCELED
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+        ]
+    )
+
+    retrieved_pending = job_store.get_job(pending_job.job_id)
+    assert retrieved_pending.job_id == pending_job.job_id
+    assert retrieved_pending.status == JobStatus.PENDING
+
+    retrieved_running = job_store.get_job(running_job.job_id)
+    assert retrieved_running.job_id == running_job.job_id
+    assert retrieved_running.status == JobStatus.RUNNING
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(succeeded_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(failed_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(timeout_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(canceled_job.job_id)

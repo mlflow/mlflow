@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { useUpdateScheduledScorerMutation } from './hooks/useUpdateScheduledScorer';
 import { convertFormDataToScheduledScorer, type ScorerFormData } from './utils/scorerTransformUtils';
 import { getFormValuesFromScorer } from './scorerCardUtils';
 import ScorerFormRenderer from './ScorerFormRenderer';
 import type { ScheduledScorer } from './types';
-import { SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 
 interface ScorerFormEditContainerProps {
   experimentId: string;
@@ -24,10 +24,19 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
   // Hook for updating scorer
   const updateScorerMutation = useUpdateScheduledScorerMutation();
 
-  const { handleSubmit, control, reset, setValue, getValues, formState } = useForm<ScorerFormData>({
+  const form = useForm<ScorerFormData>({
     mode: 'onChange', // Enable real-time validation
     defaultValues: getFormValuesFromScorer(existingScorer),
   });
+
+  const {
+    handleSubmit,
+    control,
+    reset,
+    setValue,
+    getValues,
+    formState: { isValid, isDirty },
+  } = form;
 
   // Watch the scorer type from form data
   const scorerType = useWatch({ control, name: 'scorerType' });
@@ -68,24 +77,7 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
     updateScorerMutation.reset(); // Clear mutation error state
   };
 
-  // Determine if the submit button should be disabled
-  const isSubmitButtonDisabled = () => {
-    if (updateScorerMutation.isLoading) {
-      return true;
-    }
-
-    // Disable for custom-code scorers
-    if (scorerType === 'custom-code') {
-      return true;
-    }
-
-    // In edit mode, disable if form is not dirty
-    if (!formState.isDirty) {
-      return true;
-    }
-
-    return false;
-  };
+  const isSubmitDisabled = updateScorerMutation.isLoading || scorerType === 'custom-code' || !isDirty || !isValid;
 
   return (
     <div
@@ -95,20 +87,22 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
         flexDirection: 'column',
       }}
     >
-      <ScorerFormRenderer
-        mode={SCORER_FORM_MODE.EDIT}
-        handleSubmit={handleSubmit}
-        onFormSubmit={onFormSubmit}
-        control={control}
-        setValue={setValue}
-        getValues={getValues}
-        scorerType={scorerType}
-        mutation={updateScorerMutation}
-        componentError={componentError}
-        handleCancel={handleCancel}
-        isSubmitButtonDisabled={isSubmitButtonDisabled}
-        experimentId={experimentId}
-      />
+      <FormProvider {...form}>
+        <ScorerFormRenderer
+          mode={SCORER_FORM_MODE.EDIT}
+          handleSubmit={handleSubmit}
+          onFormSubmit={onFormSubmit}
+          control={control}
+          setValue={setValue}
+          getValues={getValues}
+          scorerType={scorerType}
+          mutation={updateScorerMutation}
+          componentError={componentError}
+          handleCancel={handleCancel}
+          isSubmitDisabled={isSubmitDisabled}
+          experimentId={experimentId}
+        />
+      </FormProvider>
     </div>
   );
 };

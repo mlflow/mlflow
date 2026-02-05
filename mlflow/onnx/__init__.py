@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -103,6 +104,7 @@ def save_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     **kwargs,  # pylint: disable=unused-argument
 ):
     """
@@ -151,6 +153,7 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: {{ extra_files }}
         kwargs: {{ kwargs }}
     """
     import onnx
@@ -177,9 +180,11 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data=save_as_external_data)
+        onnx.save_model(
+            onnx_model, model_data_path, save_as_external_data=save_as_external_data, **kwargs
+        )
     else:
-        onnx.save_model(onnx_model, model_data_path)
+        onnx.save_model(onnx_model, model_data_path, **kwargs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -192,6 +197,8 @@ def save_model(
 
     _validate_onnx_session_options(onnx_session_options)
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,
@@ -199,6 +206,7 @@ def save_model(
         providers=onnx_execution_providers,
         onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -262,8 +270,7 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         sess_options = onnxruntime.SessionOptions()
-        options = model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options")
-        if options:
+        if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
             if inter_op_num_threads := options.get("inter_op_num_threads"):
                 sess_options.inter_op_num_threads = inter_op_num_threads
             if intra_op_num_threads := options.get("intra_op_num_threads"):
@@ -464,6 +471,7 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -523,6 +531,7 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -552,6 +561,7 @@ def log_model(
         onnx_session_options=onnx_session_options,
         metadata=metadata,
         save_as_external_data=save_as_external_data,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,

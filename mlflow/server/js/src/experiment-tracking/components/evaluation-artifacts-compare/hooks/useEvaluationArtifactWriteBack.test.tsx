@@ -88,7 +88,8 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
   });
 
   beforeEach(() => {
-    Utils.logErrorAndNotifyUser = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation();
   });
 
   afterEach(() => {

@@ -4,7 +4,6 @@ import numpy as np
 import optuna
 import pytest
 import setfit
-import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch
@@ -34,7 +33,7 @@ def iris_data():
 
 @pytest.fixture
 def setfit_trainer():
-    dataset = load_dataset("sst2")
+    dataset = load_dataset("stanfordnlp/sst2")
 
     train_dataset = sample_dataset(dataset["train"], label_column="label", num_samples=8)
     eval_dataset = dataset["validation"]

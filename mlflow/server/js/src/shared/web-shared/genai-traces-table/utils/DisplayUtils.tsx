@@ -56,8 +56,8 @@ export function getDisplayOverallScoreAndChange(
       ? changeDirection === 'up'
         ? `+${displayFloat(Math.abs(scoreChange), 2)}`
         : changeDirection === 'down'
-        ? `-${displayFloat(Math.abs(scoreChange), 2)}`
-        : '+0'
+          ? `-${displayFloat(Math.abs(scoreChange), 2)}`
+          : '+0'
       : undefined;
 
     return {

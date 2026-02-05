@@ -253,7 +253,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
         load_kwargs.update({"trust_remote_code": True})
 
     if model := _try_load_model_with_accelerate(
-        cls, model_name_or_path, {**accelerate_conf, **load_kwargs}
+        cls, model_name_or_path, accelerate_conf | load_kwargs
     ):
         return model
 

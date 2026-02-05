@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import sys
 import threading
 import time
 import uuid
@@ -20,7 +21,7 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -36,7 +37,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer, set_destination
+from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -911,7 +912,7 @@ def test_search_traces(return_type, mock_client):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=["1"],
+        locations=["1"],
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
@@ -971,7 +972,7 @@ def test_search_traces_with_pagination(mock_client):
         PagedList(traces[20:], token=None),
     ]
 
-    traces = mlflow.search_traces(experiment_ids=["1"])
+    traces = mlflow.search_traces(locations=["1"])
 
     assert len(traces) == 30
     common_args = {
@@ -1253,7 +1254,7 @@ def test_search_traces_with_run_id():
         )
 
     with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
-        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
+        mlflow.search_traces(run_id=run1.info.run_id, locations=["1"])
 
 
 @pytest.mark.parametrize(
@@ -1485,7 +1486,6 @@ def test_update_current_trace():
 
 
 def test_update_current_trace_with_client_request_id():
-    """Test that update_current_trace correctly handles client_request_id parameter."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     # Test updating during span execution
@@ -1520,7 +1520,6 @@ def test_update_current_trace_with_client_request_id():
 
 
 def test_update_current_trace_client_request_id_overwrites():
-    """Test that client_request_id can be overwritten by subsequent calls."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     with mlflow.start_span("overwrite_test") as span:
@@ -1538,7 +1537,6 @@ def test_update_current_trace_client_request_id_overwrites():
 
 
 def test_update_current_trace_client_request_id_stringification():
-    """Test that client_request_id is stringified when it's not a string."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     test_cases = [
@@ -1568,8 +1566,6 @@ def test_update_current_trace_client_request_id_stringification():
 
 
 def test_update_current_trace_with_metadata():
-    """Test that update_current_trace correctly handles metadata parameter."""
-
     @mlflow.trace
     def f():
         mlflow.update_current_trace(
@@ -1655,7 +1651,6 @@ def test_update_current_trace_should_not_raise_during_model_logging():
 
 
 def test_update_current_trace_with_state():
-    """Test the state parameter in update_current_trace."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     # Test with TraceState enum
@@ -1688,7 +1683,6 @@ def test_update_current_trace_with_state():
 
 
 def test_update_current_trace_state_none():
-    """Test that state=None doesn't change trace state."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     with mlflow.start_span("test_span") as span:
@@ -1705,7 +1699,6 @@ def test_update_current_trace_state_none():
 
 
 def test_update_current_trace_state_validation():
-    """Test that state validation only allows OK or ERROR."""
     with mlflow.start_span("test_span"):
         # Valid states should work
         mlflow.update_current_trace(state="OK")
@@ -1740,7 +1733,6 @@ def test_update_current_trace_state_validation():
 
 
 def test_span_record_exception_with_string():
-    """Test record_exception method with string parameter."""
     with mlflow.start_span("test_span") as span:
         span.record_exception("Something went wrong")
 
@@ -1762,7 +1754,6 @@ def test_span_record_exception_with_string():
 
 
 def test_span_record_exception_with_exception():
-    """Test record_exception method with Exception parameter."""
     test_exception = ValueError("Custom error message")
 
     with mlflow.start_span("test_span") as span:
@@ -1787,7 +1778,6 @@ def test_span_record_exception_with_exception():
 
 
 def test_span_record_exception_invalid_type():
-    """Test record_exception method with invalid parameter type."""
     with mlflow.start_span("test_span") as span:
         with pytest.raises(
             MlflowException,
@@ -1797,8 +1787,6 @@ def test_span_record_exception_invalid_type():
 
 
 def test_combined_state_and_record_exception():
-    """Test using both status update and record_exception together."""
-
     @mlflow.trace
     def test_function():
         # Get current span and record exception
@@ -1829,7 +1817,6 @@ def test_combined_state_and_record_exception():
 
 
 def test_span_record_exception_no_op_span():
-    """Test that record_exception works gracefully with NoOpSpan."""
     # This should not raise an exception
     from mlflow.entities.span import NoOpSpan
 
@@ -1841,7 +1828,6 @@ def test_span_record_exception_no_op_span():
 
 
 def test_update_current_trace_state_isolation():
-    """Test that state update doesn't affect span status."""
     with mlflow.start_span("test_span") as span:
         # Set span status to OK explicitly
         span.set_status("OK")
@@ -2231,6 +2217,7 @@ def test_search_traces_with_locations(mock_client):
     assert call_kwargs.get("experiment_ids") is None
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 
@@ -2260,6 +2247,7 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
@@ -2374,10 +2362,17 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces[0].data.spans) == 2
 
 
+def test_set_destination_from_env_var_databricks_uc(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UCSchemaLocation)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
+    assert mlflow.get_tracking_uri() == "databricks"
+
+
 @skip_when_testing_trace_sdk
 def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
-    """Smoke test that traces can be searched by span name using filter_string."""
-
     @mlflow.trace(name="test_span")
     def test_function():
         return "result"
@@ -2432,3 +2427,149 @@ def test_search_traces_with_full_text():
     )
     assert len(traces) == 1
     assert traces[0].info.trace_id == trace_id_1
+
+
+def _create_trace_with_session(session_id: str, name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+def _create_trace_without_session(name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_empty():
+    # Create a trace without a session ID - should result in no sessions
+    _create_trace_without_session()
+    sessions = mlflow.search_sessions()
+    assert sessions == []
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_returns_grouped_traces():
+    session_id_1 = f"session-1-{uuid.uuid4().hex[:8]}"
+    session_id_2 = f"session-2-{uuid.uuid4().hex[:8]}"
+
+    # Create traces for session 1
+    trace_id_1 = _create_trace_with_session(session_id_1, "session1_trace1")
+    trace_id_2 = _create_trace_with_session(session_id_1, "session1_trace2")
+
+    # Create trace for session 2
+    trace_id_3 = _create_trace_with_session(session_id_2, "session2_trace1")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 2
+
+    # Convert to dict keyed by session.id for easier assertions
+    sessions_by_id = {s.id: s for s in sessions}
+
+    assert len(sessions_by_id[session_id_1]) == 2
+    assert len(sessions_by_id[session_id_2]) == 1
+
+    # Verify trace IDs
+    session_1_trace_ids = {t.info.trace_id for t in sessions_by_id[session_id_1]}
+    assert trace_id_1 in session_1_trace_ids
+    assert trace_id_2 in session_1_trace_ids
+    assert sessions_by_id[session_id_2][0].info.trace_id == trace_id_3
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_respects_max_results():
+    session_ids = [f"session-{i}-{uuid.uuid4().hex[:8]}" for i in range(3)]
+
+    # Create one trace per session
+    for session_id in session_ids:
+        _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(max_results=2)
+
+    assert len(sessions) == 2
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_skips_traces_without_session_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+
+    # Create trace without session
+    _create_trace_without_session("no_session_trace")
+
+    # Create trace with session
+    trace_id = _create_trace_with_session(session_id, "with_session_trace")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    assert sessions[0][0].info.trace_id == trace_id
+
+
+def test_search_sessions_validates_locations_type():
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations=4)
+
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations="4")
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_with_default_experiment_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    # search_sessions should use the default experiment
+    sessions = mlflow.search_sessions()
+    assert len(sessions) == 1
+
+
+def test_search_sessions_raises_without_experiment():
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None):
+        with pytest.raises(MlflowException, match=r"No active experiment found"):
+            mlflow.search_sessions()
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_true():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=True)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=True, spans should be populated
+    assert len(sessions[0][0].data.spans) > 0
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_false():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=False)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=False, spans should be empty
+    assert len(sessions[0][0].data.spans) == 0

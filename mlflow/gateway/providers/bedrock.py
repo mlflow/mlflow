@@ -173,8 +173,8 @@ class AmazonBedrockProvider(BaseProvider):
     NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
 
-    def __init__(self, config: EndpointConfig):
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
+        super().__init__(config, enable_tracing=enable_tracing)
 
         if config.model.config is None or not isinstance(config.model.config, AmazonBedrockConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
@@ -242,6 +242,7 @@ class AmazonBedrockProvider(BaseProvider):
                 "aws_session_token": aws_config.aws_session_token,
             }
         else:
+            # TODO: handle session token authentication
             return {}
 
     @property
@@ -287,7 +288,9 @@ class AmazonBedrockProvider(BaseProvider):
         except botocore.exceptions.ReadTimeoutError as e:
             raise AIGatewayException(status_code=408) from e
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         self.check_for_model_field(payload)

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import type { ScheduledScorer } from './types';
 import { useDeleteScheduledScorerMutation } from './hooks/useDeleteScheduledScorer';
 import { syncFormWithScorer, getFormValuesFromScorer } from './scorerCardUtils';
@@ -9,6 +9,7 @@ import { DeleteScorerModalRenderer } from './DeleteScorerModalRenderer';
 import ScorerCardRenderer from './ScorerCardRenderer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import { SCORER_FORM_MODE } from './constants';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 interface ScorerCardContainerProps {
   scorer: ScheduledScorer;
@@ -19,13 +20,18 @@ const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, exper
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeModal, setActiveModal] = useState<'delete' | 'edit' | null>(null);
 
+  // Register scorer context when card is expanded
+  useRegisterAssistantContext('selectedScorerName', isExpanded ? scorer.name : undefined);
+
   // Hook for deleting scorer
   const deleteScorerMutation = useDeleteScheduledScorerMutation();
 
   // React Hook Form for display mode
-  const { control, reset, setValue, getValues } = useForm<LLMScorerFormData | CustomCodeScorerFormData>({
+  const form = useForm<LLMScorerFormData | CustomCodeScorerFormData>({
     defaultValues: getFormValuesFromScorer(scorer),
   });
+
+  const { control, reset, setValue, getValues } = form;
 
   // Sync form state with scorer prop changes
   useEffect(() => {
@@ -77,7 +83,7 @@ const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, exper
   }, [deleteScorerMutation]);
 
   return (
-    <>
+    <FormProvider {...form}>
       <ScorerCardRenderer
         scorer={scorer}
         isExpanded={isExpanded}
@@ -104,7 +110,7 @@ const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, exper
         isLoading={deleteScorerMutation.isLoading}
         error={deleteScorerMutation.error}
       />
-    </>
+    </FormProvider>
   );
 };
 

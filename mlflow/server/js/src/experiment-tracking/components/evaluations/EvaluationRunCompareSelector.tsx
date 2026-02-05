@@ -109,7 +109,7 @@ export const EvaluationRunCompareSelector = ({
         }}
       >
         <DialogCombobox
-          componentId={COMPARE_TO_RUN_DROPDOWN_COMPONENT_ID}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_evaluations_evaluationruncompareselector_112"
           id="compare-to-run-combobox"
           value={currentRunUuid ? [currentRunUuid] : undefined}
         >
@@ -186,7 +186,7 @@ export const EvaluationRunCompareSelector = ({
             }}
           >
             <DialogCombobox
-              componentId={COMPARE_TO_RUN_DROPDOWN_COMPONENT_ID}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_evaluations_evaluationruncompareselector_190"
               id="compare-to-run-combobox"
               value={compareToRunUuid ? [compareToRunUuid] : undefined}
             >

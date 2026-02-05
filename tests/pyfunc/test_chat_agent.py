@@ -430,3 +430,41 @@ def test_chat_agent_predict_with_params(tmp_path):
     responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
     for i, resp in enumerate(responses[:-1]):
         assert resp["delta"]["content"] == f"message {i}"
+
+
+def test_chat_agent_load_context_called_during_save(tmp_path):
+    class ChatAgentWithArtifacts(ChatAgent):
+        def __init__(self):
+            self.prefix = None
+
+        def load_context(self, context):
+            self.prefix = "loaded_prefix"
+
+        def predict(
+            self,
+            messages: list[ChatAgentMessage],
+            context: ChatContext,
+            custom_inputs: dict[str, Any],
+        ) -> ChatAgentResponse:
+            if self.prefix is None:
+                raise ValueError("load_context was not called - prefix is None")
+            return ChatAgentResponse(
+                messages=[
+                    {
+                        "role": "assistant",
+                        "content": f"{self.prefix}: {messages[0].content}",
+                        "id": str(uuid4()),
+                    }
+                ]
+            )
+
+    model = ChatAgentWithArtifacts()
+    save_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        python_model=model,
+        path=save_path,
+    )
+
+    loaded_model = mlflow.pyfunc.load_model(save_path)
+    response = loaded_model.predict({"messages": [{"role": "user", "content": "Hello!"}]})
+    assert response["messages"][0]["content"] == "loaded_prefix: Hello!"

@@ -14,6 +14,10 @@ on:
     # Run daily at 16:00 UTC (3 hours after cross-version-tests.yml at 13:00)
     - cron: "0 16 * * *"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   xtest-viz:
     runs-on: ubuntu-slim
@@ -39,7 +43,7 @@ jobs:
 
       - name: Generate cross-version test visualization
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

@@ -3,6 +3,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from io import BytesIO
 from typing import NamedTuple
 
@@ -12,12 +13,14 @@ import requests
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import LOCALHOST, get_safe_port
+from tests.helper_functions import LOCALHOST, get_safe_port, kill_process_tree
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
+@contextmanager
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
     extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
     cmd = [
@@ -35,9 +38,12 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         artifacts_destination,
         *extra_cmd,
     ]
-    process = subprocess.Popen(cmd)
-    _await_server_up_or_die(port)
-    return process
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            yield process
+        finally:
+            kill_process_tree(process.pid)
 
 
 class ArtifactsServer(NamedTuple):
@@ -56,17 +62,19 @@ def artifacts_server():
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
-        process = _launch_server(
+        # Initialize the database before launching the server process
+        s = SqlAlchemyStore(backend_store_uri, default_artifact_root)
+        s.engine.dispose()
+        with _launch_server(
             LOCALHOST,
             port,
             backend_store_uri,
             default_artifact_root,
             ("file:///" + artifacts_destination if is_windows() else artifacts_destination),
-        )
-        yield ArtifactsServer(
-            backend_store_uri, default_artifact_root, artifacts_destination, url, process
-        )
-        process.kill()
+        ) as process:
+            yield ArtifactsServer(
+                backend_store_uri, default_artifact_root, artifacts_destination, url, process
+            )
 
 
 def read_file(path):

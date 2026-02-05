@@ -7,6 +7,8 @@ MAX_QUEUE_SIZE = 1000
 MAX_WORKERS = 1
 CONFIG_STAGING_URL = "https://config-staging.mlflow-telemetry.io"
 CONFIG_URL = "https://config.mlflow-telemetry.io"
+UI_CONFIG_STAGING_URL = "https://d34z9x6fp23d2z.cloudfront.net"
+UI_CONFIG_URL = "https://d139nb52glx00z.cloudfront.net"
 RETRYABLE_ERRORS = [
     429,  # Throttled
     500,  # Interval Server Error
@@ -82,3 +84,10 @@ NON_GENAI_MODULES = {
 } | set(NON_GENAI_FLAVOR_TO_MODULE_NAME.values()) - {"pyspark"}
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
+
+# fallback config to use for UI telemetry in case fetch fails
+FALLBACK_UI_CONFIG = {
+    "disable_ui_telemetry": True,
+    "disable_ui_events": [],
+    "ui_rollout_percentage": 0,
+}

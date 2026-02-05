@@ -658,8 +658,9 @@ def make_genai_metric(
     ]
 
     # Add grading_context_columns to signature list
-    for var in grading_context_columns:
-        signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
+    signature_parameters.extend(
+        Parameter(var, Parameter.POSITIONAL_OR_KEYWORD) for var in grading_context_columns
+    )
 
     # Note: this doesn't change how python allows calling the function
     # extra params in grading_context_columns can only be passed as positional args

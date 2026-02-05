@@ -174,7 +174,7 @@ Transform manual prompt engineering into systematic, data-driven optimization wi
 Ready to get started? You'll need:
 
 - Python 3.10+ installed
-- MLflow 3.5+ (`pip install --upgrade mlflow`)
+- MLflow 3.5+ (`pip install --upgrade 'mlflow[genai]'`)
 - API access to an LLM provider (OpenAI, Anthropic, etc.)
 
 ---
@@ -276,15 +276,6 @@ MLflow provides deep integrations with popular GenAI frameworks. Choose your fra
     description="Instrument RAG pipelines and document processing workflows with LlamaIndex support"
     href="/genai/flavors/llama-index"
     linkText="Use LlamaIndex →"
-    containerHeight={64}
-  />
-  <TileCard
-    image="/images/logos/openai-logo.svg"
-    iconSize={48}
-    title="OpenAI Integration"
-    description="Track completions, embeddings, and function calls with native OpenAI instrumentation"
-    href="/genai/flavors/openai"
-    linkText="Use OpenAI →"
     containerHeight={64}
   />
   <TileCard

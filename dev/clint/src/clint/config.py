@@ -1,4 +1,5 @@
 import re
+import typing
 from dataclasses import dataclass, field
 
 import tomli
@@ -21,12 +22,37 @@ def _validate_exclude_paths(exclude_paths: list[str]) -> None:
         return
 
     repo_root = get_repo_root()
-    non_existing_paths = [path for path in exclude_paths if not (repo_root / path).exists()]
-
-    if non_existing_paths:
+    if non_existing_paths := [path for path in exclude_paths if not (repo_root / path).exists()]:
         raise ValueError(
             f"Non-existing paths found in exclude field: {non_existing_paths}. "
             f"All paths in the exclude list must exist."
+        )
+
+
+def _validate_typing_extensions_allowlist(allowlist: list[str]) -> None:
+    """Validate that the typing-extensions-allowlist doesn't contain stdlib items.
+
+    Args:
+        allowlist: List of typing_extensions items to validate
+
+    Raises:
+        ValueError: If any item in the allowlist is available in stdlib typing
+    """
+    if not allowlist:
+        return
+
+    # Extract the item name from full paths like "typing_extensions.overload"
+    # and check if it's available in stdlib typing
+    stdlib_items = []
+    for item in allowlist:
+        name = item.rsplit(".", 1)[-1]
+        if hasattr(typing, name):
+            stdlib_items.append(item)
+
+    if stdlib_items:
+        raise ValueError(
+            f"Items in typing-extensions-allowlist are available in stdlib `typing`: "
+            f"{stdlib_items}. Use `from typing import ...` instead."
         )
 
 
@@ -71,11 +97,14 @@ class Config:
         exclude_paths = clint.get("exclude", [])
         _validate_exclude_paths(exclude_paths)
 
+        typing_extensions_allowlist = clint.get("typing-extensions-allowlist", [])
+        _validate_typing_extensions_allowlist(typing_extensions_allowlist)
+
         return cls(
             select=select,
             exclude=exclude_paths,
             forbidden_top_level_imports=clint.get("forbidden-top-level-imports", {}),
-            typing_extensions_allowlist=clint.get("typing-extensions-allowlist", []),
+            typing_extensions_allowlist=typing_extensions_allowlist,
             example_rules=clint.get("example-rules", []),
             per_file_ignores=per_file_ignores,
         )

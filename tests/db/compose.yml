@@ -45,6 +45,7 @@ services:
       MYSQL_DATABASE: mlflowdb
       MYSQL_USER: mlflowuser
       MYSQL_PASSWORD: mlflowpassword
+    command: --log-bin-trust-function-creators=1
 
   mlflow-mysql:
     extends:

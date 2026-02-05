@@ -79,7 +79,7 @@ export const useTagAssignmentModal = ({
 
   const TagAssignmentModal = (
     <Modal
-      componentId={`${baseComponentId}`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_82"
       title={title ?? defaultTitleNode}
       visible={visible ?? isVisible}
       destroyOnClose
@@ -87,14 +87,14 @@ export const useTagAssignmentModal = ({
       footer={
         <>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_91"
             onClick={hideTagAssignmentModal}
             disabled={isLoading}
           >
             <FormattedMessage defaultMessage="Cancel" description="Tag assignment modal > Cancel button" />
           </Button>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_99"
             type="primary"
             onClick={form.handleSubmit(handleSubmit)}
             loading={isLoading}
@@ -109,7 +109,7 @@ export const useTagAssignmentModal = ({
         <Alert
           type="error"
           message={error}
-          componentId={`${baseComponentId}.error`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_115"
           closable={false}
           css={{ marginBottom: theme.spacing.sm }}
         />

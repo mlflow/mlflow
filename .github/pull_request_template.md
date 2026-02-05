@@ -1,4 +1,4 @@
-<!-- Remove unused checkboxes except for the patch release section at the bottom -->
+<!-- Do not remove any sections. Remove unused checkboxes except for the patch release section at the bottom. -->
 
 ### Related Issues/PRs
 
@@ -24,6 +24,15 @@
   - [ ] Examples
   - [ ] API references
   - [ ] Instructions
+
+### Does this PR require updating the [MLflow Skills](https://github.com/mlflow/skills) repository?
+
+<!-- When updating APIs or feature usage, please ensure the MLflow Skills repository reflects those changes. -->
+
+- [ ] No. You can skip the rest of this section.
+- [ ] Yes. Please link the corresponding PR or explain how you plan to update it.
+
+<!-- Provide the link to the Skills repository PR or a brief explanation of the changes needed. -->
 
 ### Release Notes
 

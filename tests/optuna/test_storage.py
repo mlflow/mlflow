@@ -167,7 +167,6 @@ def test_queue_batch_operation_appends_to_existing_queue(setup_storage):
 
 
 def test_flush_batch_sends_data_to_mlflow(setup_storage):
-    """Test that _flush_batch properly sends data to MLflow client."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -198,7 +197,6 @@ def test_flush_batch_sends_data_to_mlflow(setup_storage):
 
 
 def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
-    """Test that _flush_batch does nothing when batch is empty."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -219,7 +217,6 @@ def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
 
 
 def test_flush_batch_handles_nonexistent_run(setup_storage):
-    """Test that _flush_batch handles nonexistent run gracefully."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "nonexistent-run"
@@ -237,7 +234,6 @@ def test_flush_batch_handles_nonexistent_run(setup_storage):
 
 
 def test_flush_all_batches_flushes_all_runs(setup_storage):
-    """Test that flush_all_batches flushes all pending runs."""
     storage = setup_storage
     # Setup multiple runs with data
     run_ids = ["run1", "run2", "run3"]
@@ -261,7 +257,6 @@ def test_flush_all_batches_flushes_all_runs(setup_storage):
 
 
 def test_flush_all_batches_handles_empty_queue(setup_storage):
-    """Test that flush_all_batches works with empty queue."""
     storage = setup_storage
     # Ensure batch queue is empty
     storage._batch_queue = {}

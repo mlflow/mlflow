@@ -27,6 +27,22 @@ class OtelSchemaTranslator:
     TOTAL_TOKEN_KEY: str | None = None
     INPUT_VALUE_KEYS: list[str] | None = None
     OUTPUT_VALUE_KEYS: list[str] | None = None
+    MODEL_NAME_KEYS: list[str] | None = None
+    LLM_PROVIDER_KEY: str | None = None
+
+    def get_message_format(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get message format identifier for chat UI rendering.
+
+        Subclasses should override this method to return their format identifier
+        when they can handle the given attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Message format string or None if not applicable
+        """
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -94,6 +110,32 @@ class OtelSchemaTranslator:
         """
         if self.TOTAL_TOKEN_KEY:
             return attributes.get(self.TOTAL_TOKEN_KEY)
+
+    def get_model_name(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get model name from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Model name string or None if not found
+        """
+        return self.get_attribute_value(attributes, self.MODEL_NAME_KEYS)
+
+    def get_model_provider(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get model provider from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Model provider string or None if not found
+        """
+
+        if self.LLM_PROVIDER_KEY:
+            return self._get_and_check_attribute_value(attributes, self.LLM_PROVIDER_KEY)
 
     def get_input_value(self, attributes: dict[str, Any]) -> Any:
         """

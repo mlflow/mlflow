@@ -199,6 +199,7 @@ def test_chat_model_autolog():
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
+    assert span.model_name == "gpt-4o-mini"
 
 
 def test_chat_model_bind_tool_autolog():
@@ -238,6 +239,7 @@ def test_chat_model_bind_tool_autolog():
         }
     ]
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
+    assert span.model_name == "gpt-4o-mini"
 
 
 @pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
@@ -377,8 +379,7 @@ def _extract_callback_handlers(config) -> list[BaseCallbackHandler] | None:
     if isinstance(config, list):
         callbacks = []
         for c in config:
-            callbacks_in_c = _extract_callback_handlers(c)
-            if callbacks_in_c:
+            if callbacks_in_c := _extract_callback_handlers(c):
                 callbacks.extend(callbacks_in_c)
         return callbacks
     # RunnableConfig is also a dict
@@ -732,7 +733,7 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.asyncio
-async def test_langchain_autolog_token_usage():
+async def test_langchain_autolog_token_usage(mock_litellm_cost):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -741,20 +742,40 @@ async def test_langchain_autolog_token_usage():
         actual = trace.info.token_usage
         assert actual == {"input_tokens": 9, "output_tokens": 12, "total_tokens": 21}
 
+    def _validate_model_name(trace):
+        # Find the ChatOpenAI span
+        chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
+        assert chat_model_span.model_name == "gpt-3.5-turbo"
+
+    def _validate_cost(trace):
+        # Find the ChatOpenAI span
+        chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
+        assert chat_model_span.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
+
     # Normal invoke
     model.invoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
+    _validate_cost(trace)
 
     # Invoke with streaming
     list(model.stream({"product": "MLflow"}))
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
+    _validate_cost(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
+    _validate_cost(trace)
 
     # When both OpenAI and LangChain autologging is enabled,
     # no duplicated token usage should be logged
@@ -763,6 +784,8 @@ async def test_langchain_autolog_token_usage():
     model.invoke({"product": "MLflow"})
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
+    _validate_model_name(trace)
+    _validate_cost(trace)
 
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
@@ -1098,3 +1121,42 @@ def test_langchain_tracing_evaluate(log_traces):
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == result.run_id
         assert len(trace.info.assessments) == 2
+
+
+@pytest.mark.asyncio
+async def test_autolog_run_tracer_inline_with_manual_traces_async():
+    mlflow.langchain.autolog(run_tracer_inline=True)
+
+    prompt = PromptTemplate(
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
+    )
+    llm = ChatOpenAI()
+
+    @mlflow.trace
+    def manual_transform(s: str):
+        return s.replace("red", "blue")
+
+    chain = RunnableLambda(manual_transform) | prompt | llm | StrOutputParser()
+
+    @mlflow.trace(name="parent")
+    async def run(message):
+        return await chain.ainvoke(message)
+
+    response = await run("red")
+    expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'
+    assert response == expected_response
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    trace = traces[0]
+    spans = trace.data.spans
+    assert spans[0].name == "parent"
+    assert spans[1].name == "RunnableSequence"
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "manual_transform"
+    assert spans[2].parent_id == spans[1].span_id
+    # Find and verify ChatOpenAI span has model name
+    chat_model_span = next(s for s in spans if s.name == "ChatOpenAI")
+    assert chat_model_span.model_name == "gpt-3.5-turbo"

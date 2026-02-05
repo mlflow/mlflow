@@ -14,7 +14,6 @@ class MockScorer(Scorer):
 
 
 def test_scheduled_scorer_class_instantiation():
-    """Test that ScheduledScorer class can be instantiated without import errors."""
     mock_scorer = MockScorer()
     scheduled_scorer = ScorerScheduleConfig(
         scorer=mock_scorer,

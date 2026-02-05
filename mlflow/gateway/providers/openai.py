@@ -1,13 +1,18 @@
 import json
 import os
-from typing import TYPE_CHECKING, AsyncIterable
+import warnings
+from typing import TYPE_CHECKING, Any, AsyncIterable
 from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
@@ -117,6 +122,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = chat.ChatUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             object=resp["object"],
@@ -137,6 +151,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -188,6 +203,15 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
+        # Extract usage from the final chunk (when stream_options.include_usage=true)
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = completions.CompletionsUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return completions.StreamResponsePayload(
             id=resp["id"],
             # The chat models response from OpenAI is of object type "chat.completion.chunk".
@@ -204,6 +228,7 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -251,8 +276,14 @@ class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.OPENAI_CHAT: "chat/completions",
+        PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
+        PassthroughAction.OPENAI_RESPONSES: "responses",
+    }
+
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
             raise MlflowException.invalid_parameter_value(
@@ -290,14 +321,14 @@ class OpenAIProvider(BaseProvider):
         api_type = self.openai_config.openai_api_type
         if api_type == OpenAIAPIType.OPENAI:
             headers = {
-                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+                "authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
             if org := self.openai_config.openai_organization:
                 headers["OpenAI-Organization"] = org
             return headers
         elif api_type == OpenAIAPIType.AZUREAD:
             return {
-                "Authorization": f"Bearer {self.openai_config.openai_api_key}",
+                "authorization": f"Bearer {self.openai_config.openai_api_key}",
             }
         elif api_type == OpenAIAPIType.AZURE:
             return {
@@ -307,6 +338,32 @@ class OpenAIProvider(BaseProvider):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid OpenAI API type '{self.openai_config.openai_api_type}'"
             )
+
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for OpenAI API requests.
+
+        Args:
+            payload: Request payload (reserved for future conditional headers)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
+            # Don't override api key or organization headers
+            result_headers = client_headers | result_headers
+
+        return result_headers
 
     @property
     def adapter_class(self):
@@ -327,13 +384,19 @@ class OpenAIProvider(BaseProvider):
         parsed_base_url = urlparse(self.base_url)
         return urlunparse(parsed_base_url._replace(path=f"{parsed_base_url.path}/{route_path}"))
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if payload.get("stream_options") is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
 
         stream = send_stream_request(
             headers=self.headers,
@@ -354,7 +417,7 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -544,21 +607,35 @@ class OpenAIProvider(BaseProvider):
 
         return resp
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         if MLFLOW_ENABLE_UC_FUNCTIONS.get():
+            warnings.warn(
+                "Unity Catalog function integration via the MLflow AI Gateway is deprecated "
+                "and will be removed in a future release. "
+                "For an alternative, see: https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp",
+                FutureWarning,
+                stacklevel=2,
+            )
             resp = await self._chat_uc_function(payload)
         else:
-            resp = await self._chat(payload)
+            resp = await self._send_chat_request(payload)
 
         return OpenAIAdapter.model_to_chat(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Inject stream_options.include_usage=true to get usage in final chunk
+        if payload.get("stream_options") is None:
+            payload["stream_options"] = {"include_usage": True}
+        elif "include_usage" not in payload["stream_options"]:
+            payload["stream_options"]["include_usage"] = True
+
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
@@ -578,7 +655,9 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -591,7 +670,7 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -603,3 +682,34 @@ class OpenAIProvider(BaseProvider):
             payload=OpenAIAdapter.embeddings_to_model(payload, self.config),
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
+            payload, self.config
+        )
+
+        provider_path = self._validate_passthrough_action(action)
+
+        request_headers = self._get_headers(payload_with_model, headers)
+
+        supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
+
+        if supports_streaming and payload_with_model.get("stream"):
+            return send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload_with_model,
+            )
+        else:
+            return await send_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload_with_model,
+            )

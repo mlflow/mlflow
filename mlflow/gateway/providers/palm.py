@@ -13,8 +13,8 @@ class PaLMProvider(BaseProvider):
     NAME = "PaLM"
     CONFIG_TYPE = PaLMConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         warnings.warn(
             "PaLM provider is deprecated and will be removed in a future MLflow version.",
             category=FutureWarning,
@@ -33,7 +33,7 @@ class PaLMProvider(BaseProvider):
             payload=payload,
         )
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -53,7 +53,8 @@ class PaLMProvider(BaseProvider):
                 )
         payload = rename_payload_keys(payload, key_mapping)
         # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
-        payload["temperature"] = 0.5 * payload["temperature"]
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:
@@ -108,7 +109,9 @@ class PaLMProvider(BaseProvider):
             ),
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -125,7 +128,8 @@ class PaLMProvider(BaseProvider):
                 )
         payload = rename_payload_keys(payload, key_mapping)
         # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
-        payload["temperature"] = 0.5 * payload["temperature"]
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
         payload["prompt"] = {"text": payload["prompt"]}
         resp = await self._request(
             f"{self.config.model.name}:generateText",
@@ -171,7 +175,7 @@ class PaLMProvider(BaseProvider):
             ),
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

@@ -1,4 +1,4 @@
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, Mock, patch
 
 import crewai
 import pytest
@@ -8,6 +8,7 @@ from crewai.tools import BaseTool
 from packaging.version import Version
 
 import mlflow
+from mlflow.crewai.autolog import patched_class_call, patched_standalone_call
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -244,7 +245,7 @@ def autolog(request):
     clear_autolog_state()
 
 
-def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
+def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_litellm_cost):
     crew = Crew(
         agents=[
             simple_agent_1,
@@ -293,6 +294,13 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_3.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_3.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
@@ -372,9 +380,14 @@ def test_kickoff_failure(simple_agent_1, task_1, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.status.status_code == "ERROR"
+    assert span_3.model_name == "openai/gpt-4o-mini"
 
 
-def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
+@pytest.mark.skipif(
+    Version(crewai.__version__) < Version("0.114.0"),
+    reason=("Modern tooling feature in the current style is not available before 0.114.0"),
+)
+def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_litellm_cost):
     crew = Crew(
         agents=[
             tool_agent_1,
@@ -388,7 +401,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) == 6
+    assert len(traces[0].data.spans) == 7
     # Crew
     span_0 = traces[0].data.spans[0]
     assert span_0.name == "Crew.kickoff"
@@ -419,27 +432,49 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
-    # LLM - return answer
+    assert span_3.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_3.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
+    # LLM - tool trace
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "openai/gpt-4o-mini"
-    assert span_4.span_type == SpanType.LLM
+    assert span_4.name == "TestTool"
+    assert span_4.span_type == SpanType.TOOL
     assert span_4.parent_id is span_2.span_id
-    assert span_4.inputs["messages"] is not None
-    assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_4.inputs["agent_action"] is not None
+    assert span_4.inputs["tools"] is not None
+    assert "Tool Answer" in span_4.outputs["result"]
+    # LLM - return answer
+    span_5 = traces[0].data.spans[5]
+    assert span_5.name == "openai/gpt-4o-mini"
+    assert span_5.span_type == SpanType.LLM
+    assert span_5.parent_id is span_2.span_id
+    assert span_5.inputs["messages"] is not None
+    assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_5.model_name == "openai/gpt-4o-mini"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span_5.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     # Create Long Term Memory
-    span_5 = traces[0].data.spans[5]
-    assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.MEMORY
-    assert span_5.parent_id is span_2.span_id
-    assert span_5.inputs == {
+    span_6 = traces[0].data.spans[6]
+    assert span_6.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_6.span_type == SpanType.MEMORY
+    assert span_6.parent_id is span_2.span_id
+    assert span_6.inputs == {
         "output": {
             "output": _LLM_ANSWER,
             "text": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
             "thought": "",
         }
     }
-    assert span_5.outputs is None
+    assert span_6.outputs is None
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 18,
@@ -498,6 +533,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_3.model_name == "openai/gpt-4o-mini"
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
@@ -540,6 +576,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_7.parent_id is span_6.span_id
     assert span_7.inputs["messages"] is not None
     assert span_7.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_7.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
@@ -622,7 +659,8 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         "latest_n": 2,
         "task": "Analyze and select the best city for the trip",
     }
-    assert span_3.outputs is None
+    # CrewAI >= 1.7.0 returns [] instead of None for empty LongTermMemory search
+    assert span_3.outputs is None or span_3.outputs == []
 
     # ShortTermMemory
     span_4 = traces[0].data.spans[4]
@@ -649,6 +687,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_6.parent_id is span_2.span_id
     assert span_6.inputs["messages"] is not None
     assert span_6.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_6.model_name == "openai/gpt-4o-mini"
 
     # ShortTermMemory.save
     span_7 = traces[0].data.spans[7]
@@ -752,6 +791,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_4.model_name == "openai/gpt-4o-mini"
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
@@ -832,6 +872,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_4.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
@@ -911,6 +952,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_4.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
@@ -953,3 +995,24 @@ def test_crew_task_named(simple_agent_1, task_named, autolog):
     assert span_1.name == "Custom Task Name"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
+
+
+def test_patched_class_call_original_when_traces_disabled(monkeypatch):
+    mlflow.crewai.autolog(log_traces=False)
+    original = Mock(return_value="ok")
+    obj = object()
+
+    result = patched_class_call(original, obj, "arg", kw="val")
+
+    original.assert_called_once_with(obj, "arg", kw="val")
+    assert result == "ok"
+
+
+def test_patched_standalone_call_original_when_traces_disabled(monkeypatch):
+    mlflow.crewai.autolog(log_traces=False)
+    original = Mock(return_value="ok")
+
+    result = patched_standalone_call(original, "arg", kw="val")
+
+    original.assert_called_once_with("arg", kw="val")
+    assert result == "ok"

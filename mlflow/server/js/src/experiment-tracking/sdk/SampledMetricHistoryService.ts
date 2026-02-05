@@ -12,18 +12,17 @@ interface GetHistoryBulkIntervalResponseType {
 }
 
 export const GET_SAMPLED_METRIC_HISTORY_API_BULK = 'GET_SAMPLED_METRIC_HISTORY_API_BULK';
-export interface GetSampledMetricHistoryBulkAction
-  extends AsyncAction<
-    GetHistoryBulkIntervalResponseType,
-    {
-      id?: string;
-      isRefreshing?: boolean;
-      runUuids: string[];
-      key: string;
-      rangeKey: string;
-      maxResults?: number;
-    }
-  > {
+export interface GetSampledMetricHistoryBulkAction extends AsyncAction<
+  GetHistoryBulkIntervalResponseType,
+  {
+    id?: string;
+    isRefreshing?: boolean;
+    runUuids: string[];
+    key: string;
+    rangeKey: string;
+    maxResults?: number;
+  }
+> {
   type: 'GET_SAMPLED_METRIC_HISTORY_API_BULK';
 }
 

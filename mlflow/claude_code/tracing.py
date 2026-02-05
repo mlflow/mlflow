@@ -21,7 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
 )
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.fluent import _get_trace_exporter
 
@@ -198,10 +198,11 @@ def extract_text_content(content: str | list[dict[str, Any]] | Any) -> str:
         Extracted text content, empty string if none found
     """
     if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT:
-                text_parts.append(part.get(CONTENT_TYPE_TEXT, ""))
+        text_parts = [
+            part.get(CONTENT_TYPE_TEXT, "")
+            for part in content
+            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+        ]
         return "\n".join(text_parts)
     if isinstance(content, str):
         return content
@@ -248,8 +249,7 @@ def find_last_user_message_index(transcript: list[dict[str, Any]]) -> int | None
 def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> int | None:
     """Get the timestamp of the next entry for duration calculation."""
     for i in range(current_idx + 1, len(transcript)):
-        timestamp = transcript[i].get(MESSAGE_FIELD_TIMESTAMP)
-        if timestamp:
+        if timestamp := transcript[i].get(MESSAGE_FIELD_TIMESTAMP):
             return parse_timestamp_to_ns(timestamp)
     return None
 
@@ -378,17 +378,15 @@ def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> 
             if part_type == CONTENT_TYPE_TOOL_RESULT:
                 # If we have accumulated text, add it as a user message first
                 if current_text_parts:
-                    combined_text = "\n".join(current_text_parts).strip()
-                    if combined_text:
+                    if combined_text := "\n".join(current_text_parts).strip():
                         message_buffer.append({"role": "user", "content": combined_text})
                     current_text_parts = []
 
                 # Extract tool result information
                 tool_id = part.get("tool_use_id")
-                result_content = part.get("content")
 
                 # Add tool results with proper "tool" role
-                if result_content:
+                if result_content := part.get("content"):
                     tool_msg = {
                         "role": "tool",
                         "content": result_content,
@@ -399,14 +397,12 @@ def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> 
 
             elif part_type == CONTENT_TYPE_TEXT:
                 # Accumulate text content
-                text = part.get(CONTENT_TYPE_TEXT)
-                if text:
+                if text := part.get(CONTENT_TYPE_TEXT):
                     current_text_parts.append(text)
 
         # Add any remaining text content as user message
         if current_text_parts:
-            combined_text = "\n".join(current_text_parts).strip()
-            if combined_text:
+            if combined_text := "\n".join(current_text_parts).strip():
                 message_buffer.append({"role": "user", "content": combined_text})
 
         # Add all messages in order to preserve sequence
@@ -432,6 +428,31 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
             messages.append({"role": "assistant", "content": text_content})
 
 
+def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
+    """Set token usage on a span using the standardized CHAT_USAGE attribute.
+
+    This ensures token usage is tracked consistently with other LLM providers and
+    can be aggregated in the trace info.
+
+    Args:
+        span: The MLflow span to set token usage on
+        usage: Dictionary containing token usage info from Claude Code transcript
+    """
+    if not usage:
+        return
+
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
+    usage_dict = {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+    }
+
+    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+
 def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
@@ -443,10 +464,9 @@ def _create_llm_and_tool_spans(
             continue
 
         timestamp_ns = parse_timestamp_to_ns(entry.get(MESSAGE_FIELD_TIMESTAMP))
-        next_timestamp_ns = _get_next_timestamp_ns(transcript, i)
 
         # Calculate duration based on next timestamp or use default
-        if next_timestamp_ns:
+        if next_timestamp_ns := _get_next_timestamp_ns(transcript, i):
             duration_ns = next_timestamp_ns - timestamp_ns
         else:
             duration_ns = int(1000 * NANOSECONDS_PER_MS)  # 1 second default
@@ -475,10 +495,11 @@ def _create_llm_and_tool_spans(
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
-                    "input_tokens": usage.get("input_tokens", 0),
-                    "output_tokens": usage.get("output_tokens", 0),
                 },
             )
+
+            # Set token usage using the standardized CHAT_USAGE attribute
+            _set_token_usage_attribute(llm_span, usage)
 
             llm_span.set_outputs({"response": text_content})
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)

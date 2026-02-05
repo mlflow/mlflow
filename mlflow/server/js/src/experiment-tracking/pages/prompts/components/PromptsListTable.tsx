@@ -20,6 +20,7 @@ import { PromptsListTableNameCell } from './PromptsListTableNameCell';
 import Utils from '../../../../common/utils/Utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
 import type { PromptsTableMetadata } from '../utils';
+import type { PromptsListComponentId } from '../PromptsPage';
 import { first, isEmpty } from 'lodash';
 
 type PromptsTableColumnDef = ColumnDef<RegisteredPrompt>;
@@ -78,6 +79,9 @@ export const PromptsListTable = ({
   onNextPage,
   onPreviousPage,
   onEditTags,
+  experimentId,
+  paginationComponentId,
+  tableHeaderComponentId,
 }: {
   prompts?: RegisteredPrompt[];
   error?: Error;
@@ -88,20 +92,21 @@ export const PromptsListTable = ({
   onNextPage: () => void;
   onPreviousPage: () => void;
   onEditTags: (editedEntity: RegisteredPrompt) => void;
+  experimentId?: string;
+  paginationComponentId: PromptsListComponentId;
+  tableHeaderComponentId: PromptsListComponentId;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
 
-  const table = useReactTable(
-    'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx',
-    {
-      data: prompts ?? [],
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-      getRowId: (row, index) => row.name ?? index.toString(),
-      meta: { onEditTags } satisfies PromptsTableMetadata,
-    },
-  );
+  // prettier-ignore
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx', {
+    data: prompts ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row, index) => row.name ?? index.toString(),
+    meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
+  });
 
   const getEmptyState = () => {
     const isEmptyList = !isLoading && isEmpty(prompts);
@@ -150,14 +155,14 @@ export const PromptsListTable = ({
           hasPreviousPage={hasPreviousPage}
           onNextPage={onNextPage}
           onPreviousPage={onPreviousPage}
-          componentId="mlflow.prompts.list.pagination"
+          componentId={paginationComponentId}
         />
       }
       empty={getEmptyState()}
     >
       <TableRow isHeader>
         {table.getLeafHeaders().map((header) => (
-          <TableHeader componentId="mlflow.prompts.list.table.header" key={header.id}>
+          <TableHeader componentId={tableHeaderComponentId} key={header.id}>
             {flexRender(header.column.columnDef.header, header.getContext())}
           </TableHeader>
         ))}

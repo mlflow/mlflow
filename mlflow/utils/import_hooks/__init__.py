@@ -205,9 +205,7 @@ def discover_post_import_hooks(group):
 @synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
     name = getattr(module, "__name__", None)
-    hooks = _post_import_hooks.get(name)
-
-    if hooks:
+    if hooks := _post_import_hooks.get(name):
         _post_import_hooks[name] = []
 
         for hook in hooks:
@@ -216,9 +214,7 @@ def notify_module_loaded(module):
 
 @synchronized(_import_error_hooks_lock)
 def notify_module_import_error(module_name):
-    hooks = _import_error_hooks.get(module_name)
-
-    if hooks:
+    if hooks := _import_error_hooks.get(module_name):
         # Error hooks differ from post import hooks, in that we don't clear the
         # hook as soon as it fires.
         for hook in hooks:

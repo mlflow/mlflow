@@ -458,6 +458,30 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--secrets-cache-ttl",
+    type=click.IntRange(10, 300),
+    default=60,
+    show_default=True,
+    help=(
+        "Server-side secrets cache time-to-live in seconds. "
+        "Controls how long decrypted secrets are cached in memory (encrypted with AES-GCM-256). "
+        "Lower values (10-30s) are more secure but impact performance. "
+        "Higher values (120-300s) improve performance but increase exposure window. "
+        "Range: 10-300 seconds."
+    ),
+)
+@click.option(
+    "--secrets-cache-max-size",
+    type=click.IntRange(1, 10000),
+    default=1000,
+    show_default=True,
+    help=(
+        "Server-side secrets cache maximum entries. "
+        "When exceeded, least recently used entries are evicted. "
+        "Range: 1-10000 entries."
+    ),
+)
 def server(
     ctx,
     backend_store_uri,
@@ -480,6 +504,8 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    secrets_cache_ttl,
+    secrets_cache_max_size,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -554,19 +580,20 @@ def server(
 
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
-        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
+        click.echo("Registry store URI not provided. Using backend store URI.")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
+    if not artifacts_only:
+        try:
+            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        except Exception as e:
+            _logger.error("Error initializing backend store")
+            _logger.exception(e)
+            sys.exit(1)
 
     if disable_security_middleware:
         click.echo(
@@ -613,6 +640,8 @@ def server(
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
             env_file=env_file,
+            secrets_cache_ttl=secrets_cache_ttl,
+            secrets_cache_max_size=secrets_cache_max_size,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -671,6 +700,21 @@ def server(
     " lifecycle stage.",
 )
 @click.option(
+    "--jobs",
+    is_flag=True,
+    default=False,
+    help="Enable job cleanup. Without this flag, no jobs will be deleted."
+    " When enabled, all jobs are deleted unless filtered by --older-than or --job-ids."
+    " This option only works with database backends.",
+)
+@click.option(
+    "--job-ids",
+    default=None,
+    help="Optional comma separated list of job IDs to be permanently deleted."
+    " Can be used with or without --jobs flag."
+    " If --older-than is also specified, only jobs matching both filters are deleted.",
+)
+@click.option(
     "--tracking-uri",
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
@@ -682,6 +726,8 @@ def gc(
     run_ids,
     experiment_ids,
     logged_model_ids,
+    jobs,
+    job_ids,
     tracking_uri,
 ):
     """
@@ -707,6 +753,8 @@ def gc(
       files, etc.)
     - **Experiment metadata**: When deleting experiments, removes the experiment record and
       all associated data
+    - **Job records**: When using the --jobs flag, removes historical job records from the
+      jobs table
 
     .. note::
 
@@ -730,6 +778,12 @@ def gc(
 
         # Combine criteria: delete runs older than 7 days in specific experiments
         mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
+
+        # Delete all finalized jobs older than 7 days (requires --jobs flag)
+        mlflow gc --jobs --older-than 7d
+
+        # Delete specific jobs by ID
+        mlflow gc --job-ids 'job1,job2,job3'
 
     """
     from mlflow.utils.time import get_current_time_millis
@@ -942,6 +996,27 @@ def gc(
             backend_store._hard_delete_experiment(experiment_id)
             click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
 
+    # Clean up jobs (only when --jobs flag is set or --job-ids are given and for database backends)
+    if jobs or job_ids:
+        from mlflow.utils.uri import extract_db_type_from_uri
+
+        store_uri = backend_store_uri or os.environ.get("MLFLOW_BACKEND_STORE_URI")
+        try:
+            extract_db_type_from_uri(store_uri)
+        except MlflowException:
+            # Not a database backend - skip job cleanup silently
+            pass
+        else:
+            from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+
+            job_store = SqlAlchemyJobStore(store_uri)
+
+            job_ids_list = job_ids.split(",") if job_ids else None
+
+            deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
+            for job_id in deleted_job_ids:
+                click.echo(f"Job with ID {job_id} has been permanently deleted.")
+
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
 @click.option(
@@ -973,6 +1048,16 @@ from mlflow.cli import scorers
 
 cli.add_command(scorers.commands)
 
+# Add datasets CLI commands
+from mlflow.cli import datasets
+
+cli.add_command(datasets.commands)
+
+# Add demo CLI command
+from mlflow.cli.demo import demo
+
+cli.add_command(demo)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
@@ -988,6 +1073,14 @@ try:
     import mlflow.claude_code.cli
 
     cli.add_command(mlflow.claude_code.cli.commands)
+except ImportError:
+    pass
+
+# Add Assistant CLI commands
+try:
+    import mlflow.assistant.cli
+
+    cli.add_command(mlflow.assistant.cli.commands)
 except ImportError:
     pass
 
@@ -1013,6 +1106,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
+# Add crypto CLI commands
+with contextlib.suppress(ImportError):
+    from mlflow.cli import crypto
+
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()

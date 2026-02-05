@@ -4,7 +4,7 @@ import {
   Span as OTelSpan,
   SpanProcessor,
   ReadableSpan as OTelReadableSpan,
-  SpanExporter
+  SpanExporter,
 } from '@opentelemetry/sdk-trace-base';
 import { Context } from '@opentelemetry/api';
 import { createAndRegisterMlflowSpan } from '../core/api';
@@ -16,12 +16,12 @@ import {
   SpanAttributeKey,
   TRACE_ID_PREFIX,
   TRACE_SCHEMA_VERSION,
-  TraceMetadataKey
+  TraceMetadataKey,
 } from '../core/constants';
 import {
   convertHrTimeToMs,
   deduplicateSpanNamesInPlace,
-  aggregateUsageFromSpans
+  aggregateUsageFromSpans,
 } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
@@ -64,10 +64,10 @@ export class MlflowSpanProcessor implements SpanProcessor {
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,
         traceMetadata: {
-          [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION
+          [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION,
         },
         tags: {},
-        assessments: []
+        assessments: [],
       });
       InMemoryTraceManager.getInstance().registerTrace(otelTraceId, trace_info);
     } else {

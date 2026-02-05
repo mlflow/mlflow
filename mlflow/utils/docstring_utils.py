@@ -266,6 +266,39 @@ Currently, only the following pipeline types are supported:
 - `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
 - `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
+
+The following example shows how to log a text-generation pipeline with a prompt template and
+use it via the ``python_function`` (pyfunc) flavor:
+
+.. code-block:: python
+
+    import mlflow
+    from transformers import pipeline
+
+    # Initialize a text-generation pipeline
+    generator = pipeline("text-generation", model="gpt2")
+
+    # Define a prompt template. The ``{prompt}`` placeholder will be replaced
+    # with the raw user input at inference time.
+    prompt_template = "Answer the following question concisely.\\n\\nQ: {prompt}\\nA:"
+
+    example_prompt = "What is MLflow?"
+
+    # Log the model with the prompt template and an input example
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=generator,
+            name="qa_text_generator",
+            prompt_template=prompt_template,
+            input_example=example_prompt,
+        )
+
+    # Load the model back as a pyfunc model
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # The input to ``predict`` is the raw question string; the prompt template
+    # is applied internally before calling the underlying transformers pipeline.
+    loaded_model.predict("What is experiment tracking?")
 """
         ),
         "code_paths": (
@@ -278,6 +311,19 @@ between them to avoid import errors when loading the model.
 For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
 limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "extra_files": (
+            """A list containing the paths to corresponding extra files, if ``None``, no
+extra files are added to the model. Remote URIs are resolved to absolute filesystem
+paths. For example, consider the following ``extra_files`` list:
+
+.. code-block:: python
+
+    extra_files = ["s3://my-bucket/path/to/my_file1", "/local-path/to/my_file2"]
+
+In this case, the ``"my_file1"`` extra file is downloaded from S3.
+Model paths will be ["extra_files/my_file1", "extra_files/my_file2"] in the model directory.
 """
         ),
         # Only pyfunc flavor supports `infer_code_paths`.

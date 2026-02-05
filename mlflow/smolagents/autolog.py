@@ -122,11 +122,7 @@ def _get_tool_attributes(instance):
 
 
 def _parse_tools(tools):
-    result = []
-    for tool in tools:
-        res = _inner_get_tool_attributes(tool)
-        result.append(res)
-    return result
+    return [_inner_get_tool_attributes(tool) for tool in tools]
 
 
 def _get_model_attributes(instance):
@@ -143,8 +139,7 @@ def _parse_usage(output: Any) -> dict[str, int] | None:
         if isinstance(output, dict) and "raw" in output:
             output = output["raw"]
 
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,

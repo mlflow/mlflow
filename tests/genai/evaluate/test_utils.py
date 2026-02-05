@@ -16,6 +16,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    _deserialize_trace_column_if_needed,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -261,6 +262,37 @@ def test_convert_to_eval_set_without_request_and_response():
     assert transformed_data["inputs"].isna().all()
 
 
+def test_convert_to_eval_set_with_missing_root_span():
+    # Create traces
+    for _ in range(2):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    # Deserialize the trace from JSON string to Trace object
+    trace_df["trace"] = trace_df["trace"].apply(
+        lambda t: Trace.from_json(t) if isinstance(t, str) else t
+    )
+
+    # Mock _get_root_span to return None for the first trace to simulate missing root span
+    with patch.object(trace_df["trace"].iloc[0].data, "_get_root_span", return_value=None):
+        transformed_data = _convert_to_eval_set(trace_df)
+
+    # Verify inputs and outputs columns exist
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+
+    # Verify first trace has None for inputs/outputs (missing root span)
+    assert transformed_data["inputs"].iloc[0] is None
+    assert transformed_data["outputs"].iloc[0] is None
+
+    # Verify second trace has None for inputs/outputs (normal empty span behavior)
+    assert transformed_data["inputs"].iloc[1] is None
+    assert transformed_data["outputs"].iloc[1] is None
+
+
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
     df = spark.createDataFrame(
@@ -287,6 +319,46 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     )
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
+
+
+def _trace_test_cases():
+    data = {
+        "info": {
+            "trace_id": "test-trace-id",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
+            },
+            "request_time": "2024-01-21T12:00:00Z",
+            "state": "OK",
+            "trace_metadata": {},
+            "tags": {},
+            "assessments": [],
+        },
+        "data": {"spans": []},
+    }
+    return [
+        pytest.param(data, dict, id="dict"),
+        pytest.param(json.dumps(data), str, id="string"),
+        pytest.param(Trace.from_dict(data), Trace, id="trace_object"),
+    ]
+
+
+@pytest.mark.parametrize(("trace_value", "expected_input_type"), _trace_test_cases())
+def test_deserialize_trace_column(trace_value, expected_input_type):
+    df = pd.DataFrame([{"trace": trace_value, "inputs": {"question": "test"}}])
+    assert isinstance(df["trace"].iloc[0], expected_input_type)
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert isinstance(result["trace"].iloc[0], Trace)
+    assert result["trace"].iloc[0].info.trace_id == "test-trace-id"
+
+
+def test_deserialize_trace_column_with_none():
+    df = pd.DataFrame([{"trace": None, "inputs": {"question": "test"}}])
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert result["trace"].iloc[0] is None
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
@@ -468,7 +540,6 @@ def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
 
 @databricks_only
 def test_convert_scorer_to_legacy_metric():
-    """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
     # Test with a built-in scorer
     builtin_scorer = RelevanceToQuery()
     legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)

@@ -1,12 +1,17 @@
 import { describe, it, jest, expect } from '@jest/globals';
 
+import type { ThemeType } from '@databricks/design-system';
+import { I18nUtils } from '@databricks/i18n';
+
 import {
   autoSelectFirstNonEmptyEvaluationId,
+  getAssessmentValueLabel,
   getEvaluationResultInputTitle,
   getEvaluationResultTitle,
   stringifyValue,
+  tryExtractUserMessageContent,
 } from './GenAiEvaluationTracesReview.utils';
-import type { RunEvaluationTracesDataEntry } from '../types';
+import type { AssessmentInfo, RunEvaluationTracesDataEntry } from '../types';
 
 const buildExampleRunEvaluationTracesDataEntry = ({
   evaluationId,
@@ -212,5 +217,127 @@ describe('EvaluationsReview utils', () => {
       'request',
     );
     expect(actual).toEqual('bar');
+  });
+
+  describe('tryExtractUserMessageContent', () => {
+    it('should return undefined for null/undefined input', () => {
+      expect(tryExtractUserMessageContent(null)).toBeUndefined();
+      expect(tryExtractUserMessageContent(undefined)).toBeUndefined();
+    });
+
+    it('should extract user message from Langchain nested array format', () => {
+      const langchainInput = [
+        [
+          {
+            content: 'How to use Databricks?',
+            additional_kwargs: {},
+            response_metadata: {},
+            type: 'human',
+            name: null,
+            id: null,
+          },
+        ],
+      ];
+      expect(tryExtractUserMessageContent(langchainInput)).toEqual('How to use Databricks?');
+    });
+
+    it('should extract last user message from Langchain format with multiple messages', () => {
+      const langchainInput = [
+        [
+          { content: 'First question', type: 'human' },
+          { content: 'Response here', type: 'ai' },
+          { content: 'Follow up question', type: 'human' },
+        ],
+      ];
+      expect(tryExtractUserMessageContent(langchainInput)).toEqual('Follow up question');
+    });
+
+    it('should extract user message from OpenAI format', () => {
+      const openaiInput = {
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant' },
+          { role: 'user', content: 'Hello there' },
+        ],
+      };
+      expect(tryExtractUserMessageContent(openaiInput)).toEqual('Hello there');
+    });
+
+    it('should return undefined for non-chat-like objects', () => {
+      expect(tryExtractUserMessageContent({ foo: 'bar' })).toBeUndefined();
+      expect(tryExtractUserMessageContent({ data: [1, 2, 3] })).toBeUndefined();
+    });
+
+    it('should return undefined for empty arrays', () => {
+      expect(tryExtractUserMessageContent([])).toBeUndefined();
+      expect(tryExtractUserMessageContent([[]])).toBeUndefined();
+    });
+
+    it('should return undefined for primitive values', () => {
+      expect(tryExtractUserMessageContent(123)).toBeUndefined();
+      expect(tryExtractUserMessageContent(true)).toBeUndefined();
+    });
+
+    it('should return undefined for string inputs', () => {
+      // This can happen when request_preview is truncated and JSON.parse fails
+      expect(tryExtractUserMessageContent('just a plain string')).toBeUndefined();
+    });
+  });
+});
+
+describe('getAssessmentValueLabel', () => {
+  const intl = I18nUtils.createIntlWithLocale();
+  const mockTheme = {} as ThemeType;
+
+  const createMockAssessmentInfo = (dtype: AssessmentInfo['dtype']): AssessmentInfo => ({
+    name: 'test_assessment',
+    displayName: 'Test Assessment',
+    isKnown: false,
+    isOverall: false,
+    metricName: 'test_metric',
+    source: undefined,
+    isCustomMetric: false,
+    isEditable: false,
+    isRetrievalAssessment: false,
+    dtype,
+    uniqueValues: new Set(),
+    docsLink: '',
+    missingTooltip: '',
+    description: '',
+  });
+
+  it('should return "Error" for error value regardless of dtype', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, 'Error');
+    expect(result.content).toBe('Error');
+  });
+
+  it('should return "Error" for pass-fail dtype with error value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'Error');
+    expect(result.content).toBe('Error');
+  });
+
+  it('should return "True" for boolean dtype with true value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, true);
+    expect(result.content).toBe('True');
+  });
+
+  it('should return "False" for boolean dtype with false value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, false);
+    expect(result.content).toBe('False');
+  });
+
+  it('should return "null" for boolean dtype with undefined value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, undefined);
+    expect(result.content).toBe('null');
+  });
+
+  it('should return string representation for other dtypes', () => {
+    const stringAssessment = createMockAssessmentInfo('string');
+    const result = getAssessmentValueLabel(intl, mockTheme, stringAssessment, 'custom_value');
+    expect(result.content).toBe('custom_value');
   });
 });

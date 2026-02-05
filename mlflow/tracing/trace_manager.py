@@ -7,7 +7,7 @@ from typing import Generator, Sequence
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
@@ -22,6 +22,7 @@ class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
+    is_remote_trace: bool = False
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -47,6 +48,7 @@ class ManagerTrace:
 
     trace: Trace
     prompts: Sequence[PromptVersion]
+    is_remote_trace: bool = False
 
 
 class InMemoryTraceManager:
@@ -73,18 +75,21 @@ class InMemoryTraceManager:
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
         self._lock = threading.RLock()  # Lock for _traces
 
-    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_remote_trace=False):
         """
         Register a new trace info object to the in-memory trace registry.
 
         Args:
             otel_trace_id: The OpenTelemetry trace ID for the new trace.
             trace_info: The trace info object to be stored.
+            is_remote_trace: Whether the trace is a remote trace. For a distributed trace, it is
+                registered in both client side and remote server side, for remote server side
+                registration, the 'is_remote_trace' flag is set to True.
         """
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
-            self._traces[trace_info.trace_id] = _Trace(trace_info)
+            self._traces[trace_info.trace_id] = _Trace(trace_info, is_remote_trace=is_remote_trace)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
 
     def register_span(self, span: LiveSpan):
@@ -114,13 +119,11 @@ class InMemoryTraceManager:
             if prompt not in self._traces[trace_id].prompts:
                 self._traces[trace_id].prompts.append(prompt)
 
-            # NB: Set prompt URIs in trace tags for linking. This is a short-term solution until
-            # LinkPromptsToTraces endpoint is implemented in the backend.
-            # TODO: Remove this once LinkPromptsToTraces endpoint is implemented in the backend.
+            # NB: Set prompt URIs in trace tags for linking.
             try:
-                current_tag = self._traces[trace_id].info.tags.get(LINKED_PROMPTS_TAG_KEY)
+                current_tag = self._traces[trace_id].info.tags.get(TraceTagKey.LINKED_PROMPTS)
                 updated_tag = update_linked_prompts_tag(current_tag, [prompt])
-                self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag
+                self._traces[trace_id].info.tags[TraceTagKey.LINKED_PROMPTS] = updated_tag
             except Exception:
                 _logger.debug(f"Failed to update prompts tag for trace {trace_id}", exc_info=True)
                 raise
@@ -183,7 +186,9 @@ class InMemoryTraceManager:
             if internal_trace is None:
                 return None
             return ManagerTrace(
-                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+                trace=internal_trace.to_mlflow_trace(),
+                prompts=internal_trace.prompts,
+                is_remote_trace=internal_trace.is_remote_trace,
             )
 
     def _check_timeout_update(self):

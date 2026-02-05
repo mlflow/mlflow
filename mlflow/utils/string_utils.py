@@ -97,8 +97,7 @@ def mslex_quote(s: str, for_cmd: bool = True) -> str:
         return s
     if for_cmd and re.search(cmd_meta, s):
         if not re.search(cmd_meta_inside_quotes, s):
-            m = re.search(r"\\+$", s)
-            if m:
+            if m := re.search(r"\\+$", s):
                 return '"' + s + m.group() + '"'
             else:
                 return '"' + s + '"'

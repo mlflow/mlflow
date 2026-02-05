@@ -12,6 +12,18 @@ mlflow.genai
     :show-inheritance:
     :exclude-members: Scorer
 
+.. automodule:: mlflow.genai.scorers.deepeval
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: DeepEvalScorer
+
+.. automodule:: mlflow.genai.scorers.ragas
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: RagasScorer
+
 .. automodule:: mlflow.genai.datasets
     :members:
     :undoc-members:

@@ -7,8 +7,9 @@ import type { ComponentProps } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
-  useLocation as useLocationDirect,
   Link as LinkDirect,
+  useLocation as useLocationDirect,
+  BrowserRouter,
 } from 'react-router-dom';
 
 import { Typography } from '@databricks/design-system';
@@ -22,4 +23,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, useLocation, Link };
+export { generatePath, useParams, Link, useLocation, BrowserRouter };

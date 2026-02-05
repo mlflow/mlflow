@@ -17,20 +17,21 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import type { MutableRefObject } from 'react';
 import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
+import { noop } from 'lodash';
 
 export const ExperimentSingleChatConversation = ({
   traces,
   selectedTurnIndex,
-  setSelectedTurnIndex,
+  setSelectedTurnIndex = noop,
   setSelectedTrace,
   chatRefs,
   getAssessmentTitle,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
-  setSelectedTurnIndex: (turnIndex: number | null) => void;
-  setSelectedTrace: (trace: ModelTrace) => void;
-  chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
+  setSelectedTurnIndex?: (turnIndex: number | null) => void;
+  setSelectedTrace?: (trace: ModelTrace) => void;
+  chatRefs?: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
   getAssessmentTitle: (assessmentName: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -60,7 +61,7 @@ export const ExperimentSingleChatConversation = ({
         return (
           <div
             ref={(el) => {
-              if (el) {
+              if (el && chatRefs) {
                 chatRefs.current[traceId] = el;
               }
             }}
@@ -93,12 +94,12 @@ export const ExperimentSingleChatConversation = ({
                 color="primary"
                 css={[
                   {
-                    visibility: isActive ? 'visible' : 'hidden',
+                    visibility: isActive && setSelectedTrace ? 'visible' : 'hidden',
                   },
                   // Required for button to have an outstanding background over the chat turn hover state
                   importantify({ backgroundColor: theme.colors.backgroundPrimary }),
                 ]}
-                onClick={() => setSelectedTrace(trace)}
+                onClick={() => setSelectedTrace?.(trace)}
               >
                 <FormattedMessage
                   defaultMessage="View full trace"
@@ -106,6 +107,7 @@ export const ExperimentSingleChatConversation = ({
                 />
               </Button>
             </div>
+            {/* TODO: add turn-level metrics */}
             <SingleChatTurnMessages key={traceId} trace={trace} />
             {shouldEnableAssessmentsInSessions() && (
               <>
@@ -113,7 +115,7 @@ export const ExperimentSingleChatConversation = ({
                 <SingleChatTurnAssessments
                   trace={trace}
                   getAssessmentTitle={getAssessmentTitle}
-                  onAddAssessmentsClick={() => setSelectedTrace(trace)}
+                  onAddAssessmentsClick={setSelectedTrace ? () => setSelectedTrace(trace) : undefined}
                 />
               </>
             )}

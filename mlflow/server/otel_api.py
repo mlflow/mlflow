@@ -23,7 +23,11 @@ from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import (
+    MLFLOW_EXPERIMENT_ID_HEADER,
+    OTLP_TRACES_PATH,
+    decompress_otlp_body,
+)
 from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
     _USER_AGENT,
@@ -37,7 +41,8 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 async def export_traces(
     request: Request,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
-    content_type: str = Header(None),
+    content_type: str | None = Header(default=None),
+    content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
 ) -> Response:
     """
@@ -50,6 +55,7 @@ async def export_traces(
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
+        content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
 
     Returns:
@@ -65,7 +71,12 @@ async def export_traces(
             detail=f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf",
         )
 
+    # Read & decompress request body
     body = await request.body()
+    if content_encoding:
+        body = decompress_otlp_body(body, content_encoding.lower())
+
+    # Parse protobuf payload
     parsed_request = ExportTraceServiceRequest()
 
     try:
