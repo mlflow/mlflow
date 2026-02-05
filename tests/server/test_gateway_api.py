@@ -2190,6 +2190,6 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
     )
     assert gateway_span is not None
-    assert gateway_span.attributes.get("username") == "test_user"
-    assert gateway_span.attributes.get("user_id") == 42
+    assert gateway_span.attributes.get(SpanAttributeKey.USERNAME) == "test_user"
+    assert gateway_span.attributes.get(SpanAttributeKey.USER_ID) == 42
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name

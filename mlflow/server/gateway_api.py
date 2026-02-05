@@ -51,6 +51,7 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
@@ -101,9 +102,9 @@ def _get_user_attributes(request: Request) -> dict[str, Any]:
     """
     attrs = {}
     if username := getattr(request.state, "username", None):
-        attrs["username"] = username
+        attrs[SpanAttributeKey.USERNAME] = username
     if user_id := getattr(request.state, "user_id", None):
-        attrs["user_id"] = user_id
+        attrs[SpanAttributeKey.USER_ID] = user_id
     return attrs
 
 
