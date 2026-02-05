@@ -1,3 +1,4 @@
+import importlib
 import subprocess
 import sys
 import tarfile
@@ -435,3 +436,162 @@ def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
 
         # After context exit, downloaded artifacts should be cleaned up
         assert not mock_artifacts_dir.exists()
+
+
+def get_files(path: Path) -> list[Path]:
+    return sorted(p for p in path.iterdir() if p.is_file())
+
+
+def test_chunked_tar_writer_single_chunk(tmp_path):
+    tar_path = tmp_path / "test.tar"
+    with env_pack._ChunkedFileWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 512)
+
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["test.tar"]
+
+
+def test_chunked_tar_writer_multiple_chunks(tmp_path):
+    tar_path = tmp_path / "test.tar"
+    with env_pack._ChunkedFileWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 2560)
+
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["test.tar.part0", "test.tar.part1", "test.tar.part2"]
+
+
+def test_chunked_tar_writer_padding(tmp_path):
+    # 1-digit: 5 chunks
+    tar_path = tmp_path / "test.tar"
+    with env_pack._ChunkedFileWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(b"x" * 5 * 1024)
+    files = get_files(tmp_path)
+    assert files[0].name == "test.tar.part0"
+    assert files[-1].name == "test.tar.part4"
+
+    # 3-digit: 150 chunks
+    tar_path2 = tmp_path / "test2.tar"
+    with env_pack._ChunkedFileWriter(tar_path2, chunk_size=1024) as writer:
+        writer.write(b"x" * 150 * 1024)
+    files2 = [f for f in get_files(tmp_path) if f.name.startswith("test2.tar")]
+    assert files2[0].name == "test2.tar.part000"
+    assert files2[-1].name == "test2.tar.part149"
+
+
+def test_chunked_tar_writer_reassembly(tmp_path):
+    tar_path = tmp_path / "test.tar"
+    data = b"x" * 5 * 1024
+    with env_pack._ChunkedFileWriter(tar_path, chunk_size=1024) as writer:
+        writer.write(data)
+
+    # Reassemble chunks
+    reassembled = tmp_path / "reassembled.tar"
+    with open(reassembled, "wb") as out:
+        for f in get_files(tmp_path):
+            if f.name.startswith("test.tar"):
+                out.write(f.read_bytes())
+
+    assert reassembled.read_bytes() == data
+
+
+def test_tar_creates_single_file_for_small_tar(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "test.txt").write_text("test")
+
+    tar_path = tmp_path / "output.tar"
+    env_pack._tar(source_dir, tar_path)
+
+    # Small tar should not be chunked
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["output.tar"]
+
+
+def test_tar_chunking_disabled(tmp_path, monkeypatch):
+    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "false")
+    monkeypatch.setenv("ENV_PACK_CHUNK_SIZE_BYTES", "100")
+    importlib.reload(env_pack)
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "file.txt").write_bytes(b"x" * 1000)
+
+    tar_path = tmp_path / "test.tar"
+    env_pack._tar(source_dir, tar_path)
+
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["test.tar"]
+
+
+def test_tar_e2e_with_chunking(tmp_path, monkeypatch):
+    """End-to-end test: create tar with chunking, verify chunks, reassemble and extract."""
+    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "true")
+    monkeypatch.setenv("ENV_PACK_CHUNK_SIZE_BYTES", "1024")  # 1KB chunks for testing
+    importlib.reload(env_pack)
+
+    # Create source directory with multiple files
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "file1.txt").write_text("content1" * 200)  # ~1.6KB
+    (source_dir / "file2.txt").write_text("content2" * 200)  # ~1.6KB
+    (source_dir / "subdir").mkdir()
+    (source_dir / "subdir" / "file3.txt").write_text("content3")
+
+    # Create tar with chunking
+    tar_path = tmp_path / "output.tar"
+    env_pack._tar(source_dir, tar_path)
+
+    # Verify chunks were created
+    files = get_files(tmp_path)
+    chunk_files = [f for f in files if f.name.startswith("output.tar.part")]
+    assert len(chunk_files) > 1, "Should create multiple chunks"
+
+    # Verify chunks are lexicographically ordered
+    chunk_names = sorted([f.name for f in chunk_files])
+    assert chunk_names == [f.name for f in chunk_files], "Chunks should be in order"
+
+    # Reassemble chunks
+    reassembled = tmp_path / "reassembled.tar"
+    with open(reassembled, "wb") as out:
+        for chunk in chunk_files:
+            out.write(chunk.read_bytes())
+
+    # Extract and verify contents
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir()
+    with tarfile.open(reassembled, "r") as tar:
+        tar.extractall(extract_dir)
+
+    # Verify extracted files match original
+    assert (extract_dir / "file1.txt").read_text() == "content1" * 200
+    assert (extract_dir / "file2.txt").read_text() == "content2" * 200
+    assert (extract_dir / "subdir" / "file3.txt").read_text() == "content3"
+
+
+def test_tar_e2e_without_chunking(tmp_path, monkeypatch):
+    """End-to-end test: create tar without chunking, verify single file, extract."""
+    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "false")
+    importlib.reload(env_pack)
+
+    # Create source directory
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "file1.txt").write_text("hello world")
+    (source_dir / "file2.txt").write_text("foo bar")
+
+    # Create tar without chunking
+    tar_path = tmp_path / "output.tar"
+    env_pack._tar(source_dir, tar_path)
+
+    # Verify single file created
+    files = get_files(tmp_path)
+    assert [f.name for f in files] == ["output.tar"]
+
+    # Extract and verify contents
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir()
+    with tarfile.open(tar_path, "r") as tar:
+        tar.extractall(extract_dir)
+
+    assert (extract_dir / "file1.txt").read_text() == "hello world"
+    assert (extract_dir / "file2.txt").read_text() == "foo bar"

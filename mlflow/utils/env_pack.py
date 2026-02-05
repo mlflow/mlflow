@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,87 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+_DEFAULT_CHUNK_SIZE = 1024 * 1024 * 1024  # 1GB
+_UNLIMITED_CHUNK_SIZE = 1024 * 1024 * 1024 * 1024  # 1TB
+_ENV_PACK_ENABLE_CHUNKING = os.environ.get("ENV_PACK_ENABLE_CHUNKING", "false") == "true"
+_ENV_PACK_CHUNK_SIZE_BYTES = int(
+    os.environ.get("ENV_PACK_CHUNK_SIZE_BYTES", str(_DEFAULT_CHUNK_SIZE))
+)
+
+
+def _rename_chunks(chunks: list[Path], base_path: Path) -> None:
+    """
+    Rename chunk files with proper padding or remove suffix for single files.
+    Single chunk: .part0 -> base_path
+    Multiple chunks: .part0 -> .part00, .part99 -> .part99, etc.
+    """
+    if len(chunks) == 1:
+        chunks[0].rename(base_path)
+    else:
+        width = len(str(len(chunks) - 1))
+        for i, chunk in enumerate(chunks):
+            new_path = Path(f"{base_path}.part{i:0{width}d}")
+            chunk.rename(new_path)
+
+
+class _ChunkedFileWriter:
+    """
+    File writer object that writes data to lexicographically ordered chunks.
+    Returns file_path for if chunking is not required, otherwise (file_path.part0...file_path.partN)
+    """
+
+    def __init__(self, file_path: Path, chunk_size: int):
+        self.base_path = file_path
+        self.chunk_size = chunk_size
+        self.total_bytes = 0
+        self.chunks: list[Path] = []
+        self.current_file = None
+        self.chunk_bytes = 0
+        self._open_next_chunk()
+
+    def _open_next_chunk(self) -> None:
+        if self.current_file:
+            self.current_file.close()
+        chunk_path = Path(f"{self.base_path}.part{len(self.chunks)}")
+        self.chunks.append(chunk_path)
+        self.current_file = open(chunk_path, "wb")  # noqa: SIM115
+        self.chunk_bytes = 0
+
+    def write(self, data: bytes) -> int:
+        total_written = 0
+        while data:
+            if self.chunk_bytes >= self.chunk_size:
+                self._open_next_chunk()
+
+            size = min(len(data), self.chunk_size - self.chunk_bytes)
+            written = self.current_file.write(data[:size])
+
+            self.chunk_bytes += written
+            self.total_bytes += written
+            total_written += written
+            data = data[written:]
+
+        return total_written
+
+    def tell(self) -> int:
+        return self.total_bytes
+
+    def flush(self) -> None:
+        if self.current_file:
+            self.current_file.flush()
+
+    def close(self) -> None:
+        if self.current_file:
+            self.current_file.close()
+            self.current_file = None
+        _rename_chunks(self.chunks, self.base_path)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 
 def _validate_env_pack(env_pack):
@@ -70,10 +152,13 @@ def _validate_env_pack(env_pack):
     )
 
 
-def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
+def _tar(root_path: Path, tar_path: Path) -> None:
     """
     Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
     wheels_info.json.
+
+    If ENV_PACK_ENABLE_CHUNKING is enabled, lexicographically ordered tar chunks of size
+    ENV_PACK_CHUNK_SIZE_BYTES will be created.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -83,10 +168,10 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
             return None
         return tarinfo
 
-    # Pull in symlinks
-    with tarfile.open(tar_path, "w", dereference=True) as tar:
-        tar.add(root_path, arcname=".", filter=exclude)
-    return tar
+    chunk_size = _ENV_PACK_CHUNK_SIZE_BYTES if _ENV_PACK_ENABLE_CHUNKING else _UNLIMITED_CHUNK_SIZE
+    with _ChunkedFileWriter(tar_path, chunk_size) as writer:
+        with tarfile.open(fileobj=writer, mode="w", dereference=True) as tar:
+            tar.add(root_path, arcname=".", filter=exclude)
 
 
 @contextmanager
