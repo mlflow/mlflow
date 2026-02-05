@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.gateway.tracing_utils import traced_gateway_call
+from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
 from mlflow.tracking.fluent import _get_experiment_id
@@ -35,8 +35,8 @@ async def mock_async_func(payload):
 
 
 @pytest.mark.asyncio
-async def test_traced_gateway_call_basic(endpoint_config):
-    traced_func = traced_gateway_call(mock_async_func, endpoint_config)
+async def test_maybe_traced_gateway_call_basic(endpoint_config):
+    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
     result = await traced_func({"input": "test"})
 
     assert result == {"result": "success", "payload": {"input": "test"}}
@@ -58,8 +58,8 @@ async def test_traced_gateway_call_basic(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_traced_gateway_call_with_user_attributes(endpoint_config):
-    traced_func = traced_gateway_call(
+async def test_maybe_traced_gateway_call_with_user_attributes(endpoint_config):
+    traced_func = maybe_traced_gateway_call(
         mock_async_func,
         endpoint_config,
         attributes={"username": "alice", "user_id": 123},
@@ -82,14 +82,14 @@ async def test_traced_gateway_call_with_user_attributes(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_traced_gateway_call_without_experiment_id(endpoint_config_no_experiment):
-    traced_func = traced_gateway_call(
+async def test_maybe_traced_gateway_call_without_experiment_id(endpoint_config_no_experiment):
+    traced_func = maybe_traced_gateway_call(
         mock_async_func,
         endpoint_config_no_experiment,
         attributes={"username": "alice", "user_id": 123},
     )
 
-    # When experiment_id is None, traced_gateway_call returns the original function
+    # When experiment_id is None, maybe_traced_gateway_call returns the original function
     assert traced_func is mock_async_func
 
     result = await traced_func({"input": "test"})
