@@ -617,17 +617,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 event_type = data.get("type")
 
                 # Extract input_tokens from message_start
+                # In Anthropic streaming format, each chunk contains the accumulated usage so far.
                 if event_type == "message_start":
-                    if message := data.get("message"):
-                        if usage := message.get("usage"):
-                            if (input_tokens := usage.get("input_tokens")) is not None:
-                                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (input_tokens := data.get("usage", {}).get("input_tokens")) is not None:
+                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
 
                 # Extract output_tokens from message_delta
                 elif event_type == "message_delta":
-                    if usage := data.get("usage"):
-                        if (output_tokens := usage.get("output_tokens")) is not None:
-                            accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+                    if (output_tokens := data.get("usage", {}).get("output_tokens")) is not None:
+                        accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
 
                 # Calculate total if we have both
                 if (

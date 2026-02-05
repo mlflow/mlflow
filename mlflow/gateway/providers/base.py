@@ -281,10 +281,8 @@ class BaseProvider(ABC):
 
         This is a helper for providers to call at the end of streaming passthrough.
         """
-        if self._enable_tracing:
-            if span := mlflow.get_current_active_span():
-                if token_usage:
-                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+        if self._enable_tracing and (span := mlflow.get_current_active_span()) and token_usage:
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
 
     async def _maybe_trace_method(self, method_name: str, method, *args, **kwargs):
         """Execute a method with optional tracing span based on _enable_tracing."""
