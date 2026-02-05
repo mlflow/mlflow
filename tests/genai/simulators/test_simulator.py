@@ -1,8 +1,10 @@
+import re
 from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
 
+import mlflow
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import (
     BaseSimulatedUserAgent,
@@ -22,7 +24,7 @@ def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
 
 
 def test_simulated_user_agent_generate_initial_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Hello, I have a question about ML."
 
         agent = SimulatedUserAgent()
@@ -47,7 +49,7 @@ def test_simulated_user_agent_generate_initial_message():
 
 
 def test_simulated_user_agent_generate_followup_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Can you tell me more?"
 
         agent = SimulatedUserAgent()
@@ -74,7 +76,7 @@ def test_simulated_user_agent_generate_followup_message():
 
 
 def test_simulated_user_agent_default_persona():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
         agent = SimulatedUserAgent()
@@ -525,7 +527,7 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
 
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Not achieved", "result": "no"}',
@@ -555,7 +557,7 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
 
 
 def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -579,7 +581,7 @@ def test_conversation_simulator_uses_default_persona_and_empty_context(mock_pred
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
     expectations = {"expected_topic": "MLflow", "expected_sentiment": "positive"}
 
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
             '{"rationale": "Not achieved", "result": "no"}',
@@ -616,7 +618,7 @@ def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn
 
 
 def test_invoke_llm_with_prompt_only():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "LLM response"
 
         agent = SimulatedUserAgent()
@@ -632,7 +634,7 @@ def test_invoke_llm_with_prompt_only():
 
 
 def test_invoke_llm_with_system_prompt():
-    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "LLM response with system"
 
         agent = SimulatedUserAgent()
@@ -712,3 +714,64 @@ def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
     simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
 
     assert simulator._get_dataset_name() == "my_custom_dataset"
+
+
+def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(simulation_mocks["trace"])
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    run_name = runs.iloc[0]["tags.mlflow.runName"]
+    assert re.match(r"^simulation-[0-9a-f]{8}$", run_name)
+
+
+def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    with mlflow.start_run(run_name="parent-run") as parent_run:
+        parent_run_id = parent_run.info.run_id
+
+        simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+        simulator.simulate(simulation_mocks["trace"])
+
+        assert mlflow.active_run().info.run_id == parent_run_id
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(simulation_mocks["trace"])
+
+    runs = mlflow.search_runs()
+    run_name = runs.iloc[0]["tags.mlflow.runName"]
+
+    assert run_name.startswith("simulation-")
+    hex_part = run_name[len("simulation-") :]
+    assert len(hex_part) == 8
+    assert re.match(r"^[0-9a-f]+$", hex_part)

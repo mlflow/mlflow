@@ -59,11 +59,22 @@ class LiteLLMProvider(BaseProvider):
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, LiteLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config
+
+    def get_provider_name(self) -> str:
+        """
+        Return the actual underlying provider name instead of "LiteLLM".
+
+        For example, if litellm_provider is "anthropic", returns "anthropic"
+        instead of "LiteLLM" for more accurate tracing and metrics.
+        """
+        if self.litellm_config.litellm_provider:
+            return self.litellm_config.litellm_provider
+        return self.NAME
 
     @property
     def adapter_class(self):
@@ -77,7 +88,7 @@ class LiteLLMProvider(BaseProvider):
 
         return kwargs
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
 
@@ -131,7 +142,7 @@ class LiteLLMProvider(BaseProvider):
 
         return self.adapter_class.model_to_chat(resp_dict, self.config)
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         import litellm
@@ -187,7 +198,7 @@ class LiteLLMProvider(BaseProvider):
 
             yield self.adapter_class.model_to_chat_streaming(resp_dict, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
 
@@ -215,12 +226,12 @@ class LiteLLMProvider(BaseProvider):
 
         return self.adapter_class.model_to_embeddings(resp_dict, self.config)
 
-    async def passthrough(
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         """
         Passthrough endpoint for raw API requests using LiteLLM.
 

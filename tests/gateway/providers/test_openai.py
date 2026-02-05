@@ -198,6 +198,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -215,6 +216,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -232,6 +234,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
         ]
 
@@ -245,6 +248,7 @@ async def _run_test_chat_stream(resp, provider):
             json={
                 "model": "gpt-4o-mini",
                 "n": 1,
+                "stream_options": {"include_usage": True},
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -313,6 +317,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -337,6 +342,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -361,6 +367,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
         ]
 
@@ -487,6 +494,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -500,6 +508,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -513,6 +522,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
@@ -528,6 +538,7 @@ async def _run_test_completions_stream(resp, provider):
                 "model": "gpt-4-32k",
                 "n": 1,
                 "prompt": "This is a test",
+                "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

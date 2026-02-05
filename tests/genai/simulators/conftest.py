@@ -12,7 +12,7 @@ def mock_trace():
 def simulation_mocks(mock_trace):
     """Fixture providing common mocks for conversation simulation tests."""
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace") as mock_update_trace,

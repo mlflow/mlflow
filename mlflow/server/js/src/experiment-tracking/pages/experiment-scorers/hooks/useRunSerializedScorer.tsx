@@ -20,7 +20,9 @@ export const useRunSerializedScorer = ({
   onScorerFinished?: (event: ScorerFinishedEvent) => void;
   scope?: ScorerEvaluationScope;
 }) => {
-  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations }] = useEvaluateTraces({ onScorerFinished });
+  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations, reset }] = useEvaluateTraces({
+    onScorerFinished,
+  });
   const { displayMap } = useTemplateOptions(scope);
 
   const getEvaluationParams = useCallback(
@@ -96,5 +98,6 @@ export const useRunSerializedScorer = ({
     latestEvaluation,
     isLoading,
     allEvaluations,
+    reset,
   };
 };

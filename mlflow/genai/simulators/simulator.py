@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
@@ -17,23 +16,17 @@ import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_SIMULATOR_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    call_chat_completions,
-    create_litellm_message_from_databricks_response,
-)
-from mlflow.genai.judges.constants import (
-    _DATABRICKS_AGENTIC_JUDGE_MODEL,
-    _DATABRICKS_DEFAULT_JUDGE_MODEL,
-)
-from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import (
     CHECK_GOAL_PROMPT,
     DEFAULT_PERSONA,
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
+from mlflow.genai.simulators.utils import (
+    format_history,
+    get_default_simulation_model,
+    invoke_model_without_tracing,
+)
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -50,7 +43,6 @@ if TYPE_CHECKING:
     from pandas import DataFrame
 
     from mlflow.entities import Trace
-    from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -143,99 +135,6 @@ def _suppress_tracing_logging():
         fluent_logger.setLevel(original_fluent_level)
 
 
-@contextmanager
-def _delete_trace_if_created():
-    """Delete any trace created within this context to avoid polluting user traces."""
-    trace_id_before = mlflow.get_last_active_trace_id(thread_local=True)
-    try:
-        yield
-    finally:
-        trace_id_after = mlflow.get_last_active_trace_id(thread_local=True)
-        if trace_id_after and trace_id_after != trace_id_before:
-            try:
-                mlflow.delete_trace(trace_id_after)
-            except Exception as e:
-                _logger.debug(f"Failed to delete trace {trace_id_after}: {e}")
-
-
-# TODO: Refactor judges adapters to support returning raw responses, then use them here
-#       instead of reimplementing the invocation logic.
-def _invoke_model_without_tracing(
-    model_uri: str,
-    messages: list["ChatMessage"],
-    num_retries: int = 3,
-    inference_params: dict[str, Any] | None = None,
-) -> str:
-    """
-    Invoke a model without tracing. This method will delete the last trace created by the
-    invocation, if any.
-    """
-    import litellm
-
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-    with _delete_trace_if_created():
-        # Use Databricks managed endpoint with agentic model for the default "databricks" URI
-        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-            user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
-
-            result = call_chat_completions(
-                user_prompt=user_prompt,
-                # NB: We cannot use an empty system prompt here so we use a period.
-                system_prompt=system_prompt or ".",
-                model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
-            )
-            if getattr(result, "error_code", None):
-                raise MlflowException(
-                    f"Failed to get chat completions result from Databricks managed endpoint: "
-                    f"[{result.error_code}] {result.error_message}"
-                )
-
-            output_json = result.output_json
-            if not output_json:
-                raise MlflowException("Empty response from Databricks managed endpoint")
-
-            parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            return create_litellm_message_from_databricks_response(parsed_json).content
-
-        provider, model_name = _parse_model_uri(model_uri)
-
-        # Use LiteLLM for other providers (including Databricks served models)
-        litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
-
-        kwargs = {
-            "messages": litellm_messages,
-            "max_retries": num_retries,
-            # Drop unsupported params (e.g., temperature=0 for certain models)
-            "drop_params": True,
-        }
-
-        if provider == "gateway":
-            config = get_gateway_litellm_config(model_name)
-            kwargs["api_base"] = config.api_base
-            kwargs["api_key"] = config.api_key
-            kwargs["model"] = config.model
-        else:
-            kwargs["model"] = f"{provider}/{model_name}"
-
-        if inference_params:
-            kwargs.update(inference_params)
-
-        try:
-            response = litellm.completion(**kwargs)
-            return response.choices[0].message.content
-        except Exception as e:
-            # Check if error is about unsupported temperature parameter:
-            # "Unsupported value: 'temperature' does not support 0.0 with this model"
-            error_str = str(e)
-            if inference_params and "Unsupported value: 'temperature'" in error_str:
-                kwargs.pop("temperature", None)
-                response = litellm.completion(**kwargs)
-                return response.choices[0].message.content
-            else:
-                raise
-
-
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
     if not conversation_history:
         return None
@@ -250,17 +149,6 @@ def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None
         return result
 
     return str(last_msg)
-
-
-def _format_history(history: list[dict[str, Any]]) -> str | None:
-    if not history:
-        return None
-    formatted = []
-    for msg in history:
-        role = msg.get("role") or "unknown"
-        content = msg.get("content") or ""
-        formatted.append(f"{role}: {content}")
-    return "\n".join(formatted)
 
 
 def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
@@ -318,7 +206,7 @@ class SimulatorContext:
 
     @property
     def formatted_history(self) -> str | None:
-        return _format_history(self.conversation_history)
+        return format_history(self.conversation_history)
 
     @property
     def last_assistant_response(self) -> str | None:
@@ -365,7 +253,7 @@ class BaseSimulatedUserAgent(ABC):
         model: str | None = None,
         **inference_params,
     ):
-        self.model = model or get_default_model()
+        self.model = model or get_default_simulation_model()
         self.inference_params = inference_params
 
     @abstractmethod
@@ -389,7 +277,7 @@ class BaseSimulatedUserAgent(ABC):
             messages.append(ChatMessage(role="system", content=system_prompt))
         messages.append(ChatMessage(role="user", content=prompt))
 
-        return _invoke_model_without_tracing(
+        return invoke_model_without_tracing(
             model_uri=self.model,
             messages=messages,
             num_retries=3,
@@ -419,7 +307,7 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
             prompt = INITIAL_USER_PROMPT.format(persona=context.persona, goal=context.goal)
         else:
             history_without_last = context.conversation_history[:-1]
-            history_str = _format_history(history_without_last)
+            history_str = format_history(history_without_last)
             prompt = FOLLOWUP_USER_PROMPT.format(
                 persona=context.persona,
                 goal=context.goal,
@@ -542,7 +430,7 @@ class ConversationSimulator:
         self._source_dataset = test_cases if isinstance(test_cases, EvaluationDataset) else None
         self.test_cases = test_cases
         self.max_turns = max_turns
-        self.user_model = user_model or get_default_model()
+        self.user_model = user_model or get_default_simulation_model()
         self.user_agent_class = user_agent_class or SimulatedUserAgent
         self.user_llm_params = user_llm_params
 
@@ -634,6 +522,16 @@ class ConversationSimulator:
             A list of lists containing Trace objects. Each inner list corresponds to
             a test case and contains the traces for each turn in that conversation.
         """
+        run_context = (
+            contextmanager(lambda: (yield))()
+            if mlflow.active_run()
+            else mlflow.start_run(run_name=f"simulation-{uuid.uuid4().hex[:8]}")
+        )
+
+        with run_context:
+            return self._execute_simulation(predict_fn)
+
+    def _execute_simulation(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
@@ -815,7 +713,7 @@ class ConversationSimulator:
     ) -> bool:
         from mlflow.types.llm import ChatMessage
 
-        history_str = _format_history(conversation_history)
+        history_str = format_history(conversation_history)
         eval_prompt = CHECK_GOAL_PROMPT.format(
             goal=goal,
             conversation_history=history_str if history_str is not None else "",
@@ -824,7 +722,7 @@ class ConversationSimulator:
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:
-            text_result = _invoke_model_without_tracing(
+            text_result = invoke_model_without_tracing(
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
