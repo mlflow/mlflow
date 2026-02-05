@@ -159,34 +159,47 @@ class BaseProvider(ABC):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        result = await self._passthrough(action, payload, headers)
-
         if not self._enable_tracing:
-            return result
+            return await self._passthrough(action, payload, headers)
 
-        if isinstance(result, dict):
+        error = None
+        result = None
+        try:
+            result = await self._passthrough(action, payload, headers)
+        except Exception as e:
+            error = e
+        finally:
+            if isinstance(result, AsyncIterable):
 
-            @mlflow.trace(span_type=SpanType.LLM)
-            async def passthrough():
-                span = mlflow.get_current_active_span()
-                if span is not None:
-                    span.set_attributes({**self._get_provider_attributes(), "action": action.value})
-                    if token_usage := self._extract_passthrough_token_usage(action, result):
-                        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
-                return result
+                @mlflow.trace(span_type=SpanType.LLM)
+                async def passthrough():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes(
+                            {**self._get_provider_attributes(), "action": action.value}
+                        )
+                    if error is not None:
+                        raise error
+                    async for chunk in result:
+                        yield chunk
 
-            return await passthrough()
-        else:
+                return passthrough()  # noqa: B012
+            else:
 
-            @mlflow.trace(span_type=SpanType.LLM)
-            async def passthrough():
-                span = mlflow.get_current_active_span()
-                if span is not None:
-                    span.set_attributes({**self._get_provider_attributes(), "action": action.value})
-                async for chunk in result:
-                    yield chunk
+                @mlflow.trace(span_type=SpanType.LLM)
+                async def passthrough():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes(
+                            {**self._get_provider_attributes(), "action": action.value}
+                        )
+                        if token_usage := self._extract_passthrough_token_usage(action, result):
+                            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+                    if error is not None:
+                        raise error
+                    return result
 
-            return passthrough()
+                return await passthrough()
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
