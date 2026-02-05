@@ -1,4 +1,5 @@
 import time
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -53,8 +54,11 @@ class MockProvider(BaseProvider):
         return self._embeddings_response
 
     async def _passthrough(
-        self, action: PassthroughAction, payload: dict, headers: dict | None = None
-    ) -> dict:
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if self._passthrough_error:
             raise self._passthrough_error
         return self._passthrough_response
