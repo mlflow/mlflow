@@ -522,6 +522,16 @@ class ConversationSimulator:
             A list of lists containing Trace objects. Each inner list corresponds to
             a test case and contains the traces for each turn in that conversation.
         """
+        run_context = (
+            contextmanager(lambda: (yield))()
+            if mlflow.active_run()
+            else mlflow.start_run(run_name=f"simulation-{uuid.uuid4().hex[:8]}")
+        )
+
+        with run_context:
+            return self._execute_simulation(predict_fn)
+
+    def _execute_simulation(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())

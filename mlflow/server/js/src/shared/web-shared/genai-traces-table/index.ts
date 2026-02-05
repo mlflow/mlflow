@@ -110,3 +110,4 @@ export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
+export { ActiveEvaluationContext } from './hooks/useActiveEvaluation';
