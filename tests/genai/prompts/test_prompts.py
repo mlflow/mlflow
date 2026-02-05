@@ -11,11 +11,13 @@ from pydantic import BaseModel, ValidationError
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_TEXT
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracking import fluent
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -1676,8 +1678,6 @@ def test_link_prompt_to_experiment_no_duplicate():
 
 
 def test_prompt_links_to_default_experiment():
-    from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
-    from mlflow.tracking import fluent
 
     # Reset experiment state to ensure we're using the Default experiment
     fluent._active_experiment_id = None

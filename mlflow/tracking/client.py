@@ -6216,8 +6216,12 @@ class MlflowClient:
                     INVALID_PARAMETER_VALUE,
                 )
 
-        # For non-Unity Catalog registries, or if version check passes, delete the prompt
-        return registry_client.delete_prompt(name)
+        # Acquire lock to wait for any background thread (e.g., from register_prompt)
+        # that may be updating tags on this prompt. This prevents race conditions where
+        # the background thread holds a session open while we try to delete.
+        with _prompt_experiment_link_lock:
+            # For non-Unity Catalog registries, or if version check passes, delete the prompt
+            return registry_client.delete_prompt(name)
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()

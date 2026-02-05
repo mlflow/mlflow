@@ -4334,8 +4334,9 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
         exp_id = store.create_experiment(name="exp")
         exp = store.get_experiment(exp_id)
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
@@ -4448,8 +4449,9 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             run_name="name",
         )
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
