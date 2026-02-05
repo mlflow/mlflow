@@ -165,7 +165,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "type": "function_call",
-                "id": "5e88662b-29e7-4659-a521-f8175e7642ee",
+                "id": "543a6b6b-dc73-463c-9b6e-5d5a941b7669",
                 "call_id": "543a6b6b-dc73-463c-9b6e-5d5a941b7669",
                 "name": "transfer_back_to_supervisor",
                 "arguments": "{}",
@@ -195,7 +195,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "type": "function_call",
-                "id": "run--e112332b-ed6d-4e10-b17c-adf637fb67eb-0",
+                "id": "toolu_bdrk_01FtmRmzFm89zDtwYu3xdFkh",
                 "call_id": "toolu_bdrk_01FtmRmzFm89zDtwYu3xdFkh",
                 "name": "transfer_to_revenue-genie",
                 "arguments": "{}",
@@ -235,7 +235,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "type": "function_call",
-                "id": "5e88662b-29e7-4659-a521-f8175e7642ee",
+                "id": "543a6b6b-dc73-463c-9b6e-5d5a941b7669",
                 "call_id": "543a6b6b-dc73-463c-9b6e-5d5a941b7669",
                 "name": "transfer_back_to_supervisor",
                 "arguments": "{}",
@@ -258,6 +258,111 @@ def test_output_to_responses_items_stream_langchain():
                 "content": [{"text": "test text2", "type": "output_text"}],
                 "role": "assistant",
                 "type": "message",
+            },
+        ),
+    ]
+    result = list(output_to_responses_items_stream(messages))
+    assert result == expected
+
+
+def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_ids():
+    """
+    Tests that when an AI message has multiple tool calls, each function_call_item
+    gets a unique ID from the tool_call's own ID, not the shared message ID.
+    This prevents ID duplication when a single message contains multiple tool calls.
+    """
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    messages = [
+        AIMessage(
+            content="I'll look up both the current and historical stock prices for Apple.",
+            id="lc_run--019c2b6f-4d8d-70e3-b620-b80545b4cb30",
+            tool_calls=[
+                {
+                    "name": "get_current_stock_price",
+                    "args": {"ticker": "AAPL"},
+                    "id": "toolu_bdrk_01X3zqC3kknbchSJB6XYmtHQ",
+                    "type": "tool_call",
+                },
+                {
+                    "name": "get_historical_stock_prices",
+                    "args": {
+                        "ticker": "AAPL",
+                        "start_date": "2023-01-01",
+                        "end_date": "2024-01-01",
+                    },
+                    "id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
+                    "type": "tool_call",
+                },
+            ],
+        ),
+        ToolMessage(
+            content='{"ticker": "AAPL", "price": 276.49}',
+            name="get_current_stock_price",
+            id="tool-output-1",
+            tool_call_id="toolu_bdrk_01X3zqC3kknbchSJB6XYmtHQ",
+        ),
+        ToolMessage(
+            content="Error executing tool",
+            name="get_historical_stock_prices",
+            id="tool-output-2",
+            tool_call_id="toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
+        ),
+    ]
+    expected = [
+        ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            custom_outputs=None,
+            item={
+                "id": "lc_run--019c2b6f-4d8d-70e3-b620-b80545b4cb30",
+                "content": [
+                    {
+                        "text": "I'll look up both the current and historical stock prices for Apple.",
+                        "type": "output_text",
+                    }
+                ],
+                "role": "assistant",
+                "type": "message",
+            },
+        ),
+        ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            custom_outputs=None,
+            item={
+                "type": "function_call",
+                "id": "toolu_bdrk_01X3zqC3kknbchSJB6XYmtHQ",
+                "call_id": "toolu_bdrk_01X3zqC3kknbchSJB6XYmtHQ",
+                "name": "get_current_stock_price",
+                "arguments": '{"ticker": "AAPL"}',
+            },
+        ),
+        ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            custom_outputs=None,
+            item={
+                "type": "function_call",
+                "id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
+                "call_id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
+                "name": "get_historical_stock_prices",
+                "arguments": '{"ticker": "AAPL", "start_date": "2023-01-01", "end_date": "2024-01-01"}',
+            },
+        ),
+        ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            custom_outputs=None,
+            item={
+                "type": "function_call_output",
+                "call_id": "toolu_bdrk_01X3zqC3kknbchSJB6XYmtHQ",
+                "output": '{"ticker": "AAPL", "price": 276.49}',
+            },
+        ),
+        ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            custom_outputs=None,
+            item={
+                "type": "function_call_output",
+                "call_id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
+                "output": "Error executing tool",
             },
         ),
     ]
