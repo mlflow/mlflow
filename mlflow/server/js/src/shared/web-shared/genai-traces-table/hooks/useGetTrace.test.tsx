@@ -92,4 +92,64 @@ describe('useGetTrace', () => {
     );
     expect(result.current.data).toEqual(mockTrace);
   });
+
+  describe('polling behavior', () => {
+    test('should stop polling after max retries when OK state has span count mismatch', async () => {
+      const traceWithOKState: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'OK',
+          trace_metadata: {
+            'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }), // Mismatch: metadata says 5, but only 1 span
+          },
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithOKState);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithOKState.info, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Polling should eventually stop due to max retry count (not run forever)
+      // Wait a few seconds to verify polling occurs but is bounded
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      const callCount = mockGetTrace.mock.calls.length;
+      // Should have polled more than once (initial + retries) but not indefinitely
+      expect(callCount).toBeGreaterThan(1);
+      expect(callCount).toBeLessThanOrEqual(31); // 1 initial + max 30 retries
+    });
+
+    test('should not poll when trace state is ERROR', async () => {
+      const traceWithErrorState: ModelTrace = {
+        data: { spans: [] },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'ERROR',
+          trace_metadata: {},
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithErrorState);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithErrorState.info, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Wait a bit to ensure no additional calls are made
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
+    });
+  });
 });
