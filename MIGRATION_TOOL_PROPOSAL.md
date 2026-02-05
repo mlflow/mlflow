@@ -117,30 +117,36 @@ Supporting only SQLite initially allows us to **preserve original experiment IDs
 
 ## Data to Migrate
 
-**18 entity types to migrate:**
+**24 entity types to migrate:**
 
-| Entity                 | Parent       | Database Table           | Since  | Migrated |
-| ---------------------- | ------------ | ------------------------ | ------ | -------- |
-| Experiments            | -            | `experiments`            | All    | Yes      |
-| Experiment Tags        | Experiment   | `experiment_tags`        | All    | Yes      |
-| Runs                   | Experiment   | `runs`                   | All    | Yes      |
-| Params                 | Run          | `params`                 | All    | Yes      |
-| Metrics                | Run          | `metrics`                | All    | Yes      |
-| Latest Metrics         | Run          | `latest_metrics`         | All    | Yes      |
-| Tags                   | Run          | `tags`                   | All    | Yes      |
-| Datasets               | Experiment   | `datasets`               | 2.10.0 | Yes      |
-| Inputs                 | Run          | `inputs`                 | 2.10.0 | Yes      |
-| Input Tags             | Input        | `input_tags`             | 2.10.0 | Yes      |
-| Traces                 | Experiment   | `trace_info`             | 2.14.0 | Yes      |
-| Spans                  | Trace        | (artifacts)              | 2.14.0 | No       |
-| Trace Tags             | Trace        | `trace_tags`             | 2.14.0 | Yes      |
-| Trace Request Metadata | Trace        | `trace_request_metadata` | 2.14.0 | Yes      |
-| Assessments            | Trace        | `assessments`            | 3.2.0  | Yes      |
-| Logged Models          | Experiment   | `logged_models`          | 3.0.0  | Yes      |
-| Logged Model Params    | Logged Model | `logged_model_params`    | 3.0.0  | Yes      |
-| Logged Model Tags      | Logged Model | `logged_model_tags`      | 3.0.0  | Yes      |
-| Logged Model Metrics   | Logged Model | `logged_model_metrics`   | 3.0.0  | Yes      |
-| Run Artifacts          | Run          | (artifacts)              | All    | No       |
+| Entity                 | Parent           | Database Table            | Since  | Migrated |
+| ---------------------- | ---------------- | ------------------------- | ------ | -------- |
+| Experiments            | -                | `experiments`             | All    | Yes      |
+| Experiment Tags        | Experiment       | `experiment_tags`         | All    | Yes      |
+| Runs                   | Experiment       | `runs`                    | All    | Yes      |
+| Params                 | Run              | `params`                  | All    | Yes      |
+| Metrics                | Run              | `metrics`                 | All    | Yes      |
+| Latest Metrics         | Run              | `latest_metrics`          | All    | Yes      |
+| Tags                   | Run              | `tags`                    | All    | Yes      |
+| Datasets               | Experiment       | `datasets`                | 2.10.0 | Yes      |
+| Inputs                 | Run              | `inputs`                  | 2.10.0 | Yes      |
+| Input Tags             | Input            | `input_tags`              | 2.10.0 | Yes      |
+| Traces                 | Experiment       | `trace_info`              | 2.14.0 | Yes      |
+| Spans                  | Trace            | (artifacts)               | 2.14.0 | No       |
+| Trace Tags             | Trace            | `trace_tags`              | 2.14.0 | Yes      |
+| Trace Request Metadata | Trace            | `trace_request_metadata`  | 2.14.0 | Yes      |
+| Assessments            | Trace            | `assessments`             | 3.2.0  | Yes      |
+| Logged Models          | Experiment       | `logged_models`           | 3.0.0  | Yes      |
+| Logged Model Params    | Logged Model     | `logged_model_params`     | 3.0.0  | Yes      |
+| Logged Model Tags      | Logged Model     | `logged_model_tags`       | 3.0.0  | Yes      |
+| Logged Model Metrics   | Logged Model     | `logged_model_metrics`    | 3.0.0  | Yes      |
+| Registered Models      | -                | `registered_models`       | All    | Yes      |
+| Model Versions         | Registered Model | `model_versions`          | All    | Yes      |
+| Registered Model Tags  | Registered Model | `registered_model_tags`   | All    | Yes      |
+| Model Version Tags     | Model Version    | `model_version_tags`      | All    | Yes      |
+| Model Aliases          | Registered Model | `registered_model_aliases`| 2.3.0  | Yes      |
+| Prompts                | -                | `prompts`                 | 3.0.0  | Yes      |
+| Run Artifacts          | Run              | (artifacts)               | All    | No       |
 
 **Not migrated (stay as artifacts):** Spans, Run Artifacts
 

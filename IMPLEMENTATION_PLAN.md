@@ -6,6 +6,22 @@ This plan prioritizes **test data generation** and **verification** as the found
 
 ---
 
+## Out of Scope
+
+The following are explicitly **not** covered by this migration tool:
+
+| Item                        | Reason                                                                 |
+| --------------------------- | ---------------------------------------------------------------------- |
+| PostgreSQL, MySQL, MSSQL    | SQLite-only initially; other backends can be added later if requested  |
+| Incremental migration       | Full migration only; simplifies implementation and verification        |
+| Artifact file copying       | Artifacts stay in place; only URI references are migrated              |
+| Span migration to DB        | Spans remain as artifacts due to DB constraint risks                   |
+| Non-empty target databases  | Requires empty target to avoid conflicts; simplifies failure handling  |
+| Reverse migration (DB→File) | One-way migration; FileStore is being deprecated                       |
+| Server-to-server migration  | Use mlflow-export-import for that use case                             |
+
+---
+
 ## 1. Test Data Generation Strategy
 
 ### 1.1 MLflow Versions to Test
@@ -85,6 +101,41 @@ feedback = Feedback(
 client.create_assessment(feedback)
 ```
 
+#### Model Registry (All Versions)
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Create registered model
+client.create_registered_model("my_model", tags={"team": "ml"}, description="A test model")
+
+# Create model version (requires a logged model artifact)
+with mlflow.start_run() as run:
+    mlflow.sklearn.log_model(model, "model")
+    model_uri = f"runs:/{run.info.run_id}/model"
+
+client.create_model_version("my_model", model_uri, run_id=run.info.run_id)
+client.set_model_version_tag("my_model", "1", "stage", "production")
+
+# Create alias (2.3.0+)
+client.set_registered_model_alias("my_model", "champion", "1")
+```
+
+#### Prompts (3.0.0+)
+
+```python
+import mlflow
+
+# Create prompt
+mlflow.register_prompt(
+    name="qa_prompt",
+    template="Answer the question: {{question}}",
+    commit_message="Initial version",
+)
+```
+
 ### 1.3 Edge Cases to Generate
 
 | Category            | Test Case                      | Command/Approach                                              |
@@ -125,28 +176,34 @@ python scripts/generate_migration_fixtures.py --output /tmp/fixtures/ --size ful
 | `small` | Quick iteration    |
 | `full`  | CI / comprehensive |
 
-**Entities to generate (18 total):**
+**Entities to generate (24 total):**
 
-| Entity | Parent | small | full | Notes |
-|--------|--------|-------|------|-------|
-| Experiments | - | 2 | 5 | |
-| Experiment Tags | Experiment | 2 | 3 | |
-| Runs | Experiment | 2 | 5 | |
-| Params | Run | 3 | 10 | |
-| Metrics | Run | 3 | 10 | |
-| Latest Metrics | Run | 3 | 10 | |
-| Tags | Run | 2 | 5 | |
-| Datasets | Experiment | 1 | 3 | 2.10.0+ |
-| Inputs | Run | 1 | 2 | 2.10.0+ |
-| Input Tags | Input | 1 | 2 | 2.10.0+ |
-| Traces | Experiment | 1 | 3 | 2.14.0+ |
-| Trace Tags | Trace | 1 | 3 | 2.14.0+ |
-| Trace Request Metadata | Trace | 1 | 3 | 2.14.0+ |
-| Assessments | Trace | 1 | 2 | 3.2.0+ |
-| Logged Models | Experiment | 1 | 2 | 3.0.0+ |
-| Logged Model Params | Logged Model | 2 | 5 | 3.0.0+ |
-| Logged Model Tags | Logged Model | 1 | 3 | 3.0.0+ |
-| Logged Model Metrics | Logged Model | 2 | 5 | 3.0.0+ |
+| Entity                 | Parent           | small | full | Notes   |
+| ---------------------- | ---------------- | ----- | ---- | ------- |
+| Experiments            | -                | 2     | 5    |         |
+| Experiment Tags        | Experiment       | 2     | 3    |         |
+| Runs                   | Experiment       | 2     | 5    |         |
+| Params                 | Run              | 3     | 10   |         |
+| Metrics                | Run              | 3     | 10   |         |
+| Latest Metrics         | Run              | 3     | 10   |         |
+| Tags                   | Run              | 2     | 5    |         |
+| Datasets               | Experiment       | 1     | 3    | 2.10.0+ |
+| Inputs                 | Run              | 1     | 2    | 2.10.0+ |
+| Input Tags             | Input            | 1     | 2    | 2.10.0+ |
+| Traces                 | Experiment       | 1     | 3    | 2.14.0+ |
+| Trace Tags             | Trace            | 1     | 3    | 2.14.0+ |
+| Trace Request Metadata | Trace            | 1     | 3    | 2.14.0+ |
+| Assessments            | Trace            | 1     | 2    | 3.2.0+  |
+| Logged Models          | Experiment       | 1     | 2    | 3.0.0+  |
+| Logged Model Params    | Logged Model     | 2     | 5    | 3.0.0+  |
+| Logged Model Tags      | Logged Model     | 1     | 3    | 3.0.0+  |
+| Logged Model Metrics   | Logged Model     | 2     | 5    | 3.0.0+  |
+| Registered Models      | -                | 1     | 3    |         |
+| Model Versions         | Registered Model | 2     | 5    |         |
+| Registered Model Tags  | Registered Model | 1     | 3    |         |
+| Model Version Tags     | Model Version    | 1     | 3    |         |
+| Model Aliases          | Registered Model | 1     | 2    | 2.3.0+  |
+| Prompts                | -                | 1     | 3    | 3.0.0+  |
 
 **Not migrated (stay as artifacts):** Spans
 
@@ -287,6 +344,43 @@ def compare_metric_values(src: float, dst: float) -> bool:
 | `params`        | List equality |       |
 | `tags`          | List equality |       |
 
+#### Registered Models
+
+| Field               | Comparison    | Notes                       |
+| ------------------- | ------------- | --------------------------- |
+| `name`              | Exact match   | Primary key                 |
+| `creation_time`     | Exact match   | Milliseconds                |
+| `last_updated_time` | Exact match   | Milliseconds                |
+| `description`       | Exact match   |                             |
+| `tags`              | Dict equality |                             |
+| `aliases`           | Dict equality | alias_name → version number |
+
+#### Model Versions
+
+| Field               | Comparison  | Notes                                  |
+| ------------------- | ----------- | -------------------------------------- |
+| `name`              | Exact match | Registered model name                  |
+| `version`           | Exact match | Integer version number                 |
+| `creation_time`     | Exact match | Milliseconds                           |
+| `last_updated_time` | Exact match | Milliseconds                           |
+| `description`       | Exact match |                                        |
+| `user_id`           | Exact match |                                        |
+| `source`            | Exact match | Artifact path                          |
+| `run_id`            | Exact match | Can be None                            |
+| `status`            | Exact match | PENDING_REGISTRATION/READY/FAILED/etc. |
+| `status_message`    | Exact match |                                        |
+| `run_link`          | Exact match |                                        |
+| `tags`              | Dict equality |                                      |
+
+#### Prompts (3.0.0+)
+
+| Field          | Comparison  | Notes            |
+| -------------- | ----------- | ---------------- |
+| `name`         | Exact match | Primary key      |
+| `creation_time`| Exact match | Milliseconds     |
+| `description`  | Exact match |                  |
+| `tags`         | Dict equality |                |
+
 ### 2.2 Verification Implementation
 
 ```python
@@ -361,6 +455,9 @@ Tags: 36/36 passed
 Traces: 3/3 passed
 Assessments: 6/6 passed
 Logged Models: 2/2 passed
+Registered Models: 3/3 passed
+Model Versions: 8/8 passed
+Prompts: 3/3 passed
 
 Status: SUCCESS
 ```
@@ -409,6 +506,8 @@ FAILED: Metric 'loss' in run xyz789
    - Traces, TraceMetadata, TraceTags (2.14.0+)
    - Assessments (3.2.0+)
    - LoggedModels, LoggedModelParams/Tags/Metrics (3.0.0+)
+   - RegisteredModels, ModelVersions, ModelAliases (All + 2.3.0+)
+   - Prompts (3.0.0+)
 
 6. **Add version-aware tests**
    - Each fixture version tests only its available features
