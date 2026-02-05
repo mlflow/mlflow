@@ -1,3 +1,5 @@
+# numba 0.53 only supports Python <3.10, need newer version for Python 3.11
+numba>=0.56
 pytest==9.0.2
 # transformers 4.51.0 has this issue:
 # https://github.com/huggingface/transformers/issues/37326

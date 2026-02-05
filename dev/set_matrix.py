@@ -378,7 +378,7 @@ def infer_python_version(package: str, version: str, repo_url: str | None = None
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.10", "3.11")
+    candidates = ("3.11",)
 
     if version == DEV_VERSION and repo_url:
         if rp := _requires_python_from_repo(repo_url):
