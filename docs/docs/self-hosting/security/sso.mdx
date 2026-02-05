@@ -42,7 +42,6 @@ The OIDC plugin requires an Identity Provider (IDP) service that supports the OI
 
 ![callback setting](/images/self-hosting/sso-callback-setting.png)
 
-
 4. Configure and deploy a "post-login" trigger for assigning the user's group membership
 
 The username of any Okta auth0 account can be used as the user to log in the MLflow server deployed with the OIDC plugin. You need to assign a group to each user.
@@ -75,11 +74,10 @@ Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-
 
 ![install trigger](/images/self-hosting/sso-install-trigger.png)
 
-
 #### Google Identity Platform configuration
 
 1. Register a Google Cloud account and open the [console page](https://console.cloud.google.com/).
-In the console, select **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**. Choose **Application type: Web application**, enter the client name, and add the callback URL (for example, `http://localhost:8080/callback`) to **Authorized redirect URIs**.
+   In the console, select **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**. Choose **Application type: Web application**, enter the client name, and add the callback URL (for example, `http://localhost:8080/callback`) to **Authorized redirect URIs**.
 
 ![Google oauth credentials creation](/images/self-hosting/google-create-oauth-credentials.png)
 
@@ -87,10 +85,10 @@ In the console, select **APIs & Services** → **Credentials** → **Create cred
 
 ![Google OIDC provider creation](/images/self-hosting/google-create-oidc-provider.png)
 
-
 3. Unlike Okta Auth0, Google Identity Platform does not support the post-login trigger, so that we can't configure the user group setting there. Instead, we need to write a simple plugin as follows. The example group configuration plugin assigns the administrator group to a certain user, and assign the plain group to other users.
 
 Create a Python file named as "google_oidc_auth_plugin.py":
+
 ```python
 import requests
 
