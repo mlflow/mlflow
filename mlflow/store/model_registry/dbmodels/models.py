@@ -30,6 +30,8 @@ from mlflow.entities.webhook import (
     WebhookStatus,
 )
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
 
@@ -237,12 +239,26 @@ class EncryptedString(TypeDecorator):
     impl = String(1000)
     cache_ok = True
 
+    # Class-level cipher to ensure consistent encryption/decryption across all instances
+    _cipher = None
+
+    @classmethod
+    def _get_cipher(cls):
+        if cls._cipher is None:
+            encryption_key = MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.get()
+            if encryption_key is None:
+                raise MlflowException(
+                    "Cannot use webhook secrets without setting the MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY "
+                    "environment variable. Please configure this variable with a valid Fernet key.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            cls._cipher = Fernet(encryption_key)
+        return cls._cipher
+
     def __init__(self):
         super().__init__()
-        # Get encryption key from environment variable or generate one
-        # In production, this should come from a secure key management service
-        encryption_key = MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.get() or Fernet.generate_key()
-        self.cipher = Fernet(encryption_key)
+        # Get cipher from class-level method to ensure consistency
+        self.cipher = self._get_cipher()
 
     def process_bind_param(self, value, dialect):
         if value is not None:
