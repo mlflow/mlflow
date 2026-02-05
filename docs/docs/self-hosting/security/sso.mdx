@@ -40,20 +40,32 @@ The OIDC plugin requires an Identity Provider (IDP) service that supports the OI
 
 ![callback setting](/images/self-hosting/sso-callback-setting.png)
 
-4. Configure and deploy a "post-login" trigger for assigning the user's group membership
+4. Create Okta users
 
-Your Okta account login username is used as the user in the MLflow server with OIDC plugin. You need to assign a group to it.
+The Okta application is already accessible to your Okta account user. You need to create more users under this Okta account considering team use. Open the page from the Okta account side bar menu: User Management -> Users, and create users as follows:
+
+![Create Okta Users](/images/self-hosting/sso-okta-users.png)
+
+5. Configure and deploy a "post-login" trigger for assigning the user's group membership
+
+Your Okta account login user or the users created under the Okta account can be used as the users in the MLflow server with OIDC plugin. You need to assign a group to each user.
 MLflow OIDC plugin supports 2 kinds of groups: (1) administrator group (default group name is "mlflow-admin"), (2) plain group (default group name is "mlflow"). For the user that is assigned to the administrator group, the user automatically gets all entity access permissions, and can grant permissions to any other users. For the user that is assigned to the plain group, the user does not have permissions to MLflow entities until the user in the administrator group grants permission for the user.
 
-Below is an example to assign the administrator group to current Okta user:
+Below is an example to assign the administrator group to a certain user, and assign the plain group to other users:
 
 In Okta account sidebar menu: Actions -> Library -> Create Actions -> Create Custom Action, and fill in the code as follows:
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
+  const email = event.user.email;
+  if (email == "weichenxuworks@gmail.com") {
+    var group = "mlflow-admin"
+  } else {
+    var group = "mlflow"
+  }
   api.idToken.setCustomClaim(
     'urn:mlflow:groups',
-    ['mlflow-admin']
+    [group]
   );
 };
 ```
@@ -64,7 +76,7 @@ then click the "Deploy" button.
 
 Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-login, install the trigger as follows:
 
-![custom action setting](/images/self-hosting/sso-install-trigger.png)
+![install trigger](/images/self-hosting/sso-install-trigger.png)
 
 ### Deploy MLflow server with the OIDC plugin
 
@@ -101,7 +113,9 @@ Then you can open URL "http://127.0.0.1:8080/" and it will jump to the OIDC logi
 
 ![custom action setting](/images/self-hosting/oidc-page.png)
 
-If the current login user is assigned to the administrator group, then you can configure the permissions for other users through the OIDC permission UI portal.
+If the current login user is assigned to the administrator group, then you can configure the permissions for other users through the OIDC permission UI portal as follows:
+
+![custom action setting](/images/self-hosting/oidc-permission-settings.png)
 
 After login via OIDC, open "http://127.0.0.1:8080/" again and then it will jump to the MLflow UI main page.
 
@@ -116,7 +130,8 @@ Note: Each time you create a new access token, it invalidates the previous one. 
 Then set the credentials for basic auth to environment variables:
 
 ```bash
-# set the `MLFLOW_TRACKING_USERNAME` to the username that you use to log in the Okta
+# set the `MLFLOW_TRACKING_USERNAME` to the username of the Okta account,
+# or other users that are created under the Okta account.
 export MLFLOW_TRACKING_USERNAME=...
 # set the `MLFLOW_TRACKING_PASSWORD` to the access token that is generated on the OIDC user permission page.
 export MLFLOW_TRACKING_PASSWORD=...
