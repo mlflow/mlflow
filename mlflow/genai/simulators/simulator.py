@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 import uuid
@@ -328,16 +329,23 @@ class ConversationSimulator:
     Each conversation is traced in MLflow, allowing you to evaluate how your agent handles
     various user goals and personas.
 
-    The predict function passed to the simulator must follow the OpenAI Responses API format
-    (https://platform.openai.com/docs/api-reference/responses):
+    The predict function passed to the simulator must accept the conversation history
+    as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``).
+    Two formats are supported:
 
-    - It must accept an ``input`` parameter containing the conversation history
-      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
-    - It may accept additional keyword arguments from the test case's ``context`` field
-    - It receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
+    - **Responses API format**: Use an ``input`` parameter
+      (https://platform.openai.com/docs/api-reference/responses)
+    - **Chat Completions API format**: Use a ``messages`` parameter
+      (https://platform.openai.com/docs/api-reference/chat)
+
+    The predict function:
+
+    - Must accept either ``input`` or ``messages`` (not both) for the conversation history
+    - May accept additional keyword arguments from the test case's ``context`` field
+    - Receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
       session. This ID is consistent across all turns in the same conversation, allowing you
       to associate related traces or maintain stateful context (e.g., for thread-based agents).
-    - It should return a response (the assistant's message content will be extracted)
+    - Should return a response (the assistant's message content will be extracted)
 
     Args:
         test_cases: List of test case dicts, a DataFrame, or an EvaluationDataset,
@@ -514,14 +522,24 @@ class ConversationSimulator:
         is traced in MLflow.
 
         Args:
-            predict_fn: The target function to evaluate. Must accept an ``input``
-                parameter containing the conversation history as a list of message
-                dicts, and may accept additional kwargs from the test case's context.
+            predict_fn: The target function to evaluate. Must accept either an ``input``
+                parameter (Responses API format) or a ``messages`` parameter (Chat
+                Completions API format) containing the conversation history as a list of
+                message dicts. May also accept additional kwargs from the test case's
+                context. Cannot have both ``input`` and ``messages`` parameters.
 
         Returns:
             A list of lists containing Trace objects. Each inner list corresponds to
             a test case and contains the traces for each turn in that conversation.
         """
+        sig = inspect.signature(predict_fn)
+        if "messages" in sig.parameters and "input" in sig.parameters:
+            raise MlflowException(
+                "predict_fn cannot have both 'messages' and 'input' parameters. "
+                "Use 'messages' for Chat Completions API format or 'input' for Responses "
+                "API format."
+            )
+
         run_context = (
             contextmanager(lambda: (yield))()
             if mlflow.active_run()
@@ -667,7 +685,7 @@ class ConversationSimulator:
         #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
         #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
-        def traced_predict(input: list[dict[str, Any]], **ctx):
+        def traced_predict(**kwargs):
             mlflow.update_current_trace(
                 metadata={
                     TraceMetadataKey.TRACE_SESSION: trace_session_id,
@@ -686,11 +704,17 @@ class ConversationSimulator:
                         "mlflow.simulation.context": context,
                     }
                 )
-            return predict_fn(input=input, **ctx)
+            return predict_fn(**kwargs)
 
-        response = traced_predict(
-            input=input_messages, mlflow_session_id=trace_session_id, **context
-        )
+        sig = inspect.signature(predict_fn)
+        input_key = "messages" if "messages" in sig.parameters else "input"
+        predict_kwargs = {
+            input_key: input_messages,
+            "mlflow_session_id": trace_session_id,
+            **context,
+        }
+
+        response = traced_predict(**predict_kwargs)
         trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session
