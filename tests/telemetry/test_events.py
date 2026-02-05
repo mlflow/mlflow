@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
+    AgentServerImportEvent,
     AiCommandRunEvent,
     AlignJudgeEvent,
     CreateDatasetEvent,

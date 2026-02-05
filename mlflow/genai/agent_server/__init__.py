@@ -10,6 +10,10 @@ from mlflow.genai.agent_server.utils import (
     set_request_headers,
     setup_mlflow_git_based_version_tracking,
 )
+from mlflow.telemetry.events import AgentServerImportEvent
+from mlflow.telemetry.track import _record_event
+
+_record_event(AgentServerImportEvent, params={})
 
 __all__ = [
     "set_request_headers",

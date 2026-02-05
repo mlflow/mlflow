@@ -69,6 +69,10 @@ class CreatePromptEvent(Event):
     name: str = "create_prompt"
 
 
+class AgentServerImportEvent(Event):
+    name: str = "agent_server_import"
+
+
 class LoadPromptEvent(Event):
     name: str = "load_prompt"
 
