@@ -287,6 +287,16 @@ def _run_databricks_agentic_loop(
                 user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
             )
 
+            # Surface API errors from the response before checking output_json,
+            # so users see the actual error (e.g. "Model context limit exceeded")
+            # instead of a misleading "Empty response" message.
+            error_code = getattr(llm_result, "error_code", None)
+            error_message = getattr(llm_result, "error_message", None)
+            if error_code or error_message:
+                raise MlflowException(
+                    f"Databricks judge API error (code={error_code}): {error_message}"
+                )
+
             output_json = llm_result.output_json
             if not output_json:
                 raise MlflowException("Empty response from Databricks judge")
