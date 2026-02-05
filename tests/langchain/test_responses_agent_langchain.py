@@ -317,7 +317,8 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
                 "id": "lc_run--019c2b6f-4d8d-70e3-b620-b80545b4cb30",
                 "content": [
                     {
-                        "text": "I'll look up both the current and historical stock prices for Apple.",
+                        "text": "I'll look up both the current and historical "
+                        "stock prices for Apple.",
                         "type": "output_text",
                     }
                 ],
@@ -344,7 +345,8 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
                 "id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
                 "call_id": "toolu_bdrk_01Dte8KnRx9Tk7pMz9h83okn",
                 "name": "get_historical_stock_prices",
-                "arguments": '{"ticker": "AAPL", "start_date": "2023-01-01", "end_date": "2024-01-01"}',
+                "arguments": '{"ticker": "AAPL", "start_date": "2023-01-01", '
+                '"end_date": "2024-01-01"}',
             },
         ),
         ResponsesAgentStreamEvent(
