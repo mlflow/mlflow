@@ -13,12 +13,29 @@ _SUPPORTED_VALIDATORS = [
 
 
 def get_validator_class(validator_name: str):
-    if validator_name not in _SUPPORTED_VALIDATORS:
-        available = ", ".join(sorted(_SUPPORTED_VALIDATORS))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown Guardrails AI validator: '{validator_name}'. Available: {available}"
-        )
+    """
+    Get Guardrails AI validator class by name.
 
+    For validators in the supported list, imports from guardrails.hub. For unknown
+    validators, attempts to dynamically import from guardrails.hub.<ValidatorName>.
+
+    Args:
+        validator_name: Name of the validator (e.g., "ToxicLanguage", "DetectPII")
+
+    Returns:
+        The Guardrails AI validator class
+
+    Raises:
+        MlflowException: If the validator cannot be imported or guardrails is not installed
+    """
     from guardrails import hub
 
-    return getattr(hub, validator_name)
+    try:
+        return getattr(hub, validator_name)
+    except AttributeError:
+        available = ", ".join(sorted(_SUPPORTED_VALIDATORS))
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown Guardrails AI validator: '{validator_name}'. Could not find "
+            f"'{validator_name}' in 'guardrails.hub'. "
+            f"Available pre-configured validators: {available}"
+        )

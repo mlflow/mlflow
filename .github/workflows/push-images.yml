@@ -65,6 +65,16 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest,enable=${{ steps.check_latest.outputs.should_update_latest == 'true' }}
 
+      - name: Gather Docker Metadata for Full Image
+        id: meta-full
+        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4.6.0
+        with:
+          images: |
+            ghcr.io/mlflow/mlflow
+          tags: |
+            type=ref,event=tag,suffix=-full
+            type=raw,value=latest-full,enable=${{ steps.check_latest.outputs.should_update_latest == 'true' }}
+
       - name: Build and Push Base Image
         uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3.3.1
         with:
@@ -81,7 +91,7 @@ jobs:
           context: docker
           file: docker/Dockerfile.full
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-full
+          tags: ${{ steps.meta-full.outputs.tags }}
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}

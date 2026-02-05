@@ -35,6 +35,20 @@ foo()  # clint: disable=<rule_name>
 
 Replace `<rule_name>` with the actual rule you want to disable.
 
+The rule name is shown in the error message. For example:
+
+```
+test_file.py:4:2: pytest-mark-repeat: @pytest.mark.repeat decorator...
+```
+
+Use the rule name (`pytest-mark-repeat`) in the disable comment:
+
+```python
+@pytest.mark.repeat(3)  # clint: disable=pytest-mark-repeat
+def test_something():
+    pass
+```
+
 **For multi-line constructs (docstrings, etc.), place the disable comment on the closing line:**
 
 ```python
