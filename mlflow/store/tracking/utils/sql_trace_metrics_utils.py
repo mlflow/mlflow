@@ -378,12 +378,12 @@ def _apply_dimension_to_query(
                 case SpanMetricDimensionKey.SPAN_STATUS:
                     return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
                 case SpanMetricDimensionKey.SPAN_MODEL_NAME:
-                    # Extract model name from span_metadata JSON column on SqlSpan
-                    model_name = SqlSpan.span_metadata[SpanAttributeKey.MODEL]
+                    # Extract model name from dimension_attributes JSON column on SqlSpan
+                    model_name = SqlSpan.dimension_attributes[SpanAttributeKey.MODEL]
                     return query, model_name.label(SpanMetricDimensionKey.SPAN_MODEL_NAME)
                 case SpanMetricDimensionKey.SPAN_MODEL_PROVIDER:
-                    # Extract model provider from span_metadata JSON column on SqlSpan
-                    model_provider = SqlSpan.span_metadata[SpanAttributeKey.MODEL_PROVIDER]
+                    # Extract model provider from dimension_attributes JSON column on SqlSpan
+                    model_provider = SqlSpan.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER]
                     return query, model_provider.label(SpanMetricDimensionKey.SPAN_MODEL_PROVIDER)
         case MetricViewType.ASSESSMENTS:
             match dimension:
