@@ -18,13 +18,13 @@ Conversation simulation is experimental in MLflow 3.10.0. The API and behavior m
 
 ## Why Simulate Conversations?
 
-| Aspect | Manual Test Data | Conversation Simulation |
-|--------|------------------|------------------------|
-| **Version testing** | Can't retest new agent versions with same conversations | Replay identical scenarios across agent versions |
-| **Coverage** | Limited by human creativity and time | Generate diverse edge cases at scale |
-| **Consistency** | Variations in manual test creation | Reproducible test scenarios with defined goals |
-| **Scale** | Time-consuming to create many test cases | Generate hundreds of conversations instantly |
-| **Maintenance** | Must manually update test data | Regenerate conversations when requirements change |
+| Aspect              | Manual Test Data                                        | Conversation Simulation                           |
+| ------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| **Version testing** | Can't retest new agent versions with same conversations | Replay identical scenarios across agent versions  |
+| **Coverage**        | Limited by human creativity and time                    | Generate diverse edge cases at scale              |
+| **Consistency**     | Variations in manual test creation                      | Reproducible test scenarios with defined goals    |
+| **Scale**           | Time-consuming to create many test cases                | Generate hundreds of conversations instantly      |
+| **Maintenance**     | Must manually update test data                          | Regenerate conversations when requirements change |
 
 Conversation simulation addresses these challenges by programmatically generating conversations based on defined goals and personas, enabling:
 
