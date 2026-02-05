@@ -88,6 +88,7 @@ export const ExperimentEvaluationRunsTableControls = ({
   compareToRunUuid,
   isComparisonMode,
   setIsComparisonMode,
+  enableImprovedComparison,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -108,6 +109,7 @@ export const ExperimentEvaluationRunsTableControls = ({
   compareToRunUuid?: string;
   isComparisonMode: boolean;
   setIsComparisonMode: (isComparisonMode: boolean) => void;
+  enableImprovedComparison?: boolean;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -265,7 +267,8 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
-        {viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
+        {/* PR #20283/#20525: Compare button - only enabled when feature flag is on, hidden in charts mode */}
+        {enableImprovedComparison && viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
           <Tooltip
             componentId="mlflow.eval-runs.compare-button.tooltip"
             content={
@@ -296,6 +299,10 @@ export const ExperimentEvaluationRunsTableControls = ({
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           refetchRuns={refetchRuns}
+          onCompare={onCompare}
+          selectedRunUuid={selectedRunUuid}
+          compareToRunUuid={compareToRunUuid}
+          enableImprovedComparison={enableImprovedComparison}
         />
       </div>
     </div>
