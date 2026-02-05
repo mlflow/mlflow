@@ -117,19 +117,34 @@ Supporting only SQLite initially allows us to **preserve original experiment IDs
 
 ## Data to Migrate
 
-| Data Type       | FileStore                              | Database Tables                                         | Since  |
-| --------------- | -------------------------------------- | ------------------------------------------------------- | ------ |
-| Experiments     | `<exp_id>/meta.yaml`                   | `experiments`                                           | All    |
-| Experiment Tags | `<exp_id>/tags/<key>`                  | `experiment_tags`                                       | All    |
-| Runs            | `<exp_id>/<run_id>/meta.yaml`          | `runs`                                                  | All    |
-| Params          | `<run_id>/params/<key>`                | `params`                                                | All    |
-| Metrics         | `<run_id>/metrics/<key>`               | `metrics`, `latest_metrics`                             | All    |
-| Tags            | `<run_id>/tags/<key>`                  | `tags`                                                  | All    |
-| Datasets        | `<exp_id>/datasets/<id>/meta.yaml`     | `datasets`                                              | 2.10.0 |
-| Inputs          | `<run_id>/inputs/<id>/meta.yaml`       | `inputs`, `input_tags`                                  | 2.10.0 |
-| Traces          | `<exp_id>/traces/<id>/trace_info.yaml` | `trace_info`, `trace_tags`, `trace_request_metadata`    | 2.14.0 |
-| Assessments     | `traces/<id>/assessments/<id>.yaml`    | `assessments`                                           | 3.2.0  |
-| Logged Models   | `<exp_id>/models/<id>/meta.yaml`       | `logged_models`, `logged_model_{params\|metrics\|tags}` | 3.0.0  |
+**18 entity types to migrate:**
+
+| Entity                 | Parent       | Database Table           | Since  | Migrated |
+| ---------------------- | ------------ | ------------------------ | ------ | -------- |
+| Experiments            | -            | `experiments`            | All    | Yes      |
+| Experiment Tags        | Experiment   | `experiment_tags`        | All    | Yes      |
+| Runs                   | Experiment   | `runs`                   | All    | Yes      |
+| Params                 | Run          | `params`                 | All    | Yes      |
+| Metrics                | Run          | `metrics`                | All    | Yes      |
+| Latest Metrics         | Run          | `latest_metrics`         | All    | Yes      |
+| Tags                   | Run          | `tags`                   | All    | Yes      |
+| Datasets               | Experiment   | `datasets`               | 2.10.0 | Yes      |
+| Inputs                 | Run          | `inputs`                 | 2.10.0 | Yes      |
+| Input Tags             | Input        | `input_tags`             | 2.10.0 | Yes      |
+| Traces                 | Experiment   | `trace_info`             | 2.14.0 | Yes      |
+| Spans                  | Trace        | (artifacts)              | 2.14.0 | No       |
+| Trace Tags             | Trace        | `trace_tags`             | 2.14.0 | Yes      |
+| Trace Request Metadata | Trace        | `trace_request_metadata` | 2.14.0 | Yes      |
+| Assessments            | Trace        | `assessments`            | 3.2.0  | Yes      |
+| Logged Models          | Experiment   | `logged_models`          | 3.0.0  | Yes      |
+| Logged Model Params    | Logged Model | `logged_model_params`    | 3.0.0  | Yes      |
+| Logged Model Tags      | Logged Model | `logged_model_tags`      | 3.0.0  | Yes      |
+| Logged Model Metrics   | Logged Model | `logged_model_metrics`   | 3.0.0  | Yes      |
+| Run Artifacts          | Run          | (artifacts)              | All    | No       |
+
+**Not migrated (stay as artifacts):** Spans, Run Artifacts
+
+> **Why not migrate Spans?** Migrating spans to DB records poses risks due to database constraints (e.g., field length limits, character encoding). Keeping spans as artifacts avoids these issues.
 
 ## Options
 
