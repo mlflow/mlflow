@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -2118,6 +2119,14 @@ def test_crud_prompts(tracking_uri):
 
 
 def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
+    def wait_for_prompt_linking():
+        """Wait for background prompt linking threads to complete."""
+        for t in threading.enumerate():
+            if t.name.startswith("link_prompt_to_experiment_thread"):
+                t.join(timeout=5.0)
+                if t.is_alive():
+                    raise TimeoutError(f"Thread {t.name} did not complete within timeout.")
+
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with version-specific tags
@@ -2126,6 +2135,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         template="Hi, {{name}}!",
         tags={"author": "Alice"},  # This will be version-level tags now
     )
+
+    # Wait for the background linking thread to complete
+    wait_for_prompt_linking()
 
     # Set some prompt-level tags separately
     client.set_prompt_tag("prompt_1", "application", "greeting")
@@ -2137,6 +2149,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
     # Version tags are separate from prompt tags
     assert prompt_v1.tags == {"author": "Alice"}
 
+    # Wait for the background linking thread from load_prompt
+    wait_for_prompt_linking()
+
     # Test prompt-level tags (separate from version)
     prompt_entity = client.get_prompt("prompt_1")
     # Note: Currently includes the version tags too, but we expect this behavior to change
@@ -2144,6 +2159,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         "author": "Alice",  # This appears due to current implementation
         "application": "greeting",
         "language": "en",
+        "_mlflow_experiment_ids": ",0,",  # Linked to Default experiment
     }
 
     # Create version 2 with different version-level tags
@@ -2152,6 +2168,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         template="こんにちは、{{name}}!",
         tags={"author": "Bob", "date": "2022-01-01"},  # Version-level tags
     )
+
+    # Wait for the background linking thread from register_prompt
+    wait_for_prompt_linking()
 
     # Update some prompt-level tags
     client.set_prompt_tag("prompt_1", "project", "toy")
@@ -2163,6 +2182,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
     # Version 2 has its own version tags (decoupled from prompt and version 1)
     assert prompt_v2.tags == {"author": "Bob", "date": "2022-01-01"}
 
+    # Wait for the background linking thread from load_prompt
+    wait_for_prompt_linking()
+
     # Verify prompt-level tags are updated and separate
     prompt_entity_updated = client.get_prompt("prompt_1")
     # Note: Currently the prompt tags get overwritten by the newest version's tags
@@ -2172,6 +2194,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         "application": "greeting",
         "project": "toy",
         "language": "ja",
+        "_mlflow_experiment_ids": ",0,",  # Linked to Default experiment
     }
 
     # Version 1 tags should be unchanged (decoupled from prompt tags)

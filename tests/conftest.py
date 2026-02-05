@@ -1164,9 +1164,15 @@ def clear_engine_map():
         )
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-        SqlAlchemyStore._engine_map.clear()
-        ModelRegistrySqlAlchemyStore._engine_map.clear()
-        SqlAlchemyJobStore._engine_map.clear()
+        for store_class in [
+            SqlAlchemyStore,
+            ModelRegistrySqlAlchemyStore,
+            SqlAlchemyJobStore,
+        ]:
+            with store_class._engine_map_lock:
+                while store_class._engine_map:
+                    _, engine = store_class._engine_map.popitem()
+                    engine.dispose()
     except ImportError:
         pass
 

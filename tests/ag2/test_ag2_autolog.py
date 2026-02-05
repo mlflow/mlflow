@@ -223,8 +223,9 @@ def test_tracing_agent_with_function_calling(llm_config):
     user_proxy = ConversableAgent(
         name="tool_agent",
         llm_config=False,
-        is_termination_msg=lambda msg: msg.get("content") is not None
-        and "TERMINATE" in msg["content"],
+        is_termination_msg=lambda msg: (
+            msg.get("content") is not None and "TERMINATE" in msg["content"]
+        ),
         human_input_mode="NEVER",
     )
     assistant.register_for_llm(name="sum", description="A simple sum calculator")(sum)

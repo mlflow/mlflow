@@ -238,6 +238,7 @@ class ChatCompletionChunk(BaseModel):
     created: int
     model: str
     choices: list[ChatChunkChoice]
+    usage: ChatUsage | None = None
 
 
 class ChatCompletionRequest(BaseRequestPayload):

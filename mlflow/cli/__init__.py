@@ -1048,6 +1048,11 @@ from mlflow.cli import scorers
 
 cli.add_command(scorers.commands)
 
+# Add datasets CLI commands
+from mlflow.cli import datasets
+
+cli.add_command(datasets.commands)
+
 # Add demo CLI command
 from mlflow.cli.demo import demo
 
