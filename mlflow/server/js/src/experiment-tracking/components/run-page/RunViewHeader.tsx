@@ -130,7 +130,7 @@ export const RunViewHeader = ({
     navigate(`${evaluationRunsRoute}?${searchParams.toString()}`);
   }, [navigate, experiment.experimentId, runUuid]);
 
-  // PR #20284: Compare button - only enabled when feature flag is on
+  // Compare button - only enabled when feature flag is on
   const renderCompareButton = () => {
     if (!shouldEnableImprovedEvalRunsComparison() || !shouldRouteToEvaluations) {
       return null;

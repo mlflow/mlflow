@@ -74,7 +74,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
 
-    // PR #20282: Row click navigation - only enabled when feature flag is on
+    // Row click navigation - only enabled when feature flag is on
     const handleRowClick = useCallback(() => {
       if (!enableImprovedComparison) {
         return;
@@ -112,8 +112,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       );
     }
 
-    // PR #20282: Row click navigation - only enabled when feature flag is on
-    // PR #20457: Indent for grouped rows - only enabled when feature flag is on
+    // Row click navigation and indent for grouped rows - only enabled when feature flag is on
     return (
       <TableRow
         key={row.id}

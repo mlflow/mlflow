@@ -162,15 +162,8 @@ export const shouldEnableWorkflowBasedNavigation = () => {
 };
 
 /**
- * Determines if improved evaluation runs comparison UI is enabled.
- * When enabled, this enables:
- * - Grouping by dataset digest
- * - List view with metrics by default
- * - Row click navigation to run detail page
- * - Compare button in list view and run detail page
- * - Selection limit of 2 runs with auto-compare
- * - Indent for grouped rows
- * - Charts tab and click handling fixes
+ * Enables improved evaluation runs comparison UI with full-page list view,
+ * dataset grouping, and streamlined run comparison workflow.
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;

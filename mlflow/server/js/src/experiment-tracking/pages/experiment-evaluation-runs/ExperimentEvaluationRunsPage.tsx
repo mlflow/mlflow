@@ -63,7 +63,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const enableImprovedComparison = shouldEnableImprovedEvalRunsComparison();
 
-  // PR #20280: When flag is enabled, default to grouping by dataset
+  // When flag is enabled, default to grouping by dataset
   const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>(
     enableImprovedComparison
       ? {
@@ -115,7 +115,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     [rowSelection],
   );
 
-  // PR #20281/#20285: On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection
+  // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection
   // Only enter comparison mode if BOTH params are present (indicating an active comparison)
   // If only selectedRunUuid is present, just pre-select the checkbox but stay in full-page list view
   // Only enabled when feature flag is on
@@ -139,7 +139,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     }
   }, [enableImprovedComparison, selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
 
-  // PR #20285: Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
+  // Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
   // Only enabled when feature flag is on
   useEffect(() => {
     if (!enableImprovedComparison) {
@@ -394,7 +394,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     </div>
   );
 
-  // PR #20281/#20525: Full-page list view (non-comparison mode, but not when viewing charts)
+  // Full-page list view (non-comparison mode, but not when viewing charts)
   // When flag is OFF, NEVER show full-page list view - always show split view (original behavior)
   // When flag is ON, show full-page list view when not in comparison mode and not in charts mode
   const shouldShowFullPageView =

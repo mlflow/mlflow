@@ -267,7 +267,7 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
-        {/* PR #20283/#20525: Compare button - only enabled when feature flag is on, hidden in charts mode */}
+        {/* Compare button - only enabled when feature flag is on, hidden in charts mode */}
         {enableImprovedComparison && viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
           <Tooltip
             componentId="mlflow.eval-runs.compare-button.tooltip"
