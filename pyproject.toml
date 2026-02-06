@@ -254,6 +254,8 @@ constraint-dependencies = [
   # TODO: Remove this once transformers 5.x is supported
   "transformers<5",
   "pandas==3.0.0",
+  # llvmlite<0.39 doesn't support Python 3.11+
+  "numba>=0.57",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
