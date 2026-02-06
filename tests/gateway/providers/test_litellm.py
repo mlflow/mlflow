@@ -208,7 +208,7 @@ async def test_chat_stream():
         yield chunk2
 
     with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
-        provider = LiteLLMProvider(EndpointConfig(**config))
+        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=True)
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
             "stream": True,
@@ -224,6 +224,7 @@ async def test_chat_stream():
         # Verify stream parameter was set
         call_kwargs = mock_completion.call_args[1]
         assert call_kwargs["stream"] is True
+        assert call_kwargs["stream_options"]["include_usage"] is True
 
 
 @pytest.mark.asyncio

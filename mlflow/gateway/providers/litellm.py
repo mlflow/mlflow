@@ -158,6 +158,12 @@ class LiteLLMProvider(BaseProvider):
         )
         kwargs["stream"] = True
 
+        if self._enable_tracing:
+            if kwargs.get("stream_options") is None:
+                kwargs["stream_options"] = {"include_usage": True}
+            elif "include_usage" not in kwargs["stream_options"]:
+                kwargs["stream_options"]["include_usage"] = True
+
         response = await litellm.acompletion(**kwargs)
 
         async for chunk in response:
