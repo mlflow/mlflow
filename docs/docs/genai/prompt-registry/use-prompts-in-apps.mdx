@@ -127,7 +127,6 @@ When you load prompts (via `mlflow.genai.load_prompt()`) from the registry withi
 
 Similarly, when you load prompts from the registry during an MLflow run (inside a `with mlflow.start_run():` block), MLflow automatically records which prompt versions are used in that run. This linkage appears in the run's metadata and the MLflow UI, making it easy to track prompt dependencies for reproducibility and auditability.
 
-
 ### Example
 
 ```python
@@ -152,7 +151,9 @@ with mlflow.start_run():
 ```
 
 ### Prompt-trace linking UI
+
 ![UI for Prompt-trace linkage](/images/llms/prompt-registry/prompt-trace-linking)
 
 ### Prompt-run linking UI
+
 ![Prompt-run linking in run overview](/images/llms/prompt-registry/prompt-run-linking)
