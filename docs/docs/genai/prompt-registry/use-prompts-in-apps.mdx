@@ -110,13 +110,6 @@ For complete reproducibility and traceability, it is crucial to log which specif
 
 MLflow is designed to facilitate this. When a model is logged, and that model's code loads prompts using the `prompts:/` URI via `mlflow.genai.load_prompt()`, MLflow can automatically record these prompt dependencies as part of the logged model's metadata.
 
-**Benefits of this linkage:**
-
-- **Reproducibility**: Knowing the exact prompt versions used by a model version allows you to reproduce its behavior precisely.
-- **Debugging**: If a model version starts behaving unexpectedly, you can easily check if a change in an underlying prompt (even if updated via an alias) is the cause.
-- **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
-- **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
-
 ### Automatic Prompt Linking
 
 ### Linking with Trace
@@ -157,3 +150,10 @@ with mlflow.start_run():
 ### Prompt-run linking UI
 
 ![Prompt-run linking in run overview](/images/llms/prompt-registry/prompt-run-linking.png)
+
+**Benefits of this linkage:**
+
+- **Reproducibility**: Knowing the exact prompt versions used by a model version allows you to reproduce its behavior precisely.
+- **Debugging**: If a model version starts behaving unexpectedly, you can easily check if a change in an underlying prompt (even if updated via an alias) is the cause.
+- **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
+- **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
