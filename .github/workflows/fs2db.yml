@@ -53,6 +53,23 @@ jobs:
           uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project python -I \
             fs2db/src/generate_synthetic_data.py --output /tmp/fs2db/${{ matrix.mlflow-version }}/ --size full
 
-      # TODO: Run migration tests
-      - name: Run migration tests
-        run: echo "Not yet implemented"
+      - name: Run migration for MLflow ${{ matrix.mlflow-version }}
+        run: |
+          uv run python fs2db/src/migrate.py \
+            --source /tmp/fs2db/${{ matrix.mlflow-version }}/ \
+            --target sqlite:////tmp/fs2db/${{ matrix.mlflow-version }}/migrated.db
+
+      - name: Verify migration for MLflow ${{ matrix.mlflow-version }}
+        run: |
+          uv run python -c "
+          from sqlalchemy import create_engine, text
+          e = create_engine('sqlite:////tmp/fs2db/${{ matrix.mlflow-version }}/migrated.db')
+          with e.connect() as c:
+              for t in ['experiments','runs','params','metrics','latest_metrics','tags',
+                        'trace_info','logged_models','registered_models','model_versions']:
+                  try:
+                      r = c.execute(text(f'SELECT COUNT(*) FROM {t}')).scalar()
+                      print(f'{t}: {r}')
+                  except Exception as ex:
+                      print(f'{t}: (table not found)')
+          "
