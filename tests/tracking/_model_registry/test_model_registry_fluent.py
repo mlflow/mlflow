@@ -248,6 +248,7 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,  # Supported version
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         yield
