@@ -67,6 +67,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'migrate-from-file-store',
+      label: 'Migrate from File Store',
+    },
+    {
+      type: 'doc',
       id: 'troubleshooting',
       label: 'Troubleshooting & FAQs',
     },
