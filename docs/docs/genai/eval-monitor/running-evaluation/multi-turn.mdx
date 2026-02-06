@@ -212,10 +212,10 @@ simulator = ConversationSimulator(
 
 
 # Your agent's predict function
-def predict_fn(input: list[dict], **kwargs) -> dict:
+def predict_fn(input: list[dict], **kwargs) -> str:
     # input is the conversation history
     response = your_agent.chat(input)
-    return {"output": response}
+    return response
 
 
 # Simulate conversations and evaluate

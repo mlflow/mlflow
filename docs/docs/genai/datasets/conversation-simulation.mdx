@@ -151,6 +151,7 @@ dataset.merge_records(new_cases)
 Use the same dataset to compare different agent versions:
 
 ```python
+import mlflow
 from mlflow.genai.datasets import get_dataset
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.scorers import ConversationCompleteness, UserFrustration

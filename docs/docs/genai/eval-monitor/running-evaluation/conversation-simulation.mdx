@@ -262,7 +262,13 @@ sessions = mlflow.search_sessions(
 )
 
 # Generate test cases by extracting goals and personas from sessions
-test_cases = generate_test_cases(sessions)  # clint: disable=unknown-mlflow-function
+test_cases = generate_test_cases(sessions)
+
+# Optionally, save generated test cases as a dataset for reproducibility
+from mlflow.genai.datasets import create_dataset
+
+dataset = create_dataset(name="generated_scenarios")
+dataset.merge_records([{"inputs": tc} for tc in test_cases])
 
 # Use generated test cases with the simulator
 simulator = ConversationSimulator(test_cases=test_cases)
