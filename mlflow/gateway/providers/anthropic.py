@@ -16,7 +16,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
-from mlflow.gateway.utils import parse_sse_line
+from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
@@ -576,37 +576,29 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             result.get("usage"), "input_tokens", "output_tokens"
         )
 
-    def _extract_streaming_token_usage(
-        self, chunk: bytes, accumulated_usage: dict[str, int]
-    ) -> dict[str, int]:
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
-        Extract and accumulate token usage from Anthropic streaming chunks.
+        Extract token usage from Anthropic streaming chunks.
 
         Anthropic streaming format:
         - message_start event: {"message": {"usage": {"input_tokens": X}}}
         - message_delta event: {"usage": {"output_tokens": Y}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+            Total is calculated by the base class after accumulation.
         """
-        if data := parse_sse_line(chunk):
+        usage: dict[str, int] = {}
+        for data in parse_sse_lines(chunk):
             match data:
                 case {
                     "type": "message_start",
                     "message": {"usage": {"input_tokens": int(input_tokens)}},
                 }:
-                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
                 case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-
-            # Calculate total if we have both
-            if (
-                TokenUsageKey.INPUT_TOKENS in accumulated_usage
-                and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
-            ):
-                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
-                    accumulated_usage[TokenUsageKey.INPUT_TOKENS]
-                    + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
-                )
-
-        return accumulated_usage
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        return usage
 
     async def _passthrough(
         self,

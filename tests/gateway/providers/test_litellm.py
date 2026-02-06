@@ -701,8 +701,7 @@ def test_litellm_extract_streaming_token_usage_openai_format():
         b'data: {"id":"chatcmpl-123","usage":'
         b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n'
     )
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 10,
         "output_tokens": 20,
@@ -713,17 +712,16 @@ def test_litellm_extract_streaming_token_usage_openai_format():
 def test_litellm_extract_streaming_token_usage_anthropic_message_start():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     chunk = b'data: {"type":"message_start","message":{"usage":{"input_tokens":100}}}\n'
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {"input_tokens": 100}
 
 
 def test_litellm_extract_streaming_token_usage_anthropic_message_delta():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     chunk = b'data: {"type":"message_delta","usage":{"output_tokens":50}}\n'
-    accumulated_usage = {"input_tokens": 100}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
+    result = provider._extract_streaming_token_usage(chunk)
+    # Method only returns chunk's usage; total is calculated by _stream_passthrough_with_usage
+    assert result == {"output_tokens": 50}
 
 
 def test_litellm_extract_streaming_token_usage_gemini_format():
@@ -732,8 +730,7 @@ def test_litellm_extract_streaming_token_usage_gemini_format():
         b'data: {"candidates":[{"content":{}}],"usageMetadata":'
         b'{"promptTokenCount":10,"candidatesTokenCount":20,"totalTokenCount":30}}\n'
     )
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 10,
         "output_tokens": 20,
@@ -744,24 +741,21 @@ def test_litellm_extract_streaming_token_usage_gemini_format():
 def test_litellm_extract_streaming_token_usage_empty_chunk():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     chunk = b""
-    accumulated_usage = {"input_tokens": 10}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 10}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_litellm_extract_streaming_token_usage_done_chunk():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     chunk = b"data: [DONE]\n"
-    accumulated_usage = {"input_tokens": 10, "output_tokens": 20}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 10, "output_tokens": 20}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_litellm_extract_streaming_token_usage_invalid_json():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     chunk = b"data: {invalid json}\n"
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
@@ -772,8 +766,7 @@ def test_litellm_extract_streaming_token_usage_responses_api():
         b'data: {"type":"response.completed","response":{"id":"resp_123",'
         b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
     )
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 9,
         "output_tokens": 65,

@@ -24,7 +24,7 @@ from mlflow.gateway.uc_function_utils import (
     parse_uc_functions,
     prepend_uc_functions,
 )
-from mlflow.gateway.utils import parse_sse_line, stream_sse_data
+from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -684,17 +684,18 @@ class OpenAIProvider(BaseProvider):
             result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
         )
 
-    def _extract_streaming_token_usage(
-        self, chunk: bytes, accumulated_usage: dict[str, int]
-    ) -> dict[str, int]:
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
         Extract token usage from OpenAI streaming chunks.
 
         Handles two formats:
         - Chat Completions API: data.usage with prompt_tokens/completion_tokens
         - Responses API: data.response.usage with input_tokens/output_tokens
+
+        Returns:
+            A dictionary with token usage found in this chunk.
         """
-        if data := parse_sse_line(chunk):
+        for data in parse_sse_lines(chunk):
             # Chat Completions API format: usage at top level
             if (
                 token_usage := self._extract_token_usage_from_dict(
@@ -708,9 +709,8 @@ class OpenAIProvider(BaseProvider):
                     "total_tokens",
                 )
             ):
-                accumulated_usage.update(token_usage)
-
-        return accumulated_usage
+                return token_usage
+        return {}
 
     async def _passthrough(
         self,

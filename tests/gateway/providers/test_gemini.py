@@ -1337,8 +1337,7 @@ def test_gemini_extract_streaming_token_usage():
         b'"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,'
         b'"totalTokenCount":30}}\n'
     )
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 10,
         "output_tokens": 20,
@@ -1349,38 +1348,33 @@ def test_gemini_extract_streaming_token_usage():
 def test_gemini_extract_streaming_token_usage_no_usage_in_chunk():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}\n'
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
 def test_gemini_extract_streaming_token_usage_empty_chunk():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b""
-    accumulated_usage = {"input_tokens": 10}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 10}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_gemini_extract_streaming_token_usage_non_data_line():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b"event: message\n"
-    accumulated_usage = {"input_tokens": 10}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 10}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_gemini_extract_streaming_token_usage_invalid_json():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b"data: {invalid json}\n"
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
 def test_gemini_extract_streaming_token_usage_done_chunk():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b"data: [DONE]\n"
-    accumulated_usage = {"input_tokens": 10, "output_tokens": 20}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 10, "output_tokens": 20}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}

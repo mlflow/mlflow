@@ -6,7 +6,7 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.utils import parse_sse_line
+from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 
 
@@ -260,11 +260,9 @@ class LiteLLMProvider(BaseProvider):
             "totalTokenCount",
         )
 
-    def _extract_streaming_token_usage(
-        self, chunk: Any, accumulated_usage: dict[str, int]
-    ) -> dict[str, int]:
+    def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
         """
-        Extract and accumulate token usage from LiteLLM streaming chunks.
+        Extract token usage from LiteLLM streaming chunks.
 
         LiteLLM handles multiple provider formats:
         - OpenAI: {"usage": {"prompt_tokens": X, "completion_tokens": Y, "total_tokens": Z}}
@@ -275,33 +273,34 @@ class LiteLLMProvider(BaseProvider):
         - bytes: SSE-formatted data (for Anthropic passthrough)
         - dict: Direct response dict
         - object with model_dump: LiteLLM response object (OpenAI/Gemini)
+
+        Returns:
+            A dictionary with token usage found in this chunk.
         """
+        usage: dict[str, int] = {}
         try:
             # Handle bytes (SSE format from Anthropic)
             if isinstance(chunk, bytes):
-                for line in chunk.split(b"\n"):
-                    if data := parse_sse_line(line):
-                        self._extract_usage_from_data(data, accumulated_usage)
+                for data in parse_sse_lines(chunk):
+                    usage.update(self._extract_usage_from_data(data))
             elif isinstance(chunk, dict):
-                self._extract_usage_from_data(chunk, accumulated_usage)
+                usage.update(self._extract_usage_from_data(chunk))
             elif hasattr(chunk, "model_dump"):
                 data = chunk.model_dump()
-                self._extract_usage_from_data(data, accumulated_usage)
+                usage.update(self._extract_usage_from_data(data))
 
         except AttributeError:
             pass
 
-        return accumulated_usage
+        return usage
 
-    def _extract_usage_from_data(
-        self, data: dict[str, Any], accumulated_usage: dict[str, int]
-    ) -> None:
+    def _extract_usage_from_data(self, data: dict[str, Any]) -> dict[str, int]:
+        """Extract token usage from a parsed data dictionary."""
         # OpenAI format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
             data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
         ):
-            accumulated_usage.update(token_usage)
-            return
+            return token_usage
 
         # OpenAI Responses API format (usage nested in response object)
         if token_usage := self._extract_token_usage_from_dict(
@@ -310,20 +309,20 @@ class LiteLLMProvider(BaseProvider):
             "output_tokens",
             "total_tokens",
         ):
-            accumulated_usage.update(token_usage)
+            return token_usage
 
         # Anthropic format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
             data.get("usage"), "input_tokens", "output_tokens"
         ):
-            accumulated_usage.update(token_usage)
+            return token_usage
 
         # Anthropic message_start format (input_tokens in message.usage)
         if data.get("type") == "message_start":
             if token_usage := self._extract_token_usage_from_dict(
                 data.get("message", {}).get("usage"), "input_tokens", "output_tokens"
             ):
-                accumulated_usage.update(token_usage)
+                return token_usage
 
         # Gemini format
         if token_usage := self._extract_token_usage_from_dict(
@@ -332,19 +331,9 @@ class LiteLLMProvider(BaseProvider):
             "candidatesTokenCount",
             "totalTokenCount",
         ):
-            accumulated_usage.update(token_usage)
+            return token_usage
 
-        # Calculate total if we have input and output but no total
-        # (for Anthropic streaming where input/output come in separate chunks)
-        if (
-            TokenUsageKey.INPUT_TOKENS in accumulated_usage
-            and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
-            and TokenUsageKey.TOTAL_TOKENS not in accumulated_usage
-        ):
-            accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
-                accumulated_usage[TokenUsageKey.INPUT_TOKENS]
-                + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
-            )
+        return {}
 
     async def _stream_passthrough_with_usage(
         self, stream: AsyncIterable[Any]
@@ -362,7 +351,8 @@ class LiteLLMProvider(BaseProvider):
         try:
             async for chunk in stream:
                 if accumulated_usage is not None:
-                    self._extract_streaming_token_usage(chunk, accumulated_usage)
+                    chunk_usage = self._extract_streaming_token_usage(chunk)
+                    accumulated_usage.update(chunk_usage)
                 if isinstance(chunk, bytes):
                     yield chunk
                 else:
@@ -370,6 +360,16 @@ class LiteLLMProvider(BaseProvider):
                     yield f"data: {data}\n\n".encode()
         finally:
             if accumulated_usage is not None:
+                # Calculate total if we have input and output but no total
+                if (
+                    TokenUsageKey.INPUT_TOKENS in accumulated_usage
+                    and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+                    and TokenUsageKey.TOTAL_TOKENS not in accumulated_usage
+                ):
+                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                        accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                        + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+                    )
                 self._set_span_token_usage(accumulated_usage)
 
     async def _passthrough(

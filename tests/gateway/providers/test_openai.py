@@ -1229,8 +1229,7 @@ def test_extract_streaming_token_usage():
         b'data: {"id":"chatcmpl-123","usage":'
         b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n'
     )
-    accumulated = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 10,
         "output_tokens": 20,
@@ -1241,32 +1240,28 @@ def test_extract_streaming_token_usage():
 def test_extract_streaming_token_usage_no_usage_in_chunk():
     provider = OpenAIProvider(EndpointConfig(**chat_config()))
     chunk = b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hello"}}]}\n\n'
-    accumulated = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
 def test_extract_streaming_token_usage_done_chunk():
     provider = OpenAIProvider(EndpointConfig(**chat_config()))
     chunk = b"data: [DONE]\n\n"
-    accumulated = {"input_tokens": 10}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
-    assert result == {"input_tokens": 10}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_extract_streaming_token_usage_invalid_json():
     provider = OpenAIProvider(EndpointConfig(**chat_config()))
     chunk = b"data: {invalid json}\n\n"
-    accumulated = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
 def test_extract_streaming_token_usage_non_data_line():
     provider = OpenAIProvider(EndpointConfig(**chat_config()))
     chunk = b"event: message\n\n"
-    accumulated = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
 
 
@@ -1277,8 +1272,7 @@ def test_extract_streaming_token_usage_responses_api():
         b'data: {"type":"response.completed","response":{"id":"resp_123",'
         b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
     )
-    accumulated = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 9,
         "output_tokens": 65,

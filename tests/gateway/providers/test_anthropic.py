@@ -1054,8 +1054,7 @@ def test_anthropic_extract_streaming_token_usage_message_start():
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100}}}\n'
     )
-    accumulated_usage = {}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    result = provider._extract_streaming_token_usage(chunk)
     assert result == {"input_tokens": 100}
 
 
@@ -1066,9 +1065,8 @@ def test_anthropic_extract_streaming_token_usage_message_delta():
         b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
         b'"usage":{"output_tokens":50}}\n'
     )
-    accumulated_usage = {"input_tokens": 100}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {"output_tokens": 50}
 
 
 def test_anthropic_extract_streaming_token_usage_full_stream():
@@ -1081,7 +1079,7 @@ def test_anthropic_extract_streaming_token_usage_full_stream():
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100}}}\n'
     )
-    accumulated_usage = provider._extract_streaming_token_usage(chunk1, accumulated_usage)
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
     assert accumulated_usage == {"input_tokens": 100}
 
     # Middle chunk: content_block_delta (no usage)
@@ -1089,7 +1087,7 @@ def test_anthropic_extract_streaming_token_usage_full_stream():
         b"event: content_block_delta\n"
         b'data: {"type":"content_block_delta","delta":{"text":"Hello"}}\n'
     )
-    accumulated_usage = provider._extract_streaming_token_usage(chunk2, accumulated_usage)
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {"input_tokens": 100}
 
     # Final chunk: message_delta with output_tokens
@@ -1098,37 +1096,34 @@ def test_anthropic_extract_streaming_token_usage_full_stream():
         b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
         b'"usage":{"output_tokens":50}}\n'
     )
-    accumulated_usage = provider._extract_streaming_token_usage(chunk3, accumulated_usage)
-    assert accumulated_usage == {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk3))
+    # Total is calculated by base class _stream_passthrough_with_usage, not this method
+    assert accumulated_usage == {"input_tokens": 100, "output_tokens": 50}
 
 
 def test_anthropic_extract_streaming_token_usage_empty_chunk():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = b""
-    accumulated_usage = {"input_tokens": 100}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_anthropic_extract_streaming_token_usage_non_data_line():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = b"event: ping\n"
-    accumulated_usage = {"input_tokens": 100}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_anthropic_extract_streaming_token_usage_invalid_json():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = b"data: {invalid json}\n"
-    accumulated_usage = {"input_tokens": 100}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
 
 
 def test_anthropic_extract_streaming_token_usage_done_chunk():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = b"data: [DONE]\n"
-    accumulated_usage = {"input_tokens": 100, "output_tokens": 50}
-    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
-    assert result == {"input_tokens": 100, "output_tokens": 50}
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}

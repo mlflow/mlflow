@@ -12,7 +12,6 @@ from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import handle_incomplete_chunks
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.utils.annotations import developer_stable
@@ -163,8 +162,6 @@ class BaseProvider(ABC):
         if not self._enable_tracing:
             return await self._passthrough(action, payload, headers)
 
-        error = None
-        result = None
         try:
             result = await self._passthrough(action, payload, headers)
             if isinstance(result, AsyncIterable):
@@ -189,8 +186,6 @@ class BaseProvider(ABC):
                         span.set_attributes(
                             {**self._get_provider_attributes(), "action": action.value}
                         )
-                    if error is not None:
-                        raise error
                     if span is not None:
                         if token_usage := self._extract_passthrough_token_usage(action, result):
                             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
@@ -437,21 +432,34 @@ class BaseProvider(ABC):
         """Stream passthrough response while accumulating token usage."""
         accumulated_usage: dict[str, int] = {}
         try:
-            async for chunk in handle_incomplete_chunks(stream):
-                accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
+            async for chunk in stream:
+                chunk_usage = self._extract_streaming_token_usage(chunk)
+                accumulated_usage.update(chunk_usage)
                 yield chunk
         finally:
+            # Calculate total if we have input and output but no total
+            if (
+                TokenUsageKey.INPUT_TOKENS in accumulated_usage
+                and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+                and TokenUsageKey.TOTAL_TOKENS not in accumulated_usage
+            ):
+                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                    + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+                )
             self._set_span_token_usage(accumulated_usage)
 
-    def _extract_streaming_token_usage(
-        self, chunk: Any, accumulated_usage: dict[str, int]
-    ) -> dict[str, int]:
+    def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
         """Extract token usage from a streaming chunk.
 
         Override this method in provider subclasses to handle provider-specific
         streaming formats for passthrough endpoints.
+
+        Returns:
+            A dictionary with token usage keys found in this chunk.
+            May be partial (e.g., only input_tokens or only output_tokens).
         """
-        return accumulated_usage
+        return {}
 
     @staticmethod
     def check_for_model_field(payload):
