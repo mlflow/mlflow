@@ -2576,6 +2576,14 @@ def test_search_sessions_include_spans_false():
     assert len(sessions[0][0].data.spans) == 0
 
 
+@pytest.mark.parametrize("invalid_ratio", [-0.1, 1.1, -1, 2, 100])
+def test_trace_decorator_sampling_ratio_validation(invalid_ratio: float):
+    with pytest.raises(
+        MlflowException, match=r"sampling_ratio_override must be between 0\.0 and 1\.0"
+    ):
+        mlflow.trace(sampling_ratio_override=invalid_ratio)
+
+
 @pytest.mark.parametrize(
     ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
     [
