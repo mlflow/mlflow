@@ -908,17 +908,16 @@ async def test_passthrough_anthropic_messages_streaming():
         assert payload["model"] == "claude-2.1"
 
         chunks = [chunk async for chunk in response]
-        # handle_incomplete_chunks splits SSE data by lines, so we check content
-        # is present anywhere in the stream rather than at specific indices
-        all_chunks = b"".join(chunks)
-        assert b"message_start" in all_chunks
-        assert b"content_block_start" in all_chunks
-        assert b"content_block_delta" in all_chunks
-        assert b"Hello" in all_chunks
-        assert b"!" in all_chunks
-        assert b"content_block_stop" in all_chunks
-        assert b"message_delta" in all_chunks
-        assert b"message_stop" in all_chunks
+        assert len(chunks) == 7
+        assert b"message_start" in chunks[0]
+        assert b"content_block_start" in chunks[1]
+        assert b"content_block_delta" in chunks[2]
+        assert b"Hello" in chunks[2]
+        assert b"content_block_delta" in chunks[3]
+        assert b"!" in chunks[3]
+        assert b"content_block_stop" in chunks[4]
+        assert b"message_delta" in chunks[5]
+        assert b"message_stop" in chunks[6]
 
         mock_session_client.post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
@@ -1073,8 +1072,6 @@ def test_anthropic_extract_streaming_token_usage_message_delta():
 def test_anthropic_extract_streaming_token_usage_full_stream():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     accumulated_usage = {}
-
-    # Only data lines are passed (handle_incomplete_chunks splits by line)
 
     # First chunk: message_start with input_tokens
     chunk1 = (
