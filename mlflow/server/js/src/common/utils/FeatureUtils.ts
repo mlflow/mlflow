@@ -160,3 +160,11 @@ export const shouldEnableExperimentOverviewTab = () => {
 export const shouldEnableWorkflowBasedNavigation = () => {
   return false;
 };
+
+/**
+ * Enables improved evaluation runs comparison UI with full-page list view,
+ * dataset grouping, and streamlined run comparison workflow.
+ */
+export const shouldEnableImprovedEvalRunsComparison = () => {
+  return false;
+};

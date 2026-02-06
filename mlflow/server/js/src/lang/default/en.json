@@ -71,6 +71,10 @@
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
   },
+  "+Wj0Js": {
+    "defaultMessage": "Persona",
+    "description": "Label for the simulation persona metadata in chat session metrics"
+  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -643,6 +647,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2igs1f": {
+    "defaultMessage": "Compare",
+    "description": "Compare evaluation runs action"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -781,10 +789,6 @@
   "4B8k46": {
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
-  },
-  "4Bl01p": {
-    "defaultMessage": "Click to expand session and see individual trace details",
-    "description": "Tooltip for pass/fail aggregated cell in session header"
   },
   "4CNVbz": {
     "defaultMessage": "API key name",
@@ -1397,10 +1401,6 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
-  },
-  "8Pb2Gx": {
-    "defaultMessage": "PASS",
-    "description": "Label for an aggregate display showing how many assessments have passed or failed"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2714,6 +2714,10 @@
     "defaultMessage": "Datasets",
     "description": "Filtering label to filter runs based on datasets used"
   },
+  "Ia/nT7": {
+    "defaultMessage": "Goal",
+    "description": "Label for the simulation goal metadata in chat session metrics"
+  },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
     "description": "Bad request (HTTP STATUS 400) generic error message"
@@ -3322,6 +3326,10 @@
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
   },
+  "NRNNnk": {
+    "defaultMessage": "Click to expand",
+    "description": "Tooltip for expandable session cell"
+  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -3445,6 +3453,10 @@
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
+  },
+  "OLZyxe": {
+    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
+    "description": "Error count in tooltip"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -4208,6 +4220,10 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in contour plot comparison in MLflow"
   },
+  "UGqg24": {
+    "defaultMessage": "Error",
+    "description": "Label shown when all assessments have errors"
+  },
   "UI3HSV": {
     "defaultMessage": "Select",
     "description": "Select button"
@@ -4247,6 +4263,10 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
+  },
+  "Ub+VQh": {
+    "defaultMessage": "Please select 2 runs to compare",
+    "description": "Tooltip for disabled compare action in evaluation runs table actions"
   },
   "UbXw8O": {
     "defaultMessage": "Expectations",
@@ -6154,6 +6174,10 @@
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
+  },
+  "iBIflN": {
+    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
+    "description": "Tooltip showing error count"
   },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
@@ -8166,6 +8190,10 @@
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
+  },
+  "xQ9fuC": {
+    "defaultMessage": "View error traces for this tool",
+    "description": "Link text to navigate to traces filtered by tool name and error status"
   },
   "xRM/Eb": {
     "defaultMessage": "Latency (AVG)",

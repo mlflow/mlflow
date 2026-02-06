@@ -5458,6 +5458,71 @@ def test_search_traces_with_combined_span_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace1_id
 
 
+def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_same_span_filter")
+
+    trace1_id = "trace1"
+    _create_trace(store, trace1_id, exp_id)
+
+    span1a = create_test_span_with_content(
+        trace1_id,
+        name="search_web",
+        span_id=111,
+        span_type="TOOL",
+        status=trace_api.StatusCode.ERROR,
+        custom_attributes={"query": "test"},
+    )
+    span1b = create_test_span_with_content(
+        trace1_id,
+        name="other_tool",
+        span_id=112,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"data": "value"},
+    )
+
+    trace2_id = "trace2"
+    _create_trace(store, trace2_id, exp_id)
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="search_web",
+        span_id=222,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"query": "test2"},
+    )
+
+    store.log_spans(exp_id, [span1a, span1b])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "ERROR"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "other_tool" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "search_web"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_no_results")
 

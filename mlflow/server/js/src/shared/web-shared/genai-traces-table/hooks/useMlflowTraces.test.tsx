@@ -21,6 +21,7 @@ import {
   LOGGED_MODEL_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
   STATE_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -803,6 +804,57 @@ describe('useSearchMlflowTraces', () => {
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.type ILIKE '%chain%'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span status filters with EQUALS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_STATUS_COLUMN_ID,
+              operator: FilterOperator.EQUALS,
+              value: 'ERROR',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.status = 'ERROR'`,
       max_results: 10000,
     });
   });
