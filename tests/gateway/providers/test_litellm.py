@@ -417,9 +417,8 @@ async def test_passthrough_openai_responses_streaming():
         )
 
         chunks = [chunk async for chunk in result]
-        assert len(chunks) == 3  # 2 data chunks + [DONE]
+        assert len(chunks) == 2
         assert b"data:" in chunks[0]
-        assert b"[DONE]" in chunks[2]
 
 
 @pytest.mark.asyncio
@@ -544,8 +543,10 @@ async def test_passthrough_gemini_stream_generate_content():
         )
 
         chunks = [chunk async for chunk in result]
-        assert len(chunks) == 2  # 2 data chunks
-        assert b"data:" in chunks[0]
+        assert len(chunks) == 2
+        assert chunks[0].model_dump() == {
+            "candidates": [{"content": {"parts": [{"text": "chunk0"}]}}]
+        }
 
 
 @pytest.mark.asyncio

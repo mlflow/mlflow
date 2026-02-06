@@ -277,39 +277,46 @@ class LiteLLMProvider(BaseProvider):
         return None
 
     def _extract_streaming_token_usage(
-        self, chunk: bytes, accumulated_usage: dict[str, int]
+        self, chunk: Any, accumulated_usage: dict[str, int]
     ) -> dict[str, int]:
         """
         Extract and accumulate token usage from LiteLLM streaming chunks.
 
         LiteLLM handles multiple provider formats:
-        - OpenAI: data: {"usage": {"prompt_tokens": X, "completion_tokens": Y, "total_tokens": Z}}
-        - Anthropic: event: message_start/message_delta with usage data
-        - Gemini: data: {"usageMetadata": {"promptTokenCount": X, ...}}
+        - OpenAI: {"usage": {"prompt_tokens": X, "completion_tokens": Y, "total_tokens": Z}}
+        - Anthropic: message_start/message_delta events with usage data
+        - Gemini: {"usageMetadata": {"promptTokenCount": X, ...}}
+
+        Chunk can be:
+        - bytes: SSE-formatted data (for Anthropic passthrough)
+        - dict: Direct response dict
+        - object with model_dump: LiteLLM response object (OpenAI/Gemini)
         """
         try:
-            chunk_str = chunk.decode("utf-8").strip()
-            if not chunk_str:
-                return accumulated_usage
+            # Handle bytes (SSE format from Anthropic)
+            if isinstance(chunk, bytes):
+                chunk_str = chunk.decode("utf-8").strip()
+                if not chunk_str:
+                    return accumulated_usage
 
-            # Parse SSE format - handle multiple lines
-            for line in chunk_str.split("\n"):
-                line = line.strip()
+                for line in chunk_str.split("\n"):
+                    line = line.strip()
 
-                # Skip event lines and empty lines
-                if not line or line.startswith("event:"):
-                    continue
-
-                # Handle data lines
-                if line.startswith("data:"):
-                    data_str = line[5:].strip()
-                    if not data_str or data_str == "[DONE]":
+                    if not line or line.startswith("event:"):
                         continue
 
-                    data = json.loads(data_str)
-                    self._extract_usage_from_data(data, accumulated_usage)
+                    if line.startswith("data:"):
+                        data_str = line[5:].strip()
 
-        except (json.JSONDecodeError, UnicodeDecodeError):
+                        data = json.loads(data_str)
+                        self._extract_usage_from_data(data, accumulated_usage)
+            elif isinstance(chunk, dict):
+                self._extract_usage_from_data(chunk, accumulated_usage)
+            elif hasattr(chunk, "model_dump"):
+                data = chunk.model_dump()
+            self._extract_usage_from_data(data, accumulated_usage)
+
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
             pass
 
         return accumulated_usage
@@ -364,6 +371,32 @@ class LiteLLMProvider(BaseProvider):
                 + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
             )
 
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[Any]
+    ) -> AsyncIterable[bytes]:
+        """
+        Stream passthrough response while accumulating token usage.
+
+        LiteLLM streaming methods yield different types:
+        - Anthropic: bytes (SSE format)
+        - OpenAI/Gemini: objects with model_dump
+
+        Token usage is only extracted when tracing is enabled.
+        """
+        accumulated_usage: dict[str, int] = {} if self._enable_tracing else None
+        try:
+            async for chunk in stream:
+                if accumulated_usage is not None:
+                    self._extract_streaming_token_usage(chunk, accumulated_usage)
+                if isinstance(chunk, bytes):
+                    yield chunk
+                else:
+                    data = json.dumps(self._response_to_dict(chunk))
+                    yield f"data: {data}\n\n".encode()
+        finally:
+            if accumulated_usage is not None:
+                self._set_span_token_usage(accumulated_usage)
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -414,17 +447,21 @@ class LiteLLMProvider(BaseProvider):
         response = await litellm.aresponses(**kwargs)
         return self._response_to_dict(response)
 
-    def _stream_openai_responses(self, kwargs: dict[str, Any]) -> AsyncIterable[bytes]:
+    def _stream_openai_responses(self, kwargs: dict[str, Any]) -> AsyncIterable[Any]:
         """Stream OpenAI Response API responses."""
+        # Inject stream_options.include_usage=true to get usage in final chunk (only when tracing)
+        if self._enable_tracing:
+            if kwargs.get("stream_options") is None:
+                kwargs["stream_options"] = {"include_usage": True}
+            elif "include_usage" not in kwargs["stream_options"]:
+                kwargs["stream_options"]["include_usage"] = True
 
         async def stream_generator():
             import litellm
 
             response = await litellm.aresponses(**kwargs, stream=True)
             async for chunk in response:
-                data = json.dumps(self._response_to_dict(chunk))
-                yield f"data: {data}\n\n".encode()
-            yield b"data: [DONE]\n\n"
+                yield chunk
 
         return stream_generator()
 
@@ -460,7 +497,7 @@ class LiteLLMProvider(BaseProvider):
 
     def _passthrough_gemini_stream_generate_content(
         self, kwargs: dict[str, Any]
-    ) -> AsyncIterable[bytes]:
+    ) -> AsyncIterable[Any]:
         """Passthrough for Gemini streamGenerateContent API."""
 
         async def stream_generator():
@@ -468,11 +505,7 @@ class LiteLLMProvider(BaseProvider):
 
             response = await agenerate_content(**kwargs, stream=True)
             async for chunk in response:
-                if isinstance(chunk, bytes):
-                    yield chunk
-                else:
-                    data = json.dumps(self._response_to_dict(chunk))
-                    yield f"data: {data}\n\n".encode()
+                yield chunk
 
         return stream_generator()
 
@@ -486,17 +519,21 @@ class LiteLLMProvider(BaseProvider):
         response = await litellm.acompletion(**kwargs)
         return self._response_to_dict(response)
 
-    def _stream_openai_chat(self, kwargs: dict[str, Any]) -> AsyncIterable[bytes]:
+    def _stream_openai_chat(self, kwargs: dict[str, Any]) -> AsyncIterable[Any]:
         """Stream OpenAI Chat Completions API responses."""
+        # Inject stream_options.include_usage=true to get usage in final chunk (only when tracing)
+        if self._enable_tracing:
+            if kwargs.get("stream_options") is None:
+                kwargs["stream_options"] = {"include_usage": True}
+            elif "include_usage" not in kwargs["stream_options"]:
+                kwargs["stream_options"]["include_usage"] = True
 
         async def stream_generator():
             import litellm
 
             response = await litellm.acompletion(**kwargs, stream=True)
             async for chunk in response:
-                data = json.dumps(self._response_to_dict(chunk))
-                yield f"data: {data}\n\n".encode()
-            yield b"data: [DONE]\n\n"
+                yield chunk
 
         return stream_generator()
 

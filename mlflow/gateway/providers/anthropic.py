@@ -617,9 +617,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 event_type = data.get("type")
 
                 # Extract input_tokens from message_start
-                # In Anthropic streaming format, each chunk contains the accumulated usage so far.
+                # In Anthropic streaming format, message_start has usage inside "message" object
                 if event_type == "message_start":
-                    if (input_tokens := data.get("usage", {}).get("input_tokens")) is not None:
+                    if input_tokens := data.get("message", {}).get("usage", {}).get("input_tokens"):
                         accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
 
                 # Extract output_tokens from message_delta

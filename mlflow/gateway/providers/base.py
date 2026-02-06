@@ -193,10 +193,11 @@ class BaseProvider(ABC):
                         span.set_attributes(
                             {**self._get_provider_attributes(), "action": action.value}
                         )
-                        if token_usage := self._extract_passthrough_token_usage(action, result):
-                            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
                     if error is not None:
                         raise error
+                    if span is not None:
+                        if token_usage := self._extract_passthrough_token_usage(action, result):
+                            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
                     return result
 
                 return await passthrough()
@@ -392,6 +393,16 @@ class BaseProvider(ABC):
                 yield chunk
         finally:
             self._set_span_token_usage(accumulated_usage)
+
+    def _extract_streaming_token_usage(
+        self, chunk: Any, accumulated_usage: dict[str, int]
+    ) -> dict[str, int]:
+        """Extract token usage from a streaming chunk.
+
+        Override this method in provider subclasses to handle provider-specific
+        streaming formats for passthrough endpoints.
+        """
+        return accumulated_usage
 
     @staticmethod
     def check_for_model_field(payload):
