@@ -1,23 +1,10 @@
 # ruff: noqa: T201
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session
-
-from mlflow.store.db.utils import _initialize_tables
-from mlflow.store.fs2db._helpers import list_experiment_ids, summary
-from mlflow.store.fs2db._registry import migrate_model_registry
-from mlflow.store.fs2db._tracking import (
-    migrate_assessments,
-    migrate_datasets,
-    migrate_experiments,
-    migrate_logged_models,
-    migrate_runs,
-    migrate_traces,
-)
-
 
 def _assert_empty_db(engine) -> None:
+    from sqlalchemy import text
+
     with engine.connect() as conn:
         for table in ("experiments", "runs", "registered_models"):
             try:
@@ -31,17 +18,22 @@ def _assert_empty_db(engine) -> None:
                 )
 
 
-def _print_summary() -> None:
-    print()
-    print("=" * 50)
-    print("Migration summary:")
-    print("=" * 50)
-    for key, count in sorted(summary.items()):
-        print(f"  {key}: {count}")
-    print("=" * 50)
-
-
 def migrate(source: Path, target_uri: str) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from mlflow.store.db.utils import _initialize_tables
+    from mlflow.store.fs2db._helpers import list_experiment_ids, summary
+    from mlflow.store.fs2db._registry import migrate_model_registry
+    from mlflow.store.fs2db._tracking import (
+        migrate_assessments,
+        migrate_datasets,
+        migrate_experiments,
+        migrate_logged_models,
+        migrate_runs,
+        migrate_traces,
+    )
+
     mlruns = source / "mlruns"
     if not mlruns.is_dir():
         # Source may be the mlruns directory itself — check if it has experiment-like subdirs
@@ -129,4 +121,10 @@ def migrate(source: Path, target_uri: str) -> None:
             print("Migration FAILED — transaction rolled back.")
             raise
 
-    _print_summary()
+    print()
+    print("=" * 50)
+    print("Migration summary:")
+    print("=" * 50)
+    for key, count in sorted(summary.items()):
+        print(f"  {key}: {count}")
+    print("=" * 50)
