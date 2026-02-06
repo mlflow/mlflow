@@ -2595,7 +2595,7 @@ def test_trace_decorator_sampling_ratio_validation(invalid_ratio: float):
 def test_trace_decorator_sampling_ratio(
     sampling_ratio: float, num_calls: int, expected_min: int, expected_max: int
 ):
-    trace_ids = []
+    trace_ids: list[str] = []
 
     @mlflow.trace(sampling_ratio_override=sampling_ratio)
     def traced_func():
@@ -2619,8 +2619,8 @@ def test_trace_decorator_sampling_ratio(
 def test_trace_decorator_sampling_ratio_nested(
     outer_ratio: float, inner_ratio: float, expected_outer: int, expected_inner: int
 ):
-    outer_trace_ids = []
-    inner_trace_ids = []
+    outer_trace_ids: list[str] = []
+    inner_trace_ids: list[str] = []
 
     @mlflow.trace(sampling_ratio_override=outer_ratio)
     def outer():
@@ -2673,7 +2673,7 @@ assert len(trace_ids) == 5
     ],
 )
 def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expected_count: int):
-    trace_ids = []
+    trace_ids: list[str] = []
 
     @mlflow.trace(sampling_ratio_override=sampling_ratio)
     def gen():
