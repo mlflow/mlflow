@@ -105,6 +105,9 @@ class SpanAttributeKey:
     MODEL_PROVIDER = "mlflow.llm.provider"
     # Model name for LLM provider spans (e.g., "gpt-4", "claude-3-opus")
     MODEL = "mlflow.llm.model"
+    # User attributes for gateway tracing
+    USERNAME = "mlflow.user.username"
+    USER_ID = "mlflow.user.id"
 
 
 class AssessmentMetadataKey:

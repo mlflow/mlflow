@@ -177,13 +177,11 @@ jobs:
           java-version: 11
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+          uv sync --no-dev
       - name: Run tests
+        working-directory: mlflow/java
         run: |
-          cd mlflow/java
-          mvn clean package -q
+          uv run --no-dev mvn clean package -q
 
   flavors:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -374,11 +372,6 @@ jobs:
           git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run python tests
         env:
-          # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
-          # when creating an `Engine`. `QueuePool` prevents the removal of temporary database
-          # files created during tests on Windows as it keeps the DB connection open until
-          # it's explicitly disposed.
-          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
           # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners

@@ -108,7 +108,7 @@ class Violation:
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
             f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
-            f"{self.rule.id}: {self.rule.message}"
+            f"{self.rule.name}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -644,6 +644,14 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
+
+        for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+            if arg.annotation:
+                self.visit_type_annotation(arg.annotation)
+
+        if node.returns:
+            self.visit_type_annotation(node.returns)
+
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
