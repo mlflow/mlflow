@@ -10,8 +10,10 @@ from mlflow.gateway.utils import (
     check_configuration_route_name_collisions,
     get_gateway_uri,
     is_valid_endpoint_name,
+    parse_sse_lines,
     resolve_route_url,
     set_gateway_uri,
+    stream_sse_data,
     translate_http_exception,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -188,3 +190,111 @@ async def test_translate_http_exception_passes_through_other_exceptions():
 
     with pytest.raises(ValueError, match="Some value error"):
         await raise_value_error()
+
+
+def test_parse_sse_lines_single_data_line():
+    chunk = b'data: {"message": "hello"}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"message": "hello"}]
+
+
+def test_parse_sse_lines_multiple_data_lines():
+    chunk = b'data: {"id": 1}\ndata: {"id": 2}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"id": 1}, {"id": 2}]
+
+
+def test_parse_sse_lines_with_event_lines():
+    chunk = b'event: message\ndata: {"content": "test"}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"content": "test"}]
+
+
+def test_parse_sse_lines_done_marker():
+    chunk = b"data: [DONE]\n"
+    result = parse_sse_lines(chunk)
+    assert result == []
+
+
+def test_parse_sse_lines_empty_data():
+    chunk = b"data: \n"
+    result = parse_sse_lines(chunk)
+    assert result == []
+
+
+def test_parse_sse_lines_empty_chunk():
+    result = parse_sse_lines(b"")
+    assert result == []
+
+
+def test_parse_sse_lines_string_input():
+    chunk = 'data: {"key": "value"}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"key": "value"}]
+
+
+def test_parse_sse_lines_invalid_json():
+    chunk = b"data: {invalid json}\n"
+    result = parse_sse_lines(chunk)
+    assert result == []
+
+
+def test_parse_sse_lines_mixed_valid_invalid():
+    chunk = b'data: {"valid": true}\ndata: invalid\ndata: {"also": "valid"}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"valid": True}, {"also": "valid"}]
+
+
+def test_parse_sse_lines_invalid_utf8():
+    chunk = b"\xff\xfe"
+    result = parse_sse_lines(chunk)
+    assert result == []
+
+
+def test_parse_sse_lines_non_data_lines_ignored():
+    chunk = b'id: 123\nretry: 1000\ndata: {"message": "test"}\n'
+    result = parse_sse_lines(chunk)
+    assert result == [{"message": "test"}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_yields_parsed_json():
+    async def mock_stream():
+        yield b'data: {"chunk": 1}\n'
+        yield b'data: {"chunk": 2}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}, {"chunk": 2}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_done():
+    async def mock_stream():
+        yield b'data: {"chunk": 1}\n'
+        yield b"data: [DONE]\n"
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_empty_lines():
+    async def mock_stream():
+        yield b""
+        yield b'data: {"chunk": 1}\n'
+        yield b"   "
+        yield b'data: {"chunk": 2}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}, {"chunk": 2}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_invalid_json():
+    async def mock_stream():
+        yield b'data: {"valid": true}\n'
+        yield b"data: not json\n"
+        yield b'data: {"also_valid": true}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"valid": True}, {"also_valid": True}]

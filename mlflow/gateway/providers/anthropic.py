@@ -16,6 +16,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
@@ -585,47 +586,30 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         - message_start event: {"message": {"usage": {"input_tokens": X}}}
         - message_delta event: {"usage": {"output_tokens": Y}}
         """
-        try:
-            chunk_str = chunk.decode("utf-8").strip()
-            if not chunk_str:
-                return accumulated_usage
+        for data in parse_sse_lines(chunk):
+            event_type = data.get("type")
 
-            # Parse SSE format - look for data lines
-            for line in chunk_str.split("\n"):
-                line = line.strip()
-                if not line.startswith("data:"):
-                    continue
-
-                data_str = line[5:].strip()
-                if not data_str or data_str == "[DONE]":
-                    continue
-
-                data = json.loads(data_str)
-                event_type = data.get("type")
-
-                # Extract input_tokens from message_start
-                # In Anthropic streaming format, message_start has usage inside "message" object
-                if event_type == "message_start":
+            # Extract input_tokens from message_start
+            # In Anthropic streaming format, message_start has usage inside "message" object
+            match event_type:
+                case "message_start":
                     if input_tokens := data.get("message", {}).get("usage", {}).get("input_tokens"):
                         accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-
-                # Extract output_tokens from message_delta
-                elif event_type == "message_delta":
+                case "message_delta":
                     if (output_tokens := data.get("usage", {}).get("output_tokens")) is not None:
                         accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+                case _:
+                    pass
 
-                # Calculate total if we have both
-                if (
-                    TokenUsageKey.INPUT_TOKENS in accumulated_usage
-                    and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
-                ):
-                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
-                        accumulated_usage[TokenUsageKey.INPUT_TOKENS]
-                        + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
-                    )
-
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
+            # Calculate total if we have both
+            if (
+                TokenUsageKey.INPUT_TOKENS in accumulated_usage
+                and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+            ):
+                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                    + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+                )
 
         return accumulated_usage
 

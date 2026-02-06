@@ -267,6 +267,87 @@ def strip_sse_prefix(s: str) -> str:
     return re.sub(r"^data:\s+", "", s)
 
 
+def parse_sse_lines(chunk: bytes | str) -> list[dict[str, Any]]:
+    """
+    Parse SSE-formatted data from a chunk of bytes or string.
+
+    Handles the standard SSE format:
+    - Lines prefixed with "data:"
+    - [DONE] markers (skipped)
+    - Multi-line chunks (split by newlines)
+
+    Args:
+        chunk: Bytes or string containing SSE data.
+
+    Returns:
+        List of parsed JSON data dictionaries from the SSE data lines.
+        Returns empty list if chunk is empty, invalid, or contains only [DONE].
+    """
+    if isinstance(chunk, bytes):
+        try:
+            chunk_str = chunk.decode("utf-8")
+        except UnicodeDecodeError:
+            return []
+    else:
+        chunk_str = chunk
+
+    chunk_str = chunk_str.strip()
+    if not chunk_str:
+        return []
+
+    results = []
+    for line in chunk_str.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("event:"):
+            continue
+
+        if not line.startswith("data:"):
+            continue
+
+        data_str = line[5:].strip()
+        if not data_str or data_str == "[DONE]":
+            continue
+
+        try:
+            results.append(json.loads(data_str))
+        except json.JSONDecodeError:
+            continue
+
+    return results
+
+
+async def stream_sse_data(
+    stream: AsyncGenerator[bytes, Any],
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Wrap a streaming response and yield parsed SSE data dictionaries.
+
+    This is a higher-level utility that combines handle_incomplete_chunks()
+    with SSE parsing. Use this for processing SSE streams where you want
+    direct access to the parsed JSON data.
+
+    Args:
+        stream: Async generator yielding raw bytes from an SSE stream.
+
+    Yields:
+        Parsed JSON dictionaries from SSE data lines. Skips [DONE] markers
+        and empty/invalid lines.
+    """
+    async for chunk in handle_incomplete_chunks(stream):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        data_str = strip_sse_prefix(chunk.decode("utf-8"))
+        if data_str == "[DONE]":
+            continue
+
+        try:
+            yield json.loads(data_str)
+        except json.JSONDecodeError:
+            continue
+
+
 def to_sse_chunk(data: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return f"data: {data}\n\n"

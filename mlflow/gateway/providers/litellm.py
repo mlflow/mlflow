@@ -6,6 +6,7 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 
 
@@ -278,28 +279,15 @@ class LiteLLMProvider(BaseProvider):
         try:
             # Handle bytes (SSE format from Anthropic)
             if isinstance(chunk, bytes):
-                chunk_str = chunk.decode("utf-8").strip()
-                if not chunk_str:
-                    return accumulated_usage
-
-                for line in chunk_str.split("\n"):
-                    line = line.strip()
-
-                    if not line or line.startswith("event:"):
-                        continue
-
-                    if line.startswith("data:"):
-                        data_str = line[5:].strip()
-
-                        data = json.loads(data_str)
-                        self._extract_usage_from_data(data, accumulated_usage)
+                for data in parse_sse_lines(chunk):
+                    self._extract_usage_from_data(data, accumulated_usage)
             elif isinstance(chunk, dict):
                 self._extract_usage_from_data(chunk, accumulated_usage)
             elif hasattr(chunk, "model_dump"):
                 data = chunk.model_dump()
-            self._extract_usage_from_data(data, accumulated_usage)
+                self._extract_usage_from_data(data, accumulated_usage)
 
-        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        except AttributeError:
             pass
 
         return accumulated_usage

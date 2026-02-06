@@ -24,7 +24,7 @@ from mlflow.gateway.uc_function_utils import (
     parse_uc_functions,
     prepend_uc_functions,
 )
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -405,16 +405,7 @@ class OpenAIProvider(BaseProvider):
             payload=self.adapter_class.chat_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
     async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
@@ -643,16 +634,7 @@ class OpenAIProvider(BaseProvider):
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
     async def _completions(
@@ -712,17 +694,7 @@ class OpenAIProvider(BaseProvider):
         - Chat Completions API: data.usage with prompt_tokens/completion_tokens
         - Responses API: data.response.usage with input_tokens/output_tokens
         """
-        try:
-            chunk_str = chunk.decode("utf-8").strip()
-            if not chunk_str.startswith("data:"):
-                return accumulated_usage
-
-            data_str = chunk_str[5:].strip()
-            if data_str == "[DONE]":
-                return accumulated_usage
-
-            data = json.loads(data_str)
-
+        for data in parse_sse_lines(chunk):
             # Chat Completions API format: usage at top level
             if (
                 token_usage := self._extract_token_usage_from_dict(
@@ -737,8 +709,6 @@ class OpenAIProvider(BaseProvider):
                 )
             ):
                 accumulated_usage.update(token_usage)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
 
         return accumulated_usage
 
