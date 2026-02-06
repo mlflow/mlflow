@@ -110,10 +110,88 @@ async function getCopilotInitiator(github, owner, repo, pull_number) {
   return timeline.data.find((e) => e.event === "copilot_work_started")?.actor?.login;
 }
 
+async function getParentStackPR(github, owner, repo, baseBranch) {
+  // Check if the base branch is a stack branch (starts with "stack/")
+  if (!baseBranch.startsWith("stack/")) {
+    return null;
+  }
+
+  // Find the open PR with head branch matching the base branch
+  // Use GraphQL since REST API's head filter requires owner prefix, which doesn't work for forks
+  const query = `
+    query($owner: String!, $repo: String!, $baseBranch: String!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequests(states: OPEN, headRefName: $baseBranch, first: 1) {
+          nodes {
+            number
+            headRefName
+            reviewRequests(first: 10) {
+              nodes {
+                requestedReviewer {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const result = await github.graphql(query, { owner, repo, baseBranch });
+  const prs = result.repository.pullRequests.nodes;
+
+  if (prs.length === 0) {
+    return null;
+  }
+
+  const pr = prs[0];
+  return {
+    number: pr.number,
+    requested_reviewers: pr.reviewRequests.nodes
+      .map((r) => r.requestedReviewer)
+      .filter((r) => r && r.login)
+      .map((r) => ({ login: r.login })),
+  };
+}
+
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
   const pull_number = context.payload.pull_request.number;
   const author = context.payload.pull_request.user.login;
+  const baseBranch = context.payload.pull_request.base.ref;
+
+  // Check if this is a stacked PR (base branch is another stack branch)
+  const parentPR = await getParentStackPR(github, owner, repo, baseBranch);
+  if (parentPR) {
+    const parentReviewers = parentPR.requested_reviewers.map((r) => r.login);
+    const currentRequested = context.payload.pull_request.requested_reviewers.map((r) => r.login);
+
+    // Filter out reviewers already requested on this PR
+    const reviewersToAdd = parentReviewers.filter((r) => !currentRequested.includes(r));
+
+    if (reviewersToAdd.length > 0) {
+      try {
+        await github.rest.pulls.requestReviewers({
+          owner,
+          repo,
+          pull_number,
+          reviewers: reviewersToAdd,
+        });
+        console.log(`Stacked PR detected (base: ${baseBranch})`);
+        console.log(
+          `Copied reviewers from parent PR #${parentPR.number}: ${reviewersToAdd.join(", ")}`
+        );
+      } catch (error) {
+        console.error("Failed to assign reviewers from parent PR:", error);
+      }
+    } else {
+      console.log(`Stacked PR detected but all parent reviewers already requested`);
+    }
+    return;
+  }
 
   const copilotInitiator = await getCopilotInitiator(github, owner, repo, pull_number);
 
