@@ -71,6 +71,10 @@
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
   },
+  "+Wj0Js": {
+    "defaultMessage": "Persona",
+    "description": "Label for the simulation persona metadata in chat session metrics"
+  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -2705,6 +2709,10 @@
   "IZ95jb": {
     "defaultMessage": "Datasets",
     "description": "Filtering label to filter runs based on datasets used"
+  },
+  "Ia/nT7": {
+    "defaultMessage": "Goal",
+    "description": "Label for the simulation goal metadata in chat session metrics"
   },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
