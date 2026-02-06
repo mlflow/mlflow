@@ -117,27 +117,17 @@ MLflow is designed to facilitate this. When a model is logged, and that model's 
 - **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
 - **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
 
-## Automatic Prompt Linking with MLflow Tracing
+## Automatic Prompt Linking with Trace
 
-When you use prompts from the registry within traced functions or runs, MLflow automatically tracks which prompts are being used and creates a linkage that is visible in the MLflow UI. This provides immediate visibility into prompt usage across your experiments without requiring explicit model logging.
+When you load prompts from the registry within traced functions (annotated with `@mlflow.trace`), MLflow automatically tracks which prompts are being used and creates a linkage with the active trace that is visible in the MLflow UI. This provides immediate visibility into prompt usage and enables you to compare your agent's behavior across different prompt versions.
 
 ### How It Works
 
-When you load a prompt using `mlflow.genai.load_prompt()` inside a function decorated with `@mlflow.trace` or within an active MLflow run, the prompt usage is automatically recorded. The linked experiments will then appear on the prompt's detail page in the UI, allowing you to see which experiments are using which prompt versions.
+When you load a prompt using `mlflow.genai.load_prompt()` inside an active trace, the prompt usage is automatically recorded. The linked traces will then appear on the prompt's detail page.
 
 ### Example: Linking Prompts in Traced Functions
 
 ```python
-from openai import OpenAI
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Link Prompt")
-
-# Register a prompt in the registry
-mlflow.genai.register_prompt("question", "What is {{name}}")
-
-
 @mlflow.trace
 def question(name):
     # Load the prompt - this creates an automatic link
@@ -158,16 +148,5 @@ with mlflow.start_run():
     question("1+1")
 ```
 
-In this example:
 
-1. The `question` function is decorated with `@mlflow.trace`, enabling tracing for that function
-2. Inside the function, `mlflow.genai.load_prompt()` loads a prompt from the registry
-3. MLflow automatically detects this prompt usage and creates a link between the experiment/run and the prompt
-4. In the MLflow UI, when you navigate to the prompt's detail page, you'll see which experiments and traces have used this prompt
 
-### Benefits of Automatic Linking
-
-- **Zero-effort tracking**: No need to manually log prompt dependencies - they're tracked automatically
-- **Experiment visibility**: Easily see which experiments are using which prompts from the prompt detail page
-- **Version awareness**: Track usage of specific prompt versions or aliases across different experiments
-- **Debugging and analysis**: Quickly identify all places where a particular prompt is being used in your experimentation workflow
