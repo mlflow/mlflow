@@ -451,6 +451,71 @@ describe('transformScorerConfig', () => {
       expect(result.isMemoryAugmented).toBe(true);
       expect(result.model).toBe('openai:/gpt-4o');
     });
+
+    it('should stash rawSerializedScorer for round-trip preservation', () => {
+      const serializedScorer = JSON.stringify({
+        memory_augmented_judge_data: {
+          base_judge: {
+            name: 'quality',
+            instructions_judge_pydantic_data: {
+              instructions: 'Evaluate quality',
+              model: 'openai:/gpt-4o',
+            },
+          },
+          semantic_memory: [
+            { guideline_text: 'Be concise', source_trace_ids: ['t1'] },
+          ],
+          episodic_trace_ids: ['t1', 't2'],
+          retrieval_k: 3,
+          embedding_model: 'openai:/text-embedding-3-small',
+        },
+      });
+      const config: ScorerConfig = {
+        name: 'Aligned Judge',
+        sample_rate: 0.5,
+        serialized_scorer: serializedScorer,
+      };
+
+      const result = transformScorerConfig(config) as LLMScorer;
+
+      expect(result.rawSerializedScorer).toBe(serializedScorer);
+    });
+
+    it('should preserve original serialized_scorer through edit round-trip', () => {
+      const serializedScorer = JSON.stringify({
+        memory_augmented_judge_data: {
+          base_judge: {
+            name: 'quality',
+            instructions_judge_pydantic_data: {
+              instructions: 'Evaluate quality',
+              model: 'openai:/gpt-4o',
+            },
+          },
+          semantic_memory: [
+            { guideline_text: 'Be concise', source_trace_ids: ['t1'] },
+          ],
+          episodic_trace_ids: ['t1', 't2'],
+          retrieval_k: 3,
+        },
+      });
+      const config: ScorerConfig = {
+        name: 'Aligned Judge',
+        sample_rate: 0.5,
+        filter_string: 'old_filter',
+        serialized_scorer: serializedScorer,
+      };
+
+      // Parse → edit sample_rate/filter → re-serialize
+      const parsed = transformScorerConfig(config);
+      const updated = { ...parsed, sampleRate: 80, filterString: 'new_filter' };
+      const result = transformScheduledScorer(updated);
+
+      // serialized_scorer blob is preserved exactly
+      expect(result.serialized_scorer).toBe(serializedScorer);
+      // outer fields are updated
+      expect(result.sample_rate).toBe(0.8);
+      expect(result.filter_string).toBe('new_filter');
+    });
   });
 
   describe('Edge cases and error handling', () => {
