@@ -28,7 +28,7 @@ To use MLflow with the OIDC plugin, we need to (1) configure OIDC provider (2) d
 
 ### Configure the OIDC provider
 
-The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Google Identity Platform](https://cloud.google.com/security/products/identity-platform), etc. Below is a configuration example using Okta:
+The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Google Identity Platform](https://cloud.google.com/security/products/identity-platform), [Aws Cognito](https://aws.amazon.com/pm/cognito) and [Azure Entra ID](https://www.microsoft.com/en-sg/security/business/identity-access/microsoft-entra-id). Below is configuration examples for these popular cloud OIDC providers:
 
 #### Okta Auth0 configuration
 
@@ -111,6 +111,17 @@ def get_user_groups(access_token):
 ```
 
 The plugin Python file will be used when you deploy the mlflow server.
+
+
+#### Aws Cognito configuration
+
+1. In AWS console, select menu: Amazon Cognito -> User pools -> Create user pool, and create a user pool as follows, note that the field "Required attributes for sign-up" should contain "name", and set the a return URL to the OIDC redirect URL like "http://localhost:8080/callback".
+![AWS Cognito user pool creation](/images/self-hosting/aws-cognito-create-user-pool.png)
+
+2. In the created user pool, select menu: Applications -> App Clients -> Create app client, and create a app client of Traditional web application, and set the return URL to the OIDC redirect URL like "http://localhost:8080/callback". Then, edit the "Managed login pages configuration" for the app client as follows:
+![AWS Cognito app setting](/images/self-hosting/aws-cognito-app-setting.png)
+
+3.
 
 ### Deploy MLflow server with the OIDC plugin
 
