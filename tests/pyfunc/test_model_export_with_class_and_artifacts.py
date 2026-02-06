@@ -60,6 +60,7 @@ from mlflow.tracking.artifact_utils import (
 )
 from mlflow.types.schema import ColSpec, Map, Schema
 from mlflow.types.type_hints import _infer_schema_from_list_type_hint
+from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -74,6 +75,20 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 from tests.tracing.helper import get_traces
+
+
+@pytest.fixture
+def mock_dbr_version():
+    with mock.patch.object(
+        DatabricksRuntimeVersion,
+        "parse",
+        return_value=DatabricksRuntimeVersion(
+            is_client_image=True,
+            major=2,
+            minor=0,
+        ),
+    ):
+        yield
 
 
 def get_model_class():
@@ -2698,3 +2713,128 @@ def test_load_context_with_input_example(input_example, expected_result):
             input_example=input_example,
         )
         assert any(msg in call.args[0] for call in mock_warning.call_args_list) == expected_result
+
+
+def test_log_model_env_pack_without_registered_model_name():
+    """Test that env_pack requires registered_model_name."""
+
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="`env_pack` can only be specified when `registered_model_name` is also provided",
+        ):
+            mlflow.pyfunc.log_model(
+                name="pyfunc_model",
+                python_model=DummyModel(),
+                env_pack="databricks_model_serving",
+            )
+
+
+def test_log_model_env_pack_with_registered_model_name(tmp_path, mock_dbr_version):
+    """Test that env_pack is passed through to register_model."""
+    from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    with mlflow.start_run():
+        with (
+            mock.patch(
+                "mlflow.utils.env_pack.download_artifacts",
+                return_value=str(mock_artifacts_dir),
+            ),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+            ) as mock_pack_env,
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+            ),
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent._register_model"
+            ) as mock_register_model,
+        ):
+            # Set up the mock pack_env to yield a path
+            mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
+
+            # Call log_model with env_pack and registered_model_name
+            mlflow.pyfunc.log_model(
+                name="pyfunc_model",
+                python_model=DummyModel(),
+                registered_model_name="test_model",
+                env_pack="databricks_model_serving",
+            )
+
+            # Verify _register_model was called with env_pack
+            mock_register_model.assert_called_once()
+            call_args = mock_register_model.call_args
+            # model_uri and name are positional arguments
+            assert call_args.args[1] == "test_model"  # name
+            # env_pack and await_registration_for are keyword arguments
+            assert call_args.kwargs["env_pack"] == "databricks_model_serving"
+            assert call_args.kwargs["await_registration_for"] == DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+
+def test_log_model_env_pack_config_with_registered_model_name(tmp_path, mock_dbr_version):
+    """Test that EnvPackConfig is passed through correctly."""
+    from mlflow.utils.env_pack import EnvPackConfig
+
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    env_pack_config = EnvPackConfig(
+        name="databricks_model_serving",
+        install_dependencies=False,
+    )
+
+    with mlflow.start_run():
+        with (
+            mock.patch(
+                "mlflow.utils.env_pack.download_artifacts",
+                return_value=str(mock_artifacts_dir),
+            ),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+            ) as mock_pack_env,
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+            ),
+            mock.patch(
+                "mlflow.tracking._model_registry.fluent._register_model"
+            ) as mock_register_model,
+        ):
+            # Set up the mock pack_env to yield a path
+            mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
+
+            # Call log_model with EnvPackConfig and registered_model_name
+            mlflow.pyfunc.log_model(
+                name="pyfunc_model",
+                python_model=DummyModel(),
+                registered_model_name="test_model",
+                env_pack=env_pack_config,
+            )
+
+            # Verify _register_model was called with EnvPackConfig
+            mock_register_model.assert_called_once()
+            call_args = mock_register_model.call_args
+            # model_uri and name are positional arguments
+            assert call_args.args[1] == "test_model"  # name
+            # env_pack is a keyword argument
+            assert call_args.kwargs["env_pack"] == env_pack_config
