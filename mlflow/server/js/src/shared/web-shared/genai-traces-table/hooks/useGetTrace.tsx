@@ -52,7 +52,7 @@ export function useGetTrace(
   // Maximum number of polling attempts after the trace reaches OK state.
   // This allows child spans that are still being uploaded to arrive,
   // while preventing infinite polling when num_spans metadata is inconsistent.
-  const MAX_OK_STATE_POLL_COUNT = 30; // 30 seconds at 1s interval
+  const MAX_OK_STATE_POLL_COUNT = 60; // 60 seconds at 1s interval
   const okStatePollCountRef = useRef(0);
 
   // Reset poll count when navigating to a different trace

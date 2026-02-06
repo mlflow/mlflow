@@ -123,7 +123,7 @@ describe('useGetTrace', () => {
       const callCount = mockGetTrace.mock.calls.length;
       // Should have polled more than once (initial + retries) but not indefinitely
       expect(callCount).toBeGreaterThan(1);
-      expect(callCount).toBeLessThanOrEqual(31); // 1 initial + max 30 retries
+      expect(callCount).toBeLessThanOrEqual(61); // 1 initial + max 60 retries
     });
 
     test('should reset poll counter when traceId changes', async () => {
