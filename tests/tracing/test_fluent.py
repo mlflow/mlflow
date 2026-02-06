@@ -2687,6 +2687,34 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
     assert len(trace_ids) == expected_count
 
 
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_child_count"),
+    [
+        (0.0, 0),
+        (1.0, 6),
+    ],
+)
+def test_trace_decorator_sampling_ratio_generator_with_child_spans(
+    sampling_ratio: float, expected_child_count: int
+):
+    child_trace_ids: list[str] = []
+
+    @mlflow.trace
+    def child_func(value):
+        if trace_id := mlflow.get_active_trace_id():
+            child_trace_ids.append(trace_id)
+        return value * 2
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    def gen():
+        for i in range(3):
+            yield child_func(i)
+
+    assert list(gen()) == [0, 2, 4]
+    assert list(gen()) == [0, 2, 4]
+    assert len(child_trace_ids) == expected_child_count
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
