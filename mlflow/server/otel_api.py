@@ -20,6 +20,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 )
 
 from mlflow.entities.span import Span
+from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
@@ -37,10 +38,70 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
 
+def _extract_single_service_name(export_request: ExportTraceServiceRequest) -> str | None:
+    service_names: set[str] = set()
+    for resource_span in export_request.resource_spans:
+        for attr in resource_span.resource.attributes:
+            if attr.key != "service.name":
+                continue
+
+            value_type = attr.value.WhichOneof("value")
+            if value_type is None:
+                continue
+
+            value = getattr(attr.value, value_type)
+            if isinstance(value, str):
+                value = value.strip()
+
+            if value:
+                service_names.add(str(value))
+
+    if not service_names:
+        return None
+
+    if len(service_names) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "OTLP request contains multiple 'service.name' values. "
+                f"Found: {sorted(service_names)}. "
+                f"Specify {MLFLOW_EXPERIMENT_ID_HEADER} or send spans from a single service."
+            ),
+        )
+
+    return next(iter(service_names))
+
+
+def _resolve_experiment_id(store, export_request: ExportTraceServiceRequest) -> str:
+    service_name = _extract_single_service_name(export_request)
+    if not service_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Missing required header {MLFLOW_EXPERIMENT_ID_HEADER}. "
+                "Alternatively, set OTLP resource attribute 'service.name' so MLflow can "
+                "derive an experiment name."
+            ),
+        )
+
+    experiment = store.get_experiment_by_name(service_name)
+    if experiment is not None:
+        return experiment.experiment_id
+
+    try:
+        return store.create_experiment(service_name)
+    except MlflowException as e:
+        if e.error_code == "RESOURCE_ALREADY_EXISTS":
+            experiment = store.get_experiment_by_name(service_name)
+            if experiment is not None:
+                return experiment.experiment_id
+        raise
+
+
 @otel_router.post("", status_code=200)
 async def export_traces(
     request: Request,
-    x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    x_mlflow_experiment_id: str | None = Header(default=None, alias=MLFLOW_EXPERIMENT_ID_HEADER),
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
@@ -53,7 +114,7 @@ async def export_traces(
 
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
-        x_mlflow_experiment_id: Required header containing the experiment ID
+        x_mlflow_experiment_id: Optional header containing the experiment ID
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
@@ -115,6 +176,8 @@ async def export_traces(
 
     if spans_by_trace_id:
         store = _get_tracking_store()
+        if x_mlflow_experiment_id is None:
+            x_mlflow_experiment_id = _resolve_experiment_id(store, parsed_request)
 
         # Note: Benchmarking shows that ThreadPoolExecutor does not improve performance
         # for SQLite backends and can actually degrade performance due to write contention.
