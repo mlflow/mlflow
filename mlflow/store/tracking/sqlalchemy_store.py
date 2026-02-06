@@ -572,6 +572,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.delete(experiment)
 
     def _mark_run_deleted(self, session, run):
+        # Delete assessments associated with the run
+        session.query(SqlAssessments).filter(SqlAssessments.run_id == run.run_uuid).delete(
+            synchronize_session=False
+        )
+
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()
         session.add(run)
@@ -801,9 +806,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def delete_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
-            run.lifecycle_stage = LifecycleStage.DELETED
-            run.deleted_time = get_current_time_millis()
-            session.add(run)
+            self._mark_run_deleted(session, run)
 
     def _hard_delete_run(self, run_id):
         """
