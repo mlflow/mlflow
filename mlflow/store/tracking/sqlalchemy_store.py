@@ -148,7 +148,6 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
-    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -4213,7 +4212,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for span in spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
-                model_name = None
                 if span_attributes := span_dict.get("attributes", {}):
                     if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
                         aggregated_token_usage = update_token_usage(
@@ -4224,23 +4222,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
-                    # Get cost and model name for span metrics
+                    # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
-                    model_name = span_attributes.get(SpanAttributeKey.MODEL)
-                    model_provider = span_attributes.get(SpanAttributeKey.MODEL_PROVIDER)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
                 # Prepare dimension attributes with model name and provider if available
+                dimension_attribute_keys = [SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER]
                 dimension_attributes = {}
-                if model_name:
-                    dimension_attributes[SpanAttributeKey.MODEL] = _try_parse_json_string(
-                        model_name
-                    )
-                if model_provider:
-                    dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] = _try_parse_json_string(
-                        model_provider
-                    )
+                for key in dimension_attribute_keys:
+                    if value := span_attributes.get(key):
+                        dimension_attributes[key] = _try_parse_json_string(value)
 
                 sql_span = SqlSpan(
                     trace_id=span.trace_id,
@@ -4260,16 +4252,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
-                    for cost_key in CostKey.all_keys():
-                        if (cost_value := span_cost.get(cost_key)) is not None:
-                            session.merge(
-                                SqlSpanMetrics(
-                                    trace_id=span.trace_id,
-                                    span_id=span.span_id,
-                                    key=cost_key,
-                                    value=float(cost_value),
-                                )
+                    for cost_key, cost_value in span_cost.items():
+                        session.merge(
+                            SqlSpanMetrics(
+                                trace_id=span.trace_id,
+                                span_id=span.span_id,
+                                key=cost_key,
+                                value=float(cost_value),
                             )
+                        )
 
                 if span.parent_id is None:
                     update_dict.update(
