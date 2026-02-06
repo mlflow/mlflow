@@ -52,7 +52,7 @@ try:
     from mlflow.pyfunc import PyFuncModel, load_model
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from io import StringIO
+from io import BytesIO, StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
@@ -62,10 +62,12 @@ SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PARQUET = "application/x-parquet"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
+    CONTENT_TYPE_PARQUET,
 ]
 
 _logger = logging.getLogger(__name__)
@@ -261,6 +263,27 @@ def parse_csv_input(csv_input, schema: Schema = None):
         )
 
 
+def parse_parquet_input(parquet_input):
+    """
+    Args:
+        parquet_input: A Parquet BinaryIO stream containing a representation of a Pandas DataFrame,
+                       or a Parquet file path containing such a representation.
+    """
+    import pandas as pd
+
+    try:
+        return pd.read_parquet(parquet_input)
+    except Exception as e:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid Parquet Pandas DataFrame produced using the"
+                f" `pandas.DataFrame.to_parquet()` method. Error: '{e}'"
+            ),
+            error_code=BAD_REQUEST,
+        )
+
+
 def unwrapped_predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     return json.dump(predictions, output, cls=NumpyEncoder)
@@ -347,6 +370,11 @@ def invocations(data, content_type, model, input_schema):
         data = parsed_json_input.data
         params = parsed_json_input.params
         should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
+    elif mime_type == CONTENT_TYPE_PARQUET:
+        # Convert from Parquet to pandas
+        parquet_input = BytesIO(data)
+        data = parse_parquet_input(parquet_input=parquet_input)
+        params = None
     else:
         return InvocationsResponse(
             response=(
@@ -545,6 +573,17 @@ def _predict(model_uri, input_path, output_path, content_type):
                 parse_csv_input(input_path)
                 if input_path is not None
                 else parse_csv_input(sys.stdin)
+            )
+            params = None
+        elif content_type == "parquet":
+            # For a direct stdin stream we need to read through the entire text buffer first
+            # before converting it from a TextIO stream into a BytesIO stream for Pandas.
+            # A seek that pyarrow engine will try to do with Parquet for sys.stdin input
+            # will get forbidden otherwise.
+            df = (
+                parse_parquet_input(input_path)
+                if input_path is not None
+                else parse_parquet_input(BytesIO(sys.stdin.buffer.read()))
             )
             params = None
         else:
