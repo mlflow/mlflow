@@ -153,11 +153,11 @@ Use `uv run` with version pinning to generate test data in CI (not committed to 
 
 ```bash
 # Generate fixtures for 2.x (latest 2.x version)
-uv run --with 'mlflow>=2,<3' --no-project python -I scripts/generate_migration_fixtures.py \
+uv run --with 'mlflow>=2,<3' --no-project python -I dev/fs2db_generate_fixtures.py \
   --output /tmp/fixtures/v2.x/
 
 # Generate fixtures for 3.2.0 (has all data types)
-uv run --with mlflow==3.2.0 --no-project python -I scripts/generate_migration_fixtures.py \
+uv run --with mlflow==3.2.0 --no-project python -I dev/fs2db_generate_fixtures.py \
   --output /tmp/fixtures/v3.2.0/
 ```
 
@@ -165,10 +165,10 @@ uv run --with mlflow==3.2.0 --no-project python -I scripts/generate_migration_fi
 
 ```bash
 # Quick iteration (minimal data, fast)
-python scripts/generate_migration_fixtures.py --output /tmp/fixtures/ --size small
+python dev/fs2db_generate_fixtures.py --output /tmp/fixtures/ --size small
 
 # Full test (comprehensive data)
-python scripts/generate_migration_fixtures.py --output /tmp/fixtures/ --size full
+python dev/fs2db_generate_fixtures.py --output /tmp/fixtures/ --size full
 ```
 
 | Size    | Use Case           |
@@ -241,7 +241,7 @@ jobs:
       - name: Generate fixtures for MLflow ${{ matrix.mlflow-version.name }}
         run: |
           uv run --with 'mlflow${{ matrix.mlflow-version.spec }}' --no-project python -I \
-            scripts/generate_migration_fixtures.py --output /tmp/fixtures/${{ matrix.mlflow-version.name }}/ --size full
+            dev/fs2db_generate_fixtures.py --output /tmp/fixtures/${{ matrix.mlflow-version.name }}/ --size full
 
       - name: Run migration tests
         run: |
@@ -479,7 +479,7 @@ FAILED: Metric 'loss' in run xyz789
 ### Phase 1: Test Infrastructure (Do First)
 
 1. **Create test data generation script**
-   - `scripts/generate_migration_fixtures.py`
+   - `dev/fs2db_generate_fixtures.py`
    - Generates all entity types with edge cases
    - Deterministic (fixed seeds for reproducibility)
    - Must work standalone (no local project dependencies)
@@ -524,7 +524,7 @@ FAILED: Metric 'loss' in run xyz789
 
 ### New Files
 
-- `scripts/generate_migration_fixtures.py` - Test data generator (standalone, version-agnostic)
+- `dev/fs2db_generate_fixtures.py` - Test data generator (standalone, version-agnostic)
 - `mlflow/store/tracking/migration/__init__.py`
 - `mlflow/store/tracking/migration/filestore_to_sqlite.py` - Main migration logic
 - `mlflow/store/tracking/migration/verification.py` - Verification logic
