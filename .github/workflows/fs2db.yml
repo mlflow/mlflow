@@ -30,9 +30,10 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
 
-      # TODO: Generate synthetic data
       - name: Generate synthetic data for MLflow ${{ matrix.mlflow-version }}
-        run: echo "Not yet implemented"
+        run: |
+          uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project python -I \
+            fs2db/src/generate_synthetic_data.py --output /tmp/fs2db/${{ matrix.mlflow-version }}/ --size full
 
       # TODO: Run migration tests
       - name: Run migration tests
