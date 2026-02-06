@@ -1268,3 +1268,19 @@ def test_extract_streaming_token_usage_non_data_line():
     accumulated = {}
     result = provider._extract_streaming_token_usage(chunk, accumulated)
     assert result == {}
+
+
+def test_extract_streaming_token_usage_responses_api():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    # Responses API returns usage in data.response.usage with input_tokens/output_tokens
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
+    )
+    accumulated = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated)
+    assert result == {
+        "input_tokens": 9,
+        "output_tokens": 65,
+        "total_tokens": 74,
+    }

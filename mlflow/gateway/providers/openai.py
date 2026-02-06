@@ -708,8 +708,9 @@ class OpenAIProvider(BaseProvider):
         """
         Extract token usage from OpenAI streaming chunks.
 
-        OpenAI includes usage in the final chunk when stream_options.include_usage=true.
-        SSE format: data: {"...", "usage": {"prompt_tokens": X, "completion_tokens": Y, ...}}
+        Handles two formats:
+        - Chat Completions API: data.usage with prompt_tokens/completion_tokens
+        - Responses API: data.response.usage with input_tokens/output_tokens
         """
         try:
             chunk_str = chunk.decode("utf-8").strip()
@@ -721,8 +722,19 @@ class OpenAIProvider(BaseProvider):
                 return accumulated_usage
 
             data = json.loads(data_str)
-            if token_usage := self._extract_token_usage_from_dict(
-                data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+
+            # Chat Completions API format: usage at top level
+            if (
+                token_usage := self._extract_token_usage_from_dict(
+                    data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+                )
+            ) or (
+                token_usage := self._extract_token_usage_from_dict(
+                    data.get("response", {}).get("usage"),
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                )
             ):
                 accumulated_usage.update(token_usage)
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -747,7 +759,13 @@ class OpenAIProvider(BaseProvider):
         supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
 
         if supports_streaming and payload_with_model.get("stream"):
-            stream = send_stream_request(
+            if self._enable_tracing and action == PassthroughAction.OPENAI_CHAT:
+                if payload_with_model.get("stream_options") is None:
+                    payload_with_model["stream_options"] = {"include_usage": True}
+                elif "include_usage" not in payload_with_model["stream_options"]:
+                    payload_with_model["stream_options"]["include_usage"] = True
+
+            stream = await send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,

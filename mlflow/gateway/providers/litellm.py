@@ -314,6 +314,15 @@ class LiteLLMProvider(BaseProvider):
             accumulated_usage.update(token_usage)
             return
 
+        # OpenAI Responses API format (usage nested in response object)
+        if token_usage := self._extract_token_usage_from_dict(
+            data.get("response", {}).get("usage"),
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+        ):
+            accumulated_usage.update(token_usage)
+
         # Anthropic format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
             data.get("usage"), "input_tokens", "output_tokens"

@@ -763,3 +763,19 @@ def test_litellm_extract_streaming_token_usage_invalid_json():
     accumulated_usage = {}
     result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
     assert result == {}
+
+
+def test_litellm_extract_streaming_token_usage_responses_api():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    # Responses API returns usage in data.response.usage with input_tokens/output_tokens
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
+    )
+    accumulated_usage = {}
+    result = provider._extract_streaming_token_usage(chunk, accumulated_usage)
+    assert result == {
+        "input_tokens": 9,
+        "output_tokens": 65,
+        "total_tokens": 74,
+    }
