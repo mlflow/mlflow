@@ -999,7 +999,7 @@ class AbstractStore:
             tracking_store = _get_tracking_store()
             try:
                 tracking_store.link_prompts_to_trace(trace_id, prompt_versions)
-            except NotImplementedError:
+            except Exception:
                 # The failure happens when the tracking store or the tracking server store does
                 # not support `link_prompts_to_trace` method
                 _logger.debug(
