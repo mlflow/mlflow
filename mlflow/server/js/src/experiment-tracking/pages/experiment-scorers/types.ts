@@ -145,6 +145,8 @@ export interface LLMScorer extends ScheduledScorerBase {
   // rather than builtin_scorer_pydantic_data.
   is_instructions_judge?: boolean;
   outputType?: JudgeOutputTypeSpec;
+  // True if the scorer was optimized with MemAlign (memory-augmented judge)
+  isMemoryAugmented?: boolean;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {

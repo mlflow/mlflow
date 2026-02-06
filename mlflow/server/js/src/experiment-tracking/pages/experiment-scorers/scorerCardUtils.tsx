@@ -19,6 +19,12 @@ export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): st
     });
   }
   if (scorer.type === 'llm') {
+    if ((scorer as LLMScorer).isMemoryAugmented) {
+      return intl.formatMessage({
+        defaultMessage: 'LLM-as-a-judge (Optimized)',
+        description: 'Label for memory-augmented LLM scorer type',
+      });
+    }
     return intl.formatMessage({
       defaultMessage: 'LLM-as-a-judge',
       description: 'Label for LLM scorer type',

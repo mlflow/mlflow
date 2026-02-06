@@ -249,6 +249,73 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         model,
         is_instructions_judge: false,
       } as LLMScorer;
+    } else if (serializedData.memory_augmented_judge_data) {
+      // Memory-augmented judge (optimized with MemAlign) - unwrap the base judge
+      const memData = serializedData.memory_augmented_judge_data;
+      const baseJudge = memData.base_judge || {};
+      const semanticGuidelines: string[] = (memData.semantic_memory || [])
+        .map((g: { guideline_text: string }) => g.guideline_text)
+        .filter(Boolean);
+
+      if (baseJudge.instructions_judge_pydantic_data) {
+        const baseInstructions = baseJudge.instructions_judge_pydantic_data.instructions || '';
+        const model = baseJudge.instructions_judge_pydantic_data.model;
+        const outputType = jsonSchemaToOutputTypeSpec(
+          baseJudge.instructions_judge_pydantic_data.feedback_value_type,
+        );
+
+        let instructions = baseInstructions;
+        if (semanticGuidelines.length > 0) {
+          instructions += `\n\nDistilled Guidelines (${semanticGuidelines.length}):\n`;
+          instructions += semanticGuidelines.map((g) => `  - ${g}`).join('\n');
+        }
+
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+          instructions,
+          model,
+          is_instructions_judge: true,
+          isMemoryAugmented: true,
+          outputType,
+        } as LLMScorer;
+      } else if (isGuidelinesTemplate(baseJudge.builtin_scorer_class)) {
+        const rawGuidelines = baseJudge.builtin_scorer_pydantic_data?.guidelines || [];
+        const guidelines = Array.isArray(rawGuidelines) ? [...rawGuidelines] : [rawGuidelines].filter(Boolean);
+        if (semanticGuidelines.length > 0) {
+          guidelines.push(...semanticGuidelines);
+        }
+        const model = baseJudge.builtin_scorer_pydantic_data?.model;
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: baseJudge.builtin_scorer_class,
+          guidelines,
+          model,
+          is_instructions_judge: false,
+          isMemoryAugmented: true,
+        } as LLMScorer;
+      } else if (baseJudge.builtin_scorer_class) {
+        const model = baseJudge.builtin_scorer_pydantic_data?.model;
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: baseJudge.builtin_scorer_class,
+          model,
+          is_instructions_judge: false,
+          isMemoryAugmented: true,
+        } as LLMScorer;
+      }
+      // Unrecognized base judge type — return a minimal LLM scorer
+      return {
+        ...baseFields,
+        type: 'llm',
+        llmTemplate: LLM_TEMPLATE.CUSTOM,
+        instructions: '',
+        is_instructions_judge: true,
+        isMemoryAugmented: true,
+      } as LLMScorer;
     } else {
       // Custom scorer - extract code from call_source
       const callSource = serializedData.call_source || '';
