@@ -8191,6 +8191,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
   },
+  "xQ9fuC": {
+    "defaultMessage": "View error traces for this tool",
+    "description": "Link text to navigate to traces filtered by tool name and error status"
+  },
   "xRM/Eb": {
     "defaultMessage": "Latency (AVG)",
     "description": "Column header for average latency"
