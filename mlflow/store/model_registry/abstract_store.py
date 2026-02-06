@@ -67,23 +67,29 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
-        # Create a thread lock to ensure thread safety when linking prompts to other entities,
-        # since the default linking implementation reads and appends entity tags, which
-        # is prone to concurrent modification issues
-        self._prompt_link_lock = threading.RLock()
+        # Create separate thread locks for each linking operation to ensure thread safety
+        # without unnecessary contention. Each lock protects a different entity type's
+        # read-modify-write operations on tags.
+        self._link_to_trace_lock = threading.RLock()
+        self._link_to_model_lock = threading.RLock()
+        self._link_to_run_lock = threading.RLock()
 
     def __getstate__(self):
-        """Support for pickle serialization by excluding the non-picklable RLock."""
+        """Support for pickle serialization by excluding the non-picklable RLocks."""
         state = self.__dict__.copy()
-        # Remove the RLock as it cannot be pickled
-        del state["_prompt_link_lock"]
+        # Remove the RLocks as they cannot be pickled
+        del state["_link_to_trace_lock"]
+        del state["_link_to_model_lock"]
+        del state["_link_to_run_lock"]
         return state
 
     def __setstate__(self, state):
-        """Support for pickle deserialization by recreating the RLock."""
+        """Support for pickle deserialization by recreating the RLocks."""
         self.__dict__.update(state)
-        # Recreate the RLock
-        self._prompt_link_lock = threading.RLock()
+        # Recreate the RLocks
+        self._link_to_trace_lock = threading.RLock()
+        self._link_to_model_lock = threading.RLock()
+        self._link_to_run_lock = threading.RLock()
 
     # CRUD API for RegisteredModel objects
 
@@ -981,7 +987,7 @@ class AbstractStore:
         from mlflow.tracking import _get_store as _get_tracking_store
 
         client = TracingClient()
-        with self._prompt_link_lock:
+        with self._link_to_trace_lock:
             trace_info = client.get_trace_info(trace_id)
             if not trace_info:
                 raise MlflowException(
@@ -989,11 +995,13 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            # Try to use the tracking store's EntityAssociation-based linking
+            # Try to use the tracking store's link_prompts_to_trace method
             tracking_store = _get_tracking_store()
             try:
                 tracking_store.link_prompts_to_trace(trace_id, prompt_versions)
-            except NotImplementedError:
+            except Exception:
+                # The failure happens when the tracking store or the tracking server store does
+                # not support `link_prompts_to_trace` method
                 _logger.debug(
                     f"Linking prompts to trace {trace_id} failed. "
                     "Tracking store does not support `link_prompts_to_trace` method."
@@ -1071,7 +1079,7 @@ class AbstractStore:
         prompt_version = self.get_prompt_version(name, version)
         tracking_store = _get_tracking_store()
 
-        with self._prompt_link_lock:
+        with self._link_to_model_lock:
             logged_model = tracking_store.get_logged_model(model_id)
             if not logged_model:
                 raise MlflowException(
@@ -1109,7 +1117,7 @@ class AbstractStore:
         prompt_version = self.get_prompt_version(name, version)
         tracking_store = _get_tracking_store()
 
-        with self._prompt_link_lock:
+        with self._link_to_run_lock:
             run = tracking_store.get_run(run_id)
             if not run:
                 raise MlflowException(
