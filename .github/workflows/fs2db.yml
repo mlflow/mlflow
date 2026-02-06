@@ -1,0 +1,43 @@
+name: fs2db
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fs2db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        mlflow-version:
+          # Latest 2.x release
+          - spec: "==2.22.4"
+            name: v2.22.4
+          # Last version before FileStore deprecation (3.6.0)
+          - spec: "==3.5.1"
+            name: v3.5.1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+
+      # TODO: Generate synthetic data
+      - name: Generate synthetic data for MLflow ${{ matrix.mlflow-version.name }}
+        run: echo "Not yet implemented"
+
+      # TODO: Run migration tests
+      - name: Run migration tests
+        run: echo "Not yet implemented"
