@@ -23,15 +23,15 @@ This reads all data from the `./mlruns` directory and writes it to a new SQLite 
 
 The migration tool transfers **all metadata** stored in the file-based backend:
 
-| Category           | Entities                                                          |
-| ------------------ | ----------------------------------------------------------------- |
-| Experiments        | Experiments, experiment tags                                      |
-| Runs               | Runs, params, metrics, latest metrics, tags                       |
-| Datasets           | Datasets, inputs, input tags                                      |
-| Traces             | Trace info, trace tags, trace request metadata                    |
-| Assessments        | Assessments (feedback, expectations)                              |
-| Logged Models      | Logged models, params, tags, metrics                              |
-| Model Registry     | Registered models, model versions, tags, aliases                  |
+| Category       | Entities                                         |
+| -------------- | ------------------------------------------------ |
+| Experiments    | Experiments, experiment tags                     |
+| Runs           | Runs, params, metrics, latest metrics, tags      |
+| Datasets       | Datasets, inputs, input tags                     |
+| Traces         | Trace info, trace tags, trace request metadata   |
+| Assessments    | Assessments (feedback, expectations)             |
+| Logged Models  | Logged models, params, tags, metrics             |
+| Model Registry | Registered models, model versions, tags, aliases |
 
 ### What Is NOT Migrated
 
@@ -40,12 +40,13 @@ The migration tool transfers **all metadata** stored in the file-based backend:
 
 ## Options
 
-| Option     | Description                                          |
-| ---------- | ---------------------------------------------------- |
-| `--source` | Path to the directory containing FileStore data.     |
+| Option     | Description                                                      |
+| ---------- | ---------------------------------------------------------------- |
+| `--source` | Path to the directory containing FileStore data.                 |
 | `--target` | SQLite URI for the target database (e.g. `sqlite:///mlflow.db`). |
 
 The `--source` can point to either:
+
 - A directory containing an `mlruns/` subdirectory
 - The `mlruns` directory itself
 
