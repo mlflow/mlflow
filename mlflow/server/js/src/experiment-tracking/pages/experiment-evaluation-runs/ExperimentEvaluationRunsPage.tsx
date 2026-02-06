@@ -115,8 +115,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
     [rowSelection],
   );
 
-  // PR #20281/#20285: On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection and enter comparison mode
-  // Initialize with BOTH URL params to prevent compareToRunUuid from being stripped
+  // PR #20281/#20285: On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection
+  // Only enter comparison mode if BOTH params are present (indicating an active comparison)
+  // If only selectedRunUuid is present, just pre-select the checkbox but stay in full-page list view
   // Only enabled when feature flag is on
   const hasInitializedFromUrl = useRef(false);
   useEffect(() => {
@@ -130,9 +131,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
         // Also include compareToRunUuid if present in URL
         if (compareToRunUuid && runUuids.includes(compareToRunUuid)) {
           initialSelection[compareToRunUuid] = true;
+          // Only enter comparison mode if BOTH runs are in URL (active comparison)
+          setIsComparisonMode(true);
         }
         setRowSelection(initialSelection);
-        setIsComparisonMode(true);
       }
     }
   }, [enableImprovedComparison, selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
