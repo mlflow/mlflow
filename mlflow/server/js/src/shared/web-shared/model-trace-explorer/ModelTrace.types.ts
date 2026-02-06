@@ -23,6 +23,22 @@ export enum ModelSpanType {
   UNKNOWN = 'UNKNOWN',
 }
 
+/**
+ * Graph node types from OpenAI agent tracer.
+ * These are additional node types used in the graph view that are not part of the standard MLflow span types.
+ */
+export enum GraphNodeType {
+  HANDOFF = 'HANDOFF',
+  GUARDRAIL = 'GUARDRAIL',
+  CUSTOM = 'CUSTOM',
+  TEAM = 'TEAM',
+}
+
+/**
+ * Union type for all span/node types used in the trace explorer.
+ */
+export type SpanOrNodeType = ModelSpanType | GraphNodeType;
+
 export enum ModelIconType {
   MODELS = 'models',
   DOCUMENT = 'document',

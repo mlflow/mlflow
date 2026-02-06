@@ -40,7 +40,14 @@ import type {
   ModelTraceEvent,
   ModelTraceLocation,
 } from './ModelTrace.types';
-import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
+import {
+  ModelSpanType,
+  ModelIconType,
+  GraphNodeType,
+  MLFLOW_TRACE_SCHEMA_VERSION_KEY,
+  type SpanCostInfo,
+  type SpanOrNodeType,
+} from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
 import {
@@ -99,7 +106,7 @@ export const displaySuccessNotification = (successMessage: string) => {
   return;
 };
 
-export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
+export function getIconTypeForSpan(spanType: SpanOrNodeType | string): ModelIconType {
   switch (spanType) {
     case ModelSpanType.LLM:
       return ModelIconType.MODELS;
@@ -125,6 +132,15 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
       return ModelIconType.UNKNOWN;
+    // Graph node types from OpenAI agent tracer
+    case GraphNodeType.HANDOFF:
+      return ModelIconType.CONNECT;
+    case GraphNodeType.GUARDRAIL:
+      return ModelIconType.SYSTEM;
+    case GraphNodeType.CUSTOM:
+      return ModelIconType.CODE;
+    case GraphNodeType.TEAM:
+      return ModelIconType.AGENT;
     default:
       return ModelIconType.FUNCTION;
   }
@@ -474,9 +490,9 @@ export const normalizeNewSpanData = (
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
   );
 
-  // remove other private mlflow attributes
+  // remove other private mlflow attributes, but keep mlflow.graph.* attributes for Graph View
   const attributes = mapValues(
-    omitBy(span.attributes, (_, key) => key.startsWith('mlflow.')),
+    omitBy(span.attributes, (_, key) => key.startsWith('mlflow.') && !key.startsWith('mlflow.graph.')),
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;

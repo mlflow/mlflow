@@ -283,13 +283,28 @@ def _start_span(
     if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
+    span_name = instance.__class__.__name__
+
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_span_no_context(
-        name=instance.__class__.__name__,
+        name=span_name,
         span_type=span_type,
         inputs=inputs,
         attributes=attributes,
     )
+
+    # Set graph node attributes for logical workflow visualization
+    # Only set attributes when we have a known graph node type to avoid
+    # triggering the workflow view for spans that won't appear in it
+    graph_node_type_mapping = {
+        SpanType.CHAT_MODEL: "LLM",
+        SpanType.LLM: "LLM",
+        SpanType.EMBEDDING: "EMBEDDING",
+    }
+    if graph_node_type := graph_node_type_mapping.get(span_type):
+        span.set_attribute(SpanAttributeKey.GRAPH_NODE_ID, span.span_id)
+        span.set_attribute(SpanAttributeKey.GRAPH_NODE_DISPLAY_NAME, span_name)
+        span.set_attribute(SpanAttributeKey.GRAPH_NODE_TYPE, graph_node_type)
 
     # Associate run ID to the trace manually, because if a new run is created by
     # autologging, it is not set as the active run thus not automatically

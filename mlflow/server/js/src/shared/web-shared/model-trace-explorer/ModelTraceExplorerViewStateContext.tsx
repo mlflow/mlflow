@@ -28,8 +28,8 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
   nodeMap: Record<string, ModelTraceSpanNode>;
-  activeView: 'summary' | 'detail';
-  setActiveView: (view: 'summary' | 'detail') => void;
+  activeView: 'summary' | 'detail' | 'graph';
+  setActiveView: (view: 'summary' | 'detail' | 'graph') => void;
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
@@ -90,7 +90,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   readOnly = false,
 }: {
   modelTrace: ModelTrace;
-  initialActiveView?: 'summary' | 'detail';
+  initialActiveView?: 'summary' | 'detail' | 'graph';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
@@ -122,7 +122,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     };
   }, []);
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'detail' | 'graph'>(() => {
     // Default to detail view when rootNode is null
     if (!rootNode) {
       return 'detail';
