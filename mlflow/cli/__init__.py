@@ -1038,6 +1038,10 @@ cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 
+from mlflow.store.fs2db.cli import migrate_filestore
+
+cli.add_command(migrate_filestore)
+
 # Add traces CLI commands
 from mlflow.cli import traces
 
