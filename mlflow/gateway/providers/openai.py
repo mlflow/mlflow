@@ -24,7 +24,7 @@ from mlflow.gateway.uc_function_utils import (
     parse_uc_functions,
     prepend_uc_functions,
 )
-from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
+from mlflow.gateway.utils import parse_sse_line, stream_sse_data
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -694,7 +694,7 @@ class OpenAIProvider(BaseProvider):
         - Chat Completions API: data.usage with prompt_tokens/completion_tokens
         - Responses API: data.response.usage with input_tokens/output_tokens
         """
-        for data in parse_sse_lines(chunk):
+        if data := parse_sse_line(chunk):
             # Chat Completions API format: usage at top level
             if (
                 token_usage := self._extract_token_usage_from_dict(

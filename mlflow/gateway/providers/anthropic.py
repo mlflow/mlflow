@@ -16,7 +16,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
-from mlflow.gateway.utils import parse_sse_lines
+from mlflow.gateway.utils import parse_sse_line
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
@@ -586,7 +586,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         - message_start event: {"message": {"usage": {"input_tokens": X}}}
         - message_delta event: {"usage": {"output_tokens": Y}}
         """
-        for data in parse_sse_lines(chunk):
+        if data := parse_sse_line(chunk):
             match data:
                 case {
                     "type": "message_start",

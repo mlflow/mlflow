@@ -4,7 +4,7 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator, Iterator
+from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -267,52 +267,46 @@ def strip_sse_prefix(s: str) -> str:
     return re.sub(r"^data:\s+", "", s)
 
 
-def parse_sse_lines(chunk: bytes | str) -> Iterator[dict[str, Any]]:
+def parse_sse_line(line: bytes | str) -> dict[str, Any] | None:
     """
-    Parse SSE-formatted data from a chunk of bytes or string.
-    Note that this function assumes that the chunk is complete,
-    and incomplete chunks need to be handled by handle_incomplete_chunks.
+    Parse a single SSE-formatted line.
 
-    Handles the standard SSE format:
+    This function assumes the line is complete (already processed by
+    handle_incomplete_chunks). It handles:
     - Lines prefixed with "data:"
-    - [DONE] markers (skipped)
-    - Multi-line chunks (split by newlines)
+    - [DONE] markers (returns None)
+    - Event lines (returns None)
 
     Args:
-        chunk: Bytes or string containing SSE data.
+        line: A single complete SSE line as bytes or string.
 
-    Yields:
-        Parsed JSON data dictionaries from the SSE data lines.
-        Yields nothing if chunk is empty, invalid, or contains only [DONE].
+    Returns:
+        Parsed JSON data dictionary, or None if the line is empty,
+        invalid, a [DONE] marker, or an event/non-data line.
     """
-    if isinstance(chunk, bytes):
+    if isinstance(line, bytes):
         try:
-            chunk_str = chunk.decode("utf-8")
+            line_str = line.decode("utf-8")
         except UnicodeDecodeError:
-            return
+            return None
     else:
-        chunk_str = chunk
+        line_str = line
 
-    chunk_str = chunk_str.strip()
-    if not chunk_str:
-        return
+    line_str = line_str.strip()
+    if not line_str or line_str.startswith("event:"):
+        return None
 
-    for line in chunk_str.split("\n"):
-        line = line.strip()
-        if not line or line.startswith("event:"):
-            continue
+    if not line_str.startswith("data:"):
+        return None
 
-        if not line.startswith("data:"):
-            continue
+    data_str = line_str[5:].strip()
+    if not data_str or data_str == "[DONE]":
+        return None
 
-        data_str = line[5:].strip()
-        if not data_str or data_str == "[DONE]":
-            continue
-
-        try:
-            yield json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
+    try:
+        return json.loads(data_str)
+    except json.JSONDecodeError:
+        return None
 
 
 async def stream_sse_data(
@@ -332,19 +326,9 @@ async def stream_sse_data(
         Parsed JSON dictionaries from SSE data lines. Skips [DONE] markers
         and empty/invalid lines.
     """
-    async for chunk in handle_incomplete_chunks(stream):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-
-        data_str = strip_sse_prefix(chunk.decode("utf-8"))
-        if data_str == "[DONE]":
-            continue
-
-        try:
-            yield json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
+    async for line in handle_incomplete_chunks(stream):
+        if data := parse_sse_line(line):
+            yield data
 
 
 def to_sse_chunk(data: str) -> str:
@@ -373,6 +357,10 @@ async def handle_incomplete_chunks(
         while (boundary := _find_boundary(buffer)) != -1:
             yield buffer[:boundary]
             buffer = buffer[boundary + 1 :]
+
+    # Yield any remaining buffer that doesn't end with a newline
+    if buffer:
+        yield buffer
 
 
 async def make_streaming_response(resp):

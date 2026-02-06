@@ -20,7 +20,7 @@ from mlflow.gateway.schemas import (
 from mlflow.gateway.schemas import (
     embeddings as embeddings_schema,
 )
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.gateway.utils import handle_incomplete_chunks, parse_sse_line, strip_sse_prefix
 from mlflow.types.chat import Function, ToolCall
 
 GENERATION_CONFIG_KEY_MAPPING = {
@@ -820,34 +820,15 @@ class GeminiProvider(BaseProvider):
         Gemini streaming format uses SSE with usageMetadata in chunks (typically final chunk):
         data: {"candidates": [...], "usageMetadata": {"promptTokenCount": X, ...}}
         """
-        try:
-            chunk_str = chunk.decode("utf-8").strip()
-            if not chunk_str:
-                return accumulated_usage
-
-            # Parse SSE format - look for data lines
-            for line in chunk_str.split("\n"):
-                line = line.strip()
-                if not line.startswith("data:"):
-                    continue
-
-                data_str = line[5:].strip()
-                if not data_str or data_str == "[DONE]":
-                    continue
-
-                data = json.loads(data_str)
-
-                # Extract usageMetadata if present
-                if token_usage := self._extract_token_usage_from_dict(
-                    data.get("usageMetadata"),
-                    "promptTokenCount",
-                    "candidatesTokenCount",
-                    "totalTokenCount",
-                ):
-                    accumulated_usage.update(token_usage)
-
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
+        if data := parse_sse_line(chunk):
+            # Extract usageMetadata if present
+            if token_usage := self._extract_token_usage_from_dict(
+                data.get("usageMetadata"),
+                "promptTokenCount",
+                "candidatesTokenCount",
+                "totalTokenCount",
+            ):
+                accumulated_usage.update(token_usage)
 
         return accumulated_usage
 

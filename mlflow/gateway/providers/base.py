@@ -12,6 +12,7 @@ from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.utils import handle_incomplete_chunks
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.utils.annotations import developer_stable
@@ -436,7 +437,7 @@ class BaseProvider(ABC):
         """Stream passthrough response while accumulating token usage."""
         accumulated_usage: dict[str, int] = {}
         try:
-            async for chunk in stream:
+            async for chunk in handle_incomplete_chunks(stream):
                 accumulated_usage = self._extract_streaming_token_usage(chunk, accumulated_usage)
                 yield chunk
         finally:

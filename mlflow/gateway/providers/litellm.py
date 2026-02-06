@@ -6,7 +6,7 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.utils import parse_sse_lines
+from mlflow.gateway.utils import parse_sse_line
 from mlflow.tracing.constant import TokenUsageKey
 
 
@@ -279,8 +279,9 @@ class LiteLLMProvider(BaseProvider):
         try:
             # Handle bytes (SSE format from Anthropic)
             if isinstance(chunk, bytes):
-                for data in parse_sse_lines(chunk):
-                    self._extract_usage_from_data(data, accumulated_usage)
+                for line in chunk.split(b"\n"):
+                    if data := parse_sse_line(line):
+                        self._extract_usage_from_data(data, accumulated_usage)
             elif isinstance(chunk, dict):
                 self._extract_usage_from_data(chunk, accumulated_usage)
             elif hasattr(chunk, "model_dump"):
