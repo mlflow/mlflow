@@ -398,7 +398,7 @@ class OpenAIProvider(BaseProvider):
         elif "include_usage" not in payload["stream_options"]:
             payload["stream_options"]["include_usage"] = True
 
-        stream = send_stream_request(
+        stream = await send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path="chat/completions",
@@ -627,7 +627,7 @@ class OpenAIProvider(BaseProvider):
         elif "include_usage" not in payload["stream_options"]:
             payload["stream_options"]["include_usage"] = True
 
-        stream = send_stream_request(
+        stream = await send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path="completions",

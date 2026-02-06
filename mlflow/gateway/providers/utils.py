@@ -61,7 +61,7 @@ async def send_stream_request(
     headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]
 ) -> AsyncGenerator[bytes, None]:
     """
-    Send an HTTP request to a specific URL path with given headers and payload.
+    Send a streaming HTTP request to a specific URL path with given headers and payload.
 
     Args:
         headers: The headers to include in the request.
@@ -70,14 +70,45 @@ async def send_stream_request(
         payload: The payload (or data) to be included in the request.
 
     Returns:
-        The server's response as a JSON object.
+        An async generator that yields bytes from the server's streaming response.
 
     Raises:
         HTTPException if the HTTP request fails.
     """
-    async with _aiohttp_post(headers, base_url, path, payload) as response:
-        async for line in response.content:
-            yield line
+    import aiohttp
+    from fastapi import HTTPException
+
+    url = append_to_uri_path(base_url, path)
+    timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
+
+    session = aiohttp.ClientSession(headers=headers)
+    try:
+        response = await session.post(url, json=payload, timeout=timeout)
+    except Exception:
+        await session.close()
+        raise
+
+    try:
+        response.raise_for_status()
+    except aiohttp.ClientResponseError as e:
+        try:
+            error_body = await response.json()
+            detail = error_body.get("error", {}).get("message", e.message)
+        except Exception:
+            detail = e.message
+        await response.release()
+        await session.close()
+        raise HTTPException(status_code=e.status, detail=detail)
+
+    async def _generate() -> AsyncGenerator[bytes, None]:
+        try:
+            async for line in response.content:
+                yield line
+        finally:
+            await response.release()
+            await session.close()
+
+    return _generate()
 
 
 def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:

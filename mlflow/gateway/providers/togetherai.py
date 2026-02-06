@@ -337,7 +337,7 @@ class TogetherAIProvider(BaseProvider):
     async def _stream_request(
         self, path: str, payload: dict[str, Any]
     ) -> AsyncGenerator[bytes, None]:
-        return send_stream_request(
+        return await send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path=path,

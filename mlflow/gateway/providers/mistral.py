@@ -265,7 +265,7 @@ class MistralProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
-        stream = send_stream_request(
+        stream = await send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path="chat/completions",

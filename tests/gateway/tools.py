@@ -113,11 +113,21 @@ class MockAsyncResponse:
     async def text(self) -> str:
         return json.dumps(self._content)
 
+    async def release(self):
+        pass
+
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc, traceback):
         pass
+
+    def __await__(self):
+        # Make this awaitable - returns self when awaited
+        return self._await_impl().__await__()
+
+    async def _await_impl(self):
+        return self
 
 
 class MockAsyncStreamingResponse:
@@ -129,6 +139,9 @@ class MockAsyncStreamingResponse:
     def raise_for_status(self) -> None:
         if 400 <= self.status < 600:
             raise aiohttp.ClientResponseError(None, None, status=self.status)
+
+    async def release(self):
+        pass
 
     async def _async_content(self):
         for line in self._content:
@@ -144,10 +157,23 @@ class MockAsyncStreamingResponse:
     async def __aexit__(self, exc_type, exc, traceback):
         pass
 
+    def __await__(self):
+        # Make this awaitable - returns self when awaited
+        return self._await_impl().__await__()
+
+    async def _await_impl(self):
+        return self
+
 
 class MockHttpClient(mock.Mock):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, mock_response=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._mock_response = mock_response
+        # Create a mock for post that returns the response
+        self.post = mock.Mock(return_value=mock_response)
+
+    async def close(self):
+        pass
 
     async def __aenter__(self):
         return self
@@ -157,9 +183,7 @@ class MockHttpClient(mock.Mock):
 
 
 def mock_http_client(mock_response: MockAsyncResponse | MockAsyncStreamingResponse):
-    mock_http_client = MockHttpClient()
-    mock_http_client.post = mock.Mock(return_value=mock_response)
-    return mock_http_client
+    return MockHttpClient(mock_response=mock_response)
 
 
 class UvicornGateway:

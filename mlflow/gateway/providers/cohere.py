@@ -367,8 +367,10 @@ class CohereProvider(BaseProvider):
             payload=payload,
         )
 
-    def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
-        return send_stream_request(
+    async def _stream_request(
+        self, path: str, payload: dict[str, Any]
+    ) -> AsyncGenerator[bytes, None]:
+        return await send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path=path,
@@ -382,7 +384,7 @@ class CohereProvider(BaseProvider):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        stream = self._stream_request(
+        stream = await self._stream_request(
             "chat",
             {
                 "model": self.config.model.name,
@@ -419,7 +421,7 @@ class CohereProvider(BaseProvider):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        stream = self._stream_request(
+        stream = await self._stream_request(
             "generate",
             {
                 "model": self.config.model.name,
