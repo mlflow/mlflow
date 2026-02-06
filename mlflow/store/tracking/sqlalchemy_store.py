@@ -6071,6 +6071,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
 
     # Combine all span filter conditions into a single subquery
     # This ensures all conditions are applied to the SAME span
+    # Example trace:
+    # span 1. name: foo          status: OK
+    # span 2. name: search_web   status: ERROR
+    # This trace shouldn't be returned for filter_string
+    # 'span.name = "search_web" AND span.status = "OK"'
     if span_filter_conditions:
         combined_span_subquery = (
             session.query(SqlSpan.trace_id.label("request_id"))
