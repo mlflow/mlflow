@@ -299,7 +299,10 @@ See [Conversation Simulation Datasets](/genai/datasets/conversation-simulation) 
 
 ## Agent Function Interface
 
-Your agent function receives the conversation history and returns a response:
+Your agent function receives the conversation history and returns a response. Two parameter names are supported:
+
+- **`input`**: Conversation history as a list of message dicts (Chat Completions response format)
+- **`messages`**: Equivalent alternative parameter name (Chat Completions request format)
 
 ```python
 def predict_fn(input: list[dict], **kwargs) -> str:
@@ -307,6 +310,7 @@ def predict_fn(input: list[dict], **kwargs) -> str:
     Args:
         input: Conversation history as a list of message dicts.
                Each message has "role" ("user" or "assistant") and "content".
+               Alternatively, use "messages" as the parameter name.
         **kwargs: Additional arguments including:
             - mlflow_session_id: Unique ID for this conversation session
             - Any fields from your test case's "context"
