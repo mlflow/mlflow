@@ -374,6 +374,22 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     f"Consider placing {list(other_fields)} fields inside 'context'."
                 )
 
+            source_type = (
+                record.get("source", {}).get("source_type", "").upper()
+                if isinstance(record.get("source"), dict)
+                else None
+            )
+            if source_type == DatasetRecordSourceType.SESSION and record_type != DatasetGranularity.SESSION:
+                raise MlflowException.invalid_parameter_value(
+                    "SESSION source type can only be used with session-granularity inputs "
+                    "(must include 'goal' and optionally 'persona', 'context')."
+                )
+            if record_type == DatasetGranularity.SESSION and source_type and source_type != DatasetRecordSourceType.SESSION:
+                raise MlflowException.invalid_parameter_value(
+                    f"Session-granularity inputs require SESSION source type, "
+                    f"but got '{source_type}'."
+                )
+
             granularity_counts[record_type] = granularity_counts.get(record_type, 0) + 1
 
         if len(granularity_counts) > 1:
