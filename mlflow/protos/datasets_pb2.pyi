@@ -71,11 +71,13 @@ class DatasetRecordSource(_message.Message):
         HUMAN: _ClassVar[DatasetRecordSource.SourceType]
         DOCUMENT: _ClassVar[DatasetRecordSource.SourceType]
         CODE: _ClassVar[DatasetRecordSource.SourceType]
+        SESSION: _ClassVar[DatasetRecordSource.SourceType]
     SOURCE_TYPE_UNSPECIFIED: DatasetRecordSource.SourceType
     TRACE: DatasetRecordSource.SourceType
     HUMAN: DatasetRecordSource.SourceType
     DOCUMENT: DatasetRecordSource.SourceType
     CODE: DatasetRecordSource.SourceType
+    SESSION: DatasetRecordSource.SourceType
     SOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     SOURCE_DATA_FIELD_NUMBER: _ClassVar[int]
     source_type: DatasetRecordSource.SourceType

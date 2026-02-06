@@ -12,6 +12,7 @@ def test_dataset_record_source_type_constants():
     assert DatasetRecordSourceType.HUMAN == "HUMAN"
     assert DatasetRecordSourceType.DOCUMENT == "DOCUMENT"
     assert DatasetRecordSourceType.CODE == "CODE"
+    assert DatasetRecordSourceType.SESSION == "SESSION"
     assert DatasetRecordSourceType.UNSPECIFIED == "UNSPECIFIED"
 
 
@@ -20,6 +21,7 @@ def test_dataset_record_source_type_enum_values():
     assert DatasetRecordSourceType.HUMAN == "HUMAN"
     assert DatasetRecordSourceType.DOCUMENT == "DOCUMENT"
     assert DatasetRecordSourceType.CODE == "CODE"
+    assert DatasetRecordSourceType.SESSION == "SESSION"
     assert DatasetRecordSourceType.UNSPECIFIED == "UNSPECIFIED"
 
     assert isinstance(DatasetRecordSourceType.TRACE, str)
@@ -117,6 +119,22 @@ def test_document_source():
     assert source2.source_data.get("content") is None
 
 
+def test_session_source():
+    source1 = DatasetRecordSource(
+        source_type="SESSION",
+        source_data={"session_id": "session123"},
+    )
+    assert source1.source_type == DatasetRecordSourceType.SESSION
+    assert source1.source_data["session_id"] == "session123"
+
+    source2 = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.SESSION,
+        source_data={"session_id": "session456", "trace_ids": ["t1", "t2"]},
+    )
+    assert source2.source_data["session_id"] == "session456"
+    assert source2.source_data["trace_ids"] == ["t1", "t2"]
+
+
 def test_dataset_record_source_to_from_proto():
     source = DatasetRecordSource(source_type="CODE", source_data={"file": "example.py", "line": 42})
 
@@ -171,6 +189,21 @@ def test_document_source_proto_conversion():
     assert source2.source_data["content"] == "Test content"
 
 
+def test_session_source_proto_conversion():
+    source = DatasetRecordSource(
+        source_type="SESSION",
+        source_data={"session_id": "session123"},
+    )
+
+    proto = source.to_proto()
+    assert proto.source_type == ProtoDatasetRecordSource.SourceType.Value("SESSION")
+
+    source2 = DatasetRecordSource.from_proto(proto)
+    assert isinstance(source2, DatasetRecordSource)
+    assert source2.source_type == DatasetRecordSourceType.SESSION
+    assert source2.source_data["session_id"] == "session123"
+
+
 def test_dataset_record_source_to_from_dict():
     source = DatasetRecordSource(source_type="CODE", source_data={"file": "example.py", "line": 42})
 
@@ -197,6 +230,11 @@ def test_specific_source_dict_conversion():
     doc_source = DatasetRecordSource.from_dict(doc_data)
     assert isinstance(doc_source, DatasetRecordSource)
     assert doc_source.source_data["doc_uri"] == "file.txt"
+
+    session_data = {"source_type": "SESSION", "source_data": {"session_id": "session123"}}
+    session_source = DatasetRecordSource.from_dict(session_data)
+    assert isinstance(session_source, DatasetRecordSource)
+    assert session_source.source_data["session_id"] == "session123"
 
 
 def test_dataset_record_source_equality():
