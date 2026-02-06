@@ -166,27 +166,22 @@ class BaseProvider(ABC):
         result = None
         try:
             result = await self._passthrough(action, payload, headers)
-        except Exception as e:
-            error = e
-        finally:
             if isinstance(result, AsyncIterable):
 
-                @mlflow.trace(span_type=SpanType.LLM)
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
                         span.set_attributes(
                             {**self._get_provider_attributes(), "action": action.value}
                         )
-                    if error is not None:
-                        raise error
                     async for chunk in result:
                         yield chunk
 
-                return passthrough()  # noqa: B012
+                return passthrough()
             else:
 
-                @mlflow.trace(span_type=SpanType.LLM)
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
@@ -201,6 +196,10 @@ class BaseProvider(ABC):
                     return result
 
                 return await passthrough()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+                raise e
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
@@ -343,7 +342,7 @@ class BaseProvider(ABC):
             return await method(*args, **kwargs)
 
         span_name = self._get_span_name()
-        with mlflow.start_span(name=span_name) as span:
+        with mlflow.start_span(span_type=SpanType.LLM, name=span_name) as span:
             span.set_attributes({**self._get_provider_attributes(), "method": method_name})
 
             result = await method(*args, **kwargs)
@@ -371,6 +370,7 @@ class BaseProvider(ABC):
         # Use start_span_no_context to get a LiveSpan that can be manually ended
         span = start_span_no_context(
             name=span_name,
+            span_type=SpanType.LLM,
             parent_span=active_span,
             attributes={
                 **self._get_provider_attributes(),
