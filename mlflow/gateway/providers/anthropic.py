@@ -451,7 +451,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         headers = self._get_headers(payload)
 
-        stream = await send_stream_request(
+        stream = send_stream_request(
             headers=headers,
             base_url=self.base_url,
             path="messages",
@@ -614,7 +614,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
-            stream = await send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,

@@ -731,7 +731,7 @@ class GeminiProvider(BaseProvider):
         path = f"{self.config.model.name}:streamGenerateContent?alt=sse"
 
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
-        sse = await send_stream_request(
+        sse = send_stream_request(
             headers=self.headers, base_url=self.base_url, path=path, payload=model_payload
         )
 
@@ -772,7 +772,7 @@ class GeminiProvider(BaseProvider):
         body = self.adapter_class.chat_to_model(body, self.config)
 
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
-        sse = await send_stream_request(
+        sse = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
@@ -866,7 +866,7 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
-            stream = await send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,

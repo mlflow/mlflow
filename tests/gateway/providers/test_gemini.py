@@ -1153,12 +1153,13 @@ async def test_passthrough_gemini_stream_generate_content():
         )
 
         chunks = [chunk async for chunk in response]
-
-        assert len(chunks) == 3
-        assert b"Hello" in chunks[0]
-        assert b"!" in chunks[1]
-        assert b"How can I help you?" in chunks[2]
-        assert b"STOP" in chunks[2]
+        # handle_incomplete_chunks splits SSE data by lines, so we check content
+        # is present anywhere in the stream rather than at specific indices
+        all_chunks = b"".join(chunks)
+        assert b"Hello" in all_chunks
+        assert b"!" in all_chunks
+        assert b"How can I help you?" in all_chunks
+        assert b"STOP" in all_chunks
 
         mock_session_client.post.assert_called_once()
         call_args = mock_session_client.post.call_args

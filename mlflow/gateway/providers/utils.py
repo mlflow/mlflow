@@ -69,8 +69,8 @@ async def send_stream_request(
         path: The specific path of the URL to which the request will be sent.
         payload: The payload (or data) to be included in the request.
 
-    Returns:
-        An async generator that yields bytes from the server's streaming response.
+    Yields:
+        Bytes from the server's streaming response.
 
     Raises:
         HTTPException if the HTTP request fails.
@@ -78,37 +78,19 @@ async def send_stream_request(
     import aiohttp
     from fastapi import HTTPException
 
-    url = append_to_uri_path(base_url, path)
-    timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
-
-    session = aiohttp.ClientSession(headers=headers)
-    try:
-        response = await session.post(url, json=payload, timeout=timeout)
-    except Exception:
-        await session.close()
-        raise
-
-    try:
-        response.raise_for_status()
-    except aiohttp.ClientResponseError as e:
+    async with _aiohttp_post(headers, base_url, path, payload) as response:
         try:
-            error_body = await response.json()
-            detail = error_body.get("error", {}).get("message", e.message)
-        except Exception:
-            detail = e.message
-        await response.release()
-        await session.close()
-        raise HTTPException(status_code=e.status, detail=detail)
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as e:
+            try:
+                error_body = await response.json()
+                detail = error_body.get("error", {}).get("message", e.message)
+            except Exception:
+                detail = e.message
+            raise HTTPException(status_code=e.status, detail=detail)
 
-    async def _generate() -> AsyncGenerator[bytes, None]:
-        try:
-            async for line in response.content:
-                yield line
-        finally:
-            await response.release()
-            await session.close()
-
-    return _generate()
+        async for line in response.content:
+            yield line
 
 
 def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
