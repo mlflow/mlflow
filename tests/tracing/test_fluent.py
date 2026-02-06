@@ -2685,3 +2685,54 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
     assert list(gen()) == [0, 1, 2]
     assert list(gen()) == [0, 1, 2]
     assert len(trace_ids) == expected_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
+    [
+        (0.0, 10, 0, 0),
+        (0.5, 100, 30, 70),
+        (1.0, 10, 10, 10),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async(
+    sampling_ratio: float, num_calls: int, expected_min: int, expected_max: int
+):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def traced_func():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(num_calls):
+        assert await traced_func() == "result"
+
+    assert expected_min <= len(trace_ids) <= expected_max
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_count"),
+    [
+        (0.0, 0),
+        (1.0, 2),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async_generator(
+    sampling_ratio: float, expected_count: int
+):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def gen():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        for i in range(3):
+            yield i
+
+    assert [item async for item in gen()] == [0, 1, 2]
+    assert [item async for item in gen()] == [0, 1, 2]
+    assert len(trace_ids) == expected_count
