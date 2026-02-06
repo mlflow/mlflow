@@ -735,7 +735,7 @@ class OpenAIProvider(BaseProvider):
                 elif "include_usage" not in payload_with_model["stream_options"]:
                     payload_with_model["stream_options"]["include_usage"] = True
 
-            stream = await send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
