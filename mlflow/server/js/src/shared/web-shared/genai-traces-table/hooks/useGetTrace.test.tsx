@@ -126,6 +126,70 @@ describe('useGetTrace', () => {
       expect(callCount).toBeLessThanOrEqual(31); // 1 initial + max 30 retries
     });
 
+    test('should reset poll counter when traceId changes', async () => {
+      const traceInfoA: ModelTraceInfoV3 = {
+        trace_id: 'trace-A',
+        trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+        request_time: '1625247600000',
+        state: 'OK',
+        trace_metadata: {
+          'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }),
+        },
+        tags: {},
+      };
+
+      const traceInfoB: ModelTraceInfoV3 = {
+        trace_id: 'trace-B',
+        trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+        request_time: '1625247600000',
+        state: 'OK',
+        trace_metadata: {
+          'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }),
+        },
+        tags: {},
+      };
+
+      const traceWithMismatchA: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: traceInfoA as ModelTraceInfoV3,
+      };
+      const traceWithMismatchB: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: traceInfoB as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockImplementation((traceId) => {
+        return Promise.resolve(traceId === 'trace-A' ? traceWithMismatchA : traceWithMismatchB);
+      });
+
+      let currentTraceInfo = traceInfoA;
+      const { result, rerender } = renderHook(() => useGetTrace(mockGetTrace, currentTraceInfo, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Let trace A poll for a bit
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const callsForTraceA = mockGetTrace.mock.calls.filter((c) => c[0] === 'trace-A').length;
+      expect(callsForTraceA).toBeGreaterThan(1);
+
+      // Switch to trace B - poll counter should reset
+      currentTraceInfo = traceInfoB;
+      rerender();
+
+      await waitFor(() => {
+        expect(mockGetTrace).toHaveBeenCalledWith('trace-B', traceInfoB);
+      });
+
+      // Let trace B poll for a bit
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const callsForTraceB = mockGetTrace.mock.calls.filter((c) => c[0] === 'trace-B').length;
+
+      // Trace B should get its own full set of polling attempts (not reduced by trace A's count)
+      expect(callsForTraceB).toBeGreaterThan(1);
+    });
+
     test('should not poll when trace state is ERROR', async () => {
       const traceWithErrorState: ModelTrace = {
         data: { spans: [] },

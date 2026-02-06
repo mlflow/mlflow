@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   type ModelTraceInfoV3,
@@ -54,6 +54,11 @@ export function useGetTrace(
   // while preventing infinite polling when num_spans metadata is inconsistent.
   const MAX_OK_STATE_POLL_COUNT = 30; // 30 seconds at 1s interval
   const okStatePollCountRef = useRef(0);
+
+  // Reset poll count when navigating to a different trace
+  useEffect(() => {
+    okStatePollCountRef.current = 0;
+  }, [traceId]);
 
   const getRefreshInterval = (data: ModelTrace | undefined) => {
     // Keep polling until trace is completed and span counts matches with the number logged in the
