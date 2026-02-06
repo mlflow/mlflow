@@ -1,26 +1,26 @@
-# Polish PR using AI
+# Generate PR title using AI
 
-name: Polish PR
+name: Title PR
 
 on:
   issue_comment:
     types: [created]
   pull_request:
     paths:
-      - ".github/workflows/polish.yml"
-      - ".github/workflows/polish.py"
+      - ".github/workflows/title.yml"
+      - ".github/workflows/title.py"
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  polish:
+  title:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Trigger conditions:
     # - pull_request: skip fork PRs (no access to secrets)
-    # - issue_comment: only maintainers can trigger via `/polish`
+    # - issue_comment: only maintainers can trigger via `/title`
     if: >
       (
         github.event_name == 'pull_request'
@@ -28,7 +28,7 @@ jobs:
       )
       || (
         github.event.issue.pull_request
-        && startsWith(github.event.comment.body, '/polish')
+        && startsWith(github.event.comment.body, '/title')
         && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
       )
     permissions:
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          sparse-checkout: .github/workflows/polish.py
+          sparse-checkout: .github/workflows/title.py
           sparse-checkout-cone-mode: false
 
       - name: Add reaction to comment
@@ -57,7 +57,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          new_title=$(python .github/workflows/polish.py --repo "$REPO" --pr-number "$PR_NUMBER")
+          new_title=$(python .github/workflows/title.py --repo "$REPO" --pr-number "$PR_NUMBER")
           echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
 
       - name: Update PR title
@@ -78,4 +78,4 @@ jobs:
         run: |
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body \
             "> [!WARNING]
-            > Failed to polish the PR. See [workflow run]($RUN_URL) for details."
+            > Failed to generate the PR title. See [workflow run]($RUN_URL) for details."
