@@ -194,66 +194,66 @@ async def test_translate_http_exception_passes_through_other_exceptions():
 
 def test_parse_sse_lines_single_data_line():
     chunk = b'data: {"message": "hello"}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"message": "hello"}]
 
 
 def test_parse_sse_lines_multiple_data_lines():
     chunk = b'data: {"id": 1}\ndata: {"id": 2}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"id": 1}, {"id": 2}]
 
 
 def test_parse_sse_lines_with_event_lines():
     chunk = b'event: message\ndata: {"content": "test"}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"content": "test"}]
 
 
 def test_parse_sse_lines_done_marker():
     chunk = b"data: [DONE]\n"
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == []
 
 
 def test_parse_sse_lines_empty_data():
     chunk = b"data: \n"
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == []
 
 
 def test_parse_sse_lines_empty_chunk():
-    result = parse_sse_lines(b"")
+    result = list(parse_sse_lines(b""))
     assert result == []
 
 
 def test_parse_sse_lines_string_input():
     chunk = 'data: {"key": "value"}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"key": "value"}]
 
 
 def test_parse_sse_lines_invalid_json():
     chunk = b"data: {invalid json}\n"
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == []
 
 
 def test_parse_sse_lines_mixed_valid_invalid():
     chunk = b'data: {"valid": true}\ndata: invalid\ndata: {"also": "valid"}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"valid": True}, {"also": "valid"}]
 
 
 def test_parse_sse_lines_invalid_utf8():
     chunk = b"\xff\xfe"
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == []
 
 
 def test_parse_sse_lines_non_data_lines_ignored():
     chunk = b'id: 123\nretry: 1000\ndata: {"message": "test"}\n'
-    result = parse_sse_lines(chunk)
+    result = list(parse_sse_lines(chunk))
     assert result == [{"message": "test"}]
 
 

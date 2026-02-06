@@ -587,19 +587,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         - message_delta event: {"usage": {"output_tokens": Y}}
         """
         for data in parse_sse_lines(chunk):
-            event_type = data.get("type")
-
-            # Extract input_tokens from message_start
-            # In Anthropic streaming format, message_start has usage inside "message" object
-            match event_type:
-                case "message_start":
-                    if input_tokens := data.get("message", {}).get("usage", {}).get("input_tokens"):
-                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                case "message_delta":
-                    if (output_tokens := data.get("usage", {}).get("output_tokens")) is not None:
-                        accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-                case _:
-                    pass
+            match data:
+                case {
+                    "type": "message_start",
+                    "message": {"usage": {"input_tokens": int(input_tokens)}},
+                }:
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
 
             # Calculate total if we have both
             if (

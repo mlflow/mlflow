@@ -4,7 +4,7 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Iterator
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -267,9 +267,11 @@ def strip_sse_prefix(s: str) -> str:
     return re.sub(r"^data:\s+", "", s)
 
 
-def parse_sse_lines(chunk: bytes | str) -> list[dict[str, Any]]:
+def parse_sse_lines(chunk: bytes | str) -> Iterator[dict[str, Any]]:
     """
     Parse SSE-formatted data from a chunk of bytes or string.
+    Note that this function assumes that the chunk is complete,
+    and incomplete chunks need to be handled by handle_incomplete_chunks.
 
     Handles the standard SSE format:
     - Lines prefixed with "data:"
@@ -279,23 +281,22 @@ def parse_sse_lines(chunk: bytes | str) -> list[dict[str, Any]]:
     Args:
         chunk: Bytes or string containing SSE data.
 
-    Returns:
-        List of parsed JSON data dictionaries from the SSE data lines.
-        Returns empty list if chunk is empty, invalid, or contains only [DONE].
+    Yields:
+        Parsed JSON data dictionaries from the SSE data lines.
+        Yields nothing if chunk is empty, invalid, or contains only [DONE].
     """
     if isinstance(chunk, bytes):
         try:
             chunk_str = chunk.decode("utf-8")
         except UnicodeDecodeError:
-            return []
+            return
     else:
         chunk_str = chunk
 
     chunk_str = chunk_str.strip()
     if not chunk_str:
-        return []
+        return
 
-    results = []
     for line in chunk_str.split("\n"):
         line = line.strip()
         if not line or line.startswith("event:"):
@@ -309,11 +310,9 @@ def parse_sse_lines(chunk: bytes | str) -> list[dict[str, Any]]:
             continue
 
         try:
-            results.append(json.loads(data_str))
+            yield json.loads(data_str)
         except json.JSONDecodeError:
             continue
-
-    return results
 
 
 async def stream_sse_data(
