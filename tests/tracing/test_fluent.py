@@ -2613,7 +2613,7 @@ def test_trace_decorator_sampling_ratio(
     ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
     [
         (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
-        (0.0, 1.0, 0, 0),  # Parent not sampled -> child also not sampled
+        (0.0, 1.0, 0, 5),  # Parent not sampled -> child creates its own root traces
     ],
 )
 def test_trace_decorator_sampling_ratio_nested(
@@ -2690,7 +2690,7 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 0),
+        (0.0, 6),
         (1.0, 6),
     ],
 )
@@ -2764,3 +2764,32 @@ async def test_trace_decorator_sampling_ratio_async_generator(
     assert [item async for item in gen()] == [0, 1, 2]
     assert [item async for item in gen()] == [0, 1, 2]
     assert len(trace_ids) == expected_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_child_count"),
+    [
+        (0.0, 6),
+        (1.0, 6),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async_generator_with_child_spans(
+    sampling_ratio: float, expected_child_count: int
+):
+    child_trace_ids: list[str] = []
+
+    @mlflow.trace
+    async def child_func(value):
+        if trace_id := mlflow.get_active_trace_id():
+            child_trace_ids.append(trace_id)
+        return value * 2
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def gen():
+        for i in range(3):
+            yield await child_func(i)
+
+    assert [item async for item in gen()] == [0, 2, 4]
+    assert [item async for item in gen()] == [0, 2, 4]
+    assert len(child_trace_ids) == expected_child_count

@@ -1,35 +1,28 @@
-"""
-Sampling logic for MLflow tracing.
-
-This module provides sampling functionality to control which traces are recorded
-and exported, helping manage costs and performance for high-volume applications.
-"""
-
 import contextvars
 
 from opentelemetry.sdk.trace.sampling import (
-    Decision,
     Sampler,
     SamplingResult,
     TraceIdRatioBased,
 )
 
-# Context variable to force sampling, bypassing the global sampling ratio.
-# When set to True, the custom sampler will always sample the trace.
-_FORCE_SAMPLE = contextvars.ContextVar("force_sample", default=False)
+# Context variable to override the sampling ratio for a specific trace.
+# When set, the sampler uses this ratio instead of the default.
+_SAMPLING_RATIO_OVERRIDE = contextvars.ContextVar("sampling_ratio_override", default=None)
 
 
-class _OverridableSampler(Sampler):
+class _MlflowSampler(Sampler):
     """
-    A custom sampler that allows per-trace override of the global sampling ratio.
+    A custom OTel sampler that delegates to TraceIdRatioBased but allows
+    per-trace overrides via a ContextVar.
 
-    When _FORCE_SAMPLE context variable is True, this sampler always samples.
-    Otherwise, it delegates to the underlying ratio-based sampler.
+    When _SAMPLING_RATIO_OVERRIDE is set, uses that ratio instead of the default.
+    Otherwise, falls back to the default ratio (from MLFLOW_TRACE_SAMPLING_RATIO).
     """
 
-    def __init__(self, ratio: float):
-        self._ratio = ratio
-        self._ratio_sampler = TraceIdRatioBased(ratio)
+    def __init__(self, default_ratio: float = 1.0):
+        self._default_ratio = default_ratio
+        self._default_sampler = TraceIdRatioBased(default_ratio)
 
     def should_sample(
         self,
@@ -41,11 +34,15 @@ class _OverridableSampler(Sampler):
         links=None,
         trace_state=None,
     ) -> SamplingResult:
-        if _FORCE_SAMPLE.get():
-            return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes, trace_state)
-        return self._ratio_sampler.should_sample(
+        override = _SAMPLING_RATIO_OVERRIDE.get()
+        if override is not None:
+            sampler = TraceIdRatioBased(override)
+            return sampler.should_sample(
+                parent_context, trace_id, name, kind, attributes, links, trace_state
+            )
+        return self._default_sampler.should_sample(
             parent_context, trace_id, name, kind, attributes, links, trace_state
         )
 
     def get_description(self) -> str:
-        return f"OverridableSampler(ratio={self._ratio})"
+        return f"MlflowSampler(default_ratio={self._default_ratio})"
