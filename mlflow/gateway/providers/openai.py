@@ -25,7 +25,6 @@ from mlflow.gateway.uc_function_utils import (
     prepend_uc_functions,
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
-from mlflow.tracing.constant import TokenUsageKey
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -699,19 +698,9 @@ class OpenAIProvider(BaseProvider):
             }
         }
         """
-        usage = result.get("usage")
-        if not usage:
-            return None
-
-        token_usage = {}
-        if (prompt_tokens := usage.get("prompt_tokens")) is not None:
-            token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-        if (completion_tokens := usage.get("completion_tokens")) is not None:
-            token_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
-        if (total_tokens := usage.get("total_tokens")) is not None:
-            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-
-        return token_usage or None
+        return self._extract_token_usage_from_dict(
+            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+        )
 
     def _extract_streaming_token_usage(
         self, chunk: bytes, accumulated_usage: dict[str, int]
@@ -732,13 +721,10 @@ class OpenAIProvider(BaseProvider):
                 return accumulated_usage
 
             data = json.loads(data_str)
-            if usage := data.get("usage"):
-                if (prompt_tokens := usage.get("prompt_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-                if (completion_tokens := usage.get("completion_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
-                if (total_tokens := usage.get("total_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+            if token_usage := self._extract_token_usage_from_dict(
+                data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            ):
+                accumulated_usage.update(token_usage)
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
 

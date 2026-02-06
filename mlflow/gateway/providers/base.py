@@ -276,6 +276,54 @@ class BaseProvider(ABC):
         """
         return None
 
+    @staticmethod
+    def _extract_token_usage_from_dict(
+        usage_dict: dict[str, Any] | None,
+        input_tokens_key: str,
+        output_tokens_key: str,
+        total_tokens_key: str | None = None,
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from a dictionary with configurable key names.
+
+        This is a helper method to reduce code duplication across providers.
+        Each provider uses different key names for token usage, but the extraction
+        logic is the same.
+
+        Args:
+            usage_dict: The dictionary containing token usage information.
+            input_tokens_key: Key name for input/prompt tokens (e.g., "input_tokens",
+                "prompt_tokens", "promptTokenCount").
+            output_tokens_key: Key name for output/completion tokens (e.g., "output_tokens",
+                "completion_tokens", "candidatesTokenCount").
+            total_tokens_key: Optional key name for total tokens. If None or not present
+                in usage_dict, total will be calculated from input + output.
+
+        Returns:
+            A dictionary with normalized token usage keys (input_tokens, output_tokens,
+            total_tokens) or None if usage_dict is None or empty.
+        """
+        if not usage_dict:
+            return None
+
+        token_usage = {}
+
+        if (input_tokens := usage_dict.get(input_tokens_key)) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+        if (output_tokens := usage_dict.get(output_tokens_key)) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        if total_tokens_key and (total_tokens := usage_dict.get(total_tokens_key)) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        elif (
+            TokenUsageKey.INPUT_TOKENS in token_usage and TokenUsageKey.OUTPUT_TOKENS in token_usage
+        ):
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                token_usage[TokenUsageKey.INPUT_TOKENS] + token_usage[TokenUsageKey.OUTPUT_TOKENS]
+            )
+
+        return token_usage or None
+
     def _set_span_token_usage(self, token_usage: dict[str, int]) -> None:
         """
         Set token usage on the current active span if tracing is enabled.

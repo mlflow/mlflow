@@ -571,22 +571,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             }
         }
         """
-        usage = result.get("usage")
-        if not usage:
-            return None
-
-        token_usage = {}
-        input_tokens = usage.get("input_tokens")
-        output_tokens = usage.get("output_tokens")
-
-        if input_tokens is not None:
-            token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-        if output_tokens is not None:
-            token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-        if input_tokens is not None and output_tokens is not None:
-            token_usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
-
-        return token_usage or None
+        return self._extract_token_usage_from_dict(
+            result.get("usage"), "input_tokens", "output_tokens"
+        )
 
     def _extract_streaming_token_usage(
         self, chunk: bytes, accumulated_usage: dict[str, int]

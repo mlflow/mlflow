@@ -21,7 +21,6 @@ from mlflow.gateway.schemas import (
     embeddings as embeddings_schema,
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
-from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCall
 
 GENERATION_CONFIG_KEY_MAPPING = {
@@ -805,19 +804,12 @@ class GeminiProvider(BaseProvider):
             }
         }
         """
-        usage_metadata = result.get("usageMetadata")
-        if not usage_metadata:
-            return None
-
-        token_usage = {}
-        if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
-            token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-        if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
-            token_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
-        if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
-            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-
-        return token_usage or None
+        return self._extract_token_usage_from_dict(
+            result.get("usageMetadata"),
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+        )
 
     def _extract_streaming_token_usage(
         self, chunk: bytes, accumulated_usage: dict[str, int]
@@ -846,15 +838,13 @@ class GeminiProvider(BaseProvider):
                 data = json.loads(data_str)
 
                 # Extract usageMetadata if present
-                if usage_metadata := data.get("usageMetadata"):
-                    if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
-                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-                    if (
-                        candidates_tokens := usage_metadata.get("candidatesTokenCount")
-                    ) is not None:
-                        accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
-                    if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
-                        accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+                if token_usage := self._extract_token_usage_from_dict(
+                    data.get("usageMetadata"),
+                    "promptTokenCount",
+                    "candidatesTokenCount",
+                    "totalTokenCount",
+                ):
+                    accumulated_usage.update(token_usage)
 
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass

@@ -240,41 +240,24 @@ class LiteLLMProvider(BaseProvider):
           totalTokenCount
         """
         # Try OpenAI format first (most common)
-        if usage := result.get("usage"):
-            token_usage = {}
-            # OpenAI format
-            if (prompt_tokens := usage.get("prompt_tokens")) is not None:
-                token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-            if (completion_tokens := usage.get("completion_tokens")) is not None:
-                token_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
-            if (total_tokens := usage.get("total_tokens")) is not None:
-                token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        if token_usage := self._extract_token_usage_from_dict(
+            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+        ):
+            return token_usage
 
-            # Anthropic format (input_tokens, output_tokens)
-            if not token_usage:
-                input_tokens = usage.get("input_tokens")
-                output_tokens = usage.get("output_tokens")
-                if input_tokens is not None:
-                    token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                if output_tokens is not None:
-                    token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-                if input_tokens is not None and output_tokens is not None:
-                    token_usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
-
-            return token_usage or None
+        # Try Anthropic format
+        if token_usage := self._extract_token_usage_from_dict(
+            result.get("usage"), "input_tokens", "output_tokens"
+        ):
+            return token_usage
 
         # Try Gemini format
-        if usage_metadata := result.get("usageMetadata"):
-            token_usage = {}
-            if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
-                token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-            if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
-                token_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
-            if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
-                token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-            return token_usage or None
-
-        return None
+        return self._extract_token_usage_from_dict(
+            result.get("usageMetadata"),
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+        )
 
     def _extract_streaming_token_usage(
         self, chunk: Any, accumulated_usage: dict[str, int]
@@ -324,43 +307,37 @@ class LiteLLMProvider(BaseProvider):
     def _extract_usage_from_data(
         self, data: dict[str, Any], accumulated_usage: dict[str, int]
     ) -> None:
-        # OpenAI / Anthropic format (in chunk.usage)
-        if usage := data.get("usage"):
-            has_openai_keys = any(
-                key in usage for key in ("prompt_tokens", "completion_tokens", "total_tokens")
-            )
-            has_anthropic_keys = any(key in usage for key in ("input_tokens", "output_tokens"))
+        # OpenAI format (in chunk.usage)
+        if token_usage := self._extract_token_usage_from_dict(
+            data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+        ):
+            accumulated_usage.update(token_usage)
+            return
 
-            if has_openai_keys:
-                if (prompt_tokens := usage.get("prompt_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-                if (completion_tokens := usage.get("completion_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
-                if (total_tokens := usage.get("total_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-            elif has_anthropic_keys:
-                if (input_tokens := usage.get("input_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                if (output_tokens := usage.get("output_tokens")) is not None:
-                    accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        # Anthropic format (in chunk.usage)
+        if token_usage := self._extract_token_usage_from_dict(
+            data.get("usage"), "input_tokens", "output_tokens"
+        ):
+            accumulated_usage.update(token_usage)
 
-        # Anthropic message_start format
+        # Anthropic message_start format (input_tokens in message.usage)
         if data.get("type") == "message_start":
-            if message := data.get("message"):
-                if msg_usage := message.get("usage"):
-                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                        accumulated_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if token_usage := self._extract_token_usage_from_dict(
+                data.get("message", {}).get("usage"), "input_tokens", "output_tokens"
+            ):
+                accumulated_usage.update(token_usage)
 
         # Gemini format
-        if usage_metadata := data.get("usageMetadata"):
-            if (prompt_tokens := usage_metadata.get("promptTokenCount")) is not None:
-                accumulated_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-            if (candidates_tokens := usage_metadata.get("candidatesTokenCount")) is not None:
-                accumulated_usage[TokenUsageKey.OUTPUT_TOKENS] = candidates_tokens
-            if (total_tokens := usage_metadata.get("totalTokenCount")) is not None:
-                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        if token_usage := self._extract_token_usage_from_dict(
+            data.get("usageMetadata"),
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+        ):
+            accumulated_usage.update(token_usage)
 
         # Calculate total if we have input and output but no total
+        # (for Anthropic streaming where input/output come in separate chunks)
         if (
             TokenUsageKey.INPUT_TOKENS in accumulated_usage
             and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
