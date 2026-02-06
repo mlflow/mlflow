@@ -117,15 +117,18 @@ MLflow is designed to facilitate this. When a model is logged, and that model's 
 - **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
 - **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
 
-## Automatic Prompt Linking with Trace
+### Automatic Prompt Linking
 
-When you load prompts from the registry within traced functions (annotated with `@mlflow.trace`), MLflow automatically tracks which prompts are being used and creates a linkage with the active trace that is visible in the MLflow UI. This provides immediate visibility into prompt usage and enables you to compare your agent's behavior across different prompt versions.
+### Linking with Trace
 
-### How It Works
+When you load prompts (via `mlflow.genai.load_prompt()`) from the registry within traced functions (annotated with `@mlflow.trace`), MLflow automatically tracks which prompts are being used and creates a linkage with the active trace that is visible in the MLflow UI. This provides immediate visibility into prompt usage and enables you to compare your agent's behavior across different prompt versions.
 
-When you load a prompt using `mlflow.genai.load_prompt()` inside an active trace, the prompt usage is automatically recorded. The linked traces will then appear on the prompt's detail page.
+### Linking with Run
 
-### Example: Linking Prompts in Traced Functions
+Similarly, when you load prompts from the registry during an MLflow run (inside a `with mlflow.start_run():` block), MLflow automatically records which prompt versions are used in that run. This linkage appears in the run's metadata and the MLflow UI, making it easy to track prompt dependencies for reproducibility and auditability.
+
+
+### Example
 
 ```python
 @mlflow.trace
@@ -148,5 +151,8 @@ with mlflow.start_run():
     question("1+1")
 ```
 
-![UI for Prompt-trace linkage](/images/llms/prompt-registry/prompt-trace-linkage)
+### Prompt-trace linking UI
+![UI for Prompt-trace linkage](/images/llms/prompt-registry/prompt-trace-linking)
 
+### Prompt-run linking UI
+![Prompt-run linking in run overview](/images/llms/prompt-registry/prompt-run-linking)
