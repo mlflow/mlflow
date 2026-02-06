@@ -55,7 +55,7 @@ jobs:
 
       - name: Run migration for MLflow ${{ matrix.mlflow-version }}
         run: |
-          uv run python fs2db/src/migrate.py \
+          uv run mlflow migrate-filestore \
             --source /tmp/fs2db/${{ matrix.mlflow-version }}/ \
             --target sqlite:////tmp/fs2db/${{ matrix.mlflow-version }}/migrated.db
 
