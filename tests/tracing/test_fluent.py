@@ -2641,30 +2641,6 @@ def test_trace_decorator_sampling_ratio_nested(
     assert len(inner_trace_ids) == expected_inner
 
 
-@skip_when_testing_trace_sdk
-def test_trace_decorator_sampling_ratio_overrides_global():
-    code = """
-import mlflow
-
-trace_ids = []
-
-@mlflow.trace(sampling_ratio_override=1.0)  # Should override global 0.0
-def always_traced():
-    if trace_id := mlflow.get_active_trace_id():
-        trace_ids.append(trace_id)
-    return "traced"
-
-for _ in range(5):
-    always_traced()
-
-assert len(trace_ids) == 5
-"""
-    subprocess.check_call(
-        [sys.executable, "-c", code],
-        env={**os.environ, "MLFLOW_TRACE_SAMPLING_RATIO": "0.0"},
-    )
-
-
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_count"),
     [
@@ -2790,6 +2766,48 @@ async def test_trace_decorator_sampling_ratio_async_generator_with_child_spans(
         for i in range(3):
             yield await child_func(i)
 
-    assert [item async for item in gen()] == [0, 2, 4]
-    assert [item async for item in gen()] == [0, 2, 4]
+    assert [i async for i in gen()] == [0, 2, 4]
+    assert [i async for i in gen()] == [0, 2, 4]
     assert len(child_trace_ids) == expected_child_count
+
+
+@skip_when_testing_trace_sdk
+def test_trace_decorator_sampling_ratio_overrides_global():
+    code = """
+import mlflow
+
+trace_ids: list[str] = []
+
+
+@mlflow.trace  # Should respect global 0.0
+def not_traced():
+    if trace_id := mlflow.get_active_trace_id():
+        trace_ids.append(trace_id)
+    return "not traced"
+
+
+for _ in range(5):
+    assert not_traced() == "not traced"
+
+assert len(trace_ids) == 0
+
+
+@mlflow.trace(sampling_ratio_override=1.0)  # Should override global 0.0
+def traced():
+    if trace_id := mlflow.get_active_trace_id():
+        trace_ids.append(trace_id)
+    return "traced"
+
+
+for _ in range(5):
+    assert traced() == "traced"
+
+assert len(trace_ids) == 5
+"""
+    subprocess.check_call(
+        [sys.executable, "-c", code],
+        env={
+            **os.environ,
+            "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
+        },
+    )
