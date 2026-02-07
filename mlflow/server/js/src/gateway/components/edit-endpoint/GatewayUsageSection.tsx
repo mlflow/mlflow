@@ -94,7 +94,7 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
       </div>
 
       <OverviewChartProvider
-        experimentId={experimentId}
+        experimentIds={[experimentId]}
         startTimeMs={startTimeMs}
         endTimeMs={endTimeMs}
         timeIntervalSeconds={timeIntervalSeconds}

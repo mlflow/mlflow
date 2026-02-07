@@ -17,10 +17,7 @@ import { LazyTraceLatencyChart } from '../../experiment-tracking/pages/experimen
 import { LazyTraceErrorsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart';
-import {
-  ChartGrid,
-  TabContentContainer,
-} from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
+import { ChartGrid } from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
 import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
 import { TimeUnitSelector } from '../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
 import {
@@ -40,8 +37,11 @@ export const GatewayUsagePageImpl = () => {
   // Fetch all endpoints to get their experiment IDs
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
 
-  // Filter endpoints that have experiment_id configured
-  const endpointsWithExperiments = useMemo(() => endpoints.filter((ep) => ep.experiment_id), [endpoints]);
+  // Filter endpoints that have usage tracking enabled (with experiment_id)
+  const endpointsWithExperiments = useMemo(
+    () => endpoints.filter((ep) => ep.usage_tracking && ep.experiment_id),
+    [endpoints],
+  );
 
   // Get the selected endpoint (if specific endpoint is selected)
   const selectedEndpoint = useMemo(() => {
@@ -93,7 +93,13 @@ export const GatewayUsagePageImpl = () => {
   // Show empty state if no endpoints have usage tracking enabled
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
     return (
-      <TabContentContainer>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'auto',
+          padding: theme.spacing.md,
+        }}
+      >
         <div
           css={{
             display: 'flex',
@@ -119,12 +125,20 @@ export const GatewayUsagePageImpl = () => {
             <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
           </Link>
         </div>
-      </TabContentContainer>
+      </div>
     );
   }
 
   return (
-    <TabContentContainer>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        overflow: 'auto',
+        padding: theme.spacing.md,
+      }}
+    >
       {/* Header */}
       <div
         css={{
@@ -199,7 +213,7 @@ export const GatewayUsagePageImpl = () => {
       {/* Charts */}
       {experimentIds.length > 0 ? (
         <OverviewChartProvider
-          experimentId={experimentIds[0]}
+          experimentIds={experimentIds}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -240,7 +254,7 @@ export const GatewayUsagePageImpl = () => {
           </Typography.Text>
         </div>
       )}
-    </TabContentContainer>
+    </div>
   );
 };
 

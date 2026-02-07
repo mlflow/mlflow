@@ -5,7 +5,8 @@ import React, { createContext, useContext, useMemo } from 'react';
  * This eliminates prop drilling through intermediate components.
  */
 export interface OverviewChartContextValue {
-  experimentId: string;
+  /** Array of experiment IDs to query metrics for */
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   /** Time interval in seconds for grouping metrics by time bucket */
@@ -26,7 +27,7 @@ interface OverviewChartProviderProps extends OverviewChartContextValue {
  */
 export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   children,
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
@@ -34,13 +35,13 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
 }) => {
   const value = useMemo(
     () => ({
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
     }),
-    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;
