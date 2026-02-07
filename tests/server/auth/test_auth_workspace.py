@@ -1089,3 +1089,123 @@ def test_workspace_permission_required_for_gateway_creation(workspace_permission
         json={"name": "test-endpoint", "model_configs": []},
     ):
         assert auth_module.validate_can_create_gateway_endpoint()
+
+
+def test_prompt_optimization_job_validators_use_workspace_permissions(
+    workspace_permission_setup, monkeypatch
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Mock get_job to return a job associated with exp-1 (in team-a)
+    mock_job = SimpleNamespace(params='{"experiment_id": "exp-1"}')
+    monkeypatch.setattr(auth_module, "get_job", lambda job_id: mock_job)
+
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs/get",
+        method="GET",
+        query_string={"job_id": "job-1"},
+    ):
+        assert auth_module.validate_can_read_prompt_optimization_job()
+        assert auth_module.validate_can_update_prompt_optimization_job()
+        assert auth_module.validate_can_delete_prompt_optimization_job()
+
+
+def test_prompt_optimization_job_validators_read_permission_blocks_writes(
+    workspace_permission_setup, monkeypatch
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Mock get_job to return a job associated with exp-1 (in team-a)
+    mock_job = SimpleNamespace(params='{"experiment_id": "exp-1"}')
+    monkeypatch.setattr(auth_module, "get_job", lambda job_id: mock_job)
+
+    _set_workspace_permission(store, username, READ.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs/get",
+        method="GET",
+        query_string={"job_id": "job-1"},
+    ):
+        assert auth_module.validate_can_read_prompt_optimization_job()
+        assert not auth_module.validate_can_update_prompt_optimization_job()
+        assert not auth_module.validate_can_delete_prompt_optimization_job()
+
+
+def test_prompt_optimization_job_validators_denied_without_workspace_permission(
+    workspace_permission_setup, monkeypatch
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Mock get_job to return a job associated with exp-1 (in team-a)
+    mock_job = SimpleNamespace(params='{"experiment_id": "exp-1"}')
+    monkeypatch.setattr(auth_module, "get_job", lambda job_id: mock_job)
+
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs/get",
+        method="GET",
+        query_string={"job_id": "job-1"},
+    ):
+        assert not auth_module.validate_can_read_prompt_optimization_job()
+        assert not auth_module.validate_can_update_prompt_optimization_job()
+        assert not auth_module.validate_can_delete_prompt_optimization_job()
+
+
+def test_graphql_permission_functions_use_workspace_permissions(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    # Test experiment permission
+    assert auth_module._graphql_can_read_experiment("exp-1", username)
+
+    # Test run permission (inherits from experiment)
+    assert auth_module._graphql_can_read_run("run-1", username)
+
+    # Test registered model permission
+    assert auth_module._graphql_can_read_model("model-xyz", username)
+
+
+def test_graphql_permission_functions_denied_without_workspace_permission(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    # Test experiment permission denied
+    assert not auth_module._graphql_can_read_experiment("exp-1", username)
+
+    # Test run permission denied (inherits from experiment)
+    assert not auth_module._graphql_can_read_run("run-1", username)
+
+    # Test registered model permission denied
+    assert not auth_module._graphql_can_read_model("model-xyz", username)
+
+
+def test_cross_workspace_graphql_access_denied(workspace_permission_setup, monkeypatch):
+    # User has MANAGE in team-a but tries to access resources in team-b
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-other-ws": "team-b"},
+        run_experiments={"run-other-ws": "exp-other-ws"},
+        trace_experiments={},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    registry_store = _RegistryStore({"model-other-ws": "team-b"})
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+
+    username = workspace_permission_setup["username"]
+
+    # Should be denied access to resources in team-b
+    assert not auth_module._graphql_can_read_experiment("exp-other-ws", username)
+    assert not auth_module._graphql_can_read_run("run-other-ws", username)
+    assert not auth_module._graphql_can_read_model("model-other-ws", username)

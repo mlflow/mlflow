@@ -2201,7 +2201,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             models = (
-                session.query(SqlLoggedModel)
+                self._get_query(session, SqlLoggedModel)
                 .filter(
                     SqlLoggedModel.lifecycle_stage == LifecycleStage.DELETED,
                     SqlLoggedModel.last_updated_timestamp_ms <= (current_time - older_than),

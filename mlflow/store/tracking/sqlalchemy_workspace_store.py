@@ -15,6 +15,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
+    INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
@@ -104,7 +105,36 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         return query
 
     def _initialize_store_state(self):
+        self._validate_artifact_root_configuration()
         self._ensure_default_workspace_experiment()
+
+    def _validate_artifact_root_configuration(self) -> None:
+        """
+        Validate the default artifact root is not configured with reserved path segments.
+
+        This catches misconfiguration where the artifact root itself conflicts with the
+        workspace artifact path structure (e.g., ends with 'workspaces' or is already
+        scoped under 'workspaces/<name>').
+        """
+        if not self.artifact_root_uri:
+            return
+
+        segments = self._artifact_path_segments(self.artifact_root_uri.rstrip("/"))
+        if segments and segments[-1] == WORKSPACES_DIR_NAME:
+            raise MlflowException(
+                f"Cannot enable workspace mode because the default artifact root "
+                f"{self.artifact_root_uri} ends with the reserved '{WORKSPACES_DIR_NAME}' "
+                f"segment. Choose a different artifact root before enabling workspaces.",
+                error_code=INVALID_STATE,
+            )
+        if len(segments) >= 2 and segments[-2] == WORKSPACES_DIR_NAME:
+            raise MlflowException(
+                f"Cannot enable workspace mode because the default artifact root "
+                f"{self.artifact_root_uri} is already scoped under the reserved "
+                f"'{WORKSPACES_DIR_NAME}/<name>' prefix. Configure a different artifact root "
+                f"before enabling workspaces.",
+                error_code=INVALID_STATE,
+            )
 
     def _trace_query(self, session, for_update_or_delete=False):
         if for_update_or_delete:

@@ -164,7 +164,10 @@ def _graphql_search_runs(
     resp.raise_for_status()
     payload = resp.json()
     assert payload.get("errors") in (None, [])
-    return payload["data"]["mlflowSearchRuns"]["runs"]
+    search_runs = payload["data"]["mlflowSearchRuns"]
+    if search_runs is None:
+        return []
+    return search_runs["runs"]
 
 
 def _graphql_search_model_versions(
