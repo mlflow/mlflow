@@ -14,9 +14,6 @@ interface ScheduledScorerBase {
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
   disableMonitoring?: boolean;
   isSessionLevelScorer?: boolean;
-  // Original serialized_scorer JSON blob, preserved for scorer types (e.g. memory-augmented)
-  // whose full state cannot be reconstructed from form fields alone.
-  rawSerializedScorer?: string;
 }
 
 // LLM Template Constants

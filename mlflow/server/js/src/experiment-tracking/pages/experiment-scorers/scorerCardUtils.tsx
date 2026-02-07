@@ -106,6 +106,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     model,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
+    isMemoryAugmented: scorer.type === 'llm' ? (scorer as LLMScorer).isMemoryAugmented : undefined,
     evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,
     ...outputTypeFormFields,
   };

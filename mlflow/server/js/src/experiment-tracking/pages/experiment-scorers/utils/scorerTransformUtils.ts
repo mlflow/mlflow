@@ -251,8 +251,6 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       } as LLMScorer;
     } else if (serializedData.memory_augmented_judge_data) {
       // Memory-augmented judge (optimized with MemAlign) - unwrap the base judge.
-      // Stash the original serialized_scorer so it survives UI edit round-trips.
-      const memBaseFields = { ...baseFields, rawSerializedScorer: config.serialized_scorer };
       const memData = serializedData.memory_augmented_judge_data;
       const baseJudge = memData.base_judge || {};
       const semanticGuidelines: string[] = (memData.semantic_memory || [])
@@ -273,7 +271,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         }
 
         return {
-          ...memBaseFields,
+          ...baseFields,
           type: 'llm',
           llmTemplate: LLM_TEMPLATE.CUSTOM,
           instructions,
@@ -290,7 +288,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         }
         const model = baseJudge.builtin_scorer_pydantic_data?.model;
         return {
-          ...memBaseFields,
+          ...baseFields,
           type: 'llm',
           llmTemplate: baseJudge.builtin_scorer_class,
           guidelines,
@@ -301,7 +299,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       } else if (baseJudge.builtin_scorer_class) {
         const model = baseJudge.builtin_scorer_pydantic_data?.model;
         return {
-          ...memBaseFields,
+          ...baseFields,
           type: 'llm',
           llmTemplate: baseJudge.builtin_scorer_class,
           model,
@@ -311,7 +309,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       }
       // Unrecognized base judge type — return a minimal LLM scorer
       return {
-        ...memBaseFields,
+        ...baseFields,
         type: 'llm',
         llmTemplate: LLM_TEMPLATE.CUSTOM,
         instructions: '',
@@ -378,13 +376,6 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
 
   if (isEvaluatingSessionsInScorersEnabled() && !isUndefined(scorer.isSessionLevelScorer)) {
     baseSerializedScorer.is_session_level_scorer = scorer.isSessionLevelScorer;
-  }
-
-  // For scorers with a stashed raw blob (e.g. memory-augmented judges), preserve
-  // the original serialized_scorer and only update the outer config fields.
-  if (scorer.rawSerializedScorer) {
-    config.serialized_scorer = scorer.rawSerializedScorer;
-    return config;
   }
 
   // Build serialized_scorer based on scorer type
