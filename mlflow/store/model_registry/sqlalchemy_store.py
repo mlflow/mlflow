@@ -121,8 +121,6 @@ class SqlAlchemyStore(AbstractStore):
                 <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
                 for format specifications. MLflow supports the dialects ``mysql``,
                 ``mssql``, ``sqlite``, and ``postgresql``.
-            default_artifact_root: Path/URI to location suitable for large data (such as a blob
-                store object, DBFS path, or shared NFS file system).
         """
         super().__init__()
         self.db_uri = db_uri
