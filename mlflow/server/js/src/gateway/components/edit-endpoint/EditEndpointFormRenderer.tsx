@@ -19,6 +19,7 @@ import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 import { EditableEndpointName } from './EditableEndpointName';
+import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
 
 export interface EditEndpointFormRendererProps {
@@ -213,64 +214,64 @@ export const EditEndpointFormRenderer = ({
             </div>
           </div>
 
-          <div css={{ display: 'flex', gap: theme.spacing.md }}>
-            <div
-              css={{
-                flex: 1,
-                padding: theme.spacing.md,
-                border: `1px solid ${theme.colors.border}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                backgroundColor: theme.colors.backgroundSecondary,
-              }}
-            >
-              <Typography.Title level={3}>
-                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
-              </Typography.Title>
+          {/* Usage Tracking section with experiment selector */}
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+            </Typography.Title>
 
-              <div css={{ marginTop: theme.spacing.md }}>
-                <Controller
-                  control={form.control}
-                  name="usageTracking"
-                  render={({ field: usageTrackingField }) => (
-                    <Controller
-                      control={form.control}
-                      name="experimentId"
-                      render={({ field: experimentIdField }) => (
-                        <UsageTrackingConfigurator
-                          value={usageTrackingField.value}
-                          onChange={usageTrackingField.onChange}
-                          experimentId={experimentIdField.value}
-                          onExperimentIdChange={experimentIdField.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
-                        />
-                      )}
-                    />
-                  )}
-                />
-              </div>
+            <div css={{ marginTop: theme.spacing.md }}>
+              <Controller
+                control={form.control}
+                name="usageTracking"
+                render={({ field: usageTrackingField }) => (
+                  <Controller
+                    control={form.control}
+                    name="experimentId"
+                    render={({ field: experimentIdField }) => (
+                      <UsageTrackingConfigurator
+                        value={usageTrackingField.value}
+                        onChange={usageTrackingField.onChange}
+                        experimentId={experimentIdField.value}
+                        onExperimentIdChange={experimentIdField.onChange}
+                        componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
+                      />
+                    )}
+                  />
+                )}
+              />
             </div>
+          </div>
 
-            <div
-              css={{
-                flex: 1,
-                padding: theme.spacing.md,
-                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                backgroundColor: theme.colors.backgroundPrimary,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-              }}
-            >
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-              </Typography.Text>
-            </div>
+          {/* Usage charts section - only show if experiment is linked */}
+          {experimentId && <GatewayUsageSection experimentId={experimentId} />}
+
+          {/* Rate Limiting placeholder */}
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundPrimary,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <Typography.Text bold>
+              <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+            </Typography.Text>
           </div>
         </div>
 
