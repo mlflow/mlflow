@@ -332,7 +332,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             if "source" in record:
                 continue
 
-            if "expectations" in record and record["expectations"]:
+            input_keys = set(record.get("inputs", {}).keys())
+            if input_keys & SESSION_IDENTIFIER_FIELDS and input_keys <= SESSION_INPUT_FIELDS:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.SESSION.value,
+                    "source_data": {},
+                }
+            elif "expectations" in record and record["expectations"]:
                 record["source"] = {
                     "source_type": DatasetRecordSourceType.HUMAN.value,
                     "source_data": {},
@@ -374,11 +380,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     f"Consider placing {list(other_fields)} fields inside 'context'."
                 )
 
-            source_type = (
-                record.get("source", {}).get("source_type", "").upper()
-                if isinstance(record.get("source"), dict)
-                else None
-            )
+            source = record.get("source")
+            source_type_raw = source.get("source_type") if isinstance(source, dict) else None
+            source_type = source_type_raw.upper() if source_type_raw else None
             if (
                 source_type == DatasetRecordSourceType.SESSION
                 and record_type != DatasetGranularity.SESSION
