@@ -42,7 +42,8 @@ def update_max_major_version(raw: str, key: str, old_value: int, new_value: int)
     Update the max_major_version value for a specific package using regex.
     This preserves comments and formatting exactly as they appear in the file.
     """
-    pattern = rf"(^{re.escape(key)}:.*?max_major_version:)\s+{old_value}(?=\s|$)"
+    # Use word boundaries to ensure we match the exact number, not a substring
+    pattern = rf"(^{re.escape(key)}:.*?max_major_version:)\s+\b{old_value}\b"
     updated, count = re.subn(
         pattern, rf"\1 {new_value}", raw, count=1, flags=re.DOTALL | re.MULTILINE
     )
