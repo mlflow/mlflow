@@ -562,7 +562,9 @@ class Linter(ast.NodeVisitor):
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
-        if node.name.startswith("_") and not node.name.startswith("__"):
+        if node.name.startswith("_") and not (
+            node.name.startswith("__") and node.name.endswith("__")
+        ):
             return
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             if (doc_args := _parse_docstring_args(docstring_node.value)) and (
