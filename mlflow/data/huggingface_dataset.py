@@ -40,6 +40,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
             ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
                 Other types, such as :py:class:`datasets.DatasetDict`, are not supported.
             source: The source of the Hugging Face dataset.
+            targets: The name of the column containing the target values (labels). If specified,
+                the column must exist in the dataset.
             name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                 automatically generated.
             digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
