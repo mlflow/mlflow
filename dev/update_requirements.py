@@ -42,8 +42,16 @@ def update_max_major_version(raw: str, key: str, old_value: int, new_value: int)
     Update the max_major_version value for a specific package using regex.
     This preserves comments and formatting exactly as they appear in the file.
     """
-    pattern = rf"(^{re.escape(key)}:.*?max_major_version:) {old_value}"
-    return re.sub(pattern, rf"\1 {new_value}", raw, count=1, flags=re.DOTALL | re.MULTILINE)
+    pattern = rf"(^{re.escape(key)}:.*?max_major_version:)\s+{old_value}(?=\s|$)"
+    updated, count = re.subn(
+        pattern, rf"\1 {new_value}", raw, count=1, flags=re.DOTALL | re.MULTILINE
+    )
+    if count == 0:
+        raise ValueError(
+            f"Failed to update {key}.max_major_version from {old_value} to {new_value}. "
+            "The pattern may not match the YAML structure."
+        )
+    return updated
 
 
 def main() -> None:
