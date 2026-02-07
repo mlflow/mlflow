@@ -4320,7 +4320,6 @@ extras = [
     { name = "pyarrow" },
     { name = "pysftp" },
     { name = "requests-auth-aws-sigv4" },
-    { name = "virtualenv" },
 ]
 gateway = [
     { name = "aiohttp" },
@@ -4551,7 +4550,6 @@ requires-dist = [
     { name = "uvicorn", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'gateway'", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'genai'", specifier = "<1" },
-    { name = "virtualenv", marker = "extra == 'extras'" },
     { name = "waitress", marker = "sys_platform == 'win32'", specifier = "<4" },
     { name = "watchfiles", marker = "extra == 'gateway'", specifier = "<2" },
     { name = "watchfiles", marker = "extra == 'genai'", specifier = "<2" },

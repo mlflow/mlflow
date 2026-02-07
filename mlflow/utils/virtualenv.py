@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import shutil
-import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -62,25 +61,6 @@ def _validate_pyenv_is_available():
     if not _is_pyenv_available():
         raise MlflowException(
             f"Could not find the pyenv binary. See {url} for installation instructions."
-        )
-
-
-def _is_virtualenv_available():
-    """
-    Returns True if virtualenv is available, otherwise False.
-    """
-    return shutil.which("virtualenv") is not None
-
-
-def _validate_virtualenv_is_available():
-    """
-    Validates virtualenv is available. If not, throws an `MlflowException` with a brief instruction
-    on how to install virtualenv.
-    """
-    if not _is_virtualenv_available():
-        raise MlflowException(
-            "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
-            "virtualenv."
         )
 
 
@@ -270,14 +250,7 @@ def _create_virtualenv(
             python_env.python, pyenv_root=python_install_dir, capture_output=capture_output
         )
         _logger.info(f"Creating a new environment in {env_dir} with {python_bin_path}")
-        env_creation_cmd = [
-            sys.executable,
-            "-m",
-            "virtualenv",
-            "--python",
-            python_bin_path,
-            env_dir,
-        ]
+        env_creation_cmd = [python_bin_path, "-m", "venv", env_dir]
         install_deps_cmd_prefix = "python -m pip install"
     elif env_manager == em.UV:
         _logger.info(
@@ -418,7 +391,6 @@ def _get_or_create_virtualenv(
     """
     if env_manager == em.VIRTUALENV:
         _validate_pyenv_is_available()
-        _validate_virtualenv_is_available()
 
     local_model_path = Path(local_model_path)
     python_env = _get_python_env(local_model_path)
