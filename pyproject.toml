@@ -194,7 +194,6 @@ lint = [
   "claude-agent-sdk",
   "pytest",
   "types-requests",
-  "ruamel.yaml",
 ]
 pytest = [
   "pytest==9.0.2",
