@@ -853,13 +853,14 @@ class Linter(ast.NodeVisitor):
         visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
+        prev = self.in_TYPE_CHECKING
         if (resolved := self.resolver.resolve(node.test)) and resolved == [
             "typing",
             "TYPE_CHECKING",
         ]:
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
-        self.in_TYPE_CHECKING = False
+        self.in_TYPE_CHECKING = prev
 
     def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         visitor = rules.WalrusOperatorVisitor()
