@@ -104,28 +104,20 @@ response = chain.invoke({"num_sentences": 1, "sentences": "This is a test senten
 print(response)
 ```
 
-## Linking Prompts to Logged Models for Full Lineage
-
-For complete reproducibility and traceability, it is crucial to log which specific prompt versions your application (or model) uses. When you log your GenAI application as an MLflow Model (e.g., using `mlflow.pyfunc.log_model()`, `mlflow.langchain.log_model()`, etc.), you should include information about the prompts from the registry that it utilizes.
-
-MLflow is designed to facilitate this. When a model is logged, and that model's code loads prompts using the `prompts:/` URI via `mlflow.genai.load_prompt()`, MLflow can automatically record these prompt dependencies as part of the logged model's metadata.
 
 ### Automatic Prompt Linking
 
 ### Linking with Trace
 
-When you load prompts (via `mlflow.genai.load_prompt()`) from the registry within traced functions (annotated with `@mlflow.trace`), MLflow automatically tracks which prompts are being used and creates a linkage with the active trace that is visible in the MLflow UI. This provides immediate visibility into prompt usage and enables you to compare your agent's behavior across different prompt versions.
-
-### Linking with Run
-
-Similarly, when you load prompts from the registry during an MLflow run (inside a `with mlflow.start_run():` block), MLflow automatically records which prompt versions are used in that run. This linkage appears in the run's metadata and the MLflow UI, making it easy to track prompt dependencies for reproducibility and auditability.
-
-### Example
+When you load prompts (via `mlflow.genai.load_prompt()`) from the registry within traced functions, MLflow automatically tracks which prompts are being used and creates a linkage with the active trace that is visible in the MLflow UI. This provides immediate visibility into prompt usage and enables you to compare your agent's behavior across different prompt versions.
 
 ```python
+from openai import OpenAI
+
+
 @mlflow.trace
 def question(name):
-    # Load the prompt - this creates an automatic link
+    # Load the prompt - this creates an automatic link to the trace
     prompt = mlflow.genai.load_prompt("prompts:/question@latest")
     client = OpenAI()
 
@@ -138,18 +130,39 @@ def question(name):
     return response.choices[0].message.content
 
 
-# Use the traced function within a run
-with mlflow.start_run():
-    question("1+1")
+question("1+1")  # The prompt is linked to the trace created for this call
 ```
-
-### Prompt-trace linking UI
 
 ![UI for Prompt-trace linkage](/images/llms/prompt-registry/prompt-trace-linking.png)
 
-### Prompt-run linking UI
+### Linking with Run
+
+Similarly, when you load prompts from the registry during an MLflow run (e.g., inside a `with mlflow.start_run():` block), MLflow automatically records which prompt versions are used in that run. This linkage appears in the run's metadata and the MLflow UI, making it easy to track prompt dependencies for reproducibility and auditability.
+
+```python
+from openai import OpenAI
+
+with mlflow.start_run():
+    # Load the prompt - this creates an automatic link to the run
+    prompt = mlflow.genai.load_prompt("prompts:/question@latest")
+    client = OpenAI()
+
+    messages = [{"role": "user", "content": prompt.format(name="1+1")}]
+
+    response = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=messages,
+    )
+    response.choices[0].message.content
+```
 
 ![Prompt-run linking in run overview](/images/llms/prompt-registry/prompt-run-linking.png)
+
+## Linking Prompts to Logged Models for Full Lineage
+
+For complete reproducibility and traceability, it is crucial to log which specific prompt versions your application (or model) uses. When you log your GenAI application as an MLflow Model (e.g., using `mlflow.pyfunc.log_model()`, `mlflow.langchain.log_model()`, etc.), you should include information about the prompts from the registry that it utilizes.
+
+MLflow is designed to facilitate this. When a model is logged, and that model's code loads prompts using the `prompts:/` URI via `mlflow.genai.load_prompt()`, MLflow can automatically record these prompt dependencies as part of the logged model's metadata.
 
 **Benefits of this linkage:**
 
