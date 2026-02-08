@@ -62,7 +62,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "virtualenv",
   "prometheus-flask-exporter",
 ]
 db = ["PyMySQL", "psycopg2-binary", "pymssql"]
