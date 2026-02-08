@@ -16,6 +16,8 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.gateway.utils import parse_sse_lines
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
@@ -556,6 +558,48 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Anthropic passthrough response.
+
+        Anthropic response format:
+        {
+            "usage": {
+                "input_tokens": int,
+                "output_tokens": int
+            }
+        }
+        """
+        return self._extract_token_usage_from_dict(
+            result.get("usage"), "input_tokens", "output_tokens"
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Anthropic streaming chunks.
+
+        Anthropic streaming format:
+        - message_start event: {"message": {"usage": {"input_tokens": X}}}
+        - message_delta event: {"usage": {"output_tokens": Y}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+            Total is calculated by the base class after accumulation.
+        """
+        usage: dict[str, int] = {}
+        for data in parse_sse_lines(chunk):
+            match data:
+                case {
+                    "type": "message_start",
+                    "message": {"usage": {"input_tokens": int(input_tokens)}},
+                }:
+                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        return usage
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -570,12 +614,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

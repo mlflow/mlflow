@@ -366,9 +366,9 @@ class Linter(ast.NodeVisitor):
             path: Path to the file being linted.
             config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
+            index: Symbol index for resolving function signatures.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Position offset to apply to the line and column numbers of the violations.
-            index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
         self.path = path
@@ -562,7 +562,9 @@ class Linter(ast.NodeVisitor):
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
-        if node.name.startswith("_"):
+        if node.name.startswith("_") and not (
+            node.name.startswith("__") and node.name.endswith("__")
+        ):
             return
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             if (doc_args := _parse_docstring_args(docstring_node.value)) and (
@@ -851,13 +853,14 @@ class Linter(ast.NodeVisitor):
         visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
+        prev = self.in_TYPE_CHECKING
         if (resolved := self.resolver.resolve(node.test)) and resolved == [
             "typing",
             "TYPE_CHECKING",
         ]:
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
-        self.in_TYPE_CHECKING = False
+        self.in_TYPE_CHECKING = prev
 
     def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         visitor = rules.WalrusOperatorVisitor()
