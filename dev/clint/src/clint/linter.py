@@ -20,7 +20,7 @@ from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
-DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
+DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 
@@ -39,7 +39,9 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if tok.type != tokenize.COMMENT:
             continue
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
+            line = tok.start[0] - 1
+            for rule in m.group(1).split(","):
+                mapping.setdefault(rule.strip(), set()).add(line)
     return mapping
 
 
