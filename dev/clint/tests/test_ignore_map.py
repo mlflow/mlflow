@@ -47,7 +47,7 @@ y = 2
     assert mapping == {}
 
 
-def test_ignore_map_mixed_spacing() -> None:
+def test_ignore_map_handles_various_spacing_around_commas() -> None:
     code = """
 a = 1  # clint: disable=rule-a,rule-b
 b = 2  # clint: disable=rule-c, rule-d
