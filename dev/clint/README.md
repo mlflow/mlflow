@@ -35,6 +35,12 @@ foo()  # clint: disable=<rule_name>
 
 Replace `<rule_name>` with the actual rule you want to disable.
 
+To disable multiple rules on the same line, use comma-separated rule names:
+
+```python
+foo()  # clint: disable=rule-a,rule-b
+```
+
 The rule name is shown in the error message. For example:
 
 ```
