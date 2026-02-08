@@ -22,7 +22,7 @@ MLflow supports two approaches for evaluating conversations:
 
 <TabsWrapper>
 <Tabs>
-<TabItem value="static" label="Static Evaluation" default>
+<TabItem value="static" label="Evaluating Pre-Generated Conversations" default>
 
 **Evaluate existing conversations** that have already been traced.
 
@@ -53,7 +53,7 @@ results = mlflow.genai.evaluate(
 ```
 
 </TabItem>
-<TabItem value="dynamic" label="Dynamic Evaluation (Simulation)">
+<TabItem value="dynamic" label="Simulating Conversations during Evaluation">
 
 **Generate new conversations** by simulating user interactions with your agent.
 
@@ -125,9 +125,9 @@ import os
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
 ```
 
-## Static Evaluation
+## Evaluating Pre-Generated Conversations
 
-Static evaluation analyzes conversations that have already been traced. This is useful for evaluating production data or pre-recorded test conversations.
+Evaluate conversations that have already been traced. This is useful for evaluating production data or pre-recorded test conversations.
 
 ### Step 1: Tag traces with session IDs
 
@@ -188,9 +188,9 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-## Dynamic Evaluation (Simulation)
+## Simulating Conversations during Evaluation
 
-Dynamic evaluation generates new conversations by simulating user interactions. This enables testing different agent versions with consistent goals and personas.
+Generate new conversations by simulating user interactions. This enables testing different agent versions with consistent goals and personas.
 
 ```python
 import mlflow
@@ -235,19 +235,7 @@ For complete documentation on conversation simulation, including test case defin
 
 ### Built-in Judges
 
-MLflow provides built-in judges for evaluating conversations:
-
-| Scorer                                                                                                         | Description                                                   | Return Values                             |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>                 | Evaluates whether the agent addressed all user questions      | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>                 | Evaluates compliance with provided guidelines                 | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink>           | Evaluates if the assistant maintains its assigned role        | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink>                         | Evaluates if responses are safe and free of harmful content   | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink> | Evaluates if tool usage across the conversation was efficient | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>                             | Evaluates if the agent retains information from earlier turns | `"yes"` or `"no"`                         |
-| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>                                   | Detects and tracks user frustration patterns                  | `"none"`, `"resolved"`, or `"unresolved"` |
-
-See the [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn) page for detailed usage examples and API documentation.
+MLflow provides built-in multi-turn judges including `ConversationCompleteness`, `UserFrustration`, `KnowledgeRetention`, and more. See the [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn) page for the full list, usage examples, and API documentation.
 
 ### Custom Judges
 
