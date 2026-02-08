@@ -121,26 +121,46 @@ The plugin Python file will be used when you deploy the mlflow server.
 2. In the created user pool, select menu: Applications -> App Clients -> Create app client, and create a app client of Traditional web application, and set the return URL to the OIDC redirect URL like "http://localhost:8080/callback". Then, edit the "Managed login pages configuration" for the app client as follows:
 ![AWS Cognito app setting](/images/self-hosting/aws-cognito-app-setting.png)
 
-3.
+3. In the created user pool, select menu: User Management -> Groups -> Create Group, create 2 user groups: "mlflow" and "mlflow-admin" as follows:
+![AWS user groups](/images/self-hosting/aws-cognito-create-groups.png)
+
+4. In the created user pool, select menu: User Management -> Users -> Create user, Create users and assign user to either "mlflow" or "mlflow-admin" group as follows:
+![AWS users](/images/self-hosting/aws-cognito-create-users.png)
+
+
+#### Azure Entra ID configuration
+
+1. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> App registrations, register an application as follows:
+![Azure create app](/images/self-hosting/azure-entra-create-app.png)
+
+2. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> Groups -> New group, create 2 groups "mlflow" and "mlflow-admin" as follows:
+![Azure create groups](/images/self-hosting/azure-entra-groups.png)
+
+3. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> Users -> New user, create users and assign users to mlflow or mlflow-admin groups as follows:
+![Azure create users](/images/self-hosting/azure-entra-add-users.png)
+
+4. In the registered application, select menu: Manage -> Token configuration -> Add groups claim, add group claims as follows:
+![Azure group claims](/images/self-hosting/azure-entra-add-group-claim.png)
+
 
 ### Deploy MLflow server with the OIDC plugin
 
-Use the following commands to deploy the MLflow server with the OIDC plugin, note that we need to set a couple of environment variables correctly.
+Install mlflow OIDC auth plugin as follows:
 
 ```bash
 pip install "mlflow-oidc-auth[full]"
+```
 
-# If using Okta Auth0, the URL is "https://${Domain}/.well-known/openid-configuration",
-# the ${Domain} is the domain value that you can view on the Okta application's basic information page.
-# If using Google Identity Platform, the URL is "https://accounts.google.com/.well-known/openid-configuration"
-export OIDC_DISCOVERY_URL=...
+Before launching the mlflow server with the OIDC plugin, a couple of environment variables must be set.
+The following commands set the environment variables that are common for Okta Auth0 / Google Identity platform / AWS Cognito / Azure Entra ID:
 
-# You can view the OIDC_CLIENT_ID and OIDC_CLIENT_SECRET values on the Okta application's basic information page.
-# or in the Google OAuth credentials configuration page.
+```bash
+# You can view the OIDC client ID and client secret value in the application information page in
+# the Okta Auth0 / Google Identity platform / AWS Cognito / Azure Entra ID portal.
 export OIDC_CLIENT_ID=...
 export OIDC_CLIENT_SECRET=...
 
-# this is the callback URL that is configured for the OIDC application.
+# this is the callback URL (redirect URI) that is configured for the OIDC application.
 export OIDC_REDIRECT_URI="http://localhost:8080/callback"
 
 # NOTE: OAuth 2.0 and OIDC define the scope parameter as a space-separated list of scope values
@@ -150,17 +170,61 @@ export OIDC_SCOPE="openid profile email"
 # If you don't set it, the app will use an auto-generated key that changes on server restart / UI page reloading
 # and breaks sessions.
 export SECRET_KEY="your-stable-secret-at-least-32-chars-long"
+```
 
-# NOTE: `OIDC_GROUPS_ATTRIBUTE` is only required for Okta Auth0 that configures the post-login trigger.
-# this must match the key used in the Okta post-login trigger action "api.idToken.setCustomClaim"
+then, we need to set specific environment variables for different OIDC cloud providers:
+
+For Okta Auth0, we need to set:
+
+```bash
+# The ${domain} is the domain value that you can view on the Okta application's basic information page.
+export OIDC_DISCOVERY_URL="https://${domain}/.well-known/openid-configuration"
+
+# this value must match the key used in the Okta post-login trigger action "api.idToken.setCustomClaim"
 export OIDC_GROUPS_ATTRIBUTE="urn:mlflow:groups"
+```
 
-# NOTE: `OIDC_GROUP_DETECTION_PLUGIN` is only required for Google Identity Platform configuration.
+For Google Identity Platform, we need to set:
+
+```bash
+export OIDC_DISCOVERY_URL="https://accounts.google.com/.well-known/openid-configuration"
+
+# `OIDC_GROUP_DETECTION_PLUGIN` is only required for Google Identity Platform configuration.
 # assuming you put the plugin Python file under current directory and the file name is
 # 'google_oidc_auth_plugin.py'. For plugin code, please refer to the section
 # "Google Identity Platform configuration".
 export OIDC_GROUP_DETECTION_PLUGIN=google_oidc_auth_plugin
+```
 
+For Aws Cognito, we need to set:
+
+```bash
+# The ${region} is your AWS account region, e.g. "ap-southeast-2"
+# The ${user_pool_id} is the user pool ID, e.g. ap-southeast-2_XXXXXXXXX
+export OIDC_DISCOVERY_URL="https://cognito-idp.${region}.amazonaws.com/${user_pool_id}/.well-known/openid-configuration"
+
+export OIDC_GROUPS_ATTRIBUTE=cognito:groups
+```
+
+
+For Azure Entra ID, we need to set:
+
+```bash
+
+# You can view the ${tenant-id} in the "overview" page of the Azure Entra ID portal.
+export OIDC_DISCOVERY_URL="https://login.microsoftonline.com/${tenant-id}/v2.0/.well-known/openid-configuration"
+
+# The OIDC_GROUP_NAME must be set to the ID of "mlflow" group that is created in Azure Entra.
+# You can view the group ID in the Azure Entra "all groups" portal.
+export OIDC_GROUP_NAME=<the corresponding Azure Entra group ID>
+# The OIDC_GROUP_NAME must be set to the ID of "mlflow-admin" group that is created in Azure Entra.
+# You can view the group ID in the Azure Entra "all groups" portal.
+export OIDC_ADMIN_GROUP_NAME=<the corresponding Azure Entra group ID>
+
+```
+
+After all environment variables are set, we can start the MLflow server with the OIDC plugin enabled as follows:
+```bash
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 ```
 
