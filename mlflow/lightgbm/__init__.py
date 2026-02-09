@@ -313,8 +313,9 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
             _logger.warning(
                 "Saving the models in the pickle or cloudpickle format requires exercising "
                 "caution because these formats rely on Python's object serialization mechanism, "
-                "which can execute arbitrary code during deserialization."
-                "The recommended safe alternative is the 'skops' format.",
+                "which can execute arbitrary code during deserialization. "
+                "The recommended safe alternative is the 'skops' format. "
+                "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             )
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
