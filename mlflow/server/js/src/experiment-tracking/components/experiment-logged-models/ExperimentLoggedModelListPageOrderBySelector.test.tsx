@@ -6,7 +6,6 @@ import { render, screen, waitFor, within } from '../../../common/utils/TestUtils
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
@@ -80,9 +79,7 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
     return render(<TestComponent />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <TooltipProvider>
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </TooltipProvider>
+          <DesignSystemProvider>{children}</DesignSystemProvider>
         </IntlProvider>
       ),
     });

@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
@@ -34,13 +33,11 @@ const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode
 
   return (
     <IntlProvider locale="en">
-      <TooltipProvider>
-        <DesignSystemProvider>
-          <QueryClientProvider client={queryClient}>
-            <AssessmentSchemaContextProvider assessments={assessments}>{children}</AssessmentSchemaContextProvider>
-          </QueryClientProvider>
-        </DesignSystemProvider>
-      </TooltipProvider>
+      <DesignSystemProvider>
+        <QueryClientProvider client={queryClient}>
+          <AssessmentSchemaContextProvider assessments={assessments}>{children}</AssessmentSchemaContextProvider>
+        </QueryClientProvider>
+      </DesignSystemProvider>
     </IntlProvider>
   );
 };

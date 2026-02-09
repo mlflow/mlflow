@@ -3,8 +3,7 @@ import { Header, TableSkeleton, TitleSkeleton, useDesignSystemTheme } from '@dat
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useCreateWorkspaceModal } from './components/CreateWorkspaceModal';
-import { useNavigate } from '../common/utils/RoutingUtils';
-import { setActiveWorkspace, WORKSPACE_QUERY_PARAM } from '../workspaces/utils/WorkspaceUtils';
+import { setLastUsedWorkspace, WORKSPACE_QUERY_PARAM } from '../workspaces/utils/WorkspaceUtils';
 
 // Loaders and lazy imports for expensive components
 import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
@@ -14,13 +13,13 @@ const WorkspacesHomeView = React.lazy(() => import('./components/WorkspacesHomeV
 
 const WorkspaceLandingPage = () => {
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
 
   const { CreateWorkspaceModal, openModal } = useCreateWorkspaceModal({
     onSuccess: (workspaceName: string) => {
-      // Set the newly created workspace as active and navigate to home with workspace query param
-      setActiveWorkspace(workspaceName);
-      navigate(`/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspaceName)}`);
+      // Persist to localStorage then hard reload to cleanly switch to the new workspace
+      setLastUsedWorkspace(workspaceName);
+      window.location.hash = `#/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspaceName)}`;
+      window.location.reload();
     },
   });
 

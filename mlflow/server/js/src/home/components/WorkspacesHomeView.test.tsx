@@ -116,13 +116,23 @@ describe('WorkspacesHomeView', () => {
       refetch: jest.fn(),
     });
 
+    // Mock window.location for hard reload workspace switching
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, hash: '', reload: jest.fn() },
+    });
+
     renderComponent();
 
     const workspaceLink = screen.getByText('ml-research');
     await userEvent.click(workspaceLink);
 
-    // Now uses query param instead of path prefix
-    expect(mockNavigate).toHaveBeenCalledWith('/?workspace=ml-research');
+    // Hard reload with workspace query param
+    expect(window.location.hash).toBe('#/?workspace=ml-research');
+    expect(window.location.reload).toHaveBeenCalled();
+
+    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('encodes workspace name in URL', async () => {
@@ -133,13 +143,23 @@ describe('WorkspacesHomeView', () => {
       refetch: jest.fn(),
     });
 
+    // Mock window.location for hard reload workspace switching
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, hash: '', reload: jest.fn() },
+    });
+
     renderComponent();
 
     const workspaceLink = screen.getByText('team-a/special');
     await userEvent.click(workspaceLink);
 
-    // Now uses query param instead of path prefix
-    expect(mockNavigate).toHaveBeenCalledWith('/?workspace=team-a%2Fspecial');
+    // Hard reload with encoded workspace query param
+    expect(window.location.hash).toBe('#/?workspace=team-a%2Fspecial');
+    expect(window.location.reload).toHaveBeenCalled();
+
+    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('shows create new workspace button when workspaces exist', () => {

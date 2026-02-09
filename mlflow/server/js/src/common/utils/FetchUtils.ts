@@ -482,8 +482,9 @@ export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
     ...(body && { body: serializeRequestBody(body) }),
   };
 
-  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-  const response = await fetch(url, fetchOptions);
+  // eslint-disable-next-line no-restricted-globals
+  const fetchFn = fetch;
+  const response = await fetchFn(url, fetchOptions);
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
     if (predefinedError) {

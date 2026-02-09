@@ -14,7 +14,6 @@ import {
   getMockedRegisteredPromptVersionSetTagsResponse,
 } from './test-utils';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { rest } from 'msw';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -31,11 +30,9 @@ describe('PromptsPage', () => {
           <TestRouter
             routes={[
               testRoute(
-                <TooltipProvider>
-                  <DesignSystemProvider>
-                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-                  </DesignSystemProvider>
-                </TooltipProvider>,
+                <DesignSystemProvider>
+                  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                </DesignSystemProvider>,
                 '/',
               ),
               testRoute(<div />, '*'),
@@ -227,11 +224,9 @@ describe('PromptsPage', () => {
             <TestRouter
               routes={[
                 testRoute(
-                  <TooltipProvider>
-                    <DesignSystemProvider>
-                      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-                    </DesignSystemProvider>
-                  </TooltipProvider>,
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
                   '/',
                 ),
                 testRoute(<div />, '*'),
@@ -272,11 +267,9 @@ describe('PromptsPage', () => {
             <TestRouter
               routes={[
                 testRoute(
-                  <TooltipProvider>
-                    <DesignSystemProvider>
-                      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-                    </DesignSystemProvider>
-                  </TooltipProvider>,
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
                   '/',
                 ),
                 testRoute(<div />, '*'),
@@ -340,11 +333,9 @@ describe('PromptsPage', () => {
             <TestRouter
               routes={[
                 testRoute(
-                  <TooltipProvider>
-                    <DesignSystemProvider>
-                      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-                    </DesignSystemProvider>
-                  </TooltipProvider>,
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
                   '/',
                 ),
                 testRoute(<div />, '*'),

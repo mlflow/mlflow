@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { MemoryRouter, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { IntlProvider } from 'react-intl';
 
@@ -49,9 +48,7 @@ describe('ExperimentViewRunsSortSelectorV2', () => {
       wrapper: ({ children }) => (
         <MemoryRouter>
           <IntlProvider locale="en">
-            <TooltipProvider>
-              <DesignSystemProvider>{children}</DesignSystemProvider>
-            </TooltipProvider>
+            <DesignSystemProvider>{children}</DesignSystemProvider>
           </IntlProvider>
         </MemoryRouter>
       ),

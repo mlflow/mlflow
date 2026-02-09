@@ -777,19 +777,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span status filters with EQUALS operator', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -817,10 +814,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.status = 'ERROR'`,
       max_results: 10000,

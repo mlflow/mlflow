@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import {
   ExperimentLoggedModelListPageKnownColumns,
   useExperimentLoggedModelListPageTableColumns,
@@ -62,9 +61,7 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
     render(<TestComponent />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <TooltipProvider>
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </TooltipProvider>
+          <DesignSystemProvider>{children}</DesignSystemProvider>
         </IntlProvider>
       ),
     });

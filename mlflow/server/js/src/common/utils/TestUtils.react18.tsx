@@ -5,7 +5,6 @@ import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 const defaultIntlProviderProps = {
   locale: DEFAULT_LOCALE,
@@ -16,9 +15,7 @@ const defaultIntlProviderProps = {
 export function renderWithDesignSystem(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <IntlProvider {...defaultIntlProviderProps}>
-      <TooltipProvider>
-        <DesignSystemProvider {...providerProps}>{children}</DesignSystemProvider>
-      </TooltipProvider>
+      <DesignSystemProvider {...providerProps}>{children}</DesignSystemProvider>
     </IntlProvider>
   );
 
@@ -31,9 +28,7 @@ export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, provi
     ...providerProps,
   };
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <IntlProvider {...mergedProviderProps}>
-      <TooltipProvider>{children}</TooltipProvider>
-    </IntlProvider>
+    <IntlProvider {...mergedProviderProps}>{children}</IntlProvider>
   );
 
   return render(ui, { wrapper, ...renderOptions });

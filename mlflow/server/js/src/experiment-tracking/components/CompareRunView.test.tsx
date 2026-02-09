@@ -4,17 +4,14 @@ import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import CompareRunView from './CompareRunView';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('CompareRunView', () => {
   const wrapper = ({ children }: { children?: React.ReactNode }) => (
     <IntlProvider locale="en">
-      <TooltipProvider>
-        <DesignSystemProvider>
-          <TestRouter routes={[testRoute(<>{children}</>)]} />
-        </DesignSystemProvider>
-      </TooltipProvider>
+      <DesignSystemProvider>
+        <TestRouter routes={[testRoute(<>{children}</>)]} />
+      </DesignSystemProvider>
     </IntlProvider>
   );
   test('Will display title for two runs', async () => {

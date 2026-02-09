@@ -27,7 +27,6 @@ const ExperimentPageRoutePathToTabNameMap = map(
 const getTabNameFromRoutePath = (pathname: string) =>
   ExperimentPageRoutePathToTabNameMap
     // Find the first route path that matches the given pathname
-    // Note: With query param-based workspace routing, pathname no longer contains workspace prefix
     .find(({ routePath }) => Boolean(matchPath(routePath, pathname)))?.tabName;
 
 // Maps exact tab names to top-level tab names

@@ -17,7 +17,6 @@ import {
 } from './test-utils';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
@@ -40,22 +39,20 @@ describe('PromptsDetailsPage', () => {
     render(<PromptsDetailsPage />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <TooltipProvider>
-            <DesignSystemProvider>
-              <MockedReduxStoreProvider>
-                <TestRouter
-                  routes={[
-                    testRoute(
-                      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-                      '/prompt/:promptName',
-                    ),
-                    testRoute(<div />, '*'),
-                  ]}
-                  initialEntries={['/prompt/prompt1']}
-                />
-              </MockedReduxStoreProvider>
-            </DesignSystemProvider>
-          </TooltipProvider>
+          <DesignSystemProvider>
+            <MockedReduxStoreProvider>
+              <TestRouter
+                routes={[
+                  testRoute(
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+                    '/prompt/:promptName',
+                  ),
+                  testRoute(<div />, '*'),
+                ]}
+                initialEntries={['/prompt/prompt1']}
+              />
+            </MockedReduxStoreProvider>
+          </DesignSystemProvider>
         </IntlProvider>
       ),
     });

@@ -16,9 +16,13 @@ import {
   Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link, useNavigate } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
-import { getLastUsedWorkspace, setActiveWorkspace, WORKSPACE_QUERY_PARAM } from '../../workspaces/utils/WorkspaceUtils';
+import {
+  getLastUsedWorkspace,
+  setLastUsedWorkspace,
+  WORKSPACE_QUERY_PARAM,
+} from '../../workspaces/utils/WorkspaceUtils';
 import { useUpdateWorkspace } from '../../workspaces/hooks/useUpdateWorkspace';
 import Utils from '../../common/utils/Utils';
 
@@ -60,7 +64,6 @@ const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => 
 
 const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastUsed: boolean }) => {
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
   const intl = useIntl();
   const { mutate: updateWorkspace, isLoading: isPending } = useUpdateWorkspace();
 
@@ -68,9 +71,10 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
   const [editValue, setEditValue] = useState('');
 
   const handleNameClick = () => {
-    setActiveWorkspace(workspace.name);
-    // Navigate to the home page with workspace query param
-    navigate(`/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`);
+    // Persist to localStorage for UI hints then hard reload to cleanly switch workspace
+    setLastUsedWorkspace(workspace.name);
+    window.location.hash = `#/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`;
+    window.location.reload();
   };
 
   const handleEditClick = (field: 'description' | 'artifact_root', currentValue: string | null | undefined) => {

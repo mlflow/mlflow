@@ -14,10 +14,10 @@ import { uniqBy } from 'lodash';
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import {
   extractWorkspaceFromSearchParams,
-  setActiveWorkspace,
+  setLastUsedWorkspace,
   WORKSPACE_QUERY_PARAM,
 } from '../../workspaces/utils/WorkspaceUtils';
-import { useLocation, useNavigate, useSearchParams } from '../../common/utils/RoutingUtils';
+import { useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useWorkspaces, type Workspace } from '../hooks/useWorkspaces';
 
 export const WorkspaceSelector = () => {
@@ -25,7 +25,6 @@ export const WorkspaceSelector = () => {
   const [searchValue, setSearchValue] = useState('');
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate({ bypassWorkspacePrefix: true });
   const { theme } = useDesignSystemTheme();
 
   // Extract workspace from query param
@@ -48,18 +47,16 @@ export const WorkspaceSelector = () => {
         return;
       }
 
-      setActiveWorkspace(nextWorkspace);
+      // Persist to localStorage for UI hints
+      setLastUsedWorkspace(nextWorkspace);
 
-      // Smart redirect - preserve navigation section with workspace query param
+      // Hard reload to cleanly switch workspace context (clears all caches)
       const currentSection = getNavigationSection(location.pathname);
       const targetPath = currentSection || '/';
-      const newParams = new URLSearchParams(searchParams);
-      newParams.set(WORKSPACE_QUERY_PARAM, nextWorkspace);
-
-      navigate(`${targetPath}?${newParams.toString()}`);
-      setSearchValue(''); // Clear search on selection
+      window.location.hash = `#${targetPath}?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(nextWorkspace)}`;
+      window.location.reload();
     },
-    [currentWorkspace, location.pathname, searchParams, navigate],
+    [currentWorkspace, location.pathname],
   );
 
   // Refresh workspaces when combobox is opened to catch label selector changes

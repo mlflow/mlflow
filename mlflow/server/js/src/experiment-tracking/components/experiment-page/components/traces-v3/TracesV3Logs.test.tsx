@@ -9,7 +9,6 @@ jest.setTimeout(30000);
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import {
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
@@ -96,13 +95,11 @@ const renderComponent = (props = {}) => {
         testRoute(
           <IntlProvider locale="en">
             <QueryClientProvider client={queryClient}>
-              <TooltipProvider>
-                <DesignSystemProvider>
-                  <GenAITracesTableProvider isGroupedBySession={false}>
-                    <TracesV3Logs experimentId="test-experiment" endpointName="test-endpoint" {...props} />
-                  </GenAITracesTableProvider>
-                </DesignSystemProvider>
-              </TooltipProvider>
+              <DesignSystemProvider>
+                <GenAITracesTableProvider isGroupedBySession={false}>
+                  <TracesV3Logs experimentId="test-experiment" endpointName="test-endpoint" {...props} />
+                </GenAITracesTableProvider>
+              </DesignSystemProvider>
             </QueryClientProvider>
           </IntlProvider>,
         ),

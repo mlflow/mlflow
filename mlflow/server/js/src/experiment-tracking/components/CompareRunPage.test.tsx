@@ -7,7 +7,6 @@ import { setupTestRouter, testRoute, TestRouter } from '../../common/utils/Routi
 import { setupServer } from '../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -75,11 +74,9 @@ describe('CompareRunPage', () => {
           }
         >
           <IntlProvider locale="en">
-            <TooltipProvider>
-              <DesignSystemProvider>
-                <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={[routerUrl]} />
-              </DesignSystemProvider>
-            </TooltipProvider>
+            <DesignSystemProvider>
+              <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={[routerUrl]} />
+            </DesignSystemProvider>
           </IntlProvider>
         </MockedReduxStoreProvider>
       ),

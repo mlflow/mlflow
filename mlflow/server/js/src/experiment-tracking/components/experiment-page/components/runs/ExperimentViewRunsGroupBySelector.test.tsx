@@ -5,7 +5,6 @@ import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.se
 import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-utils';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 import { useState } from 'react';
@@ -66,9 +65,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     return render(<TestComponent />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <TooltipProvider>
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </TooltipProvider>
+          <DesignSystemProvider>{children}</DesignSystemProvider>
         </IntlProvider>
       ),
     });

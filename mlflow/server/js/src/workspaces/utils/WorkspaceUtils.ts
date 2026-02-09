@@ -4,13 +4,11 @@ const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
 export const WORKSPACE_QUERY_PARAM = 'workspace';
 
 let activeWorkspace: string | null = null;
-const listeners = new Set<(workspace: string | null) => void>();
 
 export const getActiveWorkspace = () => activeWorkspace;
 
 export const setActiveWorkspace = (workspace: string | null) => {
   activeWorkspace = workspace;
-  listeners.forEach((listener) => listener(activeWorkspace));
   if (workspace) {
     setLastUsedWorkspace(workspace);
   }
@@ -29,15 +27,6 @@ export const getLastUsedWorkspace = (): string | null => {
   } catch {
     return null;
   }
-};
-
-/** Subscribe to workspace changes. Returns unsubscribe function. */
-export const subscribeToWorkspaceChanges = (listener: (workspace: string | null) => void) => {
-  listeners.add(listener);
-  listener(getActiveWorkspace());
-  return () => {
-    listeners.delete(listener);
-  };
 };
 
 /**
