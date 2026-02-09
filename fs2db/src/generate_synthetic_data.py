@@ -22,7 +22,6 @@ from typing import Literal
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Metric, Param
 from mlflow.tracking import MlflowClient
 
 MLFLOW_VERSION = Version(mlflow.__version__)
@@ -63,14 +62,14 @@ SIZES: dict[Size, SizeConfig] = {
         prompts=1,
     ),
     "full": SizeConfig(
-        experiments=5,
-        runs_per_exp=5,
-        datasets_per_run=2,
-        traces_per_exp=3,
-        assessments_per_trace=2,
-        logged_models_per_exp=2,
-        registered_models=3,
-        prompts=3,
+        experiments=20,
+        runs_per_exp=50,
+        datasets_per_run=3,
+        traces_per_exp=30,
+        assessments_per_trace=5,
+        logged_models_per_exp=10,
+        registered_models=20,
+        prompts=15,
     ),
 }
 
@@ -104,7 +103,7 @@ def bump(key: str, n: int = 1) -> None:
 
 
 def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
-    """Returns a list of ExperimentData with generated run IDs."""
+    """Create experiments and runs, including edge cases (unicode, NaN, deleted, etc.)."""
     client = MlflowClient()
     result: list[ExperimentData] = []
 
@@ -119,49 +118,84 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
 
         run_ids: list[str] = []
         for run_idx in range(cfg.runs_per_exp):
-            run = client.create_run(
-                exp_id,
+            with mlflow.start_run(
+                experiment_id=exp_id,
                 tags={"run_index": str(run_idx), "source": "synthetic"},
-            )
-            rid = run.info.run_id
-            run_ids.append(rid)
-            bump("runs")
-            bump("run_tags", 2)
+            ) as run:
+                rid = run.info.run_id
+                run_ids.append(rid)
+                bump("runs")
+                bump("run_tags", 2)
 
-            params = [
-                Param("learning_rate", "0.001"),
-                Param("batch_size", "32"),
-                Param("model_type", f"model_v{run_idx}"),
-            ]
-            metrics = [
-                Metric("accuracy", 0.85 + run_idx * 0.01, timestamp=0, step=0),
-                Metric("loss", 0.35 - run_idx * 0.01, timestamp=0, step=0),
-                *[
-                    Metric("train_loss", 1.0 - step * 0.15, timestamp=0, step=step)
-                    for step in range(5)
-                ],
-            ]
-            client.log_batch(rid, params=params, metrics=metrics)
-            bump("params", len(params))
-            bump("metrics", len(metrics))
+                mlflow.log_params(
+                    {
+                        "learning_rate": "0.001",
+                        "batch_size": "32",
+                        "model_type": f"model_v{run_idx}",
+                    }
+                )
+                bump("params", 3)
 
-            # Artifacts
-            with tempfile.TemporaryDirectory() as tmpdir:
-                # Single file artifact
-                notes = Path(tmpdir) / "notes.txt"
-                notes.write_text(f"Run {run_idx} of experiment {exp_idx}")
-                client.log_artifact(rid, str(notes))
+                mlflow.log_metrics(
+                    {"accuracy": 0.85 + run_idx * 0.01, "loss": 0.35 - run_idx * 0.01}
+                )
+                for step in range(5):
+                    mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
+                bump("metrics", 7)
 
-                # Nested directory artifact
-                subdir = Path(tmpdir) / "config"
-                subdir.mkdir()
-                (subdir / "params.json").write_text('{"lr": 0.001}')
-                client.log_artifacts(rid, str(subdir), artifact_path="config")
-            bump("artifacts", 2)
+                # Artifacts
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    notes = Path(tmpdir) / "notes.txt"
+                    notes.write_text(f"Run {run_idx} of experiment {exp_idx}")
+                    mlflow.log_artifact(str(notes))
 
-            client.set_terminated(rid)
+                    subdir = Path(tmpdir) / "config"
+                    subdir.mkdir()
+                    (subdir / "params.json").write_text('{"lr": 0.001}')
+                    mlflow.log_artifacts(str(subdir), artifact_path="config")
+                bump("artifacts", 2)
 
         result.append(ExperimentData(exp_id, run_ids))
+
+    # ── Edge cases ──
+
+    # NaN / Inf metrics (on first run of first experiment)
+    with mlflow.start_run(run_id=result[0].run_ids[0]):
+        mlflow.log_metrics(
+            {"nan_metric": math.nan, "inf_metric": math.inf, "neg_inf_metric": -math.inf}
+        )
+    bump("metrics", 3)
+
+    # Unicode experiment name and tag values
+    unicode_exp_id = client.create_experiment(
+        "実験_テスト_🚀",
+        tags={"description": "日本語テスト 🎉", "emoji": "🔬🧪"},
+    )
+    bump("experiments")
+    bump("experiment_tags", 2)
+    with mlflow.start_run(experiment_id=unicode_exp_id):
+        mlflow.log_params({"unicode_param": "パラメータ値", "long_param": "x" * 8000})
+    bump("runs")
+    bump("params", 2)
+
+    # Empty run (no metrics/params)
+    with mlflow.start_run(experiment_id=result[0].experiment_id):
+        pass
+    bump("runs")
+
+    # Deleted experiment with a run
+    del_exp_id = client.create_experiment("to_be_deleted")
+    with mlflow.start_run(experiment_id=del_exp_id):
+        mlflow.log_param("param_in_deleted_exp", "value")
+    client.delete_experiment(del_exp_id)
+    bump("deleted_experiments")
+    bump("runs")
+
+    # Deleted run
+    with mlflow.start_run(experiment_id=result[0].experiment_id) as del_run:
+        mlflow.log_param("param_in_deleted_run", "value")
+    client.delete_run(del_run.info.run_id)
+    bump("deleted_runs")
 
     return result
 
@@ -187,35 +221,18 @@ def generate_datasets(cfg: SizeConfig, experiments: list[ExperimentData]) -> Non
 
 def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
     """Returns list of trace IDs."""
-    client = MlflowClient()
     trace_ids: list[str] = []
-
-    # end_trace renamed request_id → trace_id in 3.0
-    _use_trace_id = MLFLOW_VERSION >= Version("3.0")
 
     for exp in experiments:
         mlflow.set_experiment(experiment_id=exp.experiment_id)
         for t_idx in range(cfg.traces_per_exp):
-            root_span = client.start_trace(
-                name=f"trace_{t_idx}",
-                inputs={"query": f"test query {t_idx}"},
-                experiment_id=exp.experiment_id,
-            )
-            trace_id = root_span.trace_id if _use_trace_id else root_span.request_id
-
-            if _use_trace_id:
-                client.end_trace(
-                    trace_id=trace_id,
-                    outputs={"response": f"test response {t_idx}"},
-                )
-            else:
-                client.end_trace(
-                    request_id=trace_id,
-                    outputs={"response": f"test response {t_idx}"},
-                )
+            with mlflow.start_span(name=f"trace_{t_idx}") as span:
+                span.set_inputs({"query": f"test query {t_idx}"})
+                span.set_outputs({"response": f"test response {t_idx}"})
             bump("traces")
 
-            client.set_trace_tag(trace_id, "trace_source", "synthetic")
+            trace_id = span.trace_id
+            mlflow.MlflowClient().set_trace_tag(trace_id, "trace_source", "synthetic")
             bump("trace_tags")
 
             trace_ids.append(trace_id)
@@ -287,64 +304,6 @@ def generate_prompts(cfg: SizeConfig) -> None:
         bump("prompts")
 
 
-def generate_edge_cases(experiments: list[ExperimentData]) -> None:
-    client = MlflowClient()
-
-    # NaN / Inf metric values
-    exp = experiments[0]
-    rid = exp.run_ids[0]
-    client.log_batch(
-        rid,
-        metrics=[
-            Metric("nan_metric", math.nan, timestamp=0, step=0),
-            Metric("inf_metric", math.inf, timestamp=0, step=0),
-            Metric("neg_inf_metric", -math.inf, timestamp=0, step=0),
-        ],
-    )
-    bump("edge_case_metrics", 3)
-
-    # Unicode experiment name and tag values
-    unicode_exp_id = client.create_experiment(
-        "実験_テスト_🚀",
-        tags={"description": "日本語テスト 🎉", "emoji": "🔬🧪"},
-    )
-    bump("experiments")
-    bump("experiment_tags", 2)
-
-    run = client.create_run(unicode_exp_id)
-    client.log_batch(
-        run.info.run_id,
-        params=[
-            Param("unicode_param", "パラメータ値"),
-            Param("long_param", "x" * 8000),
-        ],
-    )
-    client.set_terminated(run.info.run_id)
-    bump("runs")
-    bump("params", 2)
-
-    # Empty run (no metrics/params)
-    empty_run = client.create_run(exp.experiment_id)
-    client.set_terminated(empty_run.info.run_id)
-    bump("runs (empty)")
-
-    # Deleted experiment
-    del_exp_id = client.create_experiment("to_be_deleted")
-    del_run = client.create_run(del_exp_id)
-    client.log_param(del_run.info.run_id, "param_in_deleted_exp", "value")
-    client.set_terminated(del_run.info.run_id)
-    client.delete_experiment(del_exp_id)
-    bump("deleted_experiments")
-    bump("runs")
-
-    # Deleted run
-    del_run2 = client.create_run(exp.experiment_id)
-    client.log_param(del_run2.info.run_id, "param_in_deleted_run", "value")
-    client.set_terminated(del_run2.info.run_id)
-    client.delete_run(del_run2.info.run_id)
-    bump("deleted_runs")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -375,45 +334,42 @@ def main() -> None:
     print(f"MLflow version: {mlflow.__version__}")
     print()
 
-    print("[1/8] Generating experiments, runs, params, metrics, tags...")
+    print("[1/7] Generating experiments, runs, params, metrics, tags, artifacts...")
     experiments = generate_core(cfg)
 
     if has_feature("datasets"):
-        print("[2/8] Generating datasets...")
+        print("[2/7] Generating datasets...")
         generate_datasets(cfg, experiments)
     else:
-        print("[2/8] Skipping datasets (not available)")
+        print("[2/7] Skipping datasets (not available)")
 
     trace_ids: list[str] = []
     if has_feature("traces"):
-        print("[3/8] Generating traces...")
+        print("[3/7] Generating traces...")
         trace_ids = generate_traces(cfg, experiments)
     else:
-        print("[3/8] Skipping traces (not available)")
+        print("[3/7] Skipping traces (not available)")
 
     if trace_ids and has_feature("assessments"):
-        print("[4/8] Generating assessments...")
+        print("[4/7] Generating assessments...")
         generate_assessments(cfg, trace_ids)
     else:
-        print("[4/8] Skipping assessments (not available)")
+        print("[4/7] Skipping assessments (not available)")
 
     if has_feature("logged_models"):
-        print("[5/8] Generating logged models...")
+        print("[5/7] Generating logged models...")
         generate_logged_models(cfg, experiments)
     else:
-        print("[5/8] Skipping logged models (not available)")
+        print("[5/7] Skipping logged models (not available)")
 
-    print("[6/8] Generating model registry...")
+    print("[6/7] Generating model registry...")
     generate_model_registry(cfg)
 
     if has_feature("prompts"):
-        print("[7/8] Generating prompts...")
+        print("[7/7] Generating prompts...")
         generate_prompts(cfg)
     else:
-        print("[7/8] Skipping prompts (not available)")
-
-    print("[8/8] Generating edge cases...")
-    generate_edge_cases(experiments)
+        print("[7/7] Skipping prompts (not available)")
 
     print()
     print("=" * 50)
