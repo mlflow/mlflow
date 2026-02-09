@@ -147,11 +147,7 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
 
 
 def generate_datasets(cfg: SizeConfig, experiments: list[ExperimentData]) -> None:
-    try:
-        import pandas as pd
-    except ImportError:
-        print("  [skip] pandas not available, skipping datasets")
-        return
+    import pandas as pd
 
     for exp in experiments:
         for rid in exp.run_ids:
