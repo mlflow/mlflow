@@ -20,12 +20,10 @@ class Warning:
     message: str
 
     def format(self, github: bool = False) -> str:
+        path = self.file_path.as_posix()
         if github:
-            return (
-                f"::warning file={self.file_path},"
-                f"line={self.line},col={self.column}::{self.message}"
-            )
-        return f"{self.file_path}:{self.line}:{self.column}: {self.message}"
+            return f"::warning file={path},line={self.line},col={self.column}::{self.message}"
+        return f"{path}:{self.line}:{self.column}: {self.message}"
 
 
 @dataclass
