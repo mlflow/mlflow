@@ -108,10 +108,7 @@ class LazyImportExtractor(ast.NodeVisitor):
 
 
 def extract_lazy_imports(content: str) -> dict[tuple[str, str], LazyImport]:
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return {}
+    tree = ast.parse(content)
     extractor = LazyImportExtractor()
     extractor.visit(tree)
     return extractor.lazy_imports
