@@ -220,35 +220,76 @@ def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[
 
 
 def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
-    from mlflow.entities import AssessmentSource, Feedback
+    from mlflow.entities import AssessmentSource, Expectation, Feedback
+
+    human = AssessmentSource(source_type="HUMAN", source_id="test-user")
+    ai_judge = AssessmentSource(source_type="AI_JUDGE", source_id="gpt-4o")
 
     for trace_id in trace_ids:
         for a_idx in range(cfg.assessments_per_trace):
-            feedback = Feedback(
-                name=f"quality_{a_idx}",
-                value=a_idx % 2 == 0,
-                source=AssessmentSource(source_type="HUMAN", source_id="test-user"),
+            # Boolean feedback (thumbs up/down)
+            mlflow.log_assessment(
+                trace_id=trace_id,
+                assessment=Feedback(
+                    name="correctness",
+                    value=a_idx % 2 == 0,
+                    source=human,
+                    rationale="Looks correct" if a_idx % 2 == 0 else "Has errors",
+                ),
             )
-            mlflow.log_assessment(trace_id=trace_id, assessment=feedback)
+            # Numeric feedback (score)
+            mlflow.log_assessment(
+                trace_id=trace_id,
+                assessment=Feedback(
+                    name="relevance_score",
+                    value=0.6 + a_idx * 0.08,
+                    source=ai_judge,
+                    rationale=f"Score based on semantic similarity (iteration {a_idx})",
+                    metadata={"model": "gpt-4o", "prompt_version": "v1"},
+                ),
+            )
+            # Text feedback
+            mlflow.log_assessment(
+                trace_id=trace_id,
+                assessment=Feedback(
+                    name="category",
+                    value="good" if a_idx % 3 != 0 else "needs_improvement",
+                    source=human,
+                ),
+            )
+            # Expectation (ground truth)
+            mlflow.log_assessment(
+                trace_id=trace_id,
+                assessment=Expectation(
+                    name="expected_output",
+                    value=f"Expected response for query {a_idx}",
+                    source=human,
+                ),
+            )
 
 
-def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> None:
+def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
+    """Returns list of model artifact URIs (runs:/<run_id>/model)."""
     client = MlflowClient()
+    model_uris: list[str] = []
 
     for exp in experiments:
         for m_idx in range(cfg.logged_models_per_exp):
-            with mlflow.start_run(experiment_id=exp.experiment_id):
+            with mlflow.start_run(experiment_id=exp.experiment_id) as run:
                 model_info = mlflow.pyfunc.log_model(
                     name=f"logged_model_{m_idx}",
                     python_model=lambda model_input: model_input,
                     input_example="hello",
                 )
+                model_uris.append(f"runs:/{run.info.run_id}/model")
             client.set_logged_model_tags(
                 model_info.model_id, {"framework": "pytorch", "stage": "dev"}
             )
 
+    return model_uris
 
-def generate_model_registry(cfg: SizeConfig) -> None:
+
+def generate_model_registry(cfg: SizeConfig, model_uris: list[str]) -> None:
     client = MlflowClient()
 
     for rm_idx in range(cfg.registered_models):
@@ -256,9 +297,15 @@ def generate_model_registry(cfg: SizeConfig) -> None:
         client.create_registered_model(name, tags={"stage": "staging", "owner": "team-ml"})
 
         for v_idx in range(1, 3):
+            # Use a real logged model URI if available, otherwise fall back to a fake one
+            uri_idx = rm_idx * 2 + (v_idx - 1)
+            if uri_idx < len(model_uris):
+                source = model_uris[uri_idx]
+            else:
+                source = f"runs:/{uuid.uuid4().hex}/model"
             mv = client.create_model_version(
                 name=name,
-                source=f"runs:/{uuid.uuid4().hex}/model",
+                source=source,
                 tags={"version_note": f"v{v_idx}"},
             )
 
@@ -325,14 +372,15 @@ def main() -> None:
     else:
         print("[4/7] Skipping assessments (not available)")
 
+    model_uris: list[str] = []
     if has_feature("logged_models"):
         print("[5/7] Generating logged models...")
-        generate_logged_models(cfg, experiments)
+        model_uris = generate_logged_models(cfg, experiments)
     else:
         print("[5/7] Skipping logged models (not available)")
 
     print("[6/7] Generating model registry...")
-    generate_model_registry(cfg)
+    generate_model_registry(cfg, model_uris)
 
     if has_feature("prompts"):
         print("[7/7] Generating prompts...")
