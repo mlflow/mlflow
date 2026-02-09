@@ -112,36 +112,33 @@ def get_user_groups(access_token):
 
 The plugin Python file will be used when you deploy the mlflow server.
 
-
 #### Aws Cognito configuration
 
 1. In AWS console, select menu: Amazon Cognito -> User pools -> Create user pool, and create a user pool as follows, note that the field "Required attributes for sign-up" should contain "name", and set the a return URL to the OIDC redirect URL like "http://localhost:8080/callback".
-![AWS Cognito user pool creation](/images/self-hosting/aws-cognito-create-user-pool.png)
+   ![AWS Cognito user pool creation](/images/self-hosting/aws-cognito-create-user-pool.png)
 
 2. In the created user pool, select menu: Applications -> App Clients -> Create app client, and create a app client of Traditional web application, and set the return URL to the OIDC redirect URL like "http://localhost:8080/callback". Then, edit the "Managed login pages configuration" for the app client as follows:
-![AWS Cognito app setting](/images/self-hosting/aws-cognito-app-setting.png)
+   ![AWS Cognito app setting](/images/self-hosting/aws-cognito-app-setting.png)
 
 3. In the created user pool, select menu: User Management -> Groups -> Create Group, create 2 user groups: "mlflow" and "mlflow-admin" as follows:
-![AWS user groups](/images/self-hosting/aws-cognito-create-groups.png)
+   ![AWS user groups](/images/self-hosting/aws-cognito-create-groups.png)
 
 4. In the created user pool, select menu: User Management -> Users -> Create user, Create users and assign user to either "mlflow" or "mlflow-admin" group as follows:
-![AWS users](/images/self-hosting/aws-cognito-create-users.png)
-
+   ![AWS users](/images/self-hosting/aws-cognito-create-users.png)
 
 #### Azure Entra ID configuration
 
 1. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> App registrations, register an application as follows:
-![Azure create app](/images/self-hosting/azure-entra-create-app.png)
+   ![Azure create app](/images/self-hosting/azure-entra-create-app.png)
 
 2. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> Groups -> New group, create 2 groups "mlflow" and "mlflow-admin" as follows:
-![Azure create groups](/images/self-hosting/azure-entra-groups.png)
+   ![Azure create groups](/images/self-hosting/azure-entra-groups.png)
 
 3. In the Azure portal Microsoft Entra ID portal, select menu: Manage -> Users -> New user, create users and assign users to mlflow or mlflow-admin groups as follows:
-![Azure create users](/images/self-hosting/azure-entra-add-users.png)
+   ![Azure create users](/images/self-hosting/azure-entra-add-users.png)
 
 4. In the registered application, select menu: Manage -> Token configuration -> Add groups claim, add group claims as follows:
-![Azure group claims](/images/self-hosting/azure-entra-add-group-claim.png)
-
+   ![Azure group claims](/images/self-hosting/azure-entra-add-group-claim.png)
 
 ### Deploy MLflow server with the OIDC plugin
 
@@ -206,7 +203,6 @@ export OIDC_DISCOVERY_URL="https://cognito-idp.${region}.amazonaws.com/${user_po
 export OIDC_GROUPS_ATTRIBUTE=cognito:groups
 ```
 
-
 For Azure Entra ID, we need to set:
 
 ```bash
@@ -224,6 +220,7 @@ export OIDC_ADMIN_GROUP_NAME=<the corresponding Azure Entra group ID>
 ```
 
 After all environment variables are set, we can start the MLflow server with the OIDC plugin enabled as follows:
+
 ```bash
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 ```
