@@ -27,8 +27,6 @@ import {
 } from './OverviewChartComponents';
 import { useChartColors, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
-const SELECT_ALL_VALUE = '__SELECT_ALL__';
-
 export const TraceCostOverTimeChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -48,24 +46,24 @@ export const TraceCostOverTimeChart: React.FC = () => {
   const isAllSelected = selectedModels === null;
   const displayedModels = isAllSelected ? modelNames : selectedModels.filter((model) => modelNames.includes(model));
 
+  const handleSelectAllToggle = useCallback(() => {
+    // Toggle: if all selected -> select none, if not all -> select all
+    setSelectedModels(isAllSelected ? [] : null);
+  }, [isAllSelected]);
+
   const handleModelToggle = useCallback(
     (modelName: string) => {
-      if (modelName === SELECT_ALL_VALUE) {
-        // Toggle: if all selected -> select none, if not all -> select all
-        setSelectedModels(isAllSelected ? [] : null);
-      } else {
-        setSelectedModels((prev) => {
-          if (prev === null) {
-            // Switching from "all" to specific - deselect this one model
-            return modelNames.filter((m) => m !== modelName);
-          }
-          const newSelection = prev.includes(modelName) ? prev.filter((m) => m !== modelName) : [...prev, modelName];
-          // If all models are now selected, switch back to "all" state
-          return newSelection.length === modelNames.length ? null : newSelection;
-        });
-      }
+      setSelectedModels((prev) => {
+        if (prev === null) {
+          // Switching from "all" to specific - deselect this one model
+          return modelNames.filter((m) => m !== modelName);
+        }
+        const newSelection = prev.includes(modelName) ? prev.filter((m) => m !== modelName) : [...prev, modelName];
+        // If all models are now selected, switch back to "all" state
+        return newSelection.length === modelNames.length ? null : newSelection;
+      });
     },
-    [isAllSelected, modelNames],
+    [modelNames],
   );
 
   const modelSelectorLabel = useMemo(() => {
@@ -133,10 +131,10 @@ export const TraceCostOverTimeChart: React.FC = () => {
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch>
                     <DialogComboboxOptionListCheckboxItem
-                      key={SELECT_ALL_VALUE}
-                      value={SELECT_ALL_VALUE}
+                      key="__select_all__"
+                      value="__select_all__"
                       checked={isAllSelected}
-                      onChange={() => handleModelToggle(SELECT_ALL_VALUE)}
+                      onChange={handleSelectAllToggle}
                     >
                       <FormattedMessage
                         defaultMessage="Select All"
