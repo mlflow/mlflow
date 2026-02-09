@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
+import aiohttp
+from fastapi import HTTPException
+
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
@@ -9,8 +12,6 @@ from mlflow.utils.uri import append_to_uri_path
 
 @asynccontextmanager
 async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
-    import aiohttp
-
     async with aiohttp.ClientSession(headers=headers) as session:
         url = append_to_uri_path(base_url, path)
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
@@ -34,9 +35,6 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
     Raises:
         HTTPException if the HTTP request fails.
     """
-    import aiohttp
-    from fastapi import HTTPException
-
     async with _aiohttp_post(headers, base_url, path, payload) as response:
         content_type = response.headers.get("Content-Type")
         if content_type and "application/json" in content_type:
@@ -75,9 +73,6 @@ async def send_stream_request(
     Raises:
         HTTPException if the HTTP request fails.
     """
-    import aiohttp
-    from fastapi import HTTPException
-
     async with _aiohttp_post(headers, base_url, path, payload) as response:
         try:
             response.raise_for_status()

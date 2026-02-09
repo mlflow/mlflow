@@ -4,8 +4,10 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator, Iterator
+from typing import Any, AsyncGenerator, Iterator, TypeVar
 from urllib.parse import urlparse
+
+T = TypeVar("T")
 
 from fastapi import HTTPException
 
@@ -353,12 +355,7 @@ def to_sse_chunk(data: str) -> str:
 
 
 def to_sse_error_chunk(error: Exception) -> str:
-    """
-    Create an SSE-formatted error chunk.
-
-    This is used when an exception occurs mid-stream after headers have been sent.
-    The error is formatted as a JSON object matching the OpenAI error format.
-    """
+    """Create an SSE-formatted error chunk."""
     error_data = {
         "error": {
             "message": str(error),
@@ -369,9 +366,9 @@ def to_sse_error_chunk(error: Exception) -> str:
 
 
 async def safe_stream(
-    stream: AsyncGenerator[Any, None],
+    stream: AsyncGenerator[T, None],
     as_bytes: bool = False,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[T | bytes | str, None]:
     """
     Wrap a streaming generator with exception handling.
 
