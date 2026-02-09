@@ -17,7 +17,11 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
@@ -3944,9 +3948,9 @@ def test_query_span_metrics_cost_multiple_aggregations(store: SqlAlchemyStore):
             start_ns=1000000000 + i * 100000000,
             attributes={
                 SpanAttributeKey.LLM_COST: {
-                    "input_cost": 0.01 * i,
-                    "output_cost": 0.01 * i,
-                    "total_cost": 0.02 * i,
+                    "input_cost": i,
+                    "output_cost": i,
+                    "total_cost": 2 * i,
                 },
                 SpanAttributeKey.MODEL: "gpt-4",
             },
@@ -3969,7 +3973,7 @@ def test_query_span_metrics_cost_multiple_aggregations(store: SqlAlchemyStore):
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.TOTAL_COST,
         "dimensions": {},
-        "values": {"SUM": 0.30, "AVG": 0.06},
+        "values": {"SUM": 30.0, "AVG": 6.0},
     }
 
 

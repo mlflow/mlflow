@@ -340,8 +340,35 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
     )
 
 
+def _get_json_dimension_column(db_type: str, json_key: str, label: str) -> Column:
+    """
+    Extract JSON dimension column with database-specific handling.
+
+    Args:
+        db_type: Database type
+        json_key: JSON key to extract from dimension_attributes
+        label: Label for the dimension column
+
+    Returns:
+        Column expression for the JSON dimension
+    """
+    match db_type:
+        case db_types.MSSQL:
+            # Use JSON_VALUE for extracting scalar values
+            # Use literal_column to ensure identical SQL text across SELECT, GROUP BY, and ORDER BY
+            return literal_column(
+                f"JSON_VALUE(spans.dimension_attributes, '$.\"{json_key}\"')"
+            ).label(label)
+        case db_types.POSTGRES:
+            # Use ->> operator to extract as text without JSON quotes
+            # Use literal_column to ensure identical SQL for consistent GROUP BY
+            return literal_column(f"spans.dimension_attributes ->> '{json_key}'").label(label)
+        case _:
+            return SqlSpan.dimension_attributes[json_key].label(label)
+
+
 def _apply_dimension_to_query(
-    query: Query, dimension: str, view_type: MetricViewType
+    query: Query, dimension: str, view_type: MetricViewType, db_type: str
 ) -> tuple[Query, Column]:
     """
     Apply dimension-specific logic to query and return the dimension column.
@@ -350,6 +377,7 @@ def _apply_dimension_to_query(
         query: SQLAlchemy query to modify
         dimension: Dimension name to apply
         view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
+        db_type: Database type (for MSSQL-specific JSON extraction handling)
 
     Returns:
         Tuple of (modified query, labeled dimension column)
@@ -378,13 +406,15 @@ def _apply_dimension_to_query(
                 case SpanMetricDimensionKey.SPAN_STATUS:
                     return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
                 case SpanMetricDimensionKey.SPAN_MODEL_NAME:
-                    # Extract model name from dimension_attributes JSON column on SqlSpan
-                    model_name = SqlSpan.dimension_attributes[SpanAttributeKey.MODEL]
-                    return query, model_name.label(SpanMetricDimensionKey.SPAN_MODEL_NAME)
+                    return query, _get_json_dimension_column(
+                        db_type, SpanAttributeKey.MODEL, SpanMetricDimensionKey.SPAN_MODEL_NAME
+                    )
                 case SpanMetricDimensionKey.SPAN_MODEL_PROVIDER:
-                    # Extract model provider from dimension_attributes JSON column on SqlSpan
-                    model_provider = SqlSpan.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER]
-                    return query, model_provider.label(SpanMetricDimensionKey.SPAN_MODEL_PROVIDER)
+                    return query, _get_json_dimension_column(
+                        db_type,
+                        SpanAttributeKey.MODEL_PROVIDER,
+                        SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+                    )
         case MetricViewType.ASSESSMENTS:
             match dimension:
                 case AssessmentMetricDimensionKey.ASSESSMENT_NAME:
@@ -681,7 +711,7 @@ def query_metrics(
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
-        query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
+        query, dimension_column = _apply_dimension_to_query(query, dimension, view_type, db_type)
         dimension_columns.append(dimension_column)
 
     # MSSQL and MySQL with percentile need special handling (window function requires subquery)
