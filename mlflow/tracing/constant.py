@@ -101,10 +101,6 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
-    # Provider name for LLM provider spans (e.g., "OpenAI", "Anthropic")
-    MODEL_PROVIDER = "mlflow.llm.provider"
-    # Model name for LLM provider spans (e.g., "gpt-4", "claude-3-opus")
-    MODEL = "mlflow.llm.model"
     # User attributes for gateway tracing
     USERNAME = "mlflow.user.username"
     USER_ID = "mlflow.user.id"
