@@ -3,11 +3,7 @@ import pytest
 import mlflow
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.data import ALL_DEMO_TRACES
-from mlflow.demo.generators.evaluation import (
-    BASELINE_PROFILE,
-    IMPROVED_PROFILE,
-    EvaluationDemoGenerator,
-)
+from mlflow.demo.generators.evaluation import EvaluationDemoGenerator
 from mlflow.demo.generators.traces import TracesDemoGenerator
 
 
@@ -94,8 +90,8 @@ def test_runs_have_different_names(evaluation_generator):
     )
 
     run_names = {run.data.tags.get("mlflow.runName") for run in runs}
-    assert BASELINE_PROFILE["name"] in run_names
-    assert IMPROVED_PROFILE["name"] in run_names
+    assert "baseline-evaluation" in run_names
+    assert "improved-evaluation" in run_names
 
 
 def test_demo_traces_have_responses():
