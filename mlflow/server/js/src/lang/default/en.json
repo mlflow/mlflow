@@ -3462,10 +3462,6 @@
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
   },
-  "O3q/U1": {
-    "defaultMessage": "Get started",
-    "description": "Home page quick action section title"
-  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
