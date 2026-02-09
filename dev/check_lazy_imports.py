@@ -63,14 +63,15 @@ class LazyImportExtractor(ast.NodeVisitor):
         self._scope_stack: list[str] = []
         self._func_depth: int = 0
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._scope_stack.append(node.name)
         self._func_depth += 1
         self.generic_visit(node)
         self._func_depth -= 1
         self._scope_stack.pop()
 
-    visit_AsyncFunctionDef = visit_FunctionDef
+    visit_FunctionDef = _visit_function
+    visit_AsyncFunctionDef = _visit_function
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._scope_stack.append(node.name)
