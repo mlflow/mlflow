@@ -9,29 +9,12 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMonitoringConfig';
-import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../experiment-tracking/hooks/useMonitoringFilters';
-import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
-import { LazyTraceRequestsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceRequestsChart';
-import { LazyTraceLatencyChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceLatencyChart';
-import { LazyTraceErrorsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceErrorsChart';
-import { LazyTraceTokenUsageChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenUsageChart';
-import { LazyTraceTokenStatsChart } from '../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart';
-import { ChartGrid } from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
-import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
-import { TimeUnitSelector } from '../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
-import {
-  TimeUnit,
-  TIME_UNIT_SECONDS,
-  calculateDefaultTimeUnit,
-} from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
-import { generateTimeBuckets } from '../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
+import { GatewayChartsPanel } from '../components/GatewayChartsPanel';
 import GatewayRoutes from '../routes';
 
-export const GatewayUsagePageImpl = () => {
+export const GatewayUsagePage = () => {
   const { theme } = useDesignSystemTheme();
-  const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
 
   // Fetch all endpoints to get their experiment IDs
@@ -53,42 +36,12 @@ export const GatewayUsagePageImpl = () => {
   const showAllEndpoints = !selectedEndpointId || selectedEndpointId === 'all';
 
   // Get the experiment IDs to use for charts
-  // If showing all endpoints, use all experiment_ids
-  // If a specific endpoint is selected, use its experiment_id
   const experimentIds = useMemo(() => {
     if (showAllEndpoints) {
       return endpointsWithExperiments.map((ep) => ep.experiment_id).filter(Boolean) as string[];
     }
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
-
-  // Get the current time range from monitoring filters
-  const [monitoringFilters] = useMonitoringFilters();
-
-  // Compute time range
-  const { startTime, endTime } = useMemo(() => {
-    const now = new Date();
-    return getAbsoluteStartEndTime(now, monitoringFilters);
-  }, [monitoringFilters]);
-
-  // Convert ISO strings to milliseconds for the API
-  const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
-
-  // Calculate the default time unit for the current time range
-  const defaultTimeUnit = calculateDefaultTimeUnit(startTimeMs, endTimeMs);
-
-  // Use selected if valid, otherwise fall back to default
-  const effectiveTimeUnit = selectedTimeUnit ?? defaultTimeUnit;
-
-  // Use the effective time unit for time interval
-  const timeIntervalSeconds = TIME_UNIT_SECONDS[effectiveTimeUnit];
-
-  // Generate all time buckets once for all charts
-  const timeBuckets = useMemo(
-    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
-    [startTimeMs, endTimeMs, timeIntervalSeconds],
-  );
 
   // Show empty state if no endpoints have usage tracking enabled
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
@@ -129,6 +82,32 @@ export const GatewayUsagePageImpl = () => {
     );
   }
 
+  const endpointSelector = (
+    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+      <Typography.Text color="secondary">
+        <FormattedMessage defaultMessage="Endpoint:" description="Endpoint selector label" />
+      </Typography.Text>
+      <SimpleSelect
+        id="gateway-usage-endpoint-selector"
+        componentId="mlflow.gateway.usage.endpoint-selector"
+        value={selectedEndpointId ?? 'all'}
+        onChange={({ target }) => setSelectedEndpointId(target.value === 'all' ? null : target.value)}
+        css={{ minWidth: 200 }}
+        disabled={isLoadingEndpoints}
+      >
+        <SimpleSelectOption value="all">
+          <FormattedMessage defaultMessage="All endpoints" description="All endpoints option" />
+        </SimpleSelectOption>
+        {endpointsWithExperiments.map((endpoint) => (
+          <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
+            {endpoint.name}
+          </SimpleSelectOption>
+        ))}
+      </SimpleSelect>
+      {isLoadingEndpoints && <Spinner size="small" />}
+    </div>
+  );
+
   return (
     <div
       css={{
@@ -161,81 +140,14 @@ export const GatewayUsagePageImpl = () => {
         </div>
       </div>
 
-      {/* Controls row */}
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme.spacing.sm,
-          marginBottom: theme.spacing.lg,
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Endpoint selector */}
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Typography.Text color="secondary">
-            <FormattedMessage defaultMessage="Endpoint:" description="Endpoint selector label" />
-          </Typography.Text>
-          <SimpleSelect
-            id="gateway-usage-endpoint-selector"
-            componentId="mlflow.gateway.usage.endpoint-selector"
-            value={selectedEndpointId ?? 'all'}
-            onChange={({ target }) => setSelectedEndpointId(target.value === 'all' ? null : target.value)}
-            css={{ minWidth: 200 }}
-            disabled={isLoadingEndpoints}
-          >
-            <SimpleSelectOption value="all">
-              <FormattedMessage defaultMessage="All endpoints" description="All endpoints option" />
-            </SimpleSelectOption>
-            {endpointsWithExperiments.map((endpoint) => (
-              <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
-                {endpoint.name}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
-          {isLoadingEndpoints && <Spinner size="small" />}
-        </div>
-
-        {/* Time unit selector */}
-        <TimeUnitSelector
-          value={effectiveTimeUnit}
-          onChange={setSelectedTimeUnit}
-          startTimeMs={startTimeMs}
-          endTimeMs={endTimeMs}
-          allowClear={selectedTimeUnit !== null && selectedTimeUnit !== defaultTimeUnit}
-          onClear={() => setSelectedTimeUnit(null)}
-        />
-
-        {/* Date range selector */}
-        <TracesV3DateSelector excludeOptions={['ALL']} />
-      </div>
-
       {/* Charts */}
-      {experimentIds.length > 0 ? (
-        <OverviewChartProvider
+      {isLoadingEndpoints || experimentIds.length > 0 ? (
+        <GatewayChartsPanel
           experimentIds={experimentIds}
-          startTimeMs={startTimeMs}
-          endTimeMs={endTimeMs}
-          timeIntervalSeconds={timeIntervalSeconds}
-          timeBuckets={timeBuckets}
-        >
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            {/* Requests chart - full width */}
-            <LazyTraceRequestsChart />
-
-            {/* Latency and Errors charts - side by side */}
-            <ChartGrid>
-              <LazyTraceLatencyChart />
-              <LazyTraceErrorsChart />
-            </ChartGrid>
-
-            {/* Token Usage and Token Stats charts - side by side */}
-            <ChartGrid>
-              <LazyTraceTokenUsageChart />
-              <LazyTraceTokenStatsChart />
-            </ChartGrid>
-          </div>
-        </OverviewChartProvider>
+          showTokenStats
+          showCostCharts
+          additionalControls={endpointSelector}
+        />
       ) : (
         <div
           css={{
@@ -257,11 +169,5 @@ export const GatewayUsagePageImpl = () => {
     </div>
   );
 };
-
-export const GatewayUsagePage = () => (
-  <MonitoringConfigProvider>
-    <GatewayUsagePageImpl />
-  </MonitoringConfigProvider>
-);
 
 export default GatewayUsagePage;

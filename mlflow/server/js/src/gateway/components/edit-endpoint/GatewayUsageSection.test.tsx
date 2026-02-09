@@ -3,43 +3,21 @@ import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/
 import { GatewayUsageSection } from './GatewayUsageSection';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
-// Mock the lazy chart components
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceRequestsChart', () => ({
-  LazyTraceRequestsChart: () => <div data-testid="trace-requests-chart">Requests Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceLatencyChart', () => ({
-  LazyTraceLatencyChart: () => <div data-testid="trace-latency-chart">Latency Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceErrorsChart', () => ({
-  LazyTraceErrorsChart: () => <div data-testid="trace-errors-chart">Errors Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenUsageChart', () => ({
-  LazyTraceTokenUsageChart: () => <div data-testid="trace-token-usage-chart">Token Usage Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart', () => ({
-  LazyTraceTokenStatsChart: () => <div data-testid="trace-token-stats-chart">Token Stats Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostBreakdownChart', () => ({
-  LazyTraceCostBreakdownChart: () => <div data-testid="trace-cost-breakdown-chart">Cost Breakdown Chart</div>,
-}));
-
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostOverTimeChart', () => ({
-  LazyTraceCostOverTimeChart: () => <div data-testid="trace-cost-over-time-chart">Cost Over Time Chart</div>,
-}));
-
-// Mock TracesV3DateSelector
-jest.mock('../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector', () => ({
-  TracesV3DateSelector: () => <div data-testid="date-selector">Date Selector</div>,
-}));
-
-// Mock TimeUnitSelector
-jest.mock('../../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector', () => ({
-  TimeUnitSelector: () => <div data-testid="time-unit-selector">Time Unit Selector</div>,
+// Mock GatewayChartsPanel
+jest.mock('../GatewayChartsPanel', () => ({
+  GatewayChartsPanel: () => (
+    <div data-testid="gateway-charts-panel">
+      <div data-testid="time-unit-selector">Time Unit Selector</div>
+      <div data-testid="date-selector">Date Selector</div>
+      <div data-testid="trace-requests-chart">Requests Chart</div>
+      <div data-testid="trace-latency-chart">Latency Chart</div>
+      <div data-testid="trace-errors-chart">Errors Chart</div>
+      <div data-testid="trace-token-usage-chart">Token Usage Chart</div>
+      <div data-testid="trace-token-stats-chart">Token Stats Chart</div>
+      <div data-testid="trace-cost-breakdown-chart">Cost Breakdown Chart</div>
+      <div data-testid="trace-cost-over-time-chart">Cost Over Time Chart</div>
+    </div>
+  ),
 }));
 
 describe('GatewayUsageSection', () => {
