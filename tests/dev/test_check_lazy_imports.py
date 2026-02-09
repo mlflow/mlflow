@@ -78,6 +78,18 @@ def func():
     assert len(result) == 0
 
 
+def test_non_typing_type_checking_not_excluded():
+    code = """\
+def func():
+    if foo.TYPE_CHECKING:
+        import bar
+"""
+    result = extract_lazy_imports(code)
+
+    assert len(result) == 1
+    assert ("func", "bar") in result
+
+
 def test_type_checking_else_branch_not_excluded():
     code = """\
 from typing import TYPE_CHECKING

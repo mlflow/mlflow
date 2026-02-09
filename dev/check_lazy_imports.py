@@ -40,7 +40,12 @@ def _is_type_checking_guard(test: ast.expr) -> bool:
     # Match `if TYPE_CHECKING:` and `if typing.TYPE_CHECKING:`
     if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
         return True
-    if isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING":
+    if (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id in {"typing", "typing_extensions"}
+    ):
         return True
     return False
 
@@ -103,7 +108,10 @@ class LazyImportExtractor(ast.NodeVisitor):
 
 
 def extract_lazy_imports(content: str) -> dict[tuple[str, str], LazyImport]:
-    tree = ast.parse(content)
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return {}
     extractor = LazyImportExtractor()
     extractor.visit(tree)
     return extractor.lazy_imports
