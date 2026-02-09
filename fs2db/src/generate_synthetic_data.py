@@ -123,7 +123,12 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                 )
 
                 mlflow.log_metrics(
-                    {"accuracy": 0.85 + run_idx * 0.01, "loss": 0.35 - run_idx * 0.01}
+                    {
+                        "accuracy": 0.85 + run_idx * 0.01,
+                        "loss": 0.35 - run_idx * 0.01,
+                        "zero_metric": 0.0,
+                        "negative_metric": -1.5 + run_idx * 0.1,
+                    }
                 )
                 for step in range(5):
                     mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
@@ -164,6 +169,16 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
     with mlflow.start_run(experiment_id=result[0].experiment_id) as del_run:
         mlflow.log_param("param_in_deleted_run", "value")
     client.delete_run(del_run.info.run_id)
+
+    # Failed run
+    failed_run = client.create_run(experiment_id=result[0].experiment_id)
+    client.log_param(failed_run.info.run_id, "failed_param", "value")
+    client.set_terminated(failed_run.info.run_id, status="FAILED")
+
+    # Killed run
+    killed_run = client.create_run(experiment_id=result[0].experiment_id)
+    client.log_metric(killed_run.info.run_id, "partial_metric", 0.5)
+    client.set_terminated(killed_run.info.run_id, status="KILLED")
 
     return result
 
@@ -295,6 +310,9 @@ def generate_model_registry(cfg: SizeConfig, model_uris: list[str]) -> None:
     for rm_idx in range(cfg.registered_models):
         name = f"registered_model_{rm_idx}"
         client.create_registered_model(name, tags={"stage": "staging", "owner": "team-ml"})
+        client.update_registered_model(
+            name, description=f"Registered model {rm_idx} for testing migration"
+        )
 
         for v_idx in range(1, 3):
             # Use a real logged model URI if available, otherwise fall back to a fake one
@@ -308,15 +326,24 @@ def generate_model_registry(cfg: SizeConfig, model_uris: list[str]) -> None:
                 source=source,
                 tags={"version_note": f"v{v_idx}"},
             )
+            client.update_model_version(name, mv.version, description=f"Version {v_idx} of {name}")
 
         client.set_registered_model_alias(name, "champion", mv.version)
 
 
 def generate_prompts(cfg: SizeConfig) -> None:
     for p_idx in range(cfg.prompts):
+        name = f"prompt_{p_idx}"
+        # Version 1
         mlflow.register_prompt(
-            name=f"prompt_{p_idx}",
+            name=name,
             template=f"Hello {{{{name}}}}, this is prompt {p_idx}.",
+        )
+        # Version 2 with updated template
+        mlflow.register_prompt(
+            name=name,
+            template=f"Hi {{{{name}}}}, welcome to prompt {p_idx}. How can I help?",
+            commit_message=f"Updated template for prompt {p_idx}",
         )
 
 
