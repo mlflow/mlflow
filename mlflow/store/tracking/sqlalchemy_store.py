@@ -135,6 +135,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -4383,6 +4384,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
+                span_cost = None
                 if span_attributes := span_dict.get("attributes", {}):
                     if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
                         aggregated_token_usage = update_token_usage(
@@ -4393,8 +4395,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # Get cost for span metrics
+                    span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+
+                # Prepare dimension attributes with model name and provider if available
+                dimension_attribute_keys = [SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER]
+                dimension_attributes = {}
+                for key in dimension_attribute_keys:
+                    if value := span_attributes.get(key):
+                        dimension_attributes[key] = _try_parse_json_string(value)
 
                 sql_span = SqlSpan(
                     trace_id=span.trace_id,
@@ -4407,9 +4418,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     start_time_unix_nano=span.start_time_ns,
                     end_time_unix_nano=span.end_time_ns,
                     content=content_json,
+                    dimension_attributes=dimension_attributes or None,
                 )
 
                 session.merge(sql_span)
+
+                if span_cost:
+                    span_cost = json.loads(span_cost)
+                    for cost_key, cost_value in span_cost.items():
+                        session.merge(
+                            SqlSpanMetrics(
+                                trace_id=span.trace_id,
+                                span_id=span.span_id,
+                                key=cost_key,
+                                value=float(cost_value),
+                            )
+                        )
 
                 if span.parent_id is None:
                     update_dict.update(
@@ -6374,3 +6398,11 @@ def _get_search_datasets_order_by_clauses(order_by):
         order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
+
+
+def _try_parse_json_string(value: str) -> str:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        pass
+    return value

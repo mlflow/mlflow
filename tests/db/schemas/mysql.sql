@@ -513,6 +513,7 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (((`end_time_unix_nano` - `start_time_unix_nano`))) STORED,
 	content LONGTEXT NOT NULL,
+	dimension_attributes JSON,
 	PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
@@ -552,4 +553,14 @@ CREATE TABLE trace_tags (
 	request_id VARCHAR(50) NOT NULL,
 	PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE span_metrics (
+	trace_id VARCHAR(50) NOT NULL,
+	span_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value DOUBLE,
+	PRIMARY KEY (trace_id, span_id, key),
+	CONSTRAINT fk_span_metrics_span FOREIGN KEY(trace_id, span_id) REFERENCES spans (trace_id, span_id) ON DELETE CASCADE
 )
