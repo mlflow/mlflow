@@ -22,6 +22,7 @@ from tests.server.jobs.helpers import (
     _get_mlflow_repo_home,
     _launch_job_runner_for_test,
     _setup_job_runner,
+    wait_for_process_exit,
     wait_job_finalize,
 )
 
@@ -396,8 +397,6 @@ def sleep_fun(sleep_secs, tmp_dir):
 
 
 def test_job_timeout(monkeypatch, tmp_path):
-    from mlflow.server.jobs.utils import is_process_alive
-
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -416,19 +415,7 @@ def test_job_timeout(monkeypatch, tmp_path):
         ).job_id
         wait_job_finalize(job_id)
         pid = int((job_tmp_path / "pid").read_text())
-        # assert timeout job process is killed.
-        # popen.kill() is async, so poll until the OS reaps the process.
-        poll_timeout_secs = 5
-        start_time = time.time()
-        deadline = start_time + poll_timeout_secs
-        while is_process_alive(pid) and time.time() < deadline:
-            time.sleep(0.1)
-        else:
-            if is_process_alive(pid):
-                pytest.fail(
-                    f"Timed out waiting for job process with pid {pid} to exit after "
-                    f"{poll_timeout_secs} seconds"
-                )
+        wait_for_process_exit(pid)
 
         assert_job_result(job_id, JobStatus.TIMEOUT, None)
 
@@ -579,8 +566,6 @@ def test_start_job_is_atomic(tmp_path: Path):
 
 
 def test_cancel_job(monkeypatch, tmp_path: Path):
-    from mlflow.server.jobs.utils import is_process_alive
-
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -598,19 +583,7 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
         cancel_job(job_id)
 
         pid = int((job_tmp_path / "pid").read_text())
-        # assert canceled job process is killed.
-        # popen.kill() is async, so poll until the OS reaps the process.
-        poll_timeout_secs = 10
-        start_time = time.time()
-        deadline = start_time + poll_timeout_secs
-        while is_process_alive(pid) and time.time() < deadline:
-            time.sleep(0.1)
-        else:
-            if is_process_alive(pid):
-                pytest.fail(
-                    f"Timed out waiting for job process with pid {pid} to exit after "
-                    f"{poll_timeout_secs} seconds"
-                )
+        wait_for_process_exit(pid, timeout=10)
 
         assert get_job(job_id).status == JobStatus.CANCELED
 
