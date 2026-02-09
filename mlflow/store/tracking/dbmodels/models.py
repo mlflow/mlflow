@@ -848,6 +848,44 @@ class SqlTraceMetrics(Base):
     )
 
 
+class SqlSpanMetrics(Base):
+    __tablename__ = "span_metrics"
+
+    trace_id = Column(String(50), nullable=False)
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite foreign key to spans table.
+    """
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite foreign key to spans table.
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Metric key: `String` (limit 250 characters).
+    """
+    value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`. Could be *null* if not available.
+    """
+    span = relationship("SqlSpan", backref=backref("metrics", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlSpan`.
+    """
+
+    # Composite primary key: (trace_id, span_id, key)
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", "key", name="span_metrics_pk"),
+        ForeignKeyConstraint(
+            ["trace_id", "span_id"],
+            ["spans.trace_id", "spans.span_id"],
+            name="fk_span_metrics_span",
+            ondelete="CASCADE",
+        ),
+        Index("index_span_metrics_trace_id_span_id", "trace_id", "span_id"),
+    )
+
+
 class SqlAssessments(Base):
     __tablename__ = "assessments"
 
@@ -1793,6 +1831,12 @@ class SqlSpan(Base):
     """
     Full span content as JSON: `Text`.
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
+    """
+
+    dimension_attributes = Column(MutableJSON, nullable=True)
+    """
+    Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
+    efficient querying or metrics aggregation.
     """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
