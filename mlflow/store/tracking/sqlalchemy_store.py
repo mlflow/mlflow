@@ -147,6 +147,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
+    AssessmentMetadataKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -572,10 +573,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.delete(experiment)
 
     def _mark_run_deleted(self, session, run):
-        # Delete assessments associated with the run
-        session.query(SqlAssessments).filter(SqlAssessments.run_id == run.run_uuid).delete(
-            synchronize_session=False
-        )
+        # Delete assessments associated with the run. The source run ID is stored
+        # in the assessment_metadata JSON field under the reserved
+        # "mlflow.assessment.sourceRunId" key, not in the run_id column.
+        source_run_id_pattern = f'"{AssessmentMetadataKey.SOURCE_RUN_ID}": "{run.run_uuid}"'
+        session.query(SqlAssessments).filter(
+            SqlAssessments.assessment_metadata.contains(source_run_id_pattern)
+        ).delete(synchronize_session=False)
 
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()

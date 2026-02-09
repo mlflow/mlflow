@@ -53,7 +53,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
 
@@ -2392,3 +2392,58 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
         assert len(traces) == 5
         assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     # TODO: test registered ModelVersion's model_id works after it's supported
+
+
+def test_delete_run_deletes_assessments_with_source_run_id():
+    """Deleting a run should delete assessments linked via assessment_metadata sourceRunId."""
+
+    @mlflow.trace
+    def model(inputs):
+        return inputs
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": ["What is MLflow?"],
+            "ground_truth": ["MLflow is an ML platform."],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace_id = traces[0].info.trace_id
+
+    # Log a feedback assessment linked to the run via sourceRunId metadata
+    linked_feedback = mlflow.log_feedback(
+        trace_id=trace_id,
+        name="eval_feedback",
+        value="good",
+        metadata={AssessmentMetadataKey.SOURCE_RUN_ID: run.info.run_id},
+    )
+
+    # Log another feedback assessment NOT linked to any run
+    unlinked_feedback = mlflow.log_feedback(
+        trace_id=trace_id,
+        name="unlinked_feedback",
+        value="also good",
+    )
+
+    # Verify both assessments exist
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) >= 2
+    assessment_ids = {a.assessment_id for a in trace.info.assessments}
+    assert linked_feedback.assessment_id in assessment_ids
+    assert unlinked_feedback.assessment_id in assessment_ids
+
+    # Delete the run
+    MlflowClient().delete_run(run.info.run_id)
+
+    # Verify the linked assessment was deleted but the unlinked one survives
+    trace = mlflow.get_trace(trace_id)
+    remaining_ids = {a.assessment_id for a in trace.info.assessments}
+    assert linked_feedback.assessment_id not in remaining_ids
+    assert unlinked_feedback.assessment_id in remaining_ids
