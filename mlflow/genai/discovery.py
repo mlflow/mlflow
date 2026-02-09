@@ -10,7 +10,6 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.judges.make_judge import make_judge
-from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.judges.utils.invocation_utils import (
     get_chat_completions_with_structured_output,
 )
@@ -24,6 +23,9 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_SIZE = 50
 _MAX_SUMMARIES_FOR_CLUSTERING = 50
 _MIN_FREQUENCY_THRESHOLD = 0.01
+
+_DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
+_DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
 
 
 # ---- Pydantic schemas for LLM structured output ----
@@ -199,7 +201,8 @@ def discover_issues(
     experiment_id: str | None = None,
     model_id: str | None = None,
     satisfaction_scorer: Scorer | None = None,
-    model: str | None = None,
+    judge_model: str | None = None,
+    analysis_model: str | None = None,
     sample_size: int = _DEFAULT_SAMPLE_SIZE,
     validation_sample_size: int | None = None,
     max_issues: int = 10,
@@ -217,7 +220,10 @@ def discover_issues(
         model_id: Scope traces to a specific model.
         satisfaction_scorer: Custom scorer for triage. Defaults to a built-in
             conversation-level satisfaction judge.
-        model: LLM for judge and analysis calls (e.g. ``"openai:/gpt-4.1"``).
+        judge_model: LLM used for scoring traces (satisfaction + issue detection).
+            Defaults to ``"openai:/gpt-5-mini"``.
+        analysis_model: LLM used for clustering failures into issues.
+            Defaults to ``"openai:/gpt-5"``.
         sample_size: Number of traces for the triage phase.
         validation_sample_size: Number of traces for validation.
             Defaults to ``5 * sample_size``.
@@ -242,7 +248,8 @@ def discover_issues(
                 # Each issue has a scorer you can reuse
                 mlflow.genai.evaluate(data=traces, scorers=[issue.scorer])
     """
-    model = model or get_default_model()
+    judge_model = judge_model or _DEFAULT_JUDGE_MODEL
+    analysis_model = analysis_model or _DEFAULT_ANALYSIS_MODEL
     exp_id = experiment_id or _get_experiment_id()
     if exp_id is None:
         raise mlflow.exceptions.MlflowException(
@@ -258,7 +265,7 @@ def discover_issues(
     }
 
     if satisfaction_scorer is None:
-        satisfaction_scorer = _build_default_satisfaction_scorer(model)
+        satisfaction_scorer = _build_default_satisfaction_scorer(judge_model)
 
     # Phase 1: Triage — score a sample for user satisfaction
     _logger.info("Phase 1: Scoring %d traces for satisfaction...", sample_size)
@@ -300,7 +307,7 @@ def discover_issues(
     )
 
     clustering_result = get_chat_completions_with_structured_output(
-        model_uri=model,
+        model_uri=analysis_model,
         messages=[
             ChatMessage(
                 role="system",
@@ -350,7 +357,7 @@ def discover_issues(
         make_judge(
             name=issue.name,
             instructions=issue.detection_instructions,
-            model=model,
+            model=judge_model,
             feedback_value_type=bool,
         )
         for issue in identified
