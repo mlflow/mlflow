@@ -106,7 +106,7 @@ def generate_test_cases(
             from mlflow.genai.simulators import ConversationSimulator
 
             # Get existing sessions
-            sessions = mlflow.search_sessions(...)  # clint: disable=unknown-mlflow-function
+            sessions = mlflow.search_sessions(...)
 
             # Generate seed test cases
             test_cases = generate_test_cases(sessions)
