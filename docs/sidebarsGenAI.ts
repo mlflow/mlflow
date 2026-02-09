@@ -813,7 +813,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Management',
+      label: 'Prompt Management & Optimization',
       className: 'sidebar-top-level-category',
       items: [
         {
