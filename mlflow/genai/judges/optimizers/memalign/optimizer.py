@@ -196,14 +196,18 @@ class MemoryAugmentedJudge(Judge):
         relevant_examples = [example for example, _ in retrieved_results]
         retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
-        prediction = self._predict_module(
-            guidelines=guidelines,
-            example_judgements=relevant_examples,
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=value_to_embedding_text(trace) if trace is not None else None,
-        )
+        import dspy
+        from dspy.adapters.json_adapter import JSONAdapter
+
+        with dspy.settings.context(adapter=JSONAdapter()):
+            prediction = self._predict_module(
+                guidelines=guidelines,
+                example_judgements=relevant_examples,
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=value_to_embedding_text(trace) if trace is not None else None,
+            )
 
         return Feedback(
             name=self._base_judge.name,
