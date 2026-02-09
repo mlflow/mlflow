@@ -13,10 +13,8 @@ It must only depend on mlflow + stdlib (no local imports).
 import argparse
 import math
 import os
-import tempfile
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 from packaging.version import Version
@@ -131,15 +129,8 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                     mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
 
                 # Artifacts
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    notes = Path(tmpdir) / "notes.txt"
-                    notes.write_text(f"Run {run_idx} of experiment {exp_idx}")
-                    mlflow.log_artifact(str(notes))
-
-                    subdir = Path(tmpdir) / "config"
-                    subdir.mkdir()
-                    (subdir / "params.json").write_text('{"lr": 0.001}')
-                    mlflow.log_artifacts(str(subdir), artifact_path="config")
+                mlflow.log_text(f"Run {run_idx} of experiment {exp_idx}", "notes.txt")
+                mlflow.log_dict({"lr": 0.001}, "config/params.json")
 
         result.append(ExperimentData(exp_id, run_ids))
 
