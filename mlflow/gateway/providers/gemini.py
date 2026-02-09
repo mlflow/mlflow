@@ -789,6 +789,69 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Gemini passthrough response.
+
+        Gemini response format:
+        {
+            "usageMetadata": {
+                "promptTokenCount": int,
+                "candidatesTokenCount": int,
+                "totalTokenCount": int
+            }
+        }
+        """
+        return self._extract_token_usage_from_dict(
+            result.get("usageMetadata"),
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Gemini streaming chunks.
+
+        Gemini streaming format uses SSE with usageMetadata in chunks (typically final chunk):
+        data: {"candidates": [...], "usageMetadata": {"promptTokenCount": X, ...}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return {}
+
+            # Parse SSE format - look for data lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+
+                data_str = line[5:].strip()
+                if not data_str or data_str == "[DONE]":
+                    continue
+
+                data = json.loads(data_str)
+
+                # Extract usageMetadata if present
+                if token_usage := self._extract_token_usage_from_dict(
+                    data.get("usageMetadata"),
+                    "promptTokenCount",
+                    "candidatesTokenCount",
+                    "totalTokenCount",
+                ):
+                    return token_usage
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return {}
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -803,12 +866,13 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

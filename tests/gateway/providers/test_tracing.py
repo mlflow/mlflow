@@ -390,9 +390,9 @@ async def test_passthrough_with_tracing(mock_provider):
 
     # The span should have provider attributes and action
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    assert "passthrough" in span_name_to_span
+    assert "provider/MockProvider/mock-model" in span_name_to_span
 
-    passthrough_span = span_name_to_span["passthrough"]
+    passthrough_span = span_name_to_span["provider/MockProvider/mock-model"]
     assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
     assert passthrough_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert passthrough_span.attributes.get("action") == "openai_chat"
