@@ -334,16 +334,13 @@ class TogetherAIProvider(BaseProvider):
             payload=payload,
         )
 
-    async def _stream_request(
-        self, path: str, payload: dict[str, Any]
-    ) -> AsyncGenerator[bytes, None]:
-        async for chunk in send_stream_request(
+    def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
+        return send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
-        ):
-            yield chunk
+        )
 
     async def _embeddings(
         self, payload: embeddings_schema.RequestPayload
