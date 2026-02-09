@@ -61,11 +61,13 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTracingException,
+    _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
 from mlflow.gateway.utils import is_valid_endpoint_name
@@ -86,6 +88,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
+    GetPresignedDownloadUrl,
     MlflowArtifactsService,
     UploadArtifact,
 )
@@ -244,7 +247,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -3370,6 +3373,11 @@ def _validate_support_multipart_upload(artifact_repo):
         raise _UnsupportedMultipartUploadException()
 
 
+def _validate_support_multipart_download(artifact_repo):
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        raise _UnsupportedMultipartDownloadException()
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -3467,6 +3475,27 @@ def _abort_multipart_upload_artifact(artifact_path):
         artifact_path,
     )
     return _wrap_response(AbortMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _get_presigned_download_url(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/presigned/<artifact_path>` to get
+    a presigned URL for downloading an artifact directly from cloud storage.
+    """
+    artifact_path = validate_path_is_safe(artifact_path)
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_download(artifact_repo)
+
+    expiration = MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+    presigned_response = artifact_repo.get_download_presigned_url(
+        artifact_path, expiration=expiration
+    )
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps(presigned_response.to_dict()))
+    return response
 
 
 # MLflow Tracing APIs
@@ -6146,6 +6175,7 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
+    GetPresignedDownloadUrl: _get_presigned_download_url,
     # MLflow Tracing APIs (V3)
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
