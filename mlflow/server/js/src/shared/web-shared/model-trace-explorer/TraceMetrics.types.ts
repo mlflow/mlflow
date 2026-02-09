@@ -135,6 +135,12 @@ export enum SpanMetricKey {
   SPAN_COUNT = 'span_count',
   /** Span latency in milliseconds */
   LATENCY = 'latency',
+  /** Input cost in USD */
+  INPUT_COST = 'input_cost',
+  /** Output cost in USD */
+  OUTPUT_COST = 'output_cost',
+  /** Total cost in USD */
+  TOTAL_COST = 'total_cost',
 }
 
 /**
@@ -207,6 +213,8 @@ export enum SpanDimensionKey {
   SPAN_TYPE = 'span_type',
   /** Span status dimension */
   SPAN_STATUS = 'span_status',
+  /** Model name dimension */
+  MODEL_NAME = 'span_model_name',
 }
 
 /**
