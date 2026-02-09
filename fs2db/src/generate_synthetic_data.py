@@ -13,8 +13,10 @@ It must only depend on mlflow + stdlib (no local imports).
 import argparse
 import math
 import os
+import tempfile
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from packaging.version import Version
@@ -142,6 +144,20 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
             client.log_batch(rid, params=params, metrics=metrics)
             bump("params", len(params))
             bump("metrics", len(metrics))
+
+            # Artifacts
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # Single file artifact
+                notes = Path(tmpdir) / "notes.txt"
+                notes.write_text(f"Run {run_idx} of experiment {exp_idx}")
+                client.log_artifact(rid, str(notes))
+
+                # Nested directory artifact
+                subdir = Path(tmpdir) / "config"
+                subdir.mkdir()
+                (subdir / "params.json").write_text('{"lr": 0.001}')
+                client.log_artifacts(rid, str(subdir), artifact_path="config")
+            bump("artifacts", 2)
 
             client.set_terminated(rid)
 
