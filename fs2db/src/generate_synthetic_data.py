@@ -95,12 +95,6 @@ def has_feature(feature: str) -> bool:
 
 # ── Generators ────────────────────────────────────────────────────────────────
 
-summary: dict[str, int] = {}
-
-
-def bump(key: str, n: int = 1) -> None:
-    summary[key] = summary.get(key, 0) + n
-
 
 def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
     """Create experiments and runs, including edge cases (unicode, NaN, deleted, etc.)."""
@@ -113,8 +107,6 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
             exp_name,
             tags={"team": "ml-infra", "priority": str(exp_idx)},
         )
-        bump("experiments")
-        bump("experiment_tags", 2)
 
         run_ids: list[str] = []
         for run_idx in range(cfg.runs_per_exp):
@@ -122,10 +114,7 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                 experiment_id=exp_id,
                 tags={"run_index": str(run_idx), "source": "synthetic"},
             ) as run:
-                rid = run.info.run_id
-                run_ids.append(rid)
-                bump("runs")
-                bump("run_tags", 2)
+                run_ids.append(run.info.run_id)
 
                 mlflow.log_params(
                     {
@@ -134,14 +123,12 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                         "model_type": f"model_v{run_idx}",
                     }
                 )
-                bump("params", 3)
 
                 mlflow.log_metrics(
                     {"accuracy": 0.85 + run_idx * 0.01, "loss": 0.35 - run_idx * 0.01}
                 )
                 for step in range(5):
                     mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
-                bump("metrics", 7)
 
                 # Artifacts
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,7 +140,6 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                     subdir.mkdir()
                     (subdir / "params.json").write_text('{"lr": 0.001}')
                     mlflow.log_artifacts(str(subdir), artifact_path="config")
-                bump("artifacts", 2)
 
         result.append(ExperimentData(exp_id, run_ids))
 
@@ -164,38 +150,29 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
         mlflow.log_metrics(
             {"nan_metric": math.nan, "inf_metric": math.inf, "neg_inf_metric": -math.inf}
         )
-    bump("metrics", 3)
 
     # Unicode experiment name and tag values
     unicode_exp_id = client.create_experiment(
         "実験_テスト_🚀",
         tags={"description": "日本語テスト 🎉", "emoji": "🔬🧪"},
     )
-    bump("experiments")
-    bump("experiment_tags", 2)
     with mlflow.start_run(experiment_id=unicode_exp_id):
         mlflow.log_params({"unicode_param": "パラメータ値", "long_param": "x" * 8000})
-    bump("runs")
-    bump("params", 2)
 
     # Empty run (no metrics/params)
     with mlflow.start_run(experiment_id=result[0].experiment_id):
         pass
-    bump("runs")
 
     # Deleted experiment with a run
     del_exp_id = client.create_experiment("to_be_deleted")
     with mlflow.start_run(experiment_id=del_exp_id):
         mlflow.log_param("param_in_deleted_exp", "value")
     client.delete_experiment(del_exp_id)
-    bump("deleted_experiments")
-    bump("runs")
 
     # Deleted run
     with mlflow.start_run(experiment_id=result[0].experiment_id) as del_run:
         mlflow.log_param("param_in_deleted_run", "value")
     client.delete_run(del_run.info.run_id)
-    bump("deleted_runs")
 
     return result
 
@@ -216,25 +193,36 @@ def generate_datasets(cfg: SizeConfig, experiments: list[ExperimentData]) -> Non
                 )
                 with mlflow.start_run(run_id=rid):
                     mlflow.log_input(dataset, context=f"training_{ds_idx}")
-                bump("dataset_inputs")
+
+
+@mlflow.trace
+def _retrieve(query: str) -> list[str]:
+    return ["doc1", "doc2"]
+
+
+@mlflow.trace
+def _generate(docs: list[str]) -> str:
+    return f"response for {len(docs)} docs"
+
+
+@mlflow.trace
+def _rag_pipeline(query: str) -> str:
+    docs = _retrieve(query)
+    return _generate(docs)
 
 
 def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
     """Returns list of trace IDs."""
+    client = MlflowClient()
     trace_ids: list[str] = []
 
     for exp in experiments:
         mlflow.set_experiment(experiment_id=exp.experiment_id)
         for t_idx in range(cfg.traces_per_exp):
-            with mlflow.start_span(name=f"trace_{t_idx}") as span:
-                span.set_inputs({"query": f"test query {t_idx}"})
-                span.set_outputs({"response": f"test response {t_idx}"})
-            bump("traces")
+            _rag_pipeline(f"test query {t_idx}")
 
-            trace_id = span.trace_id
-            mlflow.MlflowClient().set_trace_tag(trace_id, "trace_source", "synthetic")
-            bump("trace_tags")
-
+            trace_id = mlflow.get_last_active_trace_id()
+            client.set_trace_tag(trace_id, "trace_source", "synthetic")
             trace_ids.append(trace_id)
 
     return trace_ids
@@ -251,7 +239,6 @@ def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
                 source=AssessmentSource(source_type="HUMAN", source_id="test-user"),
             )
             mlflow.log_assessment(trace_id=trace_id, assessment=feedback)
-            bump("assessments")
 
 
 def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> None:
@@ -259,18 +246,15 @@ def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -
 
     for exp in experiments:
         for m_idx in range(cfg.logged_models_per_exp):
-            model = client.create_logged_model(
-                experiment_id=exp.experiment_id,
-                name=f"logged_model_{m_idx}",
+            with mlflow.start_run(experiment_id=exp.experiment_id):
+                model_info = mlflow.pyfunc.log_model(
+                    name=f"logged_model_{m_idx}",
+                    python_model=lambda model_input: model_input,
+                    input_example="hello",
+                )
+            client.set_logged_model_tags(
+                model_info.model_id, {"framework": "pytorch", "stage": "dev"}
             )
-            model_id = model.model_id
-            bump("logged_models")
-
-            tags = {"framework": "pytorch"}
-            if exp.run_ids:
-                tags["source_run"] = exp.run_ids[0]
-            client.set_logged_model_tags(model_id, tags)
-            bump("logged_model_tags", len(tags))
 
 
 def generate_model_registry(cfg: SizeConfig) -> None:
@@ -279,8 +263,6 @@ def generate_model_registry(cfg: SizeConfig) -> None:
     for rm_idx in range(cfg.registered_models):
         name = f"registered_model_{rm_idx}"
         client.create_registered_model(name, tags={"stage": "staging", "owner": "team-ml"})
-        bump("registered_models")
-        bump("registered_model_tags", 2)
 
         for v_idx in range(1, 3):
             mv = client.create_model_version(
@@ -288,11 +270,8 @@ def generate_model_registry(cfg: SizeConfig) -> None:
                 source=f"runs:/{uuid.uuid4().hex}/model",
                 tags={"version_note": f"v{v_idx}"},
             )
-            bump("model_versions")
-            bump("model_version_tags")
 
         client.set_registered_model_alias(name, "champion", mv.version)
-        bump("model_aliases")
 
 
 def generate_prompts(cfg: SizeConfig) -> None:
@@ -301,7 +280,6 @@ def generate_prompts(cfg: SizeConfig) -> None:
             name=f"prompt_{p_idx}",
             template=f"Hello {{{{name}}}}, this is prompt {p_idx}.",
         )
-        bump("prompts")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -372,12 +350,6 @@ def main() -> None:
         print("[7/7] Skipping prompts (not available)")
 
     print()
-    print("=" * 50)
-    print("Summary:")
-    print("=" * 50)
-    for key, count in sorted(summary.items()):
-        print(f"  {key}: {count}")
-    print("=" * 50)
     print(f"Done. Data written to {output}")
 
 
