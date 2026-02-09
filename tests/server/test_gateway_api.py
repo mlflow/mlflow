@@ -2122,20 +2122,20 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
 @pytest.mark.parametrize(
     "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
 )
-async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, handler):
-    endpoint_name = "user-attrs-tracing-endpoint"
+async def test_gateway_trace_includes_user_metadata(store: SqlAlchemyStore, handler):
+    endpoint_name = "user-metadata-tracing-endpoint"
 
     # Create experiment for tracing
     experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
 
     # Create endpoint with usage tracking enabled
     secret = store.create_gateway_secret(
-        secret_name="user-attrs-tracing-key",
-        secret_value={"api_key": "sk-test-user-attrs"},
+        secret_name="user-metadata-tracing-key",
+        secret_value={"api_key": "sk-test-user-metadata"},
         provider="openai",
     )
     model_def = store.create_gateway_model_definition(
-        name="user-attrs-tracing-model",
+        name="user-metadata-tracing-model",
         secret_id=secret.secret_id,
         provider="openai",
         model_name="gpt-4",
@@ -2153,7 +2153,7 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
         experiment_id=experiment_id,
     )
 
-    # Create mock request with user attributes set (as auth middleware would do)
+    # Create mock request with user metadata set (as auth middleware would do)
     mock_request = MagicMock()
     mock_request.state.username = "test_user"
     mock_request.state.user_id = 42
@@ -2192,13 +2192,15 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
-    # Find the gateway span and verify user attributes are present
+    # Verify user metadata is present in trace info
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "test_user"
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "42"
+
+    # Verify span attributes still include endpoint info
     gateway_span = next(
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
     )
     assert gateway_span is not None
-    assert gateway_span.attributes.get(SpanAttributeKey.USERNAME) == "test_user"
-    assert gateway_span.attributes.get(SpanAttributeKey.USER_ID) == 42
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
 
