@@ -10,7 +10,18 @@ import os
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generator,
+    Literal,
+    ParamSpec,
+    Protocol,
+    Sequence,
+    TypeVar,
+    overload,
+)
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -81,13 +92,85 @@ def _set_sampling_ratio_override(sampling_ratio_override: float | None):
 # evaluation using the dataset row ID (evaluation request ID).
 _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R", covariant=True)
+
+
+class _TraceProtocol(Protocol):
+    @overload
+    def __call__(self, f: Callable[_P, _R]) -> Callable[_P, _R]:
+        """
+        # Case 1
+        @mlflow.trace
+        def f(x: int) -> str:
+            return str(x)
+
+        # Case 2
+        mlflow.trace(math.floor)
+        """
+
+    @overload
+    def __call__(
+        self,
+        func: None = None,
+        name: str | None = None,
+        span_type: str = SpanType.UNKNOWN,
+        attributes: dict[str, Any] | None = None,
+        output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+        trace_destination: TraceLocationBase | None = None,
+    ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+        """
+        @mlflow.trace(name="x")
+        def f(x: int) -> str:
+            return str(x)
+        """
+
+    @overload
+    def trace(
+        func: Callable[_P, _R],
+        name: str | None = None,
+        span_type: str = SpanType.UNKNOWN,
+        attributes: dict[str, Any] | None = None,
+        output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+        trace_destination: TraceLocationBase | None = None,
+    ) -> Callable[_P, _R]:
+        """
+        mlflow.trace(func=math.floor, name="floor")
+        """
+
+
+@overload
+def trace(
+    func: None = None,
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
+
+
+@overload
+def trace(
+    func: Callable[_P, _R],
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+) -> Callable[_P, _R]: ...
+
+
+# This is needed to support bare .trace decorator
+trace: _TraceProtocol
+
 
 def trace(
     func: Callable[..., Any] | None = None,
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    output_reducer: Callable[[list[Any]], Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
@@ -528,7 +611,8 @@ def start_span(
     """
     try:
         otel_span = provider.start_span_in_context(
-            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+            name,
+            experiment_id=trace_destination.experiment_id if trace_destination else None,
         )
 
         # Create a new MLflow span and register it to the in-memory trace manager
