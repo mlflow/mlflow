@@ -5,6 +5,8 @@ Tests that `import mlflow` and `mlflow.autolog()` do not import ML packages.
 import importlib
 import logging
 import sys
+import threading
+import time
 
 import mlflow
 
@@ -33,18 +35,27 @@ def main():
     imported = ml_packages.intersection(set(sys.modules))
     assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
 
+    print(f"[DEBUG] Calling mlflow.autolog(), threads: {threading.active_count()}", flush=True)  # noqa: T201
     mlflow.autolog()
+    print(f"[DEBUG] mlflow.autolog() completed, threads: {threading.active_count()}", flush=True)  # noqa: T201
     imported = ml_packages.intersection(set(sys.modules))
     assert imported == set(), f"`mlflow.autolog` imports {imported} but it should not"
 
     # Ensure that the ML packages are importable
     failed_to_import = []
     for package in sorted(ml_packages):
+        start = time.time()
+        print(f"[DEBUG] Importing {package}...", flush=True)  # noqa: T201
         try:
             importlib.import_module(package)
         except ImportError:
             logger.exception(f"Failed to import {package}")
             failed_to_import.append(package)
+        elapsed = time.time() - start
+        print(  # noqa: T201
+            f"[DEBUG] Imported {package} in {elapsed:.2f}s, threads: {threading.active_count()}",
+            flush=True,
+        )
 
     message = (
         f"Failed to import {failed_to_import}. Please install packages that provide these modules."

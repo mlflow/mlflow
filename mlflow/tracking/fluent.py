@@ -3518,7 +3518,17 @@ def autolog(
     def setup_autologging(module):
         try:
             autologging_params = None
-            autolog_module = importlib.import_module(target_library_and_module[module.__name__])
+            import threading as _thr  # noqa: F811
+            _imp_lock = getattr(__import__('_imp'), 'lock_held', None)  # noqa
+            _target = target_library_and_module[module.__name__]
+            print(  # noqa: T201
+                f"[DEBUG] setup_autologging: starting for {module.__name__}, "
+                f"target={_target}, thread={_thr.current_thread().name}, "
+                f"import_lock_held={_imp_lock() if _imp_lock else 'N/A'}",
+                flush=True,
+            )
+            autolog_module = importlib.import_module(_target)
+            print(f"[DEBUG] setup_autologging: imported {_target}", flush=True)  # noqa: T201
             autolog_fn = autolog_module.autolog
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
@@ -3538,7 +3548,9 @@ def autolog(
                 return
 
             autologging_params = get_autologging_params(autolog_fn)
+            print(f"[DEBUG] setup_autologging: calling autolog_fn for {module.__name__}", flush=True)  # noqa: T201
             autolog_fn(**autologging_params)
+            print(f"[DEBUG] setup_autologging: autolog_fn completed for {module.__name__}", flush=True)  # noqa: T201
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
                 AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True

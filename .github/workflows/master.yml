@@ -59,15 +59,13 @@ jobs:
   python:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
-        include:
-          - splits: 4
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -75,38 +73,36 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      # - uses: ./.github/actions/setup-pyenv
+      # - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras --extra gateway --extra mcp --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+      # - uses: ./.github/actions/show-versions
+      # - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          # `-I` is used to avoid importing modules from user-specific site-packages
-          # that might conflict with the built-in modules (e.g. `types`).
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
-      - name: Run tests
-        run: |
-          source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
-            tests
+      # - name: Run tests
+      #   run: |
+      #     source dev/setup-ssh.sh
+      #     uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+      #       --quiet --requires-ssh --ignore-flavors \
+      #       --ignore=tests/examples \
+      #       --ignore=tests/evaluate \
+      #       --ignore=tests/genai \
+      #       --ignore=tests/docker \
+      #       tests
 
-      - name: Run databricks-connect related tests
-        run: |
-          # this needs to be run in a separate job because installing databricks-connect could break other
-          # tests that uses normal SparkSession instead of remote SparkSession
-          uv run --no-sync --with 'databricks-agents,databricks-connect' \
-            pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
+      # - name: Run databricks-connect related tests
+      #   run: |
+      #     # this needs to be run in a separate job because installing databricks-connect could break other
+      #     # tests that uses normal SparkSession instead of remote SparkSession
+      #     uv run --no-sync --with 'databricks-agents,databricks-connect' \
+      #       pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

@@ -495,7 +495,18 @@ def autolog(
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
+    import threading as _threading  # noqa: F811
+    _imp_lock = getattr(__import__('_imp'), 'lock_held', None)  # noqa
+    print(  # noqa: T201
+        f"[DEBUG] statsmodels autolog: importing statsmodels.api... "
+        f"thread={_threading.current_thread().name}, "
+        f"import_lock_held={_imp_lock() if _imp_lock else 'N/A'}, "
+        f"'statsmodels.api' in sys.modules={('statsmodels.api' in __import__('sys').modules)}",
+        flush=True,
+    )
     import statsmodels.api  # noqa: F401
+
+    print("[DEBUG] statsmodels autolog: statsmodels.api imported", flush=True)  # noqa: T201
 
     def find_subclasses(klass):
         """
@@ -610,7 +621,9 @@ def autolog(
             if should_autolog:
                 AutologHelpers.should_autolog = True
 
+    print("[DEBUG] statsmodels autolog: calling patch_class_tree...", flush=True)  # noqa: T201
     patch_class_tree(statsmodels.base.model.Model)
+    print("[DEBUG] statsmodels autolog: patch_class_tree completed", flush=True)  # noqa: T201
 
 
 if autolog.__doc__ is not None:
