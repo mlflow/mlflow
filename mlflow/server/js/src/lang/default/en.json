@@ -447,6 +447,10 @@
     "defaultMessage": "Using controls above, select at least one artifact containing table.",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
   },
+  "1BIc9x": {
+    "defaultMessage": "Launch Demo",
+    "description": "Demo banner launch button"
+  },
   "1Buj/Q": {
     "defaultMessage": "Alternatively, you can interact with this trace via the MLflow Python SDK, using the {code} function. For more information, please check the {documentation_link}.",
     "description": "Body text for when a trace is too large to display"
@@ -2054,10 +2058,6 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
-  "Cg2LSP": {
-    "defaultMessage": "Clear demo data",
-    "description": "Confirm clear demo data button"
-  },
   "Cj58gM": {
     "defaultMessage": "Setup MLflow Assistant",
     "description": "Title for the MLflow Assistant setup wizard"
@@ -2517,6 +2517,10 @@
   "GgPNAZ": {
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
+  },
+  "GifD0J": {
+    "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
+    "description": "Demo banner description"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -4112,10 +4116,6 @@
   "TC9IhO": {
     "defaultMessage": "No runs",
     "description": "Placeholder text for the runs table on the logged model details page when there are no runs"
-  },
-  "TGE7YJ": {
-    "defaultMessage": "Clear demo data",
-    "description": "Confirm clear demo data modal title"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -8095,10 +8095,6 @@
     "defaultMessage": "Description",
     "description": "Header for displaying notes for the experiment table"
   },
-  "wF6gEq": {
-    "defaultMessage": "Cancel",
-    "description": "Cancel clear demo data button"
-  },
   "wFaOf0": {
     "defaultMessage": "Source run ID",
     "description": "Label for the source run ID of a logged model on the logged model details page"
@@ -8126,10 +8122,6 @@
   "wNHR0W": {
     "defaultMessage": "Aliases",
     "description": "Column title text for model version aliases in model version table"
-  },
-  "wOR5bu": {
-    "defaultMessage": "Are you sure you want to clear all demo data? This will remove demo experiments, traces, evaluations, and prompts. This action cannot be undone.",
-    "description": "Confirm clear demo data modal body"
   },
   "wRV8PN": {
     "defaultMessage": "Settings",
