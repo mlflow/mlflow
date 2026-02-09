@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 
-import pandas as pd
 import pydantic
 
 import mlflow
@@ -23,7 +21,7 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_SAMPLE_SIZE = 100
+_DEFAULT_SAMPLE_SIZE = 50
 _MAX_SUMMARIES_FOR_CLUSTERING = 50
 _MIN_FREQUENCY_THRESHOLD = 0.01
 
@@ -47,10 +45,6 @@ class _IssueClusteringResult(pydantic.BaseModel):
     issues: list[_IdentifiedIssue] = pydantic.Field(
         description="Distinct issues identified from the failing traces"
     )
-
-
-class _SummaryResult(pydantic.BaseModel):
-    summary: str = pydantic.Field(description="Markdown-formatted summary of the discovered issues")
 
 
 # ---- Data models ----
@@ -100,303 +94,101 @@ def _build_default_satisfaction_scorer(model: str | None) -> Scorer:
     )
 
 
-@dataclass
-class _TraceSummary:
-    index: int
-    trace_id: str
-    inputs_preview: str
-    outputs_preview: str
-    span_names: list[str]
-    error_spans: list[str]
-    satisfaction_rationale: str
-    execution_duration_ms: int | None
-
-
-def _build_trace_summary(
-    index: int,
-    trace: Trace,
-    satisfaction_rationale: str,
-) -> _TraceSummary:
-    request_preview = trace.info.request_preview or ""
-    response_preview = trace.info.response_preview or ""
-
-    span_names = [span.name for span in trace.data.spans]
-    error_spans = [
-        span.name for span in trace.data.spans if span.status.status_code == SpanStatusCode.ERROR
-    ]
-
-    return _TraceSummary(
-        index=index,
-        trace_id=trace.info.trace_id,
-        inputs_preview=request_preview[:500],
-        outputs_preview=response_preview[:500],
-        span_names=span_names,
-        error_spans=error_spans,
-        satisfaction_rationale=satisfaction_rationale,
-        execution_duration_ms=trace.info.execution_duration,
+def _format_trace_for_clustering(index: int, trace: Trace, rationale: str) -> str:
+    request = (trace.info.request_preview or "")[:500]
+    response = (trace.info.response_preview or "")[:500]
+    spans = ", ".join(s.name for s in trace.data.spans)
+    errors = ", ".join(
+        s.name for s in trace.data.spans if s.status.status_code == SpanStatusCode.ERROR
+    )
+    return (
+        f"[{index}] trace_id={trace.info.trace_id}\n"
+        f"  Input: {request}\n"
+        f"  Output: {response}\n"
+        f"  Spans: {spans}\n"
+        f"  Error spans: {errors or 'none'}\n"
+        f"  Duration: {trace.info.execution_duration}ms\n"
+        f"  Failure rationale: {rationale}"
     )
 
 
-def _format_summaries_for_clustering(summaries: list[_TraceSummary]) -> str:
-    parts = [
-        f"[{s.index}] trace_id={s.trace_id}\n"
-        f"  Input: {s.inputs_preview}\n"
-        f"  Output: {s.outputs_preview}\n"
-        f"  Spans: {', '.join(s.span_names)}\n"
-        f"  Error spans: {', '.join(s.error_spans) if s.error_spans else 'none'}\n"
-        f"  Duration: {s.execution_duration_ms}ms\n"
-        f"  Satisfaction rationale: {s.satisfaction_rationale}"
-        for s in summaries
-    ]
-    return "\n\n".join(parts)
-
-
-# ---- Pipeline phases ----
-
-
-def _check_scorer_errors(
-    df: pd.DataFrame,
+def _extract_failing_traces(
+    eval_result: EvaluationResult,
     scorer_name: str,
-) -> None:
-    """Raise if a scorer produced all null values, indicating a systemic error."""
+) -> tuple[list[Trace], dict[str, str]]:
+    """Extract traces that failed a boolean scorer and their rationales."""
+    failing = []
+    rationales: dict[str, str] = {}
+    df = eval_result.result_df
+    if df is None:
+        return failing, rationales
+
     value_col = f"{scorer_name}/value"
+    rationale_col = f"{scorer_name}/rationale"
     if value_col not in df.columns:
-        return
+        return failing, rationales
 
-    if df[value_col].isna().all() or df[value_col].apply(lambda v: v is None).all():
-        error_msg = _extract_scorer_error(df, scorer_name)
-        raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer_name}' failed on all traces. "
-            f"This usually means the scorer's model is misconfigured or "
-            f"a required dependency is missing.\n"
-            f"Error: {error_msg}"
-        )
-
-
-def _extract_scorer_error(df: pd.DataFrame, scorer_name: str) -> str:
-    """Try to extract an error message from the assessments column."""
-    if "assessments" not in df.columns:
-        return "No error details available."
-
-    for assessments_raw in df["assessments"]:
-        if assessments_raw is None:
+    for _, row in df.iterrows():
+        if row.get(value_col) is not False:
             continue
-        try:
-            assessments = (
-                json.loads(assessments_raw) if isinstance(assessments_raw, str) else assessments_raw
-            )
-            if not isinstance(assessments, list):
-                continue
-            for assessment in assessments:
-                if not isinstance(assessment, dict):
-                    continue
-                if assessment.get("assessment_name") == scorer_name:
-                    feedback = assessment.get("feedback", {})
-                    error = feedback.get("error", {})
-                    if error_message := error.get("error_message"):
-                        return error_message
-        except (json.JSONDecodeError, TypeError, AttributeError):
+        trace = row.get("trace")
+        if trace is None:
             continue
+        if isinstance(trace, str):
+            trace = Trace.from_json(trace)
+        failing.append(trace)
+        rationales[trace.info.trace_id] = str(row.get(rationale_col, "") or "")
 
-    return "No error details available."
-
-
-def _phase1_triage(
-    traces: list[Trace],
-    satisfaction_scorer: Scorer,
-    model_id: str | None,
-) -> tuple[EvaluationResult, list[Trace], dict[str, str]]:
-    """Run satisfaction scorer on sampled traces.
-
-    Returns (eval_result, failing_traces, rationale_map).
-    """
-    eval_result = mlflow.genai.evaluate(
-        data=traces,
-        scorers=[satisfaction_scorer],
-        model_id=model_id,
-    )
-
-    scorer_name = satisfaction_scorer.name
-
-    failing_traces = []
-    rationale_map: dict[str, str] = {}
-
-    if eval_result.result_df is not None:
-        df = eval_result.result_df
-
-        _check_scorer_errors(df, scorer_name)
-
-        value_col = f"{scorer_name}/value"
-        rationale_col = f"{scorer_name}/rationale"
-
-        if value_col in df.columns:
-            for _, row in df.iterrows():
-                val = row.get(value_col)
-                if val is False or val in {"no", "No"}:
-                    trace = row.get("trace")
-                    if trace is not None:
-                        if isinstance(trace, str):
-                            trace = Trace.from_json(trace)
-                        failing_traces.append(trace)
-                        rationale = row.get(rationale_col, "")
-                        rationale_map[trace.info.trace_id] = str(rationale) if rationale else ""
-
-    return eval_result, failing_traces, rationale_map
+    return failing, rationales
 
 
-def _phase2_cluster(
-    failing_traces: list[Trace],
-    rationale_map: dict[str, str],
-    model: str,
-    max_issues: int,
-) -> list[_IdentifiedIssue]:
-    """Cluster failing traces into distinct issues using an LLM."""
-    if not failing_traces:
-        return []
-
-    summaries = []
-    for i, trace in enumerate(failing_traces[:_MAX_SUMMARIES_FOR_CLUSTERING]):
-        rationale = rationale_map.get(trace.info.trace_id, "")
-        summaries.append(_build_trace_summary(i, trace, rationale))
-
-    summaries_text = _format_summaries_for_clustering(summaries)
-
-    messages = [
-        ChatMessage(
-            role="system",
-            content=(
-                "You are an expert at analyzing AI application failures. "
-                "Given a list of failing trace summaries from an AI application, "
-                "identify the distinct issues that are causing failures. "
-                "Group similar failures together into coherent issues. "
-                f"Identify at most {max_issues} distinct issues. "
-                "For each issue, provide:\n"
-                "- A snake_case name\n"
-                "- A clear description of what the issue is\n"
-                "- The root cause of why it occurs\n"
-                "- Detection instructions that a judge could use to identify this issue "
-                "from a single trace (the judge will receive the full trace via {{ trace }})\n"
-                "- Indices of example traces from the input list"
-            ),
-        ),
-        ChatMessage(
-            role="user",
-            content=f"Here are the failing trace summaries:\n\n{summaries_text}",
-        ),
-    ]
-
-    result = get_chat_completions_with_structured_output(
-        model_uri=model,
-        messages=messages,
-        output_schema=_IssueClusteringResult,
-    )
-
-    return result.issues[:max_issues]
-
-
-def _phase3_validate(
-    validation_traces: list[Trace],
-    identified_issues: list[_IdentifiedIssue],
-    model: str,
-    model_id: str | None,
-) -> tuple[EvaluationResult | None, dict[str, float], dict[str, list[str]]]:
-    """Run issue scorers on validation traces.
-
-    Returns (eval_result, frequency_map, rationale_map).
-    """
-    if not identified_issues or not validation_traces:
-        return None, {}, {}
-
-    issue_scorers = [
-        make_judge(
-            name=issue.name,
-            instructions=issue.detection_instructions,
-            model=model,
-            feedback_value_type=bool,
-        )
-        for issue in identified_issues
-    ]
-
-    eval_result = mlflow.genai.evaluate(
-        data=validation_traces,
-        scorers=issue_scorers,
-        model_id=model_id,
-    )
-
-    frequency_map: dict[str, float] = {}
+def _compute_frequencies(
+    eval_result: EvaluationResult,
+    scorer_names: list[str],
+) -> tuple[dict[str, float], dict[str, list[str]]]:
+    """Compute frequency and sample rationales for each boolean scorer."""
+    frequencies: dict[str, float] = {}
     rationale_examples: dict[str, list[str]] = {}
+    df = eval_result.result_df
+    if df is None:
+        return frequencies, rationale_examples
 
-    if eval_result.result_df is not None:
-        df = eval_result.result_df
-        total = len(df)
+    total = len(df)
+    for name in scorer_names:
+        value_col = f"{name}/value"
+        rationale_col = f"{name}/rationale"
+        if value_col not in df.columns:
+            continue
 
-        for issue in identified_issues:
-            _check_scorer_errors(df, issue.name)
+        affected = df[value_col].apply(lambda v: v is True).sum()
+        frequencies[name] = affected / total if total > 0 else 0.0
 
-            value_col = f"{issue.name}/value"
-            rationale_col = f"{issue.name}/rationale"
+        examples = []
+        if rationale_col in df.columns:
+            for _, row in df.iterrows():
+                if row.get(value_col) is True and len(examples) < 3:
+                    if r := row.get(rationale_col):
+                        examples.append(str(r))
+        rationale_examples[name] = examples
 
-            if value_col in df.columns:
-                affected = df[value_col].apply(lambda v: v is True or v in {"yes", "Yes"}).sum()
-                frequency_map[issue.name] = affected / total if total > 0 else 0.0
-
-                examples = []
-                if rationale_col in df.columns:
-                    for _, row in df.iterrows():
-                        val = row.get(value_col)
-                        if (val is True or val in {"yes", "Yes"}) and len(examples) < 3:
-                            if r := row.get(rationale_col, ""):
-                                examples.append(str(r))
-                rationale_examples[issue.name] = examples
-
-    return eval_result, frequency_map, rationale_examples
+    return frequencies, rationale_examples
 
 
-def _phase4_summarize(
-    issues: list[Issue],
-    total_traces: int,
-    model: str,
-) -> str:
-    """Generate a markdown summary of the discovered issues."""
+def _build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
-        return (
-            f"## Issue Discovery Summary\n\n"
-            f"Analyzed {total_traces} traces. No significant issues were identified."
-        )
+        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
 
-    issues_text = "\n".join(
-        f"- **{issue.name}** (frequency: {issue.frequency:.1%}): {issue.description}\n"
-        f"  Root cause: {issue.root_cause}"
-        for issue in issues
-    )
-
-    messages = [
-        ChatMessage(
-            role="system",
-            content=(
-                "You are an expert at summarizing AI application quality analysis. "
-                "Generate a concise markdown summary of the discovered issues. "
-                "Include an overview, issues ranked by frequency, root causes, "
-                "and actionable recommendations."
-            ),
-        ),
-        ChatMessage(
-            role="user",
-            content=(
-                f"Total traces analyzed: {total_traces}\n\n"
-                f"Discovered issues:\n{issues_text}\n\n"
-                "Generate a markdown summary with sections for Overview, "
-                "Issues (ranked by frequency), and Recommendations."
-            ),
-        ),
+    lines = [
+        "## Issue Discovery Summary\n",
+        f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
     ]
-
-    result = get_chat_completions_with_structured_output(
-        model_uri=model,
-        messages=messages,
-        output_schema=_SummaryResult,
-    )
-    return result.summary
+    for i, issue in enumerate(issues, 1):
+        lines.append(
+            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces)\n\n"
+            f"{issue.description}\n\n"
+            f"**Root cause:** {issue.root_cause}\n"
+        )
+    return "\n".join(lines)
 
 
 # ---- Main API ----
@@ -413,29 +205,28 @@ def discover_issues(
     max_issues: int = 10,
     filter_string: str | None = None,
 ) -> DiscoverIssuesResult:
-    """Automatically discover quality and operational issues in an experiment's traces.
+    """Discover quality and operational issues in an experiment's traces.
 
     Runs a multi-phase pipeline:
     1. **Triage**: Scores a sample of traces for user satisfaction
-    2. **Cluster**: Groups failing traces into distinct issues using an LLM
+    2. **Cluster**: Groups failing traces into distinct issues via LLM
     3. **Validate**: Runs generated issue scorers on a broader trace set
-    4. **Summarize**: Produces a markdown report of findings
 
     Args:
         experiment_id: Experiment to analyze. Defaults to the active experiment.
         model_id: Scope traces to a specific model.
-        satisfaction_scorer: Custom Scorer for triage. Defaults to a built-in
+        satisfaction_scorer: Custom scorer for triage. Defaults to a built-in
             conversation-level satisfaction judge.
-        model: LLM for judge and analysis calls. Defaults to ``get_default_model()``.
+        model: LLM for judge and analysis calls (e.g. ``"openai:/gpt-4.1"``).
         sample_size: Number of traces for the triage phase.
         validation_sample_size: Number of traces for validation.
-            Defaults to ``min(5 * sample_size, total_traces)``.
+            Defaults to ``5 * sample_size``.
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
 
     Returns:
-        A :class:`DiscoverIssuesResult` containing the discovered issues,
-        evaluation results, and a summary report.
+        A :class:`DiscoverIssuesResult` with discovered issues, evaluation
+        results, and a summary report.
 
     Example:
 
@@ -444,163 +235,166 @@ def discover_issues(
             import mlflow
 
             mlflow.set_experiment("my-genai-app")
-            result = mlflow.genai.discover_issues()  # clint: disable=unknown-mlflow-function
+            result = mlflow.genai.discover_issues()
 
             for issue in result.issues:
                 print(f"{issue.name}: {issue.frequency:.1%} of traces affected")
-
-            print(result.summary)
+                # Each issue has a scorer you can reuse
+                mlflow.genai.evaluate(data=traces, scorers=[issue.scorer])
     """
-    if model is None:
-        model = get_default_model()
-
+    model = model or get_default_model()
     exp_id = experiment_id or _get_experiment_id()
     if exp_id is None:
         raise mlflow.exceptions.MlflowException(
-            "No experiment specified and no active experiment found. "
-            "Please set an active experiment with mlflow.set_experiment() "
-            "or pass experiment_id explicitly."
+            "No experiment specified. Use mlflow.set_experiment() or pass experiment_id."
         )
 
     locations = [exp_id]
+    search_kwargs = {
+        "filter_string": filter_string,
+        "model_id": model_id,
+        "return_type": "list",
+        "locations": locations,
+    }
 
     if satisfaction_scorer is None:
         satisfaction_scorer = _build_default_satisfaction_scorer(model)
 
-    # Fetch triage sample
-    _logger.info("Phase 1: Fetching %d traces for triage...", sample_size)
-    triage_traces = mlflow.search_traces(
-        filter_string=filter_string,
-        max_results=sample_size,
-        model_id=model_id,
-        return_type="list",
-        locations=locations,
-    )
-
+    # Phase 1: Triage — score a sample for user satisfaction
+    _logger.info("Phase 1: Scoring %d traces for satisfaction...", sample_size)
+    triage_traces = mlflow.search_traces(max_results=sample_size, **search_kwargs)
     if not triage_traces:
-        _logger.warning("No traces found in experiment %s", exp_id)
         empty_eval = EvaluationResult(run_id="", metrics={}, result_df=None)
         return DiscoverIssuesResult(
             issues=[],
             triage_evaluation=empty_eval,
             validation_evaluation=None,
-            summary=f"## Issue Discovery Summary\n\nNo traces found in experiment {exp_id}.",
+            summary=f"No traces found in experiment {exp_id}.",
             total_traces_analyzed=0,
         )
 
-    # Phase 1: Triage
-    _logger.info("Phase 1: Running satisfaction scorer on %d traces...", len(triage_traces))
-    triage_eval, failing_traces, rationale_map = _phase1_triage(
-        triage_traces, satisfaction_scorer, model_id
+    triage_eval = mlflow.genai.evaluate(
+        data=triage_traces,
+        scorers=[satisfaction_scorer],
+        model_id=model_id,
     )
-
+    failing_traces, rationale_map = _extract_failing_traces(triage_eval, satisfaction_scorer.name)
     _logger.info(
-        "Phase 1 complete: %d/%d traces flagged as unsatisfactory",
-        len(failing_traces),
-        len(triage_traces),
+        "Phase 1 complete: %d/%d traces unsatisfactory", len(failing_traces), len(triage_traces)
     )
 
     if not failing_traces:
-        summary = (
-            f"## Issue Discovery Summary\n\n"
-            f"Analyzed {len(triage_traces)} traces. "
-            f"All traces passed the satisfaction check — no issues found."
-        )
         return DiscoverIssuesResult(
             issues=[],
             triage_evaluation=triage_eval,
             validation_evaluation=None,
-            summary=summary,
+            summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Phase 2: Cluster
+    # Phase 2: Cluster — identify distinct issues from failing traces
     _logger.info("Phase 2: Clustering %d failing traces into issues...", len(failing_traces))
-    identified_issues = _phase2_cluster(failing_traces, rationale_map, model, max_issues)
-    _logger.info("Phase 2 complete: %d distinct issues identified", len(identified_issues))
+    summaries_text = "\n\n".join(
+        _format_trace_for_clustering(i, t, rationale_map.get(t.info.trace_id, ""))
+        for i, t in enumerate(failing_traces[:_MAX_SUMMARIES_FOR_CLUSTERING])
+    )
 
-    if not identified_issues:
-        summary = (
-            f"## Issue Discovery Summary\n\n"
-            f"Analyzed {len(triage_traces)} traces. "
-            f"{len(failing_traces)} traces failed satisfaction check, "
-            f"but no distinct issue patterns could be identified."
-        )
+    clustering_result = get_chat_completions_with_structured_output(
+        model_uri=model,
+        messages=[
+            ChatMessage(
+                role="system",
+                content=(
+                    "You are an expert at analyzing AI application failures. "
+                    "Given failing trace summaries, identify distinct issue categories. "
+                    f"Identify at most {max_issues} issues.\n\n"
+                    "For each issue provide:\n"
+                    "- A snake_case name\n"
+                    "- A clear description\n"
+                    "- The root cause\n"
+                    "- Detection instructions for a judge that receives a {{ trace }} "
+                    "and returns True if the issue is present\n"
+                    "- Indices of example traces from the input"
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content=f"Failing trace summaries:\n\n{summaries_text}",
+            ),
+        ],
+        output_schema=_IssueClusteringResult,
+    )
+
+    identified = clustering_result.issues[:max_issues]
+    _logger.info("Phase 2 complete: %d issues identified", len(identified))
+
+    if not identified:
         return DiscoverIssuesResult(
             issues=[],
             triage_evaluation=triage_eval,
             validation_evaluation=None,
-            summary=summary,
+            summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Phase 3: Validate
-    total_traces = _get_total_trace_count(locations, model_id, filter_string)
+    # Phase 3: Validate — run issue scorers on a broader sample
     if validation_sample_size is None:
-        validation_sample_size = min(5 * sample_size, total_traces)
-
-    _logger.info("Phase 3: Fetching %d traces for validation...", validation_sample_size)
-    validation_traces = mlflow.search_traces(
-        filter_string=filter_string,
-        max_results=validation_sample_size,
-        model_id=model_id,
-        return_type="list",
-        locations=locations,
-    )
+        validation_sample_size = 5 * sample_size
 
     _logger.info(
-        "Phase 3: Running %d issue scorers on %d traces...",
-        len(identified_issues),
-        len(validation_traces),
+        "Phase 3: Validating %d issues on %d traces...", len(identified), validation_sample_size
     )
-    validation_eval, frequency_map, rationale_examples_map = _phase3_validate(
-        validation_traces, identified_issues, model, model_id
-    )
+    validation_traces = mlflow.search_traces(max_results=validation_sample_size, **search_kwargs)
 
-    # Build Issue objects
-    issues: list[Issue] = []
-    for ident_issue in identified_issues:
-        frequency = frequency_map.get(ident_issue.name, 0.0)
-        if frequency < _MIN_FREQUENCY_THRESHOLD:
-            _logger.debug(
-                "Discarding issue '%s' with frequency %.3f (below threshold %.3f)",
-                ident_issue.name,
-                frequency,
-                _MIN_FREQUENCY_THRESHOLD,
-            )
-            continue
-
-        example_trace_ids = [
-            failing_traces[idx].info.trace_id
-            for idx in ident_issue.example_indices
-            if 0 <= idx < len(failing_traces)
-        ]
-
-        issue_scorer = make_judge(
-            name=ident_issue.name,
-            instructions=ident_issue.detection_instructions,
+    issue_scorers = [
+        make_judge(
+            name=issue.name,
+            instructions=issue.detection_instructions,
             model=model,
             feedback_value_type=bool,
         )
+        for issue in identified
+    ]
 
+    validation_eval = mlflow.genai.evaluate(
+        data=validation_traces,
+        scorers=issue_scorers,
+        model_id=model_id,
+    )
+
+    frequencies, rationale_examples_map = _compute_frequencies(
+        validation_eval, [i.name for i in identified]
+    )
+
+    # Build final Issue objects, reusing the scorers from validation
+    issues: list[Issue] = []
+    scorer_by_name = {s.name: s for s in issue_scorers}
+    for ident in identified:
+        freq = frequencies.get(ident.name, 0.0)
+        if freq < _MIN_FREQUENCY_THRESHOLD:
+            continue
+
+        example_ids = [
+            failing_traces[idx].info.trace_id
+            for idx in ident.example_indices
+            if 0 <= idx < len(failing_traces)
+        ]
         issues.append(
             Issue(
-                name=ident_issue.name,
-                description=ident_issue.description,
-                root_cause=ident_issue.root_cause,
-                example_trace_ids=example_trace_ids,
-                scorer=issue_scorer,
-                frequency=frequency,
-                rationale_examples=rationale_examples_map.get(ident_issue.name, []),
+                name=ident.name,
+                description=ident.description,
+                root_cause=ident.root_cause,
+                example_trace_ids=example_ids,
+                scorer=scorer_by_name[ident.name],
+                frequency=freq,
+                rationale_examples=rationale_examples_map.get(ident.name, []),
             )
         )
 
     issues.sort(key=lambda i: i.frequency, reverse=True)
-
-    # Phase 4: Summarize
-    total_analyzed = len(validation_traces) if validation_traces else len(triage_traces)
-    _logger.info("Phase 4: Generating summary report...")
-    summary = _phase4_summarize(issues, total_analyzed, model)
+    total_analyzed = len(validation_traces)
+    summary = _build_summary(issues, total_analyzed)
+    _logger.info("Done. Found %d issues across %d traces.", len(issues), total_analyzed)
 
     return DiscoverIssuesResult(
         issues=issues,
@@ -609,19 +403,3 @@ def discover_issues(
         summary=summary,
         total_traces_analyzed=total_analyzed,
     )
-
-
-def _get_total_trace_count(
-    locations: list[str],
-    model_id: str | None,
-    filter_string: str | None,
-) -> int:
-    """Get total trace count in the experiment by fetching minimal data."""
-    traces = mlflow.search_traces(
-        filter_string=filter_string,
-        model_id=model_id,
-        return_type="list",
-        locations=locations,
-        include_spans=False,
-    )
-    return len(traces)
