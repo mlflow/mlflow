@@ -417,6 +417,10 @@ def test_job_timeout(monkeypatch, tmp_path):
         wait_job_finalize(job_id)
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
+        # popen.kill() is async, so poll until the OS reaps the process.
+        deadline = time.time() + 5
+        while is_process_alive(pid) and time.time() < deadline:
+            time.sleep(0.1)
         assert not is_process_alive(pid)
 
         assert_job_result(job_id, JobStatus.TIMEOUT, None)
@@ -589,6 +593,10 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
         time.sleep(5)  # wait for job process being actually killed
         pid = int((job_tmp_path / "pid").read_text())
         # assert canceled job process is killed.
+        # popen.kill() is async, so poll until the OS reaps the process.
+        deadline = time.time() + 5
+        while is_process_alive(pid) and time.time() < deadline:
+            time.sleep(0.1)
         assert not is_process_alive(pid)
 
         assert get_job(job_id).status == JobStatus.CANCELED
