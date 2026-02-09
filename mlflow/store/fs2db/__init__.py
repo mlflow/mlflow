@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 from pathlib import Path
 
+from mlflow.exceptions import MlflowException
+
 
 def _assert_empty_db(engine) -> None:
     from sqlalchemy import text
@@ -12,7 +14,7 @@ def _assert_empty_db(engine) -> None:
             except Exception:
                 continue
             if count > 0:
-                raise SystemExit(
+                raise MlflowException(
                     f"Target database is not empty: table '{table}' has {count} rows. "
                     "Migration requires an empty database."
                 )
@@ -34,6 +36,8 @@ def migrate(source: Path, target_uri: str) -> None:
         migrate_traces,
     )
 
+    summary.clear()
+
     mlruns = source / "mlruns"
     if not mlruns.is_dir():
         # Source may be the mlruns directory itself — check if it has experiment-like subdirs
@@ -45,7 +49,7 @@ def migrate(source: Path, target_uri: str) -> None:
         if has_experiment_dirs:
             mlruns = source
         else:
-            raise SystemExit(f"Cannot find mlruns directory in '{source}'")
+            raise MlflowException(f"Cannot find mlruns directory in '{source}'")
 
     print(f"Source: {mlruns}")
     print(f"Target: {target_uri}")

@@ -269,11 +269,11 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
         )
         bump("datasets")
 
-    # Scan runs in this experiment for inputs
-    for run_name in list_subdirs(exp_dir):
-        if run_name in RESERVED_FOLDERS:
+    # Scan runs in this experiment for inputs (run dirs are named by run UUID)
+    for run_uuid in list_subdirs(exp_dir):
+        if run_uuid in RESERVED_FOLDERS:
             continue
-        inputs_dir = exp_dir / run_name / "inputs"
+        inputs_dir = exp_dir / run_uuid / "inputs"
         if not inputs_dir.is_dir():
             continue
 
@@ -296,7 +296,7 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
                     source_type=source_type,
                     source_id=ds_uuid if source_type == "DATASET" else source_id,
                     destination_type="RUN",
-                    destination_id=run_name,
+                    destination_id=run_uuid,
                 )
             )
             bump("inputs")
@@ -325,6 +325,17 @@ def migrate_traces(session: Session, mlruns: Path) -> None:
         _migrate_traces_for_experiment(session, trash_dir / exp_id, int(exp_id))
 
 
+def _parse_timestamp_ms(request_time: str) -> int:
+    try:
+        from google.protobuf.timestamp_pb2 import Timestamp
+
+        ts = Timestamp()
+        ts.FromJsonString(request_time)
+        return ts.ToMilliseconds()
+    except Exception:
+        return 0
+
+
 def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
     traces_dir = exp_dir / "traces"
     if not traces_dir.is_dir():
@@ -349,14 +360,7 @@ def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int)
             if isinstance(request_time, int):
                 timestamp_ms = request_time
             elif isinstance(request_time, str):
-                try:
-                    from google.protobuf.timestamp_pb2 import Timestamp
-
-                    ts = Timestamp()
-                    ts.FromJsonString(request_time)
-                    timestamp_ms = ts.ToMilliseconds()
-                except Exception:
-                    timestamp_ms = 0
+                timestamp_ms = _parse_timestamp_ms(request_time)
             else:
                 timestamp_ms = 0
 
@@ -506,6 +510,8 @@ def migrate_logged_models(session: Session, mlruns: Path) -> None:
 
 
 def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
+    from mlflow.entities.logged_model_status import LoggedModelStatus
+
     models_dir = exp_dir / "models"
     if not models_dir.is_dir():
         return
@@ -521,8 +527,6 @@ def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_i
         # Status may be stored as an integer enum or string
         status_raw = meta.get("status", 1)  # 1 = PENDING typically
         if isinstance(status_raw, str):
-            from mlflow.entities.logged_model_status import LoggedModelStatus
-
             try:
                 status_raw = LoggedModelStatus[status_raw].value
             except (KeyError, AttributeError):
