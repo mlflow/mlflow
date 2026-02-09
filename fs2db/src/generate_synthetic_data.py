@@ -20,6 +20,7 @@ from typing import Literal
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import Metric, Param
 from mlflow.tracking import MlflowClient
 
 MLFLOW_VERSION = Version(mlflow.__version__)
@@ -125,19 +126,22 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
             bump("runs")
             bump("run_tags", 2)
 
-            client.log_param(rid, "learning_rate", "0.001")
-            client.log_param(rid, "batch_size", "32")
-            client.log_param(rid, "model_type", f"model_v{run_idx}")
-            bump("params", 3)
-
-            client.log_metric(rid, "accuracy", 0.85 + run_idx * 0.01)
-            client.log_metric(rid, "loss", 0.35 - run_idx * 0.01)
-            bump("metrics", 2)
-
-            # Multi-step metric
-            for step in range(5):
-                client.log_metric(rid, "train_loss", 1.0 - step * 0.15, step=step)
-            bump("metrics (multi-step)", 5)
+            params = [
+                Param("learning_rate", "0.001"),
+                Param("batch_size", "32"),
+                Param("model_type", f"model_v{run_idx}"),
+            ]
+            metrics = [
+                Metric("accuracy", 0.85 + run_idx * 0.01, timestamp=0, step=0),
+                Metric("loss", 0.35 - run_idx * 0.01, timestamp=0, step=0),
+                *[
+                    Metric("train_loss", 1.0 - step * 0.15, timestamp=0, step=step)
+                    for step in range(5)
+                ],
+            ]
+            client.log_batch(rid, params=params, metrics=metrics)
+            bump("params", len(params))
+            bump("metrics", len(metrics))
 
             client.set_terminated(rid)
 
@@ -273,9 +277,14 @@ def generate_edge_cases(experiments: list[ExperimentData]) -> None:
     # NaN / Inf metric values
     exp = experiments[0]
     rid = exp.run_ids[0]
-    client.log_metric(rid, "nan_metric", math.nan)
-    client.log_metric(rid, "inf_metric", math.inf)
-    client.log_metric(rid, "neg_inf_metric", -math.inf)
+    client.log_batch(
+        rid,
+        metrics=[
+            Metric("nan_metric", math.nan, timestamp=0, step=0),
+            Metric("inf_metric", math.inf, timestamp=0, step=0),
+            Metric("neg_inf_metric", -math.inf, timestamp=0, step=0),
+        ],
+    )
     bump("edge_case_metrics", 3)
 
     # Unicode experiment name and tag values
@@ -287,15 +296,16 @@ def generate_edge_cases(experiments: list[ExperimentData]) -> None:
     bump("experiment_tags", 2)
 
     run = client.create_run(unicode_exp_id)
-    client.log_param(run.info.run_id, "unicode_param", "パラメータ値")
+    client.log_batch(
+        run.info.run_id,
+        params=[
+            Param("unicode_param", "パラメータ値"),
+            Param("long_param", "x" * 8000),
+        ],
+    )
     client.set_terminated(run.info.run_id)
     bump("runs")
-    bump("params")
-
-    # Max-length param value (8000 chars)
-    long_val = "x" * 8000
-    client.log_param(run.info.run_id, "long_param", long_val)
-    bump("params")
+    bump("params", 2)
 
     # Empty run (no metrics/params)
     empty_run = client.create_run(exp.experiment_id)
