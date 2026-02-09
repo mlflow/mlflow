@@ -144,7 +144,10 @@ def compare_lazy_imports(
 
     warnings: list[Warning] = []
     new_keys = set(current_imports) - set(base_imports)
-    for key in sorted(new_keys, key=lambda k: current_imports[k].line):
+    for key in sorted(
+        new_keys,
+        key=lambda k: (current_imports[k].line, current_imports[k].module),
+    ):
         lazy = current_imports[key]
         warnings.append(
             Warning(
