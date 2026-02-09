@@ -155,8 +155,7 @@ def compare_lazy_imports(
                 line=lazy.line,
                 column=lazy.column + 1,
                 message=(
-                    f"[Non-blocking] Lazy import '{lazy.module}'. "
-                    f"Consider moving to top-level."
+                    f"[Non-blocking] Lazy import '{lazy.module}'. Consider moving to top-level."
                 ),
             )
         )
