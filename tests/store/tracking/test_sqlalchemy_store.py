@@ -4272,7 +4272,7 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
 
 
-def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path):
+def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path, db_uri):
     """
     Verify that SqlAlchemyStore does NOT create the artifact root directory during initialization.
 
@@ -4282,24 +4282,22 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
 
     See: https://github.com/mlflow/mlflow/issues/19658
     """
-    db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+    store = SqlAlchemyStore(db_uri, str(artifact_root))
 
     assert not artifact_root.exists()
 
     store._dispose_engine()
 
 
-def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
+def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path, db_uri):
     from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
     from mlflow.utils.file_utils import path_to_local_file_uri
 
-    db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", path_to_local_file_uri(str(artifact_root)))
+    store = SqlAlchemyStore(db_uri, path_to_local_file_uri(str(artifact_root)))
     exp_id = store.create_experiment("test")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
 
