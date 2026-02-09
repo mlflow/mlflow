@@ -92,7 +92,7 @@ jobs:
           for i in $(seq 1 5); do
             # `-I` is used to avoid importing modules from user-specific site-packages
             # that might conflict with the built-in modules (e.g. `types`).
-            if timeout 120 uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py; then
+            if timeout 90 uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py; then
               echo "Import check passed on attempt $i"
               exit 0
             fi
