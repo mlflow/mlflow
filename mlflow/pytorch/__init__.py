@@ -13,8 +13,6 @@ import importlib
 import itertools
 import logging
 import os
-import posixpath
-import shutil
 from functools import partial
 from typing import Any
 
@@ -41,7 +39,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -61,6 +62,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -73,7 +75,6 @@ _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _EXPORTED_TORCH_MODEL_FILE_NAME = "model.pt2"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
-_EXTRA_FILES_KEY = "extra_files"
 _TORCH_CPU_DEVICE_NAME = "cpu"
 _TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
@@ -202,16 +203,7 @@ def log_model(
             being created and is in ``READY`` status. By default, the function waits for five
             minutes.  Specify 0 or None to skip waiting.
 
-        extra_files: A list containing the paths to corresponding extra files, if ``None``, no
-            extra files are added to the model. Remote URIs are resolved to absolute filesystem
-            paths. For example, consider the following ``extra_files`` list:
-
-            .. code-block:: python
-
-                extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
+        extra_files: {{ extra_files }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
@@ -365,15 +357,7 @@ def save_model(
         signature: {{ signature }}
         input_example: {{ input_example }}
 
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:{{ metadata }}
@@ -530,31 +514,14 @@ def save_model(
         else:
             torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
-    torchserve_artifacts_config = {}
-
-    if extra_files:
-        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
-        if not isinstance(extra_files, list):
-            raise TypeError("Extra files argument should be a list")
-
-        with TempDir() as tmp_extra_files_dir:
-            for extra_file in extra_files:
-                _download_artifact_from_uri(
-                    artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
-                )
-                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
-                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
-            shutil.move(
-                tmp_extra_files_dir.path(),
-                posixpath.join(path, _EXTRA_FILES_KEY),
-            )
+    extra_files_config = _copy_extra_files(extra_files, path)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=str(torch.__version__),
         code=code_dir_subpath,
-        **torchserve_artifacts_config,
+        **extra_files_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
@@ -605,7 +572,11 @@ def save_model(
 
 
 def _load_by_pickle_check():
-    if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get() and not is_in_databricks_runtime():
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. To address this issue, you need to set environment variable "

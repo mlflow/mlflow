@@ -106,6 +106,21 @@ Example import:
 import { Button, Modal, Input } from '@databricks/design-system';
 ```
 
+### Avoid HTML Elements When Design System Alternatives Exist
+
+**Prefer `Button` from `@databricks/design-system` over raw HTML `<button>` elements** for most interactive actions:
+
+```typescript
+// ✅ GOOD - Use DuBois Button for actions
+<Button componentId="my-feature.action" type="tertiary" onClick={handleClick}>
+  Click me
+</Button>
+
+// ❌ BAD - Avoid raw HTML button for typical actions
+<button type="button" onClick={handleClick}>
+  Click me
+</button>
+```
 ### Theme Usage
 
 Use the design system theme for consistent styling:

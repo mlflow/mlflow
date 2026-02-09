@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
+    MLFLOW_LOGGING_LEVEL,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
@@ -121,14 +122,21 @@ def _start_huey_consumer_proc(
     from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
+    cmd = [
+        sys.executable,
+        shutil.which("huey_consumer.py"),
+        "mlflow.server.jobs._huey_consumer.huey_instance",
+        "-w",
+        str(max_job_parallelism),
+    ]
+
+    # Add quiet flag if logging level is WARNING or higher
+    log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+        cmd.append("-q")
+
     return _exec_cmd(
-        [
-            sys.executable,
-            shutil.which("huey_consumer.py"),
-            "mlflow.server.jobs._huey_consumer.huey_instance",
-            "-w",
-            str(max_job_parallelism),
-        ],
+        cmd,
         capture_output=False,
         synchronous=False,
         extra_env={
@@ -345,6 +353,7 @@ def _exec_job(
             if retry_count is not None:
                 _exponential_backoff_retry(retry_count)
         else:
+            _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
             job_store.fail_job(job_id, job_result.error)
     finally:
         if lock is not None:
@@ -476,14 +485,21 @@ def _launch_periodic_tasks_consumer() -> None:
 
 
 def _start_periodic_tasks_consumer_proc():
+    cmd = [
+        sys.executable,
+        shutil.which("huey_consumer.py"),
+        "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+        "-w",
+        str(PERIODIC_TASKS_WORKER_COUNT),
+    ]
+
+    # Add quiet flag if logging level is WARNING or higher
+    log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+        cmd.append("-q")
+
     return _exec_cmd(
-        [
-            sys.executable,
-            shutil.which("huey_consumer.py"),
-            "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
-            "-w",
-            str(PERIODIC_TASKS_WORKER_COUNT),
-        ],
+        cmd,
         capture_output=False,
         synchronous=False,
     )

@@ -45,7 +45,7 @@ def test_create_ragas_model_databricks():
 
 def test_create_ragas_model_databricks_serving_endpoint():
     model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "DatabricksServingEndpointRagasLLM"
+    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
 
 
 def test_create_ragas_model_openai():
@@ -53,11 +53,11 @@ def test_create_ragas_model_openai():
     assert model.__class__.__name__ == "LiteLLMStructuredLLM"
 
 
-def test_create_ragas_model_with_provider_no_slash():
-    model = create_ragas_model("openai:gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+def test_create_ragas_model_rejects_provider_no_slash():
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        create_ragas_model("openai:gpt-4")
 
 
 def test_create_ragas_model_rejects_model_name_only():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         create_ragas_model("gpt-4")

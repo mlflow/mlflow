@@ -442,6 +442,41 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     assert "Empty response from Databricks judge" in result.error.error_message
 
 
+def test_databricks_model_surfaces_api_errors(mock_databricks_rag_eval):
+    judge = InstructionsJudge(
+        name="test",
+        instructions="evaluate {{ outputs }}",
+        model="databricks",
+    )
+
+    class MockLLMResultApiError:
+        def __init__(self):
+            self.output = None
+            self.output_json = None
+            self.error_code = "400"
+            self.error_message = (
+                "INVALID_PARAMETER_VALUE: Error[3005]: Model context limit exceeded"
+            )
+
+    class MockClientApiError:
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
+            return MockLLMResultApiError()
+
+    class MockContextApiError:
+        def build_managed_rag_client(self):
+            return MockClientApiError()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextApiError()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert isinstance(result.error, AssessmentError)
+    assert "Databricks judge API error" in result.error.error_message
+    assert "400" in result.error.error_message
+    assert "Model context limit exceeded" in result.error.error_message
+
+
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
     mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
         expected_content="trace", response_data={"result": True, "rationale": "Trace looks good"}
@@ -2265,7 +2300,7 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
 
     monkeypatch.setattr("litellm.completion", mock_completion)
     monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
-    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
+    monkeypatch.setattr("litellm.get_model_info", lambda model: {"max_input_tokens": 120})
 
     judge = make_judge(
         name="test", instructions="test {{inputs}}", feedback_value_type=str, model="openai:/gpt-4"

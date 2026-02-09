@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable
 
@@ -15,6 +15,12 @@ from mlflow.genai.prompts import load_prompt
 from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.registry import get_scorer
+from mlflow.protos.prompt_optimization_pb2 import (
+    OPTIMIZER_TYPE_GEPA,
+    OPTIMIZER_TYPE_METAPROMPT,
+    OPTIMIZER_TYPE_UNSPECIFIED,
+)
+from mlflow.protos.prompt_optimization_pb2 import OptimizerType as ProtoOptimizerType
 from mlflow.server.jobs import job
 from mlflow.telemetry.events import OptimizePromptsJobEvent
 from mlflow.telemetry.track import record_usage_event
@@ -31,6 +37,53 @@ class OptimizerType(str, Enum):
 
     GEPA = "gepa"
     METAPROMPT = "metaprompt"
+
+    @classmethod
+    def from_proto(cls, proto_value: int) -> "OptimizerType":
+        """
+        Convert a proto OptimizerType enum value to the Python OptimizerType enum.
+
+        Args:
+            proto_value: The integer value from the proto OptimizerType enum.
+
+        Returns:
+            The corresponding OptimizerType enum member.
+
+        Raises:
+            MlflowException: If the proto value is unspecified or unsupported.
+        """
+        if proto_value == OPTIMIZER_TYPE_UNSPECIFIED:
+            supported_types = [
+                name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+            ]
+            raise MlflowException.invalid_parameter_value(
+                f"optimizer_type is required. Supported types: {supported_types}"
+            )
+        elif proto_value == OPTIMIZER_TYPE_GEPA:
+            return cls.GEPA
+        elif proto_value == OPTIMIZER_TYPE_METAPROMPT:
+            return cls.METAPROMPT
+        else:
+            supported_types = [
+                name for name in ProtoOptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+            ]
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported optimizer_type value: {proto_value}. "
+                f"Supported types: {supported_types}"
+            )
+
+    def to_proto(self) -> int:
+        """
+        Convert the Python OptimizerType enum to a proto OptimizerType enum value.
+
+        Returns:
+            The corresponding proto OptimizerType integer value.
+        """
+        if self == OptimizerType.GEPA:
+            return OPTIMIZER_TYPE_GEPA
+        elif self == OptimizerType.METAPROMPT:
+            return OPTIMIZER_TYPE_METAPROMPT
+        return OPTIMIZER_TYPE_UNSPECIFIED
 
 
 @dataclass
@@ -201,7 +254,7 @@ def optimize_prompts_job(
     optimizer_type: str,
     optimizer_config: dict[str, Any] | None,
     scorer_names: list[str],
-) -> PromptOptimizationJobResult:
+) -> dict[str, Any]:
     """
     Job function for async single-prompt optimization.
 
@@ -228,11 +281,11 @@ def optimize_prompts_job(
             and pass the registered scorer name here.
 
     Returns:
-        PromptOptimizationJobResult containing optimization results and metadata.
+        Dict containing optimization results and metadata (JSON-serializable).
     """
     set_experiment(experiment_id=experiment_id)
 
-    dataset = get_dataset(dataset_id=dataset_id)
+    dataset = get_dataset(dataset_id=dataset_id) if dataset_id else None
     predict_fn = _build_predict_fn(prompt_uri)
     optimizer = _create_optimizer(optimizer_type, optimizer_config)
     loaded_scorers = _load_scorers(scorer_names, experiment_id)
@@ -252,7 +305,7 @@ def optimize_prompts_job(
             enable_tracking=True,
         )
 
-    return PromptOptimizationJobResult(
+    job_result = PromptOptimizationJobResult(
         run_id=run_id,
         source_prompt_uri=prompt_uri,
         optimized_prompt_uri=result.optimized_prompts[0].uri if result.optimized_prompts else None,
@@ -262,3 +315,4 @@ def optimize_prompts_job(
         dataset_id=dataset_id,
         scorer_names=scorer_names,
     )
+    return asdict(job_result)

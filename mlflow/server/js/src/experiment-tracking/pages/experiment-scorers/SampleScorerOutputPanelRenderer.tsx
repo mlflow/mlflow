@@ -15,7 +15,6 @@ import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
-import { EvaluateTracesParams } from './types';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 import { useFormContext } from 'react-hook-form';
 import { ScorerFormData } from './utils/scorerTransformUtils';
@@ -78,8 +77,8 @@ interface SampleScorerOutputPanelRendererProps {
   handlePrevious: () => void;
   handleNext: () => void;
   totalTraces: number;
-  itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>;
-  onItemsToEvaluateChange: (itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>) => void;
+  selectedItemIds: string[];
+  onSelectedItemIdsChange: (selectedItemIds: string[]) => void;
 }
 
 const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererProps> = ({
@@ -95,8 +94,8 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   handlePrevious,
   handleNext,
   totalTraces,
-  itemsToEvaluate,
-  onItemsToEvaluateChange,
+  selectedItemIds,
+  onSelectedItemIdsChange,
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -168,8 +167,8 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <SampleScorerTracesToEvaluatePicker
-            itemsToEvaluate={itemsToEvaluate}
-            onItemsToEvaluateChange={onItemsToEvaluateChange}
+            selectedItemIds={selectedItemIds}
+            onSelectedItemIdsChange={onSelectedItemIdsChange}
           />
           {!isInitialScreen && (
             <Tooltip

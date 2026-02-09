@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from click.testing import CliRunner
-from fastapi.responses import StreamingResponse
 
 import mlflow
 from mlflow import MlflowClient
@@ -45,6 +44,7 @@ from mlflow.pyfunc.model import (
     ResponsesAgentResponse,
 )
 from mlflow.server.gateway_api import chat_completions, invocations
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -443,6 +443,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
     with (
         mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.builtin.invoke_judge_model"),
+        mock.patch("mlflow.genai.judges.instructions_judge.invoke_judge_model"),
     ):
         # Test with all scorer kinds and scopes, without predict_fn
         mlflow.genai.evaluate(
@@ -666,17 +668,22 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
     def mock_predict_fn(input, **kwargs):
         return {"role": "assistant", "content": "Mock response"}
 
+    mock_trace = mock.Mock()
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
+            "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(
             "mlflow.genai.simulators.simulator.ConversationSimulator._check_goal_achieved",
             return_value=False,
         ),
+        mock.patch(
+            "mlflow.genai.simulators.simulator.mlflow.get_trace",
+            return_value=mock_trace,
+        ),
     ):
-        result = simulator._simulate(predict_fn=mock_predict_fn)
+        result = simulator.simulate(predict_fn=mock_predict_fn)
 
     assert len(result) == 2
 
@@ -713,7 +720,7 @@ def test_simulate_conversation_from_genai_evaluate(
 
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
+            "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(
@@ -1186,28 +1193,18 @@ def test_invoke_custom_judge_model(
                     assessment_name="test_assessment",
                 )
         else:
-            with (
-                mock.patch(
-                    "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
-                    return_value=(mock_response, 10),
+            from mlflow.genai.judges.adapters.litellm_adapter import InvokeLiteLLMOutput
+
+            with mock.patch(
+                "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+                return_value=InvokeLiteLLMOutput(
+                    response=mock_response,
+                    request_id="req-123",
+                    num_prompt_tokens=5,
+                    num_completion_tokens=3,
+                    cost=10,
                 ),
-                mock.patch(
-                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
-                ) as mock_databricks,
             ):
-                # For databricks provider, mock the databricks model invocation
-                if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-                        InvokeDatabricksModelOutput,
-                    )
-
-                    mock_databricks.return_value = InvokeDatabricksModelOutput(
-                        response=mock_response,
-                        request_id="test-request-id",
-                        num_prompt_tokens=10,
-                        num_completion_tokens=20,
-                    )
-
                 invoke_judge_model(
                     model_uri=model_uri,
                     prompt="Test prompt",
@@ -1966,7 +1963,10 @@ async def test_gateway_invocation_telemetry(
     ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await invocations(endpoint.name, mock_request)
 
@@ -1996,7 +1996,10 @@ async def test_gateway_invocation_telemetry(
     ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
-        mock_create_provider.return_value = mock_provider
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await chat_completions(mock_request)
 
@@ -2018,21 +2021,32 @@ async def test_gateway_invocation_telemetry(
     )
 
     async def mock_stream():
-        yield "data: test\n\n"
+        yield chat.StreamResponsePayload(
+            id="test-id",
+            object="chat.completion.chunk",
+            created=1234567890,
+            model="gpt-4",
+            choices=[
+                chat.StreamChoice(
+                    index=0,
+                    delta=chat.StreamDelta(role="assistant", content="Hello"),
+                    finish_reason=None,
+                )
+            ],
+        )
 
     with (
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
-        patch("mlflow.server.gateway_api.make_streaming_response") as mock_streaming,
     ):
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value=mock_stream())
-        mock_create_provider.return_value = mock_provider
-        mock_streaming.return_value = StreamingResponse(
-            mock_stream(), media_type="text/event-stream"
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
         )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await chat_completions(mock_request)
 

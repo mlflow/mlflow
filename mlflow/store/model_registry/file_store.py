@@ -134,7 +134,7 @@ class FileStore(AbstractStore):
 
         super().__init__()
         warnings.warn(
-            "The filesystem model registry backend (e.g., './mlruns') will be deprecated in "
+            "The filesystem model registry backend (e.g., './mlruns') is deprecated as of "
             "February 2026. Consider transitioning to a database backend (e.g., "
             "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
             "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
@@ -895,8 +895,9 @@ class FileStore(AbstractStore):
     def _list_file_model_versions_under_path(self, path) -> list[FileModelVersion]:
         model_version_dirs = list_all(
             path,
-            filter_func=lambda x: os.path.isdir(x)
-            and os.path.basename(os.path.normpath(x)).startswith("version-"),
+            filter_func=lambda x: (
+                os.path.isdir(x) and os.path.basename(os.path.normpath(x)).startswith("version-")
+            ),
             full_path=True,
         )
         return [

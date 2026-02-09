@@ -28,7 +28,7 @@ export {
   searchMlflowTracesQueryFn,
   SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
-export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
+export { getEvalTabTotalTracesLimit, shouldEnableSessionGrouping } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
 export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
@@ -87,7 +87,15 @@ export {
   TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
 } from './hooks/useTableColumns';
+
+export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 
 // Test utilities
 export {
@@ -104,3 +112,4 @@ export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
+export { ActiveEvaluationContext } from './hooks/useActiveEvaluation';

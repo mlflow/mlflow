@@ -180,6 +180,7 @@ from mlflow.tracing.fluent import (
     get_last_active_trace_id,
     get_trace,
     log_trace,
+    search_sessions,
     search_traces,
     set_trace_tag,
     start_span,
@@ -215,6 +216,7 @@ __all__ = [
     "get_last_active_trace_id",
     "get_trace",
     "log_trace",
+    "search_sessions",
     "search_traces",
     "set_trace_tag",
     "start_span",
@@ -401,7 +403,6 @@ if not IS_TRACING_SDK_ONLY:
         # imports from mlflow will be deprecated in the future.
         "load_prompt",
         "register_prompt",
-        "search_prompts",
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",

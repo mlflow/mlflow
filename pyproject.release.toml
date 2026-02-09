@@ -35,12 +35,12 @@ dependencies = [
   "cryptography<47,>=43.0.0",
   "docker<8,>=4.0.0",
   "graphene<4",
-  "gunicorn<24; platform_system != 'Windows'",
-  "huey<3,>=2.5.0",
+  "gunicorn<26; platform_system != 'Windows'",
+  "huey<3,>=2.5.4",
   "matplotlib<4",
   "numpy<3",
   "pandas<3",
-  "pyarrow<23,>=4.0.0",
+  "pyarrow<24,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
   "skops<1",
@@ -64,9 +64,9 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "virtualenv",
   "prometheus-flask-exporter",
 ]
+db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",
@@ -91,6 +91,7 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
+  "gepa<1,>=0.0.26",
   "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
@@ -134,6 +135,7 @@ mlflow = [
   "server/auth/db/migrations/alembic.ini",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
+  "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
 ]

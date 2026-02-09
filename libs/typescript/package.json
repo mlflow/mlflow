@@ -17,7 +17,7 @@
     "test:openai": "npm run -C integrations/openai test",
     "test:anthropic": "npm run -C integrations/anthropic test",
     "test:gemini": "npm run -C integrations/gemini test",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

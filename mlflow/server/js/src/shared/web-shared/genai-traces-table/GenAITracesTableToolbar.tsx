@@ -86,6 +86,7 @@ interface GenAITracesTableToolbarProps {
 
   // Session grouping
   isGroupedBySession?: boolean;
+  forceGroupBySession?: boolean;
   onToggleSessionGrouping?: () => void;
 }
 
@@ -116,6 +117,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isRefreshing,
       addons,
       isGroupedBySession,
+      forceGroupBySession,
       onToggleSessionGrouping,
     } = props;
     const { theme } = useDesignSystemTheme();
@@ -181,7 +183,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
               // prettier-ignore
             />
           )}
-          {shouldEnableSessionGrouping() && onToggleSessionGrouping && (
+          {shouldEnableSessionGrouping() && onToggleSessionGrouping && !forceGroupBySession && (
             <Tooltip
               componentId="mlflow.traces-table.group-by-session-button.tooltip"
               content={intl.formatMessage({

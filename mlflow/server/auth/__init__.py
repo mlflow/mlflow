@@ -9,13 +9,18 @@ Usage
 
 from __future__ import annotations
 
+import base64
 import functools
 import importlib
+import json
 import logging
 import re
-from typing import Any, Callable
+from http import HTTPStatus
+from typing import Any, Awaitable, Callable
 
 import sqlalchemy
+from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from flask import (
     Flask,
     Request,
@@ -26,6 +31,7 @@ from flask import (
     render_template_string,
     request,
 )
+from starlette.requests import Request as StarletteRequest
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -68,12 +74,14 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
+    CancelPromptOptimizationJob,
     CreateExperiment,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePromptOptimizationJob,
     CreateRun,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -84,6 +92,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -96,6 +105,7 @@ from mlflow.protos.service_pb2 import (
     GetGatewaySecretInfo,
     GetLoggedModel,
     GetMetricHistory,
+    GetPromptOptimizationJob,
     GetRun,
     GetScorer,
     ListArtifacts,
@@ -112,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
+    SearchPromptOptimizationJobs,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
@@ -132,7 +143,8 @@ from mlflow.protos.service_pb2 import (
     ListGatewaySecretInfos as ListGatewaySecretInfos,
 )
 from mlflow.server import app
-from mlflow.server.auth.config import read_auth_config
+from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
+from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
@@ -192,6 +204,7 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.server.jobs import get_job
 from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -337,6 +350,18 @@ def _get_permission_from_model_id() -> Permission:
     )
 
 
+def _get_permission_from_prompt_optimization_job_id() -> Permission:
+    # prompt optimization job permissions inherit from parent resource (experiment)
+    job_id = _get_request_param("job_id")
+    job_entity = get_job(job_id)
+    params = json.loads(job_entity.params)
+    experiment_id = params.get("experiment_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -383,9 +408,9 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_model_definition_permission(
-            model_definition_id, username
-        ).permission
+        lambda: (
+            store.get_gateway_model_definition_permission(model_definition_id, username).permission
+        )
     )
 
 
@@ -436,6 +461,19 @@ def validate_can_delete_run():
 
 def validate_can_manage_run():
     return _get_permission_from_run_id().can_manage
+
+
+# Prompt optimization jobs
+def validate_can_read_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_read
+
+
+def validate_can_update_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_update
+
+
+def validate_can_delete_prompt_optimization_job():
+    return _get_permission_from_prompt_optimization_job_id().can_delete
 
 
 # Logged models
@@ -659,9 +697,9 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     username = authenticate_request().username
     for model_def_id in model_def_ids:
         permission = _get_permission_from_store_or_default(
-            lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
-                md_id, username
-            ).permission
+            lambda md_id=model_def_id: (
+                store.get_gateway_model_definition_permission(md_id, username).permission
+            )
         )
         if not permission.can_use:
             return False
@@ -933,6 +971,12 @@ BEFORE_REQUEST_HANDLERS = {
     # Routes for gateway endpoint tags
     SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    # Routes for prompt optimization jobs
+    CreatePromptOptimizationJob: validate_can_update_experiment,
+    GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
+    SearchPromptOptimizationJobs: validate_can_read_experiment,
+    CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
+    DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
 }
 
 
@@ -1045,9 +1089,17 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
 
 def _is_proxy_artifact_path(path: str) -> bool:
-    return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
+    # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
+    # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.
+    prefixes = [
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    ]
+    return any(path.startswith(prefix) for prefix in prefixes)
 
 
 def _get_proxy_artifact_validator(
@@ -1111,65 +1163,8 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-    elif req.path.startswith("/gateway/"):
-        return _validate_gateway_use_permission
-    else:
-        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
-
-@catch_mlflow_exception
-def _validate_gateway_use_permission() -> bool:
-    """
-    Validate use permission for AI Gateway invocation routes.
-
-    Returns:
-        True if permission is granted, False otherwise.
-    """
-    path = request.path
-    endpoint_name = None
-
-    # Extract endpoint name from route
-    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
-    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
-        endpoint_name = match.group(1)
-    # Pattern 2-6: Passthrough routes (endpoint in request body)
-    elif path in (
-        "/gateway/mlflow/v1/chat/completions",
-        "/gateway/openai/v1/chat/completions",
-        "/gateway/openai/v1/embeddings",
-        "/gateway/openai/v1/responses",
-        "/gateway/anthropic/v1/messages",
-    ):
-        try:
-            if request.is_json and request.json:
-                endpoint_name = request.json.get("model")
-        except Exception:
-            pass
-    # Pattern 7-8: Gemini routes (endpoint in URL path)
-    elif (match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path)) or (
-        match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path)
-    ):
-        endpoint_name = match.group(1)
-
-    # If we couldn't extract endpoint name, let it through and let handler return 400
-    if not endpoint_name:
-        return True
-
-    username = authenticate_request().username
-    try:
-        # TODO: we need to query endpoint ID by name from the database.
-        # Revisit the mutability of the endpoint name if it causes latency issues.
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        tracking_store = _get_store()
-        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
-        endpoint_id = endpoint.endpoint_id
-
-        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
-        permission = get_permission(permission_str)
-        return permission.can_use
-    except MlflowException:
-        return False
+    return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
 @catch_mlflow_exception
@@ -2095,6 +2090,216 @@ def get_graphql_authorization_middleware():
     return [GraphQLAuthorizationMiddleware()]
 
 
+# Routes that need request body to extract endpoint name for validation
+_ROUTES_NEEDING_BODY = frozenset(
+    (
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/openai/v1/chat/completions",
+        "/gateway/openai/v1/embeddings",
+        "/gateway/openai/v1/responses",
+        "/gateway/anthropic/v1/messages",
+    )
+)
+
+
+def _authenticate_request(request: StarletteRequest) -> User | None:
+    """
+    Authenticate request using Basic Auth and return user object.
+
+    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+
+    Args:
+        request: The Starlette/FastAPI Request object.
+
+    Returns:
+        User object if authentication succeeds, None otherwise.
+    """
+    if "Authorization" not in request.headers:
+        return None
+
+    auth = request.headers["Authorization"]
+    try:
+        scheme, credentials = auth.split()
+        if scheme.lower() != "basic":
+            return None
+        decoded = base64.b64decode(credentials).decode("ascii")
+    except Exception:
+        return None
+
+    username, _, password = decoded.partition(":")
+    if store.authenticate_user(username, password):
+        return store.get_user(username)
+    return None
+
+
+def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
+    """Extract endpoint name from gateway routes."""
+    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
+    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
+        return match.group(1)
+
+    # Pattern 2-6: Passthrough routes (endpoint in request body as "model")
+    if path in _ROUTES_NEEDING_BODY:
+        if body:
+            return body.get("model")
+        return None
+
+    # Pattern 7-8: Gemini routes (endpoint in URL path)
+    if match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path):
+        return match.group(1)
+    if match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path):
+        return match.group(1)
+
+    return None
+
+
+def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
+    """Check if the user has USE permission on the gateway endpoint."""
+    # TODO: we need to query endpoint ID by name from the database.
+    # Revisit the mutability of the endpoint name if it causes latency issues.
+    try:
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
+        endpoint_id = endpoint.endpoint_id
+
+        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
+        permission = get_permission(permission_str)
+        return permission.can_use
+    except MlflowException:
+        return False
+
+
+def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+    """
+    Get a validator function for gateway routes.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        An async validator function that takes (username, request) and returns
+        True if authorized, or None if no validation is needed for this route.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        body = None
+        if path in _ROUTES_NEEDING_BODY:
+            try:
+                body = await request.json()
+                # Cache parsed body in request.state so route handlers can reuse it
+                # (request body can only be read once in Starlette/FastAPI)
+                request.state.cached_body = body
+            except Exception as e:
+                raise MlflowException(f"Invalid JSON payload: {e}", error_code=BAD_REQUEST)
+
+        endpoint_name = _extract_gateway_endpoint_name(path, body)
+        if endpoint_name is None:
+            raise MlflowException("No endpoint name found", error_code=BAD_REQUEST)
+
+        return _validate_gateway_use_permission(endpoint_name, username)
+
+    return validator
+
+
+def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+    """
+    Find the validator for a FastAPI route that bypasses Flask.
+
+    This mirrors the _find_validator pattern used in Flask's _before_request,
+    returning a validator function for routes that need permission checks.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        An async validator function that takes (username, request) and returns
+        True if authorized, or None if the route is not handled by FastAPI.
+    """
+    if path.startswith("/gateway/"):
+        return _get_gateway_validator(path)
+
+    return None
+
+
+def add_fastapi_permission_middleware(app: FastAPI) -> None:
+    """
+    Add permission middleware to FastAPI app for routes not handled by Flask.
+
+    This middleware mirrors the high-level logic of ``_before_request`` for routes that are
+    served directly by FastAPI (e.g., ``/gateway/`` routes) and thus bypass Flask's
+    ``before_request`` hooks. It follows the same authorization flow:
+
+    1. Skip unprotected routes
+    2. Find the appropriate validator for the route
+    3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
+    4. Authenticate the request
+    5. Allow admins full access
+    6. Run the validator
+
+    Args:
+        app: The FastAPI application instance.
+    """
+
+    @app.middleware("http")
+    async def fastapi_permission_middleware(request, call_next):
+        path = request.url.path
+
+        # Skip unprotected routes
+        if is_unprotected_route(path):
+            return await call_next(request)
+
+        # Find validator for this route
+        validator = _find_fastapi_validator(path)
+        if validator is None:
+            return await call_next(request)
+
+        # Check for custom authorization_function (only affects routes with validators)
+        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+            return PlainTextResponse(
+                f"Custom authorization_function '{auth_config.authorization_function}' is not "
+                f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
+                f"Basic Auth function is supported. Please use "
+                f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+
+        # Authenticate user
+        user = _authenticate_request(request)
+        if user is None:
+            return PlainTextResponse(
+                "You are not authenticated. Please see "
+                "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+                "on how to authenticate.",
+                status_code=HTTPStatus.UNAUTHORIZED,
+                headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
+            )
+
+        # Store user info in request state for downstream handlers (e.g., gateway tracing)
+        request.state.username = user.username
+        request.state.user_id = user.id
+
+        # Admins have full access
+        if user.is_admin:
+            return await call_next(request)
+
+        # Run the validator
+        try:
+            if not await validator(user.username, request):
+                return PlainTextResponse(
+                    "Permission denied",
+                    status_code=HTTPStatus.FORBIDDEN,
+                )
+        except MlflowException as e:
+            return PlainTextResponse(
+                e.message,
+                status_code=e.get_http_status_code(),
+            )
+
+        return await call_next(request)
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -2301,6 +2506,8 @@ def create_app(app: Flask = app):
     app.after_request(_after_request)
 
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        return create_fastapi_app(app)
+        fastapi_app = create_fastapi_app(app)
+        add_fastapi_permission_middleware(fastapi_app)
+        return fastapi_app
     else:
         return app

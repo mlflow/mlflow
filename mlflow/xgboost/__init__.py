@@ -80,6 +80,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -123,6 +124,8 @@ def save_model(
     extra_pip_requirements=None,
     model_format="ubj",
     metadata=None,
+    extra_files=None,
+    **kwargs,
 ):
     """Save an XGBoost model to a path on the local file system.
 
@@ -141,6 +144,8 @@ def save_model(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import xgboost as xgb
 
@@ -168,8 +173,11 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save an XGBoost model
-    xgb_model.save_model(model_data_path)
+    xgb_model.save_model(model_data_path, **kwargs)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
+
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
@@ -185,6 +193,7 @@ def save_model(
         model_class=xgb_model_class,
         model_format=model_format,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -238,6 +247,7 @@ def log_model(
     extra_pip_requirements=None,
     model_format="ubj",
     metadata=None,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -268,6 +278,7 @@ def log_model(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -294,6 +305,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        extra_files=extra_files,
         metadata=metadata,
         params=params,
         tags=tags,

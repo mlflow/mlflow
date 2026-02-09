@@ -1,6 +1,8 @@
 import logging
 from typing import Any
 
+from opentelemetry import context as otel_context_api
+from opentelemetry import trace as otel_trace
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.kernel_content import KernelContent
@@ -90,7 +92,15 @@ async def patched_kernel_entry_point(original, self, *args, **kwargs):
         inputs = construct_full_inputs(original, self, *args, **kwargs)
         mlflow_span.set_inputs(_parse_content(inputs))
 
-        result = await original(self, *args, **kwargs)
+        # Attach the MLflow span to the global OTel context so that Semantic Kernel's
+        # internal OTel spans (e.g., execute_tool, chat.completions) will inherit the
+        # same trace_id and be properly linked as child spans.
+        global_ctx = otel_trace.set_span_in_context(mlflow_span._span)
+        token = otel_context_api.attach(global_ctx)
+        try:
+            result = await original(self, *args, **kwargs)
+        finally:
+            otel_context_api.detach(token)
 
         mlflow_span.set_outputs(_parse_content(result))
 
@@ -146,3 +156,9 @@ def set_token_usage(mlflow_span: LiveSpan) -> None:
 
     if usage_dict:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+
+def set_model(mlflow_span: LiveSpan) -> None:
+    """Set model name attribute on the MLflow span."""
+    if model := mlflow_span.get_attribute(model_gen_ai_attributes.MODEL):
+        mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)

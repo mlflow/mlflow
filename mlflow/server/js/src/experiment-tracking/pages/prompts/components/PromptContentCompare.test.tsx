@@ -38,6 +38,6 @@ describe('PromptContentCompare', () => {
     };
     renderComponent(baseline, compared);
     expect(screen.getAllByText('user: Hi').length).toBeGreaterThan(0);
-    expect(screen.getByText('there')).toBeInTheDocument();
+    expect(screen.getByText('user: Hi there')).toBeInTheDocument();
   });
 });
