@@ -14,7 +14,7 @@ import mlflow
 parser = argparse.ArgumentParser()
 parser.add_argument("--experiment-id", required=True)
 parser.add_argument("--tracking-uri", default="http://localhost:5000")
-parser.add_argument("--sample-size", type=int, default=20)
+parser.add_argument("--sample-size", type=int, default=100)
 args = parser.parse_args()
 
 mlflow.set_tracking_uri(args.tracking_uri)
