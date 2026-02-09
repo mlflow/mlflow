@@ -156,7 +156,8 @@ class MlflowCallback(BaseCallback):
         filtered_kwargs = {
             key: value
             for key, value in instance.kwargs.items()
-            if key not in {"api_key", "api_base"}
+            if key
+            not in {"api_key", "api_base", "azure_ad_token", "client_secret", "azure_password"}
         }
         attributes = {
             **filtered_kwargs,
