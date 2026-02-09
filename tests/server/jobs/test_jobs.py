@@ -418,10 +418,17 @@ def test_job_timeout(monkeypatch, tmp_path):
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         # popen.kill() is async, so poll until the OS reaps the process.
-        deadline = time.time() + 5
+        poll_timeout_secs = 5
+        start_time = time.time()
+        deadline = start_time + poll_timeout_secs
         while is_process_alive(pid) and time.time() < deadline:
             time.sleep(0.1)
-        assert not is_process_alive(pid)
+        else:
+            if is_process_alive(pid):
+                pytest.fail(
+                    f"Timed out waiting for job process with pid {pid} to exit after "
+                    f"{poll_timeout_secs} seconds"
+                )
 
         assert_job_result(job_id, JobStatus.TIMEOUT, None)
 
@@ -590,14 +597,20 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
 
         cancel_job(job_id)
 
-        time.sleep(5)  # wait for job process being actually killed
         pid = int((job_tmp_path / "pid").read_text())
         # assert canceled job process is killed.
         # popen.kill() is async, so poll until the OS reaps the process.
-        deadline = time.time() + 5
+        poll_timeout_secs = 10
+        start_time = time.time()
+        deadline = start_time + poll_timeout_secs
         while is_process_alive(pid) and time.time() < deadline:
             time.sleep(0.1)
-        assert not is_process_alive(pid)
+        else:
+            if is_process_alive(pid):
+                pytest.fail(
+                    f"Timed out waiting for job process with pid {pid} to exit after "
+                    f"{poll_timeout_secs} seconds"
+                )
 
         assert get_job(job_id).status == JobStatus.CANCELED
 
