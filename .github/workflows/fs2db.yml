@@ -30,6 +30,9 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
 
+      - name: Install MLflow ${{ matrix.mlflow-version }}
+        run: uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project mlflow --version
+
       - name: Generate synthetic data for MLflow ${{ matrix.mlflow-version }}
         run: |
           uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project python -I \
