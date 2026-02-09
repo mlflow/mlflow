@@ -151,6 +151,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
+from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
@@ -759,9 +760,9 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_model_definition_permission(
-            model_definition_id, username
-        ).permission,
+        lambda: (
+            store.get_gateway_model_definition_permission(model_definition_id, username).permission
+        ),
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_model_definition(
             username, model_definition_id
         ),
@@ -1175,9 +1176,9 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     ws_func = _workspace_permission_for_gateway_model_definition
     for model_def_id in model_def_ids:
         permission = _get_permission_from_store_or_default(
-            lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
-                md_id, username
-            ).permission,
+            lambda md_id=model_def_id: (
+                store.get_gateway_model_definition_permission(md_id, username).permission
+            ),
             workspace_level_permission_func=lambda md_id=model_def_id: ws_func(username, md_id),
         )
         if not permission.can_use:
@@ -2796,9 +2797,9 @@ _ROUTES_NEEDING_BODY = frozenset(
 )
 
 
-def _authenticate_request(request: StarletteRequest) -> str | None:
+def _authenticate_request(request: StarletteRequest) -> User | None:
     """
-    Authenticate request using Basic Auth and return username.
+    Authenticate request using Basic Auth and return user object.
 
     This mirrors the Flask authenticate_request() logic for FastAPI routes.
 
@@ -2806,7 +2807,7 @@ def _authenticate_request(request: StarletteRequest) -> str | None:
         request: The Starlette/FastAPI Request object.
 
     Returns:
-        Username if authentication succeeds, None otherwise.
+        User object if authentication succeeds, None otherwise.
     """
     if "Authorization" not in request.headers:
         return None
@@ -2822,7 +2823,7 @@ def _authenticate_request(request: StarletteRequest) -> str | None:
 
     username, _, password = decoded.partition(":")
     if store.authenticate_user(username, password):
-        return username
+        return store.get_user(username)
     return None
 
 
@@ -2964,8 +2965,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
 
         # Authenticate user
-        username = _authenticate_request(request)
-        if username is None:
+        user = _authenticate_request(request)
+        if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "
                 "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
@@ -2974,13 +2975,17 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
             )
 
+        # Store user info in request state for downstream handlers (e.g., gateway tracing)
+        request.state.username = user.username
+        request.state.user_id = user.id
+
         # Admins have full access
-        if store.get_user(username).is_admin:
+        if user.is_admin:
             return await call_next(request)
 
         # Run the validator
         try:
-            if not await validator(username, request):
+            if not await validator(user.username, request):
                 return PlainTextResponse(
                     "Permission denied",
                     status_code=HTTPStatus.FORBIDDEN,

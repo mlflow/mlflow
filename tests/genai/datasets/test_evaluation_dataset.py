@@ -173,6 +173,14 @@ def test_evaluation_dataset_merge_records(mock_managed_dataset):
     mock_managed_dataset.merge_records.assert_called_once_with(new_records)
 
 
+def test_evaluation_dataset_delete_records_not_supported_for_databricks(mock_managed_dataset):
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    record_ids = ["record-1", "record-2"]
+    with pytest.raises(NotImplementedError, match="not supported for Databricks managed datasets"):
+        dataset.delete_records(record_ids)
+
+
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):
     # Test when managed dataset has no digest
     mock_managed_dataset.digest = None

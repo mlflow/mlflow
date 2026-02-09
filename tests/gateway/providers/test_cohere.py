@@ -208,6 +208,11 @@ async def test_chat_stream():
                 "id": None,
                 "model": "command",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
             },
             {
                 "choices": [
@@ -225,6 +230,11 @@ async def test_chat_stream():
                 "id": None,
                 "model": "command",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
             },
             {
                 "choices": [
@@ -242,6 +252,11 @@ async def test_chat_stream():
                 "id": "test-id1",
                 "model": "command",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": 83,
+                    "completion_tokens": 63,
+                    "total_tokens": 146,
+                },
             },
         ]
         mock_post.assert_called_once_with(
@@ -389,6 +404,11 @@ async def test_completions_stream():
                 "id": None,
                 "model": "command",
                 "object": "text_completion_chunk",
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
             },
             {
                 "choices": [
@@ -402,6 +422,11 @@ async def test_completions_stream():
                 "id": None,
                 "model": "command",
                 "object": "text_completion_chunk",
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
             },
             {
                 "choices": [
@@ -415,6 +440,11 @@ async def test_completions_stream():
                 "id": "test-id1",
                 "model": "command",
                 "object": "text_completion_chunk",
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
             },
         ]
         mock_post.assert_called_once_with(

@@ -243,13 +243,69 @@ class SqlAlchemyStore(AbstractStore):
         """
         A list of SQLAlchemy query options that can be used to eagerly
         load the following registered model attributes
-        when fetching a registered model: ``registered_model_tags``.
+        when fetching a registered model: ``registered_model_tags`` and
+        ``registered_model_aliases``.
         """
         # Use a subquery load rather than a joined load in order to minimize the memory overhead
         # of the eager loading procedure. For more information about relationship loading
         # techniques, see https://docs.sqlalchemy.org/en/13/orm/
         # loading_relationships.html#relationship-loading-techniques
-        return [sqlalchemy.orm.subqueryload(SqlRegisteredModel.registered_model_tags)]
+        return [
+            sqlalchemy.orm.subqueryload(SqlRegisteredModel.registered_model_tags),
+            sqlalchemy.orm.subqueryload(SqlRegisteredModel.registered_model_aliases),
+        ]
+
+    @classmethod
+    def _get_latest_versions_for_models(
+        cls, session, model_names: list[str]
+    ) -> dict[str, list[SqlModelVersion]]:
+        """
+        Batch-fetch the latest model version per stage for multiple registered models.
+
+        Uses a SQL window function to compute the latest version per (name, stage) directly
+        in the database, avoiding N+1 queries and Python-side iteration through all versions.
+        """
+        if not model_names:
+            return {}
+
+        row_num = (
+            sqlalchemy.func.row_number()
+            .over(
+                partition_by=[SqlModelVersion.name, SqlModelVersion.current_stage],
+                order_by=SqlModelVersion.version.desc(),
+            )
+            .label("rn")
+        )
+
+        subquery = (
+            select(SqlModelVersion, row_num)
+            .where(
+                SqlModelVersion.name.in_(model_names),
+                SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
+            )
+            .subquery()
+        )
+
+        query = (
+            select(SqlModelVersion)
+            .join(
+                subquery,
+                sqlalchemy.and_(
+                    SqlModelVersion.name == subquery.c.name,
+                    SqlModelVersion.version == subquery.c.version,
+                ),
+            )
+            .where(subquery.c.rn == 1)
+            .options(*cls._get_eager_model_version_query_options())
+        )
+
+        latest_versions = session.execute(query).scalars().all()
+
+        result: dict[str, list[SqlModelVersion]] = {name: [] for name in model_names}
+        for mv in latest_versions:
+            result[mv.name].append(mv)
+
+        return result
 
     @staticmethod
     def _get_eager_model_version_query_options():
@@ -469,7 +525,15 @@ class SqlAlchemyStore(AbstractStore):
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_registered_models), offset, max_results
             )
-            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
+
+            # Batch-fetch latest versions for all models to avoid N+1 queries
+            model_names = [rm.name for rm in sql_registered_models[:max_results]]
+            latest_versions_map = self._get_latest_versions_for_models(session, model_names)
+
+            rm_entities = [
+                rm.to_mlflow_entity(preloaded_latest_versions=latest_versions_map.get(rm.name))
+                for rm in sql_registered_models[:max_results]
+            ]
             return PagedList(rm_entities, next_page_token)
 
     def _get_search_registered_model_filter_query(self, session, parsed_filters, dialect):

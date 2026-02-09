@@ -895,8 +895,9 @@ class FileStore(AbstractStore):
     def _list_file_model_versions_under_path(self, path) -> list[FileModelVersion]:
         model_version_dirs = list_all(
             path,
-            filter_func=lambda x: os.path.isdir(x)
-            and os.path.basename(os.path.normpath(x)).startswith("version-"),
+            filter_func=lambda x: (
+                os.path.isdir(x) and os.path.basename(os.path.normpath(x)).startswith("version-")
+            ),
             full_path=True,
         )
         return [

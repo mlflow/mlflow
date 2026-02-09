@@ -56,6 +56,7 @@ interface LLMScorerFormRendererProps {
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
   getValues: UseFormGetValues<LLMScorerFormData>;
+  onScopeChange?: () => void;
 }
 
 interface LLMTemplateSectionProps {
@@ -529,22 +530,25 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
   );
 };
 
-const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
+const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
+  mode,
+  control,
+  setValue,
+  getValues,
+  onScopeChange,
+}) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
   const accordionRef = useRef<ScorerFormAccordionHandle>(null);
-
-  // Update name when template changes
-  useEffect(() => {
-    if (mode === SCORER_FORM_MODE.CREATE && selectedTemplate) {
-      setValue('name', selectedTemplate);
-    }
-  }, [selectedTemplate, setValue, mode]);
 
   // Check if General section is complete and progress to Evaluation Criteria
   const checkAndProgressGeneral = useCallback(
     (fieldName: keyof LLMScorerFormData, newValue: string) => {
       if (mode === SCORER_FORM_MODE.DISPLAY) return;
+
+      if (fieldName === 'evaluationScope') {
+        onScopeChange?.();
+      }
 
       const values = getValues();
       const updated = { ...values, [fieldName]: newValue };
@@ -557,7 +561,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
         accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
       }
     },
-    [getValues, mode],
+    [getValues, mode, onScopeChange],
   );
 
   const generalSection = (

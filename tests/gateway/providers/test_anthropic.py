@@ -243,7 +243,7 @@ def chat_stream_response():
         b"\n",
         b"event: message_delta\n",
         b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
-        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b'"stop_sequence":null}, "usage":{"output_tokens": 15}}\n',
         b"\n",
         b"event: message_stop\n",
         b'data: {"type": "message_stop"}\n',
@@ -498,6 +498,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -515,6 +516,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -532,6 +534,7 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -549,6 +552,11 @@ async def test_chat_stream():
                         },
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 25,
+                    "completion_tokens": 15,
+                    "total_tokens": 40,
+                },
             },
         ]
         mock_post.assert_called_once_with(
@@ -595,7 +603,7 @@ def chat_function_calling_stream_response():
         b"\n",
         b"event: message_delta\n",
         b'data: {"type": "message_delta", "delta": {"stop_reason": "tool_use", '
-        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b'"stop_sequence":null}, "usage":{"output_tokens": 15}}\n',
         b"\n",
         b"event: message_stop\n",
         b'data: {"type": "message_stop"}\n',
@@ -641,6 +649,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -665,6 +674,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -689,6 +699,7 @@ async def test_chat_function_calling_stream():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -702,6 +713,11 @@ async def test_chat_function_calling_stream():
                         "delta": {"role": None, "content": None, "tool_calls": None},
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 25,
+                    "completion_tokens": 15,
+                    "total_tokens": 40,
+                },
             },
         ]
         mock_post.assert_called_once_with(
@@ -987,3 +1003,127 @@ async def test_chat_with_structured_output():
         assert captured_session_headers["x-api-key"] == "key"
         assert captured_session_headers["anthropic-version"] == "2023-06-01"
         assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"
+
+
+def test_anthropic_extract_passthrough_token_usage():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    }
+
+
+def test_anthropic_extract_passthrough_token_usage_no_usage():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {"id": "msg_123", "content": [{"type": "text", "text": "Hello"}]}
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage is None
+
+
+def test_anthropic_extract_passthrough_token_usage_partial():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {"input_tokens": 100}
+
+
+def test_anthropic_extract_streaming_token_usage_message_start():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {"input_tokens": 100}
+
+
+def test_anthropic_extract_streaming_token_usage_message_delta():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"output_tokens":50}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {"output_tokens": 50}
+
+
+def test_anthropic_extract_streaming_token_usage_full_stream():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+
+    # First chunk: message_start with input_tokens
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+    assert accumulated_usage == {"input_tokens": 100}
+
+    # Middle chunk: content_block_delta (no usage)
+    chunk2 = (
+        b"event: content_block_delta\n"
+        b'data: {"type":"content_block_delta","delta":{"text":"Hello"}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+    assert accumulated_usage == {"input_tokens": 100}
+
+    # Final chunk: message_delta with output_tokens
+    chunk3 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk3))
+    # Total is calculated by base class _stream_passthrough_with_usage, not this method
+    assert accumulated_usage == {"input_tokens": 100, "output_tokens": 50}
+
+
+def test_anthropic_extract_streaming_token_usage_empty_chunk():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = b""
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_anthropic_extract_streaming_token_usage_non_data_line():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = b"event: ping\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_anthropic_extract_streaming_token_usage_invalid_json():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: {invalid json}\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_anthropic_extract_streaming_token_usage_done_chunk():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: [DONE]\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}

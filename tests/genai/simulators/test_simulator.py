@@ -1,8 +1,10 @@
+import re
 from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
 
+import mlflow
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import (
     BaseSimulatedUserAgent,
@@ -148,7 +150,7 @@ def test_conversation_simulator_max_turns_stopping(
 def test_conversation_simulator_empty_response_stopping(simple_test_case, simulation_mocks):
     simulation_mocks["invoke"].return_value = "Test message"
 
-    def empty_predict_fn(input=None, messages=None, **kwargs):
+    def empty_predict_fn(input=None, **kwargs):
         return {
             "output": [
                 {
@@ -712,3 +714,109 @@ def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
     simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
 
     assert simulator._get_dataset_name() == "my_custom_dataset"
+
+
+def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(simulation_mocks["trace"])
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    run_name = runs.iloc[0]["tags.mlflow.runName"]
+    assert re.match(r"^simulation-[0-9a-f]{8}$", run_name)
+
+
+def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    with mlflow.start_run(run_name="parent-run") as parent_run:
+        parent_run_id = parent_run.info.run_id
+
+        simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+        simulator.simulate(simulation_mocks["trace"])
+
+        assert mlflow.active_run().info.run_id == parent_run_id
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(simulation_mocks["trace"])
+
+    runs = mlflow.search_runs()
+    run_name = runs.iloc[0]["tags.mlflow.runName"]
+
+    assert run_name.startswith("simulation-")
+    hex_part = run_name[len("simulation-") :]
+    assert len(hex_part) == 8
+    assert re.match(r"^[0-9a-f]+$", hex_part)
+
+
+def test_conversation_simulator_completions_messages_format(simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    captured_messages_snapshots = []
+
+    def capturing_predict_fn(messages: list[dict[str, str]] | None = None, **kwargs):
+        captured_messages_snapshots.append(list(messages) if messages else None)
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Response"}],
+                }
+            ]
+        }
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(capturing_predict_fn)
+
+    assert len(captured_messages_snapshots) == 1
+    assert captured_messages_snapshots[0][0]["role"] == "user"
+    assert captured_messages_snapshots[0][0]["content"] == "Test message"
+
+
+def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].return_value = "Test message"
+
+    def invalid_predict_fn(input: list[dict[str, str]], messages: list[dict[str, str]], **kwargs):
+        return {
+            "output": [
+                {"role": "assistant", "content": [{"type": "output_text", "text": "Response"}]}
+            ]
+        }
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+
+    with pytest.raises(Exception, match="cannot have both 'messages' and 'input' parameters"):
+        simulator.simulate(invalid_predict_fn)

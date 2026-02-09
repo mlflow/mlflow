@@ -5,6 +5,7 @@ import {
   GavelIcon,
   PlusIcon,
   Spacer,
+  StopCircleFillIcon,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -142,7 +143,7 @@ export const AssessmentsPaneFeedbackSection = ({
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
-  const { evaluations, subscribeToScorerFinished } = useModelTraceExplorerRunJudgesContext();
+  const { evaluations, subscribeToScorerFinished, reset } = useModelTraceExplorerRunJudgesContext();
 
   // Derive evaluations for this trace from context state
   const currentTraceEvaluations = useMemo(() => {
@@ -254,19 +255,36 @@ export const AssessmentsPaneFeedbackSection = ({
           {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
           <Typography.Text bold>{evaluation.label}</Typography.Text>
           <TableSkeleton lines={3} />
+          {reset && (
+            <Button
+              componentId="shared.model-trace-explorer.cancel-evaluation"
+              size="small"
+              icon={<StopCircleFillIcon />}
+              onClick={() => reset(evaluation.requestKey)}
+            >
+              <FormattedMessage
+                defaultMessage="Cancel judge"
+                description="Button text for canceling judge evaluation"
+              />
+            </Button>
+          )}
         </div>
       ))}
 
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup
-          key={name}
-          name={name}
-          valuesMap={valuesMap}
-          traceId={traceId}
-          activeSpanId={activeSpanId}
-          loading={loadingEvaluations.some((evaluation) => evaluation.label === name)}
-        />
-      ))}
+      {groupedFeedbacks.map(([name, valuesMap]) => {
+        const loadingEvaluation = loadingEvaluations.find((evaluation) => evaluation.label === name);
+        return (
+          <FeedbackGroup
+            key={name}
+            name={name}
+            valuesMap={valuesMap}
+            traceId={traceId}
+            activeSpanId={activeSpanId}
+            loading={Boolean(loadingEvaluation)}
+            onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
+          />
+        );
+      })}
       {isSectionEmpty && !createFormVisible && (
         <div
           css={{

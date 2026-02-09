@@ -198,12 +198,7 @@ class ShapEvaluator(BuiltInEvaluator):
 
             _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
-            if algorithm == "kernel":
-                shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=self.dataset.feature_names
-                )
-            else:
-                shap_values = explainer(sampled_X)
+            shap_values = explainer(sampled_X)
         except Exception as e:
             # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
             # or unsupported model on specific shap explainer. Catch exception to prevent it

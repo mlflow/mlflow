@@ -369,18 +369,38 @@ export const useEvaluateTracesAsync = ({
     [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSessionsForEvaluation],
   );
 
-  const reset = useCallback(() => {
-    // Cancel running jobs (fire-and-forget)
-    for (const ev of Object.values(evaluationsRef.current)) {
-      if (!finalizedRef.current.has(ev.requestKey)) {
-        for (const jobId of ev.jobIds) {
-          fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {});
+  const reset = useCallback((requestKey?: string) => {
+    if (requestKey) {
+      // Cancel specific evaluation
+      const evaluation = evaluationsRef.current[requestKey];
+      if (!evaluation || finalizedRef.current.has(requestKey)) {
+        return;
+      }
+      for (const jobId of evaluation.jobIds) {
+        fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {});
+      }
+      finalizedRef.current.add(requestKey);
+      setEvaluations((prev) => {
+        // Remove from state rather than keeping with empty results - no need to show
+        // a "cancelled" state since user already knows they cancelled it. This keeps
+        // the state clean: if an evaluation exists, it's either loading or has results.
+        const next = { ...prev };
+        delete next[requestKey];
+        return next;
+      });
+    } else {
+      // Cancel all evaluations
+      for (const ev of Object.values(evaluationsRef.current)) {
+        if (!finalizedRef.current.has(ev.requestKey)) {
+          for (const jobId of ev.jobIds) {
+            fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {});
+          }
         }
       }
+      setEvaluations({});
+      setLatestRequestKey(null);
+      finalizedRef.current = new Set();
     }
-    setEvaluations({});
-    setLatestRequestKey(null);
-    finalizedRef.current = new Set();
   }, []);
 
   // Get the latest evaluation request from the evaluations map

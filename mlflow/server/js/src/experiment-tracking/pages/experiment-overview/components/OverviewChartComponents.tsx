@@ -5,6 +5,13 @@ import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTeleme
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
+import {
+  FilterOperator,
+  HiddenFilterOperator,
+  TracesTableColumnGroup,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
+} from '@databricks/web-shared/genai-traces-table';
 
 export const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
@@ -167,43 +174,117 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
 };
 
 /**
+ * Generates a URL to the traces tab with optional time range and filters.
+ */
+export function getTracesFilteredUrl(
+  experimentId: string,
+  timeRange?: { startTimeLabel?: string; startTime?: string; endTime?: string },
+  filters?: string[],
+): string {
+  const tracesPath = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces);
+  const queryParams = new URLSearchParams();
+
+  const { startTimeLabel, startTime, endTime } = timeRange ?? {};
+  if (startTimeLabel) queryParams.set('startTimeLabel', startTimeLabel);
+  if (startTime) queryParams.set('startTime', startTime);
+  if (endTime) queryParams.set('endTime', endTime);
+
+  filters?.forEach((filter) => queryParams.append('filter', filter));
+
+  return `${tracesPath}?${queryParams.toString()}`;
+}
+
+/**
  * Generates a URL to the traces tab filtered by a specific time range.
  * Use this to create navigation links from charts to the traces view.
  *
  * @param experimentId - The experiment ID
  * @param timestampMs - Start timestamp in milliseconds
  * @param timeIntervalSeconds - Duration of the time bucket in seconds
+ * @param filters - Optional array of filter strings in format "column::operator::value::key"
  * @returns Full URL path with query parameters for the traces tab
  */
 export function getTracesFilteredByTimeRangeUrl(
   experimentId: string,
   timestampMs: number,
   timeIntervalSeconds: number,
+  filters?: string[],
 ): string {
   const startTime = new Date(timestampMs).toISOString();
   const endTime = new Date(timestampMs + timeIntervalSeconds * 1000).toISOString();
-  const tracesPath = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces);
-  const queryParams = new URLSearchParams({
-    startTimeLabel: 'CUSTOM',
-    startTime,
-    endTime,
-  });
-  return `${tracesPath}?${queryParams.toString()}`;
+  return getTracesFilteredUrl(experimentId, { startTimeLabel: 'CUSTOM', startTime, endTime }, filters);
+}
+
+/**
+ * Creates a filter string for traces where the specified assessment has a non-null value.
+ * Use with getTracesFilteredByTimeRangeUrl to filter by assessment existence.
+ *
+ * @param assessmentName - The name of the assessment
+ * @returns Filter string in format "column::operator::value::key"
+ */
+export function createAssessmentExistsFilter(assessmentName: string): string {
+  return [TracesTableColumnGroup.ASSESSMENT, HiddenFilterOperator.IS_NOT_NULL, '', assessmentName].join('::');
+}
+
+/**
+ * Creates a filter string for traces where the specified assessment equals a specific value.
+ * Use with getTracesFilteredByTimeRangeUrl to filter by assessment score.
+ *
+ * @param assessmentName - The name of the assessment
+ * @param scoreValue - The score value to filter by
+ * @returns Filter string in format "column::operator::value::key"
+ */
+export function createAssessmentEqualsFilter(assessmentName: string, scoreValue: string): string {
+  return [TracesTableColumnGroup.ASSESSMENT, FilterOperator.EQUALS, scoreValue, assessmentName].join('::');
+}
+
+/**
+ * Creates a filter string for traces where span name equals the specified value.
+ *
+ * @param spanName - The name of the span to filter by
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanNameEqualsFilter(spanName: string): string {
+  return [SPAN_NAME_COLUMN_ID, FilterOperator.EQUALS, spanName].join('::');
+}
+
+/**
+ * Creates a filter string for traces where span status equals the specified value.
+ *
+ * @param status - The status value to filter by (e.g., 'ERROR', 'OK')
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanStatusEqualsFilter(status: string): string {
+  return [SPAN_STATUS_COLUMN_ID, FilterOperator.EQUALS, status].join('::');
 }
 
 /** Allowed component IDs for tooltip "View traces" links */
 type TooltipLinkComponentId =
   | 'mlflow.overview.usage.traces.view_traces_link'
-  | 'mlflow.overview.usage.latency.view_traces_link';
+  | 'mlflow.overview.usage.latency.view_traces_link'
+  | 'mlflow.overview.usage.errors.view_traces_link'
+  | 'mlflow.overview.usage.token_stats.view_traces_link'
+  | 'mlflow.overview.usage.token_usage.view_traces_link'
+  | 'mlflow.overview.quality.assessment.view_traces_link'
+  | 'mlflow.overview.quality.assessment_timeseries.view_traces_link'
+  | 'mlflow.overview.tools.error_rate.view_traces_link';
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
-  /** Experiment ID for navigation */
-  experimentId: string;
-  /** Time interval in seconds for calculating end time of the bucket */
-  timeIntervalSeconds: number;
   /** Component ID for telemetry tracking */
   componentId: TooltipLinkComponentId;
+  /** Custom link text. When provided, shows this text instead of the default */
+  linkText?: React.ReactNode;
+  /**
+   * Custom click handler for the link.
+   * @param label - The tooltip label (e.g., Y-axis category for vertical bar charts)
+   * @param dataPoint - The data point payload containing timestampMs and other properties
+   */
+  onLinkClick?: (label: string | undefined, dataPoint?: { timestampMs?: number }) => void;
+  /** Experiment ID for navigation (required when using time-based navigation) */
+  experimentId?: string;
+  /** Time interval in seconds for calculating end time of the bucket (required when using time-based navigation) */
+  timeIntervalSeconds?: number;
 }
 
 interface ScrollableTooltipProps {
@@ -212,7 +293,7 @@ interface ScrollableTooltipProps {
   label?: string;
   /** Formatter function to display the value - returns [formattedValue, label] */
   formatter: (value: number, name: string) => [string | number, string];
-  /** Optional link configuration. When provided, shows a "View traces for this period" link */
+  /** Optional link configuration. When provided, shows a link to view traces */
   linkConfig?: TooltipLinkConfig;
 }
 
@@ -226,17 +307,18 @@ interface ScrollableTooltipProps {
  *
  * @example
  * // With "View traces" link
- * const tooltipContent = useMemo(() => (
- *   <ScrollableTooltip
- *     formatter={(value) => [`${value}`, 'Requests']}
- *     linkConfig={{
- *       experimentId,
- *       timeIntervalSeconds,
- *       componentId: 'mlflow.overview.usage.traces.view_traces_link',
- *     }}
- *   />
- * ), [experimentId, timeIntervalSeconds]);
- * <Tooltip content={tooltipContent} />
+ * <Tooltip
+ *   content={
+ *     <ScrollableTooltip
+ *       formatter={(value) => [`${value}`, 'Requests']}
+ *       linkConfig={{
+ *         experimentId,
+ *         timeIntervalSeconds,
+ *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
+ *       }}
+ *     />
+ *   }
+ * />
  */
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
@@ -247,16 +329,23 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
   }
 
   const dataPoint = payload[0]?.payload;
-  const showLink = linkConfig && dataPoint?.timestampMs !== undefined;
+  // Show link if: 1) custom onLinkClick is provided, or 2) time-based navigation is configured with timestampMs
+  const hasCustomLinkClick = linkConfig?.onLinkClick !== undefined;
+  const hasTimeBasedNavigation =
+    linkConfig?.experimentId && linkConfig?.timeIntervalSeconds && dataPoint?.timestampMs !== undefined;
+  const showLink = linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
 
-  const handleViewTraces = () => {
-    if (!linkConfig || !dataPoint?.timestampMs) return;
-    const url = getTracesFilteredByTimeRangeUrl(
-      linkConfig.experimentId,
-      dataPoint.timestampMs,
-      linkConfig.timeIntervalSeconds,
-    );
-    navigate(url);
+  const handleLinkClick = () => {
+    if (hasCustomLinkClick) {
+      linkConfig.onLinkClick!(label, dataPoint);
+    } else if (hasTimeBasedNavigation) {
+      const url = getTracesFilteredByTimeRangeUrl(
+        linkConfig.experimentId!,
+        dataPoint.timestampMs!,
+        linkConfig.timeIntervalSeconds!,
+      );
+      navigate(url);
+    }
   };
 
   return (
@@ -313,7 +402,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           );
         })}
       </div>
-      {/* Link to view traces for this time bucket */}
+      {/* Link to view traces */}
       {showLink && (
         <div
           css={{
@@ -324,7 +413,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
         >
           <Typography.Link
             componentId={linkConfig.componentId}
-            onClick={handleViewTraces}
+            onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
               display: 'flex',
@@ -332,10 +421,12 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
               gap: theme.spacing.xs,
             }}
           >
-            <FormattedMessage
-              defaultMessage="View traces for this period"
-              description="Link text to navigate to traces tab filtered by the selected time period"
-            />
+            {linkConfig.linkText ?? (
+              <FormattedMessage
+                defaultMessage="View traces for this period"
+                description="Link text to navigate to traces tab filtered by the selected time period"
+              />
+            )}
           </Typography.Link>
         </div>
       )}

@@ -1239,6 +1239,24 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1371,13 +1389,13 @@ class AbstractStore(GatewayStoreMixin):
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
         )
 
-    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
         Link multiple prompt versions to a trace by creating entity associations.
 
         Args:
-            _trace_id: ID of the trace to link prompt versions to.
-            _prompt_versions: List of PromptVersion objects to link.
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
 
         Raises:
             NotImplementedError: If the operation is not supported by this store.

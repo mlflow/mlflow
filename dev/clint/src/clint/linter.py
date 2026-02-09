@@ -20,7 +20,7 @@ from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
-DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
+DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 
@@ -39,7 +39,9 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if tok.type != tokenize.COMMENT:
             continue
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
+            line = tok.start[0] - 1
+            for rule in m.group(1).split(","):
+                mapping.setdefault(rule.strip(), set()).add(line)
     return mapping
 
 
@@ -108,7 +110,7 @@ class Violation:
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
             f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
-            f"{self.rule.id}: {self.rule.message}"
+            f"{self.rule.name}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -366,9 +368,9 @@ class Linter(ast.NodeVisitor):
             path: Path to the file being linted.
             config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
+            index: Symbol index for resolving function signatures.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Position offset to apply to the line and column numbers of the violations.
-            index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
         self.path = path
@@ -562,7 +564,9 @@ class Linter(ast.NodeVisitor):
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
-        if node.name.startswith("_"):
+        if node.name.startswith("_") and not (
+            node.name.startswith("__") and node.name.endswith("__")
+        ):
             return
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             if (doc_args := _parse_docstring_args(docstring_node.value)) and (
@@ -644,6 +648,14 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
+
+        for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+            if arg.annotation:
+                self.visit_type_annotation(arg.annotation)
+
+        if node.returns:
+            self.visit_type_annotation(node.returns)
+
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
@@ -843,13 +855,14 @@ class Linter(ast.NodeVisitor):
         visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
+        prev = self.in_TYPE_CHECKING
         if (resolved := self.resolver.resolve(node.test)) and resolved == [
             "typing",
             "TYPE_CHECKING",
         ]:
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
-        self.in_TYPE_CHECKING = False
+        self.in_TYPE_CHECKING = prev
 
     def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         visitor = rules.WalrusOperatorVisitor()
