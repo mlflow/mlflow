@@ -6167,6 +6167,10 @@
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
   },
+  "hR27A2": {
+    "defaultMessage": "View full dashboard",
+    "description": "Link to view full usage dashboard"
+  },
   "hR2Zvd": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
     "description": "Step 2 description for defining judge function"
@@ -7307,6 +7311,10 @@
     "defaultMessage": "See details",
     "description": "Evaluation review > assessments > see details button"
   },
+  "pjCmlG": {
+    "defaultMessage": "Usage",
+    "description": "Section title for endpoint usage"
+  },
   "pjlcSc": {
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
@@ -7574,6 +7582,10 @@
   "rcdaen": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Aria label for the refresh evaluation runs button in the evaluation runs table controls"
+  },
+  "rdK1v3": {
+    "defaultMessage": "Monitor endpoint usage and performance metrics",
+    "description": "Usage section description"
   },
   "rdrvCs": {
     "defaultMessage": "Created",
