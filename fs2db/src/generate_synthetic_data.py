@@ -180,12 +180,12 @@ def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[
     for exp in experiments:
         mlflow.set_experiment(experiment_id=exp.experiment_id)
         for t_idx in range(cfg.traces_per_exp):
-            trace_info = client.start_trace(
+            root_span = client.start_trace(
                 name=f"trace_{t_idx}",
                 inputs={"query": f"test query {t_idx}"},
                 experiment_id=exp.experiment_id,
             )
-            trace_id = trace_info.request_id
+            trace_id = root_span.trace_id if _use_trace_id else root_span.request_id
 
             if _use_trace_id:
                 client.end_trace(
@@ -208,16 +208,16 @@ def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[
 
 
 def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
-    client = MlflowClient()
+    from mlflow.entities import AssessmentSource, Feedback
 
     for trace_id in trace_ids:
         for a_idx in range(cfg.assessments_per_trace):
-            client.log_assessment(
-                trace_id=trace_id,
+            feedback = Feedback(
                 name=f"quality_{a_idx}",
-                source=mlflow.entities.AssessmentSource(source_type="HUMAN", source_id="test-user"),
                 value=a_idx % 2 == 0,
+                source=AssessmentSource(source_type="HUMAN", source_id="test-user"),
             )
+            mlflow.log_assessment(trace_id=trace_id, assessment=feedback)
             bump("assessments")
 
 
