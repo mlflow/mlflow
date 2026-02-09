@@ -9,12 +9,10 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 @pytest.fixture
-def workspace_store(tmp_path, monkeypatch):
+def workspace_store(db_uri, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
 
-    db_path = tmp_path / "workspace.sqlite"
-    uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(uri)
+    store = SqlAlchemyStore(db_uri)
 
     with store.ManagedSessionMaker() as session:
         try:

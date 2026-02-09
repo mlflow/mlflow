@@ -556,12 +556,13 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
                 session.commit()
 
 
-def test_single_tenant_store_detects_workspace_scoped_experiments(tmp_path, workspaces_enabled):
+def test_single_tenant_store_detects_workspace_scoped_experiments(
+    tmp_path, db_uri, workspaces_enabled
+):
     if workspaces_enabled:
         pytest.skip("Single-tenant startup guard only applies when workspaces are disabled.")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    db_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
     exp_id = store.create_experiment("tenant-exp")
     with store.ManagedSessionMaker() as session:

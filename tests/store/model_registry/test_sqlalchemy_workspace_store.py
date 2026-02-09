@@ -1,3 +1,4 @@
+import shutil
 import uuid
 
 import pytest
@@ -13,10 +14,9 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 @pytest.fixture
-def workspace_registry_store(tmp_path, monkeypatch):
+def workspace_registry_store(db_uri, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    db_path = tmp_path / "registry.db"
-    store = WorkspaceAwareSqlAlchemyStore(f"sqlite:///{db_path}")
+    store = WorkspaceAwareSqlAlchemyStore(db_uri)
     try:
         yield store
     finally:
@@ -313,10 +313,10 @@ def test_webhook_operations_are_workspace_scoped(workspace_registry_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
-def test_default_workspace_behavior_when_workspaces_disabled(tmp_path, monkeypatch):
+def test_default_workspace_behavior_when_workspaces_disabled(db_uri, monkeypatch):
     monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
     clear_server_request_workspace()
-    store = SqlAlchemyStore(f"sqlite:///{tmp_path / 'legacy.db'}")
+    store = SqlAlchemyStore(db_uri)
     try:
         rm = store.create_registered_model("legacy-model")
         assert rm.name == "legacy-model"
@@ -333,10 +333,11 @@ def test_default_workspace_context_allows_operations(workspace_registry_store):
         assert fetched.name == "default-model"
 
 
-def test_single_tenant_registry_startup_rejects_non_default_workspace_models(tmp_path, monkeypatch):
+def test_single_tenant_registry_startup_rejects_non_default_workspace_models(
+    tmp_path, db_uri, cached_db, monkeypatch
+):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    db_path = tmp_path / "registry_multi_tenant.db"
-    workspace_store = WorkspaceAwareSqlAlchemyStore(f"sqlite:///{db_path}")
+    workspace_store = WorkspaceAwareSqlAlchemyStore(db_uri)
 
     with WorkspaceContext("team-startup"):
         workspace_store.create_registered_model("team-model")
@@ -349,13 +350,15 @@ def test_single_tenant_registry_startup_rejects_non_default_workspace_models(tmp
         match="Cannot disable workspaces because registered models exist outside the default "
         + "workspace",
     ) as excinfo:
-        SqlAlchemyStore(f"sqlite:///{db_path}")
+        SqlAlchemyStore(db_uri)
 
     assert excinfo.value.error_code == "INVALID_STATE"
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     webhook_db_path = tmp_path / "registry_webhook.db"
-    webhook_store = WorkspaceAwareSqlAlchemyStore(f"sqlite:///{webhook_db_path}")
+    shutil.copy2(cached_db, webhook_db_path)
+    webhook_db_uri = f"sqlite:///{webhook_db_path}"
+    webhook_store = WorkspaceAwareSqlAlchemyStore(webhook_db_uri)
     webhook_event = WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
 
     with WorkspaceContext("team-webhook"):
@@ -373,6 +376,6 @@ def test_single_tenant_registry_startup_rejects_non_default_workspace_models(tmp
         MlflowException,
         match="Cannot disable workspaces because webhooks exist outside the default workspace",
     ) as excinfo:
-        SqlAlchemyStore(f"sqlite:///{webhook_db_path}")
+        SqlAlchemyStore(webhook_db_uri)
 
     assert excinfo.value.error_code == "INVALID_STATE"
