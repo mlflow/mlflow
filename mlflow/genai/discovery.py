@@ -20,12 +20,20 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_SAMPLE_SIZE = 50
+_DEFAULT_SAMPLE_SIZE = 100
 _MAX_SUMMARIES_FOR_CLUSTERING = 50
 _MIN_FREQUENCY_THRESHOLD = 0.01
 
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
+
+_TEMPLATE_VARS = {
+    "{{ trace }}",
+    "{{ inputs }}",
+    "{{ outputs }}",
+    "{{ conversation }}",
+    "{{ expectations }}",
+}
 
 
 # ---- Pydantic schemas for LLM structured output ----
@@ -94,6 +102,13 @@ def _build_default_satisfaction_scorer(model: str | None) -> Scorer:
         model=model,
         feedback_value_type=bool,
     )
+
+
+def _ensure_template_var(instructions: str) -> str:
+    """Ensure instructions contain at least one template variable, defaulting to {{ trace }}."""
+    if any(var in instructions for var in _TEMPLATE_VARS):
+        return instructions
+    return f"Analyze the following {{ trace }} and determine:\n\n{instructions}"
 
 
 def _format_trace_for_clustering(index: int, trace: Trace, rationale: str) -> str:
@@ -319,8 +334,11 @@ def discover_issues(
                     "- A snake_case name\n"
                     "- A clear description\n"
                     "- The root cause\n"
-                    "- Detection instructions for a judge that receives a {{ trace }} "
-                    "and returns True if the issue is present\n"
+                    "- Detection instructions for a judge that returns True if the issue "
+                    "is present. CRITICAL: The detection_instructions string MUST contain "
+                    "the literal text '{{ trace }}' (with double curly braces) as a "
+                    "template variable — this is how the judge receives the trace data. "
+                    "Example: 'Analyze the {{ trace }} to determine if...'\n"
                     "- Indices of example traces from the input"
                 ),
             ),
@@ -356,7 +374,7 @@ def discover_issues(
     issue_scorers = [
         make_judge(
             name=issue.name,
-            instructions=issue.detection_instructions,
+            instructions=_ensure_template_var(issue.detection_instructions),
             model=judge_model,
             feedback_value_type=bool,
         )
