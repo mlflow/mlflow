@@ -4,10 +4,8 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator, Iterator, TypeVar
+from typing import Any, AsyncGenerator, Iterator
 from urllib.parse import urlparse
-
-T = TypeVar("T")
 
 from fastapi import HTTPException
 
@@ -366,9 +364,9 @@ def to_sse_error_chunk(error: Exception) -> str:
 
 
 async def safe_stream(
-    stream: AsyncGenerator[T, None],
+    stream: AsyncGenerator[str | bytes, None],
     as_bytes: bool = False,
-) -> AsyncGenerator[T | bytes | str, None]:
+) -> AsyncGenerator[bytes | str, None]:
     """
     Wrap a streaming generator with exception handling.
 
