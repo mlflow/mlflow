@@ -5,8 +5,8 @@ from dev.check_lazy_imports import compare_lazy_imports, extract_lazy_imports
 
 def test_no_lazy_imports():
     code = """\
-import os
-from pathlib import Path
+import foo
+from bar import baz
 """
     result = extract_lazy_imports(code)
 
@@ -15,63 +15,63 @@ from pathlib import Path
 
 def test_import_inside_function():
     code = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "json") in result
-    assert result[("foo", "json")].line == 2
+    assert ("func", "foo") in result
+    assert result[("func", "foo")].line == 2
 
 
 def test_from_import_inside_function():
     code = """\
-def foo():
-    from pathlib import Path
+def func():
+    from foo import bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "pathlib") in result
+    assert ("func", "foo") in result
 
 
 def test_multiple_lazy_imports():
     code = """\
-def foo():
-    import json
-    from pathlib import Path
+def func():
+    import foo
+    from bar import baz
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 2
-    assert ("foo", "json") in result
-    assert ("foo", "pathlib") in result
+    assert ("func", "foo") in result
+    assert ("func", "bar") in result
 
 
 def test_type_checking_excluded():
     code = """\
 from typing import TYPE_CHECKING
 
-def foo():
+def func():
     if TYPE_CHECKING:
-        import json
-    from pathlib import Path
+        import foo
+    from bar import baz
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "pathlib") in result
-    assert ("foo", "json") not in result
+    assert ("func", "bar") in result
+    assert ("func", "foo") not in result
 
 
 def test_typing_dot_type_checking_excluded():
     code = """\
 import typing
 
-def foo():
+def func():
     if typing.TYPE_CHECKING:
-        import json
+        import foo
 """
     result = extract_lazy_imports(code)
 
@@ -82,40 +82,40 @@ def test_type_checking_else_branch_not_excluded():
     code = """\
 from typing import TYPE_CHECKING
 
-def foo():
+def func():
     if TYPE_CHECKING:
-        import json
+        import foo
     else:
-        import orjson
+        import bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "orjson") in result
+    assert ("func", "bar") in result
 
 
 def test_nested_function():
     code = """\
 def outer():
     def inner():
-        import os
+        import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("outer.inner", "os") in result
+    assert ("outer.inner", "foo") in result
 
 
 def test_class_method():
     code = """\
 class MyClass:
     def method(self):
-        import os
+        import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("MyClass.method", "os") in result
+    assert ("MyClass.method", "foo") in result
 
 
 def test_nested_class_method():
@@ -123,85 +123,85 @@ def test_nested_class_method():
 def outer():
     class Inner:
         def method(self):
-            import os
+            import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("outer.Inner.method", "os") in result
+    assert ("outer.Inner.method", "foo") in result
 
 
 def test_async_function():
     code = """\
-async def fetch():
-    import aiohttp
+async def func():
+    import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("fetch", "aiohttp") in result
+    assert ("func", "foo") in result
 
 
 def test_import_alias():
     code = """\
-def foo():
-    import numpy as np
+def func():
+    import foo as f
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "numpy") in result
+    assert ("func", "foo") in result
 
 
 def test_multiple_imports_one_statement():
     code = """\
-def foo():
-    import os, sys
+def func():
+    import foo, bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 2
-    assert ("foo", "os") in result
-    assert ("foo", "sys") in result
+    assert ("func", "foo") in result
+    assert ("func", "bar") in result
 
 
 def test_relative_import():
     code = """\
-def foo():
-    from . import utils
+def func():
+    from . import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", ".") in result
+    assert ("func", ".") in result
 
 
 def test_relative_dotted_import():
     code = """\
-def foo():
-    from ..bar import baz
+def func():
+    from ..foo import bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "..bar") in result
+    assert ("func", "..foo") in result
 
 
 def test_dotted_module_import():
     code = """\
-def foo():
-    import os.path
+def func():
+    import foo.bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "os.path") in result
+    assert ("func", "foo.bar") in result
 
 
 def test_class_body_import_not_lazy():
     code = """\
 class MyClass:
-    import os
+    import foo
 """
     result = extract_lazy_imports(code)
 
@@ -211,41 +211,41 @@ class MyClass:
 def test_same_module_in_different_functions():
     code = """\
 def foo():
-    import os
+    import bar
 
-def bar():
-    import os
+def baz():
+    import bar
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 2
-    assert ("foo", "os") in result
-    assert ("bar", "os") in result
+    assert ("foo", "bar") in result
+    assert ("baz", "bar") in result
 
 
 def test_duplicate_import_in_same_function():
     code = """\
-def foo():
-    import os
-    import os
+def func():
+    import foo
+    import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert result[("foo", "os")].line == 2
+    assert result[("func", "foo")].line == 2
 
 
 def test_deeply_nested_import():
     code = """\
-def foo():
+def func():
     if True:
         for x in []:
-            import os
+            import foo
 """
     result = extract_lazy_imports(code)
 
     assert len(result) == 1
-    assert ("foo", "os") in result
+    assert ("func", "foo") in result
 
 
 # --- compare_lazy_imports (base vs head diff) ---
@@ -255,27 +255,27 @@ FILE_PATH = Path("mlflow/example.py")
 
 def test_compare_new_lazy_import_flagged():
     base = """\
-def foo():
+def func():
     pass
 """
     head = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
     assert len(warnings) == 1
-    assert "'json'" in warnings[0].message
+    assert "'foo'" in warnings[0].message
 
 
 def test_compare_existing_lazy_import_not_flagged():
     base = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     head = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
@@ -284,13 +284,13 @@ def foo():
 
 def test_compare_removed_lazy_import_not_flagged():
     base = """\
-def foo():
-    import json
-    import os
+def func():
+    import foo
+    import bar
 """
     head = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
@@ -299,60 +299,60 @@ def foo():
 
 def test_compare_new_file_all_lazy_imports_flagged():
     head = """\
-def foo():
-    import json
-    import os
+def func():
+    import foo
+    import bar
 """
     warnings = compare_lazy_imports(FILE_PATH, None, head)
 
     assert len(warnings) == 2
     modules = {w.message.split("'")[1] for w in warnings}
-    assert modules == {"json", "os"}
+    assert modules == {"foo", "bar"}
 
 
 def test_compare_mixed_new_and_existing():
     base = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     head = """\
-def foo():
-    import json
-    import os
+def func():
+    import foo
+    import bar
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
     assert len(warnings) == 1
-    assert "'os'" in warnings[0].message
+    assert "'bar'" in warnings[0].message
 
 
 def test_compare_new_function_with_lazy_import():
     base = """\
 def foo():
-    import json
+    import bar
 """
     head = """\
 def foo():
-    import json
+    import bar
 
-def bar():
-    import os
+def baz():
+    import qux
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
     assert len(warnings) == 1
-    assert "'os'" in warnings[0].message
+    assert "'qux'" in warnings[0].message
 
 
 def test_compare_lazy_import_moved_to_top_level_not_flagged():
     base = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     head = """\
-import json
+import foo
 
-def foo():
+def func():
     pass
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
@@ -362,13 +362,13 @@ def foo():
 
 def test_compare_warning_has_correct_location():
     base = """\
-def foo():
+def func():
     pass
 """
     head = """\
-def foo():
+def func():
     x = 1
-    import json
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
@@ -380,12 +380,12 @@ def foo():
 
 def test_compare_warning_format_local():
     base = """\
-def foo():
+def func():
     pass
 """
     head = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
@@ -396,12 +396,12 @@ def foo():
 
 def test_compare_warning_format_github():
     base = """\
-def foo():
+def func():
     pass
 """
     head = """\
-def foo():
-    import json
+def func():
+    import foo
 """
     warnings = compare_lazy_imports(FILE_PATH, base, head)
 
