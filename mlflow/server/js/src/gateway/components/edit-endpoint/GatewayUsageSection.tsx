@@ -2,7 +2,7 @@ import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useMemo, useState } from 'react';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
-import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../../experiment-tracking/hooks/useMonitoringFilters';
+import { useMonitoringFilters } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { LazyTraceRequestsChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceLatencyChart';
@@ -27,28 +27,18 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
 
   // Get the current time range from monitoring filters
+  // useMonitoringFilters already normalizes non-custom ranges using MonitoringConfigProvider's dateNow
   const [monitoringFilters] = useMonitoringFilters();
 
-  // Compute time range - default to last 24 hours
-  const { startTime, endTime } = useMemo(() => {
-    const now = new Date();
-    return getAbsoluteStartEndTime(now, monitoringFilters);
-  }, [monitoringFilters]);
+  const startTimeMs = monitoringFilters.startTime ? new Date(monitoringFilters.startTime).getTime() : undefined;
+  const endTimeMs = monitoringFilters.endTime ? new Date(monitoringFilters.endTime).getTime() : undefined;
 
-  // Convert ISO strings to milliseconds for the API
-  const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
-
-  // Calculate the default time unit for the current time range
   const defaultTimeUnit = calculateDefaultTimeUnit(startTimeMs, endTimeMs);
 
-  // Use selected if valid, otherwise fall back to default
   const effectiveTimeUnit = selectedTimeUnit ?? defaultTimeUnit;
 
-  // Use the effective time unit for time interval
   const timeIntervalSeconds = TIME_UNIT_SECONDS[effectiveTimeUnit];
 
-  // Generate all time buckets once for all charts
   const timeBuckets = useMemo(
     () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
     [startTimeMs, endTimeMs, timeIntervalSeconds],
