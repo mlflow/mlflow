@@ -87,7 +87,6 @@ jobs:
 
       - name: Check lazy imports
         if: matrix.os == 'ubuntu-latest'
-        continue-on-error: true
         run: |
           uv run --no-project dev/check_lazy_imports.py
 
