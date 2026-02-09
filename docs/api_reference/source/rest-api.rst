@@ -4623,6 +4623,47 @@ Request Structure
 | upload_id  | ``STRING`` |             |
 +------------+------------+-------------+
 
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicegetPresignedDownloadUrl:
+
+Get Presigned URL for Multipart Download
+========================================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/presigned/<path:artifact_path>`` | ``GET``     |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsGetPresignedDownloadUrlResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| Field Name |                                     Type                                      |                                 Description                                 |
++============+===============================================================================+=============================================================================+
+| url        | ``STRING``                                                                    | The presigned URL for downloading the artifact directly from cloud storage. |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| headers    | An array of :ref:`mlflowartifactsgetpresigneddownloadurlresponseheadersentry` | Optional headers that must be included in the download request.             |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| file_size  | ``INT64``                                                                     | Optional size of the file in bytes.                                         |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+
 .. _RESTadd:
 
 Data Structures
@@ -5940,6 +5981,24 @@ Retrieve workspace metadata.
 +----------------+------------+---------------------------------------------------------+
 
 .. _mlflowartifactsMultipartUploadCredentialHeadersEntry:
+
+HeadersEntry
+------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowartifactsGetPresignedDownloadUrlResponseHeadersEntry:
 
 HeadersEntry
 ------------
