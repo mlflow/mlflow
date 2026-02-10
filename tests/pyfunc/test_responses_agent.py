@@ -1005,6 +1005,121 @@ def test_responses_agent_non_mlflow_decorators():
                 )
             ],
         ),
+        # Test case for parallel tool calls - multiple tool calls in a single response
+        (
+            [
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_1",
+                                        "function": {"name": "search", "arguments": ""},
+                                        "type": "function",
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "id": "call_2",
+                                        "function": {"name": "search", "arguments": ""},
+                                        "type": "function",
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [{"index": 0, "function": {"arguments": '{"query":'}}]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [{"index": 1, "function": {"arguments": '{"query":'}}]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [{"index": 0, "function": {"arguments": '"first"}'}}]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl-parallel",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [{"index": 1, "function": {"arguments": '"second"}'}}]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "chatcmpl-parallel",
+                        "call_id": "call_1",
+                        "name": "search",
+                        "arguments": '{"query":"first"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "chatcmpl-parallel",
+                        "call_id": "call_2",
+                        "name": "search",
+                        "arguments": '{"query":"second"}',
+                    },
+                ),
+            ],
+        ),
     ],
 )
 def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):

@@ -470,7 +470,7 @@ def _cc_stream_to_responses_stream(
     """
     llm_content = ""
     reasoning_content = ""
-    tool_calls = []
+    tool_calls: dict[int, dict[str, Any]] = {}  # index -> tool_call dict
     msg_id = None
     for chunk in chunks:
         if chunk.get("choices") is None or len(chunk["choices"]) == 0:
@@ -479,10 +479,24 @@ def _cc_stream_to_responses_stream(
         msg_id = chunk.get("id", None)
         content = delta.get("content", None)
         if tc := delta.get("tool_calls"):
-            if not tool_calls:  # only accommodate for single tool call right now
-                tool_calls = tc
-            else:
-                tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]
+            for tool_call_delta in tc:
+                idx = tool_call_delta.get("index", 0)
+                if idx not in tool_calls:
+                    tool_calls[idx] = {
+                        "id": tool_call_delta.get("id"),
+                        "function": {
+                            "name": tool_call_delta.get("function", {}).get("name", ""),
+                            "arguments": tool_call_delta.get("function", {}).get("arguments", ""),
+                        },
+                    }
+                else:
+                    tool_calls[idx]["function"]["arguments"] += tool_call_delta.get(
+                        "function", {}
+                    ).get("arguments", "")
+                    if tool_call_delta.get("id"):
+                        tool_calls[idx]["id"] = tool_call_delta["id"]
+                    if tool_call_delta.get("function", {}).get("name"):
+                        tool_calls[idx]["function"]["name"] = tool_call_delta["function"]["name"]
         elif content is not None:
             # logic for content item format
             # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem
@@ -522,7 +536,8 @@ def _cc_stream_to_responses_stream(
             item=text_output_item,
         )
 
-    for tool_call in tool_calls:
+    for idx in sorted(tool_calls.keys()):
+        tool_call = tool_calls[idx]
         function_call_output_item = create_function_call_item(
             msg_id,
             tool_call["id"],
