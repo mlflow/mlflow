@@ -402,7 +402,15 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra_env_vars=None):
+def infer_pip_requirements(
+    model_uri,
+    flavor,
+    fallback=None,
+    timeout=None,
+    extra_env_vars=None,
+    uv_groups=None,
+    uv_extras=None,
+):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
@@ -418,6 +426,10 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
+        uv_groups: Optional list of UV dependency groups to include when exporting
+            requirements. Maps to ``uv export --group <name>``.
+        uv_extras: Optional list of UV extras (optional dependency sets) to include
+            when exporting requirements. Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
@@ -432,7 +444,11 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
                 f"Detected UV project at {uv_project['uv_lock'].parent}. "
                 "Attempting to export requirements via 'uv export'."
             )
-            if uv_requirements := export_uv_requirements(uv_project["uv_lock"].parent):
+            if uv_requirements := export_uv_requirements(
+                uv_project["uv_lock"].parent,
+                groups=uv_groups,
+                extras=uv_extras,
+            ):
                 _logger.info(
                     f"Successfully exported {len(uv_requirements)} requirements from UV project. "
                     "Skipping package capture based inference."
