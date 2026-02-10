@@ -3,7 +3,6 @@ from pathlib import Path
 import click
 
 from mlflow.store.fs2db import migrate
-from mlflow.store.fs2db._verify import verify_migration
 
 
 @click.command("migrate-filestore")
@@ -35,4 +34,6 @@ def migrate_filestore(source: str, target: str, verify: bool) -> None:
     migrate(Path(source), target)
 
     if verify:
+        from mlflow.store.fs2db._verify import verify_migration
+
         verify_migration(Path(source), target)

@@ -12,8 +12,6 @@ Strategy:
 import warnings
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
-
 from mlflow.store.fs2db import _resolve_mlruns
 from mlflow.tracking import MlflowClient
 
@@ -50,6 +48,8 @@ _COUNT_QUERIES: dict[str, str] = {
 
 
 def _check_row_counts(target_uri: str) -> bool:
+    from sqlalchemy import create_engine, text
+
     ok = True
     engine = create_engine(target_uri)
     with engine.connect() as conn:
@@ -140,6 +140,8 @@ _RICH_QUERIES: dict[str, str] = {
 
 
 def _find_rich(target_uri: str, entity: str) -> list[tuple[object, ...]]:
+    from sqlalchemy import create_engine, text
+
     engine = create_engine(target_uri)
     query = _RICH_QUERIES.get(entity)
     if not query:
