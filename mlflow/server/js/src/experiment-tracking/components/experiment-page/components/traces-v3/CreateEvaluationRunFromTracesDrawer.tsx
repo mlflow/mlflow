@@ -14,7 +14,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { fetchAPI, getAjaxUrl } from '../../../../../common/utils/FetchUtils';
-import { useMutation } from '../../../../../common/utils/reactQueryHooks';
+import { useMutation, useQueryClient } from '../../../../../common/utils/reactQueryHooks';
 import Utils from '../../../../../common/utils/Utils';
 import {
   TrackingJobQueryResult,
@@ -282,6 +282,7 @@ export const CreateEvaluationRunFromTracesDrawer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const formatCount = useMemo(() => new Intl.NumberFormat(), []);
 
   const [runName, setRunName] = useState<string>('');
@@ -512,9 +513,12 @@ export const CreateEvaluationRunFromTracesDrawer = ({
   // });
 
   const onNavigateToRuns = useCallback(() => {
+    // Invalidate the eval runs query cache so the eval runs page fetches fresh data
+    // that includes the newly created run instead of serving stale cache.
+    queryClient.invalidateQueries(['SEARCH_RUNS', experimentId]);
     navigate(evaluationRunsLink);
     onClose();
-  }, [navigate, evaluationRunsLink, onClose]);
+  }, [queryClient, experimentId, navigate, evaluationRunsLink, onClose]);
 
   const title = (
     <div>

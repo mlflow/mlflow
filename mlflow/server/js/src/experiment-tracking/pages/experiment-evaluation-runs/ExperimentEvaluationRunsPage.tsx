@@ -245,9 +245,16 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
 
-  // ORIGINAL BEHAVIOR (flag OFF): Auto-select first run when no run is selected or selected run is out of scope
-  // This ensures the split view always has a run to display
-  if (!enableImprovedComparison && runs?.length && (!selectedRunUuid || !runUuids.includes(selectedRunUuid))) {
+  // ORIGINAL BEHAVIOR (flag OFF): Auto-select first run when no run is selected or selected run is out of scope.
+  // This ensures the split view always has a run to display.
+  // Don't override while data is being fetched — the current result may be stale cache that doesn't
+  // include a newly created run yet. Wait for the background refetch to complete first.
+  if (
+    !enableImprovedComparison &&
+    runs?.length &&
+    !isFetching &&
+    (!selectedRunUuid || !runUuids.includes(selectedRunUuid))
+  ) {
     setSelectedRunUuid(runs[0].info.runUuid);
   }
 
@@ -533,8 +540,17 @@ const ExperimentEvaluationRunsPageImpl = () => {
           : undefined
       }
       setSelectedRunUuid={(runUuid: string) => {
-        setSelectedRunUuid(runUuid);
-        setCompareToRunUuid(undefined);
+        // Use a single atomic setSearchParams call to avoid conflicts.
+        // Two consecutive setSearchParams calls (setSelectedRunUuid + setCompareToRunUuid)
+        // both read the same stale location.search, causing the second call to clobber the first.
+        setSearchParams(
+          (params) => {
+            params.set('selectedRunUuid', runUuid);
+            params.delete('compareToRunUuid');
+            return params;
+          },
+          { replace: true },
+        );
       }}
       isLoading={isLoading}
       hasNextPage={hasNextPage ?? false}
