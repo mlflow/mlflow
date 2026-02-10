@@ -341,6 +341,7 @@ def test_conversation_simulator_validation(test_cases, expected_error):
         [{"goal": "Debug issue", "persona": "Engineer"}],
         [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
         [{"goal": "Learn ML", "simulation_guidelines": "Be concise"}],
+        [{"goal": "Learn ML", "simulation_guidelines": ["Be concise", "Ask follow-ups"]}],
         [
             {
                 "goal": "Debug deployment",

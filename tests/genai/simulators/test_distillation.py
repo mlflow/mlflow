@@ -31,11 +31,11 @@ def test_goal_and_persona_model_goal_required():
             {
                 "goal": "Test goal",
                 "persona": "Friendly user",
-                "simulation_guidelines": "Be concise",
+                "simulation_guidelines": ["Be concise", "Ask follow-ups"],
             },
             "Test goal",
             "Friendly user",
-            "Be concise",
+            ["Be concise", "Ask follow-ups"],
         ),
     ],
 )
@@ -67,11 +67,11 @@ def test_distill_returns_none_for_empty_conversation(mock_session):
         ('{"goal": "Get help"}', {"goal": "Get help"}),
         (
             '{"goal": "Get help", "persona": "Engineer", '
-            '"simulation_guidelines": "Start with a vague request"}',
+            '"simulation_guidelines": ["Start with a vague request", "Be concise"]}',
             {
                 "goal": "Get help",
                 "persona": "Engineer",
-                "simulation_guidelines": "Start with a vague request",
+                "simulation_guidelines": ["Start with a vague request", "Be concise"],
             },
         ),
     ],

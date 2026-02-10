@@ -36,9 +36,9 @@ class _GoalAndPersona(pydantic.BaseModel):
         default=None,
         description="A description of the user's communication style and personality",
     )
-    simulation_guidelines: str | None = pydantic.Field(
+    simulation_guidelines: list[str] | None = pydantic.Field(
         default=None,
-        description="Guidelines for how a simulated user should conduct this type of conversation",
+        description="List of guidelines for how a simulated user should conduct this conversation",
     )
 
 

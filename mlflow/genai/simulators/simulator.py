@@ -195,14 +195,14 @@ class SimulatorContext:
         conversation_history: The full conversation history as a list of message dicts.
         turn: The current turn number (0-indexed).
         simulation_guidelines: Optional instructions for how the simulated user should
-            conduct the conversation.
+            conduct the conversation. Can be a string or a list of strings.
     """
 
     goal: str
     persona: str
     conversation_history: list[dict[str, Any]]
     turn: int
-    simulation_guidelines: str | None = None
+    simulation_guidelines: str | list[str] | None = None
 
     @property
     def is_first_turn(self) -> bool:
@@ -309,15 +309,22 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
 
     def generate_message(self, context: SimulatorContext) -> str:
-        guidelines_section = (
-            "\n<simulation_guidelines>\n"
-            "Follow these requirements for how YOU (the user) should conduct the conversation. "
-            "Remember, you are the USER seeking help, not the assistant providing answers:\n"
-            f"{context.simulation_guidelines}\n"
-            "</simulation_guidelines>"
-            if context.simulation_guidelines
-            else ""
-        )
+        guidelines = context.simulation_guidelines
+        if guidelines:
+            if isinstance(guidelines, list):
+                formatted = "\n".join(f"- {g}" for g in guidelines)
+            else:
+                formatted = guidelines
+            guidelines_section = (
+                "\n<simulation_guidelines>\n"
+                "Follow these requirements for how YOU (the user) should conduct the "
+                "conversation. Remember, you are the USER seeking help, not the assistant "
+                "providing answers:\n"
+                f"{formatted}\n"
+                "</simulation_guidelines>"
+            )
+        else:
+            guidelines_section = ""
 
         if context.is_first_turn:
             prompt = INITIAL_USER_PROMPT.format(
@@ -377,7 +384,7 @@ class ConversationSimulator:
               session with the session ID in metadata, allowing session-level scorers
               to retrieve them.
             - "simulation_guidelines" (optional): Instructions for how the simulated user
-              should conduct the conversation.
+              should conduct the conversation. Can be a string or a list of strings.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
@@ -426,7 +433,10 @@ class ConversationSimulator:
                         "persona": "A beginner",
                         "context": {"user_id": "123"},
                         "expectations": {"expected_topic": "model registry"},
-                        "simulation_guidelines": "Ask clarifying questions before proceeding",
+                        "simulation_guidelines": [
+                            "Ask clarifying questions before proceeding",
+                            "Do not mention deployment until the assistant brings it up",
+                        ],
                     },
                 ],
                 max_turns=5,
@@ -700,7 +710,7 @@ class ConversationSimulator:
         trace_session_id: str,
         goal: str,
         persona: str | None,
-        simulation_guidelines: str | None,
+        simulation_guidelines: str | list[str] | None,
         context: dict[str, Any],
         expectations: dict[str, Any] | None,
         turn: int,
@@ -718,7 +728,12 @@ class ConversationSimulator:
                 "mlflow.simulation.turn": str(turn),
             }
             if simulation_guidelines:
-                metadata["mlflow.simulation.simulation_guidelines"] = simulation_guidelines[
+                guidelines_str = (
+                    "\n".join(simulation_guidelines)
+                    if isinstance(simulation_guidelines, list)
+                    else simulation_guidelines
+                )
+                metadata["mlflow.simulation.simulation_guidelines"] = guidelines_str[
                     :_MAX_METADATA_LENGTH
                 ]
             mlflow.update_current_trace(metadata=metadata)
