@@ -675,6 +675,10 @@
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
   },
+  "2mwSM3": {
+    "defaultMessage": "LLM-as-a-judge (Optimized)",
+    "description": "Label for memory-augmented LLM scorer type"
+  },
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
