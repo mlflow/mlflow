@@ -85,11 +85,12 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/workspaces \
 
 Workspace names must follow DNS-safe conventions:
 
-- Pattern: `^[a-z0-9][-a-z0-9]*[a-z0-9]$`
+- Pattern: `^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 - Minimum length: 2 characters
 - Maximum length: 63 characters
 - Lowercase alphanumeric with hyphens allowed in the middle
 - Cannot start or end with a hyphen
+- Consecutive hyphens (`--`) are not allowed
 
 Reserved names that cannot be used:
 

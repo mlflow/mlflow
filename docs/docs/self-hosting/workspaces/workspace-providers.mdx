@@ -46,7 +46,7 @@ Concrete providers may implement the optional methods to support provisioning, u
 
 ### Provider Discovery and Configuration
 
-- Configure the provider URI with `--workspace-store-uri`, `MLFLOW_WORKSPACE_URI`, or leave it unset to reuse the backend store URI.
+- Configure the provider URI with `--workspace-store-uri`, `MLFLOW_WORKSPACE_STORE_URI`, or leave it unset to reuse the backend store URI.
 - MLflow resolves providers based on the URI scheme (for example `postgresql://`, `mysql://`, `sqlite:///...`, `http(s)://`).
 - Custom providers are discovered via the `mlflow.workspace_provider` entry point. Register a builder that returns an `AbstractStore` subclass and expose it through your package's `entry_points` configuration.
 
@@ -72,7 +72,7 @@ mlflow server \
 # Uses default SQL provider (SqlAlchemyStore)
 ```
 
-To point at a different backend (for example a dedicated catalog database), provide `--workspace-store-uri` or `MLFLOW_WORKSPACE_URI`.
+To point at a different backend (for example a dedicated catalog database), provide `--workspace-store-uri` or `MLFLOW_WORKSPACE_STORE_URI`.
 
 ## Advanced: Workspace-Aware Artifact Repositories
 
