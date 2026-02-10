@@ -1,19 +1,16 @@
+from collections.abc import Iterator
 from pathlib import Path
 
 from mlflow.utils.file_utils import read_file, read_file_lines, read_yaml
 
 META_YAML = "meta.yaml"
 
-# ── Summary counter ──────────────────────────────────────────────────────────
 
 summary: dict[str, int] = {}
 
 
 def bump(key: str, n: int = 1) -> None:
     summary[key] = summary.get(key, 0) + n
-
-
-# ── File reading helpers ─────────────────────────────────────────────────────
 
 
 def safe_read_yaml(root: Path, file_name: str) -> dict[str, object] | None:
@@ -72,3 +69,13 @@ def list_experiment_ids(root: Path) -> list[str]:
             continue
         result.append(d.name)
     return result
+
+
+def for_each_experiment(mlruns: Path) -> Iterator[tuple[Path, str]]:
+    """Yield (exp_dir, exp_id) for all experiments in both mlruns and .trash."""
+    for exp_id in list_experiment_ids(mlruns):
+        yield mlruns / exp_id, exp_id
+
+    trash_dir = mlruns / ".trash"
+    for exp_id in list_experiment_ids(trash_dir):
+        yield trash_dir / exp_id, exp_id
