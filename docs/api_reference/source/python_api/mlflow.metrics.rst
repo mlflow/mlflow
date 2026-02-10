@@ -207,6 +207,65 @@ We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metr
     :show-inheritance:
     :exclude-members: EvaluationExample, make_genai_metric
 
+
+
+
+
+**Using Amazon Bedrock Models:**
+
+You can also use Amazon Bedrock models including Amazon Nova for evaluation. Amazon Nova is AWS's 
+new family of foundation models that can be used via the Bedrock service.
+
+**Prerequisites:**
+- AWS credentials configured (via AWS CLI or environment variables)
+- Access to Amazon Bedrock service
+- Desired Nova models enabled in your AWS region
+
+**Example usage with Amazon Nova models:**
+
+.. code-block:: python
+
+    from mlflow.metrics.genai import answer_similarity, EvaluationExample
+    
+    # Create evaluation examples for few-shot learning
+    example = EvaluationExample(
+        input="What is machine learning?",
+        output="Machine learning is a subset of AI that enables systems to learn from data.",
+        score=4,
+        justification="Good definition but could mention specific algorithms."
+    )
+    
+    # Using Amazon Nova Lite - cost-effective for most evaluations
+    nova_lite_metric = answer_similarity(
+        model="bedrock/amazon.nova-lite-v1",
+        parameters={
+            "temperature": 0.0,    # Lower temperature for consistent scoring
+            "maxTokens": 512,      # Maximum tokens for evaluation response
+            "topP": 0.9           # Nucleus sampling parameter
+        },
+        examples=[example]
+    )
+    
+    # Using Amazon Nova Pro - for complex evaluation tasks requiring higher reasoning
+    nova_pro_metric = answer_similarity(
+        model="bedrock/amazon.nova-pro-v1",
+        parameters={
+            "temperature": 0.1,    # Slightly higher for nuanced scoring
+            "maxTokens": 1024,     # More tokens for detailed justifications
+            "topP": 0.95
+        },
+        examples=[example]
+    )
+
+**Configuration Notes:**
+- Model names follow the pattern: ``bedrock/amazon.nova-{variant}-v{version}``
+- Common parameters include ``temperature``, ``maxTokens``, and ``topP``
+- Ensure your AWS region has access to the desired Nova models
+
+See :file:`examples/evaluation/evaluate_with_bedrock_judge.py` for a complete working example.
+
+Users must configure AWS credentials and have access to Amazon Bedrock with the desired models enabled.
+
 You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.genai.make_genai_metric>` factory function.
 
 .. autofunction:: mlflow.metrics.genai.make_genai_metric
