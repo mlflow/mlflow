@@ -1,3 +1,18 @@
+"""
+Migrate model registry entities from FileStore to DB.
+
+FileStore layout:
+
+    <mlruns>/models/
+    └── <model_name>/
+        ├── meta.yaml              → registered_models
+        ├── tags/<key>             → registered_model_tags
+        ├── aliases/<alias_name>   → registered_model_aliases
+        └── version-<n>/
+            ├── meta.yaml          → model_versions
+            └── tags/<key>         → model_version_tags
+"""
+
 from pathlib import Path
 
 from sqlalchemy.orm import Session
