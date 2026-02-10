@@ -208,7 +208,8 @@ def _extract_failing_traces(
         return failing, rationales
 
     for _, row in df.iterrows():
-        if row.get(value_col) is not False:
+        val = row.get(value_col)
+        if val is None or bool(val):
             continue
         trace = row.get("trace")
         if trace is None:
@@ -239,13 +240,14 @@ def _compute_frequencies(
         if value_col not in df.columns:
             continue
 
-        affected = df[value_col].apply(lambda v: v is True).sum()
+        affected = df[value_col].eq(True).sum()
         frequencies[name] = affected / total if total > 0 else 0.0
 
         examples = []
         if rationale_col in df.columns:
             for _, row in df.iterrows():
-                if row.get(value_col) is True and len(examples) < 3:
+                val = row.get(value_col)
+                if val is not None and bool(val) and len(examples) < 3:
                     if r := row.get(rationale_col):
                         examples.append(str(r))
         rationale_examples[name] = examples
