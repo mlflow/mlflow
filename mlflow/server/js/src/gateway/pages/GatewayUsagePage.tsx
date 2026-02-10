@@ -145,7 +145,6 @@ export const GatewayUsagePage = () => {
         <GatewayChartsPanel
           experimentIds={experimentIds}
           showTokenStats
-          showCostCharts
           additionalControls={endpointSelector}
         />
       ) : (

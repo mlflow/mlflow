@@ -24,14 +24,12 @@ import { generateTimeBuckets } from '../../experiment-tracking/pages/experiment-
 interface GatewayChartsPanelProps {
   experimentIds: string[];
   showTokenStats?: boolean;
-  showCostCharts?: boolean;
   additionalControls?: React.ReactNode;
 }
 
 const GatewayChartsPanelImpl = ({
   experimentIds,
   showTokenStats = false,
-  showCostCharts = false,
   additionalControls,
 }: GatewayChartsPanelProps) => {
   const { theme } = useDesignSystemTheme();
@@ -120,12 +118,10 @@ const GatewayChartsPanelImpl = ({
           )}
 
           {/* Cost charts */}
-          {showCostCharts && (
-            <ChartGrid>
-              <LazyTraceCostBreakdownChart />
-              <LazyTraceCostOverTimeChart />
-            </ChartGrid>
-          )}
+          <ChartGrid>
+            <LazyTraceCostBreakdownChart />
+            <LazyTraceCostOverTimeChart />
+          </ChartGrid>
         </div>
       </OverviewChartProvider>
     </div>
