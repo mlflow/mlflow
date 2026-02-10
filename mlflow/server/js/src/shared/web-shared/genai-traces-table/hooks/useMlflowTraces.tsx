@@ -539,17 +539,11 @@ export const searchMlflowTracesQueryFn = async ({
  * and showing a full loading skeleton) when search/filter changes.
  */
 export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
-  return usingV4APIs
-    ? {
-        keepPreviousData: true,
-        refetchOnWindowFocus: false,
-      }
-    : {
-        staleTime: Infinity,
-        cacheTime: Infinity,
-        keepPreviousData: true,
-        refetchOnWindowFocus: false,
-      };
+  return {
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+    ...(usingV4APIs ? {} : { staleTime: Infinity, cacheTime: Infinity }),
+  };
 }
 
 /**
@@ -578,10 +572,7 @@ const useSearchMlflowTracesInner = ({
 } & Omit<UseQueryOptions<ModelTraceInfoV3[], NetworkRequestError>, 'queryFn'>) => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
 
-  const queryCacheConfig = useMemo(
-    () => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)),
-    [usingV4APIs],
-  );
+  const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
   return useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,
