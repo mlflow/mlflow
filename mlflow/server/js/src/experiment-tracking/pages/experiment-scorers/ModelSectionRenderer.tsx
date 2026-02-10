@@ -17,9 +17,15 @@ export interface ModelSectionRendererProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode, control, setValue }) => {
+export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
+  mode,
+  control,
+  setValue,
+  onUserSelect,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   const currentModel = useWatch({ control, name: 'model' });
@@ -32,7 +38,15 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
 
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
-    setValue('model', '');
+    setValue('model', '', { shouldValidate: true });
+    // Toggle automatic evaluation based on model provider:
+    // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
+    // - Re-enable when switching back to gateway model
+    if (targetProvider === ModelProvider.OTHER) {
+      setValue('sampleRate', 0);
+    } else if (targetProvider === ModelProvider.GATEWAY) {
+      setValue('sampleRate', 100);
+    }
   };
 
   const stopPropagationClick = (e: React.MouseEvent) => {
@@ -106,7 +120,11 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
               currentEndpointName={currentEndpointName}
-              onEndpointSelect={(endpointName) => field.onChange(formatGatewayModelFromEndpoint(endpointName))}
+              onEndpointSelect={(endpointName) => {
+                const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                setValue('model', modelValue, { shouldValidate: true });
+                onUserSelect?.('model', modelValue);
+              }}
               disabled={isReadOnly}
               componentIdPrefix={`${COMPONENT_ID_PREFIX}.endpoint`}
             />
@@ -118,7 +136,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage
               defaultMessage="Or {enterManually}"
-              description="Text with link to switch to manual model entry"
+              description="Text with link to switch to direct model identifier input"
               values={{
                 enterManually: (
                   <Typography.Link
@@ -127,8 +145,8 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
                     css={{ cursor: 'pointer' }}
                   >
                     <FormattedMessage
-                      defaultMessage="enter model manually"
-                      description="Link text to switch to manual model input"
+                      defaultMessage="enter a model identifier"
+                      description="Link text to switch to direct model identifier input"
                     />
                   </Typography.Link>
                 ),

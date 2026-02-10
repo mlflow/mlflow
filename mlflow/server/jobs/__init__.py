@@ -22,6 +22,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.run_online_trace_scorer_job",
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
     "mlflow.genai.evaluation.job.evaluate_traces_job",
+    "mlflow.genai.optimize.job.optimize_prompts_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
@@ -34,6 +35,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "run_online_trace_scorer",
     "run_online_session_scorer",
     "evaluate_traces",
+    "optimize_prompts",
 ]
 
 if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
@@ -214,11 +216,13 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    workspace = job.workspace
 
     # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,
+        workspace,
         fn_meta.name,
         params,
         timeout,

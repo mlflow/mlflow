@@ -5,6 +5,46 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Tracing UI
 
+## GenAI Experiment Overview
+
+The **Overview** tab in GenAI experiments provides comprehensive analytics and visualizations for your GenAI application traces. This tab is organized into three sub-tabs to help you monitor different aspects of your application.
+
+All tabs include a **time range selector** and **time unit selector** to customize the granularity and range of the displayed data.
+
+<video src={useBaseUrl("/images/llms/tracing/overview_demo.mp4")} controls loop autoPlay muted aria-label="Experiment Overview Tab" />
+
+### Usage
+
+The Usage tab displays key metrics about your trace requests over time:
+
+- **Requests**: Shows the total number of trace requests, with an average reference line
+- **Latency**: Visualizes response time distribution to help identify performance bottlenecks
+- **Errors**: Tracks error rates to quickly spot issues
+- **Token Usage & Token Stats**: Monitors token consumption across your traces
+
+![Experiment Overview Usage Tab](/images/llms/tracing/overview_usage_tab.png)
+
+### Quality
+
+The Quality tab provides insights into the quality of your GenAI outputs:
+
+- **Quality Summary**: Provides overview of scorers result
+- **Quality Insights**: Displays metrics computed by [scorers](/genai/eval-monitor/scorers/), with a dedicated chart for each assessment type
+- Charts are dynamically generated based on the assessments available in your traces
+
+![Experiment Overview Quality Tab](/images/llms/tracing/overview_quality_tab.png)
+
+### Tool Calls
+
+The Tool Calls tab provides insights into agent tool usage:
+
+- **Statistics Cards**: Shows at-a-glance metrics including total tool calls, average latency, success rate, and failed calls
+- **Tool Performance Summary**: Provides an overview of how each tool is performing
+- **Tool Usage & Latency**: Visualizes tool invocation patterns and response times
+- **Tool Error Rate**: Tracks error rates per tool
+
+![Experiment Overview Tool Calls Tab](/images/llms/tracing/overview_tool_calls_tab.png)
+
 ## Traces within MLflow Experiments
 
 After logging your traces, you can view them in the [MLflow UI](/genai/tracing/observe-with-traces/ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.

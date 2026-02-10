@@ -11,7 +11,7 @@ This skill analyzes logs from failed GitHub Action jobs using Claude.
 
 ## Prerequisites
 
-- **GitHub Token**: Auto-detected via `gh auth token`, or set `GITHUB_TOKEN` env var
+- **GitHub Token**: Auto-detected via `gh auth token`, or set `GH_TOKEN` env var
 
 ## Usage
 

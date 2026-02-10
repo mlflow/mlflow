@@ -15,14 +15,21 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceTokenStatsChart: React.FC = () => {
+interface TraceTokenStatsChartProps {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+}
+
+export const TraceTokenStatsChart: React.FC<TraceTokenStatsChartProps> = ({ title, subtitle }) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token stats chart data
   const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData();
@@ -51,12 +58,16 @@ export const TraceTokenStatsChart: React.FC = () => {
     <OverviewChartContainer componentId="mlflow.charts.trace_token_stats">
       <OverviewChartHeader
         icon={<BarChartIcon />}
-        title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
+        title={
+          title ?? <FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />
+        }
         value={avgTokens !== undefined ? formatCount(Math.round(avgTokens)) : undefined}
         subtitle={
-          avgTokens !== undefined ? (
-            <FormattedMessage defaultMessage="avg per trace" description="Subtitle for average tokens per trace" />
-          ) : undefined
+          avgTokens !== undefined
+            ? (subtitle ?? (
+                <FormattedMessage defaultMessage="avg per trace" description="Subtitle for average tokens per trace" />
+              ))
+            : undefined
         }
       />
 
@@ -68,7 +79,16 @@ export const TraceTokenStatsChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId: experimentIds[0],
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.token_stats.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Line
@@ -76,7 +96,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p50"
                 stroke={lineColors.p50}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p50)}
                 name="p50"
                 strokeOpacity={getOpacity('p50')}
               />
@@ -85,7 +105,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p90"
                 stroke={lineColors.p90}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p90)}
                 name="p90"
                 strokeOpacity={getOpacity('p90')}
               />
@@ -94,7 +114,7 @@ export const TraceTokenStatsChart: React.FC = () => {
                 dataKey="p99"
                 stroke={lineColors.p99}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(lineColors.p99)}
                 name="p99"
                 strokeOpacity={getOpacity('p99')}
               />

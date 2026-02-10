@@ -6,12 +6,12 @@ import sys
 
 
 def get_github_token() -> str:
-    if token := os.environ.get("GITHUB_TOKEN"):
+    if token := os.environ.get("GH_TOKEN"):
         return token
     try:
         return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Error: GITHUB_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
+        print("Error: GH_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
         sys.exit(1)
 
 

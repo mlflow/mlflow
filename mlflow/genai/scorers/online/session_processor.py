@@ -102,13 +102,13 @@ class OnlineSessionScoringProcessor:
         session), and updates the checkpoint.
         """
         if not self._sampler._online_scorers:
-            _logger.info("No scorer configs provided, skipping")
+            _logger.debug("No scorer configs provided, skipping")
             return
 
         time_window = self._checkpoint_manager.calculate_time_window()
         checkpoint = self._checkpoint_manager.get_checkpoint()
 
-        _logger.info(
+        _logger.debug(
             f"Session scoring for experiment {self._experiment_id}: "
             f"looking for sessions in "
             f"[{time_window.min_last_trace_timestamp_ms}, "
@@ -118,7 +118,7 @@ class OnlineSessionScoringProcessor:
         session_tasks = self._fetch_and_filter_completed_sessions(time_window, checkpoint)
 
         if not session_tasks:
-            _logger.info("No completed sessions found, skipping")
+            _logger.debug("No completed sessions found, skipping")
             # Still need to advance checkpoint to avoid reprocessing the same time window
             checkpoint = OnlineSessionScoringCheckpoint(
                 timestamp_ms=time_window.max_last_trace_timestamp_ms,
@@ -127,7 +127,7 @@ class OnlineSessionScoringProcessor:
             self._checkpoint_manager.persist_checkpoint(checkpoint)
             return
 
-        _logger.info(f"Found {len(session_tasks)} completed sessions for scoring")
+        _logger.debug(f"Found {len(session_tasks)} completed sessions for scoring")
 
         self._execute_session_scoring(session_tasks)
 
@@ -139,7 +139,7 @@ class OnlineSessionScoringProcessor:
         )
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
-        _logger.info(f"Online session scoring completed for experiment {self._experiment_id}")
+        _logger.debug(f"Online session scoring completed for experiment {self._experiment_id}")
 
     def _fetch_and_filter_completed_sessions(
         self,
@@ -244,7 +244,7 @@ class OnlineSessionScoringProcessor:
                 deleted_count += 1
 
         if deleted_count > 0:
-            _logger.info(f"Deleted {deleted_count} old assessments for session {session_id}")
+            _logger.debug(f"Deleted {deleted_count} old assessments for session {session_id}")
 
     def _execute_session_scoring(self, tasks: list[SessionScoringTask]) -> None:
         """
@@ -340,5 +340,5 @@ class OnlineSessionScoringProcessor:
                     _logger.warning(
                         f"Failed to log assessments for trace {trace_id} "
                         f"in session {session.session_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.INFO),
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )

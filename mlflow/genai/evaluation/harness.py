@@ -34,7 +34,7 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     group_traces_by_session,
 )
-from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
+from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
     is_none_or_nan,
@@ -220,16 +220,23 @@ def run(
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
+        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
     except Exception as e:
-        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
+        _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
     traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
 
+    # Collect trace IDs from eval results to preserve them during cleanup.
+    input_trace_ids = {
+        result.eval_item.trace.info.trace_id
+        for result in eval_results
+        if result.eval_item.trace is not None
+    }
+
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time)
+    clean_up_extra_traces(traces, eval_start_time, input_trace_ids)
 
     return EvaluationResult(
         run_id=run_id,

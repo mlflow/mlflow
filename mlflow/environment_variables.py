@@ -106,6 +106,34 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
+#: Specifies the workspace provider backend URI.
+#: Defaults to the tracking URI when unset.
+MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", str, None)
+
+#: Enables workspace-aware behavior for MLflow servers and clients.
+#: When set, requests can include a workspace. Some workspace providers support default workspaces.
+#: (default: ``False``)
+MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
+
+#: Specifies the active workspace for client operations.
+#: (default: ``None``)
+MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
+
+#: Specifies the maximum number of entries in the workspace artifact root resolution cache.
+#: Increase this value if the server manages many workspaces.
+#: (default: ``128``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY", int, 128
+)
+
+#: Specifies the time-to-live in seconds for entries in the workspace artifact root resolution
+#: cache. Lower values improve consistency when running multiple server replicas; higher values
+#: reduce database load.
+#: (default: ``60``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS", int, 60
+)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
@@ -684,11 +712,25 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum number of workers to use for running conversation simulations in parallel.
+#: Controls concurrency when simulating multiple test cases and fetching traces.
+#: (default: ``10``)
+MLFLOW_GENAI_SIMULATOR_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_SIMULATOR_MAX_WORKERS", int, 10
+)
+
 #: Maximum number of worker threads to use for online scoring (both trace-level
 #: and session-level scoring). This controls the parallelism when processing multiple traces
 #: or sessions concurrently during background online scoring jobs. (default: ``10``)
 MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS", int, 10
+)
+
+#: Maximum number of parallel threads to use for LLM calls during optimization (e.g., MemAlign).
+#: Increasing this value can speed up alignment when processing
+#: many feedback examples, but may increase API rate limit errors. (default: ``8``)
+MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS", int, 8
 )
 
 
@@ -722,6 +764,15 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 # How many traces to display in Databricks Notebooks
 MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
+)
+
+#: Override the base URL used for the notebook trace iframe renderer.
+#: This is useful when the tracking URI is only reachable inside a container
+#: network (e.g. http://mlflow:5000) but the browser must load assets from a
+#: host-reachable URL (e.g. http://localhost:5000).
+#: (default: ``None``)
+MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL = _EnvironmentVariable(
+    "MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", str, None
 )
 
 #: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
@@ -1190,6 +1241,13 @@ MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
 #: (default: ``5``)
 MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
+)
+
+#: Default buffer time in seconds to wait before considering a session complete for online scoring.
+#: Sessions with no new traces for this duration are considered complete and ready for scoring.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
 

@@ -5,19 +5,18 @@ import typing as t
 
 import instructor
 import litellm
+from openai import AsyncOpenAI
 from pydantic import BaseModel
+from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import InstructorBaseRagasLLM
 from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
 class DatabricksRagasLLM(InstructorBaseRagasLLM):
@@ -141,6 +140,7 @@ class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
         return f"databricks:/{self._endpoint_name}"
 
 
+
 def create_ragas_model(model_uri: str):
     """
     Create a RAGAS LLM adapter from a model URI.
@@ -166,21 +166,26 @@ def create_ragas_model(model_uri: str):
     elif model_uri.startswith("gateway:/"):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
         return GatewayRagasLLM(endpoint_name)
-    elif ":" in model_uri:
-        provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.removeprefix("/")
-        client = instructor.from_litellm(litellm.acompletion)
-        return LiteLLMStructuredLLM(
-            client=client,
-            model=f"{provider}/{model_name}",
-            provider=provider,
-        )
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4') "
-            f"or a Databricks serving endpoint (e.g., 'databricks:/<endpoint_name>')."
-        )
+
+    # Parse provider:/model format using shared helper
+    provider, model_name = _parse_model_uri(model_uri)
+    client = instructor.from_litellm(litellm.acompletion)
+    return LiteLLMStructuredLLM(
+        client=client,
+        model=f"{provider}/{model_name}",
+        provider=provider,
+        drop_params=True,
+    )
+
+
+def create_default_embeddings():
+    """
+    Create default OpenAI embeddings for RAGAS metrics that require them.
+
+    Returns:
+        An OpenAIEmbeddings instance configured with a sync client.
+    """
+    return OpenAIEmbeddings(client=AsyncOpenAI())
 
 
 T = t.TypeVar("T", bound=BaseModel)

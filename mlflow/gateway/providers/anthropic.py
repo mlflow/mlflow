@@ -16,6 +16,8 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.gateway.utils import parse_sse_lines
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
@@ -252,6 +254,20 @@ class AnthropicAdapter(ProviderAdapter):
                 content=content.get("text"),
             )
 
+        # Extract usage from accumulated usage data (message_delta events)
+        usage = None
+        if usage_data := resp.get("_usage_data"):
+            input_tokens = usage_data.get("input_tokens")
+            output_tokens = usage_data.get("output_tokens")
+            total_tokens = None
+            if input_tokens is not None and output_tokens is not None:
+                total_tokens = input_tokens + output_tokens
+            usage = chat.ChatUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=total_tokens,
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             created=int(time.time()),
@@ -263,6 +279,7 @@ class AnthropicAdapter(ProviderAdapter):
                     delta=delta,
                 )
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -357,8 +374,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         PassthroughAction.ANTHROPIC_MESSAGES: "messages",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
@@ -423,7 +440,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         else:
             raise ValueError(f"Invalid route type {route_type}")
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -443,6 +460,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         indices = []
         metadata = {}
+        usage_data = {}  # Track usage across events
         async for chunk in stream:
             chunk = chunk.strip()
             if not chunk:
@@ -457,9 +475,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             resp = json.loads(content.decode("utf-8"))
 
             # response id and model are only present in `message_start`
+            # Also extract input_tokens from message_start
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
+                # Capture input_tokens from message_start
+                if message_usage := resp["message"].get("usage"):
+                    usage_data["input_tokens"] = message_usage.get("input_tokens")
                 continue
 
             if resp["type"] not in (
@@ -475,6 +497,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
+                # Capture output_tokens from message_delta
+                if delta_usage := resp.get("usage"):
+                    usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                # Include accumulated usage in the response
+                resp["_usage_data"] = usage_data
                 for index in indices:
                     yield AnthropicAdapter.model_to_chat_streaming(
                         {**resp, "index": index},
@@ -483,7 +510,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             else:
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -500,7 +527,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -529,12 +558,54 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
-    async def passthrough(
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Anthropic passthrough response.
+
+        Anthropic response format:
+        {
+            "usage": {
+                "input_tokens": int,
+                "output_tokens": int
+            }
+        }
+        """
+        return self._extract_token_usage_from_dict(
+            result.get("usage"), "input_tokens", "output_tokens"
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Anthropic streaming chunks.
+
+        Anthropic streaming format:
+        - message_start event: {"message": {"usage": {"input_tokens": X}}}
+        - message_delta event: {"usage": {"output_tokens": Y}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+            Total is calculated by the base class after accumulation.
+        """
+        usage: dict[str, int] = {}
+        for data in parse_sse_lines(chunk):
+            match data:
+                case {
+                    "type": "message_start",
+                    "message": {"usage": {"input_tokens": int(input_tokens)}},
+                }:
+                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        return usage
+
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         provider_path = self._validate_passthrough_action(action)
 
         # Add model name from config
@@ -543,12 +614,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

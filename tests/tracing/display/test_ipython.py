@@ -250,6 +250,16 @@ def test_mimebundle_in_oss():
     }
 
 
+def test_notebook_trace_renderer_base_url_override(monkeypatch):
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    monkeypatch.setenv("MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", "http://localhost:5000")
+
+    html = get_notebook_iframe_html([trace])
+    assert "http://localhost:5000/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
+
+
 def test_display_in_oss(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)

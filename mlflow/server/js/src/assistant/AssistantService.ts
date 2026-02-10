@@ -2,10 +2,95 @@
  * Service layer for Assistant Agent API calls.
  */
 
-import type { MessageRequest } from './types';
+import type {
+  MessageRequest,
+  ToolUseInfo,
+  AssistantConfig,
+  AssistantConfigUpdate,
+  HealthCheckResult,
+  InstallSkillsResponse,
+} from './types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
+
+/**
+ * Process content block array from assistant response.
+ * Extracts text or tool uses and calls appropriate callbacks.
+ */
+const processContentBlocks = (
+  content: any[],
+  onMessage: (text: string) => void,
+  onToolUse?: (tools: ToolUseInfo[]) => void,
+): void => {
+  // Extract text from TextBlock items
+  const text = content
+    .filter((block: any) => 'text' in block)
+    .map((block: any) => block.text)
+    .join('');
+
+  if (text) {
+    // Clear tools and show text when assistant is responding
+    onToolUse?.([]);
+    onMessage(text);
+    return;
+  }
+
+  // Only show tool uses when there's no text response yet
+  const toolUses = content
+    .filter((block: any) => block.name && block.input && !block.tool_use_id)
+    .map((block: any) => ({
+      id: block.id,
+      name: block.name,
+      description: block.input?.description,
+      input: block.input,
+    }));
+  if (toolUses.length > 0 && onToolUse) {
+    onToolUse(toolUses);
+  }
+};
+
+/**
+ * Check if a provider is healthy (CLI installed and authenticated).
+ * Returns { ok: true } on success, or { ok: false, error, status } if not set up.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
+  const response = await fetch(`${API_BASE}/providers/${provider}/health`);
+  if (response.ok) {
+    return { ok: true };
+  }
+  const data = await response.json();
+  return { ok: false, error: data.detail || 'Unknown error', status: response.status };
+};
+
+/**
+ * Get the assistant configuration.
+ */
+export const getConfig = async (): Promise<AssistantConfig> => {
+  const response = await fetch(`${API_BASE}/config`);
+  if (!response.ok) {
+    throw new Error(`Failed to get config: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+/**
+ * Update the assistant configuration.
+ * Pass null for a project to remove it.
+ */
+export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
+  const response = await fetch(`${API_BASE}/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || 'Failed to update config');
+  }
+  return response.json();
+};
 
 /**
  * Create an EventSource for streaming responses.
@@ -15,17 +100,49 @@ export const createEventSource = (sessionId: string): EventSource => {
 };
 
 /**
+ * Cancel an active session by terminating the backend process.
+ */
+export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status: 'cancelled' }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to cancel session');
+  }
+
+  return response.json();
+};
+
+export interface SendMessageStreamCallbacks {
+  onMessage: (text: string) => void;
+  onError: (error: string) => void;
+  onDone: () => void;
+  onStatus?: (status: string) => void;
+  onSessionId?: (sessionId: string) => void;
+  onToolUse?: (tools: ToolUseInfo[]) => void;
+  onInterrupted?: () => void;
+}
+
+export interface SendMessageStreamResult {
+  eventSource: EventSource | null;
+}
+
+/**
  * Send a message and get the response stream via SSE.
  * First POSTs to /message to initiate, then connects to SSE endpoint.
+ * Returns the EventSource so caller can close it if needed (e.g., on cancel).
  */
 export const sendMessageStream = async (
   request: MessageRequest,
-  onMessage: (text: string) => void,
-  onError: (error: string) => void,
-  onDone: () => void,
-  onStatus?: (status: string) => void,
-  onSessionId?: (sessionId: string) => void,
-): Promise<void> => {
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted } = callbacks;
+
   try {
     // Step 1: POST the message to initiate processing
     const response = await fetch(`${API_BASE}/message`, {
@@ -39,7 +156,7 @@ export const sendMessageStream = async (
     if (!response.ok) {
       const error = await response.text();
       onError(`Failed to send message: ${error}`);
-      return;
+      return { eventSource: null };
     }
 
     // Step 2: Get the session_id from the response
@@ -48,7 +165,7 @@ export const sendMessageStream = async (
 
     if (!sessionId) {
       onError('No session_id returned from server');
-      return;
+      return { eventSource: null };
     }
 
     // Notify caller of the session ID
@@ -67,15 +184,9 @@ export const sendMessageStream = async (
           // Handle string content
           if (typeof content === 'string') {
             onMessage(content);
-          }
-          // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
-          else if (Array.isArray(content)) {
-            // Extract text from TextBlock items
-            const text = content
-              .filter((block: any) => 'text' in block)
-              .map((block: any) => block.text)
-              .join('');
-            if (text) onMessage(text);
+          } else if (Array.isArray(content)) {
+            // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
+            processContentBlocks(content, onMessage, onToolUse);
           }
         }
       } catch (err) {
@@ -102,14 +213,27 @@ export const sendMessageStream = async (
     });
 
     // Listen for 'done' event (completion)
+    eventSource.addEventListener('done', () => {
+      onDone();
+      eventSource.close();
+    });
+
+    // Listen for 'interrupted' event (cancelled by user)
+    eventSource.addEventListener('interrupted', () => {
+      onInterrupted?.();
+      eventSource.close();
+    });
+
     eventSource.addEventListener('done', (event) => {
       try {
         const data = JSON.parse(event.data);
         // Backend sends: {"result": null, "session_id": "..."}
+        onToolUse?.([]);
         onDone();
         eventSource.close();
       } catch (err) {
         console.error('Failed to parse done event:', err);
+        onToolUse?.([]);
         onDone();
         eventSource.close();
       }
@@ -126,13 +250,47 @@ export const sendMessageStream = async (
           onError('Connection error');
         }
       } else if (eventSource.readyState === EventSource.CLOSED) {
-        onError('Connection closed');
+        // Connection closed - this can happen after cancel, don't report as error
+        return;
       } else {
         onError('Connection error');
       }
       eventSource.close();
     });
+
+    return { eventSource };
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
+    return { eventSource: null };
   }
+};
+
+/**
+ * Install skills from the MLflow skills repository.
+ * Returns { installed_skills, skills_directory } on success.
+ * Throws with error.status for:
+ *   412 = git not installed
+ *   500 = clone failed
+ */
+export const installSkills = async (
+  type: 'global' | 'project' | 'custom',
+  customPath?: string,
+  experimentId?: string,
+): Promise<InstallSkillsResponse> => {
+  const response = await fetch(`${API_BASE}/skills/install`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type,
+      custom_path: customPath,
+      experiment_id: experimentId,
+    }),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    const error = new Error(data.detail || 'Failed to install skills');
+    (error as any).status = response.status;
+    throw error;
+  }
+  return response.json();
 };

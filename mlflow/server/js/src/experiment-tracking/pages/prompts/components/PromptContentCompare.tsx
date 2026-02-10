@@ -1,10 +1,22 @@
-import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { useMemo } from 'react';
+import {
+  Alert,
+  Button,
+  ExpandMoreIcon,
+  MarkdownIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Spacer,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { useMemo, useState } from 'react';
 import { getChatPromptMessagesFromValue, getPromptContentTagValue } from '../utils';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { diffWords } from '../diff';
+import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 
 export const PromptContentCompare = ({
   baselineVersion,
@@ -25,6 +37,7 @@ export const PromptContentCompare = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [shouldRenderMarkdown, setShouldRenderMarkdown] = useState(true);
 
   const baselineValue = useMemo(
     () => (baselineVersion ? getPromptContentTagValue(baselineVersion) : ''),
@@ -74,7 +87,7 @@ export const PromptContentCompare = ({
         flexDirection: 'column',
       }}
     >
-      <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography.Title level={3}>
           <FormattedMessage
             defaultMessage="Comparing version {baseline} with version {compared}"
@@ -85,7 +98,37 @@ export const PromptContentCompare = ({
             }}
           />
         </Typography.Title>
+        <SegmentedControlGroup
+          name="compare-render-mode"
+          size="small"
+          componentId="mlflow.prompts.compare.toggle-markdown-rendering"
+          value={shouldRenderMarkdown}
+          onChange={(event) => setShouldRenderMarkdown(event.target.value)}
+        >
+          <SegmentedControlButton value={false}>
+            <FormattedMessage defaultMessage="Text" description="Label for the text render mode of the prompt" />
+          </SegmentedControlButton>
+          <SegmentedControlButton value>
+            <MarkdownIcon />
+          </SegmentedControlButton>
+        </SegmentedControlGroup>
       </div>
+      {shouldRenderMarkdown && (
+        <>
+          <Spacer shrinks={false} size="sm" />
+          <Alert
+            componentId="mlflow.prompts.compare.markdown-diff-warning"
+            type="warning"
+            message={
+              <FormattedMessage
+                defaultMessage="Diff highlighting is not supported in Markdown view. Switch to Text view to see differences."
+                description="Warning message shown in prompt comparison view when markdown rendering is enabled"
+              />
+            }
+            closable={false}
+          />
+        </>
+      )}
       <Spacer shrinks={false} />
       <div css={{ display: 'flex' }}>
         <div css={{ flex: 1 }}>
@@ -120,13 +163,11 @@ export const PromptContentCompare = ({
             flex: 1,
           }}
         >
-          <Typography.Text
-            css={{
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {baselineDisplay || 'Empty'}
-          </Typography.Text>
+          {shouldRenderMarkdown ? (
+            <GenAIMarkdownRenderer>{baselineDisplay || 'Empty'}</GenAIMarkdownRenderer>
+          ) : (
+            <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{baselineDisplay || 'Empty'}</Typography.Text>
+          )}
         </div>
         <div css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }}>
           <Tooltip
@@ -158,27 +199,31 @@ export const PromptContentCompare = ({
             flex: 1,
           }}
         >
-          <Typography.Text
-            css={{
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {diff.map((part, index) => (
-              <span
-                key={index}
-                css={{
-                  backgroundColor: part.added
-                    ? colors.addedBackground
-                    : part.removed
-                      ? colors.removedBackground
-                      : undefined,
-                  textDecoration: part.removed ? 'line-through' : 'none',
-                }}
-              >
-                {part.value}
-              </span>
-            ))}
-          </Typography.Text>
+          {shouldRenderMarkdown ? (
+            <GenAIMarkdownRenderer>{comparedDisplay || 'Empty'}</GenAIMarkdownRenderer>
+          ) : (
+            <Typography.Text
+              css={{
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {diff.map((part, index) => (
+                <span
+                  key={index}
+                  css={{
+                    backgroundColor: part.added
+                      ? colors.addedBackground
+                      : part.removed
+                        ? colors.removedBackground
+                        : undefined,
+                    textDecoration: part.removed ? 'line-through' : 'none',
+                  }}
+                >
+                  {part.value}
+                </span>
+              ))}
+            </Typography.Text>
+          )}
         </div>
       </div>
     </div>

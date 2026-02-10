@@ -152,3 +152,19 @@ export const shouldEnableExperimentPageSideTabs = () => {
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
+
+/**
+ * Determines if the top-level nested sidebar feature is enabled.
+ * This enables the workflow type selector and nested navigation items in the main sidebar.
+ */
+export const shouldEnableWorkflowBasedNavigation = () => {
+  return false;
+};
+
+/**
+ * Enables improved evaluation runs comparison UI with full-page list view,
+ * dataset grouping, and streamlined run comparison workflow.
+ */
+export const shouldEnableImprovedEvalRunsComparison = () => {
+  return false;
+};

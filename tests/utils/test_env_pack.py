@@ -305,7 +305,7 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
                 pass
 
 
-def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
+def test_pack_env_for_databricks_model_serving_rejects_existing_databricks_dir(
     tmp_path, mock_dbr_version
 ):
     # Mock download_artifacts to return a path
@@ -324,10 +324,95 @@ def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
         )
     )
 
-    # Simulate existing _databricks directory from previous registration
+    # Create existing _databricks directory
     existing_databricks_dir = mock_artifacts_dir / env_pack._ARTIFACT_PATH
     existing_databricks_dir.mkdir()
-    (existing_databricks_dir / "old_file.txt").write_text("old content")
+
+    with (
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
+        ),
+    ):
+        # This should raise an error because _databricks directory exists in source
+        with pytest.raises(
+            MlflowException, match="Source artifacts contain a '_databricks' directory"
+        ):
+            with env_pack.pack_env_for_databricks_model_serving(
+                "models:/test-model/1", enforce_pip_requirements=False
+            ):
+                pass
+
+
+def test_pack_env_with_local_model_path_no_mutation(tmp_path, mock_dbr_version):
+    # Create a local directory with model artifacts
+    local_model_dir = tmp_path / "local_model"
+    local_model_dir.mkdir()
+    (local_model_dir / "requirements.txt").write_text("numpy==1.21.0")
+    (local_model_dir / "model.pkl").write_text("model data")
+
+    # Create MLmodel file with correct runtime version
+    mlmodel_path = local_model_dir / "MLmodel"
+    mlmodel_path.write_text(
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
+    )
+
+    # Create a mock environment directory
+    mock_env_dir = tmp_path / "mock_env"
+    venv.create(mock_env_dir, with_pip=True)
+
+    with mock.patch("sys.prefix", str(mock_env_dir)):
+        # Call with local_model_path
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1",
+            local_model_path=str(local_model_dir),
+            enforce_pip_requirements=False,
+        ) as artifacts_dir:
+            # Verify returned directory contains expected files
+            artifacts_path = Path(artifacts_dir)
+            assert artifacts_path.exists()
+            assert (artifacts_path / "requirements.txt").exists()
+            assert (artifacts_path / "model.pkl").exists()
+            assert (artifacts_path / "MLmodel").exists()
+
+            # Verify _databricks directory exists in returned path
+            databricks_path = artifacts_path / env_pack._ARTIFACT_PATH
+            assert databricks_path.exists()
+            assert (databricks_path / env_pack._MODEL_VERSION_TAR).exists()
+            assert (databricks_path / env_pack._MODEL_ENVIRONMENT_TAR).exists()
+
+            # CRITICAL: Verify original local_model_dir is NOT mutated
+            assert not (local_model_dir / env_pack._ARTIFACT_PATH).exists()
+
+            # Verify original files are untouched
+            assert (local_model_dir / "requirements.txt").read_text() == "numpy==1.21.0"
+            assert (local_model_dir / "model.pkl").read_text() == "model data"
+
+        # After context exit, verify local_model_dir is still not mutated
+        assert not (local_model_dir / env_pack._ARTIFACT_PATH).exists()
+
+
+def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "downloaded_artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    # Create MLmodel file with correct runtime version
+    mlmodel_path = mock_artifacts_dir / "MLmodel"
+    mlmodel_path.write_text(
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
+    )
 
     # Create a mock environment directory
     mock_env_dir = tmp_path / "mock_env"
@@ -340,17 +425,13 @@ def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
         ),
         mock.patch("sys.prefix", str(mock_env_dir)),
     ):
-        # This should succeed even though _databricks directory already exists
+        # Call without local_model_path to trigger download
         with env_pack.pack_env_for_databricks_model_serving(
             "models:/test-model/1", enforce_pip_requirements=False
         ) as artifacts_dir:
-            # Verify artifacts directory exists and contains expected files
-            artifacts_path = Path(artifacts_dir)
-            assert artifacts_path.exists()
-            databricks_path = artifacts_path / env_pack._ARTIFACT_PATH
-            assert databricks_path.exists()
-            assert (databricks_path / env_pack._MODEL_VERSION_TAR).exists()
-            assert (databricks_path / env_pack._MODEL_ENVIRONMENT_TAR).exists()
+            # During context, downloaded artifacts should exist
+            assert Path(artifacts_dir).exists()
+            assert (Path(artifacts_dir) / "requirements.txt").exists()
 
-            # Verify old file is gone (directory was replaced, not merged)
-            assert not (databricks_path / "old_file.txt").exists()
+        # After context exit, downloaded artifacts should be cleaned up
+        assert not mock_artifacts_dir.exists()

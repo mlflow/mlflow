@@ -25,41 +25,8 @@ async function queryTraceMetrics(params: QueryTraceMetricsRequest): Promise<Quer
     .catch(catchNetworkErrorIfExists);
 }
 
-// Time intervals in seconds
-const MINUTE_IN_SECONDS = 60;
-const HOUR_IN_SECONDS = 3600;
-const DAY_IN_SECONDS = 86400;
-const MONTH_IN_SECONDS = 2592000;
-
-/**
- * Calculate the appropriate time interval based on the time range.
- * Returns day-level interval if times are not provided.
- * - <= 1 hour: minute level
- * - <= 24 hours: hour level
- * - <= 1 month: day level
- * - > 1 month: month level
- */
-export function calculateTimeInterval(startTimeMs?: number, endTimeMs?: number): number {
-  if (!startTimeMs || !endTimeMs) {
-    return DAY_IN_SECONDS;
-  }
-
-  const durationMs = endTimeMs - startTimeMs;
-  const durationSeconds = durationMs / 1000;
-
-  if (durationSeconds <= HOUR_IN_SECONDS) {
-    return MINUTE_IN_SECONDS;
-  } else if (durationSeconds <= DAY_IN_SECONDS) {
-    return HOUR_IN_SECONDS;
-  } else if (durationSeconds <= MONTH_IN_SECONDS) {
-    return DAY_IN_SECONDS;
-  } else {
-    return MONTH_IN_SECONDS;
-  }
-}
-
 interface UseTraceMetricsQueryParams {
-  experimentId: string;
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   viewType: MetricViewType;
@@ -71,10 +38,12 @@ interface UseTraceMetricsQueryParams {
   filters?: string[];
   /** Optional: Dimensions to group metrics by (e.g. `assessment_name`) */
   dimensions?: string[];
+  /** Optional: Whether the query is enabled. Defaults to true. */
+  enabled?: boolean;
 }
 
 export function useTraceMetricsQuery({
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   viewType,
@@ -83,9 +52,10 @@ export function useTraceMetricsQuery({
   timeIntervalSeconds,
   filters,
   dimensions,
+  enabled = true,
 }: UseTraceMetricsQueryParams) {
   const queryParams: QueryTraceMetricsRequest = {
-    experiment_ids: [experimentId],
+    experiment_ids: experimentIds,
     view_type: viewType,
     metric_name: metricName,
     aggregations,
@@ -99,7 +69,7 @@ export function useTraceMetricsQuery({
   return useQuery({
     queryKey: [
       TRACE_METRICS_QUERY_KEY,
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       viewType,
@@ -113,7 +83,7 @@ export function useTraceMetricsQuery({
       const response = await queryTraceMetrics(queryParams);
       return response;
     },
-    enabled: !!experimentId,
+    enabled: experimentIds.length > 0 && enabled,
     refetchOnWindowFocus: false,
   });
 }

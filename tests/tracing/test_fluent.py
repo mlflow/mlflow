@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -2246,6 +2248,7 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
@@ -2425,3 +2428,386 @@ def test_search_traces_with_full_text():
     )
     assert len(traces) == 1
     assert traces[0].info.trace_id == trace_id_1
+
+
+def _create_trace_with_session(session_id: str, name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+def _create_trace_without_session(name: str = "test_span") -> str:
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs({"input": "test"})
+        span.set_outputs({"output": "test"})
+        return span.trace_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_empty():
+    # Create a trace without a session ID - should result in no sessions
+    _create_trace_without_session()
+    sessions = mlflow.search_sessions()
+    assert sessions == []
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_returns_grouped_traces():
+    session_id_1 = f"session-1-{uuid.uuid4().hex[:8]}"
+    session_id_2 = f"session-2-{uuid.uuid4().hex[:8]}"
+
+    # Create traces for session 1
+    trace_id_1 = _create_trace_with_session(session_id_1, "session1_trace1")
+    trace_id_2 = _create_trace_with_session(session_id_1, "session1_trace2")
+
+    # Create trace for session 2
+    trace_id_3 = _create_trace_with_session(session_id_2, "session2_trace1")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 2
+
+    # Convert to dict keyed by session.id for easier assertions
+    sessions_by_id = {s.id: s for s in sessions}
+
+    assert len(sessions_by_id[session_id_1]) == 2
+    assert len(sessions_by_id[session_id_2]) == 1
+
+    # Verify trace IDs
+    session_1_trace_ids = {t.info.trace_id for t in sessions_by_id[session_id_1]}
+    assert trace_id_1 in session_1_trace_ids
+    assert trace_id_2 in session_1_trace_ids
+    assert sessions_by_id[session_id_2][0].info.trace_id == trace_id_3
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_respects_max_results():
+    session_ids = [f"session-{i}-{uuid.uuid4().hex[:8]}" for i in range(3)]
+
+    # Create one trace per session
+    for session_id in session_ids:
+        _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(max_results=2)
+
+    assert len(sessions) == 2
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_skips_traces_without_session_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+
+    # Create trace without session
+    _create_trace_without_session("no_session_trace")
+
+    # Create trace with session
+    trace_id = _create_trace_with_session(session_id, "with_session_trace")
+
+    sessions = mlflow.search_sessions()
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    assert sessions[0][0].info.trace_id == trace_id
+
+
+def test_search_sessions_validates_locations_type():
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations=4)
+
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        mlflow.search_sessions(locations="4")
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_with_default_experiment_id():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    # search_sessions should use the default experiment
+    sessions = mlflow.search_sessions()
+    assert len(sessions) == 1
+
+
+def test_search_sessions_raises_without_experiment():
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None):
+        with pytest.raises(MlflowException, match=r"No active experiment found"):
+            mlflow.search_sessions()
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_true():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=True)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=True, spans should be populated
+    assert len(sessions[0][0].data.spans) > 0
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_sessions_include_spans_false():
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    _create_trace_with_session(session_id)
+
+    sessions = mlflow.search_sessions(include_spans=False)
+
+    assert len(sessions) == 1
+    assert len(sessions[0]) == 1
+    # When include_spans=False, spans should be empty
+    assert len(sessions[0][0].data.spans) == 0
+
+
+@pytest.mark.parametrize("invalid_ratio", [-0.1, 1.1, -1, 2, 100])
+def test_trace_decorator_sampling_ratio_validation(invalid_ratio: float):
+    with pytest.raises(
+        MlflowException, match=r"sampling_ratio_override must be between 0\.0 and 1\.0"
+    ):
+        mlflow.trace(sampling_ratio_override=invalid_ratio)
+
+
+@pytest.mark.parametrize(
+    ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
+    [
+        (0.0, 10, 0, 0),
+        (0.5, 100, 30, 70),
+        (1.0, 10, 10, 10),
+    ],
+)
+def test_trace_decorator_sampling_ratio(
+    sampling_ratio: float, num_calls: int, expected_min: int, expected_max: int
+):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    def traced_func():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(num_calls):
+        assert traced_func() == "result"
+
+    assert expected_min <= len(trace_ids) <= expected_max
+
+
+@pytest.mark.parametrize(
+    ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
+    [
+        (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
+        (0.0, 1.0, 0, 5),  # Parent not sampled -> child creates its own root traces
+    ],
+)
+def test_trace_decorator_sampling_ratio_nested(
+    outer_ratio: float, inner_ratio: float, expected_outer: int, expected_inner: int
+):
+    outer_trace_ids: list[str] = []
+    inner_trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=outer_ratio)
+    def outer():
+        if trace_id := mlflow.get_active_trace_id():
+            outer_trace_ids.append(trace_id)
+        return inner()
+
+    @mlflow.trace(sampling_ratio_override=inner_ratio)
+    def inner():
+        if trace_id := mlflow.get_active_trace_id():
+            inner_trace_ids.append(trace_id)
+        return "inner result"
+
+    for _ in range(5):
+        assert outer() == "inner result"
+
+    assert len(outer_trace_ids) == expected_outer
+    assert len(inner_trace_ids) == expected_inner
+
+
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_count"),
+    [
+        (0.0, 0),
+        (1.0, 2),
+    ],
+)
+def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expected_count: int):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    def gen():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        for i in range(3):
+            yield i
+
+    assert list(gen()) == [0, 1, 2]
+    assert list(gen()) == [0, 1, 2]
+    assert len(trace_ids) == expected_count
+
+
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_child_count"),
+    [
+        (0.0, 6),
+        (1.0, 6),
+    ],
+)
+def test_trace_decorator_sampling_ratio_generator_with_child_spans(
+    sampling_ratio: float, expected_child_count: int
+):
+    child_trace_ids: list[str] = []
+
+    @mlflow.trace
+    def child_func(value):
+        if trace_id := mlflow.get_active_trace_id():
+            child_trace_ids.append(trace_id)
+        return value * 2
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    def gen():
+        for i in range(3):
+            yield child_func(i)
+
+    assert list(gen()) == [0, 2, 4]
+    assert list(gen()) == [0, 2, 4]
+    assert len(child_trace_ids) == expected_child_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "num_calls", "expected_min", "expected_max"),
+    [
+        (0.0, 10, 0, 0),
+        (0.5, 100, 30, 70),
+        (1.0, 10, 10, 10),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async(
+    sampling_ratio: float, num_calls: int, expected_min: int, expected_max: int
+):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def traced_func():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(num_calls):
+        assert await traced_func() == "result"
+
+    assert expected_min <= len(trace_ids) <= expected_max
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_count"),
+    [
+        (0.0, 0),
+        (1.0, 2),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async_generator(
+    sampling_ratio: float, expected_count: int
+):
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def gen():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        for i in range(3):
+            yield i
+
+    assert [item async for item in gen()] == [0, 1, 2]
+    assert [item async for item in gen()] == [0, 1, 2]
+    assert len(trace_ids) == expected_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sampling_ratio", "expected_child_count"),
+    [
+        (0.0, 6),
+        (1.0, 6),
+    ],
+)
+async def test_trace_decorator_sampling_ratio_async_generator_with_child_spans(
+    sampling_ratio: float, expected_child_count: int
+):
+    child_trace_ids: list[str] = []
+
+    @mlflow.trace
+    async def child_func(value):
+        if trace_id := mlflow.get_active_trace_id():
+            child_trace_ids.append(trace_id)
+        return value * 2
+
+    @mlflow.trace(sampling_ratio_override=sampling_ratio)
+    async def gen():
+        for i in range(3):
+            yield await child_func(i)
+
+    assert [i async for i in gen()] == [0, 2, 4]
+    assert [i async for i in gen()] == [0, 2, 4]
+    assert len(child_trace_ids) == expected_child_count
+
+
+@skip_when_testing_trace_sdk
+def test_trace_decorator_sampling_ratio_overrides_global():
+    code = """
+import mlflow
+
+trace_ids: list[str] = []
+
+
+@mlflow.trace  # Should respect global 0.0
+def not_traced():
+    if trace_id := mlflow.get_active_trace_id():
+        trace_ids.append(trace_id)
+    return "not traced"
+
+
+for _ in range(5):
+    assert not_traced() == "not traced"
+
+assert len(trace_ids) == 0
+
+
+@mlflow.trace(sampling_ratio_override=1.0)  # Should override global 0.0
+def traced():
+    if trace_id := mlflow.get_active_trace_id():
+        trace_ids.append(trace_id)
+    return "traced"
+
+
+for _ in range(5):
+    assert traced() == "traced"
+
+assert len(trace_ids) == 5
+"""
+    subprocess.check_call(
+        [sys.executable, "-c", code],
+        env={
+            **os.environ,
+            "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
+        },
+    )

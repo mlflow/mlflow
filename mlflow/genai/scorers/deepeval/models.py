@@ -6,14 +6,11 @@ from deepeval.models import LiteLLMModel
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import ValidationError
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
 def _build_json_prompt_with_schema(prompt: str, schema) -> str:
@@ -184,13 +181,10 @@ def create_deepeval_model(model_uri: str):
     elif model_uri.startswith("gateway:/"):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
         return GatewayDeepEvalLLM(endpoint_name)
-    elif ":" in model_uri:
-        # LiteLLM model format with provider: provider:/model_name (e.g., openai:/gpt-4)
-        provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.removeprefix("/")
-        return LiteLLMModel(model=f"{provider}/{model_name}")
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4')."
-        )
+
+    # Parse provider:/model format using shared helper
+    provider, model_name = _parse_model_uri(model_uri)
+    return LiteLLMModel(
+        model=f"{provider}/{model_name}",
+        generation_kwargs={"drop_params": True},
+    )

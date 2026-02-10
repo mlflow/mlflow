@@ -17,6 +17,7 @@ export interface TokenStatsChartDataPoint {
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceTokenStatsChartDataResult {
@@ -40,14 +41,14 @@ export interface UseTraceTokenStatsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
   const {
     data: tokenStatsData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -66,7 +67,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -101,6 +102,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
         p50: stats?.p50 || 0,
         p90: stats?.p90 || 0,
         p99: stats?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);

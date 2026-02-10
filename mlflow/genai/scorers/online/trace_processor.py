@@ -79,7 +79,7 @@ class OnlineTraceScoringProcessor:
         time_window = self._checkpoint_manager.calculate_time_window()
         checkpoint = self._checkpoint_manager.get_checkpoint()
 
-        _logger.info(
+        _logger.debug(
             f"Online scoring for experiment {self._experiment_id}: "
             f"time window [{time_window.min_trace_timestamp_ms}, "
             f"{time_window.max_trace_timestamp_ms}]"
@@ -88,7 +88,7 @@ class OnlineTraceScoringProcessor:
         tasks = self._build_scoring_tasks(time_window, checkpoint)
 
         if not tasks:
-            _logger.info("No traces selected after sampling, skipping")
+            _logger.debug("No traces selected after sampling, skipping")
             # Still need to advance checkpoint to avoid reprocessing the same time window
             checkpoint = OnlineTraceScoringCheckpoint(
                 timestamp_ms=time_window.max_trace_timestamp_ms,
@@ -97,7 +97,7 @@ class OnlineTraceScoringProcessor:
             self._checkpoint_manager.persist_checkpoint(checkpoint)
             return
 
-        _logger.info(f"Running scoring: {len(tasks)} trace tasks")
+        _logger.debug(f"Running scoring: {len(tasks)} trace tasks")
 
         sampled_trace_ids = list(tasks.keys())
         full_traces = self._trace_loader.fetch_traces(sampled_trace_ids)
@@ -123,7 +123,7 @@ class OnlineTraceScoringProcessor:
             )
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
-        _logger.info(f"Online trace scoring completed for experiment {self._experiment_id}")
+        _logger.debug(f"Online trace scoring completed for experiment {self._experiment_id}")
 
     def _build_scoring_tasks(
         self,
@@ -176,7 +176,7 @@ class OnlineTraceScoringProcessor:
                     )
                 ]
 
-            _logger.info(f"Found {len(trace_infos)} trace infos for filter: {filter_string}")
+            _logger.debug(f"Found {len(trace_infos)} trace infos for filter: {filter_string}")
 
             for trace_info in trace_infos:
                 trace_id = trace_info.trace_id
@@ -231,7 +231,7 @@ class OnlineTraceScoringProcessor:
         except Exception as log_error:
             _logger.warning(
                 f"Failed to log error assessments for trace {trace.info.trace_id}: {log_error}",
-                exc_info=_logger.isEnabledFor(logging.INFO),
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
     def _execute_scoring(
@@ -272,6 +272,6 @@ class OnlineTraceScoringProcessor:
                 except Exception as e:
                     _logger.warning(
                         f"Failed to score trace {task.trace.info.trace_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.INFO),
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
                     self._log_error_assessments(e, task.scorers, task.trace)
