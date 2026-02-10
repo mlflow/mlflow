@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import traceback
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
 from typing import Any, Callable
 
 import pandas as pd
@@ -26,8 +27,11 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
+    MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
+    MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
+from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter, RateLimiter
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
@@ -93,6 +97,10 @@ def _log_multi_turn_assessments_to_traces(
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
 
+def _make_rate_limiter(rate: float | None) -> RateLimiter:
+    return RPSRateLimiter(rate) if rate else NoOpRateLimiter()
+
+
 @context.eval_context
 def run(
     *,
@@ -108,13 +116,16 @@ def run(
 
     1. Convert the dataset to a list of EvalItem objects
     2. Classify scorers into single-turn and multi-turn
-    3. Run the prediction and single-turn scoring for each EvalItem in parallel
-        a. If predict_fn is provided, invoke the predict_fn for the EvalItem
-        b. If predict_fn is not provided, create a dummy trace for the EvalItem
-        c. Execute the single-turn scorers to compute assessments.
-        d. Log the assessments to the trace.
+    3. Run prediction and scoring in a pipelined fashion:
+        a. Submit all predict tasks to a predict thread pool
+        b. As each predict completes, submit its score task to a score thread pool
+        c. As each score completes, collect the result
     4. If multi-turn scorers exist, evaluate them on session groups
     5. Compute the aggregated metrics from the assessments.
+
+    Rate limiting is controlled via environment variables:
+    - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
+    - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
@@ -128,68 +139,136 @@ def run(
 
     total_tasks = len(eval_items) + len(session_groups)
 
-    with ThreadPoolExecutor(
-        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-        thread_name_prefix="MlflowGenAIEvalHarness",
-    ) as executor:
-        # Submit single-turn tasks
-        single_turn_futures = {
-            executor.submit(
-                _run_single,
-                eval_item=eval_item,
-                scorers=single_turn_scorers,
-                predict_fn=predict_fn,
-                run_id=run_id,
-            ): i
-            for i, eval_item in enumerate(eval_items)
-        }
+    # Create rate limiters from environment variables
+    predict_rate = MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
+    scorer_rate = MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.get()
+    predict_limiter = _make_rate_limiter(predict_rate)
+    scorer_limiter = _make_rate_limiter(scorer_rate)
 
-        # Collect results with unified progress bar
-        eval_results = [None] * len(eval_items)
-        multi_turn_assessments = {}
+    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set():
+        max_workers = MLFLOW_GENAI_EVAL_MAX_WORKERS.get()
+    else:
+        # Derive from rate limits: enough threads to keep the pipeline saturated
+        # assuming ~5s average LLM call latency, capped at [10, 50].
+        max_rate = max(predict_rate or 0, scorer_rate or 0)
+        max_workers = min(50, max(10, int(max_rate * 5))) if max_rate else 10
 
-        # Create progress bar for all tasks
-        progress_bar = (
-            tqdm(
-                total=total_tasks,
-                desc="Evaluating",
-                smoothing=0,
-                bar_format=PGBAR_FORMAT,
-            )
-            if tqdm is not None
-            else None
+    predict_pool = ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="MlflowGenAIEvalPredict",
+    )
+    score_pool = ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="MlflowGenAIEvalScore",
+    )
+
+    progress_bar = (
+        tqdm(
+            total=total_tasks,
+            desc="Evaluating",
+            smoothing=0,
+            bar_format=PGBAR_FORMAT,
         )
+        if tqdm is not None
+        else None
+    )
 
-        try:
-            # Phase 1: Complete single-turn tasks
-            for future in as_completed(single_turn_futures):
-                idx = single_turn_futures[future]
-                eval_results[idx] = future.result()
-                if progress_bar:
-                    progress_bar.update(1)
+    eval_results = [None] * len(eval_items)
+    multi_turn_assessments = {}
 
-            # Phase 2: Submit and complete multi-turn tasks (after single-turn)
-            # We run multi-turn scorers after single-turn, since single-turn scorers may create new
-            # traces that are needed by multi-turn scorers.
-            if multi_turn_scorers and session_groups:
-                multi_turn_futures = [
-                    executor.submit(
-                        evaluate_session_level_scorers,
-                        session_id=session_id,
-                        session_items=session_items,
-                        multi_turn_scorers=multi_turn_scorers,
+    # Thread-time accumulators for predict vs score split.
+    # Lists are used instead of nonlocal floats for safe mutation from threads.
+    predict_times = []
+    score_times = []
+    _time_lock = threading.Lock()
+
+    def _timed_predict(*args):
+        start = time.monotonic()
+        result = _run_predict(*args)
+        with _time_lock:
+            predict_times.append(time.monotonic() - start)
+        return result
+
+    def _timed_score(*args):
+        start = time.monotonic()
+        result = _run_score(*args)
+        with _time_lock:
+            score_times.append(time.monotonic() - start)
+        return result
+
+    try:
+        # Maps to track which future belongs to which item index
+        predict_futures = {}  # future → item_index
+        score_futures = {}  # future → item_index
+
+        # Submit all predict (or prepare) tasks upfront
+        for i, eval_item in enumerate(eval_items):
+            future = predict_pool.submit(
+                _timed_predict, eval_item, predict_fn, run_id, predict_limiter
+            )
+            predict_futures[future] = i
+
+        # Pipeline loop: handles both predict and score completions
+        pending = set(predict_futures.keys())
+
+        while pending:
+            done, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                if future in predict_futures:
+                    # Predict completed → submit score task
+                    idx = predict_futures.pop(future)
+                    future.result()  # propagate exceptions
+                    score_future = score_pool.submit(
+                        _timed_score,
+                        eval_items[idx],
+                        single_turn_scorers,
+                        run_id,
+                        scorer_limiter,
                     )
-                    for session_id, session_items in session_groups.items()
-                ]
-
-                for future in as_completed(multi_turn_futures):
-                    session_result = future.result()
-                    multi_turn_assessments.update(session_result)
+                    score_futures[score_future] = idx
+                    pending.add(score_future)
+                else:
+                    # Score completed → item is fully done
+                    idx = score_futures.pop(future)
+                    eval_results[idx] = future.result()
                     if progress_bar:
                         progress_bar.update(1)
-        finally:
-            if progress_bar:
-                progress_bar.close()
+
+        # Phase 2: Submit and complete multi-turn tasks (after single-turn)
+        # We run multi-turn scorers after single-turn, since single-turn scorers may create new
+        # traces that are needed by multi-turn scorers.
+        if multi_turn_scorers and session_groups:
+            multi_turn_futures = [
+                score_pool.submit(
+                    evaluate_session_level_scorers,
+                    session_id=session_id,
+                    session_items=session_items,
+                    multi_turn_scorers=multi_turn_scorers,
+                    scorer_rate_limiter=scorer_limiter,
+                )
+                for session_id, session_items in session_groups.items()
+            ]
+
+            for future in as_completed(multi_turn_futures):
+                session_result = future.result()
+                multi_turn_assessments.update(session_result)
+                if progress_bar:
+                    progress_bar.update(1)
+    finally:
+        predict_pool.shutdown(wait=False, cancel_futures=True)
+        score_pool.shutdown(wait=False, cancel_futures=True)
+
+        predict_total = sum(predict_times)
+        score_total = sum(score_times)
+        total_thread_time = predict_total + score_total
+        if progress_bar:
+            if total_thread_time > 0:
+                predict_pct = predict_total / total_thread_time * 100
+                score_pct = score_total / total_thread_time * 100
+                split = f" [predict_fn: {predict_pct:.0f}%, scorers: {score_pct:.0f}%]"
+                progress_bar.bar_format = PGBAR_FORMAT + split
+                progress_bar.refresh()
+            progress_bar.close()
 
     if multi_turn_assessments:
         _log_multi_turn_assessments_to_traces(
@@ -235,17 +314,13 @@ def run(
     )
 
 
-def _run_single(
+def _run_predict(
     eval_item: EvalItem,
-    scorers: list[Scorer],
+    predict_fn: Callable[..., Any] | None,
     run_id: str | None,
-    predict_fn: Callable[..., Any] | None = None,
-) -> EvalResult:
-    """Run the logic of the eval harness for a single eval item."""
-    # Set the MLflow run ID in the context for this thread
+    rate_limiter: RateLimiter,
+) -> None:
     if run_id:
-        # Manually set the mlflow_run_id for this context to be the same as was set in
-        # the parent thread. This is required because MLflow runs are thread-local.
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
@@ -254,6 +329,7 @@ def _run_single(
         # is_evaluate=True disables async trace logging to make sure the trace is available.
         eval_request_id = str(uuid.uuid4())
         with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
+            rate_limiter.acquire()
             try:
                 eval_item.outputs = predict_fn(eval_item.inputs)
             except Exception as e:
@@ -274,11 +350,22 @@ def _run_single(
     else:
         # When static dataset (a pair of inputs and outputs) is given, we create a minimal
         # trace with root span only, to log the assessments on it.
-        minimal_trace = create_minimal_trace(eval_item)
-        eval_item.trace = minimal_trace
+        eval_item.trace = create_minimal_trace(eval_item)
 
-    # Execute the scorers
-    assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
+
+def _run_score(
+    eval_item: EvalItem,
+    scorers: list[Scorer],
+    run_id: str | None,
+    scorer_rate_limiter: RateLimiter,
+) -> EvalResult:
+    if run_id:
+        ctx = context.get_context()
+        ctx.set_mlflow_run_id(run_id)
+
+    assessments = _compute_eval_scores(
+        eval_item=eval_item, scorers=scorers, rate_limiter=scorer_rate_limiter
+    )
     assessments.extend(_get_new_expectations(eval_item))
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
@@ -289,7 +376,6 @@ def _run_single(
         try:
             mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
         except Exception as e:
-            # Failures in logging to MLflow should not fail the entire harness run
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
     try:
@@ -299,7 +385,6 @@ def _run_single(
             assessments=eval_result.assessments,
         )
     except Exception as e:
-        # Failures in logging to MLflow should not fail the entire harness run
         _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
 
     return eval_result
@@ -309,22 +394,15 @@ def _compute_eval_scores(
     *,
     eval_item: EvalItem,
     scorers: list[Scorer],
+    rate_limiter: RateLimiter = NoOpRateLimiter(),
 ) -> list[Feedback]:
-    """Compute the per-eval-item scores.
-
-    Args:
-        eval_item: The evaluation item containing inputs, outputs, expectations, and trace.
-        scorers: List of scorer instances to run.
-
-    Returns:
-        List of Feedback objects from all scorers.
-    """
     if not scorers:
         return []
 
     should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def run_scorer(scorer):
+        rate_limiter.acquire()
         try:
             scorer_func = scorer.run
 

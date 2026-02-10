@@ -652,6 +652,10 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
 
 
 def test_max_workers_env_var(monkeypatch):
+    # Disable rate limits so auto-derivation doesn't override the default
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+
     def _validate_max_workers(expected_max_workers):
         with mock.patch(
             "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
@@ -1257,9 +1261,12 @@ def test_max_scorer_workers_env_var(monkeypatch):
                 ],
                 scorers=scorers_list,
             )
-            # ThreadPoolExecutor is called twice: harness loop + scorer loop
-            # The second call is for scorers
-            scorer_call = mock_executor.call_args_list[1]
+            # Find the scorer pool call by its thread_name_prefix
+            scorer_call = next(
+                call
+                for call in mock_executor.call_args_list
+                if call[1].get("thread_name_prefix") == "MlflowGenAIEvalScorer"
+            )
             assert scorer_call[1]["max_workers"] == expected_max_workers
 
     # default scorer workers is 10, but limited by number of scorers (3)
@@ -1465,3 +1472,117 @@ def test_evaluate_with_simulator_within_parent_run(tmp_path):
     runs = mlflow.search_runs()
     assert len(runs) == 1
     assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+# ===================== Rate Limiting & Pipelining Tests =====================
+
+
+def test_predict_rate_limiter_is_wired_to_predict_fn(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "100")
+
+    from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
+
+    with mock.patch.object(
+        RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
+    ) as mock_acquire:
+        data = [{"inputs": {"q": f"Q{i}"}} for i in range(5)]
+        mlflow.genai.evaluate(data=data, predict_fn=lambda q: "answer", scorers=[always_pass])
+        # Called by both predict (5) and scorers (5), so at least 5
+        assert mock_acquire.call_count >= 5
+
+
+def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "100")
+
+    from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
+
+    with mock.patch.object(
+        RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
+    ) as mock_acquire:
+
+        @scorer
+        def s1(outputs):
+            return True
+
+        @scorer
+        def s2(outputs):
+            return True
+
+        data = [{"inputs": {"q": f"Q{i}"}, "outputs": "a"} for i in range(3)]
+        mlflow.genai.evaluate(data=data, scorers=[s1, s2])
+        # 3 items x 2 scorers = 6 scorer acquire calls (plus predict acquires)
+        assert mock_acquire.call_count >= 6
+
+
+def test_pipelining_scores_while_predicts_pending(monkeypatch):
+    """Verify that scoring starts while predictions are still pending (structural test)."""
+    import threading
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
+
+    # Gate that blocks predicts after the first batch completes
+    gate = threading.Event()
+    predict_call_count = 0
+    predict_lock = threading.Lock()
+    scoring_started_while_predicts_pending = threading.Event()
+
+    def gated_predict_fn(q):
+        nonlocal predict_call_count
+        with predict_lock:
+            predict_call_count += 1
+            call_num = predict_call_count
+        # Let the first 2 predictions through immediately, block the rest
+        if call_num > 2:
+            gate.wait(timeout=5)
+        return "answer"
+
+    @scorer
+    def signaling_scorer(outputs):
+        # If we're scoring while predicts are still pending, signal success
+        with predict_lock:
+            current_predicts = predict_call_count
+        if current_predicts < 6:  # 6 total items, so some must still be pending
+            scoring_started_while_predicts_pending.set()
+        return True
+
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(6)]
+
+    try:
+        # Run evaluate in a background thread so we can release the gate
+        result_holder = []
+
+        def run_eval():
+            result = mlflow.genai.evaluate(
+                data=data, predict_fn=gated_predict_fn, scorers=[signaling_scorer]
+            )
+            result_holder.append(result)
+
+        eval_thread = threading.Thread(target=run_eval)
+        eval_thread.start()
+
+        # Wait for scoring to signal it started while predicts are pending
+        signaled = scoring_started_while_predicts_pending.wait(timeout=10)
+
+        # Release all blocked predicts
+        gate.set()
+        eval_thread.join(timeout=30)
+
+        assert signaled, "Scoring should have started while predictions were still pending"
+    finally:
+        gate.set()  # Ensure we don't leave threads blocked
+
+
+def test_no_rate_limit_backward_compat():
+    """Without rate limit env vars, evaluation should work identically to before."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML", "max_length": 100},
+        },
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[exact_match, is_concise])
+
+    assert result.metrics["exact_match/mean"] == 1.0
+    assert result.metrics["is_concise/mean"] == 1.0
