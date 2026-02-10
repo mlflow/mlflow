@@ -407,9 +407,7 @@ describe('transformScorerConfig', () => {
                 model: 'openai:/gpt-4o',
               },
             },
-            semantic_memory: [
-              { guideline_text: 'Distilled guideline 1', source_trace_ids: ['t1'] },
-            ],
+            semantic_memory: [{ guideline_text: 'Distilled guideline 1', source_trace_ids: ['t1'] }],
             episodic_trace_ids: ['t1'],
           },
         }),
@@ -451,7 +449,6 @@ describe('transformScorerConfig', () => {
       expect(result.isMemoryAugmented).toBe(true);
       expect(result.model).toBe('openai:/gpt-4o');
     });
-
   });
 
   describe('Edge cases and error handling', () => {

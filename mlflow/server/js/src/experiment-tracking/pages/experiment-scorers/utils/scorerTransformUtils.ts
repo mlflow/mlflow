@@ -260,9 +260,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       if (baseJudge.instructions_judge_pydantic_data) {
         const baseInstructions = baseJudge.instructions_judge_pydantic_data.instructions || '';
         const model = baseJudge.instructions_judge_pydantic_data.model;
-        const outputType = jsonSchemaToOutputTypeSpec(
-          baseJudge.instructions_judge_pydantic_data.feedback_value_type,
-        );
+        const outputType = jsonSchemaToOutputTypeSpec(baseJudge.instructions_judge_pydantic_data.feedback_value_type);
 
         let instructions = baseInstructions;
         if (semanticGuidelines.length > 0) {
