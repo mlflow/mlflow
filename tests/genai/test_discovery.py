@@ -4,17 +4,22 @@ import pandas as pd
 import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.genai.discovery import (
+    _DEFAULT_SCORER_NAME,
     Issue,
     _build_default_satisfaction_scorer,
     _build_summary,
     _compute_frequencies,
     _extract_failing_traces,
     _format_trace_for_clustering,
+    _get_existing_score,
     _IdentifiedIssue,
     _IssueClusteringResult,
+    _partition_by_existing_scores,
     discover_issues,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -33,12 +38,14 @@ def _make_trace(
     response_preview="MLflow is an ML platform.",
     execution_duration=500,
     spans=None,
+    assessments=None,
 ):
     info = MagicMock(spec=TraceInfo)
     info.trace_id = trace_id
     info.request_preview = request_preview
     info.response_preview = response_preview
     info.execution_duration = execution_duration
+    info.assessments = assessments or []
 
     data = MagicMock(spec=TraceData)
     data.spans = spans or [_make_mock_span()]
@@ -47,6 +54,14 @@ def _make_trace(
     trace.info = info
     trace.data = data
     return trace
+
+
+def _make_assessment(name, value):
+    return Feedback(
+        name=name,
+        value=value,
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+    )
 
 
 # ---- _format_trace_for_clustering ----
@@ -196,6 +211,59 @@ def test_build_summary_with_issues():
     assert "API timeout" in summary
 
 
+# ---- _get_existing_score ----
+
+
+def test_get_existing_score_true():
+    trace = _make_trace(assessments=[_make_assessment("my_scorer", True)])
+    assert _get_existing_score(trace, "my_scorer") is True
+
+
+def test_get_existing_score_false():
+    trace = _make_trace(assessments=[_make_assessment("my_scorer", False)])
+    assert _get_existing_score(trace, "my_scorer") is False
+
+
+def test_get_existing_score_none_when_no_assessments():
+    trace = _make_trace(assessments=[])
+    assert _get_existing_score(trace, "my_scorer") is None
+
+
+def test_get_existing_score_filters_by_name():
+    trace = _make_trace(assessments=[_make_assessment("other_scorer", True)])
+    assert _get_existing_score(trace, "my_scorer") is None
+
+
+def test_get_existing_score_ignores_non_bool():
+    fb = Feedback(
+        name="my_scorer",
+        value="some_string",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+    )
+    trace = _make_trace(assessments=[fb])
+    assert _get_existing_score(trace, "my_scorer") is None
+
+
+# ---- _partition_by_existing_scores ----
+
+
+def test_partition_by_existing_scores():
+    neg_trace = _make_trace(trace_id="neg", assessments=[_make_assessment("scorer", False)])
+    pos_trace = _make_trace(trace_id="pos", assessments=[_make_assessment("scorer", True)])
+    unscored_trace = _make_trace(trace_id="unscored", assessments=[])
+
+    negative, positive, needs_scoring = _partition_by_existing_scores(
+        [neg_trace, pos_trace, unscored_trace], "scorer"
+    )
+
+    assert len(negative) == 1
+    assert negative[0].info.trace_id == "neg"
+    assert len(positive) == 1
+    assert positive[0].info.trace_id == "pos"
+    assert len(needs_scoring) == 1
+    assert needs_scoring[0].info.trace_id == "unscored"
+
+
 # ---- _build_default_satisfaction_scorer ----
 
 
@@ -205,7 +273,7 @@ def test_build_default_satisfaction_scorer():
 
     mock_make_judge.assert_called_once()
     call_kwargs = mock_make_judge.call_args[1]
-    assert call_kwargs["name"] == "satisfaction"
+    assert call_kwargs["name"] == _DEFAULT_SCORER_NAME
     assert call_kwargs["feedback_value_type"] is bool
     assert call_kwargs["model"] == "openai:/gpt-4"
     assert "{{ conversation }}" in call_kwargs["instructions"]
@@ -235,10 +303,18 @@ def test_discover_issues_empty_experiment():
 
 def test_discover_issues_all_traces_pass():
     traces = [_make_trace(trace_id=f"t-{i}") for i in range(5)]
+    test_df = pd.DataFrame(
+        {
+            "_issue_discovery_judge/value": [True],
+            "_issue_discovery_judge/rationale": ["ok"],
+            "trace": [traces[0]],
+        }
+    )
+    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
     result_df = pd.DataFrame(
         {
-            "satisfaction/value": [True] * 5,
-            "satisfaction/rationale": ["good"] * 5,
+            "_issue_discovery_judge/value": [True] * 5,
+            "_issue_discovery_judge/rationale": ["good"] * 5,
             "trace": traces,
         }
     )
@@ -247,7 +323,10 @@ def test_discover_issues_all_traces_pass():
     with (
         patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
-        patch("mlflow.genai.discovery.mlflow.genai.evaluate", return_value=triage_eval),
+        patch(
+            "mlflow.genai.discovery.mlflow.genai.evaluate",
+            side_effect=[test_eval, triage_eval],
+        ),
     ):
         result = discover_issues()
 
@@ -258,10 +337,19 @@ def test_discover_issues_all_traces_pass():
 def test_discover_issues_full_pipeline():
     traces = [_make_trace(trace_id=f"t-{i}") for i in range(10)]
 
+    test_df = pd.DataFrame(
+        {
+            "_issue_discovery_judge/value": [True],
+            "_issue_discovery_judge/rationale": ["ok"],
+            "trace": [traces[0]],
+        }
+    )
+    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
+
     triage_df = pd.DataFrame(
         {
-            "satisfaction/value": [False] * 3 + [True] * 7,
-            "satisfaction/rationale": ["bad"] * 3 + ["good"] * 7,
+            "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
+            "_issue_discovery_judge/rationale": ["bad"] * 3 + ["good"] * 7,
             "trace": traces,
         }
     )
@@ -292,7 +380,7 @@ def test_discover_issues_full_pipeline():
         patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.mlflow.genai.evaluate",
-            side_effect=[triage_eval, validation_eval],
+            side_effect=[test_eval, triage_eval, validation_eval],
         ),
         patch(
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
@@ -312,10 +400,19 @@ def test_discover_issues_full_pipeline():
 def test_discover_issues_low_frequency_issues_discarded():
     traces = [_make_trace(trace_id=f"t-{i}") for i in range(5)]
 
+    test_df = pd.DataFrame(
+        {
+            "_issue_discovery_judge/value": [True],
+            "_issue_discovery_judge/rationale": ["ok"],
+            "trace": [traces[0]],
+        }
+    )
+    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
+
     triage_df = pd.DataFrame(
         {
-            "satisfaction/value": [False] * 2 + [True] * 3,
-            "satisfaction/rationale": ["bad"] * 2 + ["good"] * 3,
+            "_issue_discovery_judge/value": [False] * 2 + [True] * 3,
+            "_issue_discovery_judge/rationale": ["bad"] * 2 + ["good"] * 3,
             "trace": traces,
         }
     )
@@ -346,7 +443,7 @@ def test_discover_issues_low_frequency_issues_discarded():
         patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.mlflow.genai.evaluate",
-            side_effect=[triage_eval, validation_eval],
+            side_effect=[test_eval, triage_eval, validation_eval],
         ),
         patch(
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
@@ -387,6 +484,11 @@ def test_discover_issues_custom_satisfaction_scorer():
     custom_scorer.name = "custom"
     traces = [_make_trace()]
 
+    test_df = pd.DataFrame(
+        {"custom/value": [True], "custom/rationale": ["ok"], "trace": [traces[0]]}
+    )
+    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
+
     result_df = pd.DataFrame(
         {
             "custom/value": [True],
@@ -394,18 +496,19 @@ def test_discover_issues_custom_satisfaction_scorer():
             "trace": traces,
         }
     )
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
+    triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
 
     with (
         patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.mlflow.genai.evaluate",
-            return_value=eval_result,
+            side_effect=[test_eval, triage_eval],
         ) as mock_eval,
     ):
         discover_issues(satisfaction_scorer=custom_scorer)
 
-    mock_eval.assert_called_once()
-    call_kwargs = mock_eval.call_args[1]
-    assert call_kwargs["scorers"] == [custom_scorer]
+    # First call is the test scorer run, second is the full triage
+    assert mock_eval.call_count == 2
+    triage_call_kwargs = mock_eval.call_args_list[1][1]
+    assert triage_call_kwargs["scorers"] == [custom_scorer]
