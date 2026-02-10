@@ -391,6 +391,10 @@
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
   },
+  "0pY/4R": {
+    "defaultMessage": "Usage",
+    "description": "Tab label for endpoint usage metrics"
+  },
   "0pdAuV": {
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
@@ -1150,6 +1154,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Gateway > Endpoints page > Create endpoint button"
   },
+  "6ejdmD": {
+    "defaultMessage": "Requests",
+    "description": "Title for the requests chart in gateway"
+  },
   "6fP+8o": {
     "defaultMessage": "See more",
     "description": "A button label in a message renderer that expands truncated content when clicked."
@@ -1665,6 +1673,10 @@
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
+  },
+  "A+GxQM": {
+    "defaultMessage": "avg per request",
+    "description": "Subtitle for average tokens per request in gateway"
   },
   "A3bM/D": {
     "defaultMessage": "Assistant",
@@ -4556,6 +4568,10 @@
     "defaultMessage": "Please enter a name",
     "description": "Error message for empty assessment name in a creation form"
   },
+  "WHwU2F": {
+    "defaultMessage": "Tokens per Request",
+    "description": "Title for the token stats chart in gateway"
+  },
   "WImn+W": {
     "defaultMessage": "LiteLLM ({count} providers)",
     "description": "Link to open modal with all LiteLLM providers"
@@ -6167,6 +6183,10 @@
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
   },
+  "hR27A2": {
+    "defaultMessage": "View full dashboard",
+    "description": "Link to view full usage dashboard"
+  },
   "hR2Zvd": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
     "description": "Step 2 description for defining judge function"
@@ -7307,6 +7327,10 @@
     "defaultMessage": "See details",
     "description": "Evaluation review > assessments > see details button"
   },
+  "pjCmlG": {
+    "defaultMessage": "Usage",
+    "description": "Section title for endpoint usage"
+  },
   "pjlcSc": {
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
@@ -7362,6 +7386,10 @@
   "qAdWdK": {
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
+  },
+  "qApcFv": {
+    "defaultMessage": "Configuration",
+    "description": "Tab label for endpoint configuration"
   },
   "qB4ZRq": {
     "defaultMessage": "Conversational guidelines",
@@ -7574,6 +7602,10 @@
   "rcdaen": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Aria label for the refresh evaluation runs button in the evaluation runs table controls"
+  },
+  "rdK1v3": {
+    "defaultMessage": "Monitor endpoint usage and performance metrics",
+    "description": "Usage section description"
   },
   "rdrvCs": {
     "defaultMessage": "Created",
