@@ -249,7 +249,7 @@ describe('useMlflowTracesTableMetadata', () => {
 });
 
 describe('getSearchMlflowTracesQueryCacheConfig', () => {
-  it('returns keepPreviousData and refetchOnWindowFocus: false for OSS (non-V4) to prevent list bounce when search/filter changes', () => {
+  it('returns staleTime: Infinity and cacheTime: Inifity for OSS (non-V4). keepPreviousData should be true and refetchOnWindowFocus should be false to prevent list bounce when search/filter changes', () => {
     const config = getSearchMlflowTracesQueryCacheConfig(false);
     expect(config).toEqual({
       staleTime: Infinity,

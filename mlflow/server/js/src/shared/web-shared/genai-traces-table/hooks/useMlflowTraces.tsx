@@ -542,6 +542,9 @@ export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
   return {
     keepPreviousData: true,
     refetchOnWindowFocus: false,
+    // For V4 APIs, we use server-side filtering for all filters. Since it's server-side, we
+    // do not need to cache indefinitely.
+    // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
     ...(usingV4APIs ? {} : { staleTime: Infinity, cacheTime: Infinity }),
   };
 }
