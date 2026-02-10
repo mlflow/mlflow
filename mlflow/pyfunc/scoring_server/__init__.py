@@ -62,7 +62,7 @@ SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_PARQUET = "application/x-parquet"
+CONTENT_TYPE_PARQUET = "application/vnd.apache.parquet"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
