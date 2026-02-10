@@ -143,7 +143,10 @@ def test_distributed_tracing_e2e(tmp_path):
 @skip_when_testing_trace_sdk
 def test_distributed_tracing_e2e_nested_call(tmp_path):
     port = get_safe_port()
+    # Ensure we get a different port for the second server to avoid port conflicts
     port2 = get_safe_port()
+    while port2 == port:
+        port2 = get_safe_port()
 
     # Path to the Flask server script
     server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
