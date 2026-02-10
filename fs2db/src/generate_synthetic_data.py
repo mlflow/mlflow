@@ -15,6 +15,7 @@ import enum
 import math
 import os
 import uuid
+import warnings
 from dataclasses import dataclass
 from typing import Literal
 
@@ -363,6 +364,10 @@ def main() -> None:
 
     os.environ["MLFLOW_TRACKING_URI"] = output
     mlflow.set_tracking_uri(output)
+
+    warnings.filterwarnings(
+        "ignore", message=".*Inferred schema contains integer.*", category=UserWarning
+    )
 
     size: Size = args.size
     cfg = SIZES[size]
