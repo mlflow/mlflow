@@ -10,7 +10,11 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers import MemAlignOptimizer
-from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
+from mlflow.genai.judges.optimizers.memalign.optimizer import (
+    _DATABRICKS_EMBEDDING_BATCH_SIZE,
+    _DEFAULT_EMBEDDING_BATCH_SIZE,
+    MemoryAugmentedJudge,
+)
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 
 
@@ -574,3 +578,20 @@ def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge,
         call_kwargs = aligned_judge._predict_module.call_args.kwargs
         assert call_kwargs["inputs"] == {"inputs": "input_0"}
         assert call_kwargs["outputs"] == {"outputs": "output_0"}
+
+
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_batch_size"),
+    [
+        ("endpoints:/databricks-bge-large-en", _DATABRICKS_EMBEDDING_BATCH_SIZE),
+        ("databricks:/my-embedding-endpoint", _DATABRICKS_EMBEDDING_BATCH_SIZE),
+        ("openai:/text-embedding-3-small", _DEFAULT_EMBEDDING_BATCH_SIZE),
+    ],
+)
+def test_embedder_batch_size(sample_judge, sample_traces, embedding_model, expected_batch_size):
+    with mock_apis(guidelines=[]) as mocks:
+        optimizer = MemAlignOptimizer(embedding_model=embedding_model)
+        optimizer.align(sample_judge, sample_traces[:1])
+
+        _, kwargs = mocks["embedder_class"].call_args
+        assert kwargs["batch_size"] == expected_batch_size

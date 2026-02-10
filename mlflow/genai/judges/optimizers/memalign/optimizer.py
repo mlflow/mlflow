@@ -48,6 +48,18 @@ _logger = logging.getLogger(__name__)
 
 _CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
 
+# Databricks embedding endpoints have stricter input size limits than other providers.
+# Use a smaller batch size to avoid "input embedding size too large" errors.
+_DEFAULT_EMBEDDING_BATCH_SIZE = 200
+_DATABRICKS_EMBEDDING_BATCH_SIZE = 150
+
+
+def _get_embedding_batch_size(litellm_model: str) -> int:
+    if litellm_model.startswith("databricks/"):
+        return _DATABRICKS_EMBEDDING_BATCH_SIZE
+    return _DEFAULT_EMBEDDING_BATCH_SIZE
+
+
 _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
 Supported formats:
@@ -147,7 +159,10 @@ class MemoryAugmentedJudge(Judge):
         self._base_signature = create_dspy_signature(effective_base_judge)
         litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
+            litellm_embedding_model,
+            dimensions=self._embedding_dim,
+            drop_params=True,
+            batch_size=_get_embedding_batch_size(litellm_embedding_model),
         )
         self._retriever = None
 
@@ -338,7 +353,10 @@ class MemoryAugmentedJudge(Judge):
 
         litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
+            litellm_embedding_model,
+            dimensions=self._embedding_dim,
+            drop_params=True,
+            batch_size=_get_embedding_batch_size(litellm_embedding_model),
         )
 
         extended_signature = create_extended_signature(self._base_signature)
