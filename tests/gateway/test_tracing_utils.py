@@ -6,7 +6,7 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.types.chat import ChatChoiceDelta, ChatChunkChoice, ChatUsage
+from mlflow.types.chat import ChatChoiceDelta, ChatChunkChoice, ChatUsage, Function, ToolCallDelta
 
 
 def get_traces():
@@ -44,9 +44,12 @@ def _make_chunk(
     model="test-model",
     created=1700000000,
     usage=None,
+    tool_calls=None,
+    role="assistant",
+    choice_index=0,
 ):
-    delta = ChatChoiceDelta(role="assistant", content=content)
-    choice = ChatChunkChoice(index=0, finish_reason=finish_reason, delta=delta)
+    delta = ChatChoiceDelta(role=role, content=content, tool_calls=tool_calls)
+    choice = ChatChunkChoice(index=choice_index, finish_reason=finish_reason, delta=delta)
     return StreamResponsePayload(
         id=id,
         created=created,
@@ -97,6 +100,74 @@ def test_aggregate_chat_stream_chunks_defaults_finish_reason():
     result = aggregate_chat_stream_chunks(chunks)
 
     assert result["choices"][0]["finish_reason"] == "stop"
+
+
+def test_reduce_chat_stream_chunks_aggregates_tool_calls():
+    chunks = [
+        # First chunk: tool call id, type, and function name
+        _make_chunk(
+            tool_calls=[
+                ToolCallDelta(
+                    index=0,
+                    id="call_abc",
+                    type="function",
+                    function=Function(name="get_weather", arguments=""),
+                ),
+            ],
+        ),
+        # Subsequent chunks: argument fragments
+        _make_chunk(
+            tool_calls=[
+                ToolCallDelta(index=0, function=Function(arguments='{"loc')),
+            ],
+        ),
+        _make_chunk(
+            tool_calls=[
+                ToolCallDelta(index=0, function=Function(arguments='ation": "SF"}')),
+            ],
+        ),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["content"] is None
+    assert result["choices"][0]["finish_reason"] == "tool_calls"
+
+    tool_calls = result["choices"][0]["message"]["tool_calls"]
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["id"] == "call_abc"
+    assert tool_calls[0]["type"] == "function"
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"location": "SF"}'
+
+
+def test_reduce_chat_stream_chunks_derives_role_from_delta():
+    chunks = [
+        _make_chunk(role="developer", content="Hello"),
+        _make_chunk(role=None, content=" world"),
+        _make_chunk(role=None, finish_reason="stop"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["role"] == "developer"
+
+
+def test_reduce_chat_stream_chunks_multiple_choice_indices():
+    chunks = [
+        _make_chunk(content="Hi", choice_index=0),
+        _make_chunk(content="Hey", choice_index=1),
+        _make_chunk(content=" there", choice_index=0),
+        _make_chunk(content=" you", choice_index=1),
+        _make_chunk(finish_reason="stop", choice_index=0),
+        _make_chunk(finish_reason="stop", choice_index=1),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert len(result["choices"]) == 2
+    assert result["choices"][0]["index"] == 0
+    assert result["choices"][0]["message"]["content"] == "Hi there"
+    assert result["choices"][1]["index"] == 1
+    assert result["choices"][1]["message"]["content"] == "Hey you"
 
 
 @pytest.mark.asyncio
