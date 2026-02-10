@@ -81,6 +81,7 @@ const GatewayChartsPanelImpl = ({
         endTimeMs={endTimeMs}
         timeIntervalSeconds={timeIntervalSeconds}
         timeBuckets={timeBuckets}
+        hideTooltipLinks
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {/* Requests chart - full width */}

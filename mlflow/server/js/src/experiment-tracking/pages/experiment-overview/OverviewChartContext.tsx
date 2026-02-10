@@ -13,9 +13,11 @@ export interface OverviewChartContextValue {
   timeIntervalSeconds: number;
   /** Pre-computed array of timestamp (ms) for all time buckets in the range */
   timeBuckets: number[];
+  /** When true, hides "View traces for this period" links in chart tooltips */
+  hideTooltipLinks?: boolean;
 }
 
-const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
+export const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
 
 interface OverviewChartProviderProps extends OverviewChartContextValue {
   children: React.ReactNode;
@@ -32,6 +34,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
+  hideTooltipLinks,
 }) => {
   const value = useMemo(
     () => ({
@@ -40,8 +43,9 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
+      hideTooltipLinks,
     }),
-    [experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, hideTooltipLinks],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;
