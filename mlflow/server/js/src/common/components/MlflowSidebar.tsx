@@ -51,6 +51,7 @@ import { useAssistant } from '../../assistant/AssistantContext';
 import { useExperimentEvaluationRunsData } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
+import { MlflowSidebarLink } from './MlflowSidebarLink';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
@@ -477,120 +478,48 @@ export function MlflowSidebar() {
             margin: 0,
           }}
         >
-          {workspacesEnabled && (
-            <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
-              <Link
-                disableWorkspacePrefix
-                to={Routes.rootRoute}
-                aria-current={!workspaceFromUrl && !isSettingsActive(location) ? 'page' : undefined}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  color: theme.colors.textPrimary,
-                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                  borderRadius: theme.borders.borderRadiusSm,
-                  '&:hover': {
-                    color: theme.colors.actionLinkHover,
-                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                  },
-                  '&[aria-current="page"]': {
-                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-                    fontWeight: theme.typography.typographyBoldFontWeight,
-                  },
-                }}
-                onClick={() =>
-                  logTelemetryEvent({
-                    componentId: 'mlflow.sidebar.workspaces_link',
-                    componentViewId: viewId,
-                    componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                    componentSubType: null,
-                    eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-                  })
-                }
-              >
-                {workspaceFromUrl ? <ChevronLeftIcon /> : <HomeIcon />}
-                <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />
-              </Link>
-            </div>
-          )}
-          {showWorkspaceMenuItems && (
-            <>
-              {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
-                <li key={key}>
-                  <Link
-                    to={linkProps.to}
-                    aria-current={linkProps.isActive(location) ? 'page' : undefined}
-                    css={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: theme.spacing.sm,
-                      color: theme.colors.textPrimary,
-                      padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                      borderRadius: theme.borders.borderRadiusSm,
-                      '&:hover': {
-                        color: theme.colors.actionLinkHover,
-                        backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                      },
-                      '&[aria-current="page"]': {
-                        backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                        color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-                        fontWeight: theme.typography.typographyBoldFontWeight,
-                      },
-                    }}
-                    onClick={() =>
-                      logTelemetryEvent({
-                        componentId,
-                        componentViewId: viewId,
-                        componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                        componentSubType: null,
-                        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-                      })
-                    }
-                  >
-                    {icon}
-                    {linkProps.children}
-                  </Link>
-                  {nestedItemsGroups && nestedItemsGroups.length > 0 && (
-                    <ul css={NESTED_ITEMS_UL_CSS}>
-                      {nestedItemsGroups.map((group) => (
-                        <Fragment key={group.sectionKey}>
-                          {group.sectionKey !== 'top-level' && (
-                            <li
-                              css={{
-                                display: 'flex',
-                                marginTop: theme.spacing.xs,
-                                marginBottom: theme.spacing.xs,
-                                position: 'relative',
-                                height: theme.typography.lineHeightBase,
-                                paddingLeft: 40,
-                              }}
-                            >
-                              <Typography.Text size="sm" color="secondary">
-                                {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                              </Typography.Text>
-                            </li>
-                          )}
-                          {group.items.map((nestedItem) => {
-                            const isDisabled = !experimentId && key === 'experiments';
-                            return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
-                          })}
-                        </Fragment>
-                      ))}
-                    </ul>
-                  )}
-                  {nestedItems && nestedItems.length > 0 && (
-                    <ul css={NESTED_ITEMS_UL_CSS}>
-                      {nestedItems.map((nestedItem) => (
-                        <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </>
-          )}
+          {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
+            <li key={key}>
+              <MlflowSidebarLink to={linkProps.to} componentId={componentId} isActive={linkProps.isActive} icon={icon}>
+                {linkProps.children}
+              </MlflowSidebarLink>
+              {nestedItemsGroups && nestedItemsGroups.length > 0 && (
+                <ul css={NESTED_ITEMS_UL_CSS}>
+                  {nestedItemsGroups.map((group) => (
+                    <Fragment key={group.sectionKey}>
+                      {group.sectionKey !== 'top-level' && (
+                        <li
+                          css={{
+                            display: 'flex',
+                            marginTop: theme.spacing.xs,
+                            marginBottom: theme.spacing.xs,
+                            position: 'relative',
+                            height: theme.typography.lineHeightBase,
+                            paddingLeft: 40,
+                          }}
+                        >
+                          <Typography.Text size="sm" color="secondary">
+                            {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
+                          </Typography.Text>
+                        </li>
+                      )}
+                      {group.items.map((nestedItem) => {
+                        const isDisabled = !experimentId && key === 'experiments';
+                        return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
+                      })}
+                    </Fragment>
+                  ))}
+                </ul>
+              )}
+              {nestedItems && nestedItems.length > 0 && (
+                <ul css={NESTED_ITEMS_UL_CSS}>
+                  {nestedItems.map((nestedItem) => (
+                    <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
         </ul>
         <div>
           {isLocalServer && (
@@ -637,41 +566,15 @@ export function MlflowSidebar() {
               </div>
             </div>
           )}
-          <Link
+          <MlflowSidebarLink
             disableWorkspacePrefix
             to={ExperimentTrackingRoutes.settingsPageRoute}
-            aria-current={isSettingsActive(location) ? 'page' : undefined}
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              color: theme.colors.textPrimary,
-              paddingInline: theme.spacing.md,
-              paddingBlock: theme.spacing.sm,
-              borderRadius: theme.borders.borderRadiusSm,
-              '&:hover': {
-                color: theme.colors.actionLinkHover,
-                backgroundColor: theme.colors.actionDefaultBackgroundHover,
-              },
-              '&[aria-current="page"]': {
-                backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-                fontWeight: theme.typography.typographyBoldFontWeight,
-              },
-            }}
-            onClick={() =>
-              logTelemetryEvent({
-                componentId: 'mlflow.sidebar.settings_tab_link',
-                componentViewId: viewId,
-                componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-                componentSubType: null,
-                eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-              })
-            }
+            componentId="mlflow.sidebar.settings_tab_link"
+            isActive={isSettingsActive}
+            icon={<GearIcon />}
           >
-            <GearIcon />
             <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
-          </Link>
+          </MlflowSidebarLink>
         </div>
       </nav>
 
