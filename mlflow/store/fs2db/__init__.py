@@ -1,4 +1,5 @@
 # ruff: noqa: T201
+import warnings
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
@@ -49,6 +50,8 @@ def migrate(source: Path, target_uri: str) -> None:
         migrate_runs,
         migrate_traces,
     )
+
+    warnings.filterwarnings("ignore", message=".*filesystem.*deprecated.*", category=FutureWarning)
 
     stats = MigrationStats()
     mlruns = _resolve_mlruns(source)
