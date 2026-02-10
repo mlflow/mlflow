@@ -1,0 +1,120 @@
+name: Needs Visual Media
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    paths:
+      - .github/workflows/needs_visual_media.yml
+      - .github/workflows/needs_visual_media.py
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Test job: runs on PR changes against a fixed set of issues
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: mlflow/mlflow
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/workflows/needs_visual_media.py
+          sparse-checkout-cone-mode: false
+
+      - name: Test classification on sample issues
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Format: issue_number expected_needs expected_has description
+          issues=(
+            "20645 true  false  UI-bug-no-media"
+            "20479 false true   has-screenshots"
+            "19643 false false  backend-crash"
+            "18854 true  false  UI-perf-no-media"
+            "20357 false true   has-screenshots"
+            "20547 false false  backend-error"
+            "20527 false false  backend-logging"
+            "20486 true  false  UI-bug-no-media"
+            "20366 false true   has-screenshots"
+            "20265 false false  feature-request"
+          )
+
+          pass=0
+          fail=0
+          for entry in "${issues[@]}"; do
+            read -r number expected_needs expected_has desc <<< "$entry"
+            echo "=== Issue #$number ($desc) ==="
+            result=$(python .github/workflows/needs_visual_media.py --repo "$REPO" --issue-number "$number")
+            echo "$result" | jq .
+
+            actual_needs=$(echo "$result" | jq -r '.needs_visual_media')
+            actual_has=$(echo "$result" | jq -r '.has_visual_media')
+
+            ok=true
+            if [ "$actual_needs" != "$expected_needs" ]; then
+              echo "  MISMATCH: needs_visual_media=$actual_needs (expected $expected_needs)"
+              ok=false
+            fi
+            if [ "$actual_has" != "$expected_has" ]; then
+              echo "  MISMATCH: has_visual_media=$actual_has (expected $expected_has)"
+              ok=false
+            fi
+
+            if [ "$ok" = true ]; then
+              echo "  PASS"
+              ((pass++))
+            else
+              echo "  FAIL"
+              ((fail++))
+            fi
+            echo ""
+          done
+
+          echo "=== Results: $pass passed, $fail failed ==="
+          if [ "$fail" -gt 0 ]; then
+            exit 1
+          fi
+
+  # Production job: runs on new issues
+  classify:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/workflows/needs_visual_media.py
+          sparse-checkout-cone-mode: false
+
+      - name: Classify issue
+        id: classify
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          result=$(python .github/workflows/needs_visual_media.py --repo "$REPO" --issue-number "$ISSUE_NUMBER")
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Comment and label if visual media needed
+        if: fromJSON(steps.classify.outputs.result).needs_visual_media && !fromJSON(steps.classify.outputs.result).has_visual_media
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body \
+            "Thank you for opening this issue! Based on the description, it sounds like a screenshot or screen recording would help us understand and reproduce the problem faster.
+
+          Could you attach a visual showing what you're experiencing? A screenshot, GIF, or short video would be very helpful.
+
+          *If this issue is not UI-related, you can safely ignore this message.*"
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "needs_visual_media"
