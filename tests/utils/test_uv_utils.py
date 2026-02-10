@@ -330,15 +330,16 @@ def test_copy_uv_project_files_copies_files_when_uv_project(tmp_path):
     assert (dest_dir / _PYPROJECT_FILE).read_text() == "pyproject content"
 
 
-def test_copy_uv_project_files_uses_cwd_when_source_not_specified(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / _UV_LOCK_FILE).write_text("lock content")
-    (tmp_path / _PYPROJECT_FILE).write_text("pyproject content")
+def test_copy_uv_project_files_with_explicit_source_dir(tmp_path):
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / _UV_LOCK_FILE).write_text("lock content")
+    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
 
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
 
-    result = copy_uv_project_files(dest_dir)
+    result = copy_uv_project_files(dest_dir, source_dir)
 
     assert result is True
     assert (dest_dir / _UV_LOCK_FILE).exists()
@@ -447,7 +448,7 @@ numpy==1.24.0
         mock.patch("shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result) as mock_run,
     ):
-        result = export_uv_requirements(uv_project_path=tmp_path)
+        result = export_uv_requirements(directory=tmp_path)
 
         assert result is not None
         assert "requests==2.28.0" in result
@@ -461,7 +462,7 @@ def test_export_uv_requirements_with_nonexistent_uv_project_path(tmp_path):
     nonexistent_dir = tmp_path / "nonexistent"
 
     with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True):
-        result = export_uv_requirements(uv_project_path=nonexistent_dir)
+        result = export_uv_requirements(directory=nonexistent_dir)
         assert result is None
 
 
@@ -471,14 +472,14 @@ def test_get_python_version_from_uv_project_with_explicit_uv_project_path(tmp_pa
     (project_dir / _UV_LOCK_FILE).touch()
     (project_dir / ".python-version").write_text("3.12.0")
 
-    result = get_python_version_from_uv_project(uv_project_path=project_dir)
+    result = get_python_version_from_uv_project(directory=project_dir)
     assert result == "3.12.0"
 
 
 def test_get_python_version_from_uv_project_with_nonexistent_uv_project_path(tmp_path):
     nonexistent_dir = tmp_path / "nonexistent"
 
-    result = get_python_version_from_uv_project(uv_project_path=nonexistent_dir)
+    result = get_python_version_from_uv_project(directory=nonexistent_dir)
     assert result is None
 
 
@@ -492,7 +493,7 @@ def test_copy_uv_project_files_with_explicit_uv_project_path(tmp_path):
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
 
-    result = copy_uv_project_files(dest_dir, uv_project_path=project_dir)
+    result = copy_uv_project_files(dest_dir, source_dir=project_dir)
 
     assert result is True
     assert (dest_dir / _UV_LOCK_FILE).exists()
@@ -507,7 +508,7 @@ def test_copy_uv_project_files_with_nonexistent_uv_project_path(tmp_path):
     dest_dir.mkdir()
     nonexistent_dir = tmp_path / "nonexistent"
 
-    result = copy_uv_project_files(dest_dir, uv_project_path=nonexistent_dir)
+    result = copy_uv_project_files(dest_dir, source_dir=nonexistent_dir)
     assert result is False
 
 
@@ -520,7 +521,7 @@ def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
 
-    result = copy_uv_project_files(dest_dir, uv_project_path=project_dir)
+    result = copy_uv_project_files(dest_dir, source_dir=project_dir)
     assert result is False
 
 
@@ -716,27 +717,27 @@ def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
 # --- MLFLOW_UV_AUTO_DETECT Environment Variable Tests ---
 
 
-def test_is_uv_auto_detect_enabled_returns_true_by_default(monkeypatch):
-    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
+def test_mlflow_uv_auto_detect_returns_true_by_default(monkeypatch):
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
 
     monkeypatch.delenv("MLFLOW_UV_AUTO_DETECT", raising=False)
-    assert _is_uv_auto_detect_enabled() is True
+    assert MLFLOW_UV_AUTO_DETECT.get() is True
 
 
-@pytest.mark.parametrize("env_value", ["false", "0", "no", "FALSE", "No", "NO"])
-def test_is_uv_auto_detect_enabled_returns_false_when_disabled(monkeypatch, env_value):
-    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
-
-    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
-    assert _is_uv_auto_detect_enabled() is False
-
-
-@pytest.mark.parametrize("env_value", ["true", "1", "yes", "TRUE", "anything_else"])
-def test_is_uv_auto_detect_enabled_returns_true_when_enabled(monkeypatch, env_value):
-    from mlflow.utils.uv_utils import _is_uv_auto_detect_enabled
+@pytest.mark.parametrize("env_value", ["false", "0", "FALSE", "False"])
+def test_mlflow_uv_auto_detect_returns_false_when_disabled(monkeypatch, env_value):
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
 
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
-    assert _is_uv_auto_detect_enabled() is True
+    assert MLFLOW_UV_AUTO_DETECT.get() is False
+
+
+@pytest.mark.parametrize("env_value", ["true", "1", "TRUE", "True"])
+def test_mlflow_uv_auto_detect_returns_true_when_enabled(monkeypatch, env_value):
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
+    assert MLFLOW_UV_AUTO_DETECT.get() is True
 
 
 def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, monkeypatch):
@@ -754,7 +755,7 @@ def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, mon
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
 
     # Note: detect_uv_project itself still works, but infer_pip_requirements
-    # wraps it with _is_uv_auto_detect_enabled() check
+    # checks MLFLOW_UV_AUTO_DETECT.get() before calling it
     # This test verifies the function exists and works correctly
 
 
