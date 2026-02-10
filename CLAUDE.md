@@ -11,8 +11,14 @@ Claude's training data may lag behind current releases. When reviewing docs or c
 - Use top-level imports (only use lazy imports when necessary)
 - Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
-- When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on single-tenant behavior
+- When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on non-workspace behavior
 - New functionality in the tracking layer should be mirrored by workspace-aware tests (e.g., add workspace variants in `tests/store/tracking/test_sqlalchemy_store_workspace.py` when applicable)
+- The SQLAlchemy stores use a base/workspace subclass architecture for workspace-level isolation. Base stores (`sqlalchemy_store.py`) define hooks that workspace-aware subclasses (`sqlalchemy_workspace_store.py`) override to add workspace filtering. When adding new store methods:
+  - Use `self._get_query(session, Model)` instead of `session.query(Model)` for workspace-isolated models (subclasses of `WorkspaceIsolatedModel`)
+  - When operating on a specific entity by ID, call the appropriate validation helper to confirm it belongs to the current workspace
+  - If new behavior needs workspace-specific filtering, add a hook in the base store and override it in the workspace subclass
+  - New database models that require workspace isolation must subclass `WorkspaceIsolatedModel` and implement `workspace_query_filter`
+  - Run `uv run clint mlflow/store/` to check for workspace isolation violations
 
 ## Repository Overview
 

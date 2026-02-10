@@ -32,12 +32,17 @@ from mlflow.entities.webhook import (
 )
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
-class SqlRegisteredModel(Base):
+class SqlRegisteredModel(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_models"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
@@ -94,8 +99,12 @@ class SqlRegisteredModel(Base):
         )
 
 
-class SqlModelVersion(Base):
+class SqlModelVersion(WorkspaceIsolatedModel, Base):
     __tablename__ = "model_versions"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
@@ -165,8 +174,12 @@ class SqlModelVersion(Base):
         )
 
 
-class SqlRegisteredModelTag(Base):
+class SqlRegisteredModelTag(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_model_tags"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
@@ -203,8 +216,12 @@ class SqlRegisteredModelTag(Base):
         return RegisteredModelTag(self.key, self.value)
 
 
-class SqlModelVersionTag(Base):
+class SqlModelVersionTag(WorkspaceIsolatedModel, Base):
     __tablename__ = "model_version_tags"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
@@ -246,8 +263,12 @@ class SqlModelVersionTag(Base):
         return ModelVersionTag(self.key, self.value)
 
 
-class SqlRegisteredModelAlias(Base):
+class SqlRegisteredModelAlias(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_model_aliases"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
@@ -311,8 +332,12 @@ class EncryptedString(TypeDecorator):
         return value
 
 
-class SqlWebhook(Base):
+class SqlWebhook(WorkspaceIsolatedModel, Base):
     __tablename__ = "webhooks"
+
+    @classmethod
+    def workspace_query_filter(cls, query, session, workspace):
+        return query.filter(cls.workspace == workspace)
 
     workspace = Column(
         String(63),
