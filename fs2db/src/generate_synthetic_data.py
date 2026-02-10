@@ -11,6 +11,7 @@ It must only depend on mlflow + stdlib (no local imports).
 """
 
 import argparse
+import enum
 import math
 import os
 import uuid
@@ -74,21 +75,26 @@ SIZES: dict[Size, SizeConfig] = {
 # ── Version detection ─────────────────────────────────────────────────────────
 
 
-def has_feature(feature: str) -> bool:
+class Feature(str, enum.Enum):
+    DATASETS = "datasets"
+    TRACES = "traces"
+    ASSESSMENTS = "assessments"
+    LOGGED_MODELS = "logged_models"
+    PROMPTS = "prompts"
+
+
+def has_feature(feature: Feature) -> bool:
     match feature:
-        case "datasets":
-            return hasattr(mlflow, "data")
-        case "traces":
+        case Feature.DATASETS:
+            return MLFLOW_VERSION >= Version("2.4")
+        case Feature.TRACES:
             return MLFLOW_VERSION >= Version("2.14")
-        case "assessments":
-            # log_assessment(value=...) signature available since 3.6
+        case Feature.ASSESSMENTS:
             return MLFLOW_VERSION >= Version("3.6")
-        case "logged_models":
-            return hasattr(MlflowClient(), "create_logged_model")
-        case "prompts":
-            return hasattr(mlflow, "register_prompt")
-        case _:
-            return False
+        case Feature.LOGGED_MODELS:
+            return MLFLOW_VERSION >= Version("3.5")
+        case Feature.PROMPTS:
+            return MLFLOW_VERSION >= Version("3.5")
 
 
 # ── Generators ────────────────────────────────────────────────────────────────
@@ -380,27 +386,27 @@ def main() -> None:
     print("[1/7] Generating experiments, runs, params, metrics, tags, artifacts...")
     experiments = generate_core(cfg)
 
-    if has_feature("datasets"):
+    if has_feature(Feature.DATASETS):
         print("[2/7] Generating datasets...")
         generate_datasets(cfg, experiments)
     else:
         print("[2/7] Skipping datasets (not available)")
 
     trace_ids: list[str] = []
-    if has_feature("traces"):
+    if has_feature(Feature.TRACES):
         print("[3/7] Generating traces...")
         trace_ids = generate_traces(cfg, experiments)
     else:
         print("[3/7] Skipping traces (not available)")
 
-    if trace_ids and has_feature("assessments"):
+    if trace_ids and has_feature(Feature.ASSESSMENTS):
         print("[4/7] Generating assessments...")
         generate_assessments(cfg, trace_ids)
     else:
         print("[4/7] Skipping assessments (not available)")
 
     model_uris: list[str] = []
-    if has_feature("logged_models"):
+    if has_feature(Feature.LOGGED_MODELS):
         print("[5/7] Generating logged models...")
         model_uris = generate_logged_models(cfg, experiments)
     else:
@@ -409,7 +415,7 @@ def main() -> None:
     print("[6/7] Generating model registry...")
     generate_model_registry(cfg, model_uris)
 
-    if has_feature("prompts"):
+    if has_feature(Feature.PROMPTS):
         print("[7/7] Generating prompts...")
         generate_prompts(cfg)
     else:
