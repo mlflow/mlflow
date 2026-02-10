@@ -3306,6 +3306,10 @@
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
   },
+  "MS5PhU": {
+    "defaultMessage": "Model training",
+    "description": "Label for model training workflow type option"
+  },
   "MUUYWZ": {
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
@@ -5339,10 +5343,6 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "amFk5F": {
-    "defaultMessage": "Workflow type",
-    "description": "Label for the workflow type selector in the sidebar"
-  },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
     "description": "Home page quick action description for registering prompts"
@@ -5614,10 +5614,6 @@
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
-  },
-  "cSEpGa": {
-    "defaultMessage": "Machine Learning",
-    "description": "Label for Machine Learning workflow type option"
   },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",

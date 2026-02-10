@@ -38,6 +38,7 @@ import { HomePageDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
+import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
   Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
@@ -234,7 +235,7 @@ export function MlflowSidebar({
   return (
     <aside
       css={{
-        width: showSidebar ? (enableWorkflowBasedNavigation ? 230 : 200) : 36,
+        width: showSidebar ? 190 : 36,
         flexShrink: 0,
         padding: theme.spacing.sm,
         paddingRight: 0,
@@ -270,42 +271,8 @@ export function MlflowSidebar({
         />
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
-      {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-          }}
-        >
-          <Typography.Title level={4} withoutMargins color="info" css={{ textTransform: 'uppercase' }}>
-            <FormattedMessage
-              defaultMessage="Workflow type"
-              description="Label for the workflow type selector in the sidebar"
-            />
-          </Typography.Title>
-          <SegmentedControlGroup
-            value={workflowType}
-            onChange={(e) => {
-              if (e.target.value) {
-                setWorkflowType(e.target.value as WorkflowType);
-              }
-            }}
-            name="workflow-type-selector"
-            componentId="mlflow.sidebar.workflow_type_selector"
-            css={{ width: '100%', display: 'flex' }}
-          >
-            <SegmentedControlButton value={WorkflowType.GENAI}>
-              <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
-            </SegmentedControlButton>
-            <SegmentedControlButton value={WorkflowType.MACHINE_LEARNING} css={{ whiteSpace: 'nowrap' }}>
-              <FormattedMessage
-                defaultMessage="Machine Learning"
-                description="Label for Machine Learning workflow type option"
-              />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
-        </div>
+      {enableWorkflowBasedNavigation && showWorkspaceMenuItems &&showSidebar && (
+        <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
 
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
