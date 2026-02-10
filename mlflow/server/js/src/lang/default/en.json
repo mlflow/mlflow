@@ -8311,6 +8311,10 @@
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
   },
+  "vqWexj": {
+    "defaultMessage": "Back to experiment list",
+    "description": "Tooltip for experiments button"
+  },
   "vwD2zW": {
     "defaultMessage": "Unified APIs",
     "description": "Unified APIs tab title"

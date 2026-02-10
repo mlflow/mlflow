@@ -4,6 +4,7 @@ import { Link, useLocation } from '../utils/RoutingUtils';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -20,6 +21,7 @@ export const MlflowSidebarLink = ({
   openInNewTab = false,
   collapsed = false,
   disableWorkspacePrefix = false,
+  tooltipContent,
 }: {
   className?: string;
   to: string;
@@ -31,6 +33,7 @@ export const MlflowSidebarLink = ({
   openInNewTab?: boolean;
   collapsed?: boolean;
   disableWorkspacePrefix?: boolean;
+  tooltipContent?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
   const logTelemetryEvent = useLogTelemetryEvent();
@@ -39,47 +42,55 @@ export const MlflowSidebarLink = ({
 
   return (
     <li key={componentId}>
-      <Link
-        disableWorkspacePrefix={disableWorkspacePrefix}
-        to={to}
-        aria-current={isActive(location) ? 'page' : undefined}
-        className={className}
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme.spacing.sm,
-          color: theme.colors.textPrimary,
-          paddingInline: collapsed ? 0 : theme.spacing.sm,
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          // 5 seems to be the magic number to match the text line height
-          paddingBlock: collapsed ? 5 : theme.spacing.xs,
-          borderRadius: theme.borders.borderRadiusSm,
-          '&:hover': {
-            color: theme.colors.actionLinkHover,
-            backgroundColor: theme.colors.actionDefaultBackgroundHover,
-          },
-          '&[aria-current="page"]': {
-            backgroundColor: theme.colors.actionDefaultBackgroundPress,
-            color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-            fontWeight: theme.typography.typographyBoldFontWeight,
-          },
-        }}
-        onClick={() => {
-          logTelemetryEvent({
-            componentId,
-            componentViewId: viewId,
-            componentType: DesignSystemEventProviderComponentTypes.Button,
-            componentSubType: null,
-            eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-          });
-          onClick?.();
-        }}
-        target={openInNewTab ? '_blank' : undefined}
-        rel={openInNewTab ? 'noopener noreferrer' : undefined}
+      <Tooltip
+        componentId={`${componentId}.tooltip`}
+        open={!collapsed ? false : undefined}
+        content={tooltipContent ?? children}
+        side="right"
+        delayDuration={0}
       >
-        {icon}
-        {!collapsed && children}
-      </Link>
+        <Link
+          disableWorkspacePrefix={disableWorkspacePrefix}
+          to={to}
+          aria-current={isActive(location) ? 'page' : undefined}
+          className={className}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            color: theme.colors.textPrimary,
+            paddingInline: collapsed ? 0 : theme.spacing.sm,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            // 5 seems to be the magic number to match the text line height
+            paddingBlock: collapsed ? 5 : theme.spacing.xs,
+            borderRadius: theme.borders.borderRadiusSm,
+            '&:hover': {
+              color: theme.colors.actionLinkHover,
+              backgroundColor: theme.colors.actionDefaultBackgroundHover,
+            },
+            '&[aria-current="page"]': {
+              backgroundColor: theme.colors.actionDefaultBackgroundPress,
+              color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+              fontWeight: theme.typography.typographyBoldFontWeight,
+            },
+          }}
+          onClick={() => {
+            logTelemetryEvent({
+              componentId,
+              componentViewId: viewId,
+              componentType: DesignSystemEventProviderComponentTypes.Button,
+              componentSubType: null,
+              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+            });
+            onClick?.();
+          }}
+          target={openInNewTab ? '_blank' : undefined}
+          rel={openInNewTab ? 'noopener noreferrer' : undefined}
+        >
+          {icon}
+          {!collapsed && children}
+        </Link>
+      </Tooltip>
     </li>
   );
 };
