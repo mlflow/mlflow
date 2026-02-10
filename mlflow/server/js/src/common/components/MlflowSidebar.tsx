@@ -1,4 +1,4 @@
-import React, { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
@@ -16,7 +16,6 @@ import {
   Tooltip,
   Typography,
   useDesignSystemTheme,
-  Typography,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
   SidebarCollapseIcon,
@@ -70,20 +69,6 @@ type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_model_button'
   | 'mlflow_sidebar.create_prompt_button';
 
-type NestedMenuItem = {
-  key: string;
-  icon: React.ReactNode;
-  label: React.ReactNode;
-  to: string;
-  componentId: string;
-  isActive: (location: Location) => boolean;
-};
-
-type NestedItemsGroup = {
-  sectionKey: ExperimentPageSideNavSectionKey;
-  items: NestedMenuItem[];
-};
-
 type MenuItemWithNested = {
   key: string;
   icon: React.ReactNode;
@@ -99,12 +84,6 @@ type MenuItemWithNested = {
     children: React.ReactNode;
   };
   nestedItems?: React.ReactNode;
-};
-
-const NESTED_ITEMS_UL_CSS = {
-  listStyleType: 'none' as const,
-  padding: 0,
-  margin: 0,
 };
 
 const shouldShowGenAIFeatures = (enableWorkflowBasedNavigation: boolean, workflowType: WorkflowType) =>
@@ -200,6 +179,7 @@ export function MlflowSidebar({
         componentId: 'mlflow.sidebar.experiments_tab_link',
         nestedItems: showNestedExperimentItems ? (
           <MlflowSidebarExperimentItems
+            collapsed={!showSidebar}
             experimentId={activeExperimentId ?? undefined}
             workflowType={workflowType}
             onBackClick={clearLastSelectedExperiment}
@@ -251,7 +231,7 @@ export function MlflowSidebar({
               componentId: 'mlflow.sidebar.gateway_tab_link',
               nestedItems:
                 shouldEnableWorkflowBasedNavigation() && isGatewayActive(location) ? (
-                  <MlflowSidebarGatewayItems />
+                  <MlflowSidebarGatewayItems collapsed={!showSidebar} />
                 ) : undefined,
             },
           ]
@@ -264,6 +244,7 @@ export function MlflowSidebar({
       clearLastSelectedExperiment,
       enableWorkflowBasedNavigation,
       location,
+      showSidebar,
     ],
   );
 

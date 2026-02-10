@@ -22,10 +22,12 @@ const isExperimentsActive = (location: Location) =>
   );
 
 export const MlflowSidebarExperimentItems = ({
+  collapsed,
   experimentId,
   workflowType,
   onBackClick,
 }: {
+  collapsed: boolean;
   experimentId: string | undefined;
   workflowType: WorkflowType;
   onBackClick?: () => void;
@@ -59,14 +61,24 @@ export const MlflowSidebarExperimentItems = ({
         componentId="mlflow.experiment-sidebar.back-button"
         isActive={isExperimentsActive}
         onClick={onBackClick}
+        icon={<ArrowLeftIcon />}
+        collapsed={collapsed}
       >
-        <ArrowLeftIcon />
         <BeakerIcon />
         {loading ? <Spinner /> : <Typography.Text ellipsis>{experiment?.name}</Typography.Text>}
       </MlflowSidebarLink>
       {Object.entries(config).map(([sectionKey, items]) => (
         <>
-          {sectionKey !== 'top-level' && (
+          {sectionKey !== 'top-level' && collapsed ? (
+            <div
+              css={{
+                paddingLeft: theme.spacing.lg,
+                marginTop: theme.spacing.sm,
+                marginBottom: theme.spacing.sm,
+                borderBottom: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+              }}
+            />
+          ) : (
             <li css={{ paddingLeft: theme.spacing.lg, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
               <Typography.Text size="sm" color="secondary">
                 {getExperimentPageSideNavSectionLabel(sectionKey as ExperimentPageSideNavSectionKey, items)}
@@ -85,13 +97,14 @@ export const MlflowSidebarExperimentItems = ({
             };
             return (
               <MlflowSidebarLink
-                css={{ paddingLeft: theme.spacing.lg }}
+                css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
                 key={item.componentId}
                 to={ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName)}
                 componentId={item.componentId}
                 isActive={isActive}
+                collapsed={collapsed}
+                icon={item.icon}
               >
-                {item.icon}
                 {item.label}
               </MlflowSidebarLink>
             );
