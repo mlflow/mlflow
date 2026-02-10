@@ -493,8 +493,11 @@ def test_search_traces_uc_schema(monkeypatch):
     response = mock.MagicMock()
     response.status_code = 200
 
-    response.text = json.dumps(
-        {
+    # Long-running API returns an Operation object with done=true and response
+    response.json.return_value = {
+        "name": "operation-123",
+        "done": True,
+        "response": {
             "trace_infos": [
                 {
                     # REST API uses raw otel id as trace_id
@@ -511,8 +514,8 @@ def test_search_traces_uc_schema(monkeypatch):
                 }
             ],
             "next_page_token": "token",
-        }
-    )
+        },
+    }
 
     filter_string = "state = 'OK'"
     max_results = 50
@@ -520,7 +523,10 @@ def test_search_traces_uc_schema(monkeypatch):
     locations = ["catalog.schema"]
     page_token = "12345abcde"
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    # Patch where http_request is imported (databricks_rest_store module)
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.http_request", return_value=response
+    ) as mock_http:
         trace_infos, token = store.search_traces(
             filter_string=filter_string,
             max_results=max_results,
@@ -529,10 +535,10 @@ def test_search_traces_uc_schema(monkeypatch):
             page_token=page_token,
         )
 
-    # V4 endpoint should be called for UC schema locations
+    # Long-running V4 endpoint should be called for UC schema locations
     assert mock_http.call_count == 1
     call_args = mock_http.call_args[1]
-    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running"
 
     json_body = call_args["json"]
     assert "locations" in json_body
@@ -560,14 +566,14 @@ def test_search_traces_uc_schema(monkeypatch):
 @pytest.mark.parametrize(
     "exception",
     [
-        # Workspace where SearchTracesV4 is not supported yet
+        # Workspace where SearchTracesLongRunning is not supported yet
         RestException(
             json={
                 "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND),
                 "message": "Not found",
             }
         ),
-        # V4 endpoint does not support searching by experiment ID (yet)
+        # Long-running endpoint does not support searching by experiment ID (yet)
         RestException(
             json={
                 "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
@@ -579,10 +585,9 @@ def test_search_traces_uc_schema(monkeypatch):
 def test_search_traces_experiment_id(exception):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-
-    response.text = json.dumps(
+    v3_response = mock.MagicMock()
+    v3_response.status_code = 200
+    v3_response.text = json.dumps(
         {
             "traces": [
                 {
@@ -605,20 +610,24 @@ def test_search_traces_experiment_id(exception):
     page_token = "12345abcde"
     locations = ["1"]
 
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
-        # v4 call -> exception, v3 call -> response
-        mock_http.side_effect = [exception, response]
+    # Need to patch both: databricks_rest_store.http_request for long-running call,
+    # and rest_utils.http_request for V3 fallback (which goes through _call_endpoint)
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request", side_effect=exception
+        ) as mock_long_running,
+        mock.patch("mlflow.utils.rest_utils.http_request", return_value=v3_response) as mock_v3,
+    ):
         trace_infos, token = store.search_traces(
             filter_string=filter_string,
             page_token=page_token,
             locations=locations,
         )
 
-    # MLflow first tries V4 endpoint, then falls back to V3
-    assert mock_http.call_count == 2
-
-    first_call_args = mock_http.call_args_list[0][1]
-    assert first_call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+    # Long-running call should fail and trigger V3 fallback
+    mock_long_running.assert_called_once()
+    first_call_args = mock_long_running.call_args[1]
+    assert first_call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running"
 
     json_body = first_call_args["json"]
     assert "locations" in json_body
@@ -627,7 +636,9 @@ def test_search_traces_experiment_id(exception):
     assert json_body["filter"] == filter_string
     assert json_body["max_results"] == 100
 
-    second_call_args = mock_http.call_args_list[1][1]
+    # V3 fallback should be called
+    mock_v3.assert_called_once()
+    second_call_args = mock_v3.call_args[1]
     assert second_call_args["endpoint"] == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
     json_body = second_call_args["json"]
     assert len(json_body["locations"]) == 1
@@ -649,14 +660,14 @@ def test_search_traces_experiment_id(exception):
 @pytest.mark.parametrize(
     "exception",
     [
-        # Workspace where SearchTracesV4 is not supported yet
+        # Workspace where SearchTracesLongRunning is not supported yet
         RestException(
             json={
                 "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND),
                 "message": "Not found",
             }
         ),
-        # V4 endpoint does not support searching by experiment ID (yet)
+        # Long-running endpoint does not support searching by experiment ID (yet)
         RestException(
             json={
                 "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
@@ -674,17 +685,20 @@ def test_search_traces_with_mixed_locations(exception):
         else "The `locations` parameter cannot contain both MLflow experiment and UC schema "
     )
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=exception) as mock_http:
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.http_request", side_effect=exception
+    ) as mock_http:
         with pytest.raises(MlflowException, match=expected_error_message):
             store.search_traces(
                 filter_string="state = 'OK'",
                 locations=["1", "catalog.schema"],
             )
 
-    # V4 endpoint should be called first. Not fallback to V3 because location includes UC schema.
+    # Long-running V4 endpoint should be called first. Not fallback to V3 because location
+    # includes UC schema.
     mock_http.assert_called_once()
     call_args = mock_http.call_args[1]
-    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running"
 
     json_body = call_args["json"]
     assert "locations" in json_body
@@ -698,12 +712,12 @@ def test_search_traces_does_not_fallback_when_uc_schemas_are_specified():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
-    def mock_http_request(*args, **kwargs):
-        if kwargs.get("endpoint") == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search":
-            raise MlflowException("V4 endpoint not supported", error_code=ENDPOINT_NOT_FOUND)
-        return mock.MagicMock()
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.http_request",
+        side_effect=MlflowException(
+            "Long-running endpoint not supported", error_code=ENDPOINT_NOT_FOUND
+        ),
+    ):
         with pytest.raises(
             MlflowException,
             match="Searching traces in UC tables is not supported yet.",
@@ -715,9 +729,107 @@ def test_search_traces_non_fallback_errors():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
-        mock_http.side_effect = MlflowException("Random error")
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.http_request",
+        side_effect=MlflowException("Random error"),
+    ):
         with pytest.raises(MlflowException, match="Random error"):
+            store.search_traces(locations=["catalog.schema"])
+
+
+def test_search_traces_long_running_polls_until_done(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    # Simulate: first call returns operation, then 2 poll calls return not done,
+    # finally the 3rd poll call returns done with results
+    initial_response = mock.MagicMock()
+    initial_response.status_code = 200
+    initial_response.json.return_value = {"name": "op-123", "done": False}
+
+    poll_response_not_done = mock.MagicMock()
+    poll_response_not_done.status_code = 200
+    poll_response_not_done.json.return_value = {"name": "op-123", "done": False}
+
+    poll_response_done = mock.MagicMock()
+    poll_response_done.status_code = 200
+    poll_response_done.json.return_value = {
+        "name": "op-123",
+        "done": True,
+        "response": {
+            "trace_infos": [
+                {
+                    "trace_id": "1234",
+                    "trace_location": {
+                        "type": "UC_SCHEMA",
+                        "uc_schema": {"catalog_name": "catalog", "schema_name": "schema"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "state": "OK",
+                }
+            ],
+        },
+    }
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            side_effect=[
+                initial_response,  # Initial search-long-running call
+                poll_response_not_done,  # First poll
+                poll_response_not_done,  # Second poll
+                poll_response_done,  # Third poll - done
+            ],
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.time.sleep") as mock_sleep,
+    ):
+        trace_infos, _ = store.search_traces(locations=["catalog.schema"])
+
+    # Should have called: 1 initial + 3 polls = 4 total
+    assert mock_http.call_count == 4
+
+    # First call should be to search-long-running
+    assert "search-long-running" in mock_http.call_args_list[0][1]["endpoint"]
+
+    # Poll calls should be to operations endpoint
+    for call in mock_http.call_args_list[1:]:
+        assert "operations/op-123" in call[1]["endpoint"]
+
+    # Should have slept between polls
+    assert mock_sleep.call_count == 3
+
+    assert len(trace_infos) == 1
+    assert trace_infos[0].trace_id == "trace:/catalog.schema/1234"
+
+
+def test_search_traces_long_running_handles_operation_error(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    initial_response = mock.MagicMock()
+    initial_response.status_code = 200
+    initial_response.json.return_value = {"name": "op-123", "done": False}
+
+    error_response = mock.MagicMock()
+    error_response.status_code = 200
+    error_response.json.return_value = {
+        "name": "op-123",
+        "done": True,
+        "error": {"error_code": "INTERNAL_ERROR", "message": "SQL execution failed"},
+    }
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            side_effect=[initial_response, error_response],
+        ),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.time.sleep"),
+    ):
+        with pytest.raises(MlflowException, match="SQL execution failed"):
             store.search_traces(locations=["catalog.schema"])
 
 
