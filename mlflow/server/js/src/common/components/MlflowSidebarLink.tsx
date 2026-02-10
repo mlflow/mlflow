@@ -49,7 +49,7 @@ export const MlflowSidebarLink = ({
           alignItems: 'center',
           gap: theme.spacing.sm,
           color: theme.colors.textPrimary,
-          paddingInline: collapsed ? 0 : theme.spacing.md,
+          paddingInline: collapsed ? 0 : theme.spacing.sm,
           justifyContent: collapsed ? 'center' : 'flex-start',
           // 5 seems to be the magic number to match the text line height
           paddingBlock: collapsed ? 5 : theme.spacing.xs,

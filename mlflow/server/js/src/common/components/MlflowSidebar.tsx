@@ -397,7 +397,7 @@ export function MlflowSidebar({
                 display: 'block',
                 height: theme.spacing.lg,
                 color: theme.colors.textPrimary,
-                marginLeft: -theme.spacing.md,
+                marginLeft: -(theme.spacing.sm + theme.spacing.xs),
               }}
             />
           </Link>
