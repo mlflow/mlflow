@@ -39,7 +39,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
-from mlflow.gateway.utils import to_sse_chunk, translate_http_exception
+from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -444,7 +444,7 @@ async def invocations(endpoint_name: str, request: Request):
                 provider.chat_stream, endpoint_config, user_metadata
             )(payload)
             return StreamingResponse(
-                (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
                 media_type="text/event-stream",
             )
         else:
@@ -518,7 +518,7 @@ async def chat_completions(request: Request):
             payload
         )
         return StreamingResponse(
-            (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
             media_type="text/event-stream",
         )
     else:
@@ -571,7 +571,9 @@ async def openai_passthrough_chat(request: Request):
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
@@ -660,7 +662,9 @@ async def openai_passthrough_responses(request: Request):
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
@@ -712,7 +716,9 @@ async def anthropic_passthrough_messages(request: Request):
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
@@ -806,4 +812,6 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
             yield chunk
 
     traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
-    return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+    return StreamingResponse(
+        safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+    )

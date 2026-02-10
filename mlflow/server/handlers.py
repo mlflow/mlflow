@@ -4933,7 +4933,7 @@ def _generate_demo():
                 "status": "exists",
                 "experiment_id": experiment.experiment_id,
                 "features_generated": [],
-                "navigation_url": f"#/experiments/{experiment.experiment_id}/traces",
+                "navigation_url": f"/experiments/{experiment.experiment_id}/traces",
             }
         )
 
@@ -4941,13 +4941,14 @@ def _generate_demo():
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
+    navigation_url = f"/experiments/{experiment_id}/traces" if experiment_id else "/experiments"
 
     return jsonify(
         {
             "status": "created",
             "experiment_id": experiment_id,
             "features_generated": [r.feature for r in results],
-            "navigation_url": f"#/experiments/{experiment_id}/traces" if experiment_id else None,
+            "navigation_url": navigation_url,
         }
     )
 
@@ -4955,7 +4956,13 @@ def _generate_demo():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _delete_demo():
-    """Delete demo data for all registered demo generators."""
+    """Delete demo data for all registered demo generators.
+
+    Performs a full hard delete of the demo experiment and all associated data,
+    equivalent to what `mlflow gc` would do. This ensures the demo data is
+    completely removed rather than just soft-deleted.
+    """
+    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
     from mlflow.demo.registry import demo_registry
 
     deleted_features = []
@@ -4964,6 +4971,11 @@ def _delete_demo():
         if generator._data_exists():
             generator.delete_demo()
             deleted_features.append(name)
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    if experiment and experiment.lifecycle_stage == "active":
+        store.delete_experiment(experiment.experiment_id)
 
     return jsonify(
         {
