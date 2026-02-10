@@ -310,7 +310,11 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
 
     def generate_message(self, context: SimulatorContext) -> str:
         guidelines_section = (
-            f"\n<simulation_guidelines>\n{context.simulation_guidelines}\n</simulation_guidelines>"
+            "\n<simulation_guidelines>\n"
+            "Follow these requirements for how YOU (the user) should conduct the conversation. "
+            "Remember, you are the USER seeking help, not the assistant providing answers:\n"
+            f"{context.simulation_guidelines}\n"
+            "</simulation_guidelines>"
             if context.simulation_guidelines
             else ""
         )
@@ -710,9 +714,7 @@ class ConversationSimulator:
             metadata = {
                 TraceMetadataKey.TRACE_SESSION: trace_session_id,
                 "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                    :_MAX_METADATA_LENGTH
-                ],
+                "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[:_MAX_METADATA_LENGTH],
                 "mlflow.simulation.turn": str(turn),
             }
             if simulation_guidelines:

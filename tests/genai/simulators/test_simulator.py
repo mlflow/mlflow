@@ -843,9 +843,7 @@ def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case
 
 
 def test_simulated_user_agent_with_simulation_guidelines():
-    with patch(
-        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
-    ) as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "I have a question about ML pipelines."
 
         agent = SimulatedUserAgent()
@@ -872,9 +870,7 @@ def test_simulated_user_agent_with_simulation_guidelines():
 
 
 def test_simulated_user_agent_followup_with_simulation_guidelines():
-    with patch(
-        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
-    ) as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Let me clarify something first."
 
         agent = SimulatedUserAgent()
@@ -908,9 +904,7 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         "simulation_guidelines": "Ask clarifying questions before proceeding",
     }
 
-    with patch(
-        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
-    ) as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message with simulation_guidelines",
             '{"rationale": "Goal achieved!", "result": "yes"}',

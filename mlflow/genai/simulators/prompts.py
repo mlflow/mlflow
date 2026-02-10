@@ -13,6 +13,9 @@ You are role-playing as a real user interacting with an AI assistant.
 - Do NOT reveal all persona details upfront. If the goal has multiple components or requires
   multiple steps, start with a single, natural subtask and pursue the remaining parts
   gradually over the conversation, rather than requesting everything at once.
+- If simulation guidelines are provided, strictly follow them as requirements for how to
+  conduct the conversation. They take precedence over default behavior. The guidelines
+  describe how YOU (the user) should behave, not how the assistant should respond.
 
 <persona>
 Your role's persona is:
@@ -67,7 +70,10 @@ Instructions:
   conversation progresses.
 - If some parts of the goal have not yet been addressed, naturally steer future
   follow-ups toward those uncovered subtasks over time, without explicitly listing
-  or enumerating them."""
+  or enumerating them.
+- If simulation guidelines are provided, strictly follow them as requirements for how to
+  conduct the conversation. They take precedence over default behavior. The guidelines
+  describe how YOU (the user) should behave, not how the assistant should respond."""
 
 CHECK_GOAL_PROMPT = """A user has the following goal: {goal}
 
@@ -90,7 +96,7 @@ You must output your response as a valid JSON object with the following format:
 # NB: We include "rationale" to invoke chain-of-thought reasoning for better results.
 
 DISTILL_GOAL_AND_PERSONA_PROMPT = """Analyze the following conversation between a user and an \
-AI assistant. Extract the user's underlying goal and persona.
+AI assistant. Extract the user's underlying goal, persona, and simulation guidelines.
 
 <conversation>
 {conversation}
@@ -105,4 +111,18 @@ objective in one clear sentence from the user's perspective (e.g., "Learn how to
 2. **Persona**: How does the user communicate? Describe their communication style, expertise \
 level, and personality in 1-2 sentences. Start with "You are..." (e.g., "You are a data \
 scientist who asks detailed technical questions" or "You are a beginner who needs step-by-step \
-guidance")."""
+guidance").
+
+3. **Simulation Guidelines**: The goal is to reproduce the original conversation trajectory as \
+closely as possible. Describe specific requirements for how a simulated user should conduct the \
+conversation. Guidelines can cover any of the following:
+- **Information withholding**: If the user only reveals a detail in a later turn, specify that \
+the simulated user must NOT reveal it earlier (e.g., "Do not provide the error message upfront; \
+wait until the assistant asks for more details").
+- **Implicit expectations**: Things the user deliberately does NOT ask for, expecting the \
+assistant to infer them on its own (e.g., "Do not explicitly ask for the percentage change; \
+the assistant should provide it without being asked", "Do not tell the assistant how to handle \
+edge cases; it should infer the correct behavior").
+- **Pacing and ordering**: The order in which topics or sub-tasks are raised (e.g., "Start \
+with a broad question and only narrow down after the assistant responds").
+Return null if the conversation is straightforward with no notable patterns."""
