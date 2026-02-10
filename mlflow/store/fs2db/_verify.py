@@ -177,6 +177,23 @@ def _check_experiment(src: MlflowClient, dst: MlflowClient, target_uri: str) -> 
             ok = False
             continue
 
+        if src_exp.creation_time != dst_exp.creation_time:
+            _fail(
+                f"experiment {exp_id}:"
+                f" creation_time {dst_exp.creation_time} != {src_exp.creation_time}"
+            )
+            ok = False
+            continue
+
+        if src_exp.last_update_time != dst_exp.last_update_time:
+            _fail(
+                f"experiment {exp_id}:"
+                f" last_update_time {dst_exp.last_update_time}"
+                f" != {src_exp.last_update_time}"
+            )
+            ok = False
+            continue
+
         src_tags = {k: v for k, v in src_exp.tags.items() if not k.startswith("mlflow.")}
         dst_tags = {k: v for k, v in dst_exp.tags.items() if not k.startswith("mlflow.")}
         if missing := set(src_tags) - set(dst_tags):
@@ -205,14 +222,27 @@ def _check_run(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
         dst_run = dst.get_run(run_id)
         failed = False
 
-        for field, expected, actual in [
-            ("status", src_run.info.status, dst_run.info.status),
-            ("lifecycle_stage", src_run.info.lifecycle_stage, dst_run.info.lifecycle_stage),
-        ]:
-            if expected != actual:
-                _fail(f"run {run_id}: {field} {actual!r} != {expected!r}")
-                ok = False
-                failed = True
+        if src_run.info.status != dst_run.info.status:
+            _fail(f"run {run_id}: status {dst_run.info.status!r} != {src_run.info.status!r}")
+            ok = False
+            failed = True
+        if src_run.info.lifecycle_stage != dst_run.info.lifecycle_stage:
+            _fail(
+                f"run {run_id}: lifecycle_stage"
+                f" {dst_run.info.lifecycle_stage!r} != {src_run.info.lifecycle_stage!r}"
+            )
+            ok = False
+            failed = True
+        if src_run.info.start_time != dst_run.info.start_time:
+            _fail(
+                f"run {run_id}: start_time {dst_run.info.start_time} != {src_run.info.start_time}"
+            )
+            ok = False
+            failed = True
+        if src_run.info.end_time != dst_run.info.end_time:
+            _fail(f"run {run_id}: end_time {dst_run.info.end_time} != {src_run.info.end_time}")
+            ok = False
+            failed = True
         if failed:
             continue
 
@@ -289,6 +319,13 @@ def _check_dataset(src: MlflowClient, dst: MlflowClient, target_uri: str) -> boo
             ok = False
             continue
 
+        src_digests = sorted(d.dataset.digest for d in src_ds)
+        dst_digests = sorted(d.dataset.digest for d in dst_ds)
+        if src_digests != dst_digests:
+            _fail(f"dataset on run {run_id}: digests {dst_digests} != {src_digests}")
+            ok = False
+            continue
+
         _pass(f"dataset on run {run_id} ({len(dst_ds)} inputs, names={dst_names})")
     return ok
 
@@ -330,6 +367,24 @@ def _check_trace(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
         if src_trace.info.status != dst_trace.info.status:
             _fail(
                 f"trace {trace_id}: status {dst_trace.info.status!r} != {src_trace.info.status!r}"
+            )
+            ok = False
+            continue
+
+        if src_trace.info.request_time != dst_trace.info.request_time:
+            _fail(
+                f"trace {trace_id}:"
+                f" request_time {dst_trace.info.request_time}"
+                f" != {src_trace.info.request_time}"
+            )
+            ok = False
+            continue
+
+        if src_trace.info.execution_duration != dst_trace.info.execution_duration:
+            _fail(
+                f"trace {trace_id}:"
+                f" execution_duration {dst_trace.info.execution_duration}"
+                f" != {src_trace.info.execution_duration}"
             )
             ok = False
             continue
@@ -414,6 +469,15 @@ def _check_logged_model(src: MlflowClient, dst: MlflowClient, target_uri: str) -
             ok = False
             continue
 
+        if src_model.creation_timestamp != dst_model.creation_timestamp:
+            _fail(
+                f"logged_model {model_id}:"
+                f" creation_timestamp {dst_model.creation_timestamp}"
+                f" != {src_model.creation_timestamp}"
+            )
+            ok = False
+            continue
+
         if missing_tags := set(src_model.tags) - set(dst_model.tags):
             _fail(f"logged_model {model_id}: missing tags {missing_tags}")
             ok = False
@@ -453,6 +517,24 @@ def _check_registered_model(src: MlflowClient, dst: MlflowClient, target_uri: st
             ok = False
             continue
 
+        if src_model.creation_timestamp != dst_model.creation_timestamp:
+            _fail(
+                f"registered_model {name}:"
+                f" creation_timestamp {dst_model.creation_timestamp}"
+                f" != {src_model.creation_timestamp}"
+            )
+            ok = False
+            continue
+
+        if src_model.last_updated_timestamp != dst_model.last_updated_timestamp:
+            _fail(
+                f"registered_model {name}:"
+                f" last_updated_timestamp {dst_model.last_updated_timestamp}"
+                f" != {src_model.last_updated_timestamp}"
+            )
+            ok = False
+            continue
+
         src_versions = src.search_model_versions(f"name='{name}'")
         dst_versions = dst.search_model_versions(f"name='{name}'")
         if len(dst_versions) < len(src_versions):
@@ -482,6 +564,15 @@ def _check_model_version(src: MlflowClient, dst: MlflowClient, target_uri: str) 
             _fail(
                 f"model_version {name}/v{version}:"
                 f" description {dst_mv.description!r} != {src_mv.description!r}"
+            )
+            ok = False
+            continue
+
+        if src_mv.creation_timestamp != dst_mv.creation_timestamp:
+            _fail(
+                f"model_version {name}/v{version}:"
+                f" creation_timestamp {dst_mv.creation_timestamp}"
+                f" != {src_mv.creation_timestamp}"
             )
             ok = False
             continue
