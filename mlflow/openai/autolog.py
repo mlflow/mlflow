@@ -293,19 +293,6 @@ def _start_span(
         attributes=attributes,
     )
 
-    # Set graph node attributes for logical workflow visualization
-    # Only set attributes when we have a known graph node type to avoid
-    # triggering the workflow view for spans that won't appear in it
-    graph_node_type_mapping = {
-        SpanType.CHAT_MODEL: "LLM",
-        SpanType.LLM: "LLM",
-        SpanType.EMBEDDING: "EMBEDDING",
-    }
-    if graph_node_type := graph_node_type_mapping.get(span_type):
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_ID, span.span_id)
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_DISPLAY_NAME, span_name)
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_TYPE, graph_node_type)
-
     # Associate run ID to the trace manually, because if a new run is created by
     # autologging, it is not set as the active run thus not automatically
     # associated with the trace.

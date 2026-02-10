@@ -1,57 +1,20 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Empty, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CloseIcon, Empty, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import type { GraphViewMode, WorkflowNode } from './GraphView.types';
-import { DEFAULT_GRAPH_LAYOUT_CONFIG, DEFAULT_WORKFLOW_LAYOUT_CONFIG } from './GraphView.types';
-import { computeGraphLayout } from './GraphView.utils';
+import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
+import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from '../right-pane/ModelTraceExplorerRightPaneTabs';
+import type { WorkflowNode } from './GraphView.types';
+import { DEFAULT_WORKFLOW_LAYOUT_CONFIG } from './GraphView.types';
 import { computeWorkflowLayout } from './GraphView.workflow';
-import { hasAnyGraphNodeAttributes } from './GraphView.filters';
-import { GraphViewCanvas } from './GraphViewCanvas';
 import { GraphViewWorkflowCanvas } from './GraphViewWorkflowCanvas';
-import { GraphViewControls } from './GraphViewControls';
-import { GraphViewSidebar } from './GraphViewSidebar';
 
 interface GraphViewProps {
   className?: string;
-}
-
-/**
- * Computes the path from a node to the root, returning sets of node IDs and edge IDs.
- */
-function computePathToRoot(
-  nodeId: string | undefined,
-  layout: ReturnType<typeof computeGraphLayout>,
-): { nodeIds: Set<string>; edgeIds: Set<string> } {
-  const nodeIds = new Set<string>();
-  const edgeIds = new Set<string>();
-
-  if (!nodeId) {
-    return { nodeIds, edgeIds };
-  }
-
-  const nodeMap = new Map(layout.nodes.map((n) => [n.id, n]));
-  let currentId: string | undefined = nodeId;
-
-  while (currentId) {
-    nodeIds.add(currentId);
-    const currentNode = nodeMap.get(currentId);
-    if (!currentNode) break;
-
-    const parentId = currentNode.spanNode.parentId;
-    if (parentId) {
-      edgeIds.add(`${parentId}-${currentId}`);
-      currentId = parentId;
-    } else {
-      break;
-    }
-  }
-
-  return { nodeIds, edgeIds };
 }
 
 /**
@@ -101,50 +64,39 @@ function computeWorkflowPathToRoot(
 }
 
 /**
- * Main Graph View component that visualizes trace spans as a directed graph.
- * Uses React Flow for rendering with zoom, pan, and minimap functionality.
+ * Graph View component that visualizes trace spans as an aggregated workflow graph.
+ * Spans are grouped by name and connected based on parent-child hierarchy.
+ * The right detail pane is hidden by default and opens when a span is clicked.
  */
 export const GraphView = ({ className }: GraphViewProps) => {
   const { theme } = useDesignSystemTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const size = useResizeObserver({ ref: containerRef });
+  const [paneWidth, setPaneWidth] = useState(500);
 
-  const { rootNode, selectedNode, setSelectedNode } = useModelTraceExplorerViewState();
-
-  // Sidebar span state
-  const [sidebarSpan, setSidebarSpan] = useState<ModelTraceSpanNode | undefined>(undefined);
-
-  // View mode state
-  const [viewMode, setViewMode] = useState<GraphViewMode>('all_spans');
+  const { rootNode, selectedNode, setSelectedNode, activeTab, setActiveTab, updatePaneSizeRatios, getPaneSizeRatios } =
+    useModelTraceExplorerViewState();
 
   // Selected workflow node state
   const [selectedWorkflowNode, setSelectedWorkflowNode] = useState<WorkflowNode | null>(null);
 
-  // Check if the trace has any graph node attributes
-  const hasLogicalWorkflow = useMemo(() => (rootNode ? hasAnyGraphNodeAttributes(rootNode) : false), [rootNode]);
+  // Right detail pane is collapsed by default, opens on span click
+  const [isDetailsPaneOpen, setIsDetailsPaneOpen] = useState(false);
 
-  // Compute span tree layout
-  const spanLayout = useMemo(() => computeGraphLayout(rootNode, DEFAULT_GRAPH_LAYOUT_CONFIG), [rootNode]);
-
-  // Compute workflow layout
-  const workflowLayout = useMemo(
-    () => (hasLogicalWorkflow ? computeWorkflowLayout(rootNode, DEFAULT_WORKFLOW_LAYOUT_CONFIG) : null),
-    [rootNode, hasLogicalWorkflow],
-  );
-
-  // Determine which layout to use
-  const isWorkflowMode = viewMode === 'logical_workflow' && hasLogicalWorkflow;
-  const currentLayout = isWorkflowMode && workflowLayout ? workflowLayout : spanLayout;
+  // Compute workflow layout (groups spans by name)
+  const workflowLayout = useMemo(() => computeWorkflowLayout(rootNode, DEFAULT_WORKFLOW_LAYOUT_CONFIG), [rootNode]);
 
   // Compute highlighted paths
-  const { nodeIds: highlightedPathNodeIds, edgeIds: highlightedPathEdgeIds } = useMemo(
-    () => computePathToRoot(selectedNode?.key !== undefined ? String(selectedNode.key) : undefined, spanLayout),
-    [selectedNode, spanLayout],
-  );
-
   const { nodeIds: highlightedWorkflowNodeIds, edgeIds: highlightedWorkflowEdgeIds } = useMemo(
     () => computeWorkflowPathToRoot(selectedWorkflowNode?.id ?? null, workflowLayout),
     [selectedWorkflowNode, workflowLayout],
+  );
+
+  const onSizeRatioChange = useCallback(
+    (ratio: number) => {
+      updatePaneSizeRatios({ graphPane: ratio });
+    },
+    [updatePaneSizeRatios],
   );
 
   // Handlers
@@ -152,19 +104,16 @@ export const GraphView = ({ className }: GraphViewProps) => {
     setSelectedWorkflowNode(node);
   }, []);
 
-  const handleSelectNode = useCallback(
-    (node: ModelTraceSpanNode | undefined) => {
+  const handleViewSpanDetails = useCallback(
+    (node: ModelTraceSpanNode) => {
       setSelectedNode(node);
+      setIsDetailsPaneOpen(true);
     },
     [setSelectedNode],
   );
 
-  const handleViewDetails = useCallback((node: ModelTraceSpanNode) => {
-    setSidebarSpan(node);
-  }, []);
-
-  const handleCloseSidebar = useCallback(() => {
-    setSidebarSpan(undefined);
+  const handleCloseDetailsPane = useCallback(() => {
+    setIsDetailsPaneOpen(false);
   }, []);
 
   // Empty state when no trace data
@@ -196,7 +145,7 @@ export const GraphView = ({ className }: GraphViewProps) => {
   }
 
   // Empty state when layout has no nodes
-  if (currentLayout.nodes.length === 0) {
+  if (workflowLayout.nodes.length === 0) {
     return (
       <div
         ref={containerRef}
@@ -223,14 +172,15 @@ export const GraphView = ({ className }: GraphViewProps) => {
     );
   }
 
-  return (
+  const graphCanvas = (
     <div
-      className={className}
+      ref={containerRef}
       css={{
         display: 'flex',
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
+        position: 'relative',
         overflow: 'hidden',
       }}
     >
@@ -248,75 +198,81 @@ export const GraphView = ({ className }: GraphViewProps) => {
         }}
       >
         <Typography.Text size="sm" color="secondary">
-          {isWorkflowMode ? (
-            <FormattedMessage
-              defaultMessage="{count} {count, plural, one {node} other {nodes}}"
-              description="Count of workflow nodes displayed in graph view"
-              values={{ count: currentLayout.nodes.length }}
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="{count} {count, plural, one {span} other {spans}}"
-              description="Count of spans displayed in graph view"
-              values={{ count: currentLayout.nodes.length }}
-            />
-          )}
+          <FormattedMessage
+            defaultMessage="{count} {count, plural, one {node} other {nodes}}"
+            description="Count of workflow nodes displayed in graph view"
+            values={{ count: workflowLayout.nodes.length }}
+          />
         </Typography.Text>
         <Typography.Text size="sm" color="secondary">
           <FormattedMessage defaultMessage="Scroll to zoom, drag to pan" description="Navigation hint for graph view" />
         </Typography.Text>
       </div>
 
-      {/* Main content area */}
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'row',
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Graph canvas container */}
-        <div
-          ref={containerRef}
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Main canvas - switches between span tree and workflow graph */}
-          {isWorkflowMode && workflowLayout ? (
-            <GraphViewWorkflowCanvas
-              layout={workflowLayout}
-              selectedNodeId={selectedWorkflowNode?.id ?? null}
-              highlightedPathNodeIds={highlightedWorkflowNodeIds}
-              highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
-              onSelectNode={handleSelectWorkflowNode}
-              onViewSpanDetails={handleViewDetails}
-            />
-          ) : (
-            <GraphViewCanvas
-              layout={spanLayout}
-              selectedNodeKey={selectedNode?.key}
-              highlightedPathNodeIds={highlightedPathNodeIds}
-              highlightedPathEdgeIds={highlightedPathEdgeIds}
-              onSelectNode={handleSelectNode}
-              onViewDetails={handleViewDetails}
-            />
-          )}
+      <GraphViewWorkflowCanvas
+        layout={workflowLayout}
+        selectedNodeId={selectedWorkflowNode?.id ?? null}
+        highlightedPathNodeIds={highlightedWorkflowNodeIds}
+        highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
+        onSelectNode={handleSelectWorkflowNode}
+        onViewSpanDetails={handleViewSpanDetails}
+      />
+    </div>
+  );
 
-          {/* View mode toggle controls */}
-          <GraphViewControls viewMode={viewMode} setViewMode={setViewMode} hasLogicalWorkflow={hasLogicalWorkflow} />
-        </div>
-
-        {/* Sidebar */}
-        {sidebarSpan && <GraphViewSidebar span={sidebarSpan} onClose={handleCloseSidebar} />}
-      </div>
+  return (
+    <div
+      className={className}
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {isDetailsPaneOpen ? (
+        <ModelTraceExplorerResizablePane
+          initialRatio={getPaneSizeRatios().graphPane}
+          paneWidth={paneWidth}
+          setPaneWidth={setPaneWidth}
+          onRatioChange={onSizeRatioChange}
+          leftChild={graphCanvas}
+          leftMinWidth={300}
+          rightChild={
+            <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+              <div
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                  borderBottom: `1px solid ${theme.colors.border}`,
+                  flexShrink: 0,
+                }}
+              >
+                <Button
+                  componentId="graph-view-close-details-pane"
+                  icon={<CloseIcon />}
+                  size="small"
+                  onClick={handleCloseDetailsPane}
+                  aria-label="Close details pane"
+                />
+              </div>
+              <ModelTraceExplorerRightPaneTabs
+                activeSpan={selectedNode}
+                searchFilter=""
+                activeMatch={null}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+              />
+            </div>
+          }
+          rightMinWidth={RIGHT_PANE_MIN_WIDTH}
+        />
+      ) : (
+        graphCanvas
+      )}
     </div>
   );
 };

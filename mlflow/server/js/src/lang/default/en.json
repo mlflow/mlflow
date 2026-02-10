@@ -1138,10 +1138,6 @@
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
   },
-  "6n9LpD": {
-    "defaultMessage": "Duration: {duration}",
-    "description": "Label showing span duration in graph view tooltip"
-  },
   "6sFPJF": {
     "defaultMessage": "Learn more",
     "description": "Link text for production monitoring documentation"
@@ -2045,10 +2041,6 @@
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
-  },
-  "CfFpRX": {
-    "defaultMessage": "Workflow",
-    "description": "Button to show logical workflow in graph view"
   },
   "Cj58gM": {
     "defaultMessage": "Setup MLflow Assistant",
@@ -3118,10 +3110,6 @@
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
   },
-  "LpK0lJ": {
-    "defaultMessage": "Type: {spanType}",
-    "description": "Label showing span type in graph view tooltip"
-  },
   "LpdcPw": {
     "defaultMessage": "Model versions",
     "description": "Label for the model versions of a logged model on the logged model details page"
@@ -3652,10 +3640,6 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
-  },
-  "Q2pBpM": {
-    "defaultMessage": "Click to view details",
-    "description": "Clickable link in graph view node tooltip to open sidebar"
   },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
@@ -4516,10 +4500,6 @@
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
   },
-  "WRDAuE": {
-    "defaultMessage": "Type",
-    "description": "Label for span type in sidebar metadata"
-  },
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
@@ -4527,10 +4507,6 @@
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
-  },
-  "WZY5Rb": {
-    "defaultMessage": "{count} {count, plural, one {span} other {spans}}",
-    "description": "Count of spans displayed in graph view"
   },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
@@ -4887,10 +4863,6 @@
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
   },
-  "ZHZTrc": {
-    "defaultMessage": "Outputs",
-    "description": "Model trace explorer > graph view sidebar > outputs header"
-  },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
@@ -5223,10 +5195,6 @@
     "defaultMessage": "Logged from",
     "description": "Header title for the 'Logged from' column in the logged model list table"
   },
-  "bOGsJL": {
-    "defaultMessage": "Span ID",
-    "description": "Label for span ID in sidebar metadata"
-  },
   "bQSJKh": {
     "defaultMessage": "Permission denied for {modelName} version {version}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on model version detail page"
@@ -5431,10 +5399,6 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
-  "cakV+Y": {
-    "defaultMessage": "All Spans",
-    "description": "Button to show all spans in graph view"
-  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -5582,10 +5546,6 @@
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
-  },
-  "do2PEn": {
-    "defaultMessage": "Status",
-    "description": "Label for span status in sidebar metadata"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -5866,10 +5826,6 @@
   "flJNTA": {
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
-  },
-  "fmqd6j": {
-    "defaultMessage": "Duration",
-    "description": "Label for span duration in sidebar metadata"
   },
   "fq8v6G": {
     "defaultMessage": "Trace name",
@@ -8178,10 +8134,6 @@
   "x+e1xE": {
     "defaultMessage": "Is tool usage efficient throughout the conversation?",
     "description": "Hint for ConversationalToolCallEfficiency template"
-  },
-  "x/SqC1": {
-    "defaultMessage": "Inputs",
-    "description": "Model trace explorer > graph view sidebar > inputs header"
   },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",

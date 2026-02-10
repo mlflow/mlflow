@@ -3,29 +3,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 
 /**
- * View modes for the graph visualization
- */
-export type GraphViewMode = 'all_spans' | 'logical_workflow';
-
-/**
- * Data payload for span tree nodes (All Spans view)
- */
-export interface SpanNodeData extends Record<string, unknown> {
-  spanNode: ModelTraceSpanNode;
-  label: string;
-  isSelected: boolean;
-  isOnHighlightedPath: boolean;
-  onSelect: () => void;
-  onViewDetails: () => void;
-}
-
-/**
- * React Flow node type for span tree view
- */
-export type SpanFlowNode = Node<SpanNodeData>;
-
-/**
- * Data payload for workflow nodes (Workflow view)
+ * Data payload for workflow nodes
  */
 export interface WorkflowNodeData extends Record<string, unknown> {
   displayName: string;
@@ -44,18 +22,6 @@ export interface WorkflowNodeData extends Record<string, unknown> {
 export type WorkflowFlowNode = Node<WorkflowNodeData>;
 
 /**
- * Data payload for span tree edges
- */
-export interface SpanEdgeData extends Record<string, unknown> {
-  isHighlighted: boolean;
-}
-
-/**
- * React Flow edge type for span tree view
- */
-export type SpanFlowEdge = Edge<SpanEdgeData>;
-
-/**
  * Data payload for workflow edges
  */
 export interface WorkflowEdgeData extends Record<string, unknown> {
@@ -71,40 +37,6 @@ export interface WorkflowEdgeData extends Record<string, unknown> {
 export type WorkflowFlowEdge = Edge<WorkflowEdgeData>;
 
 /**
- * Represents a node in the graph layout
- */
-export interface GraphNode {
-  id: string;
-  spanNode: ModelTraceSpanNode;
-  layer: number;
-  orderIndex: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * Represents an edge connecting two nodes
- */
-export interface GraphEdge {
-  sourceId: string;
-  targetId: string;
-  sourceNode: GraphNode;
-  targetNode: GraphNode;
-}
-
-/**
- * Complete graph layout with nodes, edges, and dimensions
- */
-export interface GraphLayout {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  width: number;
-  height: number;
-}
-
-/**
  * Layout configuration options
  */
 export interface GraphLayoutConfig {
@@ -116,19 +48,7 @@ export interface GraphLayoutConfig {
 }
 
 /**
- * Default layout configuration
- */
-export const DEFAULT_GRAPH_LAYOUT_CONFIG: GraphLayoutConfig = {
-  nodeWidth: 140,
-  nodeHeight: 48,
-  horizontalSpacing: 40,
-  verticalSpacing: 60,
-  padding: 40,
-};
-
-/**
  * Aggregated node representing all spans of a given name.
- * Unlike GraphNode which is 1:1 with spans, WorkflowNode aggregates multiple spans.
  */
 export interface WorkflowNode {
   id: string;

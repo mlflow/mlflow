@@ -1,23 +1,16 @@
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { WorkflowNode, WorkflowEdge, WorkflowLayout, GraphLayoutConfig } from './GraphView.types';
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG } from './GraphView.types';
-import { GRAPH_NODE_ATTRIBUTE_KEYS, getSpanAttribute } from './GraphView.filters';
 
 /**
- * Flattens the span tree into a list of spans that have graph node attributes.
- * Only includes spans with mlflow.graph.node.type attribute.
+ * Flattens the span tree into a list of all spans.
  */
-function flattenSpansWithGraphAttributes(node: ModelTraceSpanNode): ModelTraceSpanNode[] {
-  const result: ModelTraceSpanNode[] = [];
-
-  const hasGraphType = getSpanAttribute(node, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_TYPE) !== undefined;
-  if (hasGraphType) {
-    result.push(node);
-  }
+function flattenSpans(node: ModelTraceSpanNode): ModelTraceSpanNode[] {
+  const result: ModelTraceSpanNode[] = [node];
 
   if (node.children) {
     for (const child of node.children) {
-      result.push(...flattenSpansWithGraphAttributes(child));
+      result.push(...flattenSpans(child));
     }
   }
 
@@ -25,12 +18,10 @@ function flattenSpansWithGraphAttributes(node: ModelTraceSpanNode): ModelTraceSp
 }
 
 /**
- * Gets the aggregation key for a span using its displayName, falling back to type.
+ * Gets the aggregation key for a span using its name.
  */
 function getAggregationKey(span: ModelTraceSpanNode): string {
-  const nodeType = (getSpanAttribute(span, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_TYPE) as string) ?? 'UNKNOWN';
-  const displayName = getSpanAttribute(span, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_DISPLAY_NAME) as string | undefined;
-  return displayName ?? nodeType;
+  return String(span.title ?? 'Unknown');
 }
 
 /**
@@ -170,14 +161,14 @@ function applyLayeredLayout(
 
 /**
  * Internal function to build workflow nodes and edges from span data.
- * This is shared between sync and async layout functions.
+ * Groups spans by name and uses the span's type for visual styling.
  */
 function buildWorkflowGraph(
   rootNode: ModelTraceSpanNode,
   config: GraphLayoutConfig,
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } | null {
-  // Flatten all spans with graph attributes
-  const spans = flattenSpansWithGraphAttributes(rootNode);
+  // Flatten all spans
+  const spans = flattenSpans(rootNode);
 
   if (spans.length === 0) {
     return null;
@@ -186,7 +177,7 @@ function buildWorkflowGraph(
   // Sort by start time to get execution order
   spans.sort((a, b) => a.start - b.start);
 
-  // Group spans by aggregation key
+  // Group spans by name (aggregation key)
   const nodeGroups = new Map<string, ModelTraceSpanNode[]>();
   for (const span of spans) {
     const key = getAggregationKey(span);
@@ -196,13 +187,12 @@ function buildWorkflowGraph(
     nodeGroups.get(key)!.push(span);
   }
 
-  // Create WorkflowNodes
+  // Create WorkflowNodes using span name and type
   const workflowNodes: WorkflowNode[] = [];
   for (const [key, groupSpans] of nodeGroups) {
     const firstSpan = groupSpans[0];
-    const nodeType = (getSpanAttribute(firstSpan, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_TYPE) as string) ?? 'UNKNOWN';
-    const displayName =
-      (getSpanAttribute(firstSpan, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_DISPLAY_NAME) as string) ?? nodeType;
+    const nodeType = firstSpan.type ?? 'UNKNOWN';
+    const displayName = String(firstSpan.title ?? 'Unknown');
 
     workflowNodes.push({
       id: key,
@@ -221,10 +211,9 @@ function buildWorkflowGraph(
   const edgeMap = new Map<string, WorkflowEdge>();
 
   function buildEdgesFromHierarchy(node: ModelTraceSpanNode, parentKey: string | null): void {
-    const hasGraphType = getSpanAttribute(node, GRAPH_NODE_ATTRIBUTE_KEYS.GRAPH_NODE_TYPE) !== undefined;
-    const currentKey = hasGraphType ? getAggregationKey(node) : null;
+    const currentKey = getAggregationKey(node);
 
-    if (currentKey !== null && parentKey !== null && currentKey !== parentKey) {
+    if (parentKey !== null && currentKey !== parentKey) {
       const edgeId = `${parentKey}->${currentKey}`;
       if (!edgeMap.has(edgeId)) {
         edgeMap.set(edgeId, {
@@ -238,10 +227,9 @@ function buildWorkflowGraph(
       edgeMap.get(edgeId)!.count++;
     }
 
-    const keyToPass = currentKey !== null ? currentKey : parentKey;
     if (node.children) {
       for (const child of node.children) {
-        buildEdgesFromHierarchy(child, keyToPass);
+        buildEdgesFromHierarchy(child, currentKey);
       }
     }
   }
@@ -249,14 +237,17 @@ function buildWorkflowGraph(
   buildEdgesFromHierarchy(rootNode, null);
 
   // Detect nested call edges (bidirectional relationships)
+  const toolLikeTypes = new Set(['TOOL', 'GUARDRAIL', 'FUNCTION', 'RETRIEVER']);
   for (const edge of edgeMap.values()) {
     const reverseEdgeId = `${edge.targetId}->${edge.sourceId}`;
     if (edgeMap.has(reverseEdgeId)) {
       const reverseEdge = edgeMap.get(reverseEdgeId)!;
-      const nestedCallSources = ['GUARDRAIL', 'TOOL', 'FUNCTION', 'RETRIEVER'];
-      if (nestedCallSources.some((t) => edge.sourceId.toUpperCase().includes(t))) {
+      // Check if source node is a tool-like type
+      const sourceNode = workflowNodes.find((n) => n.id === edge.sourceId);
+      const reverseSourceNode = workflowNodes.find((n) => n.id === reverseEdge.sourceId);
+      if (sourceNode && toolLikeTypes.has(sourceNode.nodeType.toUpperCase())) {
         edge.isNestedCall = true;
-      } else if (nestedCallSources.some((t) => reverseEdge.sourceId.toUpperCase().includes(t))) {
+      } else if (reverseSourceNode && toolLikeTypes.has(reverseSourceNode.nodeType.toUpperCase())) {
         reverseEdge.isNestedCall = true;
       }
     }
@@ -270,12 +261,12 @@ function buildWorkflowGraph(
 
 /**
  * Computes an aggregated workflow graph from span data.
- * Uses a custom layered layout algorithm (no external dependencies).
+ * Groups spans by name and uses span type for visual styling.
  *
  * Algorithm:
- * 1. Flatten all spans with graph.node.* attributes
+ * 1. Flatten all spans in the tree
  * 2. Sort by start time to get execution order
- * 3. Group spans by aggregation key (type or displayName)
+ * 3. Group spans by name
  * 4. Build edges based on parent-child hierarchy
  * 5. Apply custom layered layout algorithm
  *

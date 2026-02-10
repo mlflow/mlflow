@@ -54,17 +54,6 @@ _SPAN_TYPE_MAP = {
     # Default to chain type
 }
 
-# Map OpenAI span types to graph node types for workflow visualization
-_GRAPH_NODE_TYPE_MAP = {
-    OpenAISpanType.AGENT: "AGENT",
-    OpenAISpanType.FUNCTION: "TOOL",
-    OpenAISpanType.GENERATION: "LLM",
-    OpenAISpanType.RESPONSE: "LLM",
-    OpenAISpanType.HANDOFF: "HANDOFF",
-    OpenAISpanType.GUARDRAIL: "GUARDRAIL",
-    OpenAISpanType.CUSTOM: "CUSTOM",
-}
-
 
 def add_mlflow_trace_processor():
     processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
@@ -110,11 +99,6 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             )
             token = set_span_in_context(mlflow_span)
 
-            # Set graph node attributes for workflow visualization (root agent)
-            mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_ID, mlflow_span.span_id)
-            mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_DISPLAY_NAME, trace.name)
-            mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_TYPE, "AGENT")
-
         # NB: Trace ID has different prefix as span ID so will not conflict
         self._span_id_to_mlflow_span[trace.trace_id] = SpanWithToken(mlflow_span, token)
 
@@ -154,12 +138,6 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
             if span_type == SpanType.CHAT_MODEL:
                 mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai-agent")
-
-            # Set graph node attributes for workflow visualization
-            mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_ID, mlflow_span.span_id)
-            mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_DISPLAY_NAME, span_name)
-            if graph_node_type := _GRAPH_NODE_TYPE_MAP.get(span.span_data.type):
-                mlflow_span.set_attribute(SpanAttributeKey.GRAPH_NODE_TYPE, graph_node_type)
 
             self._span_id_to_mlflow_span[span.span_id] = SpanWithToken(mlflow_span, token)
         except Exception:
@@ -303,26 +281,11 @@ async def _patched_agent_run(original, self, *args, **kwargs):
     inputs = construct_full_inputs(original, self, *args, **kwargs)
     attributes = {k: v for k, v in inputs.items() if k not in ("starting_agent", "input")}
 
-    # Get the starting agent's name for a more descriptive display name
-    starting_agent = inputs.get("starting_agent")
-    agent_name = None
-    if starting_agent is not None:
-        # Try to get the agent's name attribute
-        agent_name = getattr(starting_agent, "name", None)
-
-    # Use agent name in display name for better differentiation in workflow view
-    display_name = f"Run: {agent_name}" if agent_name else _AGENT_RUN_SPAN_NAME
-
     with start_span(
         name=_AGENT_RUN_SPAN_NAME,
         span_type=SpanType.AGENT,
         attributes=attributes,
     ) as span:
-        # Set graph node attributes for workflow visualization
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_ID, span.span_id)
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_DISPLAY_NAME, display_name)
-        span.set_attribute(SpanAttributeKey.GRAPH_NODE_TYPE, "AGENT")
-
         span.set_inputs(inputs.get("input"))
         result = await original(self, *args, **kwargs)
         span.set_outputs(result.final_output)
