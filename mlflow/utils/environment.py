@@ -21,6 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -42,7 +43,6 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.utils.uv_utils import (
-    _is_uv_auto_detect_enabled,
     detect_uv_project,
     export_uv_requirements,
 )
@@ -423,9 +423,10 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
-    # Check for UV project first - if detected, use uv export instead of model-based inference
+    # Check for UV project first - if detected, use uv export instead of
+    # inferring model dependencies by capturing imported packages during model inference.
     # Can be disabled via MLFLOW_UV_AUTO_DETECT=false
-    if _is_uv_auto_detect_enabled():
+    if MLFLOW_UV_AUTO_DETECT.get():
         if uv_project := detect_uv_project():
             _logger.info(
                 f"Detected UV project at {uv_project['uv_lock'].parent}. "
@@ -434,13 +435,13 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
             if uv_requirements := export_uv_requirements(uv_project["uv_lock"].parent):
                 _logger.info(
                     f"Successfully exported {len(uv_requirements)} requirements from UV project. "
-                    "Skipping model-based inference."
+                    "Skipping package capture based inference."
                 )
                 return uv_requirements
             else:
                 _logger.warning(
                     "UV export failed or returned no requirements. "
-                    "Falling back to model-based inference."
+                    "Falling back to package capture based inference."
                 )
 
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()

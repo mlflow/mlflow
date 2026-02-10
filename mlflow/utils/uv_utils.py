@@ -198,7 +198,6 @@ def export_uv_requirements(
     no_dev: bool = True,
     no_hashes: bool = True,
     frozen: bool = True,
-    uv_project_path: str | Path | None = None,
     groups: list[str] | None = None,
     only_groups: list[str] | None = None,
     extras: list[str] | None = None,
@@ -210,13 +209,9 @@ def export_uv_requirements(
 
     Args:
         directory: The UV project directory. Defaults to the current working directory.
-            Ignored if uv_project_path is provided.
         no_dev: Exclude development dependencies. Defaults to True.
         no_hashes: Omit hashes from output. Defaults to True.
         frozen: Use frozen lockfile without updating. Defaults to True.
-        uv_project_path: Explicit path to the UV project directory containing uv.lock,
-            pyproject.toml, and optionally .python-version. Useful for monorepos or
-            non-standard project layouts.
         groups: Optional list of dependency groups to include (additive with project deps).
             Maps to `uv export --group <name>`.
         only_groups: Optional list of dependency groups to export exclusively (no project deps).
@@ -236,16 +231,7 @@ def export_uv_requirements(
         return None
 
     uv_bin = shutil.which("uv")
-
-    # If explicit uv_project_path provided, use it directly
-    if uv_project_path is not None:
-        directory = Path(uv_project_path)
-        if not directory.exists():
-            _logger.warning(f"Specified uv_project_path does not exist: {directory}")
-            return None
-        _logger.info(f"Using explicit UV project path for export: {directory}")
-    else:
-        directory = Path.cwd() if directory is None else Path(directory)
+    directory = Path.cwd() if directory is None else Path(directory)
 
     cmd = [uv_bin, "export"]
 
@@ -340,7 +326,6 @@ def export_uv_requirements(
 
 def get_python_version_from_uv_project(
     directory: str | Path | None = None,
-    uv_project_path: str | Path | None = None,
 ) -> str | None:
     """
     Extract Python version from a UV project.
@@ -350,20 +335,13 @@ def get_python_version_from_uv_project(
 
     Args:
         directory: The UV project directory. Defaults to the current working directory.
-            Ignored if uv_project_path is provided.
-        uv_project_path: Explicit path to the UV project directory containing uv.lock,
-            pyproject.toml, and optionally .python-version.
 
     Returns:
         Python version string (e.g., "3.11.5" or "3.11"), or None if not found.
     """
-    # If explicit uv_project_path provided, use it directly
-    if uv_project_path is not None:
-        directory = Path(uv_project_path)
-        if not directory.exists():
-            return None
-    else:
-        directory = Path.cwd() if directory is None else Path(directory)
+    directory = Path.cwd() if directory is None else Path(directory)
+    if not directory.exists():
+        return None
 
     # Check .python-version file first
     python_version_file = directory / ".python-version"
@@ -401,9 +379,6 @@ _PYTHON_VERSION_FILE = ".python-version"
 # Environment variable to disable UV file logging (for large projects)
 _MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
 
-# Environment variable to disable UV auto-detection entirely
-_MLFLOW_UV_AUTO_DETECT_ENV = "MLFLOW_UV_AUTO_DETECT"
-
 
 def _should_log_uv_files() -> bool:
     """Check if UV files (uv.lock, pyproject.toml) should be logged as artifacts."""
@@ -411,20 +386,9 @@ def _should_log_uv_files() -> bool:
     return env_value not in ("false", "0", "no")
 
 
-def _is_uv_auto_detect_enabled() -> bool:
-    """Check if UV auto-detection is enabled.
-
-    When disabled via MLFLOW_UV_AUTO_DETECT=false, MLflow will skip UV project
-    detection entirely and use standard pip-based dependency inference.
-    """
-    env_value = os.environ.get(_MLFLOW_UV_AUTO_DETECT_ENV, "true").lower()
-    return env_value not in ("false", "0", "no")
-
-
 def copy_uv_project_files(
     dest_dir: str | Path,
     source_dir: str | Path | None = None,
-    uv_project_path: str | Path | None = None,
 ) -> bool:
     """
     Copy UV project files to the model artifact directory.
@@ -438,15 +402,11 @@ def copy_uv_project_files(
     Args:
         dest_dir: The destination directory (model artifact directory).
         source_dir: The source directory containing UV project files.
-            Defaults to the current working directory. Ignored if uv_project_path is provided.
-        uv_project_path: Explicit path to the UV project directory containing uv.lock,
-            pyproject.toml, and optionally .python-version. Useful for monorepos or
-            non-standard project layouts.
+            Defaults to the current working directory.
 
     Returns:
         True if UV files were copied, False otherwise.
     """
-    # Check if UV file logging is disabled via environment variable
     if not _should_log_uv_files():
         _logger.info(
             f"UV file logging disabled via {_MLFLOW_LOG_UV_FILES_ENV} environment variable"
@@ -454,24 +414,10 @@ def copy_uv_project_files(
         return False
 
     dest_dir = Path(dest_dir)
-
-    # If explicit uv_project_path provided, use it directly
-    if uv_project_path is not None:
-        source_dir = Path(uv_project_path)
-        if not source_dir.exists():
-            _logger.warning(f"Specified uv_project_path does not exist: {source_dir}")
-            return False
-        _logger.info(f"Using explicit UV project path: {source_dir}")
-    else:
-        source_dir = Path.cwd() if source_dir is None else Path(source_dir)
+    source_dir = Path.cwd() if source_dir is None else Path(source_dir)
 
     uv_project = detect_uv_project(source_dir)
-
     if uv_project is None:
-        if uv_project_path is not None:
-            _logger.warning(
-                f"Explicit uv_project_path provided but UV project not found in {source_dir}"
-            )
         return False
 
     uv_lock_src = uv_project["uv_lock"]
