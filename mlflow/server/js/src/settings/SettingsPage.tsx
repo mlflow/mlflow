@@ -5,12 +5,15 @@ import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from
 import { telemetryClient } from '../telemetry';
 import { useCallback, useState } from 'react';
 import { getAjaxUrl } from '../common/utils/FetchUtils';
+import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isCleaningDemo, setIsCleaningDemo] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const { setIsDarkTheme } = useDarkThemeContext();
+  const isDarkTheme = theme.isDarkMode;
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -44,10 +47,36 @@ const SettingsPage = () => {
   }, []);
 
   return (
-    <div css={{ padding: theme.spacing.md }}>
-      <Typography.Title level={2}>
+    <div css={{ padding: theme.spacing.md, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+      <Typography.Title level={2} withoutMargins>
         <FormattedMessage defaultMessage="Settings" description="Settings page title" />
       </Typography.Title>
+
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600 }}>
+        <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Theme preference" description="Theme settings title" />
+          </Typography.Title>
+          <Typography.Text>
+            <FormattedMessage
+              defaultMessage="Select your theme preference between light and dark."
+              description="Description for the theme setting in the settings page"
+            />
+          </Typography.Text>
+        </div>
+        <Switch
+          componentId="mlflow.settings.theme.toggle-switch"
+          checked={isDarkTheme}
+          onChange={() => setIsDarkTheme(!isDarkTheme)}
+          label={
+            isDarkTheme
+              ? intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })
+              : intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })
+          }
+          activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
+          inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
+        />
+      </div>
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600 }}>
         <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
@@ -76,7 +105,11 @@ const SettingsPage = () => {
           componentId="mlflow.settings.telemetry.toggle-switch"
           checked={isTelemetryEnabled}
           onChange={handleTelemetryToggle}
-          label=" "
+          label={
+            isTelemetryEnabled
+              ? intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })
+              : intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })
+          }
           activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
           inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
         />
@@ -88,7 +121,6 @@ const SettingsPage = () => {
           justifyContent: 'space-between',
           alignItems: 'center',
           maxWidth: 600,
-          marginTop: theme.spacing.lg,
         }}
       >
         <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
