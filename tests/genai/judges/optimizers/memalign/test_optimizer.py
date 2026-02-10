@@ -554,6 +554,30 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
         assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
 
 
+def test_judge_call_uses_json_adapter(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        mock_prediction = MagicMock()
+        mock_prediction.result = "yes"
+        mock_prediction.rationale = "Test rationale"
+        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+
+        with patch("dspy.context") as mock_context:
+            mock_context.return_value.__enter__ = MagicMock()
+            mock_context.return_value.__exit__ = MagicMock(return_value=False)
+            aligned_judge(inputs="test input", outputs="test output")
+
+            mock_context.assert_called_once()
+            adapter_arg = mock_context.call_args.kwargs["adapter"]
+            from dspy.adapters.json_adapter import JSONAdapter
+
+            assert isinstance(adapter_arg, JSONAdapter)
+
+
 def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge, sample_traces):
     with mock_apis(guidelines=[]) as mocks:
         mocks["search"].return_value = MagicMock(indices=[])
