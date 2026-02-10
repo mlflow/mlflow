@@ -741,6 +741,29 @@ def test_numpy_encoder_for_pydantic():
     )
 
 
+def test_parse_parquet_input():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return 1
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+
+    pandas_df = pd.DataFrame(
+        {
+            "foo": [3.0, 4.0],
+            "bar": [1.0, 2.0],
+        }
+    )
+
+    response_records_content_type = score_model_in_process(
+        model_uri=f"runs:/{run.info.run_id}/model",
+        data=pandas_df,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_PARQUET,
+    )
+    expect_status_code(response_records_content_type, 200)
+
+
 def test_parse_json_input_including_path():
     class TestModel(PythonModel):
         def predict(self, context, model_input, params=None):
