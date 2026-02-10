@@ -44,12 +44,16 @@ if TYPE_CHECKING:
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
-def _convert_like_pattern_to_regex(pattern, flags=0):
+def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
+    regex = re.escape(pattern)
+    regex = regex.replace("%", ".*").replace("_", ".")
+
     if not pattern.startswith("%"):
-        pattern = "^" + pattern
+        regex = "^" + regex
     if not pattern.endswith("%"):
-        pattern = pattern + "$"
-    return re.compile(pattern.replace("_", ".").replace("%", ".*"), flags)
+        regex = regex + "$"
+
+    return re.compile(regex, flags)
 
 
 def _like(string, pattern):
