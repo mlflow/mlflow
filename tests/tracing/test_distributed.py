@@ -145,14 +145,12 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
     port = get_safe_port()
     # Ensure we get a different port for the second server to avoid port conflicts
     port2 = get_safe_port()
-    max_retries = 10
-    retries = 0
-    while port2 == port and retries < max_retries:
+    for _ in range(10):
+        if port2 != port:
+            break
         port2 = get_safe_port()
-        retries += 1
-
-    if port2 == port:
-        raise RuntimeError(f"Failed to get unique ports after {max_retries} retries")
+    else:
+        raise RuntimeError("Failed to get unique ports after 10 retries")
 
     # Path to the Flask server script
     server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
