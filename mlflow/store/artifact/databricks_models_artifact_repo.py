@@ -6,6 +6,7 @@ import posixpath
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
 )
@@ -33,7 +34,9 @@ _logger = logging.getLogger(__name__)
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
-REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = (
+    "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+)
 
 
 class DatabricksModelsArtifactRepository(ArtifactRepository):
@@ -54,7 +57,10 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         if not is_using_databricks_registry(artifact_uri, registry_uri):
             raise MlflowException(
@@ -71,7 +77,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         )
         warn_on_deprecated_cross_workspace_registry_uri(self.databricks_profile_uri)
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
-        self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
+        self.model_name, self.model_version = get_model_name_and_version(
+            client, artifact_uri
+        )
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
@@ -80,7 +88,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
 
     def _call_endpoint(self, json, endpoint):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
-        return http_request(host_creds=db_creds, endpoint=endpoint, method="GET", params=json)
+        return http_request(
+            host_creds=db_creds, endpoint=endpoint, method="GET", params=json
+        )
 
     def _make_json_body(self, path, page_token=None):
         body = {"name": self.model_name, "version": self.model_version, "path": path}
@@ -116,8 +126,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             ):
                 return []
             for output_file in artifact_list:
-                artifact_size = None if output_file["is_dir"] else output_file["file_size"]
-                infos.append(FileInfo(output_file["path"], output_file["is_dir"], artifact_size))
+                artifact_size = (
+                    None if output_file["is_dir"] else output_file["file_size"]
+                )
+                infos.append(
+                    FileInfo(output_file["path"], output_file["is_dir"], artifact_size)
+                )
             if len(artifact_list) == 0 or not next_page_token:
                 break
             page_token = next_page_token
@@ -128,7 +142,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         if not path:
             path = ""
         json_body = self._make_json_body(path)
-        response = self._call_endpoint(json_body, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
+        response = self._call_endpoint(
+            json_body, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT
+        )
         try:
             json_response = json.loads(response.text)
         except ValueError:
@@ -145,7 +161,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         return {header.get("name"): header.get("value") for header in filtered_headers}
 
     def _parallelized_download_from_cloud(
-        self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
+        self,
+        signed_uri,
+        headers,
+        file_size,
+        dst_local_file_path,
+        dst_run_relative_artifact_path,
     ):
         from mlflow.utils.databricks_utils import get_databricks_env_vars
 
@@ -176,6 +197,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                     http_uri=new_signed_uri,
                     headers=new_headers,
                     download_path=dst_local_file_path,
+                    timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
                 )
 
     def _download_file(self, remote_file_path, local_path):
@@ -195,7 +217,10 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             ):
                 download_file_using_http_uri(
-                    signed_uri, local_path, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(), headers
+                    signed_uri,
+                    local_path,
+                    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
+                    headers,
                 )
             else:
                 self._parallelized_download_from_cloud(
@@ -216,4 +241,6 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         raise MlflowException("This repository does not support logging artifacts.")
 
     def delete_artifacts(self, artifact_path=None):
-        raise NotImplementedError("This artifact repository does not support deleting artifacts")
+        raise NotImplementedError(
+            "This artifact repository does not support deleting artifacts"
+        )

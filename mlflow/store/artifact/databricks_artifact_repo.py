@@ -19,6 +19,7 @@ from mlflow.azure.client import (
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
@@ -79,7 +80,9 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
+_MAX_CREDENTIALS_REQUEST_SIZE = (
+    2000  # Max number of artifact paths in a single credentials request
+)
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -100,7 +103,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     """
 
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
@@ -147,15 +153,21 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         if parts[3] == "logged_models":
             return _LoggedModel(
-                id_=parts[4], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+                id_=parts[4],
+                artifact_uri=artifact_uri,
+                call_endpoint=self._call_endpoint,
             )
 
         if parts[3].startswith(TRACE_REQUEST_ID_PREFIX):
             return _Trace(
-                id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+                id_=parts[3],
+                artifact_uri=artifact_uri,
+                call_endpoint=self._call_endpoint,
             )
 
-        return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
+        return _Run(
+            id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint
+        )
 
     @staticmethod
     def _extract_run_id(artifact_uri: str) -> str | None:
@@ -241,7 +253,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         relative artifact `paths` within the MLflow resource specified by `self.resource.id`.
         """
         relative_remote_paths = [
-            posixpath.join(self.resource.relative_path, p or "") for p in remote_file_paths
+            posixpath.join(self.resource.relative_path, p or "")
+            for p in remote_file_paths
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
@@ -366,7 +379,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return block_id
 
     def _azure_upload_file(
-        self, credentials, local_file, artifact_file_path, get_credentials, is_sync=False
+        self,
+        credentials,
+        local_file,
+        artifact_file_path,
+        get_credentials,
+        is_sync=False,
     ):
         """
         Uploads a file to a given Azure storage location.
@@ -387,7 +405,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+            num_chunks = _compute_num_chunks(
+                local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+            )
 
             def upload_chunks_func(start_byte):
                 return self._azure_upload_chunk(
@@ -428,7 +448,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 uploading_block_list = [results[index] for index in sorted(results)]
 
             try:
-                put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
+                put_block_list(
+                    credentials.signed_uri, uploading_block_list, headers=headers
+                )
             except requests.HTTPError as e:
                 if e.response.status_code in [401, 403]:
                     _logger.info(
@@ -437,14 +459,18 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     )
                     credential_info = get_credentials([artifact_file_path])[0]
                     put_block_list(
-                        credential_info.signed_uri, uploading_block_list, headers=headers
+                        credential_info.signed_uri,
+                        uploading_block_list,
+                        headers=headers,
                     )
                 else:
                     raise e
         except Exception as err:
             raise MlflowException(err)
 
-    def _retryable_adls_function(self, func, artifact_file_path, get_credentials, **kwargs):
+    def _retryable_adls_function(
+        self, func, artifact_file_path, get_credentials, **kwargs
+    ):
         """
         Calls the passed function, retrying if the credentials have expired.
 
@@ -470,7 +496,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise e
 
     def _azure_adls_gen2_upload_file(
-        self, credentials, local_file, artifact_file_path, get_credentials, is_sync=False
+        self,
+        credentials,
+        local_file,
+        artifact_file_path,
+        get_credentials,
+        is_sync=False,
     ):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
@@ -496,7 +527,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
             # next try to append the file
             file_size = os.path.getsize(local_file)
-            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+            num_chunks = _compute_num_chunks(
+                local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+            )
             use_single_part_upload = num_chunks == 1
 
             def upload_chunks_func(start_byte):
@@ -568,7 +601,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, artifact_file_path
+    ):
         """
         Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
         to resource relative artifact file paths in the artifact repository.
@@ -587,7 +622,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 artifact_file_path,
                 get_credentials=self._get_write_credential_infos,
             )
-        elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+        elif (
+            cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI
+        ):
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info,
                 src_file_path,
@@ -595,7 +632,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+            if (
+                os.path.getsize(src_file_path)
+                > MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+            ):
                 _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
@@ -637,7 +677,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 cloud_credential_info.signed_uri,
                 local_path,
                 MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
-                self._extract_headers_from_credentials(cloud_credential_info.headers),
+                headers=self._extract_headers_from_credentials(
+                    cloud_credential_info.headers
+                ),
+                timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
             )
         except Exception as err:
             raise MlflowException(err)
@@ -646,7 +689,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self._call_endpoint(
             DatabricksMlflowArtifactsService,
             CreateMultipartUpload,
-            message_to_json(CreateMultipartUpload(run_id=run_id, path=path, num_parts=num_parts)),
+            message_to_json(
+                CreateMultipartUpload(run_id=run_id, path=path, num_parts=num_parts)
+            ),
         )
 
     def _get_presigned_upload_part_url(self, run_id, path, upload_id, part_number):
@@ -655,7 +700,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             GetPresignedUploadPartUrl,
             message_to_json(
                 GetPresignedUploadPartUrl(
-                    run_id=run_id, path=path, upload_id=upload_id, part_number=part_number
+                    run_id=run_id,
+                    path=path,
+                    upload_id=upload_id,
+                    part_number=part_number,
                 )
             ),
         )
@@ -671,7 +719,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             augmented_raise_for_status(response)
             return response.headers["ETag"]
 
-    def _upload_part_retry(self, cred_info, upload_id, part_number, local_file, start_byte, size):
+    def _upload_part_retry(
+        self, cred_info, upload_id, part_number, local_file, start_byte, size
+    ):
         data = read_chunk(local_file, size, start_byte)
         try:
             return self._upload_part(cred_info, data)
@@ -740,7 +790,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         run_relative_artifact_path = posixpath.join(
             self.resource.relative_path, artifact_file_path or ""
         )
-        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+        num_parts = _compute_num_chunks(
+            local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        )
         create_mpu_resp = self._create_multipart_upload(
             self.resource.id, run_relative_artifact_path, num_parts
         )
@@ -754,7 +806,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
         except Exception as e:
             _logger.warning(
-                "Encountered an unexpected error during multipart upload: %s, aborting", e
+                "Encountered an unexpected error during multipart upload: %s, aborting",
+                e,
             )
             self._abort_multipart_upload(create_mpu_resp.abort_credential_info)
             raise e
@@ -762,7 +815,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         src_file_name = os.path.basename(local_file)
         artifact_file_path = posixpath.join(artifact_path or "", src_file_name)
-        write_credential_info = self._get_write_credential_infos([artifact_file_path])[0]
+        write_credential_info = self._get_write_credential_infos([artifact_file_path])[
+            0
+        ]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,

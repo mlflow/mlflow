@@ -64,13 +64,17 @@ def augmented_raise_for_status(response):
     except HTTPError as e:
         if response.text:
             raise HTTPError(
-                f"{e}. Response text: {response.text}", request=e.request, response=e.response
+                f"{e}. Response text: {response.text}",
+                request=e.request,
+                response=e.response,
             )
         else:
             raise e
 
 
-def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
+def download_chunk(
+    *, range_start, range_end, headers, download_path, http_uri, timeout=30
+):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
     with cloud_storage_http_request(
@@ -78,7 +82,7 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
         http_uri,
         stream=False,
         headers=combined_headers,
-        timeout=10,
+        timeout=timeout,
     ) as response:
         expected_length = response.headers.get("Content-Length")
         if expected_length is not None:
@@ -231,7 +235,10 @@ def _get_http_response_with_retries(
 
     # the environment variable is hardcoded here to avoid importing mlflow.
     # however, documentation is available in environment_variables.py
-    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
+    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in [
+        "true",
+        "1",
+    ]
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
     return session.request(method, url, allow_redirects=allow_redirects, **kwargs)
