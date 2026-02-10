@@ -9,7 +9,12 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_lm_state, log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import (
+    EXCLUDE_LM_PARAMS,
+    log_dspy_lm_state,
+    log_dspy_module_params,
+    save_dspy_module_state,
+)
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
@@ -154,10 +159,7 @@ class MlflowCallback(BaseCallback):
         )
 
         filtered_kwargs = {
-            key: value
-            for key, value in instance.kwargs.items()
-            if key
-            not in {"api_key", "api_base", "azure_ad_token", "client_secret", "azure_password"}
+            key: value for key, value in instance.kwargs.items() if key not in EXCLUDE_LM_PARAMS
         }
         attributes = {
             **filtered_kwargs,

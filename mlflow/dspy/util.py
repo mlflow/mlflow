@@ -13,6 +13,8 @@ from mlflow.entities import LoggedModelOutput
 
 _logger = logging.getLogger(__name__)
 
+EXCLUDE_LM_PARAMS = {"api_key", "api_base", "azure_ad_token", "client_secret", "azure_password"}
+
 
 def save_dspy_module_state(program, file_name: str = "model.json"):
     """
@@ -82,7 +84,7 @@ def log_dspy_lm_state():
         lm_attributes = {
             key: value
             for key, value in getattr(lm, "kwargs", {}).items()
-            if key not in {"api_key", "api_base"}
+            if key not in EXCLUDE_LM_PARAMS
         }
 
         for attr in ["model", "model_type", "cache", "temperature", "max_tokens"]:
