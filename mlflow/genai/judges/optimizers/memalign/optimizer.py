@@ -199,7 +199,7 @@ class MemoryAugmentedJudge(Judge):
         import dspy
         from dspy.adapters.json_adapter import JSONAdapter
 
-        with dspy.settings.context(adapter=JSONAdapter()):
+        with dspy.context(adapter=JSONAdapter()):
             prediction = self._predict_module(
                 guidelines=guidelines,
                 example_judgements=relevant_examples,
