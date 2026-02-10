@@ -21,3 +21,4 @@ depends.Rds
 R-version
 *.tar.gz
 crate.bin
+inst/doc
