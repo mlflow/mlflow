@@ -266,22 +266,67 @@ def test_incremental_alignment_preserves_examples(sample_judge, sample_traces):
     with mock_apis(guidelines=["Guideline 1"]):
         optimizer = MemAlignOptimizer()
 
-        # First alignment with 2 traces
         judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
         assert len(judge_v2._episodic_memory) == 2
         assert judge_v2._base_judge is sample_judge
 
-        # Second alignment with 2 more traces - should preserve previous examples
         judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
         assert len(judge_v3._episodic_memory) == 4
-        assert judge_v3._base_judge is sample_judge  # Should unwrap to original
+        assert judge_v3._base_judge is sample_judge
 
-        # Verify all trace IDs are present
         trace_ids_in_v3 = {
             ex._trace_id for ex in judge_v3._episodic_memory if hasattr(ex, "_trace_id")
         }
         expected_trace_ids = {sample_traces[i].info.trace_id for i in range(4)}
         assert trace_ids_in_v3 == expected_trace_ids
+
+
+def test_incremental_alignment_preserves_trace_ids(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        batch1_ids = {t.info.trace_id for t in sample_traces[:2]}
+        assert set(judge_v2._episodic_trace_ids) == batch1_ids
+
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        all_ids = batch1_ids | {t.info.trace_id for t in sample_traces[2:4]}
+        assert set(judge_v3._episodic_trace_ids) == all_ids
+
+
+def test_incremental_alignment_with_single_example(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:1])
+        assert len(judge_v2._episodic_memory) == 1
+
+        judge_v3 = optimizer.align(judge_v2, sample_traces[1:3])
+        assert len(judge_v3._episodic_memory) == 3
+
+
+def test_incremental_alignment_after_deserialization(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        aligned_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        assert len(aligned_v1._episodic_memory) == 3
+
+        dumped = aligned_v1.model_dump()
+        serialized = SerializedScorer(**dumped)
+        deserialized = MemoryAugmentedJudge._from_serialized(serialized)
+
+        assert deserialized._episodic_memory == []
+        assert len(deserialized._episodic_trace_ids) == 3
+
+        trace_map = {t.info.trace_id: t for t in sample_traces[:3]}
+        with patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+            side_effect=lambda tid, **kwargs: trace_map.get(tid),
+        ):
+            aligned_v2 = optimizer.align(deserialized, sample_traces[3:5])
+
+        assert len(aligned_v2._episodic_memory) == 5
 
 
 def test_incremental_alignment_redistills_guidelines(sample_judge, sample_traces):

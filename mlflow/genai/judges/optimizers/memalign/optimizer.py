@@ -166,11 +166,17 @@ class MemoryAugmentedJudge(Judge):
         )
         self._retriever = None
 
-        # Inherit memory from base_judge if it's a MemoryAugmentedJudge
+        # Inherit memory from base_judge if it's a MemoryAugmentedJudge.
+        # Episodic memory index is not built here — _add_examples_to_memory() handles it.
         if isinstance(base_judge, MemoryAugmentedJudge):
             self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
-            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
-            self._build_episodic_memory()
+            self._episodic_trace_ids = base_judge._episodic_trace_ids.copy()
+            if base_judge._episodic_memory:
+                self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
+            elif self._episodic_trace_ids:
+                self._episodic_memory = self._reconstruct_episodic_memory()
+            else:
+                self._episodic_memory: list["dspy.Example"] = []
         else:
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
@@ -336,6 +342,29 @@ class MemoryAugmentedJudge(Judge):
 
         return judge_copy
 
+    def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
+        examples = []
+        missing_ids = []
+        for trace_id in self._episodic_trace_ids:
+            trace = mlflow.get_trace(trace_id, silent=True)
+            if trace is not None:
+                if example := trace_to_dspy_example(trace, self._base_judge):
+                    example._trace_id = trace.info.trace_id
+                    examples.append(example)
+            else:
+                missing_ids.append(trace_id)
+
+        if missing_ids:
+            _logger.warning(
+                f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
+                f"Missing trace IDs: {missing_ids[:5]}"
+                f"{'...' if len(missing_ids) > 5 else ''}. "
+                f"Judge will operate with partial memory "
+                f"({len(examples)}/{len(self._episodic_trace_ids)} traces)."
+            )
+
+        return examples
+
     def _lazy_init(self) -> None:
         """
         Lazily initialize DSPy components and episodic memory from stored trace IDs.
@@ -367,29 +396,7 @@ class MemoryAugmentedJudge(Judge):
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
-        # Fetch traces by ID using mlflow.get_trace which handles location context
-        traces = []
-        missing_ids = []
-        for trace_id in self._episodic_trace_ids:
-            trace = mlflow.get_trace(trace_id, silent=True)
-            if trace is not None:
-                traces.append(trace)
-            else:
-                missing_ids.append(trace_id)
-
-        if missing_ids:
-            _logger.warning(
-                f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
-                f"Missing trace IDs: {missing_ids[:5]}"
-                f"{'...' if len(missing_ids) > 5 else ''}. "
-                f"Judge will operate with partial memory "
-                f"({len(traces)}/{len(self._episodic_trace_ids)} traces)."
-            )
-
-        for trace in traces:
-            if example := trace_to_dspy_example(trace, self._base_judge):
-                example._trace_id = trace.info.trace_id
-                self._episodic_memory.append(example)
+        self._episodic_memory = self._reconstruct_episodic_memory()
 
         if self._episodic_memory:
             self._build_episodic_memory()
