@@ -54,24 +54,8 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                 )
 
             def _is_valid_value_type(t):
-                if t in pb_value_types:
-                    return True
-                if get_origin(t) is type(None):
-                    return False
-                if get_origin(t) is None:
-                    return False
-                if get_origin(t) is list or get_origin(t) is dict:
-                    return False
-                if get_origin(t) is tuple:
-                    return False
-                if get_origin(t) is set:
-                    return False
-                if get_origin(t) is type:
-                    return False
-
-                if get_origin(t) is not None:
-                    return all(v in pb_value_types for v in get_args(t))
-                return False
+                # Only allow primitive types — Union types are not supported
+                return t in pb_value_types
 
             if not _is_valid_value_type(value_type):
                 from mlflow.exceptions import MlflowException
@@ -88,11 +72,8 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
             element_type = args[0]
 
             def _is_valid_element_type(t):
-                if t in pb_value_types:
-                    return True
-                if get_origin(t) is not None:
-                    return all(v in pb_value_types for v in get_args(t))
-                return False
+                # Only allow primitive element types — Union types are not supported
+                return t in pb_value_types
 
             if not _is_valid_element_type(element_type):
                 from mlflow.exceptions import MlflowException
