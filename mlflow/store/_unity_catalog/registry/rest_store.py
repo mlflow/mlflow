@@ -896,7 +896,9 @@ class UcModelRegistryStore(BaseRestStore):
                     shutil.rmtree(local_model_dir)
 
     def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
-        if model_id is None:
+        # Return early if model_id is None or empty string (e.g. when copying model versions
+        # that don't have an associated logged model - protobuf returns "" for unset strings)
+        if not model_id:
             return None
         try:
             return mlflow.get_logged_model(model_id)
@@ -956,6 +958,9 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        # Normalize empty string model_id to None (protobuf returns "" for unset optional strings)
+        # This prevents sending model_id="" to the UC backend which causes errors
+        model_id = model_id or None
         if logged_model := self._get_logged_model_from_model_id(model_id):
             run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
@@ -990,19 +995,20 @@ class UcModelRegistryStore(BaseRestStore):
             self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = get_model_version_dependencies(local_model_dir)
-            req_body = message_to_json(
-                CreateModelVersionRequest(
-                    name=full_name,
-                    source=source,
-                    run_id=run_id,
-                    description=description,
-                    tags=uc_model_version_tag_from_mlflow_tags(tags),
-                    run_tracking_server_id=source_workspace_id,
-                    feature_deps=feature_deps,
-                    model_version_dependencies=other_model_deps,
-                    model_id=model_id,
-                )
-            )
+            # (empty string from protobuf default should not be sent to backend)
+            request_kwargs = {
+                "name": full_name,
+                "source": source,
+                "run_id": run_id,
+                "description": description,
+                "tags": uc_model_version_tag_from_mlflow_tags(tags),
+                "run_tracking_server_id": source_workspace_id,
+                "feature_deps": feature_deps,
+                "model_version_dependencies": other_model_deps,
+            }
+            if model_id:
+                request_kwargs["model_id"] = model_id
+            req_body = message_to_json(CreateModelVersionRequest(**request_kwargs))
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
