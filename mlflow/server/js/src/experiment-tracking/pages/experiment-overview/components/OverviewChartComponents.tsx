@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   FilterOperator,
   HiddenFilterOperator,
   TracesTableColumnGroup,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 
 export const DEFAULT_CHART_HEIGHT = 280;
@@ -236,6 +239,26 @@ export function createAssessmentEqualsFilter(assessmentName: string, scoreValue:
   return [TracesTableColumnGroup.ASSESSMENT, FilterOperator.EQUALS, scoreValue, assessmentName].join('::');
 }
 
+/**
+ * Creates a filter string for traces where span name equals the specified value.
+ *
+ * @param spanName - The name of the span to filter by
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanNameEqualsFilter(spanName: string): string {
+  return [SPAN_NAME_COLUMN_ID, FilterOperator.EQUALS, spanName].join('::');
+}
+
+/**
+ * Creates a filter string for traces where span status equals the specified value.
+ *
+ * @param status - The status value to filter by (e.g., 'ERROR', 'OK')
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanStatusEqualsFilter(status: string): string {
+  return [SPAN_STATUS_COLUMN_ID, FilterOperator.EQUALS, status].join('::');
+}
+
 /** Allowed component IDs for tooltip "View traces" links */
 type TooltipLinkComponentId =
   | 'mlflow.overview.usage.traces.view_traces_link'
@@ -244,7 +267,8 @@ type TooltipLinkComponentId =
   | 'mlflow.overview.usage.token_stats.view_traces_link'
   | 'mlflow.overview.usage.token_usage.view_traces_link'
   | 'mlflow.overview.quality.assessment.view_traces_link'
-  | 'mlflow.overview.quality.assessment_timeseries.view_traces_link';
+  | 'mlflow.overview.quality.assessment_timeseries.view_traces_link'
+  | 'mlflow.overview.tools.error_rate.view_traces_link';
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
@@ -300,6 +324,7 @@ interface ScrollableTooltipProps {
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const hideTooltipLinks = useContext(OverviewChartContext)?.hideTooltipLinks;
 
   if (!active || !payload?.length) {
     return null;
@@ -310,7 +335,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
   const hasCustomLinkClick = linkConfig?.onLinkClick !== undefined;
   const hasTimeBasedNavigation =
     linkConfig?.experimentId && linkConfig?.timeIntervalSeconds && dataPoint?.timestampMs !== undefined;
-  const showLink = linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
+  const showLink = !hideTooltipLinks && linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {

@@ -656,15 +656,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
 
-        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
-            summary_path = Path(summary_path).resolve()
-            with summary_path.open("a") as f:
-                f.write("## Failed tests\n")
-                f.write("Run the following command to run the failed tests:\n")
-                f.write("```bash\n")
-                f.write(" ".join(["pytest"] + ids) + "\n")
-                f.write("```\n\n")
-
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins
         # mlflow version to install based on local environment i.e. dev version ahead of

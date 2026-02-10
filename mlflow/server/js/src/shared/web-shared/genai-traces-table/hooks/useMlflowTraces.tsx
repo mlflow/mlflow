@@ -21,6 +21,7 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -759,6 +760,10 @@ export const createMlflowSearchFilter = (
           } else {
             filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
           }
+          break;
+        case SPAN_STATUS_COLUMN_ID:
+          // Span status uses exact match (OK, ERROR, UNSET)
+          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {

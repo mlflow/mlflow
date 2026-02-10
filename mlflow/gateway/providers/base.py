@@ -5,6 +5,7 @@ from typing import Any, AsyncIterable
 import numpy as np
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.gateway_endpoint import FallbackStrategy
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel
@@ -158,19 +159,43 @@ class BaseProvider(ABC):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        async def passthrough(
-            action: PassthroughAction,
-            payload: dict[str, Any],
-            headers: dict[str, str] | None = None,
-        ) -> dict[str, Any] | AsyncIterable[Any]:
-            # TODO: Token usage should be traced at the individual provider level
-            span = mlflow.get_current_active_span()
-            if span is not None and self._enable_tracing:
-                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+        if not self._enable_tracing:
             return await self._passthrough(action, payload, headers)
 
-        passthrough_method = mlflow.trace(passthrough) if self._enable_tracing else passthrough
-        return await passthrough_method(action, payload, headers)
+        try:
+            result = await self._passthrough(action, payload, headers)
+            if isinstance(result, AsyncIterable):
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def passthrough():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes(
+                            {**self._get_provider_attributes(), "action": action.value}
+                        )
+                    async for chunk in result:
+                        yield chunk
+
+                return passthrough()
+            else:
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def passthrough():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes(
+                            {**self._get_provider_attributes(), "action": action.value}
+                        )
+                    if span is not None:
+                        if token_usage := self._extract_passthrough_token_usage(action, result):
+                            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+                    return result
+
+                return await passthrough()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+                raise e
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
@@ -227,6 +252,82 @@ class BaseProvider(ABC):
 
         return token_usage or None
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from a passthrough response dictionary.
+
+        Override this method in provider subclasses to handle provider-specific
+        response formats for passthrough endpoints.
+
+        Args:
+            action: The passthrough action that was performed.
+            result: The raw response dictionary from the provider API.
+
+        Returns:
+            A dictionary with token usage keys (input_tokens, output_tokens, total_tokens)
+            or None if usage information is not available.
+        """
+        return None
+
+    @staticmethod
+    def _extract_token_usage_from_dict(
+        usage_dict: dict[str, Any] | None,
+        input_tokens_key: str,
+        output_tokens_key: str,
+        total_tokens_key: str | None = None,
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from a dictionary with configurable key names.
+
+        This is a helper method to reduce code duplication across providers.
+        Each provider uses different key names for token usage, but the extraction
+        logic is the same.
+
+        Args:
+            usage_dict: The dictionary containing token usage information.
+            input_tokens_key: Key name for input/prompt tokens (e.g., "input_tokens",
+                "prompt_tokens", "promptTokenCount").
+            output_tokens_key: Key name for output/completion tokens (e.g., "output_tokens",
+                "completion_tokens", "candidatesTokenCount").
+            total_tokens_key: Optional key name for total tokens. If None or not present
+                in usage_dict, total will be calculated from input + output.
+
+        Returns:
+            A dictionary with normalized token usage keys (input_tokens, output_tokens,
+            total_tokens) or None if usage_dict is None or empty.
+        """
+        if not usage_dict:
+            return None
+
+        token_usage = {}
+
+        if (input_tokens := usage_dict.get(input_tokens_key)) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+        if (output_tokens := usage_dict.get(output_tokens_key)) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        if total_tokens_key and (total_tokens := usage_dict.get(total_tokens_key)) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        elif (
+            TokenUsageKey.INPUT_TOKENS in token_usage and TokenUsageKey.OUTPUT_TOKENS in token_usage
+        ):
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                token_usage[TokenUsageKey.INPUT_TOKENS] + token_usage[TokenUsageKey.OUTPUT_TOKENS]
+            )
+
+        return token_usage or None
+
+    def _set_span_token_usage(self, token_usage: dict[str, int]) -> None:
+        """
+        Set token usage on the current active span if tracing is enabled.
+
+        This is a helper for providers to call at the end of streaming passthrough.
+        """
+        if self._enable_tracing and (span := mlflow.get_current_active_span()) and token_usage:
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+
     async def _maybe_trace_method(self, method_name: str, method, *args, **kwargs):
         """Execute a method with optional tracing span based on _enable_tracing."""
         if not self._enable_tracing:
@@ -237,7 +338,7 @@ class BaseProvider(ABC):
             return await method(*args, **kwargs)
 
         span_name = self._get_span_name()
-        with mlflow.start_span(name=span_name) as span:
+        with mlflow.start_span(span_type=SpanType.LLM, name=span_name) as span:
             span.set_attributes({**self._get_provider_attributes(), "method": method_name})
 
             result = await method(*args, **kwargs)
@@ -265,6 +366,7 @@ class BaseProvider(ABC):
         # Use start_span_no_context to get a LiveSpan that can be manually ended
         span = start_span_no_context(
             name=span_name,
+            span_type=SpanType.LLM,
             parent_span=active_span,
             attributes={
                 **self._get_provider_attributes(),
@@ -323,6 +425,41 @@ class BaseProvider(ABC):
                 f"Supported endpoints: {supported_routes}",
             )
         return provider_path
+
+    async def _stream_passthrough_with_usage(
+        self, stream: AsyncIterable[Any]
+    ) -> AsyncIterable[Any]:
+        """Stream passthrough response while accumulating token usage."""
+        accumulated_usage: dict[str, int] = {}
+        try:
+            async for chunk in stream:
+                chunk_usage = self._extract_streaming_token_usage(chunk)
+                accumulated_usage.update(chunk_usage)
+                yield chunk
+        finally:
+            # Calculate total if we have input and output but no total
+            if (
+                TokenUsageKey.INPUT_TOKENS in accumulated_usage
+                and TokenUsageKey.OUTPUT_TOKENS in accumulated_usage
+                and TokenUsageKey.TOTAL_TOKENS not in accumulated_usage
+            ):
+                accumulated_usage[TokenUsageKey.TOTAL_TOKENS] = (
+                    accumulated_usage[TokenUsageKey.INPUT_TOKENS]
+                    + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
+                )
+            self._set_span_token_usage(accumulated_usage)
+
+    def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
+        """Extract token usage from a streaming chunk.
+
+        Override this method in provider subclasses to handle provider-specific
+        streaming formats for passthrough endpoints.
+
+        Returns:
+            A dictionary with token usage keys found in this chunk.
+            May be partial (e.g., only input_tokens or only output_tokens).
+        """
+        return {}
 
     @staticmethod
     def check_for_model_field(payload):

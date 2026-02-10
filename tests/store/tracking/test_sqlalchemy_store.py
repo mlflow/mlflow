@@ -93,6 +93,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlSpan,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -102,6 +103,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TraceMetadataKey,
@@ -5456,6 +5458,71 @@ def test_search_traces_with_combined_span_filters(store: SqlAlchemyStore):
     )
     assert len(traces) == 1
     assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_same_span_filter")
+
+    trace1_id = "trace1"
+    _create_trace(store, trace1_id, exp_id)
+
+    span1a = create_test_span_with_content(
+        trace1_id,
+        name="search_web",
+        span_id=111,
+        span_type="TOOL",
+        status=trace_api.StatusCode.ERROR,
+        custom_attributes={"query": "test"},
+    )
+    span1b = create_test_span_with_content(
+        trace1_id,
+        name="other_tool",
+        span_id=112,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"data": "value"},
+    )
+
+    trace2_id = "trace2"
+    _create_trace(store, trace2_id, exp_id)
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="search_web",
+        span_id=222,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"query": "test2"},
+    )
+
+    store.log_spans(exp_id, [span1a, span1b])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "ERROR"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "other_tool" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "search_web"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
 
 
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
@@ -12445,6 +12512,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         }
 
 
+def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
+        SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .order_by(SqlSpanMetrics.key)
+            .all()
+        )
+        metrics_by_key = {metric.key: metric.value for metric in metrics}
+        assert metrics_by_key == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }
+
+        # Check that dimension_attributes is stored on the span
+        sql_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
+            .one()
+        )
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+
+
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_incremental_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -12518,6 +12644,83 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
             "input_tokens": 300,
             "output_tokens": 125,
             "total_tokens": 425,
+        }
+
+
+def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.001,
+                CostKey.OUTPUT_COST: 0.002,
+                CostKey.TOTAL_COST: 0.003,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span1, span2])
+
+    with store.ManagedSessionMaker() as session:
+        all_metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id)
+            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .all()
+        )
+
+        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
+        assert span1_metrics == {
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }
+
+        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
+        assert span2_metrics == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
         }
 
 

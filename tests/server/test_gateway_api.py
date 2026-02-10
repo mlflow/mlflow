@@ -72,6 +72,19 @@ def store(tmp_path: Path, db_uri: str):
     mlflow.set_tracking_uri(None)
 
 
+def create_mock_request(
+    cached_body: dict[str, Any] | None = None,
+    username: str | None = None,
+    user_id: int | str | None = None,
+) -> MagicMock:
+    """Create a mock request with proper state attributes for gateway tests."""
+    mock_request = MagicMock()
+    mock_request.state.cached_body = cached_body
+    mock_request.state.username = username
+    mock_request.state.user_id = user_id
+    return mock_request
+
+
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
     # Create test data
     secret = store.create_gateway_secret(
@@ -456,7 +469,7 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
     )
 
     # Create a mock request with chat payload
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -519,7 +532,7 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
     )
 
     # Create a mock request with embeddings payload
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(return_value={"input": "test text"})
 
     # Patch the provider creation to return a mocked provider
@@ -573,7 +586,7 @@ async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
     )
 
     # Mock request that raises exception when parsing JSON
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
@@ -607,7 +620,7 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
     )
 
     # Create request with neither messages nor input
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(return_value={"temperature": 0.7})
 
     with patch(
@@ -652,7 +665,7 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
     )
 
     # Create request with invalid messages structure
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": "not a list",  # Should be a list
@@ -700,7 +713,7 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
     )
 
     # Create request with invalid input structure
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "input": 123,  # Should be string or list of strings
@@ -747,7 +760,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
     )
 
     # Create streaming request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -870,7 +883,7 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
     )
 
     # Create a mock request with OpenAI-compatible format
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "my-chat-endpoint",  # Endpoint name via model parameter
@@ -925,7 +938,7 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
     )
 
     # Create streaming request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "stream-endpoint",
@@ -971,7 +984,7 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlchemyStore):
     # Create request without model parameter
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -1010,7 +1023,7 @@ async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore
     )
 
     # Create request without messages
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "my-endpoint",
@@ -1026,7 +1039,7 @@ async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore
 
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_invalid_json(store: SqlAlchemyStore):
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
@@ -1076,7 +1089,7 @@ async def test_openai_passthrough_chat(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-passthrough-endpoint",
@@ -1136,7 +1149,7 @@ async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-embed-passthrough-endpoint",
@@ -1203,7 +1216,7 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-responses-endpoint",
@@ -1260,7 +1273,7 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     )
 
     # Create mock request with streaming enabled
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-stream-passthrough-endpoint",
@@ -1323,7 +1336,7 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     )
 
     # Create mock request with streaming enabled
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-responses-stream-endpoint",
@@ -1401,7 +1414,7 @@ async def test_anthropic_passthrough_messages(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "anthropic-passthrough-endpoint",
@@ -1462,7 +1475,7 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "anthropic-stream-passthrough-endpoint",
@@ -1539,7 +1552,7 @@ async def test_gemini_passthrough_generate_content(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "contents": [
@@ -1613,7 +1626,7 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "contents": [
@@ -1969,7 +1982,7 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2066,7 +2079,7 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2110,25 +2123,32 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     assert gateway_span is not None
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
+    # Verify that streaming chunks are captured in the span outputs
+    assert gateway_span.outputs is not None
+    assert len(gateway_span.outputs) > 0
+    first_output = gateway_span.outputs[0]
+    assert isinstance(first_output, dict), "Streaming output should be dict, not string repr"
+    assert "choices" in first_output, "Streaming output should contain chat completion data"
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
 )
-async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, handler):
-    endpoint_name = "user-attrs-tracing-endpoint"
+async def test_gateway_trace_includes_user_metadata(store: SqlAlchemyStore, handler):
+    endpoint_name = "user-metadata-tracing-endpoint"
 
     # Create experiment for tracing
     experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
 
     # Create endpoint with usage tracking enabled
     secret = store.create_gateway_secret(
-        secret_name="user-attrs-tracing-key",
-        secret_value={"api_key": "sk-test-user-attrs"},
+        secret_name="user-metadata-tracing-key",
+        secret_value={"api_key": "sk-test-user-metadata"},
         provider="openai",
     )
     model_def = store.create_gateway_model_definition(
-        name="user-attrs-tracing-model",
+        name="user-metadata-tracing-model",
         secret_id=secret.secret_id,
         provider="openai",
         model_name="gpt-4",
@@ -2146,10 +2166,8 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
         experiment_id=experiment_id,
     )
 
-    # Create mock request with user attributes set (as auth middleware would do)
-    mock_request = MagicMock()
-    mock_request.state.username = "test_user"
-    mock_request.state.user_id = 42
+    # Create mock request with user metadata set (as auth middleware would do)
+    mock_request = create_mock_request(username="test_user", user_id=42)
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2185,11 +2203,486 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
-    # Find the gateway span and verify user attributes are present
+    # Verify user metadata is present in trace info
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "test_user"
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "42"
+
+    # Verify span attributes still include endpoint info
     gateway_span = next(
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
     )
     assert gateway_span is not None
-    assert gateway_span.attributes.get(SpanAttributeKey.USERNAME) == "test_user"
-    assert gateway_span.attributes.get(SpanAttributeKey.USER_ID) == 42
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
+
+
+# =============================================================================
+# Passthrough Token Usage Tracking Tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_chat_token_usage_tracking(store: SqlAlchemyStore):
+    endpoint_name = "openai-passthrough-usage-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="openai-passthrough-usage-key",
+        secret_value={"api_key": "sk-test-usage"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-passthrough-usage-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+    )
+
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    with mock.patch("mlflow.gateway.providers.openai.send_request", return_value=mock_response):
+        response = await openai_passthrough_chat(mock_request)
+        assert response["usage"]["prompt_tokens"] == 10
+        assert response["usage"]["completion_tokens"] == 5
+        assert response["usage"]["total_tokens"] == 15
+
+    # Verify trace was created with token usage
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # Find the passthrough span and check token usage attributes
+    passthrough_span = next(
+        (span for span in trace.data.spans if "action" in span.attributes), None
+    )
+    assert passthrough_span is not None
+    assert passthrough_span.attributes.get("action") == "openai_chat"
+
+    token_usage = passthrough_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 5
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 15
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_embeddings_token_usage_tracking(store: SqlAlchemyStore):
+    endpoint_name = "openai-embed-usage-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="openai-embed-usage-key",
+        secret_value={"api_key": "sk-test-embed-usage"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-embed-usage-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="text-embedding-3-small",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "input": "Test text for embedding",
+        }
+    )
+
+    mock_response = {
+        "object": "list",
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}],
+        "model": "text-embedding-3-small",
+        "usage": {"prompt_tokens": 5, "total_tokens": 5},
+    }
+
+    with mock.patch("mlflow.gateway.providers.openai.send_request", return_value=mock_response):
+        response = await openai_passthrough_embeddings(mock_request)
+        assert response["usage"]["prompt_tokens"] == 5
+        assert response["usage"]["total_tokens"] == 5
+
+    # Verify trace was created with token usage
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # Find the passthrough span and check token usage attributes
+    passthrough_span = next(
+        (span for span in trace.data.spans if "action" in span.attributes), None
+    )
+    assert passthrough_span is not None
+    assert passthrough_span.attributes.get("action") == "openai_embeddings"
+
+    token_usage = passthrough_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 5
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 5
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses_token_usage_tracking(store: SqlAlchemyStore):
+    endpoint_name = "openai-responses-usage-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-usage-key",
+        secret_value={"api_key": "sk-test-responses-usage"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-usage-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "input": [{"role": "user", "content": "Hello"}],
+        }
+    )
+
+    mock_response = {
+        "id": "resp-123",
+        "object": "response",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "status": "completed",
+        "output": [
+            {
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hello!"}],
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    with mock.patch("mlflow.gateway.providers.openai.send_request", return_value=mock_response):
+        response = await openai_passthrough_responses(mock_request)
+        assert response["usage"]["prompt_tokens"] == 10
+        assert response["usage"]["completion_tokens"] == 5
+        assert response["usage"]["total_tokens"] == 15
+
+    # Verify trace was created with token usage
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    # Find the passthrough span and check token usage attributes
+    passthrough_span = next(
+        (span for span in trace.data.spans if "action" in span.attributes), None
+    )
+    assert passthrough_span is not None
+    assert passthrough_span.attributes.get("action") == "openai_responses"
+
+    token_usage = passthrough_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 5
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 15
+
+
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages_token_usage_tracking(store: SqlAlchemyStore):
+    endpoint_name = "anthropic-usage-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-usage-key",
+        secret_value={"api_key": "sk-ant-usage"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-usage-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+        }
+    )
+
+    mock_response = {
+        "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello!"}],
+        "model": "claude-3-5-sonnet-20241022",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 12, "output_tokens": 8},
+    }
+
+    with mock.patch("mlflow.gateway.providers.anthropic.send_request", return_value=mock_response):
+        response = await anthropic_passthrough_messages(mock_request)
+        assert response["usage"]["input_tokens"] == 12
+        assert response["usage"]["output_tokens"] == 8
+
+    # Verify trace was created with token usage
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # Find the passthrough span and check token usage attributes
+    passthrough_span = next(
+        (span for span in trace.data.spans if "action" in span.attributes), None
+    )
+    assert passthrough_span is not None
+    assert passthrough_span.attributes.get("action") == "anthropic_messages"
+
+    token_usage = passthrough_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 12
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 8
+    # Anthropic doesn't provide total_tokens, so we calculate it
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 20
+
+
+@pytest.mark.asyncio
+async def test_gemini_passthrough_generate_content_token_usage_tracking(store: SqlAlchemyStore):
+    endpoint_name = "gemini-usage-endpoint"
+
+    # Create experiment for tracing
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="gemini-usage-key",
+        secret_value={"api_key": "test-gemini-usage-key"},
+        provider="gemini",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gemini-usage-model",
+        secret_id=secret.secret_id,
+        provider="gemini",
+        model_name="gemini-2.0-flash",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}],
+                }
+            ]
+        }
+    )
+
+    mock_response = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Hello! How can I help?"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 7,
+            "candidatesTokenCount": 9,
+            "totalTokenCount": 16,
+        },
+    }
+
+    with mock.patch("mlflow.gateway.providers.gemini.send_request", return_value=mock_response):
+        response = await gemini_passthrough_generate_content(endpoint_name, mock_request)
+        assert response["usageMetadata"]["promptTokenCount"] == 7
+        assert response["usageMetadata"]["candidatesTokenCount"] == 9
+        assert response["usageMetadata"]["totalTokenCount"] == 16
+
+    # Verify trace was created with token usage
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # Find the passthrough span and check token usage attributes
+    passthrough_span = next(
+        (span for span in trace.data.spans if "action" in span.attributes), None
+    )
+    assert passthrough_span is not None
+    assert passthrough_span.attributes.get("action") == "gemini_generate_content"
+
+    token_usage = passthrough_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 7
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 9
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 16
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemyStore):
+    endpoint_name = "openai-passthrough-streaming-chunks"
+
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name="openai-stream-chunks-key",
+        secret_value={"api_key": "sk-test-stream-chunks"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-stream-chunks-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint_name,
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": True,
+        }
+    )
+    mock_request.headers = {}
+
+    mock_stream_chunks = [
+        b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hi"}}]}\n\n',
+        b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"!"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ):
+        response = await openai_passthrough_chat(mock_request)
+        assert isinstance(response, StreamingResponse)
+        chunks = [chunk async for chunk in response.body_iterator]
+        assert len(chunks) == len(mock_stream_chunks)
+
+    # Verify trace was created
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+
+    gateway_span = next(
+        (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
+    )
+    assert gateway_span is not None
+
+    # Verify streaming chunks are captured in outputs (raw SSE bytes decoded to strings)
+    assert gateway_span.outputs is not None
+    assert len(gateway_span.outputs) == len(mock_stream_chunks)
+    # Verify the outputs contain actual SSE data (not async generator object repr)
+    assert "data:" in gateway_span.outputs[0]
+    assert "chatcmpl-123" in gateway_span.outputs[0]

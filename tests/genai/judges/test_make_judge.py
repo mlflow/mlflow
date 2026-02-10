@@ -442,6 +442,41 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     assert "Empty response from Databricks judge" in result.error.error_message
 
 
+def test_databricks_model_surfaces_api_errors(mock_databricks_rag_eval):
+    judge = InstructionsJudge(
+        name="test",
+        instructions="evaluate {{ outputs }}",
+        model="databricks",
+    )
+
+    class MockLLMResultApiError:
+        def __init__(self):
+            self.output = None
+            self.output_json = None
+            self.error_code = "400"
+            self.error_message = (
+                "INVALID_PARAMETER_VALUE: Error[3005]: Model context limit exceeded"
+            )
+
+    class MockClientApiError:
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
+            return MockLLMResultApiError()
+
+    class MockContextApiError:
+        def build_managed_rag_client(self):
+            return MockClientApiError()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextApiError()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert isinstance(result.error, AssessmentError)
+    assert "Databricks judge API error" in result.error.error_message
+    assert "400" in result.error.error_message
+    assert "Model context limit exceeded" in result.error.error_message
+
+
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
     mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
         expected_content="trace", response_data={"result": True, "rationale": "Trace looks good"}

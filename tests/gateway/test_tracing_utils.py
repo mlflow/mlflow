@@ -3,6 +3,7 @@ import pytest
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 
 
@@ -52,17 +53,20 @@ async def test_maybe_traced_gateway_call_basic(endpoint_config):
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
-    # No user attributes should be present
-    assert gateway_span.attributes.get("username") is None
-    assert gateway_span.attributes.get("user_id") is None
+    # No user metadata should be present in trace
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) is None
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) is None
 
 
 @pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_with_user_attributes(endpoint_config):
+async def test_maybe_traced_gateway_call_with_user_metadata(endpoint_config):
     traced_func = maybe_traced_gateway_call(
         mock_async_func,
         endpoint_config,
-        attributes={"username": "alice", "user_id": 123},
+        metadata={
+            TraceMetadataKey.AUTH_USERNAME: "alice",
+            TraceMetadataKey.AUTH_USER_ID: "123",
+        },
     )
     result = await traced_func({"input": "test"})
 
@@ -77,8 +81,9 @@ async def test_maybe_traced_gateway_call_with_user_attributes(endpoint_config):
 
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
-    assert gateway_span.attributes.get("username") == "alice"
-    assert gateway_span.attributes.get("user_id") == 123
+    # User metadata should be in trace info, not span attributes
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "alice"
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "123"
 
 
 @pytest.mark.asyncio
@@ -86,7 +91,10 @@ async def test_maybe_traced_gateway_call_without_experiment_id(endpoint_config_n
     traced_func = maybe_traced_gateway_call(
         mock_async_func,
         endpoint_config_no_experiment,
-        attributes={"username": "alice", "user_id": 123},
+        metadata={
+            TraceMetadataKey.AUTH_USERNAME: "alice",
+            TraceMetadataKey.AUTH_USER_ID: "123",
+        },
     )
 
     # When experiment_id is None, maybe_traced_gateway_call returns the original function

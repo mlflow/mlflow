@@ -403,7 +403,6 @@ if not IS_TRACING_SDK_ONLY:
         # imports from mlflow will be deprecated in the future.
         "load_prompt",
         "register_prompt",
-        "search_prompts",
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",
