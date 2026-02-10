@@ -280,19 +280,19 @@ def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
 
 
 def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
-    """Returns list of model artifact URIs (runs:/<run_id>/model)."""
+    """Returns list of model artifact URIs."""
     client = MlflowClient()
     model_uris: list[str] = []
 
     for exp in experiments:
         for m_idx in range(cfg.logged_models_per_exp):
-            with mlflow.start_run(experiment_id=exp.experiment_id) as run:
+            with mlflow.start_run(experiment_id=exp.experiment_id):
                 model_info = mlflow.pyfunc.log_model(
                     name=f"logged_model_{m_idx}",
                     python_model=lambda model_input: model_input,
                     input_example="hello",
                 )
-                model_uris.append(f"runs:/{run.info.run_id}/model")
+                model_uris.append(model_info.model_uri)
             client.set_logged_model_tags(
                 model_info.model_id, {"framework": "pytorch", "stage": "dev"}
             )
