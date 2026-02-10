@@ -1,10 +1,12 @@
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useCallback } from 'react';
+
 import { ModelTrace } from './ModelTrace.types';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
-import { useCallback } from 'react';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
+import { GraphView } from './graph-view';
 
 export const ModelTraceExplorerContent = ({
   modelTraceInfo,
@@ -22,7 +24,7 @@ export const ModelTraceExplorerContent = ({
 
   const handleValueChange = useCallback(
     (value: string) => {
-      setActiveView(value as 'summary' | 'detail');
+      setActiveView(value as 'summary' | 'detail' | 'graph');
     },
     [
       // prettier-ignore
@@ -62,6 +64,14 @@ export const ModelTraceExplorerContent = ({
             description="Label for the details & timeline view tab in the model trace explorer"
           />
         </Tabs.Trigger>
+        {rootNode && (
+          <Tabs.Trigger value="graph">
+            <FormattedMessage
+              defaultMessage="Graph"
+              description="Label for the graph view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+        )}
       </Tabs.List>
       <Tabs.Content
         value="summary"
@@ -89,6 +99,17 @@ export const ModelTraceExplorerContent = ({
           selectedSpanId={selectedSpanId}
           onSelectSpan={onSelectSpan}
         />
+      </Tabs.Content>
+      <Tabs.Content
+        value="graph"
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <GraphView className={className} />
       </Tabs.Content>
     </Tabs.Root>
   );
