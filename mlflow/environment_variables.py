@@ -1315,3 +1315,10 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+
+#: Specifies whether to enable automatic UV project detection during model logging.
+#: When enabled, MLflow will look for uv.lock and pyproject.toml in the current working
+#: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
+#: (default: ``True``)
+MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", True)
