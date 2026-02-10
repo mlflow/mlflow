@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import pydantic
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -26,6 +27,7 @@ _MIN_FREQUENCY_THRESHOLD = 0.01
 
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
+_DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 
 _TEMPLATE_VARS = {
     "{{ trace }}",
@@ -89,7 +91,7 @@ class DiscoverIssuesResult:
 
 def _build_default_satisfaction_scorer(model: str | None) -> Scorer:
     return make_judge(
-        name="satisfaction",
+        name=_DEFAULT_SCORER_NAME,
         instructions=(
             "Evaluate whether the user's goals in this {{ conversation }} were achieved "
             "efficiently and completely. Consider:\n"
@@ -109,6 +111,66 @@ def _ensure_template_var(instructions: str) -> str:
     if any(var in instructions for var in _TEMPLATE_VARS):
         return instructions
     return f"Analyze the following {{ trace }} and determine:\n\n{instructions}"
+
+
+def _get_existing_score(trace: Trace, scorer_name: str) -> bool | None:
+    """Return True/False if the trace already has a boolean score with the given name."""
+    for assessment in trace.info.assessments:
+        if isinstance(assessment, Feedback) and assessment.name == scorer_name:
+            if isinstance(assessment.value, bool):
+                return assessment.value
+    return None
+
+
+def _partition_by_existing_scores(
+    traces: list[Trace],
+    scorer_name: str,
+) -> tuple[list[Trace], list[Trace], list[Trace]]:
+    """Split traces into (negative, positive, needs_scoring) based on existing scores."""
+    negative: list[Trace] = []
+    positive: list[Trace] = []
+    needs_scoring: list[Trace] = []
+    for trace in traces:
+        score = _get_existing_score(trace, scorer_name)
+        if score is True:
+            positive.append(trace)
+        elif score is False:
+            negative.append(trace)
+        else:
+            needs_scoring.append(trace)
+    return negative, positive, needs_scoring
+
+
+def _test_scorer(scorer: Scorer, trace: Trace) -> None:
+    """Run scorer on a single trace to verify it works. Raises on failure."""
+    result = mlflow.genai.evaluate(data=[trace], scorers=[scorer])
+
+    if result.result_df is None:
+        return
+
+    value_col = f"{scorer.name}/value"
+    if value_col not in result.result_df.columns:
+        return
+
+    if result.result_df[value_col].iloc[0] is not None:
+        return
+
+    # Scorer returned None — check the assessment on the trace for the actual error
+    error_msg = None
+    if "trace" in result.result_df.columns:
+        result_trace = result.result_df["trace"].iloc[0]
+        if isinstance(result_trace, str):
+            result_trace = Trace.from_json(result_trace)
+        if result_trace is not None:
+            for assessment in result_trace.info.assessments:
+                if isinstance(assessment, Feedback) and assessment.name == scorer.name:
+                    error_msg = assessment.error_message
+                    break
+
+    raise mlflow.exceptions.MlflowException(
+        f"Scorer '{scorer.name}' failed on test trace "
+        f"{trace.info.trace_id}: {error_msg or 'unknown error (check model API logs)'}"
+    )
 
 
 def _format_trace_for_clustering(index: int, trace: Trace, rationale: str) -> str:
@@ -283,7 +345,7 @@ def discover_issues(
         satisfaction_scorer = _build_default_satisfaction_scorer(judge_model)
 
     # Phase 1: Triage — score a sample for user satisfaction
-    _logger.info("Phase 1: Scoring %d traces for satisfaction...", sample_size)
+    _logger.info("Phase 1: Fetching %d traces...", sample_size)
     triage_traces = mlflow.search_traces(max_results=sample_size, **search_kwargs)
     if not triage_traces:
         empty_eval = EvaluationResult(run_id="", metrics={}, result_df=None)
@@ -295,14 +357,50 @@ def discover_issues(
             total_traces_analyzed=0,
         )
 
-    triage_eval = mlflow.genai.evaluate(
-        data=triage_traces,
-        scorers=[satisfaction_scorer],
-        model_id=model_id,
+    # Check for existing scores from a prior discover_issues run
+    scorer_name = satisfaction_scorer.name
+    already_negative, _already_positive, needs_scoring = _partition_by_existing_scores(
+        triage_traces, scorer_name
     )
-    failing_traces, rationale_map = _extract_failing_traces(triage_eval, satisfaction_scorer.name)
+    if already_negative:
+        _logger.info(
+            "Found %d traces with existing '%s' = False, %d need scoring",
+            len(already_negative),
+            scorer_name,
+            len(needs_scoring),
+        )
+
+    # Test the scorer on one trace before running the full batch
+    _logger.info("Phase 1: Testing scorer on one trace...")
+    _test_scorer(satisfaction_scorer, triage_traces[0])
+
+    # Score only traces without existing scores
+    if needs_scoring:
+        _logger.info("Phase 1: Scoring %d traces...", len(needs_scoring))
+        triage_eval = mlflow.genai.evaluate(
+            data=needs_scoring,
+            scorers=[satisfaction_scorer],
+            model_id=model_id,
+        )
+        scored_failing, rationale_map = _extract_failing_traces(
+            triage_eval, satisfaction_scorer.name
+        )
+    else:
+        triage_eval = EvaluationResult(run_id="", metrics={}, result_df=None)
+        scored_failing = []
+        rationale_map = {}
+
+    # Combine: previously-negative traces + scorer-failing traces
+    failing_traces = already_negative + scored_failing
+    for trace in already_negative:
+        rationale_map.setdefault(trace.info.trace_id, "Previously scored as unsatisfactory")
+
     _logger.info(
-        "Phase 1 complete: %d/%d traces unsatisfactory", len(failing_traces), len(triage_traces)
+        "Phase 1 complete: %d/%d traces unsatisfactory (%d existing, %d newly scored)",
+        len(failing_traces),
+        len(triage_traces),
+        len(already_negative),
+        len(scored_failing),
     )
 
     if not failing_traces:
