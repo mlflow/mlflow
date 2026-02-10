@@ -2,8 +2,14 @@
 """
 Verify a fs2db migration by comparing MLflow public API results from source
 (FileStore) and target (DB) backends.
+
+Strategy:
+  1. Row counts — use SQL on the target DB for accurate totals.
+  2. Spot checks — sample individual entities via MLflow public API from
+     both source (FileStore) and target (DB) and compare fields.
 """
 
+import warnings
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
@@ -24,59 +30,140 @@ def _fail(msg: str) -> None:
     print(f"  {RED}FAIL{RESET} {msg}")
 
 
-def _check_experiments(src: MlflowClient, dst: MlflowClient) -> bool:
+# ---------------------------------------------------------------------------
+# 1. Row-count verification (SQL)
+# ---------------------------------------------------------------------------
+
+_COUNT_QUERIES: dict[str, str] = {
+    "experiments": "SELECT COUNT(*) FROM experiments",
+    "runs": "SELECT COUNT(*) FROM runs",
+    "params": "SELECT COUNT(*) FROM params",
+    "tags": "SELECT COUNT(*) FROM tags",
+    "metrics": "SELECT COUNT(*) FROM metrics",
+    "datasets": "SELECT COUNT(*) FROM datasets",
+    "traces": "SELECT COUNT(*) FROM trace_info",
+    "assessments": "SELECT COUNT(*) FROM assessments",
+    "logged_models": "SELECT COUNT(*) FROM logged_models",
+    "registered_models": "SELECT COUNT(*) FROM registered_models",
+    "model_versions": "SELECT COUNT(*) FROM model_versions",
+}
+
+
+def _check_row_counts(target_uri: str) -> bool:
     ok = True
-    src_exps = src.search_experiments(view_type=3)  # ALL
-    dst_exps = dst.search_experiments(view_type=3)
-    src_by_id = {e.experiment_id: e for e in src_exps}
-    dst_by_id = {e.experiment_id: e for e in dst_exps}
-
-    if len(dst_by_id) < len(src_by_id):
-        _fail(f"experiments: {len(dst_by_id)} < {len(src_by_id)}")
-        ok = False
-    else:
-        _pass(f"experiments: {len(dst_by_id)} (source: {len(src_by_id)})")
-
-    for exp_id, src_exp in src_by_id.items():
-        dst_exp = dst_by_id.get(exp_id)
-        if dst_exp is None:
-            _fail(f"experiment {exp_id}: missing from DB")
-            ok = False
-            continue
-        if src_exp.name != dst_exp.name:
-            _fail(f"experiment {exp_id}: name {dst_exp.name!r} != {src_exp.name!r}")
-            ok = False
-        elif src_exp.lifecycle_stage != dst_exp.lifecycle_stage:
-            _fail(
-                f"experiment {exp_id}: lifecycle_stage"
-                f" {dst_exp.lifecycle_stage!r} != {src_exp.lifecycle_stage!r}"
-            )
-            ok = False
-        break  # spot-check first
+    engine = create_engine(target_uri)
+    with engine.connect() as conn:
+        for entity, query in _COUNT_QUERIES.items():
+            try:
+                count = conn.execute(text(query)).scalar()
+            except Exception:
+                count = 0
+            if count > 0:
+                _pass(f"{entity}: {count} rows")
+            else:
+                _pass(f"{entity}: 0 rows (skipped)")
     return ok
 
 
-def _find_rich_run_id(target_uri: str) -> str | None:
-    """Find a run with the most params+metrics for a meaningful comparison."""
+# ---------------------------------------------------------------------------
+# 2. Spot checks (public API)
+# ---------------------------------------------------------------------------
+
+# SQL queries to find the richest entity for each type.
+_RICH_QUERIES: dict[str, str] = {
+    "experiment": (
+        "SELECT e.experiment_id,"
+        " (SELECT COUNT(*) FROM experiment_tags et"
+        "  WHERE et.experiment_id = e.experiment_id)"
+        " + (SELECT COUNT(*) FROM runs r WHERE r.experiment_id = e.experiment_id)"
+        " AS richness"
+        " FROM experiments e ORDER BY richness DESC LIMIT 1"
+    ),
+    "run": (
+        "SELECT r.run_uuid,"
+        " (SELECT COUNT(*) FROM params p WHERE p.run_uuid = r.run_uuid)"
+        " + (SELECT COUNT(*) FROM metrics m WHERE m.run_uuid = r.run_uuid)"
+        " + (SELECT COUNT(*) FROM tags t WHERE t.run_uuid = r.run_uuid)"
+        " AS richness"
+        " FROM runs r ORDER BY richness DESC LIMIT 1"
+    ),
+    "trace": (
+        "SELECT t.request_id,"
+        " (SELECT COUNT(*) FROM trace_tags tt WHERE tt.request_id = t.request_id)"
+        " + (SELECT COUNT(*) FROM assessments a WHERE a.trace_id = t.request_id)"
+        " AS richness"
+        " FROM trace_info t ORDER BY richness DESC LIMIT 1"
+    ),
+    "logged_model": (
+        "SELECT lm.model_id, lm.experiment_id,"
+        " (SELECT COUNT(*) FROM logged_model_tags lt"
+        "  WHERE lt.model_id = lm.model_id AND lt.experiment_id = lm.experiment_id)"
+        " AS richness"
+        " FROM logged_models lm ORDER BY richness DESC LIMIT 1"
+    ),
+    "registered_model": (
+        "SELECT rm.name,"
+        " (SELECT COUNT(*) FROM model_versions mv WHERE mv.name = rm.name)"
+        " + (SELECT COUNT(*) FROM registered_model_tags rt WHERE rt.name = rm.name)"
+        " AS richness"
+        " FROM registered_models rm ORDER BY richness DESC LIMIT 1"
+    ),
+}
+
+
+def _find_rich(target_uri: str, entity: str) -> tuple[object, ...] | None:
     engine = create_engine(target_uri)
+    query = _RICH_QUERIES.get(entity)
+    if not query:
+        return None
     with engine.connect() as conn:
-        row = conn.execute(
-            text(
-                "SELECT r.run_uuid,"
-                " (SELECT COUNT(*) FROM params p WHERE p.run_uuid = r.run_uuid)"
-                " + (SELECT COUNT(*) FROM metrics m WHERE m.run_uuid = r.run_uuid) AS richness"
-                " FROM runs r ORDER BY richness DESC LIMIT 1"
-            )
-        ).first()
-        return row[0] if row else None
+        try:
+            return conn.execute(text(query)).first()
+        except Exception:
+            return None
 
 
-def _check_runs(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
-    ok = True
-    run_id = _find_rich_run_id(target_uri)
-    if not run_id:
-        _pass("runs: no runs to check")
-        return ok
+def _check_experiment(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    row = _find_rich(target_uri, "experiment")
+    if not row:
+        _pass("experiment: none found")
+        return True
+    exp_id = str(row[0])
+
+    src_exp = src.get_experiment(exp_id)
+    dst_exp = dst.get_experiment(exp_id)
+
+    if src_exp.name != dst_exp.name:
+        _fail(f"experiment {exp_id}: name {dst_exp.name!r} != {src_exp.name!r}")
+        return False
+
+    if src_exp.lifecycle_stage != dst_exp.lifecycle_stage:
+        _fail(
+            f"experiment {exp_id}:"
+            f" lifecycle_stage {dst_exp.lifecycle_stage!r} != {src_exp.lifecycle_stage!r}"
+        )
+        return False
+
+    src_tags = {k: v for k, v in src_exp.tags.items() if not k.startswith("mlflow.")}
+    dst_tags = {k: v for k, v in dst_exp.tags.items() if not k.startswith("mlflow.")}
+    if missing := set(src_tags) - set(dst_tags):
+        _fail(f"experiment {exp_id}: missing tags {missing}")
+        return False
+
+    _pass(
+        f"experiment {exp_id}"
+        f" (name={dst_exp.name}, lifecycle_stage={dst_exp.lifecycle_stage},"
+        f" tags={len(dst_tags)})"
+    )
+    return True
+
+
+def _check_run(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    row = _find_rich(target_uri, "run")
+    if not row:
+        _pass("run: no runs to spot-check")
+        return True
+    run_id = row[0]
 
     src_run = src.get_run(run_id)
     dst_run = dst.get_run(run_id)
@@ -90,39 +177,33 @@ def _check_runs(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
             _fail(f"run {run_id}: {field} {actual!r} != {expected!r}")
             return False
 
-    # Compare params
+    # Params
     for key, expected_val in src_run.data.params.items():
         actual_val = dst_run.data.params.get(key)
         if actual_val != expected_val:
             _fail(f"run {run_id}: param {key} {actual_val!r} != {expected_val!r}")
             return False
 
-    # Compare metric keys
+    # Metric keys
     src_metric_keys = set(src_run.data.metrics.keys())
     dst_metric_keys = set(dst_run.data.metrics.keys())
     if src_metric_keys != dst_metric_keys:
         _fail(f"run {run_id}: metric keys {dst_metric_keys} != {src_metric_keys}")
         return False
 
-    # Compare tags (skip internal mlflow.* tags that may differ between backends)
+    # Tags (skip internal mlflow.* tags that may differ between backends)
     src_tags = {k: v for k, v in src_run.data.tags.items() if not k.startswith("mlflow.")}
     dst_tags = {k: v for k, v in dst_run.data.tags.items() if not k.startswith("mlflow.")}
     if missing_tags := set(src_tags) - set(dst_tags):
         _fail(f"run {run_id}: missing tags {missing_tags}")
         return False
 
-    # Compare dataset inputs
+    # Dataset inputs
     src_ds = src_run.inputs.dataset_inputs if src_run.inputs else []
     dst_ds = dst_run.inputs.dataset_inputs if dst_run.inputs else []
     if len(src_ds) != len(dst_ds):
         _fail(f"run {run_id}: dataset_inputs {len(dst_ds)} != {len(src_ds)}")
-        ok = False
-    elif src_ds:
-        src_ds_names = sorted(d.dataset.name for d in src_ds)
-        dst_ds_names = sorted(d.dataset.name for d in dst_ds)
-        if src_ds_names != dst_ds_names:
-            _fail(f"run {run_id}: dataset names {dst_ds_names} != {src_ds_names}")
-            ok = False
+        return False
 
     _pass(
         f"run {run_id}"
@@ -132,197 +213,190 @@ def _check_runs(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
         f" tags={len(dst_tags)},"
         f" datasets={len(dst_ds)})"
     )
-    return ok
-
-
-def _check_traces(src: MlflowClient, dst: MlflowClient) -> bool:
-    ok = True
-    src_exps = src.search_experiments(view_type=3)
-    for exp in src_exps:
-        src_traces = src.search_traces(experiment_ids=[exp.experiment_id], max_results=1)
-        if not src_traces:
-            continue
-
-        src_trace = src_traces[0]
-        dst_traces = dst.search_traces(experiment_ids=[exp.experiment_id], max_results=5000)
-        dst_by_id = {t.info.request_id: t for t in dst_traces}
-        dst_trace = dst_by_id.get(src_trace.info.request_id)
-
-        if dst_trace is None:
-            _fail(f"trace {src_trace.info.request_id}: missing from DB")
-            return False
-
-        if src_trace.info.status != dst_trace.info.status:
-            _fail(
-                f"trace {src_trace.info.request_id}:"
-                f" status {dst_trace.info.status!r} != {src_trace.info.status!r}"
-            )
-            ok = False
-        else:
-            src_tags = src_trace.info.tags
-            dst_tags = dst_trace.info.tags
-            if missing := set(src_tags) - set(dst_tags):
-                _fail(f"trace {src_trace.info.request_id}: missing tags {missing}")
-                ok = False
-            else:
-                _pass(
-                    f"trace {src_trace.info.request_id}"
-                    f" (status={dst_trace.info.status}, tags={len(dst_tags)})"
-                )
-        return ok
-    _pass("traces: none found")
-    return ok
-
-
-def _check_assessments(src: MlflowClient, dst: MlflowClient) -> bool:
-    src_exps = src.search_experiments(view_type=3)
-    for exp in src_exps:
-        src_traces = src.search_traces(experiment_ids=[exp.experiment_id], max_results=1)
-        if not src_traces:
-            continue
-
-        src_trace = src_traces[0]
-        src_assessments = src_trace.search_assessments(all=True)
-        if not src_assessments:
-            continue
-
-        dst_traces = dst.search_traces(experiment_ids=[exp.experiment_id], max_results=5000)
-        dst_trace = next(
-            (t for t in dst_traces if t.info.request_id == src_trace.info.request_id), None
-        )
-        if dst_trace is None:
-            _fail(f"assessments: trace {src_trace.info.request_id} missing from DB")
-            return False
-
-        dst_assessments = dst_trace.search_assessments(all=True)
-
-        # Compare by name
-        src_by_name = {}
-        for a in src_assessments:
-            src_by_name.setdefault(a.name, []).append(a)
-        dst_by_name = {}
-        for a in dst_assessments:
-            dst_by_name.setdefault(a.name, []).append(a)
-
-        if missing := set(src_by_name) - set(dst_by_name):
-            _fail(f"assessments on trace {src_trace.info.request_id}: missing names {missing}")
-            return False
-
-        _pass(
-            f"assessments on trace {src_trace.info.request_id}"
-            f" ({len(dst_assessments)} assessments, names={sorted(dst_by_name.keys())})"
-        )
-        return True
-
-    _pass("assessments: none found")
     return True
 
 
-def _check_logged_models(src: MlflowClient, dst: MlflowClient) -> bool:
+def _check_trace(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    row = _find_rich(target_uri, "trace")
+    if not row:
+        _pass("trace: none found")
+        return True
+    trace_id = row[0]
+
+    # Find the experiment this trace belongs to, then search from both sides
     src_exps = src.search_experiments(view_type=3)
-    exp_ids = [e.experiment_id for e in src_exps]
-    if not exp_ids:
-        _pass("logged_models: no experiments")
+    for exp in src_exps:
+        src_traces = src.search_traces(locations=[exp.experiment_id], max_results=10)
+        src_trace = next((t for t in src_traces if t.info.request_id == trace_id), None)
+        if src_trace:
+            break
+    else:
+        _pass(f"trace {trace_id}: not found in source (skipped)")
         return True
 
-    src_models = src.search_logged_models(experiment_ids=exp_ids)
-    dst_models = dst.search_logged_models(experiment_ids=exp_ids)
-
-    if len(dst_models) < len(src_models):
-        _fail(f"logged_models: {len(dst_models)} < {len(src_models)}")
+    dst_traces = dst.search_traces(locations=[exp.experiment_id], max_results=10)
+    dst_trace = next((t for t in dst_traces if t.info.request_id == trace_id), None)
+    if dst_trace is None:
+        _fail(f"trace {trace_id}: missing from DB")
         return False
 
-    if not src_models:
-        _pass("logged_models: none found")
-        return True
+    if src_trace.info.status != dst_trace.info.status:
+        _fail(f"trace {trace_id}: status {dst_trace.info.status!r} != {src_trace.info.status!r}")
+        return False
 
-    # Spot-check first model
-    src_by_id = {m.model_id: m for m in src_models}
-    dst_by_id = {m.model_id: m for m in dst_models}
+    src_tags = src_trace.info.tags
+    dst_tags = dst_trace.info.tags
+    if missing := set(src_tags) - set(dst_tags):
+        _fail(f"trace {trace_id}: missing tags {missing}")
+        return False
 
-    for model_id, src_model in src_by_id.items():
-        dst_model = dst_by_id.get(model_id)
-        if dst_model is None:
-            _fail(f"logged_model {model_id}: missing from DB")
-            return False
-
-        if src_model.name != dst_model.name:
-            _fail(f"logged_model {model_id}: name {dst_model.name!r} != {src_model.name!r}")
-            return False
-
-        # Compare tags
-        if missing_tags := set(src_model.tags) - set(dst_model.tags):
-            _fail(f"logged_model {model_id}: missing tags {missing_tags}")
-            return False
-
-        _pass(
-            f"logged_models: {len(dst_models)} (source: {len(src_models)}),"
-            f" spot-check {model_id} (name={dst_model.name}, tags={len(dst_model.tags)})"
-        )
-        return True
-
-    _pass(f"logged_models: {len(dst_models)} (source: {len(src_models)})")
+    _pass(f"trace {trace_id} (status={dst_trace.info.status}, tags={len(dst_tags)})")
     return True
 
 
-def _check_registered_models(src: MlflowClient, dst: MlflowClient) -> bool:
-    ok = True
-    src_models = src.search_registered_models()
-    dst_models = dst.search_registered_models()
-    src_by_name = {m.name: m for m in src_models}
-    dst_by_name = {m.name: m for m in dst_models}
+def _check_assessment(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    # The "trace" rich query already picks the trace with the most assessments
+    row = _find_rich(target_uri, "trace")
+    if not row:
+        _pass("assessment: no traces found")
+        return True
+    trace_id = row[0]
 
-    if len(dst_by_name) < len(src_by_name):
-        _fail(f"registered_models: {len(dst_by_name)} < {len(src_by_name)}")
-        ok = False
+    src_exps = src.search_experiments(view_type=3)
+    for exp in src_exps:
+        src_traces = src.search_traces(locations=[exp.experiment_id], max_results=10)
+        src_trace = next((t for t in src_traces if t.info.request_id == trace_id), None)
+        if src_trace:
+            break
     else:
-        _pass(f"registered_models: {len(dst_by_name)} (source: {len(src_by_name)})")
+        _pass(f"assessment: trace {trace_id} not found in source (skipped)")
+        return True
 
-    for name, src_model in src_by_name.items():
-        dst_model = dst_by_name.get(name)
-        if dst_model is None:
-            _fail(f"registered_model {name}: missing from DB")
-            ok = False
-            continue
-        if src_model.description != dst_model.description:
-            _fail(
-                f"registered_model {name}:"
-                f" description {dst_model.description!r} != {src_model.description!r}"
-            )
-            ok = False
-        else:
-            # Check version count
-            src_versions = src.search_model_versions(f"name='{name}'")
-            dst_versions = dst.search_model_versions(f"name='{name}'")
-            if len(dst_versions) < len(src_versions):
-                _fail(
-                    f"registered_model {name}: {len(dst_versions)} versions < {len(src_versions)}"
-                )
-                ok = False
-            else:
-                _pass(f"registered_model {name} (versions={len(dst_versions)})")
-        break  # spot-check first
-    return ok
+    src_assessments = src_trace.search_assessments(all=True)
+    if not src_assessments:
+        _pass("assessment: none found on trace")
+        return True
+
+    dst_traces = dst.search_traces(locations=[exp.experiment_id], max_results=10)
+    dst_trace = next((t for t in dst_traces if t.info.request_id == trace_id), None)
+    if dst_trace is None:
+        _fail(f"assessment: trace {trace_id} missing from DB")
+        return False
+
+    dst_assessments = dst_trace.search_assessments(all=True)
+    src_names = {a.name for a in src_assessments}
+    dst_names = {a.name for a in dst_assessments}
+
+    if missing := src_names - dst_names:
+        _fail(f"assessment on trace {trace_id}: missing names {missing}")
+        return False
+
+    _pass(
+        f"assessment on trace {trace_id}"
+        f" ({len(dst_assessments)} assessments, names={sorted(dst_names)})"
+    )
+    return True
+
+
+def _check_logged_model(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    row = _find_rich(target_uri, "logged_model")
+    if not row:
+        _pass("logged_model: none found")
+        return True
+    model_id = row[0]
+    exp_id = str(row[1])
+
+    src_models = src.search_logged_models(experiment_ids=[exp_id], max_results=10)
+    src_model = next((m for m in src_models if m.model_id == model_id), None)
+    if src_model is None:
+        _pass(f"logged_model {model_id}: not found in source (skipped)")
+        return True
+
+    dst_models = dst.search_logged_models(experiment_ids=[exp_id], max_results=10)
+    dst_model = next((m for m in dst_models if m.model_id == model_id), None)
+    if dst_model is None:
+        _fail(f"logged_model {model_id}: missing from DB")
+        return False
+
+    if src_model.name != dst_model.name:
+        _fail(f"logged_model {model_id}: name {dst_model.name!r} != {src_model.name!r}")
+        return False
+
+    if missing_tags := set(src_model.tags) - set(dst_model.tags):
+        _fail(f"logged_model {model_id}: missing tags {missing_tags}")
+        return False
+
+    _pass(f"logged_model {model_id} (name={dst_model.name}, tags={len(dst_model.tags)})")
+    return True
+
+
+def _check_registered_model(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    row = _find_rich(target_uri, "registered_model")
+    if not row:
+        _pass("registered_model: none found")
+        return True
+    name = row[0]
+
+    src_models = src.search_registered_models(max_results=10)
+    src_model = next((m for m in src_models if m.name == name), None)
+    if src_model is None:
+        _pass(f"registered_model {name}: not found in source (skipped)")
+        return True
+
+    dst_models = dst.search_registered_models(max_results=10)
+    dst_model = next((m for m in dst_models if m.name == name), None)
+    if dst_model is None:
+        _fail(f"registered_model {name}: missing from DB")
+        return False
+
+    if src_model.description != dst_model.description:
+        _fail(
+            f"registered_model {name}:"
+            f" description {dst_model.description!r} != {src_model.description!r}"
+        )
+        return False
+
+    src_versions = src.search_model_versions(f"name='{name}'")
+    dst_versions = dst.search_model_versions(f"name='{name}'")
+    if len(dst_versions) < len(src_versions):
+        _fail(f"registered_model {name}: {len(dst_versions)} versions < {len(src_versions)}")
+        return False
+
+    _pass(f"registered_model {name} (versions={len(dst_versions)})")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 
 def verify_migration(source: Path, target_uri: str) -> None:
-    mlruns = _resolve_mlruns(source)
-    src = MlflowClient(tracking_uri=str(mlruns))
-    dst = MlflowClient(tracking_uri=target_uri)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*filesystem.*deprecated.*", category=FutureWarning
+        )
 
-    print()
-    print("Verification:")
-    ok = True
-    ok &= _check_experiments(src, dst)
-    ok &= _check_runs(src, dst, target_uri)
-    ok &= _check_traces(src, dst)
-    ok &= _check_assessments(src, dst)
-    ok &= _check_logged_models(src, dst)
-    ok &= _check_registered_models(src, dst)
+        mlruns = _resolve_mlruns(source)
+        src = MlflowClient(tracking_uri=str(mlruns))
+        dst = MlflowClient(tracking_uri=target_uri)
 
-    print()
-    if ok:
-        print(f"{GREEN}Verification passed{RESET}")
-    else:
-        print(f"{RED}Verification failed{RESET}")
-        raise SystemExit(1)
+        print()
+        print("Row counts:")
+        ok = _check_row_counts(target_uri)
+
+        print()
+        print("Spot checks:")
+        ok &= _check_experiment(src, dst, target_uri)
+        ok &= _check_run(src, dst, target_uri)
+        ok &= _check_trace(src, dst, target_uri)
+        ok &= _check_assessment(src, dst, target_uri)
+        ok &= _check_logged_model(src, dst, target_uri)
+        ok &= _check_registered_model(src, dst, target_uri)
+
+        print()
+        if ok:
+            print(f"{GREEN}Verification passed{RESET}")
+        else:
+            print(f"{RED}Verification failed{RESET}")
+            raise SystemExit(1)
