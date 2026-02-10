@@ -385,6 +385,7 @@ if not IS_TRACING_SDK_ONLY:
         "log_stream",
         "log_table",
         "log_text",
+        "get_active_model_id",
         "login",
         "pyfunc",
         "register_model",
