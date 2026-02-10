@@ -1,16 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  useDesignSystemTheme,
-  PieChartIcon,
-  SegmentedControlGroup,
-  SegmentedControlButton,
-  type DesignSystemThemeInterface,
-} from '@databricks/design-system';
+import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
-import { useTraceCostDimension, type CostDimension } from '../hooks/useTraceCostDimension';
+import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
+import { CostDimensionToggle } from './CostDimensionToggle';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -175,19 +170,11 @@ export const TraceCostBreakdownChart: React.FC = () => {
           }
         />
         <div css={{ flexShrink: 0 }}>
-          <SegmentedControlGroup
-            name="cost-breakdown-dimension"
+          <CostDimensionToggle
             componentId="mlflow.charts.trace_cost_breakdown.dimension"
             value={dimension}
-            onChange={({ target: { value } }) => setDimension(value as CostDimension)}
-          >
-            <SegmentedControlButton value="model">
-              <FormattedMessage defaultMessage="Model" description="Dimension toggle option for model" />
-            </SegmentedControlButton>
-            <SegmentedControlButton value="provider">
-              <FormattedMessage defaultMessage="Provider" description="Dimension toggle option for provider" />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
+            onChange={setDimension}
+          />
         </div>
       </div>
 

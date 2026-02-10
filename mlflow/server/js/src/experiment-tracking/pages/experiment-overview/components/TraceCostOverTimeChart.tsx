@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   useDesignSystemTheme,
   ChartLineIcon,
@@ -8,14 +8,13 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSearch,
-  SegmentedControlGroup,
-  SegmentedControlButton,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostOverTimeChartData } from '../hooks/useTraceCostOverTimeChartData';
-import { useTraceCostDimension, type CostDimension } from '../hooks/useTraceCostDimension';
+import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
+import { CostDimensionToggle } from './CostDimensionToggle';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -48,11 +47,9 @@ export const TraceCostOverTimeChart: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
 
   // Reset selection when dimension changes
-  const [prevDimension, setPrevDimension] = useState(dimension);
-  if (prevDimension !== dimension) {
-    setPrevDimension(dimension);
+  useEffect(() => {
     setSelectedItems(null);
-  }
+  }, [dimension]);
 
   // Compute which items to display
   const isAllSelected = selectedItems === null;
@@ -142,19 +139,11 @@ export const TraceCostOverTimeChart: React.FC = () => {
           }
         />
         <div css={{ display: 'flex', gap: theme.spacing.sm, flexShrink: 0 }}>
-          <SegmentedControlGroup
-            name="cost-over-time-dimension"
+          <CostDimensionToggle
             componentId="mlflow.overview.usage.trace_cost_over_time.dimension"
             value={dimension}
-            onChange={({ target: { value } }) => setDimension(value as CostDimension)}
-          >
-            <SegmentedControlButton value="model">
-              <FormattedMessage defaultMessage="Model" description="Dimension toggle option for model" />
-            </SegmentedControlButton>
-            <SegmentedControlButton value="provider">
-              <FormattedMessage defaultMessage="Provider" description="Dimension toggle option for provider" />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
+            onChange={setDimension}
+          />
           {/* Item selector dropdown */}
           {hasData && dimensionValues.length > 0 && (
             <DialogCombobox
