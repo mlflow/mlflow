@@ -37,11 +37,11 @@ export interface UseTraceCostOverTimeChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceCostOverTimeChartData(): UseTraceCostOverTimeChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
 
   // Fetch total cost grouped by model name and time
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

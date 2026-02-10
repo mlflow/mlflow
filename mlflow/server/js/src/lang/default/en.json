@@ -966,6 +966,10 @@
     "defaultMessage": "Input cost",
     "description": "Label for input cost"
   },
+  "5T4wqF": {
+    "defaultMessage": "Select an endpoint to view usage metrics",
+    "description": "No endpoint selected message"
+  },
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
@@ -1554,6 +1558,10 @@
     "defaultMessage": "No providers available",
     "description": "Empty state for provider filter"
   },
+  "9G21RV": {
+    "defaultMessage": "All endpoints",
+    "description": "All endpoints option"
+  },
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
@@ -2025,6 +2033,10 @@
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
+  },
+  "CO81il": {
+    "defaultMessage": "No usage data available",
+    "description": "Empty state title"
   },
   "CPO2ro": {
     "defaultMessage": "GenAI apps & agents",
@@ -3025,6 +3037,10 @@
   "Ka1jM2": {
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
+  },
+  "KcGozs": {
+    "defaultMessage": "Endpoint:",
+    "description": "Endpoint selector label"
   },
   "KdsrPi": {
     "defaultMessage": "Assessments",
@@ -4185,6 +4201,10 @@
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
   },
+  "TYidgr": {
+    "defaultMessage": "Gateway Usage",
+    "description": "Page title"
+  },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
@@ -4563,6 +4583,10 @@
   "WGN2f3": {
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
+  },
+  "WGU215": {
+    "defaultMessage": "Enable usage tracking on your endpoints to see usage metrics here.",
+    "description": "Empty state description"
   },
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
@@ -5182,6 +5206,10 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
+  },
+  "aRjFm8": {
+    "defaultMessage": "Monitor usage and performance across all endpoints",
+    "description": "Page subtitle"
   },
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
@@ -7179,6 +7207,10 @@
     "defaultMessage": "Add",
     "description": "Add new key-value tag modal > Add button text"
   },
+  "oWMviK": {
+    "defaultMessage": "Usage",
+    "description": "Gateway side nav > Usage tab"
+  },
   "oWPgX7": {
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
@@ -8658,6 +8690,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zcuHsG": {
+    "defaultMessage": "Go to Endpoints",
+    "description": "Link to endpoints page"
   },
   "zdYXP8": {
     "defaultMessage": "Parent run",

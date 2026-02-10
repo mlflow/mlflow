@@ -26,7 +26,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process requests chart data (includes zoom state)
   const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
@@ -41,13 +41,13 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
       <ScrollableTooltip
         formatter={tooltipFormatter}
         linkConfig={{
-          experimentId,
+          experimentId: experimentIds[0],
           timeIntervalSeconds,
           componentId: 'mlflow.overview.usage.traces.view_traces_link',
         }}
       />
     ),
-    [experimentId, timeIntervalSeconds, tooltipFormatter],
+    [experimentIds, timeIntervalSeconds, tooltipFormatter],
   );
 
   if (isLoading) {
