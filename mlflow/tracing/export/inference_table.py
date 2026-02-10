@@ -27,6 +27,11 @@ def pop_trace(request_id: str) -> dict[str, Any] | None:
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
     """
+    import traceback
+
+    traceback.print_stack()
+    _logger.warning(f"DEBUGGING: request_id {request_id}")
+    _logger.warning(f"DEBUGGING: TRACE_BUFFER items {_TRACE_BUFFER.items()}")
     return _TRACE_BUFFER.pop(request_id, None)
 
 
@@ -87,10 +92,12 @@ class InferenceTableSpanExporter(SpanExporter):
 
             trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.trace_id)
+            _logger.warning(f"DEBUGGING: setting last active trace id to {trace.info.trace_id}")
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             # The key is Databricks request ID.
             _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+            _logger.warning(f"DEBUGGING: adding {trace.info.client_request_id} to TRACE_BUFFER")
 
             # Export to MLflow backend if experiment ID is set
             if MLFLOW_EXPERIMENT_ID.get():
