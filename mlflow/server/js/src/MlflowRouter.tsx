@@ -15,8 +15,6 @@ import {
   usePageTitle,
   useSearchParams,
 } from './common/utils/RoutingUtils';
-import { MlflowHeader } from './common/components/MlflowHeader';
-import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
 import { WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
 import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
