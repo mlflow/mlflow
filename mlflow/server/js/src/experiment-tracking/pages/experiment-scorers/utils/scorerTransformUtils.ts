@@ -279,6 +279,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
           is_instructions_judge: true,
           isMemoryAugmented: true,
           outputType,
+          rawMemoryAugmentedData: memData,
         } as LLMScorer;
       } else if (isGuidelinesTemplate(baseJudge.builtin_scorer_class)) {
         const rawGuidelines = baseJudge.builtin_scorer_pydantic_data?.guidelines || [];
@@ -295,6 +296,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
           model,
           is_instructions_judge: false,
           isMemoryAugmented: true,
+          rawMemoryAugmentedData: memData,
         } as LLMScorer;
       } else if (baseJudge.builtin_scorer_class) {
         const model = baseJudge.builtin_scorer_pydantic_data?.model;
@@ -305,6 +307,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
           model,
           is_instructions_judge: false,
           isMemoryAugmented: true,
+          rawMemoryAugmentedData: memData,
         } as LLMScorer;
       }
       // Unrecognized base judge type — return a minimal LLM scorer
@@ -315,6 +318,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         instructions: '',
         is_instructions_judge: true,
         isMemoryAugmented: true,
+        rawMemoryAugmentedData: memData,
       } as LLMScorer;
     } else {
       // Custom scorer - extract code from call_source
@@ -382,7 +386,25 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
   if (scorer.type === 'llm') {
     const llmScorer = scorer as LLMScorer;
 
-    if (llmScorer.is_instructions_judge) {
+    if (llmScorer.isMemoryAugmented && llmScorer.rawMemoryAugmentedData) {
+      // Memory-augmented judge: preserve the original memory_augmented_judge_data
+      // structure but update the model field inside the base judge.
+      const memData = structuredClone(llmScorer.rawMemoryAugmentedData) as any;
+      const baseJudge = memData.base_judge || {};
+      if (llmScorer.model) {
+        if (baseJudge.instructions_judge_pydantic_data) {
+          baseJudge.instructions_judge_pydantic_data.model = llmScorer.model;
+        } else if (baseJudge.builtin_scorer_pydantic_data) {
+          baseJudge.builtin_scorer_pydantic_data.model = llmScorer.model;
+        }
+      }
+      config.serialized_scorer = JSON.stringify({
+        ...baseSerializedScorer,
+        name: llmScorer.name,
+        memory_augmented_judge_data: memData,
+      });
+      config.custom = {};
+    } else if (llmScorer.is_instructions_judge) {
       if (!llmScorer.instructions) {
         throw new ScorerTransformationError('Instructions are required for instructions-based LLM scorers');
       }

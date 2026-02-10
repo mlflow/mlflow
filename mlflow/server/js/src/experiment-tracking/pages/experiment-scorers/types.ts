@@ -147,6 +147,9 @@ export interface LLMScorer extends ScheduledScorerBase {
   outputType?: JudgeOutputTypeSpec;
   // True if the scorer was optimized with MemAlign (memory-augmented judge)
   isMemoryAugmented?: boolean;
+  // Raw memory_augmented_judge_data from the serialized scorer, preserved for round-trip serialization.
+  // When saving, the model field inside is updated but the memory structure is kept intact.
+  rawMemoryAugmentedData?: Record<string, unknown>;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {

@@ -243,7 +243,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   };
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
-  const isMemoryAugmented = useWatch({ control, name: 'isMemoryAugmented' }) ?? false;
+  const isMemoryAugmented = watch('isMemoryAugmented') ?? false;
 
   // Hide instructions section for built-in judges that don't support editing
   // These templates use Python-specific variables not available in the UI
@@ -365,7 +365,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 componentId={`${COMPONENT_ID_PREFIX}.add-variable-button`}
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                disabled={mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge}
+                disabled={isReadOnly || !isInstructionsJudge}
                 onClick={stopPropagationClick}
               >
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
