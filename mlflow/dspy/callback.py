@@ -10,9 +10,9 @@ from dspy.utils.callback import BaseCallback
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.util import (
-    EXCLUDE_LM_PARAMS,
     log_dspy_lm_state,
     log_dspy_module_params,
+    sanitize_params,
     save_dspy_module_state,
 )
 from mlflow.entities import SpanStatusCode, SpanType
@@ -158,9 +158,7 @@ class MlflowCallback(BaseCallback):
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
 
-        filtered_kwargs = {
-            key: value for key, value in instance.kwargs.items() if key not in EXCLUDE_LM_PARAMS
-        }
+        filtered_kwargs = sanitize_params(instance.kwargs)
         attributes = {
             **filtered_kwargs,
             "model": instance.model,
