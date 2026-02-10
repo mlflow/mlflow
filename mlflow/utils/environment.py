@@ -416,7 +416,8 @@ def infer_pip_requirements(
 
     If the current working directory is a UV project (contains both uv.lock and pyproject.toml),
     this function will first attempt to export dependencies via `uv export`. If UV export
-    succeeds, those requirements are returned. Otherwise, falls back to model-based inference.
+    succeeds, those requirements are returned. Otherwise, falls back to inferring
+    dependencies by capturing imported packages during model inference.
 
     Args:
         model_uri: The URI of the model.

@@ -388,7 +388,7 @@ def _should_log_uv_files() -> bool:
 
 def copy_uv_project_files(
     dest_dir: str | Path,
-    source_dir: str | Path | None = None,
+    source_dir: str | Path,
 ) -> bool:
     """
     Copy UV project files to the model artifact directory.
@@ -402,7 +402,6 @@ def copy_uv_project_files(
     Args:
         dest_dir: The destination directory (model artifact directory).
         source_dir: The source directory containing UV project files.
-            Defaults to the current working directory.
 
     Returns:
         True if UV files were copied, False otherwise.
@@ -414,7 +413,7 @@ def copy_uv_project_files(
         return False
 
     dest_dir = Path(dest_dir)
-    source_dir = Path.cwd() if source_dir is None else Path(source_dir)
+    source_dir = Path(source_dir)
 
     uv_project = detect_uv_project(source_dir)
     if uv_project is None:

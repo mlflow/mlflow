@@ -1223,7 +1223,7 @@ def _save_model_with_class_artifacts_params(
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             # Infer requirements from model or UV project (either/or, not merged)
             # - If UV project detected: uses uv export (complete lockfile)
-            # - Otherwise: uses model-based inference with fallback to defaults
+            # - Otherwise: infers dependencies by capturing imported packages
             default_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 mlflow.pyfunc.FLAVOR_NAME,
