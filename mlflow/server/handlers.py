@@ -57,6 +57,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -2744,6 +2745,15 @@ def _create_webhook():
             "status": [_assert_string],
         },
     )
+
+    # Validate that webhook secrets can be properly encrypted if provided
+    if request_message.secret is not None and request_message.secret != "":
+        if MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.get() is None:
+            raise MlflowException(
+                "Can't use non-null secret argument! MLFlow Server must be configured with "
+                "environment variable MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY to use secret!",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     webhook = _get_model_registry_store().create_webhook(
         name=request_message.name,
