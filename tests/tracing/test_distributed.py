@@ -18,6 +18,7 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 REQUEST_TIMEOUT = 10
+MAX_PORT_RETRIES = 10
 
 
 @contextmanager
@@ -145,12 +146,12 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
     port = get_safe_port()
     # Ensure we get a different port for the second server to avoid port conflicts
     port2 = get_safe_port()
-    for _ in range(10):
+    for _ in range(MAX_PORT_RETRIES):
         if port2 != port:
             break
         port2 = get_safe_port()
     else:
-        raise RuntimeError("Failed to get unique ports after 10 retries")
+        raise RuntimeError(f"Failed to get unique ports after {MAX_PORT_RETRIES} retries")
 
     # Path to the Flask server script
     server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
