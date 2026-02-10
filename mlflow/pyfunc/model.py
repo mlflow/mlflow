@@ -1035,6 +1035,8 @@ def _save_model_with_class_artifacts_params(
     model_code_path=None,
     infer_code_paths=False,
     uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Args:
@@ -1227,6 +1229,8 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
         else:
             default_reqs = None
