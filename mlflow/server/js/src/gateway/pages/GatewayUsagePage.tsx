@@ -20,7 +20,6 @@ export const GatewayUsagePage = () => {
   // Fetch all endpoints to get their experiment IDs
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
 
-  // Filter endpoints that have usage tracking enabled (with experiment_id)
   const endpointsWithExperiments = useMemo(
     () => endpoints.filter((ep) => ep.usage_tracking && ep.experiment_id),
     [endpoints],
@@ -32,10 +31,8 @@ export const GatewayUsagePage = () => {
     return endpointsWithExperiments.find((ep) => ep.endpoint_id === selectedEndpointId) ?? null;
   }, [selectedEndpointId, endpointsWithExperiments]);
 
-  // Determine whether to show all endpoints or a specific one
   const showAllEndpoints = !selectedEndpointId || selectedEndpointId === 'all';
 
-  // Get the experiment IDs to use for charts
   const experimentIds = useMemo(() => {
     if (showAllEndpoints) {
       return endpointsWithExperiments.map((ep) => ep.experiment_id).filter(Boolean) as string[];
@@ -43,7 +40,6 @@ export const GatewayUsagePage = () => {
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
-  // Show empty state if no endpoints have usage tracking enabled
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
     return (
       <div
