@@ -3,8 +3,8 @@
 Generate synthetic MLflow FileStore data for testing the fs2db migration tool.
 
 Usage:
-    uv run --with mlflow==3.5.1 --no-project python -I \
-        fs2db/src/generate_synthetic_data.py --output /tmp/fs2db/v3.5.1/ --size small
+    uv run --with mlflow==3.6.0 --no-project python -I \
+        fs2db/src/generate_synthetic_data.py --output /tmp/fs2db/v3.6.0/ --size small
 
 This script uses the MLflow public API to create realistic on-disk data.
 It must only depend on mlflow + stdlib (no local imports).
